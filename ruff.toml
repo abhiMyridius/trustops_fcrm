@@ -14,6 +14,8 @@ ignore = [
   "UP007", "UP045",                 # keep Optional[T], not X | None (coding-standards.md)
   "UP046",                          # Generic[T] (not PEP 695 class X[T]) — Pydantic's generic models
                                      # need the explicit Generic base for model_rebuild()/schema generation
+  "N818",                           # IllegalTransition, not IllegalTransitionError — matches the name
+                                     # design A §3.1 uses verbatim; not every raised type is an "error"
 ]
 pydocstyle.convention = "google"
 mccabe.max-complexity = 10

@@ -9,6 +9,7 @@ resolution-markers = [
 [manifest]
 members = [
     "fcrm-audit-service",
+    "fcrm-caseflow",
     "fcrm-contracts",
     "fcrm-scoring-service",
     "fcrm-seed",
@@ -381,6 +382,31 @@ requires-dist = [{ name = "fcrm-contracts", editable = "packages/contracts" }]
 [package.metadata.requires-dev]
 dev = [
     { name = "fcrm-seed", editable = "packages/seed" },
+    { name = "hypothesis", specifier = ">=6.123" },
+    { name = "mypy", specifier = ">=1.14" },
+    { name = "pytest", specifier = ">=8.3" },
+]
+
+[[package]]
+name = "fcrm-caseflow"
+version = "0.1.0"
+source = { editable = "workers/caseflow" }
+dependencies = [
+    { name = "fcrm-contracts" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "hypothesis" },
+    { name = "mypy" },
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "fcrm-contracts", editable = "packages/contracts" }]
+
+[package.metadata.requires-dev]
+dev = [
     { name = "hypothesis", specifier = ">=6.123" },
     { name = "mypy", specifier = ">=1.14" },
     { name = "pytest", specifier = ">=8.3" },

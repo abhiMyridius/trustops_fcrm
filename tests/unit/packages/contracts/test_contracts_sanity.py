@@ -7,13 +7,12 @@ that owns it; this file only protects the shared package itself.
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
-
 from fcrm_contracts.api.scoring import ControlInput, DomainInput, ScoreRequest
 from fcrm_contracts.enums import CaseState, Domain
 from fcrm_contracts.events.catalogue import EVENT_TYPES
 from fcrm_contracts.events.envelope import Envelope
 from fcrm_contracts.proposals.provenance import Claim, ClauseSourceRef, DocSourceRef
+from pydantic import ValidationError
 
 
 def test_case_state_has_no_screening_substate() -> None:
@@ -36,7 +35,12 @@ def test_score_request_rejects_unknown_fields() -> None:
 
 def test_control_input_rejects_out_of_range_rating() -> None:
     with pytest.raises(ValidationError):
-        ControlInput(control_id="CTL-T01", domain=Domain.CHANNEL, rating=11.0, catalogue_weight=0.35)
+        ControlInput(
+            control_id="CTL-T01",
+            domain=Domain.CHANNEL,
+            rating=11.0,
+            catalogue_weight=0.35,
+        )
 
 
 def test_domain_input_accepts_the_demo_channel_domain() -> None:
@@ -45,7 +49,12 @@ def test_domain_input_accepts_the_demo_channel_domain() -> None:
         likelihood=4,
         impact=5,
         controls=[
-            ControlInput(control_id="CTL-T01", domain=Domain.CHANNEL, rating=7.6, catalogue_weight=0.35),
+            ControlInput(
+                control_id="CTL-T01",
+                domain=Domain.CHANNEL,
+                rating=7.6,
+                catalogue_weight=0.35,
+            ),
         ],
     )
     assert d.likelihood * d.impact == 20

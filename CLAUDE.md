@@ -36,6 +36,8 @@ make evals         # per-agent eval run; writes evals/results/<date>/
 uv run --package fcrm-scoring pytest tests/unit/services/scoring -k golden   # one unit, one test selection
 ```
 
+`pytest.ini`'s `testpaths = tests` means an unscoped `pytest` call collects every unit's tests in one process — but `--package <name>` only installs *that* unit's dependencies, so collection fails on another unit's imports. Always pass the specific `tests/unit/<...>/<unit>` (or `tests/integration/...`) path alongside `--package`, matching that unit's own source tree.
+
 ## Canonical demo
 
 Case FCRM-2026-0151 (US → Mexico remittances via Remesas del Norte); Priya Nair (PO), Rahul Iyer (analyst), Ana Mendes, Joseph Okafor, Lin Chen (committee); 9.8 Band 2 with boundary flag → override CTL-T01 7.6 → 4.5 → 10.4 Band 3 → committee → approve with conditions 2–1 → three conditions → 67 audit records. Every figure comes from the seed (`docs/requirements/research/06-walkthrough-seed-extraction.md`).

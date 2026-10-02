@@ -1,0 +1,21 @@
+[project]
+name = "fcrm-caseflow"
+version = "0.1.0"
+description = "H1 Caseflow: the case-lifecycle state machine. Original code, no workflow framework (D-10). It never reasons — it dispatches jobs, opens gates, calls fcrm_scoring, and records what happened. fcrm_caseflow.states and .transitions are pure and have no I/O."
+requires-python = ">=3.13"
+dependencies = [
+  "fcrm-contracts",
+]
+# fcrm-common (Mongo/outbox/events), FastStream, and the HTTP clients to
+# S1-S5 are added once fcrm_common lands; the state machine's transition
+# logic is pure and fully testable without them.
+
+[dependency-groups]
+dev = ["pytest>=8.3", "mypy>=1.14", "hypothesis>=6.123"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["fcrm_caseflow"]

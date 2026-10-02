@@ -7,8 +7,8 @@ the one case every reviewer will hand-check, and for all 80 seeded cases.
 from __future__ import annotations
 
 import pytest
-
 from fcrm_contracts.enums import Band, Route
+from fcrm_scoring.engine import compute_score
 from fcrm_scoring.seedmodel import (
     apply_catalogue_weights,
     score_request_from_case,
@@ -16,8 +16,6 @@ from fcrm_scoring.seedmodel import (
 )
 from fcrm_seed.loader import cases as seed_cases
 from fcrm_seed.loader import control_catalogue_weights, demo_case, scoring_model
-
-from fcrm_scoring.engine import compute_score
 
 pytestmark = pytest.mark.golden
 
@@ -36,7 +34,9 @@ def test_demo_before_override_is_9_8_band_2_with_boundary_flag(model, weights):
     """The composite before the analyst overrides CTL-T01 must be 9.8,
     Band 2, with the boundary flag set (0.3 below the Band 3 edge)."""
     demo = demo_case()
-    req = score_request_from_case(demo["id"], model.version, demo["score_before"]["areas"])
+    req = score_request_from_case(
+        demo["id"], model.version, demo["score_before"]["areas"]
+    )
     req = apply_catalogue_weights(req, weights)
     resp = compute_score(req, model)
 
@@ -52,7 +52,9 @@ def test_demo_after_override_is_10_4_band_3_routed_to_committee(model, weights):
     the composite to 10.4, Band 3, routed to committee, with the boundary
     flag still set (ADR-13: the 0.3 distance to the edge just crossed)."""
     demo = demo_case()
-    req = score_request_from_case(demo["id"], model.version, demo["score_after"]["areas"])
+    req = score_request_from_case(
+        demo["id"], model.version, demo["score_after"]["areas"]
+    )
     req = apply_catalogue_weights(req, weights)
     resp = compute_score(req, model)
 
@@ -68,7 +70,9 @@ def test_demo_channel_domain_recomputes_to_seed_precision_before(model, weights)
     this is what a reviewer hand-checking the worked example will compare
     against docs/requirements/research/06-walkthrough-seed-extraction.md §4."""
     demo = demo_case()
-    req = score_request_from_case(demo["id"], model.version, demo["score_before"]["areas"])
+    req = score_request_from_case(
+        demo["id"], model.version, demo["score_before"]["areas"]
+    )
     req = apply_catalogue_weights(req, weights)
     resp = compute_score(req, model)
 
@@ -82,7 +86,9 @@ def test_demo_channel_domain_recomputes_to_seed_precision_before(model, weights)
 
 def test_demo_channel_domain_after_override(model, weights):
     demo = demo_case()
-    req = score_request_from_case(demo["id"], model.version, demo["score_after"]["areas"])
+    req = score_request_from_case(
+        demo["id"], model.version, demo["score_after"]["areas"]
+    )
     req = apply_catalogue_weights(req, weights)
     resp = compute_score(req, model)
 
@@ -128,6 +134,7 @@ def test_band_distribution_matches_the_seed(model, weights):
 
     expected = band_distribution()
     for band_num, expected_count in expected.items():
-        assert counts[str(band_num)] == expected_count, (
-            f"band {band_num}: recomputed {counts[str(band_num)]}, seed says {expected_count}"
+        got = counts[str(band_num)]
+        assert got == expected_count, (
+            f"band {band_num}: recomputed {got}, seed says {expected_count}"
         )
