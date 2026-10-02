@@ -1,0 +1,35 @@
+[project]
+name = "fcrm-common"
+version = "0.1.0"
+description = "Shared platform library every service and worker depends on: settings, problem+json errors, JSON logging, OTel tracing and metrics, PyMongo-async repository, transactional outbox and relay, event publish/consume with dedupe and DLQ, health/readiness, service HTTP client, JWT auth, OPA authz, ids, hashing, business-day time, pagination and seed loading (design A §1.4, §10)."
+requires-python = ">=3.13"
+dependencies = [
+  "fcrm-contracts",
+  "fcrm-seed",
+  "pydantic>=2.9",
+  "pydantic-settings>=2.6",
+  # ADR-11 / design A §1.3: PyMongo's native async client, not Motor.
+  "pymongo>=4.13",
+  "httpx>=0.28",
+  "fastapi>=0.115",
+  # PyJWT, not python-jose: design A §8.1 moves identity to PyJWT, jose is
+  # unmaintained, and PyJWT ships PyJWKClient for JWKS fetching/kid lookup.
+  "pyjwt[crypto]>=2.10",
+  "python-ulid>=3.0",
+  "opentelemetry-api>=1.30",
+  "opentelemetry-sdk>=1.30",
+  "opentelemetry-exporter-otlp-proto-http>=1.30",
+  "opentelemetry-instrumentation-fastapi>=0.51b0",
+  "opentelemetry-instrumentation-httpx>=0.51b0",
+  "opentelemetry-instrumentation-pymongo>=0.51b0",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.25", "mypy>=1.14", "respx>=0.22"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["fcrm_common"]
