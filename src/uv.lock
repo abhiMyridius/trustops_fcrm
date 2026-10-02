@@ -12,6 +12,7 @@ members = [
     "fcrm-case-service",
     "fcrm-caseflow",
     "fcrm-contracts",
+    "fcrm-decision-service",
     "fcrm-scoring-service",
     "fcrm-seed",
     "trustops-workspace",
@@ -463,6 +464,33 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "mypy", specifier = ">=1.14" },
+    { name = "pytest", specifier = ">=8.3" },
+]
+
+[[package]]
+name = "fcrm-decision-service"
+version = "0.1.0"
+source = { editable = "services/decision" }
+dependencies = [
+    { name = "fcrm-contracts" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "fcrm-seed" },
+    { name = "hypothesis" },
+    { name = "mypy" },
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "fcrm-contracts", editable = "packages/contracts" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "fcrm-seed", editable = "packages/seed" },
+    { name = "hypothesis", specifier = ">=6.123" },
     { name = "mypy", specifier = ">=1.14" },
     { name = "pytest", specifier = ">=8.3" },
 ]

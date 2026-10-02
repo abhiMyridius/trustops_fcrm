@@ -10,6 +10,14 @@ in code, not just in a table.
 from __future__ import annotations
 
 from fcrm_contracts.enums import Route
+from fcrm_contracts.voting import tally_votes
+
+__all__ = [
+    "is_fast_lane_candidate",
+    "pick_auto_triage_analyst",
+    "route_for_band",
+    "tally_votes",
+]
 
 
 def route_for_band(band: int) -> Route:
@@ -55,19 +63,8 @@ def pick_auto_triage_analyst(open_case_counts: dict[str, int]) -> str:
     return min(open_case_counts.items(), key=lambda kv: (kv[1], kv[0]))[0]
 
 
-def tally_votes(votes: list[str]) -> tuple[str | None, bool]:
-    """ADR-08: the outcome is whichever option two of the three votes
-    agree on; any other result (a 1-1-1 split, or fewer than three votes
-    somehow reaching tally) is ``no_majority`` — never auto-approved,
-    auto-rejected or auto-deferred. Returns ``(outcome, no_majority)``;
-    exactly one of ``outcome is not None`` / ``no_majority`` holds.
-    """
-    if len(votes) != 3:
-        return None, True
-    counts: dict[str, int] = {}
-    for v in votes:
-        counts[v] = counts.get(v, 0) + 1
-    winner = max(counts.items(), key=lambda kv: kv[1])
-    if winner[1] >= 2:
-        return winner[0], False
-    return None, True
+# tally_votes (ADR-08) now lives in fcrm_contracts.voting, the one place
+# both this worker and S5 (the system of record for votes) can import it
+# from without a service depending on a worker or vice versa. Re-exported
+# above via __all__ so existing call sites and tests in this package are
+# unaffected.
