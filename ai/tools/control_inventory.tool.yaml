@@ -1,0 +1,30 @@
+# ai/tools/control_inventory.tool.yaml
+name: control_inventory
+version: 1
+description: >-
+  List the controls in the inventory at the pinned controls version for the
+  given risk domains: control id, domain, name, weight within its domain, the
+  evidence artefact the control is tested by, and the date it was last tested.
+  The inventory is the only valid source of control ids; never propose a
+  control id that is not in it.
+backing_service: S3
+backing: {service: policy-service, method: GET, path: "/controls"}
+read_only: true
+side_effects: none
+permit_key: control_inventory
+permitted_agents: [assessment]
+builder_agents: [research, assessment]
+timeout_s: 4
+cost_class: io
+cache: {key: [controls_v, domains], scope: controls_v, ttl_s: 86400}
+scope_rule: "version must equal payload.versions.controls_v"
+input_schema:
+  contract_target: fcrm_contracts.tools.ControlInventoryIn
+  fields:
+    - {name: version, type: str, required: true}
+    - {name: domains, type: "list[Domain]", required: true, constraints: "min_length=1"}
+output_schema:
+  contract_target: fcrm_contracts.tools.ControlInventoryOut
+  fields:
+    - {name: version, type: str}
+    - {name: controls, type: "list[{control_id: str, domain: Domain, name: str, weight: float, evidence_artefact: str, last_tested: date}]"}

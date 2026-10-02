@@ -1,0 +1,53 @@
+# ai/agents/intake.agent.yaml  (design B §2.2)
+name: intake
+version: 1
+purpose: >-
+  Read one window of pages of one uploaded document (canonical Markdown with
+  page:line anchors) and propose field values with sources, change types with
+  sources, and gap questions for required fields still empty. H1 shards the
+  work: one job per document, plus continuation jobs when the ranked pages do
+  not fit the cheap budget (payload.page_window). Code merges shards by
+  field_id and keeps the highest-confidence value; the others become
+  candidates (the walkthrough's "2 candidates" on F05).
+lifecycle_state: intake
+trigger: "case.document_stored -> ingest.done (H3) -> H1 dispatches one job per document window; re-run in clarification on new documents and changed fields only"
+tier: cheap
+budget_tier: cheap
+budget: {tokens: 6000, wall_s: 60, retries: 1}
+tools: [document_reader, field_rules, jurisdiction_list, precedent_search]
+tool_caps: {document_reader: 2, field_rules: 1, jurisdiction_list: 1, precedent_search: 1}
+tool_call_cap: 2
+pack_tools: [case_record, document_reader, field_rules, jurisdiction_list]
+skills: [cite_verbatim, declare_gap]
+context_pack: intake
+output_schema:
+  envelope: IntakeOutput            # composed by fcrm_prompts_loader from the parts below until fcrm_contracts defines it
+  envelope_module: fcrm_contracts.proposals.intake
+  fields:
+    extraction: {model: fcrm_contracts.proposals.intake.ExtractionProposal, many: false, status: contract}
+    categories: {model: fcrm_contracts.proposals.intake.CategoryProposal, many: true, max_items: 6, status: contract}
+    gaps: {model: fcrm_contracts.proposals.intake.GapQuestion, many: true, max_items: 8, status: contract}
+    facts_flagged: {model: fcrm_contracts.proposals.intake.FactFlag, many: true, max_items: 5, status: pending_contract, design_ref: "B §2.2 FactFlag(statement, provenance, conflicts_with)"}
+    not_found: {type: "list[str]", status: primitive, description: field ids searched for in this window and not present}
+    notes_for_analyst: {type: "list[str]", max_items: 5, status: primitive}
+  notes: >-
+    ExtractedField has no candidates list: when a field appears twice with
+    different values the agent emits two ExtractedField items with the same
+    field_id and code keeps the rest as candidates. FactFlag (contradictions
+    such as "cash pickup not in the business case") is not in the committed
+    contract and is required before the prompt's rule 5 can be honoured.
+prompt_id: {system: intake.system, user: intake.user}
+guards: [input_scan, permit, budget, output_shape, rules]
+gate: po_confirm_value
+gate_detail:
+  also: [po_confirm_category, po_answer_gaps]
+  items: [ExtractedField, CategoryProposal, GapQuestion]
+  rule: "PO confirms each category (a removal needs a reason) and each value on Review & submit (D-17); the original value is kept when the PO corrects it"
+eval_set: intake/extraction-20
+eval:
+  datasets: [intake/extraction-20]
+  primary_metric: field_extraction_accuracy
+  gated_metrics: [field_extraction_accuracy, source_span_accuracy, category_f1, gap_question_precision, citation_validity]
+reruns_on: [new_doc_ids, changed_fields]
+owner: fcrm_po
+tokens_expected: {input: 4500, output: 900}

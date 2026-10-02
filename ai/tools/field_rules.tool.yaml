@@ -1,0 +1,32 @@
+# ai/tools/field_rules.tool.yaml
+name: field_rules
+version: 1
+description: >-
+  Resolve the field set for a list of change types at the pinned field-set
+  version: each required field's id, label, value type, synonyms and whether it
+  is always required (F01-F06) or required by a type. Use it to know which
+  field ids exist before you propose a value or a gap question. It returns
+  definitions only, never case values.
+backing_service: S3
+backing: {service: policy-service, method: GET, path: "/field-sets/{fieldset_v}/resolve"}
+read_only: true
+side_effects: none
+permit_key: field_rules
+permitted_agents: [screening, intake]
+builder_agents: [screening, intake, narrative]
+timeout_s: 4
+cost_class: io
+cache: {key: [fieldset_v, change_types], scope: fieldset_v, ttl_s: 86400}
+scope_rule: "fieldset_v must equal payload.versions.fieldset_v"
+input_schema:
+  contract_target: fcrm_contracts.tools.FieldRulesIn
+  fields:
+    - {name: fieldset_v, type: str, required: true}
+    - {name: change_types, type: "list[ChangeType]", required: true, constraints: "min_length=1"}
+output_schema:
+  contract_target: fcrm_contracts.tools.FieldRulesOut
+  fields:
+    - {name: fieldset_v, type: str}
+    - {name: max_required, type: int}
+    - {name: completion_threshold, type: float}
+    - {name: fields, type: "list[{field_id: str, label: str, value_type: str, always_required: bool, required_by: list[ChangeType], synonyms: list[str]}]"}

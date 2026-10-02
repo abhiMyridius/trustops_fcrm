@@ -1,0 +1,121 @@
+# ai/guards/guards.yaml
+#
+# The seven guards, in the fixed order they run on every agent call
+# (BUILD-PLAN §3.4, design B §1.7 and §4). fcrm_guardrails.GuardChain reads
+# this file; changing the order or a failure behaviour needs a decision-log
+# row. Guards 1-5 run in the agent-worker (H2) and Caseflow (H1); guard 6
+# (critic) and guard 7 (human gate) are scheduled by H1 as state steps.
+#
+# Failure behaviours (on_fail):
+#   block              stop; nothing is dispatched or stored; the reason is recorded
+#   block_and_flag     block, quarantine the input, flag the analyst
+#   mask               replace the matched span with a <PII:TYPE:n> token and continue
+#   annotate           continue; attach the finding to the item for a human to answer
+#   retry_on_fallback  one retry on the tier's first fallback model with the error shown
+#                      (ADR-14); a second failure opens a `handoff` gate
+#   case_waits         the case does not advance until a person decides
+
+schema_version: 1
+order: [input_scan, permit, budget, output_shape, rules, critic, human_gate]
+
+all_agents: &all [screening, intake, research, assessment, critic, narrative, examiner, watchlist, policy_gap]
+
+guards:
+  input_scan:
+    n: 1
+    stage: pre
+    runs_in: [H3, H2]               # H3 on each extracted document; H2 on every pack section and owner free text
+    applies_to: *all
+    checks: [injection_patterns, pii_entities]
+    config: {patterns: injection_patterns.txt, pii: pii_entities.yaml, thresholds: thresholds.yaml}
+    on_fail:
+      injection_score_at_or_above_block: block_and_flag     # thresholds.injection_score_block
+      injection_score_amber: annotate                       # cheap-tier yes/no check on the top 2 KB window, then block or pass
+      pii_found: mask                                       # agents only ever see the masked canonical text
+    writes: [ledger, "audit:guard.input"]                   # counts only, never the matched PII
+
+  permit:
+    n: 2
+    stage: pre
+    runs_in: [H2]                   # once for the agent's whole allow-list at job start, then before each tool call
+    applies_to: *all
+    checks: [opa_tools_allow, python_allow_list, case_scope, read_only_backing]
+    config: {policy: ../policies/tools.rego, data: ../policies/tool_permits.json, decision: data.tools.allow}
+    on_fail:
+      job_start_denied: block                               # job not run; H1 is told
+      tool_call_denied: block                               # that call only; the model receives "not permitted"
+      opa_unreachable: block                                # fail closed (BP §11)
+    writes: ["audit:guard.permit", "audit:guard.permit.denied"]
+
+  budget:
+    n: 3
+    stage: pre
+    runs_in: [H1, H2]               # H1 reserves tier tokens x (1 + retries) against the 120k case budget; H2 wraps the call
+    applies_to: *all
+    checks: [case_reservation, usage_limits, wall_clock]
+    config: {tiers: ../models/tiers.yaml}
+    on_fail:
+      case_budget_exhausted: case_waits                     # human gate budget_exhausted with the raw inputs; never a silent truncation
+      usage_limit_or_timeout_attempt_1: retry_on_fallback   # halved max_tokens hint
+      usage_limit_or_timeout_attempt_2: block               # agent.done failed_budget -> handoff gate
+    writes: ["audit:guard.budget"]
+
+  output_shape:
+    n: 4
+    stage: post
+    runs_in: [H2]
+    applies_to: *all
+    checks:
+      - schema_valid_extra_forbid
+      - source_refs_resolve
+      - quotes_verbatim                                     # thresholds.quote_min_chars, quote_line_tolerance
+      - confidence_in_range
+      - agent_invariants                                    # similarity equals tool result; planned has no rating; records exist
+      - restricted_terms_in_po_text                         # narrative.business_summary only; restricted_terms.txt
+      - number_grounding                                    # narrative only
+    on_fail:
+      attempt_1: retry_on_fallback                          # feedback lists each failing item and the rule it broke
+      attempt_2_quote_only_failures: annotate               # failing items are dropped and listed in notes_for_analyst
+      attempt_2_other_failures: block                       # agent.done failed_output -> handoff gate
+    writes: [ledger, "audit:guard.output"]
+
+  rules:
+    n: 5
+    stage: state
+    runs_in: [H1, H2]               # H2 on outputs for R-1, R-7, R-8; H1 before every state change for all eight
+    applies_to: *all
+    checks: [R-1, R-2, R-3, R-4, R-5, R-6, R-7, R-8]
+    rule_names:
+      R-1: No agent wrote a score
+      R-2: No bulk accept
+      R-3: PO view has no restricted fields
+      R-4: Analyst never edited the submission
+      R-5: Closed case untouched
+      R-6: Override has a reason
+      R-7: Planned control not scored
+      R-8: Policy quoted, not generated
+    on_fail:
+      any_rule_failed: block                                # the state change is refused with the rule id
+    writes: ["audit:guard.rules"]
+
+  critic:
+    n: 6
+    stage: state
+    runs_in: [H1]                   # H1 dispatches the critic job after S2 returns the first score of a run
+    applies_to: [intake, research, assessment]              # the proposals the critic reviews
+    reviewer: critic
+    on_fail:
+      findings_present: annotate                            # each finding must be explained or adjusted before review completes
+      critic_job_failed: case_waits                         # handoff gate; completeness cannot start
+    writes: [ledger, "audit:critic.findings"]
+
+  human_gate:
+    n: 7
+    stage: state
+    runs_in: [H1]
+    applies_to: [screening, intake, research, assessment, critic, narrative, watchlist]   # examiner and policy_gap feed no case gate
+    gate_types_ref: fcrm_contracts.enums.GateType
+    on_fail:
+      undecided: case_waits
+      changed_value_without_reason: block                   # rule 6
+    writes: ["audit:gate.decided"]                          # one record per item (rule 2)

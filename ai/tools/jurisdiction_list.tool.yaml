@@ -1,0 +1,35 @@
+# ai/tools/jurisdiction_list.tool.yaml
+name: jurisdiction_list
+version: 1
+description: >-
+  Look up countries on a jurisdiction list version (FATF call for action and
+  increased monitoring): the status of each requested country and the exact
+  list line, or "not_listed". With diff_from set, also returns the countries
+  added, removed or moved between the two versions. Quote the list line
+  verbatim. This tool reports list status; it does not rate country risk.
+backing_service: S3
+backing: {service: policy-service, method: GET, path: "/jurisdictions"}
+read_only: true
+side_effects: none
+permit_key: jurisdiction_list
+permitted_agents: [intake, research, watchlist]
+builder_agents: [intake, research, watchlist]
+timeout_s: 4
+cost_class: io
+cache: {key: [list_v, countries, diff_from], scope: list_v, ttl_s: 86400}
+scope_rule: "list_v must equal payload.versions.jurisdictions_v, except for the watchlist job, where diff_from is the previous version"
+input_schema:
+  contract_target: fcrm_contracts.tools.JurisdictionListIn
+  fields:
+    - {name: list_v, type: str, required: true}
+    - {name: countries, type: "list[str]", required: false, description: "empty = names only (intake uses this to normalise F20)"}
+    - {name: diff_from, type: "str|null", required: false}
+output_schema:
+  contract_target: fcrm_contracts.tools.JurisdictionListOut
+  fields:
+    - {name: list_v, type: str}
+    - {name: published, type: date}
+    - {name: source, type: str}
+    - {name: fixture, type: bool, description: true for synthetic test lists}
+    - {name: entries, type: "list[{country: str, status: Literal['call_for_action','increased_monitoring','not_listed'], line: str}]"}
+    - {name: diff, type: "{added: list[str], removed: list[str], moved: list[str]}|null"}

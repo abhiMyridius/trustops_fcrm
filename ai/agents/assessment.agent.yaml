@@ -1,0 +1,60 @@
+# ai/agents/assessment.agent.yaml  (design B §2.4)
+name: assessment
+version: 1
+purpose: >-
+  Propose likelihood and impact (1-5) per in-scope domain with a justification,
+  and a strength rating (0-10) with evidence for each applicable control in
+  those domains, or mark a control planned with no rating. Never computes a
+  score: after these proposals land, H1 sends the confirmed inputs to S2
+  (POST /score). The agent has no route to the scoring engine (ADR-07).
+lifecycle_state: assess
+trigger: "H1 enters CaseState.ASSESS (parallel with research); CaseState.CLARIFICATION re-run with payload.changed_fields and new_doc_ids; watchlist re-flag acknowledgement when a geography control depends on list status"
+tier: strong
+budget_tier: strong
+budget: {tokens: 20000, wall_s: 180, retries: 1}
+# ADR-07 / D-20a: no scoring tool. The seed's agent row listed
+# `scoring_engine`; it is deliberately absent here, from
+# ai/policies/tool_permits.json and from every tool spec. A lock test
+# (test_assessment_has_no_scoring_tool, proposed) should assert that no tool
+# whose backing service is S2 is permitted to any agent.
+tools: [control_inventory, evidence_store, precedent_search]
+tool_caps: {control_inventory: 1, evidence_store: 2, precedent_search: 1}
+tool_call_cap: 2
+pack_tools: [case_record, submission_diff, control_inventory, evidence_store, precedent_search, evidence_ledger]
+skills: [cite_verbatim, compare_precedent]
+context_pack: assessment
+output_schema:
+  envelope: AssessmentOutput
+  envelope_module: fcrm_contracts.proposals.assessment
+  fields:
+    factors: {model: fcrm_contracts.proposals.assessment.FactorProposal, many: true, min_items: 1, max_items: 4, status: contract}
+    controls: {model: fcrm_contracts.proposals.assessment.ControlProposal, many: true, min_items: 1, max_items: 24, status: contract_change_required}
+    notes_for_analyst: {type: "list[str]", max_items: 5, status: primitive}
+  contract_changes_required:
+    - field: ControlProposal.rating
+      change: "float -> Optional[float] with a model validator: planned=True requires rating None; planned=False requires a rating and evidence"
+      why: "rule 7 (a planned control is not scored). With rating required, a planned control cannot be proposed without a number, and Guard 5 R-7 fails"
+    - field: ControlProposal.rationale
+      change: "add rationale: str (max 240)"
+      why: "the prompt's rules 4-5 (stale or out-of-scope evidence named; precedent range stated) have nowhere to go; the critic and the analyst read it"
+  notes: >-
+    Interim for fields design B has and the contract lacks: non-applicable
+    controls are omitted and listed in one notes_for_analyst line
+    ("Not applicable: ..."); precedent ids are named inside
+    FactorProposal.justification.
+prompt_id: {system: assessment.system, user: assessment.user}
+guards: [input_scan, permit, budget, output_shape, rules]
+gate: review_item
+gate_detail:
+  also: [ack]
+  items: [FactorProposal, ControlProposal]
+  item_kind: [factor, control]
+  rule: "analyst confirms each L/I and each control rating; a changed value needs a reason (rule 6); a band change and the boundary flag are acknowledged before release (R3)"
+eval_set: assessment/ratings-80
+eval:
+  datasets: [assessment/ratings-80]
+  primary_metric: li_within_one
+  gated_metrics: [li_within_one, control_match_recall, stale_evidence_detection, planned_never_rated, citation_validity]
+reruns_on: [changed_fields, new_doc_ids]
+owner: fcrm_analyst
+tokens_expected: {input: 7000, output: 2200}

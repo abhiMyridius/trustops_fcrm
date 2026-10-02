@@ -1,0 +1,72 @@
+# ai/guards/thresholds.yaml
+#
+# Numeric thresholds read by fcrm_guardrails and exposed to prompts as the
+# read-only `thresholds` namespace (design B §1.5, §1.7). A prompt that
+# renders one of these does not need a version bump when the value changes,
+# but the change needs a decision-log row and an eval run, because it changes
+# what every agent is told.
+
+schema_version: 1
+version: 1
+
+# Guard 4: verbatim quote check
+quote_min_chars: 12               # Claim.quote shorter than this is rejected (cite_verbatim skill says the same)
+quote_max_chars: 600
+quote_line_tolerance: 2           # a document quote may sit up to 2 lines outside the cited range (wrapped sentences)
+quote_normalisation: [nfkc, collapse_whitespace, ascii_quotes_dashes_ellipsis, strip_edge_ellipsis]
+
+# Confidence: items below the floor are kept and shown as "low confidence";
+# code never drops an item for low confidence alone.
+confidence_floor: 0.5
+
+# Evidence recency. 24 months: the demo's only stale item is the vendor DD
+# audit dated 2023-11-15 on a case opened in Sept-Oct 2026 (about 35 months);
+# the next-oldest evidence in the demo (CTL-P05, 2025-11-20; CTL-G04,
+# 2025-12-09) is about 10 months old and must stay fresh. 24 also matches the
+# eval regex in design B §7.3 (stale_evidence_detection).
+stale_evidence_months: 24
+# Proposed grading for fcrm_contracts.enums.ControlStaleness (fresh | aging |
+# stale | expired), computed by code from the evidence date:
+staleness_bands_months: {fresh: [0, 12], aging: [12, 24], stale: [24, 36], expired: [36, null]}
+
+# Critic
+precedent_deviation_flag: 1.5     # |rating - precedent mean| at or above this is a precedent_deviation finding (demo: 2.7)
+precedent_min_cases: 2            # fewer comparable cases -> "no precedent comparison possible"
+
+# Guard 1: injection scan
+injection_score_block: 0.8        # weighted pattern score at or above -> block_and_flag
+injection_score_amber: 0.4        # between amber and block -> cheap-tier second opinion on the top window
+injection_amber_window_chars: 2048
+base64_blob_min_chars: 200
+
+# Narrative
+max_questions_per_round: 5        # D-16: one round, at most five kept questions
+po_summary_max_words: 180
+recommendation_max_words: 180
+
+# Rule 6: an override reason must be a real reason
+override_reason_min_chars: 20
+
+# Rule 2: no bulk accept
+bulk_accept_window_ms: 300        # two gate decisions by one actor within this window are flagged
+
+# Restricted-terms list in force for PO-facing text
+restricted_terms:
+  file: restricted_terms.txt
+  version: 1
+
+# Context pack section caps in estimated tokens (len(text)/3.6), design B §3.3.
+# Totals: cheap <= 4600, mid <= 7500, strong/judge <= 9000.
+pack_section_caps:
+  screening: {fields: 600, precedents: 300}
+  intake: {field_set: 700, document: 3400}
+  research: {fields: 700, clauses: 2400, precedents: 900, jurisdictions: 300, controls: 500}
+  assessment: {fields: 700, controls: 1300, evidence: 1200, precedent_ratings: 700, clauses_brief: 400}
+  critic: {proposals: 4200, precedent_ratings: 600, rules: 400, evidence_dates: 400}
+  narrative_completeness: {fields: 900, findings: 700, gaps: 300, evidence_dates: 300, answers: 400}
+  narrative_recommendation: {ratings: 1200, clauses: 800, planned: 200, findings: 600, gaps: 200, answers: 500, owner_facts: 300}
+  examiner: {records: 5200, routing: 400}
+  watchlist: {list_diff: 400, candidates: 900, clauses: 300}
+  policy_gap: {gaps: 1200, nearest: 1800}
+pack_totals: {cheap: 4600, mid: 7500, strong: 9000, judge: 9000}
+never_truncate: [fields, controls]   # controls overflow raises PackOverflow and H1 splits the job by domain

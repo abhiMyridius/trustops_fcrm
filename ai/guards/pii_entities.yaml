@@ -1,0 +1,72 @@
+# ai/guards/pii_entities.yaml  (Guard 1, PII masking; design B §4.2, design A §7 step 6)
+#
+# fcrm_guardrails builds a presidio AnalyzerEngine with these recognisers and
+# an AnonymizerEngine that replaces each hit with <PII:TYPE:n> (n counts per
+# type within a document, so the same value keeps the same token). The masked
+# canonical text is the only text an agent ever sees; the original stays in
+# MinIO `uploads/` for humans. Audit records carry counts per type, never the
+# matched values.
+
+schema_version: 1
+version: 1
+language: en
+token_format: "<PII:{type}:{n}>"
+default_score_threshold: 0.5
+
+entities:
+  # presidio built-in recognisers
+  - {type: US_SSN, presidio: US_SSN, score_threshold: 0.5}
+  - {type: CREDIT_CARD, presidio: CREDIT_CARD, score_threshold: 0.5}
+  - {type: EMAIL_ADDRESS, presidio: EMAIL_ADDRESS, score_threshold: 0.5}
+  - {type: PHONE_NUMBER, presidio: PHONE_NUMBER, score_threshold: 0.6}
+  - {type: IBAN_CODE, presidio: IBAN_CODE, score_threshold: 0.5}
+  - {type: US_BANK_NUMBER, presidio: US_BANK_NUMBER, score_threshold: 0.6}
+  - {type: US_PASSPORT, presidio: US_PASSPORT, score_threshold: 0.6}
+  - {type: US_DRIVER_LICENSE, presidio: US_DRIVER_LICENSE, score_threshold: 0.6}
+  - {type: US_ITIN, presidio: US_ITIN, score_threshold: 0.6}
+  - {type: IP_ADDRESS, presidio: IP_ADDRESS, score_threshold: 0.6}
+  # custom pattern recognisers
+  - type: DATE_OF_BIRTH
+    custom: true
+    context_words: [born, birth, dob, "date of birth", "d.o.b"]
+    patterns:
+      - {name: dob_numeric, regex: '\b(0?[1-9]|1[0-2])[/-](0?[1-9]|[12]\d|3[01])[/-](19|20)\d{2}\b', score: 0.4}
+      - {name: dob_iso, regex: '\b(19|20)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\b', score: 0.3}
+    note: scores are low on purpose; the hit only counts when a context word is within the presidio context window
+  - type: MX_CURP
+    custom: true
+    patterns:
+      - {name: curp, regex: '\b[A-Z][AEIOUX][A-Z]{2}\d{6}[HM][A-Z]{5}[A-Z0-9]\d\b', score: 0.8}
+    note: Mexican personal id; relevant to the US-Mexico corridor documents
+  # PERSON is masked ONLY inside signature blocks; everywhere else names stay,
+  # because F01 (change owner) and the partner's identity depend on them.
+  - type: PERSON
+    presidio: PERSON
+    score_threshold: 0.7
+    scope: signature_block_only
+
+signature_block:
+  # A signature block starts at a line matching `start` and runs for at most
+  # `max_lines` lines or until a blank line followed by a non-signature line.
+  start: '(?im)^\s*(signed|signature|sincerely|regards|kind regards|best regards|yours (faithfully|sincerely|truly)|for and on behalf of|authori[sz]ed signatory|witness(ed)? by)\b[ :,]*'
+  line: '(?im)^\s*(name|title|date|signature|by|position)\s*:\s*.+$'
+  max_lines: 6
+
+allow_list:
+  # Never masked, even inside a signature block: the seeded staff (P7 users)
+  # and the demo partner entity. Business and role names are never PII here.
+  persons:
+    - Priya Nair
+    - Tom Goldberg
+    - Sarah Kim
+    - Marcus Rossi
+    - Lucía Díaz
+    - Rahul Iyer
+    - Meera Shah
+    - Daniel Brooks
+    - Ana Mendes
+    - Joseph Okafor
+    - Lin Chen
+  organisations:
+    - Remesas del Norte S.A.
+  terms: [FCRM Ops, Risk Committee, FCRM Analyst, Product Owner]

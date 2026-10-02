@@ -1,0 +1,33 @@
+# ai/tools/submission_diff.tool.yaml
+# New in design B §1.3 (proposed there): v1 -> v2 changed fields for re-runs.
+# No agent calls it directly; the research, assessment and narrative pack
+# builders call it on a clarification re-run to render the "re-run delta"
+# line and to decide which retrieval queries to repeat (design B §3.5).
+name: submission_diff
+version: 1
+description: >-
+  Compare two submission versions of this case: each field whose value
+  changed (before, after, and the origin of each), and the documents added in
+  the later version. Used to re-examine only what changed since the last run.
+backing_service: S1
+backing: {service: case-service, method: GET, path: "/cases/{case_id}/submissions/diff"}
+read_only: true
+side_effects: none
+permit_key: submission_diff
+permitted_agents: []                  # builder-only: never exposed to a model
+builder_agents: [research, assessment, narrative]
+timeout_s: 4
+cost_class: io
+cache: {key: [case_id, from_v, to_v], scope: none, ttl_s: null}   # a diff between two committed versions never changes
+scope_rule: "case_id must equal payload.case_id; to_v must equal payload.submission_v"
+input_schema:
+  contract_target: fcrm_contracts.tools.SubmissionDiffIn
+  fields:
+    - {name: case_id, type: str, required: true}
+    - {name: from_v, type: int, required: true, constraints: "ge=1"}
+    - {name: to_v, type: int, required: true, constraints: "gt=from_v"}
+output_schema:
+  contract_target: fcrm_contracts.tools.SubmissionDiffOut
+  fields:
+    - {name: changed, type: "list[{field_id: str, before: str|null, after: str|null, before_origin: str|null, after_origin: str}]"}
+    - {name: added_documents, type: "list[{doc_id: str, name: str}]"}

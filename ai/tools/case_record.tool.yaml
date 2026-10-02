@@ -1,0 +1,42 @@
+# ai/tools/case_record.tool.yaml
+name: case_record
+version: 1
+description: >-
+  Fetch this case's record at a given submission version: change types, domains
+  in scope, every field with its value, origin (extracted, reused, answered,
+  owner_declared) and source span, the documents attached, the clarification
+  questions with the owner's answers, and the pinned config versions. The
+  agent view carries no score, band, rating or route. Use it to check whether
+  the record already answers something before you ask or assert it.
+backing_service: S1
+backing: {service: case-service, method: GET, path: "/internal/cases/{case_id}/record"}
+read_only: true
+side_effects: none
+permit_key: case_record
+permitted_agents: [narrative]
+builder_agents: [screening, intake, research, assessment, critic, narrative, examiner]
+timeout_s: 5
+cost_class: io
+cache: {key: [case_id, submission_v], scope: submission_v, ttl_s: 300}
+scope_rule: "case_id must equal payload.case_id; submission_v must be <= payload.submission_v"
+input_schema:
+  contract_target: fcrm_contracts.tools.CaseRecordIn
+  fields:
+    - {name: case_id, type: str, required: true}
+    - {name: submission_v, type: int, required: true, constraints: "ge=1"}
+    - {name: view, type: "Literal['agent']", required: true, description: always agent; the response omits score fields}
+output_schema:
+  contract_target: fcrm_contracts.tools.CaseRecordOut
+  fields:
+    - {name: case_id, type: str}
+    - {name: title, type: str}
+    - {name: unit, type: str}
+    - {name: state, type: CaseState}
+    - {name: submission_v, type: int}
+    - {name: change_types, type: "list[ChangeType]"}
+    - {name: domains, type: "list[Domain]"}
+    - {name: geographies, type: "list[str]"}
+    - {name: fields, type: "list[{field_id: str, label: str, value: str|null, origin: str, source: str|null, required: bool}]"}
+    - {name: documents, type: "list[{doc_id: str, name: str, pages: int, added_in_v: int}]"}
+    - {name: answers, type: "list[{thread_id: str, question_id: str, anchored_to: str|null, question: str, answer: str, doc_id: str|null}]"}
+    - {name: pins, type: PinnedVersions}

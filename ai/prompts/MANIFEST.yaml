@@ -1,0 +1,66 @@
+# ai/prompts/MANIFEST.yaml
+#
+# set_version is the prompt set a case pins as `prompts_v` (PinnedVersions).
+# It changes whenever any `current` pointer moves: ISO date, plus ".n" for
+# the n-th bump on one day. Running cases keep their pinned set; new cases
+# get the current one (design B §1.5, §6.4).
+#
+# Moving a `current` pointer requires a PASS eval result for the new version
+# (evals/runners/gate.py) recorded as `eval_run` in that file's changelog;
+# v1 is exempt (no baseline exists yet).
+#
+# History of set versions is append-only: add a row, never edit one, so any
+# pinned prompts_v can be resolved to exact files.
+
+set_version: "2026-10-03.1"
+
+current:
+  screening.system: 1
+  screening.user: 1
+  intake.system: 1
+  intake.user: 1
+  research.system: 1
+  research.user: 1
+  assessment.system: 1
+  assessment.user: 1
+  critic.system: 1
+  critic.user: 1
+  narrative.system: 1
+  narrative.completeness.user: 1
+  narrative.recommendation.user: 1
+  examiner.system: 1
+  examiner.user: 1
+  watchlist.system: 1
+  watchlist.user: 1
+  policy_gap.system: 1
+  policy_gap.user: 1
+
+# prompt id -> file, relative to ai/prompts (the loader also derives this
+# from <agent>/<id>.v<N>.md; listed here so the mapping is reviewable)
+files:
+  screening.system: screening/screening.system.v{N}.md
+  screening.user: screening/screening.user.v{N}.md
+  intake.system: intake/intake.system.v{N}.md
+  intake.user: intake/intake.user.v{N}.md
+  research.system: research/research.system.v{N}.md
+  research.user: research/research.user.v{N}.md
+  assessment.system: assessment/assessment.system.v{N}.md
+  assessment.user: assessment/assessment.user.v{N}.md
+  critic.system: critic/critic.system.v{N}.md
+  critic.user: critic/critic.user.v{N}.md
+  narrative.system: narrative/narrative.system.v{N}.md
+  narrative.completeness.user: narrative/narrative.completeness.user.v{N}.md
+  narrative.recommendation.user: narrative/narrative.recommendation.user.v{N}.md
+  examiner.system: examiner/examiner.system.v{N}.md
+  examiner.user: examiner/examiner.user.v{N}.md
+  watchlist.system: watchlist/watchlist.system.v{N}.md
+  watchlist.user: watchlist/watchlist.user.v{N}.md
+  policy_gap.system: policy_gap/policy_gap.system.v{N}.md
+  policy_gap.user: policy_gap/policy_gap.user.v{N}.md
+
+history:
+  - set_version: "2026-10-03.1"
+    date: 2026-10-03
+    reason: first real prompt set (v1 of every prompt id); replaces the BA prototype's scripted prompts, which the seed records as prompts_v 2026-09-28
+    pointers: {all: 1}
+    eval_run: null

@@ -1,0 +1,48 @@
+# ai/agents/critic.agent.yaml  (design B §2.5; Guard 6)
+name: critic
+version: 1
+purpose: >-
+  After S2 has computed the first score and before anyone reviews (D-22),
+  read the ledger for the run and check four things: every claim sourced,
+  ratings against precedents, the eight rules (as computed by code), and
+  evidence recency and scope. Flags only; never changes a value.
+lifecycle_state: critic
+trigger: "H1 after score.returned for the run; the state machine cannot enter completeness until the critic's agent.done lands or the job hands off"
+tier: judge                                   # a different model than the assessor (ADR-04)
+budget_tier: judge                            # judge budget = strong budget (20k / 180 s)
+budget: {tokens: 20000, wall_s: 180, retries: 1}
+tools: [evidence_ledger, precedent_search, rules_check]
+tool_caps: {evidence_ledger: 1, precedent_search: 1, rules_check: 1}
+tool_call_cap: 3
+pack_tools: [case_record, evidence_ledger, precedent_search, rules_check, evidence_store]
+skills: [compare_precedent]
+context_pack: critic
+output_schema:
+  envelope: CriticOutput
+  envelope_module: fcrm_contracts.proposals.critic
+  fields:
+    findings: {model: fcrm_contracts.proposals.critic.CriticFinding, many: true, max_items: 10, status: contract}
+    notes_for_analyst: {type: "list[str]", max_items: 5, status: primitive}
+  notes: >-
+    The committed CriticFinding.finding_type has four values
+    (precedent_deviation, evidence_recency, rule_violation, other); design B
+    has six. Interim mapping used by the prompt: rule breach -> rule_violation;
+    unsourced claim, inconsistency and scope gap -> other, with the text
+    starting "[unsourced_claim]", "[inconsistency]" or "[scope_gap]". The
+    numeric deviation is stated in the text. Design B's CriticChecks counts
+    go in the first notes_for_analyst line ("Checked: ...").
+prompt_id: {system: critic.system, user: critic.user}
+guards: [input_scan, permit, budget, output_shape, rules]
+gate: review_item
+gate_detail:
+  items: [CriticFinding]
+  item_kind: critic_finding
+  rule: "analyst explains or adjusts each finding before review can complete (release check all_items_reviewed)"
+eval_set: critic/planted-60
+eval:
+  datasets: [critic/planted-60]
+  primary_metric: planted_error_detection
+  gated_metrics: [planted_error_detection, finding_precision, citation_validity]
+reruns_on: [score_recomputed_after_rerun]
+owner: fcrm_analyst
+tokens_expected: {input: 7000, output: 1200}

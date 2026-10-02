@@ -1,0 +1,50 @@
+# ai/agents/research.agent.yaml  (design B §2.3)
+name: research
+version: 1
+purpose: >-
+  Find the policy clauses that apply to the submitted change and quote them
+  verbatim from the pinned corpus version, find the closest closed cases,
+  report the jurisdiction-list status of each destination country, and
+  declare gaps where the corpus has no clause. Runs in parallel with
+  assessment; re-runs on changed fields in the clarification round.
+lifecycle_state: assess
+trigger: "H1 enters CaseState.ASSESS (parallel with assessment); CaseState.CLARIFICATION re-run with payload.changed_fields; watchlist re-flag acknowledgement"
+tier: strong
+budget_tier: strong
+budget: {tokens: 20000, wall_s: 180, retries: 1}
+tools: [policy_search, precedent_search, jurisdiction_list]
+tool_caps: {policy_search: 3, precedent_search: 1, jurisdiction_list: 1}
+tool_call_cap: 3
+pack_tools: [case_record, submission_diff, policy_search, precedent_search, jurisdiction_list, control_inventory]
+skills: [cite_verbatim, declare_gap, compare_precedent]
+context_pack: research
+output_schema:
+  envelope: ResearchOutput
+  envelope_module: fcrm_contracts.proposals.research
+  fields:
+    clauses: {model: fcrm_contracts.proposals.research.ClauseProposal, many: true, max_items: 8, status: contract}
+    precedents: {model: fcrm_contracts.proposals.research.PrecedentMatch, many: true, max_items: 5, status: contract}
+    gaps: {model: fcrm_contracts.proposals.research.PolicyGap, many: true, max_items: 4, status: pending_contract, design_ref: "B §2.3 PolicyGap(topic, statement, searched: Searched, domain)"}
+    jurisdiction_notes: {model: fcrm_contracts.proposals.research.JurisdictionNote, many: true, max_items: 6, status: pending_contract, design_ref: "B §2.3 JurisdictionNote(country, status, provenance)"}
+    notes_for_analyst: {type: "list[str]", max_items: 5, status: primitive}
+  notes: >-
+    ClauseProposal in the committed contract has no implies_controls list.
+    Interim: `applicability` ends with "Implies: CTL-x, CTL-y" (ids from the
+    controls shown), which the assessment pack builder parses. PolicyGap
+    (with Searched) is required: the demo's gap "No clause for cash-pickup
+    agent networks in corpus v14" and the policy_gap agent depend on it.
+prompt_id: {system: research.system, user: research.user}
+guards: [input_scan, permit, budget, output_shape, rules]
+gate: review_item
+gate_detail:
+  items: [ClauseProposal, PolicyGap]
+  item_kind: clause
+  rule: "analyst accepts or removes each clause one by one (no accept-all, rule 2); a removal needs a reason; a declared gap is recorded by the analyst (Note gap) and feeds policy_gap"
+eval_set: research/clauses-40
+eval:
+  datasets: [research/clauses-40, research/gaps-12]
+  primary_metric: clause_recall_at_k
+  gated_metrics: [citation_validity, clause_recall_at_k, clause_precision, gap_honesty]
+reruns_on: [changed_fields, new_doc_ids, jurisdiction_list_published]
+owner: fcrm_analyst
+tokens_expected: {input: 6500, output: 1600}

@@ -1,0 +1,35 @@
+# ai/tools/policy_search.tool.yaml
+name: policy_search
+version: 1
+description: >-
+  Search the policy corpus at the pinned corpus version (hybrid vector and text
+  search, rank-fused). Returns clauses with their verbatim stored text, source,
+  reference, page and lines, and a relevance score. Quote only from the `text`
+  returned here; it is the system of record. A query is plain words, at most
+  300 characters; filter by risk domain and change type. No results is a valid
+  answer: declare a gap rather than citing something close.
+backing_service: S3
+backing: {service: policy-service, method: POST, path: "/policy/search"}   # POST carries the filter body; no write
+read_only: true
+side_effects: none
+permit_key: policy_search
+permitted_agents: [research, policy_gap]
+builder_agents: [research, watchlist, policy_gap]
+timeout_s: 8
+cost_class: io
+cache: {key: [query, filters, top_k, mode], scope: corpus_v, ttl_s: 86400}
+scope_rule: "filters.corpus_version must equal payload.versions.corpus_v; results tagged with another corpus version are rejected before the model sees them"
+input_schema:
+  contract_target: fcrm_contracts.tools.PolicySearchIn
+  fields:
+    - {name: query, type: str, required: true, constraints: "min_length=3; max_length=300"}
+    - {name: filters, type: "{corpus_version: str, risk_areas: list[Domain], trigger_types: list[ChangeType], jurisdiction: str|null}", required: true}
+    - {name: top_k, type: int, required: false, constraints: "le=12; default 8"}
+    - {name: mode, type: "Literal['hybrid','vector','text']", required: false, description: "default hybrid"}
+output_schema:
+  contract_target: fcrm_contracts.tools.PolicySearchOut
+  fields:
+    - {name: results, type: "list[{clause_id: str, source_id: str, title: str, text: str, ref: str, page: int, line_start: int, line_end: int, score: float, risk_areas: list[Domain]}]"}
+    - {name: corpus_version, type: str}
+    - {name: index_version, type: str}
+    - {name: mode, type: str}

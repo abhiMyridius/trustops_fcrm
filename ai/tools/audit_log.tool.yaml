@@ -1,0 +1,28 @@
+# ai/tools/audit_log.tool.yaml
+name: audit_log
+version: 1
+description: >-
+  Fetch up to four audit records of this case by sequence number, with the full
+  payload (your context shows records in compact form). Records are
+  append-only and hash-chained; the chain was verified by code before you were
+  called. Quote record text exactly as returned and cite the sequence number.
+backing_service: S4
+backing: {service: audit-service, method: GET, path: "/records/{case_id}/{seq}"}
+read_only: true
+side_effects: none
+permit_key: audit_log
+permitted_agents: [examiner]
+builder_agents: [examiner]
+timeout_s: 5
+cost_class: io
+cache: {key: [case_id, seqs], scope: chain_head, ttl_s: 3600}   # records never change; the head bounds the range
+scope_rule: "case_id must equal payload.case_id; every seq must be <= the verified chain count"
+input_schema:
+  contract_target: fcrm_contracts.tools.AuditLogIn
+  fields:
+    - {name: case_id, type: str, required: true}
+    - {name: seqs, type: "list[int]", required: true, constraints: "min_length=1; max_length=4; each ge=1"}
+output_schema:
+  contract_target: fcrm_contracts.tools.AuditLogOut
+  fields:
+    - {name: records, type: "list[{seq: int, type: str, by: str, what: str, payload: dict, ts: datetime, hash: str, prev_hash: str}]"}
