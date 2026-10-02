@@ -25,6 +25,8 @@ Every point where a person decides, with the risk the gate controls and why it s
 
 ## SDLC gates
 
+During the single continuous build run (BUILD-PLAN §5) operator gates do not block: the run records the evidence, marks the gate "passed pending operator review" in `ops/reports/`, and continues; the operator reviews asynchronously and objects through an ADR or defect row. Hook gates (G-C1, G-T1) always block.
+
 | Gate | Who | Stage | Risk controlled | Why here |
 |---|---|---|---|---|
 | G-R1 spec sign-off | operator | Requirements | a wrong assumption multiplies through every later stage | before design; the brief says refining the spec is assessed |
