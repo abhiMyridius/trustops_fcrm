@@ -110,3 +110,19 @@ class Claim(BaseModel):
     source_ref: SourceRef = Field(discriminator="kind")
     quote: str
     confidence: float = Field(ge=0.0, le=1.0)
+
+
+class Searched(BaseModel):
+    """The structural counterpart to a ``Claim``: proof that an agent
+    actually looked for something before reporting it absent, rather than
+    silently assuming a gap. ``ai/CLAUDE.md``: "Give every absence a
+    Searched block." Used wherever an agent reports "no X found" (a
+    missing policy clause, no matching precedent) so that claim and
+    gap are equally auditable.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    query: str
+    indexes: list[str]
+    hits: int = Field(ge=0)

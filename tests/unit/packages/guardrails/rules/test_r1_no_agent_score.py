@@ -35,6 +35,7 @@ CONTROL = ControlProposal(
     control_id="CTL-T01",
     domain=Domain.CHANNEL,
     rating=7.6,
+    rationale="2023 domestic-scope audit; no corridor-specific review yet",
     evidence_artifact="audit_2023.pdf",
     evidence_date="2023-06-30",
 )

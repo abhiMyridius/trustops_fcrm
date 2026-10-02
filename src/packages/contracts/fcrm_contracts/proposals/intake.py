@@ -6,7 +6,7 @@ proposals are merged by field id before the PO gate opens.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -43,3 +43,18 @@ class GapQuestion(BaseModel):
     field_id: Optional[str] = None
     text: str
     blocking: bool
+
+
+class FactFlag(Claim):
+    """A fact intake noticed that the PO did not explicitly state and
+    that may contradict or extend an extracted value — the demo's "cash
+    pickup not in the business case" (document says bank deposit only;
+    the owner's answer adds cash pickup). Surfaced to the analyst's
+    completeness report, never silently merged into a field value.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    field_id: Optional[str] = None
+    text: str
+    kind: Literal["new_fact", "contradiction"] = "new_fact"
