@@ -1,0 +1,99 @@
+
+Rohit Suri
+1 minute 23 seconds1:23
+Rohit Suri 1 minute 23 seconds
+Alright, so I think we have this call only for 30 minutes, so let's get started. First of all, thank you everyone for joining the call and thank you for your participation in Genius Hacks this year. Honestly speaking, the participation that we got this time around was a bit of a surprise.
+Rohit Suri 1 minute 43 seconds
+Given the nature of the problem that we have, and we have exceeded even the previous Genius Hacks entries that we received. So, thanks a lot. Great to see all of you participating and bringing in your teams to solve this problem, which is getting tougher by and tougher as we go into the.
+Rohit Suri 2 minutes 3 seconds
+the different hackathons. So with that, what we'll do is we'll start the connect session just to give an overview in terms of what we are going to do. We'll talk through some of the things that will be expected in the hackathon, again laying down the guidelines and the ground rules in terms of.
+Rohit Suri 2 minutes 23 seconds
+what is expected, what is not expected, and share some, talk through those rules and some examples as well. And we'll take a few questions on call. Maybe we'll not be able to take everything, but we will open this chat channel so that following questions can be asked and we can respond to them offline.
+Rohit Suri 2 minutes 45 seconds
+Yeah, so with that, I hope my screen is visible to everybody.
+
+Sameer Shrivastava
+2 minutes 53 seconds2:53
+Sameer Shrivastava 2 minutes 53 seconds
+Kather.
+
+Rohit Suri
+2 minutes 54 seconds2:54
+Rohit Suri 2 minutes 54 seconds
+Okay, perfect. Thanks. Thanks, Alyssa.
+
+Amit Joshi
+2 minutes 54 seconds2:54
+Amit Joshi 2 minutes 54 seconds
+Yes.
+
+Satyakam Hota
+2 minutes 55 seconds2:55
+Satyakam Hota 2 minutes 55 seconds
+Yeah, Sood.
+
+Rohit Suri
+2 minutes 57 seconds2:57
+Rohit Suri 2 minutes 57 seconds
+Awesome. So yeah, so let's start with the presentation. So yeah, first of all, this hackathon is different from the one that we have conducted previously. So the previous two hackathons, the focus was more on solving business problems, having a good polished demo and presentation.
+
+Akhil Jha
+28 minutes 48 seconds28:48
+Akhil Jha 28 minutes 48 seconds
+Yeah, enable features, the experience layer, the insights you can generate out of it, right? So, the more richer you want to build the application, the more complex your engineering will be, right? Which is what you are being scored on, right? So, absolutely, Sai, right? Be creative, be think end to end, right? But things like code quality, right? Being able to integrate.
+Akhil Jha 29 minutes 8 seconds
+Tools like code quality tools, being able to integrate tools which give you, for example, SAS codes, right, or static security analysis of the code. You can, you can think, I mean, there's no end to what you can do in this, right? End-to-end harness today, that what enterprises have started doing is they are building it in a way that you build it once and every...
+Akhil Jha 29 minutes 30 seconds
+team will use it, right? And think of it this way, just 15 years back, right, when DevOps was still a thing, right, which was just starting to get standardized. Everyone was starting to do their own things. Then enterprises, what they did over time, the clients you work with, they started standardized to DevOps, right? Everyone then came to one single tool. That is where every company will ultimately land.
+Akhil Jha 29 minutes 49 seconds
+that they will have their own way of AI execution, it will be a connected end-to-end suite that will be standard for the enterprise. Now, within that, how far you can go is up to you, right? And that is what the entire hack competition is all about.
+
+Sahil Koti
+30 minutes 5 seconds30:05
+Sahil Koti 30 minutes 5 seconds
+Absolutely. Yeah. Thanks again. Thank you.
+
+Rohit Suri
+30 minutes 8 seconds30:08
+Rohit Suri 30 minutes 8 seconds
+Okay, before we disperse, I just wanted to make a point about the mentors. So this time we are having a fixed set of common group of pool of mentors who will be working with the teams. So we are not going to have designated members or mentors assigned to each team. We are going to create a group.
+Rohit Suri 30 minutes 28 seconds
+where the mentors will be there and the participants and the captains. The captains can interact with the mentors to get their question answered or if they need any guidance, they will be able to get that. So pretty soon we'll set up the group like last time with the mentors in there and the team captains.
+Rohit Suri 30 minutes 47 seconds
+to help with the hackathon going forward.
+Rohit Suri 30 minutes 53 seconds
+Yep, OK. With that, we close. We have one minute past the time, but thanks again for joining this call, everyone, and thanks for registering in the Genius. Looking forward to your solutions and...
+Rohit Suri 31 minutes 11 seconds
+to see how you are able to tackle the problem. So yep, thanks a lot again and all the best.
+
+Sameer Shrivastava
+31 minutes 19 seconds31:19
+Sameer Shrivastava 31 minutes 19 seconds
+Thank you.
+
+Sahil Koti
+31 minutes 19 seconds31:19
+Sahil Koti 31 minutes 19 seconds
+Thanks, everyone.
+
+Eldon Tenorio
+31 minutes 20 seconds31:20
+Eldon Tenorio 31 minutes 20 seconds
+Thank you very much. Bye-bye. Thank you.
+
+Jeno Gonzales
+31 minutes 21 seconds31:21
+Jeno Gonzales 31 minutes 21 seconds
+Thanks, everyone. Bye.
+BM
+Bhaskar Mahto
+31 minutes 21 seconds31:21
+Bhaskar Mahto 31 minutes 21 seconds
+Thank you. Thank you.
+
+Joshua Galura
+31 minutes 22 seconds31:22
+Joshua Galura 31 minutes 22 seconds
+Thank you.
+
+Rohit Suri stopped transcription
