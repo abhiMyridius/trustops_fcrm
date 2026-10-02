@@ -13,6 +13,7 @@ members = [
     "fcrm-caseflow",
     "fcrm-contracts",
     "fcrm-decision-service",
+    "fcrm-guardrails",
     "fcrm-policy-service",
     "fcrm-scoring-service",
     "fcrm-seed",
@@ -494,6 +495,39 @@ dev = [
     { name = "hypothesis", specifier = ">=6.123" },
     { name = "mypy", specifier = ">=1.14" },
     { name = "pytest", specifier = ">=8.3" },
+]
+
+[[package]]
+name = "fcrm-guardrails"
+version = "0.1.0"
+source = { editable = "packages/guardrails" }
+dependencies = [
+    { name = "fcrm-contracts" },
+    { name = "pydantic" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "fcrm-seed" },
+    { name = "hypothesis" },
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fcrm-contracts", editable = "packages/contracts" },
+    { name = "pydantic", specifier = ">=2.9" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "fcrm-seed", editable = "packages/seed" },
+    { name = "hypothesis", specifier = ">=6.123" },
+    { name = "mypy", specifier = ">=1.14" },
+    { name = "pytest", specifier = ">=8.3" },
+    { name = "pytest-asyncio", specifier = ">=0.25" },
 ]
 
 [[package]]

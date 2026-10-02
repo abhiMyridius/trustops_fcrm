@@ -1,0 +1,36 @@
+[project]
+name = "fcrm-guardrails"
+version = "0.1.0"
+description = "P5: the seven guards (input scan + PII masking, OPA tool permit, budget, output shape, rules, critic hook, human gate) and the eight rules as pure, directly testable functions. Design B §4; BUILD-PLAN §3.4."
+requires-python = ">=3.13"
+dependencies = [
+  "fcrm-contracts",
+  "pydantic>=2.9",
+]
+# PII masking: the default engine is the rule-based recognizer set in
+# fcrm_guardrails/pii.py (no model download). The Microsoft Presidio engine
+# is a feature-flagged alternate path (PiiEngine.PRESIDIO) imported lazily.
+# It is deliberately NOT declared here: presidio-analyzer pulls spaCy, thinc
+# and numpy and needs a separate en_core_web_* model download at first use,
+# which would stall image builds and CI for little gain this week. A unit
+# that wants it opts in with:
+#   uv add --package <unit> presidio-analyzer
+#   uv run python -m spacy download en_core_web_lg
+
+[dependency-groups]
+# fcrm-seed is test-only: the quote-matcher and PO-view tests run against
+# the seed's real clause quotes, field values and conditions.
+dev = [
+  "pytest>=8.3",
+  "pytest-asyncio>=0.25",
+  "hypothesis>=6.123",
+  "mypy>=1.14",
+  "fcrm-seed",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["fcrm_guardrails"]
