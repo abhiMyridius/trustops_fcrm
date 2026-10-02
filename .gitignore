@@ -18,3 +18,4 @@ mongo_data/
 htmlcov/
 src/.venv/
 src/uv.lock.bak
+.claude/worktrees/
