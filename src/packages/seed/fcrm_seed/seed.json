@@ -668,8 +668,7 @@
    "fallback": "bedrock:anthropic.claude-sonnet",
    "tools": [
     "control_inventory",
-    "evidence_store",
-    "scoring_engine"
+    "evidence_store"
    ],
    "skills": [
     "cite_verbatim",
