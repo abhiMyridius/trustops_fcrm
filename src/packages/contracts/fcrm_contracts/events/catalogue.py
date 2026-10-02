@@ -17,7 +17,13 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "case.gap_recorded",
         "case.locked",
         "case.unlocked",
+        "case.close_requested",
         "case.closed",
+        # conditions (oversight, post-close; design A §3.6, D-19a's 14-day reminder)
+        "condition.activated",
+        "condition.updated",
+        "condition.completed",
+        "condition.reminder_due",
         # harness -> services
         "workflow.started",
         "agent.run",
@@ -46,8 +52,10 @@ EVENT_TYPES: frozenset[str] = frozenset(
         # ingestion / context
         "ingest.run",
         "ingest.done",
+        "ingest.failed",
         "index.build",
         "index.built",
+        "index.failed",
         # decision (S5 -> H1)
         "vote.cast",
         "vote.revealed",

@@ -18,13 +18,16 @@ Each has a matching `<exchange>.dlx` dead-letter exchange and per-queue retry qu
 ## Event types by phase
 
 **Case lifecycle (S1 → H1)**
-`case.created` · `case.document_stored` · `case.submitted` · `case.answered` · `case.retagged` · `case.rerun_requested` · `case.gap_recorded` · `case.locked` · `case.unlocked` · `case.closed`
+`case.created` · `case.document_stored` · `case.submitted` · `case.answered` · `case.retagged` · `case.rerun_requested` · `case.gap_recorded` · `case.locked` · `case.unlocked` · `case.close_requested` · `case.closed`
+
+**Conditions (oversight, post-close; D-19a's 14-day reminder)**
+`condition.activated` · `condition.updated` · `condition.completed` · `condition.reminder_due`
 
 **Harness-internal (H1's own state-machine triggers, surfaced as events for the audit map and replay)**
 `workflow.started` · `agent.run` · `agent.done` · `agent.failed` · `agent.retry` · `gate.opened` · `gate.decided` · `score.computed` · `score.recomputed` · `boundary.flagged` · `triage.assigned` · `screening.proposed` · `critic.findings` · `completeness.report` · `clarification.sent` · `fieldset.resolved` · `values.reused` · `gap.recorded` · `recommendation.locked` · `pack.assembled` · `pack.approved` · `pack.superseded` · `human.override` · `human.handoff`
 
 **Ingestion / context (H3/H4)**
-`ingest.run` · `ingest.done` · `index.build` · `index.built`
+`ingest.run` · `ingest.done` · `ingest.failed` · `index.build` · `index.built` · `index.failed`
 
 **Decision (S5 → H1)**
 `vote.cast` · `vote.revealed` · `vote.no_majority` · `vote.rerequested` · `committee.question` · `committee.answer` · `outcome.set`
@@ -32,7 +35,7 @@ Each has a matching `<exchange>.dlx` dead-letter exchange and per-queue retry qu
 **Oversight**
 `reflag.proposed` · `reflag.acknowledged` · `chain.verified` · `outcome.delivered` · `eval.recorded`
 
-That is 50 event types in the committed catalogue (`len(EVENT_TYPES) == 50`, checked directly — the design docs' "30 event types" was an earlier estimate before every row of the transition table was transcribed into code; the catalogue, not the estimate, is current).
+That is 57 event types in the committed catalogue (`len(EVENT_TYPES) == 57`, checked directly — the design docs' "30 event types" was an earlier estimate before every row of the transition table was transcribed into code, and `case.close_requested`/`ingest.failed`/`index.failed`/the four `condition.*` events were added once `fcrm_common.events`' `build_envelope`/`publish` needed them; the catalogue, not the estimate, is current).
 
 ## Versioning and compatibility (design A §4.4)
 
