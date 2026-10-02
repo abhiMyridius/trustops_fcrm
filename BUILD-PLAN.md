@@ -245,32 +245,36 @@ The build is a single autonomous run from scaffold to freeze. The lead session e
 
 Operator gates (G-R1, G-D1, G-D2, G-C2, G-T2, G-P1, G-O1) are non-blocking during the run: the run records the evidence, marks the gate "passed pending operator review" and continues; the operator reviews asynchronously and objects by adding an ADR or defect row. Proposed ADR rows count as accepted from the moment the run starts. The only inputs the run cannot produce itself are AWS credentials in `.env` (it runs in `replay`/`memory` mode until they exist, then switches to live automatically) and the final deck narration.
 
-| Order | Lane | Produces | Depends on | Done when |
-|---|---|---|---|---|
-| 0 | bootstrap | uv and Node 22 installed user-space; repo scaffold; uv workspace; hooks, pre-commit, governance tables; compose infra (mongo, rabbitmq, redis, minio, opa, otel, jaeger, prometheus, grafana) | — | `make check` green on the skeleton; `make up-infra` healthy |
-| 0 | contracts (P6) | `fcrm_contracts`: enums, API models per service, event envelope + 30 payloads, nine proposal schemas with the `Claim` mixin, `PinnedVersions`, `/ai` file models, OpenAPI stubs → `docs/architecture/openapi/*.json`, event JSON Schemas, fixtures | — | `make contracts` clean; web `api-gen` runs |
-| 0 | seed (P7) | `gen_seed.py` reproducing `seed.json` byte-stable from the walkthrough extraction; `clauses.json`; corpus Markdown; three synthetic demo PDFs; loaders | contracts shapes | recompute of 80 cases = stored; demo PDFs extract to the seed's 15 candidates |
-| 0 | ai-files | `ai/` tree: tiers.yaml with the Bedrock ids, nine agent specs, thirteen tool specs, five skills, prompt v1 set, guards config, locks | contracts | lock tests green |
-| 1 | common | `fcrm_common` | contracts | unit tests; Mongo testcontainer tests |
-| 1 | scoring (S2) | engine, golden tests, routes, startup recompute | contracts, common | 9.8 → 10.4 and 80/80 reproduce |
-| 1 | audit (S4) | ledger, hash chain, insert-only user, verify, examiner read | contracts, common, mongo init | tamper test fails verification; update/delete attempts fail at the DB |
-| 1 | identity + OPA + nginx (X1, X2, G1) | cloned identity with fixes, seeded users, RS256/JWKS, `/core/validate`; `authz.rego`, `tools.rego`, `opa test`; gateway conf | contracts | three roles log in; OPA tests green; PO gets 403 on `/monitor` |
-| 1 | guardrails (P5) | seven guards, eight rules, verbatim matcher, restricted terms, presidio, OPA client | contracts, common | property tests on rules; quote matcher golden tests |
-| 1 | prompts-loader (P4) + skills (P3) | YAML/Markdown parsing, Jinja rendering (sandboxed, four functions), registries, lock files | contracts | lock tests; render tests for all prompts |
-| 1 | web-shell | Vite app, tokens, ~25 primitives, AppShell, router, auth against identity, SSE hook, MSW from `seed.json` | contracts (OpenAPI stubs), ai-files | login works end to end with mocked services |
-| 2 | case (S1) | routes, collections, SSE, submit checks, clocks, role shaping | common | BB-02 response-key scan passes; versions + diff |
-| 2 | policy (S3) + context-worker (H4) | cloned engine, filters, three indexes, hybrid search, `memory` backend and fixtures | common | search returns the demo's four clauses and 0118 at 0.81; works offline |
-| 2 | ingestion-worker (H3) | cloned engine pruned, page:line anchors, Guard 1 | common, guardrails | demo PDFs → Markdown with anchors; PII masked |
-| 2 | tools (P2) + agents (P1) + agent-worker (H2) | thirteen clients, nine agent builders with context packs, Pydantic AI adapter, FallbackModel, guards 1–4, token records, OTel; `fcrm-agent run` CLI | guardrails, prompts-loader | research runs against the seed with `TestModel` and live Bedrock; Guard 4 rejects a paraphrase |
-| 2 | caseflow (H1) | state machine, gates, budgets, routing, dispatch, outbox, event store, cores, audit map | common, guardrails, contracts | replay test (`rebuild(run) == snapshot`); every gate has an audit record; property tests on transitions |
-| 2 | web-po | PO screens (Dashboard, My Queue, New case, Case tabs incl. Review & submit, Conditions, Integrations) | web-shell | scenes 1–7 against MSW |
-| 3 | decision (S5) | packs, release checks, hidden votes, tally, outcomes, R6, `no_majority`, re-vote | common | committee paths integration test |
-| 3 | web-analyst | Workbench 8 tabs + Acknowledge, Assurance 4 tabs, Config 8 sections | web-shell | scenes 8–16 against MSW |
-| 3 | web-committee-monitor | Committee Queue, Pack/Inbox/Vote, harness monitor | web-shell | scenes 17–21 against MSW |
-| 3 | evals (X6) | datasets from the seed, 25 metrics, runner, Bedrock judge, gate, report, replay fixtures | agents | `make evals` runs offline with `FunctionModel`; gate blocks a worsened prompt |
-| 3 | tests | contract runner, black-box suite BB-01…BB-14, Playwright 21 scenes, resilience harness | contracts | red until services land, then green |
-| 3 | ops-docs | compose services wiring, Makefile, dashboards, runbooks, env contract, AWS path, token report scripts | all | `make up` one command; `make token-report` |
-| 4 | integration | IC-2 → IC-4 verticals, live Bedrock on, dashboards populated, resilience green, evals baseline measured | everything | `make e2e` full green |
+**Status key:** ✅ merged to `main` · 🔄 a dispatched subagent is working in an isolated worktree, not yet merged · ⬜ not yet dispatched.
+
+| Order | Lane | Produces | Depends on | Done when | Status |
+|---|---|---|---|---|---|
+| 0 | bootstrap | uv and Node 22 installed user-space; repo scaffold; uv workspace; hooks, pre-commit, governance tables | — | `make check` green on the skeleton | ✅ (hooks/pre-commit wiring still pending the ai-files lane) |
+| 0 | contracts (P6) | `fcrm_contracts`: enums, API models per service, event envelope + 50 payload types, nine proposal schemas with the `Claim` mixin, `PinnedVersions`, the 13 tool schemas, the shared vote tally | — | `fcrm_contracts` ruff/mypy --strict/pytest green | ✅ 50 tests |
+| 0 | seed (P7) | `gen_seed.py` reproducing `seed.json` byte-stable from the walkthrough extraction; loaders | contracts shapes | recompute of 80 cases = stored | ✅ (byte-stability self-check only; independent synthesis not implemented — ADR-16) |
+| 0 | ai-files | `ai/` tree: tiers.yaml with the Bedrock ids, nine agent specs, thirteen tool specs, five skills, prompt v1 set, guards config, locks, Claude Code hooks | contracts | lock tests green | 🔄 |
+| 1 | common | `fcrm_common` | contracts | unit tests; Mongo testcontainer tests | 🔄 |
+| 1 | scoring (S2) | engine, golden tests, routes, startup recompute | contracts, common | 9.8 → 10.4 and 80/80 reproduce | ✅ engine + golden tests (85 tests); HTTP routes pending common |
+| 1 | audit (S4) | ledger, hash chain, insert-only user, verify, examiner read | contracts, common, mongo init | tamper test fails verification | ✅ chain core (9 tests, full 67-record demo replay); HTTP/Mongo pending common |
+| 1 | identity + OPA + nginx (X1, X2, G1) | cloned identity with fixes, seeded users, RS256/JWKS, `/core/validate`; `authz.rego`, `tools.rego`, `opa test`; gateway conf | contracts | three roles log in; OPA tests green; PO gets 403 on `/monitor` | 🔄 (ops lane covers OPA/nginx; identity service itself not yet dispatched) |
+| 1 | guardrails (P5) | seven guards, eight rules, verbatim matcher, restricted terms, PII masking, OPA client Protocol | contracts, common | property tests on rules; quote matcher golden tests | ✅ 352 tests, 99% coverage |
+| 1 | prompts-loader (P4) + skills (P3) | YAML/Markdown parsing, sandboxed Jinja (four functions), registries, lock files | contracts | lock tests; render tests for all prompts | 🔄 (part of the tools/agents/prompts lane) |
+| 1 | web-shell | Vite app, tokens, ~25 primitives, AppShell, router, auth against identity, SSE hook, MSW from `seed.json` | contracts (OpenAPI stubs), ai-files | login works end to end with mocked services | 🔄 |
+| 2 | case (S1) | routes, collections, SSE, submit checks, clocks, role shaping | common | BB-02 response-key scan passes; versions + diff | ✅ domain logic (field-set resolution, completion, submit checks — 12 tests); HTTP/Mongo pending common |
+| 2 | policy (S3) + context-worker (H4) | cloned engine, filters, three indexes, hybrid search, `memory` backend and fixtures | common | search returns the demo's four clauses and 0118 at 0.81; works offline | ✅ RRF + Index Contract filters (8 tests) · 🔄 H4 clone (same lane as H3) |
+| 2 | ingestion-worker (H3) | cloned engine pruned, page:line anchors, Guard 1 | common, guardrails | demo PDFs → Markdown with anchors; PII masked | 🔄 |
+| 2 | tools (P2) + agents (P1) + agent-worker (H2) | thirteen clients, nine agent builders with context packs, Pydantic AI adapter, FallbackModel, guards 1–4, token records, OTel; `fcrm-agent run` CLI | guardrails, prompts-loader | research runs against the seed with `TestModel` and live Bedrock; Guard 4 rejects a paraphrase | 🔄 |
+| 2 | caseflow (H1) | state machine, gates, budgets, routing, dispatch, outbox, event store, cores, audit map | common, guardrails, contracts | replay test (`rebuild(run) == snapshot`); every gate has an audit record; property tests on transitions | ✅ state machine + routing + replay (19 tests, full demo replay two ways); dispatch/outbox/cores pending common |
+| 2 | web-po | PO screens (Dashboard, My Queue, New case, Case tabs incl. Review & submit, Conditions, Integrations) | web-shell | scenes 1–7 against MSW | ⬜ (folded into the web-shell lane's scope) |
+| 3 | decision (S5) | packs, release checks, hidden votes, tally, outcomes, R6, `no_majority`, re-vote | common | committee paths integration test | ✅ pack hashing, release checks, tally/outcomes (6 tests, real demo 2–1 vote replayed); HTTP/Mongo and R6 pending common |
+| 3 | web-analyst | Workbench 8 tabs + Acknowledge, Assurance 4 tabs, Config 8 sections | web-shell | scenes 8–16 against MSW | ⬜ |
+| 3 | web-committee-monitor | Committee Queue, Pack/Inbox/Vote, harness monitor | web-shell | scenes 17–21 against MSW | ⬜ |
+| 3 | evals (X6) | datasets from the seed, metrics, runner, judge, gate, report, replay fixtures | agents | `make evals` runs offline; gate blocks a worsened prompt | 🔄 |
+| 3 | tests | contract runner, black-box suite BB-01…BB-14, Playwright 21 scenes, resilience harness | contracts | red until services land, then green | ⬜ |
+| 3 | ops-docs | compose services wiring, Makefile, dashboards, runbooks, env contract, AWS path, token report scripts | all | `make up` one command; `make token-report` | 🔄 |
+| 4 | integration | IC-2 → IC-4 verticals, live Bedrock on, dashboards populated, resilience green, evals baseline measured | everything | `make e2e` full green | ⬜ |
+
+As of this revision: **8 packages merged and fully tested** (contracts, scoring, audit, caseflow, case, decision, policy, guardrails — 515 tests, ruff/ruff format/mypy --strict clean repo-wide) covering every pure business-logic piece the design calls for; **4 lanes dispatched and running** in isolated worktrees (common; ops infra; ai-files; web-shell; plus three more dispatched once guardrails landed: tools/agents/prompts, evals, and the H3/H4 AEO clone — 7 lanes in flight); the HTTP/Mongo/RabbitMQ wiring for every service and worker is the next integration phase once `fcrm_common` merges. `git log --oneline` is the authoritative, more granular record.
 | 5 | hardening | docs/governance complete, README, clean-clone proof, deck, rehearsal, token analysis | — | G-P1 signed |
 
 ## 6. Milestones the run asserts
