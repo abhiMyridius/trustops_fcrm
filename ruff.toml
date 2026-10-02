@@ -1,0 +1,26 @@
+target-version = "py313"
+line-length = 88
+src = ["src"]
+extend-exclude = ["src/workers/ingestion-worker/evoq_ingestion", "src/workers/context-worker/evoq_context"]
+
+[lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "T20", "SIM", "C90", "BLE", "S110", "D", "PT"]
+ignore = [
+  "D100", "D104", "D105", "D107",  # module/package/magic/init docstrings not required
+  "D101", "D102",                   # Pydantic DTOs are self-documenting via fields + module docstring;
+                                     # docstrings are still required (and reviewed) on functions with logic
+  "D205", "D209",                   # allow a flowing multi-line docstring summary (no forced blank
+                                     # line after line 1, closing quotes may share the last line)
+  "UP007", "UP045",                 # keep Optional[T], not X | None (coding-standards.md)
+  "UP046",                          # Generic[T] (not PEP 695 class X[T]) — Pydantic's generic models
+                                     # need the explicit Generic base for model_rebuild()/schema generation
+]
+pydocstyle.convention = "google"
+mccabe.max-complexity = 10
+
+[lint.per-file-ignores]
+"tests/**" = ["D", "S101", "BLE001"]
+"**/conftest.py" = ["D"]
+
+[format]
+quote-style = "double"
