@@ -1,0 +1,50 @@
+# Keeps every build context (repo root) small and images clean. Every
+# service/worker/web Dockerfile builds from the repo root (uv workspace
+# spans src/), so this file applies to all of them at once.
+
+# VCS / editor / Claude Code state
+.git
+.gitignore
+.github
+.claude
+.claude/worktrees
+.vscode
+.idea
+*.swp
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+.venv
+**/.venv
+.mypy_cache
+.ruff_cache
+.pytest_cache
+.hypothesis
+**/htmlcov
+**/.coverage
+**/.coverage.*
+
+# Node / web
+**/node_modules
+src/web/dist
+src/web/.vite
+npm-debug.log*
+
+# Secrets and local env (never read, never shipped: CLAUDE.md)
+.env
+.env.*
+!.env.example
+jwt_keys
+
+# Local data and generated reports
+evals/results
+evals/reports
+ops/token-report.md
+
+# Misc OS / tooling cruft
+.DS_Store
+*.log
+dist
+build
