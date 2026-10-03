@@ -1,0 +1,1422 @@
+{
+ "agent": "assessment",
+ "dataset": "assessment/ratings-80",
+ "dataset_sha256": "d03b7c0548a89ba2778c103ec5b877425078f575f49694e6dc84616f39032f76",
+ "producer": "degraded",
+ "n": 80,
+ "primary_metric": "li_within_one",
+ "metrics": {
+  "li_within_one": 0.4117647058823529,
+  "control_match_precision": 0.9077540106951871,
+  "control_match_recall": 1.0,
+  "evidence_date_exact": 0.882179675994109,
+  "citation_validity": 1.0
+ },
+ "summaries": [
+  {
+   "name": "li_within_one",
+   "kind": "deterministic",
+   "score": 0.4117647058823529,
+   "numerator": 56.0,
+   "denominator": 136.0,
+   "rows_scored": 80,
+   "threshold": 0.85,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": true,
+   "description": "|L-L*|<=1 and |I-I*|<=1 per domain",
+   "flags": [
+    "product: 5x3 vs 2x3",
+    "customer: 1x4 vs 5x4",
+    "product: 1x3 vs 3x3",
+    "geography: 1x2 vs 5x2",
+    "channel: 5x3 vs 2x3",
+    "product: 1x2 vs 3x2",
+    "customer: 1x3 vs 5x3",
+    "geography: 5x4 vs 2x4",
+    "product: 1x3 vs 5x3",
+    "product: 1x4 vs 5x4",
+    "geography: 1x3 vs 3x3",
+    "product: 1x2 vs 5x2",
+    "channel: 5x4 vs 2x4",
+    "geography: 5x4 vs 2x4",
+    "customer: 5x2 vs 2x2",
+    "product: 5x2 vs 2x2",
+    "channel: 5x3 vs 2x3",
+    "product: 1x5 vs 4x5",
+    "product: 1x2 vs 5x2",
+    "channel: 1x2 vs 5x2"
+   ]
+  },
+  {
+   "name": "control_match_precision",
+   "kind": "deterministic",
+   "score": 0.9077540106951871,
+   "numerator": 679.0,
+   "denominator": 748.0,
+   "rows_scored": 80,
+   "threshold": 0.9,
+   "threshold_source": "proposed",
+   "passed": true,
+   "primary": false,
+   "description": "proposed controls the analyst matched",
+   "flags": [
+    "extra ('customer', 'CTL-C06')",
+    "extra ('geography', 'CTL-G04')",
+    "extra ('product', 'CTL-P03')",
+    "extra ('channel', 'CTL-T03')",
+    "extra ('geography', 'CTL-G02')",
+    "extra ('customer', 'CTL-C06')",
+    "extra ('product', 'CTL-P01')",
+    "extra ('customer', 'CTL-C06')",
+    "extra ('channel', 'CTL-T01')",
+    "extra ('product', 'CTL-P01')",
+    "extra ('channel', 'CTL-T04')",
+    "extra ('geography', 'CTL-G01')",
+    "extra ('customer', 'CTL-C02')",
+    "extra ('product', 'CTL-P06')",
+    "extra ('channel', 'CTL-T01')",
+    "extra ('product', 'CTL-P05')",
+    "extra ('product', 'CTL-P04')",
+    "extra ('channel', 'CTL-T02')",
+    "extra ('geography', 'CTL-G01')",
+    "extra ('customer', 'CTL-C06')"
+   ]
+  },
+  {
+   "name": "control_match_recall",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 679.0,
+   "denominator": 679.0,
+   "rows_scored": 80,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "matched controls the agent proposed",
+   "flags": []
+  },
+  {
+   "name": "evidence_date_exact",
+   "kind": "deterministic",
+   "score": 0.882179675994109,
+   "numerator": 599.0,
+   "denominator": 679.0,
+   "rows_scored": 80,
+   "threshold": 0.95,
+   "threshold_source": "proposed",
+   "passed": false,
+   "primary": false,
+   "description": "evidence date equals the seed's",
+   "flags": [
+    "CTL-P05: 2019-01-01 vs 2025-11-20",
+    "CTL-C04: 2019-01-01 vs 2026-03-31",
+    "CTL-P04: 2019-01-01 vs 2026-01-30",
+    "CTL-G02: 2019-01-01 vs 2026-03-02",
+    "CTL-T05: 2019-01-01 vs 2026-02-11",
+    "CTL-P04: 2019-01-01 vs 2026-01-30",
+    "CTL-C02: 2019-01-01 vs 2026-04-03",
+    "CTL-G03: 2019-01-01 vs 2026-07-21",
+    "CTL-P04: 2019-01-01 vs 2026-01-30",
+    "CTL-P04: 2019-01-01 vs 2026-01-30",
+    "CTL-G05: 2019-01-01 vs 2026-06-30",
+    "CTL-P03: 2019-01-01 vs 2026-05-06",
+    "CTL-T05: 2019-01-01 vs 2026-02-11",
+    "CTL-G04: 2019-01-01 vs 2025-12-09",
+    "CTL-C08: 2019-01-01 vs 2026-01-15",
+    "CTL-P01: 2019-01-01 vs 2026-04-22",
+    "CTL-T05: 2019-01-01 vs 2026-02-11",
+    "CTL-P06: 2019-01-01 vs 2026-07-01",
+    "CTL-P01: 2019-01-01 vs 2026-04-22",
+    "CTL-T01: 2019-01-01 vs 2023-11-15"
+   ]
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 884.0,
+   "denominator": 884.0,
+   "rows_scored": 80,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "FCRM-2026-0072",
+   "case_id": "FCRM-2026-0072",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9285714285714286,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9230769230769231,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 5x3 vs 2x3",
+    "control_match_precision: extra ('customer', 'CTL-C06')",
+    "evidence_date_exact: CTL-P05: 2019-01-01 vs 2025-11-20"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0073",
+   "case_id": "FCRM-2026-0073",
+   "metrics": {
+    "li_within_one": 0.75,
+    "control_match_precision": 0.95,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9473684210526315,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: customer: 1x4 vs 5x4",
+    "control_match_precision: extra ('geography', 'CTL-G04')",
+    "evidence_date_exact: CTL-C04: 2019-01-01 vs 2026-03-31"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0074",
+   "case_id": "FCRM-2026-0074",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9090909090909091,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x3 vs 3x3",
+    "control_match_precision: extra ('product', 'CTL-P03')",
+    "evidence_date_exact: CTL-P04: 2019-01-01 vs 2026-01-30"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0075",
+   "case_id": "FCRM-2026-0075",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8888888888888888,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 1x2 vs 5x2",
+    "control_match_precision: extra ('channel', 'CTL-T03')",
+    "evidence_date_exact: CTL-G02: 2019-01-01 vs 2026-03-02"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0076",
+   "case_id": "FCRM-2026-0076",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.875,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8571428571428571,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 5x3 vs 2x3",
+    "control_match_precision: extra ('geography', 'CTL-G02')",
+    "evidence_date_exact: CTL-T05: 2019-01-01 vs 2026-02-11"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0077",
+   "case_id": "FCRM-2026-0077",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9285714285714286,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x2 vs 3x2",
+    "evidence_date_exact: CTL-P04: 2019-01-01 vs 2026-01-30"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0078",
+   "case_id": "FCRM-2026-0078",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.8571428571428571,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8333333333333334,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: customer: 1x3 vs 5x3",
+    "control_match_precision: extra ('customer', 'CTL-C06')",
+    "evidence_date_exact: CTL-C02: 2019-01-01 vs 2026-04-03"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0079",
+   "case_id": "FCRM-2026-0079",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 5x4 vs 2x4",
+    "evidence_date_exact: CTL-G03: 2019-01-01 vs 2026-07-21"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0080",
+   "case_id": "FCRM-2026-0080",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9230769230769231,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9166666666666666,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x3 vs 5x3",
+    "control_match_precision: extra ('product', 'CTL-P01')",
+    "evidence_date_exact: CTL-P04: 2019-01-01 vs 2026-01-30"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0081",
+   "case_id": "FCRM-2026-0081",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9230769230769231,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9166666666666666,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x4 vs 5x4",
+    "control_match_precision: extra ('customer', 'CTL-C06')",
+    "evidence_date_exact: CTL-P04: 2019-01-01 vs 2026-01-30"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0082",
+   "case_id": "FCRM-2026-0082",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.8888888888888888,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.875,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 1x3 vs 3x3",
+    "control_match_precision: extra ('channel', 'CTL-T01')",
+    "evidence_date_exact: CTL-G05: 2019-01-01 vs 2026-06-30"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0083",
+   "case_id": "FCRM-2026-0083",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9285714285714286,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9230769230769231,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x2 vs 5x2",
+    "control_match_precision: extra ('product', 'CTL-P01')",
+    "evidence_date_exact: CTL-P03: 2019-01-01 vs 2026-05-06"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0084",
+   "case_id": "FCRM-2026-0084",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8888888888888888,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 5x4 vs 2x4",
+    "control_match_precision: extra ('channel', 'CTL-T04')",
+    "evidence_date_exact: CTL-T05: 2019-01-01 vs 2026-02-11"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0085",
+   "case_id": "FCRM-2026-0085",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.8888888888888888,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.875,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 5x4 vs 2x4",
+    "control_match_precision: extra ('geography', 'CTL-G01')",
+    "evidence_date_exact: CTL-G04: 2019-01-01 vs 2025-12-09"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0086",
+   "case_id": "FCRM-2026-0086",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.875,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8571428571428571,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: customer: 5x2 vs 2x2",
+    "control_match_precision: extra ('customer', 'CTL-C02')",
+    "evidence_date_exact: CTL-C08: 2019-01-01 vs 2026-01-15"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0087",
+   "case_id": "FCRM-2026-0087",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9285714285714286,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9230769230769231,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 5x2 vs 2x2",
+    "control_match_precision: extra ('product', 'CTL-P06')",
+    "evidence_date_exact: CTL-P01: 2019-01-01 vs 2026-04-22"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0088",
+   "case_id": "FCRM-2026-0088",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.75,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.6666666666666666,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 5x3 vs 2x3",
+    "control_match_precision: extra ('channel', 'CTL-T01')",
+    "evidence_date_exact: CTL-T05: 2019-01-01 vs 2026-02-11"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0089",
+   "case_id": "FCRM-2026-0089",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.8333333333333334,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x5 vs 4x5",
+    "control_match_precision: extra ('product', 'CTL-P05')",
+    "evidence_date_exact: CTL-P06: 2019-01-01 vs 2026-07-01"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0090",
+   "case_id": "FCRM-2026-0090",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9166666666666666,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9090909090909091,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x2 vs 5x2",
+    "control_match_precision: extra ('product', 'CTL-P04')",
+    "evidence_date_exact: CTL-P01: 2019-01-01 vs 2026-04-22"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0091",
+   "case_id": "FCRM-2026-0091",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.75,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.6666666666666666,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 1x2 vs 5x2",
+    "control_match_precision: extra ('channel', 'CTL-T02')",
+    "evidence_date_exact: CTL-T01: 2019-01-01 vs 2023-11-15"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0092",
+   "case_id": "FCRM-2026-0092",
+   "metrics": {
+    "li_within_one": 0.6666666666666666,
+    "control_match_precision": 0.9375,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9333333333333333,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x2 vs 4x2",
+    "control_match_precision: extra ('geography', 'CTL-G01')",
+    "evidence_date_exact: CTL-P02: 2019-01-01 vs 2026-09-10"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0093",
+   "case_id": "FCRM-2026-0093",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9230769230769231,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9166666666666666,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x4 vs 5x4",
+    "control_match_precision: extra ('customer', 'CTL-C06')",
+    "evidence_date_exact: CTL-P03: 2019-01-01 vs 2026-05-06"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0094",
+   "case_id": "FCRM-2026-0094",
+   "metrics": {
+    "li_within_one": 0.6666666666666666,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9473684210526315,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 1x5 vs 3x5",
+    "evidence_date_exact: CTL-T03: 2019-01-01 vs 2026-08-28"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0095",
+   "case_id": "FCRM-2026-0095",
+   "metrics": {
+    "li_within_one": 0.6666666666666666,
+    "control_match_precision": 0.9444444444444444,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9411764705882353,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: customer: 1x2 vs 5x2",
+    "control_match_precision: extra ('geography', 'CTL-G03')",
+    "evidence_date_exact: CTL-C08: 2019-01-01 vs 2026-01-15"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0096",
+   "case_id": "FCRM-2026-0096",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.8571428571428571,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8333333333333334,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: customer: 1x5 vs 5x5",
+    "control_match_precision: extra ('customer', 'CTL-C04')",
+    "evidence_date_exact: CTL-C02: 2019-01-01 vs 2026-04-03"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0097",
+   "case_id": "FCRM-2026-0097",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.8888888888888888,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.875,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 1x2 vs 3x2",
+    "control_match_precision: extra ('geography', 'CTL-G05')",
+    "evidence_date_exact: CTL-T03: 2019-01-01 vs 2026-08-28"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0098",
+   "case_id": "FCRM-2026-0098",
+   "metrics": {
+    "li_within_one": 0.6666666666666666,
+    "control_match_precision": 0.9375,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9333333333333333,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 1x5 vs 5x5",
+    "control_match_precision: extra ('channel', 'CTL-T01')",
+    "evidence_date_exact: CTL-G02: 2019-01-01 vs 2026-03-02"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0099",
+   "case_id": "FCRM-2026-0099",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9090909090909091,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 5x2 vs 2x2",
+    "evidence_date_exact: CTL-T02: 2019-01-01 vs 2026-05-06"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0100",
+   "case_id": "FCRM-2026-0100",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.8888888888888888,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.875,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 1x2 vs 5x2",
+    "control_match_precision: extra ('geography', 'CTL-G02')",
+    "evidence_date_exact: CTL-G05: 2019-01-01 vs 2026-06-30"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0101",
+   "case_id": "FCRM-2026-0101",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.8888888888888888,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.875,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 5x2 vs 2x2",
+    "control_match_precision: extra ('channel', 'CTL-T01')",
+    "evidence_date_exact: CTL-T05: 2019-01-01 vs 2026-02-11"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0102",
+   "case_id": "FCRM-2026-0102",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9285714285714286,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9230769230769231,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: customer: 1x4 vs 4x4",
+    "control_match_precision: extra ('customer', 'CTL-C05')",
+    "evidence_date_exact: CTL-C01: 2019-01-01 vs 2026-06-12"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0103",
+   "case_id": "FCRM-2026-0103",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.8571428571428571,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8333333333333334,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: customer: 1x4 vs 4x4",
+    "control_match_precision: extra ('customer', 'CTL-C06')",
+    "evidence_date_exact: CTL-C03: 2019-01-01 vs 2026-07-21"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0104",
+   "case_id": "FCRM-2026-0104",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.8888888888888888,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.875,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 5x4 vs 2x4",
+    "control_match_precision: extra ('channel', 'CTL-T05')",
+    "evidence_date_exact: CTL-P02: 2019-01-01 vs 2026-09-10"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0105",
+   "case_id": "FCRM-2026-0105",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.75,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.6666666666666666,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 1x2 vs 4x2",
+    "control_match_precision: extra ('geography', 'CTL-G01')",
+    "evidence_date_exact: CTL-G04: 2019-01-01 vs 2025-12-09"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0106",
+   "case_id": "FCRM-2026-0106",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8333333333333334,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x4 vs 3x4",
+    "evidence_date_exact: CTL-P01: 2019-01-01 vs 2026-04-22"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0107",
+   "case_id": "FCRM-2026-0107",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9285714285714286,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9230769230769231,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: customer: 1x4 vs 4x4",
+    "control_match_precision: extra ('customer', 'CTL-C06')",
+    "evidence_date_exact: CTL-C04: 2019-01-01 vs 2026-03-31"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0108",
+   "case_id": "FCRM-2026-0108",
+   "metrics": {
+    "li_within_one": 0.6666666666666666,
+    "control_match_precision": 0.9375,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9333333333333333,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x3 vs 5x3",
+    "control_match_precision: extra ('channel', 'CTL-T03')",
+    "evidence_date_exact: CTL-P04: 2019-01-01 vs 2026-01-30"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0109",
+   "case_id": "FCRM-2026-0109",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.8888888888888888,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.875,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 1x4 vs 3x4",
+    "control_match_precision: extra ('geography', 'CTL-G01')",
+    "evidence_date_exact: CTL-T02: 2019-01-01 vs 2026-05-06"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0110",
+   "case_id": "FCRM-2026-0110",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.75,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.6666666666666666,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 5x5 vs 2x5",
+    "control_match_precision: extra ('channel', 'CTL-T01')",
+    "evidence_date_exact: CTL-T02: 2019-01-01 vs 2026-05-06"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0111",
+   "case_id": "FCRM-2026-0111",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9166666666666666,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9090909090909091,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x3 vs 3x3",
+    "control_match_precision: extra ('product', 'CTL-P02')",
+    "evidence_date_exact: CTL-P05: 2019-01-01 vs 2025-11-20"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0112",
+   "case_id": "FCRM-2026-0112",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.8,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.75,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 5x4 vs 2x4",
+    "control_match_precision: extra ('geography', 'CTL-G04')",
+    "evidence_date_exact: CTL-G03: 2019-01-01 vs 2026-07-21"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0113",
+   "case_id": "FCRM-2026-0113",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8333333333333334,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 5x5 vs 2x5",
+    "evidence_date_exact: CTL-P03: 2019-01-01 vs 2026-05-06"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0114",
+   "case_id": "FCRM-2026-0114",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8333333333333334,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x2 vs 5x2",
+    "evidence_date_exact: CTL-P02: 2019-01-01 vs 2026-09-10"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0115",
+   "case_id": "FCRM-2026-0115",
+   "metrics": {
+    "li_within_one": 0.6666666666666666,
+    "control_match_precision": 0.9444444444444444,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9411764705882353,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 1x2 vs 4x2",
+    "control_match_precision: extra ('geography', 'CTL-G01')",
+    "evidence_date_exact: CTL-G03: 2019-01-01 vs 2026-07-21"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0116",
+   "case_id": "FCRM-2026-0116",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.8571428571428571,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8333333333333334,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: customer: 1x3 vs 5x3",
+    "control_match_precision: extra ('customer', 'CTL-C01')",
+    "evidence_date_exact: CTL-C03: 2019-01-01 vs 2026-07-21"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0117",
+   "case_id": "FCRM-2026-0117",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.8888888888888888,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.875,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 1x2 vs 4x2",
+    "control_match_precision: extra ('geography', 'CTL-G03')",
+    "evidence_date_exact: CTL-G01: 2019-01-01 vs 2026-05-14"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0118",
+   "case_id": "FCRM-2026-0118",
+   "metrics": {
+    "li_within_one": 0.6666666666666666,
+    "control_match_precision": 0.9285714285714286,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9230769230769231,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 1x4 vs 4x4",
+    "control_match_precision: extra ('channel', 'CTL-T03')",
+    "evidence_date_exact: CTL-T05: 2019-01-01 vs 2026-02-11"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0119",
+   "case_id": "FCRM-2026-0119",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9230769230769231,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9166666666666666,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: customer: 1x3 vs 3x3",
+    "control_match_precision: extra ('product', 'CTL-P03')",
+    "evidence_date_exact: CTL-C08: 2019-01-01 vs 2026-01-15"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0120",
+   "case_id": "FCRM-2026-0120",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8888888888888888,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 5x4 vs 2x4",
+    "control_match_precision: extra ('channel', 'CTL-T05')",
+    "evidence_date_exact: CTL-G02: 2019-01-01 vs 2026-03-02"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0121",
+   "case_id": "FCRM-2026-0121",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9090909090909091,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 5x3 vs 2x3",
+    "control_match_precision: extra ('geography', 'CTL-G05')",
+    "evidence_date_exact: CTL-G03: 2019-01-01 vs 2026-07-21"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0122",
+   "case_id": "FCRM-2026-0122",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8888888888888888,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 5x4 vs 2x4",
+    "control_match_precision: extra ('channel', 'CTL-T01')",
+    "evidence_date_exact: CTL-T02: 2019-01-01 vs 2026-05-06"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0123",
+   "case_id": "FCRM-2026-0123",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.75,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.6666666666666666,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 1x3 vs 3x3",
+    "control_match_precision: extra ('channel', 'CTL-T03')",
+    "evidence_date_exact: CTL-T04: 2019-01-01 vs 2026-06-18"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0124",
+   "case_id": "FCRM-2026-0124",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8888888888888888,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 1x2 vs 4x2",
+    "control_match_precision: extra ('geography', 'CTL-G05')",
+    "evidence_date_exact: CTL-G01: 2019-01-01 vs 2026-05-14"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0125",
+   "case_id": "FCRM-2026-0125",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.8333333333333334,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x5 vs 4x5",
+    "control_match_precision: extra ('product', 'CTL-P05')",
+    "evidence_date_exact: CTL-P02: 2019-01-01 vs 2026-09-10"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0126",
+   "case_id": "FCRM-2026-0126",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8333333333333334,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x2 vs 3x2",
+    "evidence_date_exact: CTL-P04: 2019-01-01 vs 2026-01-30"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0127",
+   "case_id": "FCRM-2026-0127",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.8571428571428571,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8333333333333334,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 1x4 vs 4x4",
+    "control_match_precision: extra ('geography', 'CTL-G01')",
+    "evidence_date_exact: CTL-G03: 2019-01-01 vs 2026-07-21"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0128",
+   "case_id": "FCRM-2026-0128",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9230769230769231,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9166666666666666,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x3 vs 3x3",
+    "control_match_precision: extra ('product', 'CTL-P02')",
+    "evidence_date_exact: CTL-P05: 2019-01-01 vs 2025-11-20"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0129",
+   "case_id": "FCRM-2026-0129",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.75,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.6666666666666666,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 5x4 vs 2x4",
+    "control_match_precision: extra ('channel', 'CTL-T03')",
+    "evidence_date_exact: CTL-T05: 2019-01-01 vs 2026-02-11"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0130",
+   "case_id": "FCRM-2026-0130",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.8333333333333334,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x3 vs 4x3",
+    "control_match_precision: extra ('product', 'CTL-P05')",
+    "evidence_date_exact: CTL-P02: 2019-01-01 vs 2026-09-10"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0131",
+   "case_id": "FCRM-2026-0131",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.875,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8571428571428571,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 1x4 vs 3x4",
+    "control_match_precision: extra ('geography', 'CTL-G04')",
+    "evidence_date_exact: CTL-G05: 2019-01-01 vs 2026-06-30"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0132",
+   "case_id": "FCRM-2026-0132",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.8333333333333334,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x3 vs 4x3",
+    "control_match_precision: extra ('product', 'CTL-P04')",
+    "evidence_date_exact: CTL-P01: 2019-01-01 vs 2026-04-22"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0133",
+   "case_id": "FCRM-2026-0133",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.75,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.6666666666666666,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 1x3 vs 3x3",
+    "control_match_precision: extra ('channel', 'CTL-T01')",
+    "evidence_date_exact: CTL-T04: 2019-01-01 vs 2026-06-18"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0134",
+   "case_id": "FCRM-2026-0134",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.8888888888888888,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.875,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 1x2 vs 3x2",
+    "control_match_precision: extra ('geography', 'CTL-G02')",
+    "evidence_date_exact: CTL-G05: 2019-01-01 vs 2026-06-30"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0135",
+   "case_id": "FCRM-2026-0135",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9166666666666666,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9090909090909091,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: customer: 1x2 vs 3x2",
+    "control_match_precision: extra ('product', 'CTL-P01')",
+    "evidence_date_exact: CTL-C08: 2019-01-01 vs 2026-01-15"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0136",
+   "case_id": "FCRM-2026-0136",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.8333333333333334,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 5x3 vs 2x3",
+    "control_match_precision: extra ('product', 'CTL-P04')",
+    "evidence_date_exact: CTL-P06: 2019-01-01 vs 2026-07-01"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0137",
+   "case_id": "FCRM-2026-0137",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8333333333333334,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 5x4 vs 2x4",
+    "evidence_date_exact: CTL-P02: 2019-01-01 vs 2026-09-10"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0138",
+   "case_id": "FCRM-2026-0138",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9285714285714286,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9230769230769231,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x5 vs 5x5",
+    "control_match_precision: extra ('product', 'CTL-P04')",
+    "evidence_date_exact: CTL-P06: 2019-01-01 vs 2026-07-01"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0139",
+   "case_id": "FCRM-2026-0139",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.8,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.75,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 5x4 vs 2x4",
+    "control_match_precision: extra ('channel', 'CTL-T01')",
+    "evidence_date_exact: CTL-T05: 2019-01-01 vs 2026-02-11"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0140",
+   "case_id": "FCRM-2026-0140",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 5x2 vs 2x2",
+    "evidence_date_exact: CTL-T02: 2019-01-01 vs 2026-05-06"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0141",
+   "case_id": "FCRM-2026-0141",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.75,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.6666666666666666,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 1x4 vs 3x4",
+    "control_match_precision: extra ('geography', 'CTL-G03')",
+    "evidence_date_exact: CTL-G04: 2019-01-01 vs 2025-12-09"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0142",
+   "case_id": "FCRM-2026-0142",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9166666666666666,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9090909090909091,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x2 vs 3x2",
+    "control_match_precision: extra ('product', 'CTL-P05')",
+    "evidence_date_exact: CTL-P04: 2019-01-01 vs 2026-01-30"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0143",
+   "case_id": "FCRM-2026-0143",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8333333333333334,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x3 vs 3x3",
+    "evidence_date_exact: CTL-P05: 2019-01-01 vs 2025-11-20"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0144",
+   "case_id": "FCRM-2026-0144",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.8,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.75,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 1x4 vs 4x4",
+    "control_match_precision: extra ('geography', 'CTL-G05')",
+    "evidence_date_exact: CTL-G01: 2019-01-01 vs 2026-05-14"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0145",
+   "case_id": "FCRM-2026-0145",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.875,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8571428571428571,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: customer: 1x5 vs 3x5",
+    "control_match_precision: extra ('customer', 'CTL-C06')",
+    "evidence_date_exact: CTL-C07: 2019-01-01 vs 2026-08-05"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0146",
+   "case_id": "FCRM-2026-0146",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.8,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.75,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x2 vs 3x2",
+    "control_match_precision: extra ('product', 'CTL-P02')",
+    "evidence_date_exact: CTL-P05: 2019-01-01 vs 2025-11-20"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0147",
+   "case_id": "FCRM-2026-0147",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.9,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8888888888888888,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 1x5 vs 3x5",
+    "control_match_precision: extra ('channel', 'CTL-T01')",
+    "evidence_date_exact: CTL-T04: 2019-01-01 vs 2026-06-18"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0148",
+   "case_id": "FCRM-2026-0148",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.8,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.75,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 5x3 vs 2x3",
+    "control_match_precision: extra ('product', 'CTL-P02')",
+    "evidence_date_exact: CTL-P06: 2019-01-01 vs 2026-07-01"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0149",
+   "case_id": "FCRM-2026-0149",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.8333333333333334,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x5 vs 4x5",
+    "control_match_precision: extra ('product', 'CTL-P02')",
+    "evidence_date_exact: CTL-P04: 2019-01-01 vs 2026-01-30"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0150",
+   "case_id": "FCRM-2026-0150",
+   "metrics": {
+    "li_within_one": 0.0,
+    "control_match_precision": 0.8333333333333334,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.8,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: product: 1x2 vs 4x2",
+    "control_match_precision: extra ('product', 'CTL-P03')",
+    "evidence_date_exact: CTL-P04: 2019-01-01 vs 2026-01-30"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0151",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "li_within_one": 0.6666666666666666,
+    "control_match_precision": 0.9285714285714286,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 0.9230769230769231,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 1x5 vs 4x5",
+    "control_match_precision: extra ('geography', 'CTL-G05')",
+    "evidence_date_exact: CTL-T01: 2019-01-01 vs 2023-11-15"
+   ]
+  }
+ ],
+ "timestamp": "2026-10-03T21:39:36.845664Z"
+}

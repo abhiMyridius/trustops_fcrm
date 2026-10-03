@@ -1,0 +1,134 @@
+{
+ "agent": "examiner",
+ "dataset": "examiner/questions-5",
+ "dataset_sha256": "105551cb92f37ec81dd91f8b2327b9fdf2408086cb1c4067c01e8b28fc792699",
+ "producer": "degraded",
+ "n": 5,
+ "primary_metric": "examiner_grounding",
+ "metrics": {
+  "examiner_grounding": 0.7857142857142857,
+  "must_cite_coverage": 0.6666666666666666,
+  "refusal_rate": 0.0
+ },
+ "summaries": [
+  {
+   "name": "examiner_grounding",
+   "kind": "deterministic",
+   "score": 0.7857142857142857,
+   "numerator": 11.0,
+   "denominator": 14.0,
+   "rows_scored": 5,
+   "threshold": 1.0,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": true,
+   "description": "sentences whose record refs all resolve",
+   "flags": [
+    "ungrounded [999]: The composite residual was first computed at 9.8, Band 2, wh",
+    "ungrounded [999]: Analyst Rahul Iyer overrode the vendor due-diligence rating ",
+    "ungrounded [999]: Three votes were cast and kept hidden until all were in."
+   ]
+  },
+  {
+   "name": "must_cite_coverage",
+   "kind": "deterministic",
+   "score": 0.6666666666666666,
+   "numerator": 6.0,
+   "denominator": 9.0,
+   "rows_scored": 3,
+   "threshold": 0.9,
+   "threshold_source": "proposed",
+   "passed": false,
+   "primary": false,
+   "description": "required record types cited",
+   "flags": [
+    "no score.computed",
+    "no human.override",
+    "no vote.cast"
+   ]
+  },
+  {
+   "name": "refusal_rate",
+   "kind": "deterministic",
+   "score": 0.0,
+   "numerator": 0.0,
+   "denominator": 2.0,
+   "rows_scored": 2,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": false,
+   "description": "unanswerable questions refused",
+   "flags": [
+    "answered the unanswerable",
+    "answered the unanswerable"
+   ]
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "FCRM-2026-0151~q1",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "examiner_grounding": 0.8571428571428571,
+    "must_cite_coverage": 0.75,
+    "refusal_rate": null
+   },
+   "flags": [
+    "examiner_grounding: ungrounded [999]: The composite residual was first computed at 9.8, Band 2, wh",
+    "must_cite_coverage: no score.computed"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0151~q2",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "examiner_grounding": 0.5,
+    "must_cite_coverage": 0.5,
+    "refusal_rate": null
+   },
+   "flags": [
+    "examiner_grounding: ungrounded [999]: Analyst Rahul Iyer overrode the vendor due-diligence rating ",
+    "must_cite_coverage: no human.override"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0151~q3",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "examiner_grounding": 0.6666666666666666,
+    "must_cite_coverage": 0.6666666666666666,
+    "refusal_rate": null
+   },
+   "flags": [
+    "examiner_grounding: ungrounded [999]: Three votes were cast and kept hidden until all were in.",
+    "must_cite_coverage: no vote.cast"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0151~q4",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "examiner_grounding": 1.0,
+    "must_cite_coverage": null,
+    "refusal_rate": 0.0
+   },
+   "flags": [
+    "refusal_rate: answered the unanswerable"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0151~q5",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "examiner_grounding": 1.0,
+    "must_cite_coverage": null,
+    "refusal_rate": 0.0
+   },
+   "flags": [
+    "refusal_rate: answered the unanswerable"
+   ]
+  }
+ ],
+ "timestamp": "2026-10-03T21:39:36.903713Z"
+}

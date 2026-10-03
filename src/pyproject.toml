@@ -10,6 +10,9 @@ fcrm-tools       = { workspace = true }
 fcrm-skills      = { workspace = true }
 fcrm-prompts     = { workspace = true }
 fcrm-seed        = { workspace = true }
+fcrm-audit-service = { workspace = true }
+fcrm-caseflow    = { workspace = true }
+fcrm-evals       = { workspace = true }
 
 [tool.uv]
 package = false

@@ -1,0 +1,670 @@
+{
+ "agent": "critic",
+ "dataset": "critic/planted-61",
+ "dataset_sha256": "f95399c0fe04009fdb07f4c2e1e8276c6c8fe0ac9355167872c23f9fc1a7c439",
+ "producer": "echo",
+ "n": 61,
+ "primary_metric": "planted_error_detection",
+ "metrics": {
+  "planted_error_detection": 1.0,
+  "critic_finding_groundedness": 1.0,
+  "citation_validity": 1.0
+ },
+ "summaries": [
+  {
+   "name": "planted_error_detection",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 62.0,
+   "denominator": 62.0,
+   "rows_scored": 61,
+   "threshold": 0.85,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": true,
+   "description": "expected findings matched by type and control",
+   "flags": []
+  },
+  {
+   "name": "critic_finding_groundedness",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 62.0,
+   "denominator": 62.0,
+   "rows_scored": 61,
+   "threshold": 1.0,
+   "threshold_source": "proposed",
+   "passed": true,
+   "primary": false,
+   "description": "findings whose record refs resolve in the chain",
+   "flags": []
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 62.0,
+   "denominator": 62.0,
+   "rows_scored": 61,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "FCRM-2026-0151",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0072~precedent_deviation",
+   "case_id": "FCRM-2026-0072",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0072~evidence_recency",
+   "case_id": "FCRM-2026-0072",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0072~rule_violation",
+   "case_id": "FCRM-2026-0072",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0073~precedent_deviation",
+   "case_id": "FCRM-2026-0073",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0073~evidence_recency",
+   "case_id": "FCRM-2026-0073",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0073~rule_violation",
+   "case_id": "FCRM-2026-0073",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0074~precedent_deviation",
+   "case_id": "FCRM-2026-0074",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0074~evidence_recency",
+   "case_id": "FCRM-2026-0074",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0074~rule_violation",
+   "case_id": "FCRM-2026-0074",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0075~precedent_deviation",
+   "case_id": "FCRM-2026-0075",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0075~evidence_recency",
+   "case_id": "FCRM-2026-0075",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0075~rule_violation",
+   "case_id": "FCRM-2026-0075",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0076~precedent_deviation",
+   "case_id": "FCRM-2026-0076",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0076~evidence_recency",
+   "case_id": "FCRM-2026-0076",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0076~rule_violation",
+   "case_id": "FCRM-2026-0076",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0077~precedent_deviation",
+   "case_id": "FCRM-2026-0077",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0077~evidence_recency",
+   "case_id": "FCRM-2026-0077",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0077~rule_violation",
+   "case_id": "FCRM-2026-0077",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0078~precedent_deviation",
+   "case_id": "FCRM-2026-0078",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0078~evidence_recency",
+   "case_id": "FCRM-2026-0078",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0078~rule_violation",
+   "case_id": "FCRM-2026-0078",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0079~precedent_deviation",
+   "case_id": "FCRM-2026-0079",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0079~evidence_recency",
+   "case_id": "FCRM-2026-0079",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0079~rule_violation",
+   "case_id": "FCRM-2026-0079",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0080~precedent_deviation",
+   "case_id": "FCRM-2026-0080",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0080~evidence_recency",
+   "case_id": "FCRM-2026-0080",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0080~rule_violation",
+   "case_id": "FCRM-2026-0080",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0081~precedent_deviation",
+   "case_id": "FCRM-2026-0081",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0081~evidence_recency",
+   "case_id": "FCRM-2026-0081",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0081~rule_violation",
+   "case_id": "FCRM-2026-0081",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0082~precedent_deviation",
+   "case_id": "FCRM-2026-0082",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0082~evidence_recency",
+   "case_id": "FCRM-2026-0082",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0082~rule_violation",
+   "case_id": "FCRM-2026-0082",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0083~precedent_deviation",
+   "case_id": "FCRM-2026-0083",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0083~evidence_recency",
+   "case_id": "FCRM-2026-0083",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0083~rule_violation",
+   "case_id": "FCRM-2026-0083",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0084~precedent_deviation",
+   "case_id": "FCRM-2026-0084",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0084~evidence_recency",
+   "case_id": "FCRM-2026-0084",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0084~rule_violation",
+   "case_id": "FCRM-2026-0084",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0085~precedent_deviation",
+   "case_id": "FCRM-2026-0085",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0085~evidence_recency",
+   "case_id": "FCRM-2026-0085",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0085~rule_violation",
+   "case_id": "FCRM-2026-0085",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0086~precedent_deviation",
+   "case_id": "FCRM-2026-0086",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0086~evidence_recency",
+   "case_id": "FCRM-2026-0086",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0086~rule_violation",
+   "case_id": "FCRM-2026-0086",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0087~precedent_deviation",
+   "case_id": "FCRM-2026-0087",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0087~evidence_recency",
+   "case_id": "FCRM-2026-0087",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0087~rule_violation",
+   "case_id": "FCRM-2026-0087",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0088~precedent_deviation",
+   "case_id": "FCRM-2026-0088",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0088~evidence_recency",
+   "case_id": "FCRM-2026-0088",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0088~rule_violation",
+   "case_id": "FCRM-2026-0088",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0089~precedent_deviation",
+   "case_id": "FCRM-2026-0089",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0089~evidence_recency",
+   "case_id": "FCRM-2026-0089",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0089~rule_violation",
+   "case_id": "FCRM-2026-0089",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0090~precedent_deviation",
+   "case_id": "FCRM-2026-0090",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0090~evidence_recency",
+   "case_id": "FCRM-2026-0090",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0090~rule_violation",
+   "case_id": "FCRM-2026-0090",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0091~precedent_deviation",
+   "case_id": "FCRM-2026-0091",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0091~evidence_recency",
+   "case_id": "FCRM-2026-0091",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0091~rule_violation",
+   "case_id": "FCRM-2026-0091",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  }
+ ],
+ "timestamp": "2026-10-03T21:39:36.858512Z"
+}

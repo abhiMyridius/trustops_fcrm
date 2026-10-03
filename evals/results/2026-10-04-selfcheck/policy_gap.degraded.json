@@ -1,0 +1,77 @@
+{
+ "agent": "policy_gap",
+ "dataset": "policy_gap/suggestions-1",
+ "dataset_sha256": "5e0e21140249d03d5528ef38f93f2a772fabb4617d9c5cc9396e54f2a801f246",
+ "producer": "degraded",
+ "n": 1,
+ "primary_metric": "gap_targets_recorded_gap",
+ "metrics": {
+  "gap_targets_recorded_gap": 0.0,
+  "suggestion_novelty": 0.0,
+  "citation_validity": 1.0
+ },
+ "summaries": [
+  {
+   "name": "gap_targets_recorded_gap",
+   "kind": "deterministic",
+   "score": 0.0,
+   "numerator": 0.0,
+   "denominator": 1.0,
+   "rows_scored": 1,
+   "threshold": 1.0,
+   "threshold_source": "proposed",
+   "passed": false,
+   "primary": true,
+   "description": "suggestion names a recorded gap and its domain",
+   "flags": [
+    "GAP-UNKNOWN/channel: not a recorded gap"
+   ]
+  },
+  {
+   "name": "suggestion_novelty",
+   "kind": "deterministic",
+   "score": 0.0,
+   "numerator": 0.0,
+   "denominator": 1.0,
+   "rows_scored": 1,
+   "threshold": 1.0,
+   "threshold_source": "proposed",
+   "passed": false,
+   "primary": false,
+   "description": "suggestion copies no existing clause",
+   "flags": [
+    "GAP-UNKNOWN: reproduces an existing clause"
+   ]
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 1.0,
+   "denominator": 1.0,
+   "rows_scored": 1,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "GAP-FCRM-2026-0151-1",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "gap_targets_recorded_gap": 0.0,
+    "suggestion_novelty": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "gap_targets_recorded_gap: GAP-UNKNOWN/channel: not a recorded gap",
+    "suggestion_novelty: GAP-UNKNOWN: reproduces an existing clause"
+   ]
+  }
+ ],
+ "timestamp": "2026-10-03T21:39:36.912745Z"
+}

@@ -1,0 +1,433 @@
+{
+ "agent": "watchlist",
+ "dataset": "watchlist/reflag-29",
+ "dataset_sha256": "f100cccce23e812ec7d46d189d3e0e4f351d4a9dfb536c83cd8c47e06b7b694a",
+ "producer": "degraded",
+ "n": 29,
+ "primary_metric": "reflag_recall",
+ "metrics": {
+  "reflag_recall": 0.25,
+  "reflag_precision": 0.037037037037037035,
+  "citation_validity": 1.0
+ },
+ "summaries": [
+  {
+   "name": "reflag_recall",
+   "kind": "deterministic",
+   "score": 0.25,
+   "numerator": 1.0,
+   "denominator": 4.0,
+   "rows_scored": 3,
+   "threshold": 1.0,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": true,
+   "description": "code candidates with a proposal",
+   "flags": [
+    "missed ('FCRM-2026-0147', 'Namibia')",
+    "missed ('FCRM-2026-0144', 'Algeria')",
+    "missed ('FCRM-2026-0147', 'Namibia')"
+   ]
+  },
+  {
+   "name": "reflag_precision",
+   "kind": "deterministic",
+   "score": 0.037037037037037035,
+   "numerator": 1.0,
+   "denominator": 27.0,
+   "rows_scored": 27,
+   "threshold": 1.0,
+   "threshold_source": "proposed",
+   "passed": false,
+   "primary": false,
+   "description": "proposals that are code candidates",
+   "flags": [
+    "invented ('FCRM-2026-0136', 'Bosnia and Herzegovina')",
+    "invented ('FCRM-2026-0136', 'Angola')",
+    "invented ('FCRM-2026-0136', 'Bolivia')",
+    "invented ('FCRM-2026-0136', 'Bosnia and Herzegovina')",
+    "invented ('FCRM-2026-0136', 'Bulgaria')",
+    "invented ('FCRM-2026-0136', 'Cameroon')",
+    "invented ('FCRM-2026-0136', \"Côte d'Ivoire\")",
+    "invented ('FCRM-2026-0136', \"Democratic People's Republic of Korea\")",
+    "invented ('FCRM-2026-0136', 'Democratic Republic of the Congo')",
+    "invented ('FCRM-2026-0136', 'Haiti')",
+    "invented ('FCRM-2026-0136', 'Iran')",
+    "invented ('FCRM-2026-0136', 'Iraq')",
+    "invented ('FCRM-2026-0136', 'Kenya')",
+    "invented ('FCRM-2026-0136', 'Kuwait')",
+    "invented ('FCRM-2026-0136', 'Lao PDR')",
+    "invented ('FCRM-2026-0136', 'Lebanon')",
+    "invented ('FCRM-2026-0136', 'Monaco')",
+    "invented ('FCRM-2026-0136', 'Myanmar')",
+    "invented ('FCRM-2026-0136', 'Nepal')",
+    "invented ('FCRM-2026-0136', 'Papua New Guinea')"
+   ]
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 27.0,
+   "denominator": 27.0,
+   "rows_scored": 27,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "list:v2026-10-fixture",
+   "case_id": "FCRM-2026-0144",
+   "metrics": {
+    "reflag_recall": 0.5,
+    "reflag_precision": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_recall: missed ('FCRM-2026-0147', 'Namibia')"
+   ]
+  },
+  {
+   "row_id": "list:v2026-06",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Bosnia and Herzegovina')"
+   ]
+  },
+  {
+   "row_id": "single:Algeria",
+   "case_id": "FCRM-2026-0144",
+   "metrics": {
+    "reflag_recall": 0.0,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "reflag_recall: missed ('FCRM-2026-0144', 'Algeria')"
+   ]
+  },
+  {
+   "row_id": "single:Angola",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Angola')"
+   ]
+  },
+  {
+   "row_id": "single:Bolivia",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Bolivia')"
+   ]
+  },
+  {
+   "row_id": "single:Bosnia and Herzegovina",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Bosnia and Herzegovina')"
+   ]
+  },
+  {
+   "row_id": "single:Bulgaria",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Bulgaria')"
+   ]
+  },
+  {
+   "row_id": "single:Cameroon",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Cameroon')"
+   ]
+  },
+  {
+   "row_id": "single:Côte d'Ivoire",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', \"Côte d'Ivoire\")"
+   ]
+  },
+  {
+   "row_id": "single:Democratic People's Republic of Korea",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', \"Democratic People's Republic of Korea\")"
+   ]
+  },
+  {
+   "row_id": "single:Democratic Republic of the Congo",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Democratic Republic of the Congo')"
+   ]
+  },
+  {
+   "row_id": "single:Haiti",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Haiti')"
+   ]
+  },
+  {
+   "row_id": "single:Iran",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Iran')"
+   ]
+  },
+  {
+   "row_id": "single:Iraq",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Iraq')"
+   ]
+  },
+  {
+   "row_id": "single:Kenya",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Kenya')"
+   ]
+  },
+  {
+   "row_id": "single:Kuwait",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Kuwait')"
+   ]
+  },
+  {
+   "row_id": "single:Lao PDR",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Lao PDR')"
+   ]
+  },
+  {
+   "row_id": "single:Lebanon",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Lebanon')"
+   ]
+  },
+  {
+   "row_id": "single:Monaco",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Monaco')"
+   ]
+  },
+  {
+   "row_id": "single:Myanmar",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Myanmar')"
+   ]
+  },
+  {
+   "row_id": "single:Namibia",
+   "case_id": "FCRM-2026-0147",
+   "metrics": {
+    "reflag_recall": 0.0,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "reflag_recall: missed ('FCRM-2026-0147', 'Namibia')"
+   ]
+  },
+  {
+   "row_id": "single:Nepal",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Nepal')"
+   ]
+  },
+  {
+   "row_id": "single:Papua New Guinea",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Papua New Guinea')"
+   ]
+  },
+  {
+   "row_id": "single:South Sudan",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'South Sudan')"
+   ]
+  },
+  {
+   "row_id": "single:Syria",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Syria')"
+   ]
+  },
+  {
+   "row_id": "single:Venezuela",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Venezuela')"
+   ]
+  },
+  {
+   "row_id": "single:Vietnam",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Vietnam')"
+   ]
+  },
+  {
+   "row_id": "single:Virgin Islands (UK)",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Virgin Islands (UK)')"
+   ]
+  },
+  {
+   "row_id": "single:Yemen",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0136', 'Yemen')"
+   ]
+  }
+ ],
+ "timestamp": "2026-10-03T21:39:36.909276Z"
+}
