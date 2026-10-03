@@ -62,7 +62,12 @@ from fcrm_contracts.proposals.narrative import (
 )
 from fcrm_contracts.proposals.policy_gap import GapSuggestion
 from fcrm_contracts.proposals.provenance import Claim, ClauseSourceRef, DocSourceRef
-from fcrm_contracts.proposals.research import ClauseProposal, PrecedentMatch
+from fcrm_contracts.proposals.research import (
+    ClauseProposal,
+    JurisdictionNote,
+    PolicyGap,
+    PrecedentMatch,
+)
 from fcrm_contracts.proposals.screening import ScreeningProposal
 from fcrm_contracts.proposals.watchlist import ReflagProposal
 from pydantic import BaseModel, ValidationError
@@ -90,7 +95,12 @@ if TYPE_CHECKING:
 AGENT_OUTPUT_TYPES: Final[Mapping[AgentName, tuple[type[BaseModel], ...]]] = {
     AgentName.SCREENING: (ScreeningProposal,),
     AgentName.INTAKE: (ExtractionProposal, CategoryProposal, GapQuestion),
-    AgentName.RESEARCH: (ClauseProposal, PrecedentMatch),
+    AgentName.RESEARCH: (
+        ClauseProposal,
+        PrecedentMatch,
+        PolicyGap,
+        JurisdictionNote,
+    ),
     AgentName.ASSESSMENT: (FactorProposal, ControlProposal),
     AgentName.CRITIC: (CriticFinding,),
     AgentName.NARRATIVE: (

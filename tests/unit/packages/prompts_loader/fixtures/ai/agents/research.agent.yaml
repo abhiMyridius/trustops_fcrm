@@ -1,0 +1,22 @@
+# Test fixture only (fcrm_prompts unit tests). Same shape as ai/agents/*.
+name: research
+version: 1
+purpose: find applicable policy clauses and the closest closed cases; quote verbatim; declare gaps
+lifecycle_state: assess
+tier: strong
+budget: {tokens: 20000, wall_s: 180, retries: 1}
+tools: [policy_search, precedent_search, jurisdiction_list]
+tool_caps: {policy_search: 3, precedent_search: 1, jurisdiction_list: 1}
+tool_call_cap: 3
+pack_tools: [case_record, policy_search, precedent_search, jurisdiction_list]
+skills: [cite_verbatim, declare_gap]
+context_pack: research
+output_schema: [fcrm_contracts.proposals.research.ClauseProposal, fcrm_contracts.proposals.research.PrecedentMatch]
+prompt_id: {system: research.system, user: research.user}
+guards: [input_scan, permit, budget, output_shape, rules]
+gate: review_item
+gate_detail: {items: [ClauseProposal], rule: "accept or remove each clause; a removal needs a reason"}
+eval_set: research/clauses-40
+eval: {datasets: [research/clauses-40], primary_metric: clause_recall_at_k}
+reruns_on: [changed_fields]
+owner: fcrm_analyst

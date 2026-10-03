@@ -1,0 +1,6 @@
+# Test fixture only: placeholder model names, not real Bedrock ids.
+provider: bedrock
+tiers:
+  cheap: {primary: fixture-cheap, fallback: fixture-cheap-fallback, budget: {tokens: 6000, wall_s: 60, retries: 1}}
+  strong: {primary: fixture-strong, fallback: fixture-strong-fallback, budget: {tokens: 20000, wall_s: 180, retries: 1}}
+per_case_budget_tokens: 120000

@@ -1,0 +1,23 @@
+[project]
+name = "fcrm-prompts"
+version = "0.1.0"
+description = "P4: loads /ai/prompts/**/*.md (front-matter + Jinja body), /ai/agents/*.agent.yaml and /ai/skills/*.skill.md, renders prompts in a sandboxed Jinja2 environment with exactly four template functions (skill, schema, section, config), and computes registry lock lines. Design B §1.4-1.5, §1.8."
+requires-python = ">=3.13"
+dependencies = [
+  # schema() renders fcrm_contracts output models (the only modules it may
+  # import by default); prompts never define a shape of their own.
+  "fcrm-contracts",
+  "jinja2>=3.1",
+  "pydantic>=2.9",
+  "pyyaml>=6.0",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3", "mypy>=1.14", "types-pyyaml>=6.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["fcrm_prompts"]

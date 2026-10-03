@@ -14,9 +14,16 @@ from fcrm_contracts.proposals.provenance import (
     CaseSourceRef,
     ClauseSourceRef,
     DocSourceRef,
+    ListSourceRef,
     RecordSourceRef,
+    Searched,
 )
-from fcrm_contracts.proposals.research import ClauseProposal, PrecedentMatch
+from fcrm_contracts.proposals.research import (
+    ClauseProposal,
+    JurisdictionNote,
+    PolicyGap,
+    PrecedentMatch,
+)
 from fcrm_guardrails.base import GuardStatus
 from fcrm_guardrails.context import AvailableSource, GuardContext
 from fcrm_guardrails.output_shape import (
@@ -120,6 +127,46 @@ async def test_check_attempt_2_quote_only_failure_is_dropped() -> None:
     assert result.status is GuardStatus.ANNOTATED
     assert result.details["drop"] == ["outputs[3]"]
     assert result.details["notes_for_analyst"] == ["dropped: unsourced outputs[3]"]
+
+
+async def test_check_research_policy_gap_passes_with_no_claim_to_verify() -> None:
+    """``PolicyGap`` is not a ``Claim`` (it proves an absence via
+    ``searched``, not a quote), so rule 2/3 never run on it; only the
+    schema check (rule 1) applies. ADR-24 reconciliation: research's
+    declared-gap output was missing from ``AGENT_OUTPUT_TYPES``."""
+    gap = PolicyGap(
+        domain=Domain.CHANNEL,
+        description="No clause for cash-pickup agent networks in corpus v14",
+        searched=Searched(
+            query="cash-pickup agent networks", indexes=["policy_corpus_v14"], hits=0
+        ),
+    )
+    result = await GUARD.check(_ctx(AgentName.RESEARCH, [gap]))
+    assert result.status is GuardStatus.PASSED
+
+
+async def test_check_research_jurisdiction_note_verifies_like_any_claim() -> None:
+    """``JurisdictionNote`` is a ``Claim``, so it gets the same source and
+    verbatim-quote checks as a ``ClauseProposal``."""
+    list_source = AvailableSource(
+        source_ref=ListSourceRef(list_id="fatf", version="v2026-06"),
+        text="Mexico: not listed",
+    )
+    note = JurisdictionNote(
+        source_ref=ListSourceRef(list_id="fatf", version="v2026-06"),
+        quote="Mexico: not listed",
+        confidence=0.9,
+        jurisdiction="Mexico",
+        note="not on the current FATF list",
+    )
+    result = await GUARD.check(
+        _ctx(
+            AgentName.RESEARCH,
+            [note],
+            sources=[*CLAUSE_SOURCES, DOC_SOURCE, list_source],
+        )
+    )
+    assert result.status is GuardStatus.PASSED
 
 
 async def test_check_attempt_2_unresolved_source_blocks() -> None:

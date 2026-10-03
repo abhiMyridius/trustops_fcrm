@@ -1,0 +1,6 @@
+# Test fixture only. research.system's current version is pinned to 1 even
+# though v2 exists, to prove the manifest (not "highest on disk") decides.
+set_version: "2026-10-03"
+current:
+  research.system: 1
+  research.user: 1

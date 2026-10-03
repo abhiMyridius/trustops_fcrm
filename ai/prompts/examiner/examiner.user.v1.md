@@ -9,7 +9,7 @@ variables:
   - {name: case, type: CaseIdentity, description: "id"}
   - {name: chain, type: ChainVerification, description: "verified, count, head_hash (from GET /verify/{case})"}
   - {name: versions, type: PinnedVersions}
-  - {name: question, type: str, description: the asker's question, verbatim}
+  - {name: question, type: str, description: "the asker's question, verbatim"}
   - {name: records, type: "list[AuditRecordCompact]", description: "seq, type, by, what, ts, payload summary"}
   - {name: routing_rules, type: "list[RoutingRule]", description: "rule id and text of the pinned routing version"}
 includes: []

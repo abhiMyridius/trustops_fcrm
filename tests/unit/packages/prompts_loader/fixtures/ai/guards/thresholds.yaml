@@ -1,0 +1,7 @@
+# Test fixture only (design B §1.7 proposed values).
+quote_min_chars: 12
+quote_line_tolerance: 2
+confidence_floor: 0.5
+stale_evidence_months: 24
+pack_section_caps:
+  research: {fields: 700, clauses: 2400}
