@@ -23,6 +23,9 @@ mccabe.max-complexity = 10
 [lint.per-file-ignores]
 "tests/**" = ["D", "S101", "BLE001"]
 "**/conftest.py" = ["D"]
+"**/routes.py" = ["B008"]  # FastAPI's Depends() idiom requires a call in the
+                           # default argument; this is the documented, safe
+                           # exception (Depends is not a mutable default).
 
 [format]
 quote-style = "double"
