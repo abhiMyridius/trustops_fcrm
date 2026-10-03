@@ -1,0 +1,24 @@
+[project]
+name = "fcrm-agent-worker"
+version = "0.1.0"
+description = "H2 agent-worker: FastStream/RabbitMQ consumer that turns one agent.run job into one Pydantic AI model call through the real guard chain (guards 1-4), publishing agent.done/agent.retry/agent.failed. Wraps fcrm_agents (P1, the offline-proven guard pipeline and the Bedrock FallbackModel builder) with the broker, budget-enforcement and audit-write plumbing; fcrm_agents itself stays network-free."
+requires-python = ">=3.13"
+dependencies = [
+  "fcrm-contracts",
+  "fcrm-common",
+  "fcrm-guardrails",
+  "fcrm-agents",
+  "fcrm-tools",
+  "faststream[rabbit]==0.6.7",
+  "uvicorn[standard]>=0.34",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.25", "mypy>=1.14", "hypothesis>=6.123"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["fcrm_agent_worker"]

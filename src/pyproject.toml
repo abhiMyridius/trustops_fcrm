@@ -24,11 +24,18 @@ package = false
 # see src/workers/context-worker/UPSTREAM.md's "Post-merge fix" note. Marking
 # them conflicting lets uv fork the lock instead of refusing to resolve at
 # all; nothing in this workspace installs both at once (the extra is opt-in,
-# for a host that sets VECTOR_BACKEND=s3vectors).
+# for a host that sets VECTOR_BACKEND=s3vectors). fcrm-agent-worker (H2)
+# pulls in fcrm-agents too, so it inherits the same incompatibility and
+# needs its own pair here -- uv's conflict markers are not transitive
+# across workspace packages, only declared per pair.
 conflicts = [
   [
     { package = "fcrm-context-worker", extra = "s3vectors" },
     { package = "fcrm-agents" },
+  ],
+  [
+    { package = "fcrm-context-worker", extra = "s3vectors" },
+    { package = "fcrm-agent-worker" },
   ],
 ]
 

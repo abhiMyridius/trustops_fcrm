@@ -8,10 +8,14 @@ resolution-markers = [
 conflicts = [[
     { package = "fcrm-agents" },
     { package = "fcrm-context-worker", extra = "s3vectors" },
+], [
+    { package = "fcrm-agent-worker" },
+    { package = "fcrm-context-worker", extra = "s3vectors" },
 ]]
 
 [manifest]
 members = [
+    "fcrm-agent-worker",
     "fcrm-agents",
     "fcrm-audit-service",
     "fcrm-case-service",
@@ -30,6 +34,19 @@ members = [
     "fcrm-seed",
     "fcrm-tools",
     "trustops-workspace",
+]
+
+[[package]]
+name = "aio-pika"
+version = "9.6.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiormq", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "yarl", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/96/63/56354526f2e6e915c93bee6e4dedb35888fe82d6bc1a19f35f5a77e795ff/aio_pika-9.6.2.tar.gz", hash = "sha256:c49e9246080dc8ffa1bb0e4aca407bf3d8ad78c3ee3a93df88b68fe65d7a49b9", size = 70851, upload-time = "2026-03-22T19:03:20.878Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/25/05/256fa313f48bed075056d13593b92ce804be05d75f4f312be24edb82860a/aio_pika-9.6.2-py3-none-any.whl", hash = "sha256:2a5478af920d169795071c9c09c7542cd8cdece60438cf7804533dcbcce93b7f", size = 56269, upload-time = "2026-03-22T19:03:19.558Z" },
 ]
 
 [[package]]
@@ -177,6 +194,19 @@ wheels = [
 ]
 
 [[package]]
+name = "aiormq"
+version = "6.9.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pamqp", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "yarl", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6c/0e/db90154d52d399108903fe603e5110a533c42065180265dd003788264080/aiormq-6.9.4.tar.gz", hash = "sha256:0e7c01b662804e1cc7ace9a17794e8c1192a27fc2afa96162362a6e61ae8e8ef", size = 49232, upload-time = "2026-03-23T09:18:19.493Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6c/48/1ce3773f392f02ceda37aee168fade9d725483a9592c202d06044cd093ff/aiormq-6.9.4-py3-none-any.whl", hash = "sha256:726a8586695e863fba68cf88842065ab12348c9438dcebdfc9d0bddaf6083277", size = 32166, upload-time = "2026-03-23T09:18:17.523Z" },
+]
+
+[[package]]
 name = "aiosignal"
 version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -212,7 +242,7 @@ version = "4.15.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
-    { name = "typing-extensions", marker = "python_full_version < '3.15' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.15' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a9/d2/f4d173e22df740bc37b1db102b386ba719b66e95b0f0d751f556b387e6d2/anyio-4.15.1.tar.gz", hash = "sha256:9f28306018cbd6d329e64a36d58256edff76dd996fe423bc957326e578b82a94", size = 276966, upload-time = "2026-09-05T10:42:39.44Z" }
 wheels = [
@@ -407,9 +437,9 @@ resolution-markers = [
     "python_full_version < '3.15'",
 ]
 dependencies = [
-    { name = "botocore", version = "1.43.108", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "jmespath", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "s3transfer", version = "0.19.2", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents'" },
+    { name = "botocore", version = "1.43.108", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "jmespath", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "s3transfer", version = "0.19.2", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/48/59/fb93b6ebd9ad43eb9a58c7a6da51a0fe24ab0c04bc4d534a0bfc5eba7f59/boto3-1.43.108.tar.gz", hash = "sha256:03341f089158368acf83e921aca98b706095322ca52bc4c039a616940aa5ad41", size = 112682, upload-time = "2026-10-02T19:32:25.211Z" }
 wheels = [
@@ -443,9 +473,9 @@ resolution-markers = [
     "python_full_version < '3.15'",
 ]
 dependencies = [
-    { name = "jmespath", marker = "extra == 'project-11-fcrm-agents' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "python-dateutil", marker = "extra == 'project-11-fcrm-agents' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "urllib3", marker = "extra == 'project-11-fcrm-agents' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "jmespath", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "python-dateutil", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "urllib3", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/16/6b4477f433da2c11193802f538330ce080076c2f38d817ad437ed3cd1465/botocore-1.43.108.tar.gz", hash = "sha256:ee4f75cf3bdbb0da7912e089950e8112f692016539d939312c771499958e6cfd", size = 16312879, upload-time = "2026-10-02T19:32:20.797Z" }
 wheels = [
@@ -466,7 +496,7 @@ name = "cffi"
 version = "2.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents')" },
+    { name = "pycparser", marker = "implementation_name != 'PyPy' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9e/ef/008a1939e372c06329a3fce4279c02f328488f3526744906eeec3da7ad5f/cffi-2.1.1.tar.gz", hash = "sha256:dd31f52ea1086513bb9df30f8fcee9b8918323ae067a3d5b78bc826a000712be", size = 530807, upload-time = "2026-08-03T21:21:18.939Z" }
 wheels = [
@@ -765,7 +795,7 @@ name = "cryptography"
 version = "50.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cffi", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents')" },
+    { name = "cffi", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9d/af/182eb91b0df3fe75c4d9f26fe70684569566745f6ba7e5c9c73a862c5252/cryptography-50.0.2.tar.gz", hash = "sha256:7b46165bb56eb4704e2eaaf86f3c940d19154535d9b0ca7d6d590b04060e00d5", size = 880623, upload-time = "2026-09-30T15:30:04.884Z" }
 wheels = [
@@ -855,7 +885,7 @@ name = "docker"
 version = "7.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywin32", marker = "sys_platform == 'win32' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents')" },
+    { name = "pywin32", marker = "sys_platform == 'win32' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
     { name = "requests" },
     { name = "urllib3" },
 ]
@@ -874,6 +904,24 @@ wheels = [
 ]
 
 [[package]]
+name = "fast-depends"
+version = "3.0.9"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "typing-extensions", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4d/8e/0da74a68d1fab3370962802bde8726fbd9248d8156f9cf98f3562e654cc3/fast_depends-3.0.9.tar.gz", hash = "sha256:c31c3985d0196ea4998da9f5913a76ede75cc4484d89eeafcea1a6bd64fbca82", size = 18437, upload-time = "2026-09-19T12:37:28.181Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b6/c3/a4e6a88229798f5afe0e79a9e81947731a89e3f19659b7e90980cfedeee4/fast_depends-3.0.9-py3-none-any.whl", hash = "sha256:a9fda223e4f9f92ade11dabfdc31d20e62fedc25340f1a5b1f01db2ae25ab1d9", size = 25521, upload-time = "2026-09-19T12:37:26.863Z" },
+]
+
+[package.optional-dependencies]
+pydantic = [
+    { name = "pydantic", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+]
+
+[[package]]
 name = "fastapi"
 version = "0.142.2"
 source = { registry = "https://pypi.org/simple" }
@@ -888,6 +936,25 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/56/4f/f7c30a73127e0a8bbffe788369b8359e530b01ae06e2757936fa35bc5e6d/fastapi-0.142.2.tar.gz", hash = "sha256:06366626f2e70576367714d9ab2fe8472e6c8456dba69b399f9f797ab5e92570", size = 466721, upload-time = "2026-09-30T09:51:11.277Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a0/b6/78aaf9141fb46742928c113f3cf6ef2259d538cb02b604b7656c1dc9883c/fastapi-0.142.2-py3-none-any.whl", hash = "sha256:bd5f4d81f1e93a88bcd77caf4dfe3c2dbffc3805407a0007e9a114c18b3a670b", size = 144409, upload-time = "2026-09-30T09:51:09.8Z" },
+]
+
+[[package]]
+name = "faststream"
+version = "0.6.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "fast-depends", extra = ["pydantic"], marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "typing-extensions", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/19/7b/d02c069be0bc671b2eb8f805a1f824d2bfbe1852c9c3f4ad719a7ad3710b/faststream-0.6.7.tar.gz", hash = "sha256:c732eaf861c4cbddd9c7f9098608486a9f05dff67a72335686c3044039045346", size = 306185, upload-time = "2026-03-01T08:20:27.71Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ba/23/9d51f352fbb656f5345030f57e20737b1c88167f0eac354ac548d577808b/faststream-0.6.7-py3-none-any.whl", hash = "sha256:a904a4b1e3babeaa244a9460821f5b05dd71b00c959c816360b2acbbe267cd5c", size = 513454, upload-time = "2026-03-01T08:20:26.423Z" },
+]
+
+[package.optional-dependencies]
+rabbit = [
+    { name = "aio-pika", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
 ]
 
 [[package]]
@@ -921,17 +988,58 @@ wheels = [
 ]
 
 [[package]]
+name = "fcrm-agent-worker"
+version = "0.1.0"
+source = { editable = "workers/agent-worker" }
+dependencies = [
+    { name = "faststream", extra = ["rabbit"], marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "fcrm-agents", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "fcrm-common", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "fcrm-contracts", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "fcrm-guardrails", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "fcrm-tools", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "uvicorn", extra = ["standard"], marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "hypothesis" },
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "faststream", extras = ["rabbit"], specifier = "==0.6.7" },
+    { name = "fcrm-agents", editable = "packages/agents" },
+    { name = "fcrm-common", editable = "packages/common" },
+    { name = "fcrm-contracts", editable = "packages/contracts" },
+    { name = "fcrm-guardrails", editable = "packages/guardrails" },
+    { name = "fcrm-tools", editable = "packages/tools" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.34" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "hypothesis", specifier = ">=6.123" },
+    { name = "mypy", specifier = ">=1.14" },
+    { name = "pytest", specifier = ">=8.3" },
+    { name = "pytest-asyncio", specifier = ">=0.25" },
+]
+
+[[package]]
 name = "fcrm-agents"
 version = "0.1.0"
 source = { editable = "packages/agents" }
 dependencies = [
-    { name = "fcrm-contracts", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "fcrm-guardrails", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "fcrm-prompts", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "fcrm-seed", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "fcrm-tools", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "pydantic", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "pydantic-ai-slim", extra = ["bedrock"], marker = "extra == 'project-11-fcrm-agents'" },
+    { name = "fcrm-contracts", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "fcrm-guardrails", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "fcrm-prompts", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "fcrm-seed", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "fcrm-tools", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "pydantic", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "pydantic-ai-slim", extra = ["bedrock"], marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
 ]
 
 [package.dev-dependencies]
@@ -1102,7 +1210,7 @@ source = { editable = "workers/context-worker" }
 dependencies = [
     { name = "beautifulsoup4" },
     { name = "botocore", version = "1.40.61", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "botocore", version = "1.43.108", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "botocore", version = "1.43.108", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
     { name = "fcrm-contracts" },
     { name = "fcrm-seed" },
     { name = "litellm" },
@@ -1617,8 +1725,8 @@ name = "genai-prices"
 version = "0.1.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "httpx2", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "pydantic", marker = "extra == 'project-11-fcrm-agents'" },
+    { name = "httpx2", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "pydantic", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d6/f0/4b4c7f63de6d558714d2207808080dd0988d0317a54ebcde790e4f6c1b6e/genai_prices-0.1.9.tar.gz", hash = "sha256:20ec774d32ec5d345510877fac415f2560bbfeb081bc4cd4e7ebce57a5503e8d", size = 118447, upload-time = "2026-09-25T03:47:27.569Z" }
 wheels = [
@@ -1697,8 +1805,8 @@ name = "httpcore2"
 version = "2.13.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "h11", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "truststore", marker = "extra == 'project-11-fcrm-agents'" },
+    { name = "h11", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "truststore", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/cb/f3/1db7aa2bc2524062192bb0e0323969492d1883152a232fe36eea65f4e35c/httpcore2-2.13.1.tar.gz", hash = "sha256:e0aa977abe17e69a3b820a24542a6fa88702676d83880b8d194dcd18408e5103", size = 68071, upload-time = "2026-09-23T07:47:22.372Z" }
 wheels = [
@@ -1754,11 +1862,11 @@ name = "httpx2"
 version = "2.13.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "anyio", marker = "(sys_platform != 'emscripten' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents')" },
-    { name = "httpcore2", marker = "(sys_platform != 'emscripten' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents')" },
-    { name = "httpx2-jsfetch", marker = "(sys_platform == 'emscripten' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents')" },
-    { name = "idna", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "truststore", marker = "(sys_platform != 'emscripten' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents')" },
+    { name = "anyio", marker = "(sys_platform != 'emscripten' and extra == 'project-11-fcrm-agents') or (sys_platform != 'emscripten' and extra == 'project-17-fcrm-agent-worker') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "httpcore2", marker = "(sys_platform != 'emscripten' and extra == 'project-11-fcrm-agents') or (sys_platform != 'emscripten' and extra == 'project-17-fcrm-agent-worker') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "httpx2-jsfetch", marker = "(sys_platform == 'emscripten' and extra == 'project-11-fcrm-agents') or (sys_platform == 'emscripten' and extra == 'project-17-fcrm-agent-worker') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "idna", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "truststore", marker = "(sys_platform != 'emscripten' and extra == 'project-11-fcrm-agents') or (sys_platform != 'emscripten' and extra == 'project-17-fcrm-agent-worker') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d5/44/474bef2a0e9d90f1715d32cb98b0738695ca17ba324095fb2497ed7fbd59/httpx2-2.13.1.tar.gz", hash = "sha256:e48744a19e3af5ee48313d0ce5fe941d5422fae5705ea922a4aabf94d7800dfa", size = 100405, upload-time = "2026-09-23T07:47:23.052Z" }
 wheels = [
@@ -1782,7 +1890,7 @@ dependencies = [
     { name = "click" },
     { name = "filelock" },
     { name = "fsspec" },
-    { name = "hf-xet", marker = "platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents')" },
+    { name = "hf-xet", marker = "platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
     { name = "httpx" },
     { name = "packaging" },
     { name = "pyyaml" },
@@ -2479,7 +2587,7 @@ version = "2.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ast-serialize" },
-    { name = "librt", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents')" },
+    { name = "librt", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
     { name = "mypy-extensions" },
     { name = "pathspec" },
     { name = "typing-extensions" },
@@ -2651,7 +2759,7 @@ dependencies = [
     { name = "opentelemetry-semantic-conventions" },
     { name = "packaging" },
     { name = "wrapt", version = "1.17.3", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "wrapt", version = "2.5.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "wrapt", version = "2.5.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d1/97/e6959310cff3dbbce24ca0a60e5e12f773320d17480c779b038b55defd35/opentelemetry_instrumentation-0.66b0.tar.gz", hash = "sha256:316715ed7b33a12530c0ae3e8d4cdf26d70e1aad358d7ba256e5dea2d4ceed71", size = 43308, upload-time = "2026-09-25T12:35:46.504Z" }
 wheels = [
@@ -2700,7 +2808,7 @@ dependencies = [
     { name = "opentelemetry-semantic-conventions" },
     { name = "opentelemetry-util-http" },
     { name = "wrapt", version = "1.17.3", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "wrapt", version = "2.5.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "wrapt", version = "2.5.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a7/34/12fb760868737e2d97df926d94b1a0a4ea62b8811cbc9126ec260dd479c0/opentelemetry_instrumentation_httpx-0.66b0.tar.gz", hash = "sha256:c89297975f54d67692d3c29e9e33a1bdac47710031cc3ed0d83a0c9765336981", size = 26636, upload-time = "2026-09-25T12:36:02.246Z" }
 wheels = [
@@ -2776,6 +2884,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/7d/fa/3944b40b07da9ce895c0e6303a5ab7d53da063554f534556b134a54d6093/packaging-26.3.tar.gz", hash = "sha256:94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79", size = 313412, upload-time = "2026-08-04T18:15:28.737Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl", hash = "sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c", size = 129956, upload-time = "2026-08-04T18:15:27.159Z" },
+]
+
+[[package]]
+name = "pamqp"
+version = "3.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fb/62/35bbd3d3021e008606cd0a9532db7850c65741bbf69ac8a3a0d8cfeb7934/pamqp-3.3.0.tar.gz", hash = "sha256:40b8795bd4efcf2b0f8821c1de83d12ca16d5760f4507836267fd7a02b06763b", size = 30993, upload-time = "2024-01-12T20:37:25.085Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ac/8d/c1e93296e109a320e508e38118cf7d1fc2a4d1c2ec64de78565b3c445eb5/pamqp-3.3.0-py2.py3-none-any.whl", hash = "sha256:c901a684794157ae39b52cbf700db8c9aae7a470f13528b9d7b4e5f7202f8eb0", size = 33848, upload-time = "2024-01-12T20:37:21.359Z" },
 ]
 
 [[package]]
@@ -3057,14 +3174,14 @@ name = "pydantic-ai-slim"
 version = "2.54.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "anyio", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "genai-prices", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "griffelib", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "httpx2", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "opentelemetry-api", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "pydantic", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "pydantic-graph", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "typing-inspection", marker = "extra == 'project-11-fcrm-agents'" },
+    { name = "anyio", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "genai-prices", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "griffelib", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "httpx2", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "opentelemetry-api", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "pydantic", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "pydantic-graph", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "typing-inspection", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/54/c0/b5e33b82b05c87a03e2c18089e89671da5c8fb0ba0da143011917d102745/pydantic_ai_slim-2.54.0.tar.gz", hash = "sha256:e39fd5ded83c5f2f1b271f42707de04fba420c4fd2c3bbc809d8d57614b904df", size = 1802066, upload-time = "2026-10-03T03:38:51.982Z" }
 wheels = [
@@ -3073,7 +3190,7 @@ wheels = [
 
 [package.optional-dependencies]
 bedrock = [
-    { name = "boto3", version = "1.43.108", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents'" },
+    { name = "boto3", version = "1.43.108", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
 ]
 
 [[package]]
@@ -3137,10 +3254,10 @@ name = "pydantic-graph"
 version = "2.54.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "anyio", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "logfire-api", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "pydantic", marker = "extra == 'project-11-fcrm-agents'" },
-    { name = "typing-inspection", marker = "extra == 'project-11-fcrm-agents'" },
+    { name = "anyio", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "logfire-api", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "pydantic", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
+    { name = "typing-inspection", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ef/6f/b5cb10c937c8d00a219eb5a07aeb991d0c44d09d5ac31a087cd1ad40dbcd/pydantic_graph-2.54.0.tar.gz", hash = "sha256:948ff7249c28643ff028b47fab22b8a5b36912c59bb947c2a9b9bc18de1d5fa5", size = 45970, upload-time = "2026-10-03T03:38:55.987Z" }
 wheels = [
@@ -3268,7 +3385,7 @@ name = "pytest"
 version = "9.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents')" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
     { name = "iniconfig" },
     { name = "packaging" },
     { name = "pluggy" },
@@ -3699,7 +3816,7 @@ resolution-markers = [
     "python_full_version < '3.15'",
 ]
 dependencies = [
-    { name = "botocore", version = "1.43.108", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents'" },
+    { name = "botocore", version = "1.43.108", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/76/43/35e4d8aa320bffe8287fe8f65f578fa2d2db0a64212f0e710dce58267854/s3transfer-0.19.2.tar.gz", hash = "sha256:ba0309fd86be3c27dbf78cdd813c13c5e1df16e5874b99d2535ebbdfb9892993", size = 165592, upload-time = "2026-07-22T19:30:44.432Z" }
 wheels = [
@@ -3764,7 +3881,7 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "urllib3" },
     { name = "wrapt", version = "1.17.3", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "wrapt", version = "2.5.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "wrapt", version = "2.5.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/4b/13/2cc466bddf26d0085f30a2b2bd56b7f8708b54a54db833eec97c5c69129b/testcontainers-4.15.0.tar.gz", hash = "sha256:085cde086337632e19002719460b7b80bbab2bdd51bb3ea04f77d0de96504706", size = 95340, upload-time = "2026-07-24T23:08:01.731Z" }
 wheels = [
@@ -3858,7 +3975,7 @@ name = "tqdm"
 version = "4.70.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents')" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0d/ea/b2a5bd54b28a324dae8211928b2d730b6547500342c7e6c6dea08bd0a485/tqdm-4.70.1.tar.gz", hash = "sha256:cefd0eca11b2a37a3aee776544d4f4ae913f02688135b5556b8788dfa474afc4", size = 171846, upload-time = "2026-09-11T07:25:16.601Z" }
 wheels = [
@@ -3966,7 +4083,7 @@ standard = [
     { name = "httptools" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
-    { name = "uvloop", marker = "(platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32') or (platform_python_implementation == 'PyPy' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (sys_platform == 'cygwin' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (sys_platform == 'win32' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents')" },
+    { name = "uvloop", marker = "(platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32') or (platform_python_implementation == 'PyPy' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (platform_python_implementation == 'PyPy' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker') or (sys_platform == 'cygwin' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (sys_platform == 'cygwin' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker') or (sys_platform == 'win32' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (sys_platform == 'win32' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
     { name = "watchfiles" },
     { name = "websockets" },
 ]

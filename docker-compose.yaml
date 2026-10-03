@@ -517,8 +517,10 @@ services:
       FCRM_LLM_MODE: ${FCRM_LLM_MODE:-replay}
       FCRM_REPLAY_DIR: /app/evals/fixtures/replay
       BEDROCK_REGION_FALLBACK: ${BEDROCK_REGION_FALLBACK:-us-west-2}
-      TIERS_FILE: /app/ai/models/tiers.yaml
-      PROMPTS_DIR: /app/ai/prompts
+      # The ai/ root, not a path to tiers.yaml or to ai/prompts: both
+      # fcrm_agents.models.load_tiers_config and fcrm_prompts.PromptLibrary
+      # expect this same root directory (D-15).
+      PROMPTS_DIR: /app/ai
       AGENT_MAX_TOOL_CALLS: "12"
       MODEL_CACHE_ENABLED: ${MODEL_CACHE_ENABLED:-false}
       PREFETCH: "2"
