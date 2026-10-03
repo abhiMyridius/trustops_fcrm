@@ -269,7 +269,7 @@ Operator gates (G-R1, G-D1, G-D2, G-C2, G-T2, G-P1, G-O1) are non-blocking durin
 | 3 | decision (S5) | packs, release checks, hidden votes, tally, outcomes, R6, `no_majority`, re-vote | common | committee paths integration test | ✅ pack hashing, release checks, tally/outcomes (6 tests, real demo 2–1 vote replayed); HTTP/Mongo and R6 pending common |
 | 3 | web-analyst | Workbench 8 tabs + Acknowledge, Assurance 4 tabs, Config 8 sections | web-shell | scenes 8–16 against MSW | ⬜ |
 | 3 | web-committee-monitor | Committee Queue, Pack/Inbox/Vote, harness monitor | web-shell | scenes 17–21 against MSW | ⬜ |
-| 3 | evals (X6) | datasets from the seed, metrics, runner, judge, gate, report, replay fixtures | agents | `make evals` runs offline; gate blocks a worsened prompt | 🔄 |
+| 3 | evals (X6) | datasets from the seed, metrics, runner, judge, gate, report, replay fixtures | agents | `make evals` runs offline; gate blocks a worsened prompt | ✅ 9 seed-derived datasets, per-agent metrics, echo/degrade gate, report/pipeline CLI (88 tests); code lives under `src/packages/evals/` per ADR-21, not bare `evals/` |
 | 3 | tests | contract runner, black-box suite BB-01…BB-14, Playwright 21 scenes, resilience harness | contracts | red until services land, then green | ⬜ |
 | 3 | ops-docs | compose services wiring, Makefile, dashboards, runbooks, env contract, AWS path, token report scripts | all | `make up` one command; `make token-report` | 🔄 |
 | 4 | integration | IC-2 → IC-4 verticals, live Bedrock on, dashboards populated, resilience green, evals baseline measured | everything | `make e2e` full green | ⬜ |
