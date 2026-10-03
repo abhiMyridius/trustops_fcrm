@@ -1,0 +1,48 @@
+[project]
+name = "fcrm-ingestion-worker"
+version = "0.1.0"
+description = "H3 ingestion-worker: documents -> canonical Markdown with page:line anchors, then Guard 1 (injection scan + PII masking) before the text counts as clean. Carries a pruned clone of AEO's evoq_ingestion engine (see UPSTREAM.md) plus the thin fcrm_ingestion_worker host package."
+requires-python = ">=3.13"
+# Runtime deps = upstream evoq_ingestion's `inprocess` extra (the only engine
+# mode kept after the prune), plus the two workspace packages the host
+# integration imports. Upstream's core `httpx` dep and the `mcp` / `summary`
+# (litellm) extras went with the pruned Jira/Confluence/MCP/summariser code;
+# beautifulsoup4 went with the Confluence HTML renderer.
+dependencies = [
+  "fcrm-contracts",
+  "fcrm-guardrails",
+  "lxml>=5.0",
+  "pypdf>=4.0",
+  "pdfplumber>=0.11",
+  "python-docx>=1.1",
+  "openpyxl>=3.1",
+  "python-pptx>=0.6.23",
+]
+# FastStream / RabbitMQ consumer wiring lands with fcrm_common; the job entry
+# point (fcrm_ingestion_worker.jobs.ingest_document.handle) is already shaped
+# for it.
+
+[project.scripts]
+evoq-ingestion = "evoq_ingestion.cli:main"
+
+[dependency-groups]
+# Upstream requirements-dev.txt's test-only tools: reportlab builds a large
+# synthetic PDF in test_perf.py (and the multi-page fixture in the page:line
+# anchor tests); pyyaml + jsonschema drive the shared corpus harness
+# (golden.py) and the contract-fixture schema checks.
+dev = [
+  "pytest>=8.3",
+  "pytest-asyncio>=0.25",
+  "hypothesis>=6.123",
+  "mypy>=1.14",
+  "pyyaml>=6.0",
+  "jsonschema>=4.20",
+  "reportlab>=4.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["evoq_ingestion", "fcrm_ingestion_worker"]

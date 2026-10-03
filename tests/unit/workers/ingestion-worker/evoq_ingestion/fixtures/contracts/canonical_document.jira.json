@@ -1,0 +1,169 @@
+{
+  "source_id": "SRCbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "job_id": "job-2",
+  "origin_id": "PRJ1775812945588",
+  "source_type": "jira",
+  "source_key": "jira:55001",
+  "scope_key": "project:VAULT",
+  "source_display_name": "VAULT-42: Implement eligibility check for VAULT-TSR-100",
+  "file_name": "VAULT-42.jira",
+  "url": "https://acme.atlassian.net/browse/VAULT-42",
+  "domain_url": "https://acme.atlassian.net",
+  "is_active": true,
+  "version": 1,
+  "created_by": "amey.phansalkar@myridius.com",
+  "created_on": "2026-09-10 14:05:49.290184+00:00",
+  "content_hash": "sha256:50111305ed255afff37f66fcc567e793870754e5ba39dd7d4d2e9ceba6a5386d",
+  "metadata_hash": "sha256:7fe32b1244cb3536ceceaad3833bed74115aa9d46ae4e4c52425a080cb8e542b",
+  "body_format": "markdown",
+  "body_markdown": "# VAULT-42: Implement eligibility check for VAULT-TSR-100\n\n## Description\n\nImplements requirement **VAULT-TSR-100** per the design doc.\n",
+  "body_inline": true,
+  "body_chars": 136,
+  "body_bytes": 136,
+  "body_path": "/aeo/PRJ1775812945588/sources/jira/SRCbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/v1.md",
+  "raw_format": "adf_json",
+  "raw_path": null,
+  "title": "VAULT-42: Implement eligibility check for VAULT-TSR-100",
+  "labels": [
+    "eligibility"
+  ],
+  "authors": [
+    {
+      "name": "PM B",
+      "role": "reporter"
+    }
+  ],
+  "source_created_at": "2026-07-01T00:00:00.000+0000",
+  "source_updated_at": "2026-08-15T00:00:00.000+0000",
+  "source_version": "2026-08-15T00:00:00.000+0000",
+  "attachments": [],
+  "attachments_truncated": false,
+  "hierarchy": {
+    "project_key": "VAULT",
+    "epic_key": "VAULT-1",
+    "epic_summary": "Eligibility Epic",
+    "parent_key": "VAULT-1",
+    "parent_type": "Epic",
+    "subtask_keys": [],
+    "links": [],
+    "external_to_scope": false
+  },
+  "structure": {
+    "headings": [
+      {
+        "level": 1,
+        "text": "VAULT-42: Implement eligibility check for VAULT-TSR-100",
+        "line": 1
+      },
+      {
+        "level": 2,
+        "text": "Description",
+        "line": 3
+      }
+    ],
+    "heading_count": 2,
+    "page_count": null,
+    "sheet_count": null,
+    "slide_count": null,
+    "sheets": [],
+    "table_count": 0,
+    "list_item_count": 0,
+    "code_block_count": 0,
+    "image_count": 0,
+    "requirement_ids": [
+      "VAULT-42",
+      "VAULT-TSR-100"
+    ],
+    "word_count": 16,
+    "char_count": 136
+  },
+  "extraction": {
+    "engine": "jira.adf2md",
+    "engine_version": "1",
+    "adf2md_version": "1",
+    "fallback_used": false,
+    "warnings": [],
+    "duration_ms": 0,
+    "raw_hash": null
+  },
+  "profile_hints": {
+    "profile_version": 1,
+    "char_count": 136,
+    "word_count": 16,
+    "line_count": 6,
+    "non_blank_line_count": 3,
+    "paragraph_count": 1,
+    "avg_paragraph_words": 7.0,
+    "max_paragraph_words": 7,
+    "sentence_count": 1,
+    "avg_sentence_words": 16.0,
+    "heading_count": 2,
+    "heading_levels": {
+      "1": 1,
+      "2": 1
+    },
+    "max_heading_depth": 2,
+    "heading_density": 125.0,
+    "numbered_section_count": 0,
+    "table_count": 0,
+    "table_row_count": 0,
+    "table_text_ratio": 0.0,
+    "list_item_count": 0,
+    "list_item_ratio": 0.0,
+    "code_block_count": 0,
+    "code_char_ratio": 0.0,
+    "page_count": null,
+    "sheet_count": null,
+    "slide_count": null,
+    "requirement_id_count": 3,
+    "requirement_id_unique": 2,
+    "requirement_id_density": 187.5,
+    "requirement_id_prefixes": {
+      "VAULT-TSR": 2,
+      "VAULT": 1
+    },
+    "link_count": 0,
+    "image_count": 0,
+    "replacement_char_ratio": 0.0,
+    "non_printable_ratio": 0.0,
+    "is_scanned_pdf": false,
+    "language": "und",
+    "body_prefix_sha1": "17c3bf4370b644d2839f3e15ed2fca0bc077ddcc"
+  },
+  "extraction_status": "COMPLETE",
+  "metadata": {
+    "jira_id": "55001",
+    "jira_key": "VAULT-42",
+    "jira_project_key": "VAULT",
+    "issue_type": "Story",
+    "status": "In Progress",
+    "priority": "High",
+    "assignee": "Dev A",
+    "reporter": "PM B",
+    "description": "Implements requirement  VAULT-TSR-100  per the design doc.",
+    "comments": [],
+    "parent_key": "VAULT-1",
+    "parent_type": "Epic",
+    "epic_key": "VAULT-1",
+    "labels": [
+      "eligibility"
+    ],
+    "fix_versions": [
+      "2026.09"
+    ],
+    "created": "2026-07-01T00:00:00.000+0000",
+    "updated": "2026-08-15T00:00:00.000+0000",
+    "components": [
+      "Eligibility Service"
+    ],
+    "resolution": null,
+    "resolution_date": null,
+    "sprint": null,
+    "story_points": null,
+    "custom_fields": {}
+  },
+  "first_seen_at": "2026-09-10 14:05:49.290184+00:00",
+  "last_seen_at": "2026-09-10 14:05:49.290184+00:00",
+  "last_seen_job_id": "job-2",
+  "file_path": null
+}

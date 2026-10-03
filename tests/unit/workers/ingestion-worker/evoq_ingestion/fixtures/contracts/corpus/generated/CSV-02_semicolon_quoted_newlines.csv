@@ -1,0 +1,13 @@
+key;description;notes
+CFG-1;"Retry policy; exponential backoff";"line one
+line two"
+CFG-2;"Timeout in seconds";"single line"
+CFG-3;"Quoted ""inner"" text";"first
+second
+third"
+CFG-4;Schedule validates report every heading returns;plain
+CFG-5;Tenant shall snapshot this handler rejects;plain
+CFG-6;Report stores reviewer every retry records;plain
+CFG-7;Requirement must response their handler shall;plain
+CFG-8;Schedule returns chunk its audit checks;plain
+CFG-9;Vector rejects approval a schedule records;plain

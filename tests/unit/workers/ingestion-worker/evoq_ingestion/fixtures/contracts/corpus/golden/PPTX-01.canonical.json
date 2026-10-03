@@ -1,0 +1,133 @@
+{
+  "attachments": [],
+  "attachments_truncated": false,
+  "authors": [],
+  "body_markdown": "--- Slide 1 ---\n\n## Context Engine Roadmap\n\nQuarterly review\n\n**Speaker notes:** Speaker note 1: welcome and agenda.\n\n--- Slide 2 ---\n\n## Chunking\n\n- Heading emits version a queue shall.\n  - Version returns balance every operator may.\n  - Deadline shall policy the audit stores.\n\n**Speaker notes:** Speaker note 2: Deadline emits account a timeout emits posting operator.\n\n--- Slide 3 ---\n\n## Embedding\n\n- Approval returns system each retry rejects.\n  - Record validates schedule their report returns.\n  - Alert emits batch every threshold records.\n\n**Speaker notes:** Speaker note 3: Tenant validates reviewer no ledger shall vector account.\n\n--- Slide 4 ---\n\n## Retrieval\n\n- Timeout emits audit this manifest rejects.\n  - Handler emits worker no timeout checks.\n  - Request shall balance each account checks.\n  - Ledger stores heading this metric must.\n\n**Speaker notes:** Speaker note 4: Posting may snapshot any index returns owner request.\n\n--- Slide 5 ---\n\n## Synthesis\n\n- Version returns system the timeout may.\n  - Session records posting its metric validates.\n  - Deadline rejects retry that ledger stores.\n\n**Speaker notes:** Speaker note 5: Alert checks handler no table checks session alert.\n\n--- Slide 6 ---\n\n## Operations\n\n- Worker validates table its document validates.\n  - Handler stores account any service checks.\n  - Audit stores alert their token may.\n  - Heading shall posting its table validates.\n\n**Speaker notes:** Speaker note 6: Owner may service every request records system reviewer.\n",
+  "content_type": null,
+  "domain_url": null,
+  "extraction": {
+    "adf2md_version": null,
+    "engine": "python-pptx",
+    "engine_version": "2",
+    "failure_code": null,
+    "failure_message": null,
+    "fallback_used": false,
+    "front_matter": null,
+    "html2md_version": null,
+    "is_scanned_pdf": false,
+    "profile_version": 1,
+    "raw_hash": "sha256:a478cb14ff96115f5c7d45c6220a02a52c1354fb80dc2253b1c7e8de71ef490a",
+    "scanned_page_fraction": null,
+    "unit_failures": [],
+    "warnings": []
+  },
+  "extraction_status": "COMPLETE",
+  "file_name": "PPTX-01_six_slides_notes.pptx",
+  "file_size": 42700,
+  "hierarchy": {},
+  "labels": [],
+  "legacy_extracted_text_path": null,
+  "legacy_file_path": null,
+  "metadata": {},
+  "origin_id": "",
+  "original_upload_path": "<corpus>/generated/PPTX-01_six_slides_notes.pptx",
+  "profile_hints": {
+    "avg_paragraph_words": 10.71,
+    "avg_sentence_words": 10.09,
+    "body_prefix_sha1": "535bcdc401ad63d851cbb5181d6facadd22b2d29",
+    "char_count": 1513,
+    "code_block_count": 0,
+    "code_char_ratio": 0.0,
+    "heading_count": 6,
+    "heading_density": 25.862,
+    "heading_levels": {
+      "2": 6
+    },
+    "image_count": 0,
+    "is_scanned_pdf": false,
+    "language": "und",
+    "line_count": 60,
+    "link_count": 0,
+    "list_item_count": 17,
+    "list_item_ratio": 0.4722,
+    "max_heading_depth": 2,
+    "max_paragraph_words": 13,
+    "non_blank_line_count": 36,
+    "non_printable_ratio": 0.0,
+    "numbered_section_count": 0,
+    "page_count": null,
+    "paragraph_count": 7,
+    "profile_version": 1,
+    "replacement_char_ratio": 0.0,
+    "requirement_id_count": 0,
+    "requirement_id_density": 0.0,
+    "requirement_id_prefixes": {},
+    "requirement_id_unique": 0,
+    "sentence_count": 23,
+    "sheet_count": null,
+    "slide_count": 6,
+    "table_count": 0,
+    "table_row_count": 0,
+    "table_text_ratio": 0.0,
+    "word_count": 232
+  },
+  "raw_format": "pptx",
+  "scope_key": null,
+  "source_key": "file:name:PPTX-01_six_slides_notes.pptx",
+  "source_type": "file",
+  "structure": {
+    "char_count": 1513,
+    "code_block_count": 0,
+    "heading_count": 6,
+    "headings": [
+      {
+        "level": 2,
+        "line": 3,
+        "text": "Context Engine Roadmap"
+      },
+      {
+        "level": 2,
+        "line": 11,
+        "text": "Chunking"
+      },
+      {
+        "level": 2,
+        "line": 21,
+        "text": "Embedding"
+      },
+      {
+        "level": 2,
+        "line": 31,
+        "text": "Retrieval"
+      },
+      {
+        "level": 2,
+        "line": 42,
+        "text": "Synthesis"
+      },
+      {
+        "level": 2,
+        "line": 52,
+        "text": "Operations"
+      }
+    ],
+    "image_count": 0,
+    "list_item_count": 17,
+    "page_count": null,
+    "pages": [
+      {
+        "end_line": 59,
+        "n": 1,
+        "start_line": 1
+      }
+    ],
+    "requirement_ids": [],
+    "sheet_count": null,
+    "sheets": [],
+    "slide_count": 6,
+    "table_count": 0,
+    "word_count": 232
+  },
+  "title": "PPTX-01_six_slides_notes.pptx",
+  "url": null
+}

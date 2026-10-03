@@ -14,9 +14,23 @@ fcrm-case-service  = { workspace = true }
 fcrm-audit-service = { workspace = true }
 fcrm-caseflow    = { workspace = true }
 fcrm-evals       = { workspace = true }
+fcrm-policy-service = { workspace = true }
 
 [tool.uv]
 package = false
+# fcrm-context-worker's s3vectors extra (aioboto3, which pins an aiobotocore
+# chain capping boto3<1.40.62) and fcrm-agents (pydantic-ai-slim[bedrock],
+# boto3>=1.42.63 on every published version) can never resolve together --
+# see src/workers/context-worker/UPSTREAM.md's "Post-merge fix" note. Marking
+# them conflicting lets uv fork the lock instead of refusing to resolve at
+# all; nothing in this workspace installs both at once (the extra is opt-in,
+# for a host that sets VECTOR_BACKEND=s3vectors).
+conflicts = [
+  [
+    { package = "fcrm-context-worker", extra = "s3vectors" },
+    { package = "fcrm-agents" },
+  ],
+]
 
 [dependency-groups]
 dev = [

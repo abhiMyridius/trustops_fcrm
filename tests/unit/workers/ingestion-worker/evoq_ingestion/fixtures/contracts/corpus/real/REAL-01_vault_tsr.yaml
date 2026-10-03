@@ -1,0 +1,67 @@
+# Sidecar for REAL-01 — VAULT-TSR-100 technical system requirements PDF.
+# Same row shape as scenarios.yaml (see ../README.md). golden.py reads `id`, `file`,
+# `format`, `expected` from here; the PDF itself is dropped next to this file by hand
+# after ANONYMISATION.md is complete. Do NOT commit the PDF.
+
+id: REAL-01
+file: real/REAL-01_vault_tsr.pdf          # <- drop the anonymised file under exactly this name
+format: pdf
+tags: [real, pdf, requirements, numbered-headings, multi-page]
+size_class: medium
+description: >
+  79-page requirements specification with numbered headings and one requirement id per
+  section (VAULT-TSR-100 .. VAULT-TSR-178). The document that exposed the 2026-09 chunking
+  defects (all chunks at hard max, 1/29 requirement ids reaching the index).
+
+provenance:
+  origin: "user-supplied (first user test, 2026-09)"
+  permission_ref: null            # A-1: reference to the written agreement
+  classification: null            # A-2: e.g. "internal"
+  original_pages: 79
+  trimmed: null                   # D-3: e.g. "pages 1-79 kept" / "appendix B removed"
+  sha256_after_anonymisation: null
+
+anonymisation:                    # one entry per checklist item in ANONYMISATION.md
+  A-1: {done: false, note: ""}
+  A-2: {done: false, note: ""}
+  B-1: {done: false, note: ""}
+  B-2: {done: false, note: ""}
+  B-3: {done: false, note: ""}
+  B-4: {done: false, note: ""}
+  B-5: {done: false, note: "requirement ids VAULT-TSR-1xx kept on purpose"}
+  C-1: {done: false, note: ""}
+  C-2: {done: false, note: ""}
+  C-3: {done: false, note: ""}
+  C-4: {done: false, note: ""}
+  C-5: {done: false, note: ""}
+  D-1: {done: false, note: ""}
+  D-2: {done: false, note: ""}
+  D-3: {done: false, note: ""}
+  E-1: {done: false, note: ""}
+  E-2: {done: false, note: ""}
+  E-3: {done: false, note: ""}
+  reviewed_by: null               # role, not a name
+
+expected:
+  canonical:
+    status: COMPLETE
+    codes: [inferred_headings]
+    codes_absent: [scanned_pdf_no_ocr, encrypted_pdf, corrupt_file]
+    structure:
+      page_count: [79, 79]
+      heading_count: [60, 140]
+      table_count: null           # todo: pin after first extraction with pdfplumber
+    requirement_ids: [{prefix: "VAULT-TSR-", start: 100, end: 178}]
+    markers:
+      page: [79, 79]
+  chunking:
+    strategy: heading_sections
+    children: [60, 260]
+    parents: [0, 120]
+    req_coverage_pct: 100
+    section_path_pct: 100
+    page_pct: 100
+    hard_max_violations: 0
+todo: >
+  Pin heading_count/table_count/children after the anonymised file is in place and
+  `golden.py pin --only REAL-01` has been run once against the new pdfplumber engine.

@@ -1,0 +1,166 @@
+{
+  "attachments": [],
+  "attachments_truncated": false,
+  "authors": [],
+  "body_markdown": "--- Page 1 ---\n\n# Ledger Service Design Notes\n\nPosting rejects session that retry must vector request any records. Version returns metric any retry checks balance table. Schedule validates manifest the ledger may requirement schedule this rejects manifest handler operator checks.\n\n# Overview\n\nDocument records posting each ledger stores report deadline their rejects balance deadline index shall. Schedule checks chunk no request may batch posting its rejects table. Reviewer validates worker this policy rejects table. Report shall queue any token must queue token.\n\n## Goals\n\nRequirement shall tenant no system must service heading each stores heading index. Ledger emits timeout no index must request table its emits. Report validates vector their schedule emits response operator their rejects alert worker. Policy stores operator its table rejects reviewer account this records batch record retry. Service records operator their ledger rejects threshold. Response checks system each deadline emits service version its stores table ledger retry. Batch rejects report no account returns audit index no must policy operator posting stores. Service rejects reviewer that heading records index balance the. Audit may retry their table may snapshot.\n\n## Non-goals\n\nAccount must queue a snapshot must posting system. Queue checks timeout the tenant validates batch response any. Manifest validates manifest their queue shall owner token no records account worker. Schedule may report no record rejects threshold worker their returns. Response shall operator its deadline records timeout session any shall approval report policy returns. Vector emits session each system shall handler. Requirement must requirement this queue stores account session their validates. Tenant validates response the record must heading record the may worker vector schedule. Record checks policy that approval stores alert alert.\n\n# Posting Pipeline\n\nOperator may policy that queue stores ledger schedule this returns alert response alert records. Audit stores chunk no audit checks manifest manifest that checks posting queue audit stores. Report stores handler a queue checks version requirement a validates index response index checks. Operator returns chunk no snapshot validates audit record that validates.\n\n## Validation\n\nOwner checks account this token stores deadline vector. Tenant must schedule this request may response requirement. Schedule records document the operator checks service document any returns operator vector. Requirement may service their tenant shall policy table this emits report. Metric stores report the ledger shall system audit that. Table checks posting the balance returns operator schedule every emits. Response must token a requirement shall response report. Snapshot stores reviewer every vector shall audit. Requirement stores operator this table shall ledger handler this shall heading system.\n\n## Persistence\n\n--- Page 2 ---\n\nBalance rejects report any vector may account handler that records. Threshold shall service every worker rejects service owner every must response account. Metric may record that queue must reviewer. Handler stores table any token shall table policy any validates chunk threshold response records. Record records vector their deadline returns session system. Chunk emits worker each snapshot may policy record this checks audit document table must. Worker validates manifest their alert returns chunk table any stores manifest deadline. Service records audit their policy may schedule policy this may ledger. Heading rejects batch its schedule records account system a emits posting audit token returns document.\n\n## Reconciliation\n\nHeading rejects policy a service must chunk retry. Balance validates chunk a index must ledger session any shall document queue response. Snapshot must table its owner returns queue approval their may. Ledger rejects vector the metric must record manifest any validates balance. System must response their threshold checks session. Version rejects report this owner validates session metric every may retry threshold heading may. Report returns chunk any metric records chunk request that validates service operator. Response checks deadline that system must operator report every shall. Table rejects batch a report stores record record a records audit.\n\n# Operations\n\nOwner returns snapshot a account stores manifest threshold the rejects metric handler. Policy returns ledger this timeout emits ledger. Tenant records threshold a worker records policy report no shall alert. Queue shall policy any deadline emits owner worker a returns operator.\n\n## Monitoring\n\nDocument must queue no request validates schedule posting that may audit. Vector validates threshold any handler stores schedule metric its. Metric validates audit every alert records heading manifest. Document must deadline any alert emits schedule version this validates. Token rejects operator no service checks heading record any stores heading timeout threshold checks metric. Snapshot validates system a tenant returns threshold manifest this checks record service heading emits. Retry returns schedule each version must document account its validates service report account. Reviewer checks posting no retry shall snapshot. Report returns token a handler emits service batch.\n\n## Runbooks\n\nManifest checks owner each response stores queue. Threshold emits batch each request shall snapshot chunk no validates balance. Posting rejects snapshot each threshold must handler alert this emits owner. Alert may handler its session rejects reviewer report the returns request timeout balance. Session validates timeout any threshold may deadline index their rejects snapshot handler policy rejects deadline. Heading records handler every worker rejects timeout document its records. Timeout shall queue that service returns session. Metric shall response its chunk emits record batch this shall posting timeout worker records queue. Service checks snapshot every owner stores report balance no checks.\n",
+  "content_type": null,
+  "domain_url": null,
+  "extraction": {
+    "adf2md_version": null,
+    "engine": "pdfplumber",
+    "engine_version": "2",
+    "failure_code": null,
+    "failure_message": null,
+    "fallback_used": false,
+    "front_matter": null,
+    "html2md_version": null,
+    "is_scanned_pdf": false,
+    "profile_version": 1,
+    "raw_hash": "sha256:c34a590381f866e6fa973c3ceb0f1a29672fe52ce4b72bf15ef616c0b66f49e6",
+    "scanned_page_fraction": 0.0,
+    "unit_failures": [],
+    "warnings": [
+      "inferred_headings:layout:size"
+    ]
+  },
+  "extraction_status": "COMPLETE",
+  "file_name": "PDF-01_single_column_headings.pdf",
+  "file_size": 5268,
+  "hierarchy": {},
+  "labels": [],
+  "legacy_extracted_text_path": null,
+  "legacy_file_path": null,
+  "metadata": {},
+  "origin_id": "",
+  "original_upload_path": "<corpus>/generated/PDF-01_single_column_headings.pdf",
+  "profile_hints": {
+    "avg_paragraph_words": 75.55,
+    "avg_sentence_words": 11.09,
+    "body_prefix_sha1": "4631248e395b680e71e3c9cd08f71c97d8e379df",
+    "char_count": 6047,
+    "code_block_count": 0,
+    "code_char_ratio": 0.0,
+    "heading_count": 11,
+    "heading_density": 12.717,
+    "heading_levels": {
+      "1": 4,
+      "2": 7
+    },
+    "image_count": 0,
+    "is_scanned_pdf": false,
+    "language": "und",
+    "line_count": 48,
+    "link_count": 0,
+    "list_item_count": 0,
+    "list_item_ratio": 0.0,
+    "max_heading_depth": 2,
+    "max_paragraph_words": 103,
+    "non_blank_line_count": 24,
+    "non_printable_ratio": 0.0,
+    "numbered_section_count": 0,
+    "page_count": 2,
+    "paragraph_count": 11,
+    "profile_version": 1,
+    "replacement_char_ratio": 0.0,
+    "requirement_id_count": 0,
+    "requirement_id_density": 0.0,
+    "requirement_id_prefixes": {},
+    "requirement_id_unique": 0,
+    "sentence_count": 78,
+    "sheet_count": null,
+    "slide_count": null,
+    "table_count": 0,
+    "table_row_count": 0,
+    "table_text_ratio": 0.0,
+    "word_count": 865
+  },
+  "raw_format": "pdf",
+  "scope_key": null,
+  "source_key": "file:name:PDF-01_single_column_headings.pdf",
+  "source_type": "file",
+  "structure": {
+    "char_count": 6047,
+    "code_block_count": 0,
+    "heading_count": 11,
+    "headings": [
+      {
+        "level": 1,
+        "line": 3,
+        "text": "Ledger Service Design Notes"
+      },
+      {
+        "level": 1,
+        "line": 7,
+        "text": "Overview"
+      },
+      {
+        "level": 2,
+        "line": 11,
+        "text": "Goals"
+      },
+      {
+        "level": 2,
+        "line": 15,
+        "text": "Non-goals"
+      },
+      {
+        "level": 1,
+        "line": 19,
+        "text": "Posting Pipeline"
+      },
+      {
+        "level": 2,
+        "line": 23,
+        "text": "Validation"
+      },
+      {
+        "level": 2,
+        "line": 27,
+        "text": "Persistence"
+      },
+      {
+        "level": 2,
+        "line": 33,
+        "text": "Reconciliation"
+      },
+      {
+        "level": 1,
+        "line": 37,
+        "text": "Operations"
+      },
+      {
+        "level": 2,
+        "line": 41,
+        "text": "Monitoring"
+      },
+      {
+        "level": 2,
+        "line": 45,
+        "text": "Runbooks"
+      }
+    ],
+    "image_count": 0,
+    "list_item_count": 0,
+    "page_count": 2,
+    "pages": [
+      {
+        "end_line": 27,
+        "n": 1,
+        "start_line": 3
+      },
+      {
+        "end_line": 47,
+        "n": 2,
+        "start_line": 31
+      }
+    ],
+    "requirement_ids": [],
+    "sheet_count": null,
+    "sheets": [],
+    "slide_count": null,
+    "table_count": 0,
+    "word_count": 865
+  },
+  "title": "PDF-01_single_column_headings",
+  "url": null
+}

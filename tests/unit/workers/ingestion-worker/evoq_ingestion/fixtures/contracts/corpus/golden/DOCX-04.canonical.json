@@ -1,0 +1,110 @@
+{
+  "attachments": [],
+  "attachments_truncated": false,
+  "authors": [],
+  "body_markdown": "# Response time requirement\n\nHeading emits retry this batch shall handler vector that stores request. Table checks deadline their balance checks metric manifest no must service response threshold.\n\nThe service shall respond within INSERTED-FOXTROT 200 ms under nominal load.\n\nBalance rejects ledger the reviewer stores deadline. Handler must ledger this retry rejects manifest chunk every may handler.\n",
+  "content_type": null,
+  "domain_url": null,
+  "extraction": {
+    "adf2md_version": null,
+    "engine": "python-docx",
+    "engine_version": "2",
+    "failure_code": null,
+    "failure_message": null,
+    "fallback_used": false,
+    "front_matter": null,
+    "html2md_version": null,
+    "is_scanned_pdf": false,
+    "profile_version": 1,
+    "raw_hash": "sha256:2d0b583d227256c85aab649b02cf3fcce29986dbbd5677c134f7cce4abf36774",
+    "scanned_page_fraction": null,
+    "unit_failures": [],
+    "warnings": [
+      "tracked_changes_present"
+    ]
+  },
+  "extraction_status": "COMPLETE",
+  "file_name": "DOCX-04_tracked_changes.docx",
+  "file_size": 34626,
+  "hierarchy": {},
+  "labels": [],
+  "legacy_extracted_text_path": null,
+  "legacy_file_path": null,
+  "metadata": {},
+  "origin_id": "",
+  "original_upload_path": "<corpus>/generated/DOCX-04_tracked_changes.docx",
+  "profile_hints": {
+    "avg_paragraph_words": 17.67,
+    "avg_sentence_words": 11.4,
+    "body_prefix_sha1": "02152183f0044ae0fda61868d5afc62a43e628ff",
+    "char_count": 402,
+    "code_block_count": 0,
+    "code_char_ratio": 0.0,
+    "heading_count": 1,
+    "heading_density": 17.544,
+    "heading_levels": {
+      "1": 1
+    },
+    "image_count": 0,
+    "is_scanned_pdf": false,
+    "language": "und",
+    "line_count": 8,
+    "link_count": 0,
+    "list_item_count": 0,
+    "list_item_ratio": 0.0,
+    "max_heading_depth": 1,
+    "max_paragraph_words": 24,
+    "non_blank_line_count": 4,
+    "non_printable_ratio": 0.0,
+    "numbered_section_count": 0,
+    "page_count": null,
+    "paragraph_count": 3,
+    "profile_version": 1,
+    "replacement_char_ratio": 0.0,
+    "requirement_id_count": 0,
+    "requirement_id_density": 0.0,
+    "requirement_id_prefixes": {},
+    "requirement_id_unique": 0,
+    "sentence_count": 5,
+    "sheet_count": null,
+    "slide_count": null,
+    "table_count": 0,
+    "table_row_count": 0,
+    "table_text_ratio": 0.0,
+    "word_count": 57
+  },
+  "raw_format": "docx",
+  "scope_key": null,
+  "source_key": "file:name:DOCX-04_tracked_changes.docx",
+  "source_type": "file",
+  "structure": {
+    "char_count": 402,
+    "code_block_count": 0,
+    "heading_count": 1,
+    "headings": [
+      {
+        "level": 1,
+        "line": 1,
+        "text": "Response time requirement"
+      }
+    ],
+    "image_count": 0,
+    "list_item_count": 0,
+    "page_count": null,
+    "pages": [
+      {
+        "end_line": 7,
+        "n": 1,
+        "start_line": 1
+      }
+    ],
+    "requirement_ids": [],
+    "sheet_count": null,
+    "sheets": [],
+    "slide_count": null,
+    "table_count": 0,
+    "word_count": 57
+  },
+  "title": "DOCX-04_tracked_changes",
+  "url": null
+}

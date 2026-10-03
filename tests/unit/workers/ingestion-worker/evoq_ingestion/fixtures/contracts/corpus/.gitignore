@@ -1,0 +1,18 @@
+# On-demand fixtures (EDGE-01: 201 MiB sparse file) — regenerate with `generate_corpus.py --edge`.
+generated/edge/
+
+# Harness scratch: engine outputs, e2e artefacts, last report.
+.work/
+.last_report.md
+
+# Real (anonymised) documents are dropped here by hand and are never vendored into repos;
+# only the golden/REAL-*.json expectations travel. Keep the folder skeleton tracked.
+real/*
+!real/README.md
+!real/ANONYMISATION.md
+!real/.gitkeep
+!real/REAL-01_vault_tsr.yaml
+
+__pycache__/
+*.pyc
+.pytest_cache/
