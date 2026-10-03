@@ -1,0 +1,16 @@
+# Dashboard provider: every *.json in this folder is loaded into the
+# "TrustOps" folder and kept read-only (edit the JSON, not the UI).
+apiVersion: 1
+
+providers:
+  - name: trustops
+    orgId: 1
+    folder: TrustOps
+    folderUid: trustops
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

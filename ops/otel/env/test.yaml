@@ -1,0 +1,3 @@
+# ENV=test overlay (compose.test.yaml, make e2e): no debug exporter; the base
+# pipelines from ../collector.yaml apply unchanged.
+service: {}

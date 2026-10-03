@@ -1,0 +1,4 @@
+# ENV=prod overlay: no debug exporter; the base pipelines from
+# ../collector.yaml apply unchanged. (The AWS path replaces the exporters
+# entirely; see ops/aws.)
+service: {}

@@ -1,0 +1,133 @@
+# Dev override: live reload against the source on the host.
+#
+#   make up-dev    (= docker compose -f docker-compose.yaml -f compose.obs.yaml
+#                   -f compose.dev.yaml up -d --build)
+#
+# Python units (S1–S5, X1, H1–H4): the production images are built as usual
+# (python:3.13-slim, deps in /app/.venv, ENTRYPOINT uvicorn <pkg>.main:app for
+# services and python -m <pkg> for workers — design A §11.1). Here `src/` is
+# bind-mounted read-only at /workspace/src and ops/scripts/dev_run.sh puts
+# every unit folder on PYTHONPATH ahead of the installed copy, then runs
+#   services: uvicorn <pkg>.main:app --reload --reload-dir /workspace/src
+#   workers:  python -m <pkg>, restarted by watchfiles on any .py change
+# Adding a third-party dependency still needs `docker compose build <svc>`.
+#
+# Web (W1): instead of the nginx-served static build, a node:22 container
+# runs `npm run dev` (vite) on 5173 against the mounted src/web, and the
+# gateway's web upstream snippet is swapped for web-upstream.dev.conf, so
+# http://localhost:8080 serves the dev build with HMR (vite is also reachable
+# directly on 5173).
+#
+# Defaults that differ from the base stack: FCRM_LLM_MODE=replay unless set
+# (design C §4.1), LOG_LEVEL=DEBUG.
+
+x-dev-python: &dev-python
+  volumes:
+    - ./src:/workspace/src:ro
+    - ./ops/scripts/dev_run.sh:/usr/local/bin/dev_run.sh:ro
+    - ./ai:/app/ai:ro
+  entrypoint: ["bash", "/usr/local/bin/dev_run.sh"]
+
+services:
+  identity:
+    <<: *dev-python
+    volumes:
+      - ./src:/workspace/src:ro
+      - ./ops/scripts/dev_run.sh:/usr/local/bin/dev_run.sh:ro
+      - ./jwt_keys:/keys:ro
+    command: ["http", "fcrm_identity.main:app", "8000"]
+    environment:
+      LOG_LEVEL: DEBUG
+
+  case:
+    <<: *dev-python
+    command: ["http", "fcrm_case.main:app", "8001"]
+    environment:
+      LOG_LEVEL: DEBUG
+
+  scoring:
+    <<: *dev-python
+    command: ["http", "fcrm_scoring.main:app", "8002"]
+    environment:
+      LOG_LEVEL: DEBUG
+
+  policy:
+    <<: *dev-python
+    command: ["http", "fcrm_policy.main:app", "8003"]
+    environment:
+      LOG_LEVEL: DEBUG
+
+  audit:
+    <<: *dev-python
+    command: ["http", "fcrm_audit.main:app", "8004"]
+    environment:
+      LOG_LEVEL: DEBUG
+
+  decision:
+    <<: *dev-python
+    command: ["http", "fcrm_decision.main:app", "8005"]
+    environment:
+      LOG_LEVEL: DEBUG
+
+  caseflow:
+    <<: *dev-python
+    command: ["worker", "fcrm_caseflow"]
+    environment:
+      LOG_LEVEL: DEBUG
+
+  agent-worker:
+    <<: *dev-python
+    volumes:
+      - ./src:/workspace/src:ro
+      - ./ops/scripts/dev_run.sh:/usr/local/bin/dev_run.sh:ro
+      - ./ai:/app/ai:ro
+      - ./evals/fixtures:/app/evals/fixtures:ro
+    command: ["worker", "fcrm_agent_worker"]
+    environment:
+      LOG_LEVEL: DEBUG
+      FCRM_LLM_MODE: ${FCRM_LLM_MODE:-replay}
+
+  ingestion-worker:
+    <<: *dev-python
+    command: ["worker", "fcrm_ingestion_worker"]
+    environment:
+      LOG_LEVEL: DEBUG
+
+  context-worker:
+    <<: *dev-python
+    command: ["worker", "fcrm_context_worker"]
+    environment:
+      LOG_LEVEL: DEBUG
+
+  web:
+    # Replace the static-build image with a plain Node 22 dev server.
+    build: !reset null
+    image: node:22-alpine
+    working_dir: /app
+    command: ["sh", "-c", "npm ci && exec npm run dev -- --host 0.0.0.0 --port 5173 --strictPort"]
+    environment:
+      VITE_API_MODE: ${VITE_API_MODE:-live}
+      VITE_DEMO_USERS: ${VITE_DEMO_USERS:-true}
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${WEB_DEV_HOST_PORT:-5173}:5173"
+    expose:
+      - "5173"
+    volumes:
+      - ./src/web:/app
+      - web_node_modules:/app/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:5173/"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 60s
+
+  gateway:
+    volumes:
+      - ./ops/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ops/nginx/snippets/proxy-common.conf:/etc/nginx/snippets/proxy-common.conf:ro
+      - ./ops/nginx/snippets/web-upstream.dev.conf:/etc/nginx/snippets/web-upstream.conf:ro
+
+volumes:
+  web_node_modules:

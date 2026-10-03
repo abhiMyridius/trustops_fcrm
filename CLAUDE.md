@@ -36,7 +36,7 @@ make evals         # per-agent eval run; writes evals/results/<date>/
 uv run --package fcrm-scoring pytest tests/unit/services/scoring -k golden   # one unit, one test selection
 ```
 
-`pytest.ini`'s `testpaths = tests` means an unscoped `pytest` call collects every unit's tests in one process — but `--package <name>` only installs *that* unit's dependencies, so collection fails on another unit's imports. Always pass the specific `tests/unit/<...>/<unit>` (or `tests/integration/...`) path alongside `--package`, matching that unit's own source tree.
+`pytest.ini`'s `testpaths = tests` means an unscoped `pytest` call collects every unit's tests in one process. `--package <name>` only installs *that* unit's dependencies, so a bare `pytest` (no path) under `--package` fails collection on another unit's imports — pass the specific `tests/unit/<...>/<unit>` (or `tests/integration/...`) path alongside `--package` for a single unit's tests. For the whole suite at once, `make test-unit` (or `uv run --project src --all-packages pytest -m "not integration and not e2e"`) installs every workspace package's dependencies together and collects cleanly in one process — this is the real fix, not a workaround, and is what `make check`/`make gate` use.
 
 ## Canonical demo
 

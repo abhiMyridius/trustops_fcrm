@@ -1,0 +1,650 @@
+# TrustOps base stack (design A §11; ports ADR-20). 22 containers with
+# compose.obs.yaml (on by default in `make up`):
+#   infra   mongo, mongo-init*, rabbitmq, redis, minio, minio-init*, opa
+#   obs     otel-collector, jaeger, prometheus, grafana        (compose.obs.yaml)
+#   S1–S5   case, scoring, policy, audit, decision; X1 identity
+#   H1–H4   caseflow, agent-worker ×2, ingestion-worker, context-worker
+#   edge    gateway (G1), web (W1)                             (* one-shot)
+#
+#   make up-infra   infra + obs only (works today)
+#   make up         everything (needs the service/worker/web Dockerfiles)
+#
+# Secrets and per-machine values come from the root .env (compose reads it
+# for ${...} interpolation; `make env` creates it from .env.example with
+# generated local secrets). Each container receives ONLY the variables it
+# needs through its own `environment:` block — there is deliberately no
+# blanket `env_file: .env`, so e.g. identity never sees AWS keys and the
+# case service never sees the audit writer's password. Secrets use
+# ${VAR:?...} so a missing one stops compose before anything starts (no
+# hard-coded fallbacks; one of the verified AEO defects).
+#
+# Host ports bind to ${BIND_ADDRESS:-127.0.0.1} and every one can be moved
+# with a *_HOST_PORT variable (the defaults are ADR-20's numbers).
+
+name: trustops
+
+# ── shared fragments ─────────────────────────────────────────────────────
+x-app-env: &app-env
+  ENV: ${ENV:-local}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  MONGODB_URI: mongodb://fcrm_app:${MONGO_APP_PASSWORD:?set MONGO_APP_PASSWORD in .env}@mongo:27017/?replicaSet=rs0&authSource=admin
+  RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:?set RABBITMQ_DEFAULT_USER in .env}:${RABBITMQ_DEFAULT_PASS:?set RABBITMQ_DEFAULT_PASS in .env}@rabbitmq:5672/
+  REDIS_URL: redis://redis:6379/0
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  IDENTITY_JWKS_URL: http://identity:8000/api/fcrm/auth/.well-known/jwks.json
+  IDENTITY_VALIDATE_URL: http://identity:8000/api/fcrm/auth/core/validate
+  OPA_URL: http://opa:8181
+  SERVICE_TOKEN_SECRET: ${SERVICE_TOKEN_SECRET:?set SERVICE_TOKEN_SECRET in .env}
+  SEED_PATH: ${SEED_PATH:-}
+  SEED_ON_EMPTY: ${SEED_ON_EMPTY:-true}
+  GATEWAY_ORIGIN: ${GATEWAY_ORIGIN:-http://localhost:8080}
+
+# MinIO (local S3). The AWS path unsets S3_ENDPOINT_URL and uses real S3.
+x-s3-env: &s3-env
+  S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_ACCESS_KEY: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+  S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+  S3_BUCKET_UPLOADS: uploads
+  S3_BUCKET_CANONICAL: canonical
+  S3_BUCKET_PACKS: packs
+  S3_BUCKET_VECTORS: vectors
+  S3_BUCKET_JOBS: jobs
+
+# Bedrock / S3 Vectors credentials (live mode only; empty = replay/memory).
+x-aws-env: &aws-env
+  AWS_REGION: ${AWS_REGION:-us-east-1}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+  AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+
+# ADR-12 deterministic modes, plus the embedding/vector settings S3 and H4
+# share. Model ids are never set here: they live only in ai/models/tiers.yaml
+# (EMBEDDING_MODEL empty = take it from tiers.yaml).
+x-vector-env: &vector-env
+  VECTOR_BACKEND: ${VECTOR_BACKEND:-memory}
+  S3_VECTORS_BUCKET: ${S3_VECTORS_BUCKET:-fcrm-vectors}
+  S3_VECTORS_REGION: ${S3_VECTORS_REGION:-us-east-1}
+  EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-dummy}
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
+  EMBEDDING_DIMENSION: "1024"
+
+# Base URLs include each service's APP_ROOT_PATH (the gateway strips
+# nothing, so neither do service-to-service clients).
+x-service-urls: &service-urls
+  CASE_SERVICE_URL: http://case:8001/api/fcrm
+  SCORING_SERVICE_URL: http://scoring:8002/api/fcrm/scoring
+  POLICY_SERVICE_URL: http://policy:8003/api/fcrm/policy
+  AUDIT_SERVICE_URL: http://audit:8004/api/fcrm/audit
+  DECISION_SERVICE_URL: http://decision:8005/api/fcrm/decision
+
+x-service: &service
+  restart: unless-stopped
+  stop_grace_period: 30s
+  init: true
+
+x-worker: &worker
+  restart: unless-stopped
+  stop_grace_period: 70s
+  init: true
+
+# Health probes use the image's own Python stdlib, so they do not depend on
+# any package being importable. A non-2xx (/readyz returns 503 on `fail`)
+# raises and exits non-zero.
+x-health-timing: &health-timing
+  interval: 10s
+  timeout: 5s
+  retries: 12
+  start_period: 30s
+
+services:
+  # ── D1 MongoDB 8 (single-node replica set rs0) ─────────────────────────
+  mongo:
+    image: mongo:8.0
+    restart: unless-stopped
+    entrypoint: ["bash", "/opt/fcrm/entrypoint.sh"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:?set MONGO_INITDB_ROOT_USERNAME in .env}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?set MONGO_INITDB_ROOT_PASSWORD in .env}
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${MONGO_HOST_PORT:-27017}:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./ops/mongo/entrypoint.sh:/opt/fcrm/entrypoint.sh:ro
+    # rs.status().ok once 01-replset.js has run; before that (first boot,
+    # replica set not yet initiated) a ping, so mongo-init can start: it is
+    # mongo-init that initiates the set.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          mongosh --quiet --norc
+          --username "$$MONGO_INITDB_ROOT_USERNAME" --password "$$MONGO_INITDB_ROOT_PASSWORD"
+          --authenticationDatabase admin
+          --eval "let ok = 0; try { ok = rs.status().ok } catch (e) { ok = e.codeName === 'NotYetInitialized' ? db.adminCommand({ ping: 1 }).ok : 0 } quit(ok === 1 ? 0 : 1)"
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 20s
+
+  # One-shot: replica set, users (insert-only audit writer), validators, indexes.
+  mongo-init:
+    image: mongo:8.0
+    restart: "no"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    entrypoint: ["bash", "/init/run.sh"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:?set MONGO_INITDB_ROOT_USERNAME in .env}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?set MONGO_INITDB_ROOT_PASSWORD in .env}
+      MONGO_AUDIT_WRITER_PASSWORD: ${MONGO_AUDIT_WRITER_PASSWORD:?set MONGO_AUDIT_WRITER_PASSWORD in .env}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?set MONGO_APP_PASSWORD in .env}
+    volumes:
+      - ./ops/mongo/init:/init:ro
+
+  # ── X3 RabbitMQ 4 (definitions imported at boot) ───────────────────────
+  rabbitmq:
+    image: rabbitmq:4.0-management
+    hostname: rabbitmq          # stable node name, so the data volume survives recreation
+    restart: unless-stopped
+    # Adds the .env user to a runtime copy of definitions.json (see the script).
+    entrypoint: ["bash", "/opt/fcrm/entrypoint.sh"]
+    command: ["rabbitmq-server"]
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:?set RABBITMQ_DEFAULT_USER in .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?set RABBITMQ_DEFAULT_PASS in .env}
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${RABBITMQ_HOST_PORT:-5672}:5672"
+      - "${BIND_ADDRESS:-127.0.0.1}:${RABBITMQ_MGMT_HOST_PORT:-15672}:15672"
+    volumes:
+      - rabbit_data:/var/lib/rabbitmq
+      - ./ops/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./ops/rabbitmq/20-fcrm.conf:/etc/rabbitmq/conf.d/20-fcrm.conf:ro
+      - ./ops/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./ops/rabbitmq/entrypoint.sh:/opt/fcrm/entrypoint.sh:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+
+  # ── X7 Redis 7.4 (cache only: no persistence, LRU) ─────────────────────
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${REDIS_HOST_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # ── D2 MinIO (S3 API) ──────────────────────────────────────────────────
+  # The upstream minio/minio and quay.io/minio images are no longer
+  # pullable anonymously; MINIO_IMAGE defaults to the pinned Bitnami build
+  # (MinIO server + mc in one image). Its own entrypoint is bypassed so the
+  # standard `minio server` command applies.
+  minio:
+    image: ${MINIO_IMAGE:-bitnamilegacy/minio:2025.7.23}
+    restart: unless-stopped
+    entrypoint: ["minio"]
+    command: ["server", "/bitnami/minio/data", "--address", ":9000", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+      MC_HOST_local: http://localhost:9000
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${MINIO_HOST_PORT:-9000}:9000"
+      - "${BIND_ADDRESS:-127.0.0.1}:${MINIO_CONSOLE_HOST_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/bitnami/minio/data
+    healthcheck:
+      test: ["CMD", "mc", "--config-dir", "/tmp/.mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  # One-shot: buckets uploads canonical packs vectors jobs; versioning on packs.
+  minio-init:
+    image: ${MINIO_IMAGE:-bitnamilegacy/minio:2025.7.23}
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ["bash", "/init/init.sh"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+    volumes:
+      - ./ops/minio/init.sh:/init/init.sh:ro
+
+  # ── X2 OPA (route authz + agent tool permits) ──────────────────────────
+  # The -debug variant only adds busybox, which the healthcheck needs
+  # (the static image has no HTTP client).
+  opa:
+    image: openpolicyagent/opa:1.15.2-debug
+    restart: unless-stopped
+    command:
+      - run
+      - --server
+      - --addr=0.0.0.0:8181
+      - --log-level=info
+      - --log-format=json
+      - --set=decision_logs.console=true
+      - /policy
+      - /data
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${OPA_HOST_PORT:-8181}:8181"
+    volumes:
+      - ./ops/opa/policy:/policy:ro
+      - ./ops/opa/data:/data:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8181/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # ── X1 identity ────────────────────────────────────────────────────────
+  identity:
+    <<: *service
+    build:
+      context: .
+      dockerfile: src/services/identity/Dockerfile
+    image: trustops/identity:local
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *app-env
+      OTEL_SERVICE_NAME: identity
+      OTEL_RESOURCE_ATTRIBUTES: component.id=X1,service.namespace=trustops
+      APP_ROOT_PATH: /api/fcrm/auth
+      MONGODB_DB: fcrm_identity
+      PORT: "8000"
+      JWT_KEY_FILE: /keys/jwt.pem
+      JWT_ACCESS_TTL_S: "900"
+      JWT_REFRESH_TTL_S: "28800"
+      JWT_ISSUER: fcrm-identity
+      JWT_AUDIENCE: fcrm
+      REFRESH_COOKIE_NAME: fcrm_refresh
+      DEMO_USERS_PASSWORD_HASH: ${DEMO_USERS_PASSWORD_HASH:-}
+      LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-10/minute}
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${IDENTITY_HOST_PORT:-8000}:8000"
+    volumes:
+      - ./jwt_keys:/keys:ro          # `make keys` writes jwt.pem / jwt.pub.pem
+    healthcheck:
+      <<: *health-timing
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/fcrm/auth/readyz', timeout=4).status == 200 else 1)"]
+
+  # ── S2 scoring (no bus dependency) ─────────────────────────────────────
+  scoring:
+    <<: *service
+    build:
+      context: .
+      dockerfile: src/services/scoring/Dockerfile
+    image: trustops/scoring:local
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+      identity:
+        condition: service_healthy
+      opa:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+      OTEL_SERVICE_NAME: scoring
+      OTEL_RESOURCE_ATTRIBUTES: component.id=S2,service.namespace=trustops
+      APP_ROOT_PATH: /api/fcrm/scoring
+      MONGODB_DB: fcrm_scoring
+      PORT: "8002"
+      SEED_RECOMPUTE_ON_START: ${SEED_RECOMPUTE_ON_START:-true}
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${SCORING_HOST_PORT:-8002}:8002"
+    healthcheck:
+      <<: *health-timing
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8002/api/fcrm/scoring/readyz', timeout=4).status == 200 else 1)"]
+
+  # ── S4 audit (insert-only DB user; no bus dependency) ──────────────────
+  audit:
+    <<: *service
+    build:
+      context: .
+      dockerfile: src/services/audit/Dockerfile
+    image: trustops/audit:local
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+      identity:
+        condition: service_healthy
+      opa:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+      OTEL_SERVICE_NAME: audit
+      OTEL_RESOURCE_ATTRIBUTES: component.id=S4,service.namespace=trustops
+      APP_ROOT_PATH: /api/fcrm/audit
+      MONGODB_DB: fcrm_audit
+      PORT: "8004"
+      # S4 holds ONLY the insert-only credential: MONGODB_URI is overridden
+      # with it too, so no code path in S4 can reach a read-write user.
+      MONGODB_URI: mongodb://fcrm_audit_writer:${MONGO_AUDIT_WRITER_PASSWORD:?set MONGO_AUDIT_WRITER_PASSWORD in .env}@mongo:27017/fcrm_audit?replicaSet=rs0&authSource=admin
+      MONGODB_URI_AUDIT_WRITER: mongodb://fcrm_audit_writer:${MONGO_AUDIT_WRITER_PASSWORD:?set MONGO_AUDIT_WRITER_PASSWORD in .env}@mongo:27017/fcrm_audit?replicaSet=rs0&authSource=admin
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${AUDIT_HOST_PORT:-8004}:8004"
+    healthcheck:
+      <<: *health-timing
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8004/api/fcrm/audit/readyz', timeout=4).status == 200 else 1)"]
+
+  # ── S1 case ────────────────────────────────────────────────────────────
+  case:
+    <<: *service
+    build:
+      context: .
+      dockerfile: src/services/case/Dockerfile
+    image: trustops/case:local
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      identity:
+        condition: service_healthy
+      opa:
+        condition: service_healthy
+    environment:
+      <<: [*app-env, *s3-env]
+      OTEL_SERVICE_NAME: case
+      OTEL_RESOURCE_ATTRIBUTES: component.id=S1,service.namespace=trustops
+      APP_ROOT_PATH: /api/fcrm
+      MONGODB_DB: fcrm_case
+      PORT: "8001"
+      UPLOAD_MAX_BYTES: "52428800"
+      UPLOAD_ALLOWED_EXTENSIONS: .pdf,.docx,.xlsx,.pptx,.csv,.md,.txt
+      SSE_HEARTBEAT_S: "15"
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${CASE_HOST_PORT:-8001}:8001"
+    healthcheck:
+      <<: *health-timing
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/api/fcrm/readyz', timeout=4).status == 200 else 1)"]
+
+  # ── S3 policy ──────────────────────────────────────────────────────────
+  policy:
+    <<: *service
+    build:
+      context: .
+      dockerfile: src/services/policy/Dockerfile
+    image: trustops/policy:local
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      identity:
+        condition: service_healthy
+      opa:
+        condition: service_healthy
+    environment:
+      <<: [*app-env, *s3-env, *aws-env, *vector-env]
+      OTEL_SERVICE_NAME: policy
+      OTEL_RESOURCE_ATTRIBUTES: component.id=S3,service.namespace=trustops
+      APP_ROOT_PATH: /api/fcrm/policy
+      MONGODB_DB: fcrm_policy
+      PORT: "8003"
+      RRF_K: "60"
+      SEARCH_TOP_K_MAX: "30"
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${POLICY_HOST_PORT:-8003}:8003"
+    healthcheck:
+      <<: *health-timing
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8003/api/fcrm/policy/readyz', timeout=4).status == 200 else 1)"]
+
+  # ── S5 decision ────────────────────────────────────────────────────────
+  decision:
+    <<: *service
+    build:
+      context: .
+      dockerfile: src/services/decision/Dockerfile
+    image: trustops/decision:local
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      identity:
+        condition: service_healthy
+      opa:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+      OTEL_SERVICE_NAME: decision
+      OTEL_RESOURCE_ATTRIBUTES: component.id=S5,service.namespace=trustops
+      APP_ROOT_PATH: /api/fcrm/decision
+      MONGODB_DB: fcrm_decision
+      PORT: "8005"
+      COMMITTEE_QUORUM: "3"
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${DECISION_HOST_PORT:-8005}:8005"
+    healthcheck:
+      <<: *health-timing
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8005/api/fcrm/decision/readyz', timeout=4).status == 200 else 1)"]
+
+  # ── H1 Caseflow ────────────────────────────────────────────────────────
+  caseflow:
+    <<: *worker
+    build:
+      context: .
+      dockerfile: src/workers/caseflow/Dockerfile
+    image: trustops/caseflow:local
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      case:
+        condition: service_healthy
+      scoring:
+        condition: service_healthy
+      policy:
+        condition: service_healthy
+      audit:
+        condition: service_healthy
+      decision:
+        condition: service_healthy
+    environment:
+      <<: [*app-env, *service-urls]
+      OTEL_SERVICE_NAME: caseflow
+      OTEL_RESOURCE_ATTRIBUTES: component.id=H1,service.namespace=trustops
+      MONGODB_DB: fcrm_harness
+      PORT: "9100"
+      CASE_CAP_TOKENS: "120000"
+      TIERS_FILE: /app/ai/models/tiers.yaml
+      LEASE_REAPER_INTERVAL_S: "30"
+      OUTBOX_RELAY_INTERVAL_MS: "200"
+      PREFETCH: "16"
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${CASEFLOW_HEALTH_HOST_PORT:-9100}:9100"
+    volumes:
+      - ./ai:/app/ai:ro
+    healthcheck:
+      <<: *health-timing
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:9100/readyz', timeout=4).status == 200 else 1)"]
+
+  # ── H2 agent-worker ×2 ─────────────────────────────────────────────────
+  # Two replicas, so the health port is not published to the host (two
+  # containers cannot bind one host port); each replica is probed inside.
+  agent-worker:
+    <<: *worker
+    build:
+      context: .
+      dockerfile: src/workers/agent-worker/Dockerfile
+    image: trustops/agent-worker:local
+    deploy:
+      replicas: 2
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      opa:
+        condition: service_healthy
+      policy:
+        condition: service_healthy
+      audit:
+        condition: service_healthy
+      case:
+        condition: service_healthy
+      scoring:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      <<: [*app-env, *service-urls, *s3-env, *aws-env]
+      OTEL_SERVICE_NAME: agent-worker
+      OTEL_RESOURCE_ATTRIBUTES: component.id=H2,service.namespace=trustops
+      MONGODB_DB: fcrm_harness
+      PORT: "9101"
+      FCRM_LLM_MODE: ${FCRM_LLM_MODE:-replay}
+      FCRM_REPLAY_DIR: /app/evals/fixtures/replay
+      BEDROCK_REGION_FALLBACK: ${BEDROCK_REGION_FALLBACK:-us-west-2}
+      TIERS_FILE: /app/ai/models/tiers.yaml
+      PROMPTS_DIR: /app/ai/prompts
+      AGENT_MAX_TOOL_CALLS: "12"
+      MODEL_CACHE_ENABLED: ${MODEL_CACHE_ENABLED:-false}
+      PREFETCH: "2"
+    expose:
+      - "9101"
+    volumes:
+      - ./ai:/app/ai:ro
+      - ./evals/fixtures:/app/evals/fixtures:ro
+    healthcheck:
+      <<: *health-timing
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:9101/readyz', timeout=4).status == 200 else 1)"]
+
+  # ── H3 ingestion-worker ────────────────────────────────────────────────
+  ingestion-worker:
+    <<: *worker
+    build:
+      context: .
+      dockerfile: src/workers/ingestion-worker/Dockerfile
+    image: trustops/ingestion-worker:local
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      <<: [*app-env, *s3-env]
+      OTEL_SERVICE_NAME: ingestion-worker
+      OTEL_RESOURCE_ATTRIBUTES: component.id=H3,service.namespace=trustops
+      MONGODB_DB: fcrm_harness
+      PORT: "9102"
+      PDF_ENGINE: pdfplumber
+      PDF_MIN_CHARS_PER_PAGE: ${PDF_MIN_CHARS_PER_PAGE:-}
+      UPLOADS_PER_FILE_TIMEOUT_SECONDS: "120"
+      GUARD1_ALLOWLIST_FILE: /app/ai/guards/thresholds.yaml
+      INJECTION_PATTERNS_FILE: /app/ai/guards/injection_patterns.txt
+      PREFETCH: "2"
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${INGESTION_HEALTH_HOST_PORT:-9102}:9102"
+    volumes:
+      - ./ai:/app/ai:ro
+    healthcheck:
+      <<: *health-timing
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:9102/readyz', timeout=4).status == 200 else 1)"]
+
+  # ── H4 context-worker ──────────────────────────────────────────────────
+  context-worker:
+    <<: *worker
+    build:
+      context: .
+      dockerfile: src/workers/context-worker/Dockerfile
+    image: trustops/context-worker:local
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+      policy:
+        condition: service_healthy
+    environment:
+      <<: [*app-env, *service-urls, *s3-env, *aws-env, *vector-env]
+      OTEL_SERVICE_NAME: context-worker
+      OTEL_RESOURCE_ATTRIBUTES: component.id=H4,service.namespace=trustops
+      MONGODB_DB: fcrm_harness
+      PORT: "9103"
+      CONTEXT_SYNTHESIS_ENABLED: "false"
+      PREFETCH: "4"
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${CONTEXT_HEALTH_HOST_PORT:-9103}:9103"
+    healthcheck:
+      <<: *health-timing
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:9103/readyz', timeout=4).status == 200 else 1)"]
+
+  # ── G1 gateway ─────────────────────────────────────────────────────────
+  gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      identity:
+        condition: service_healthy
+      case:
+        condition: service_healthy
+      scoring:
+        condition: service_healthy
+      policy:
+        condition: service_healthy
+      audit:
+        condition: service_healthy
+      decision:
+        condition: service_healthy
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${GATEWAY_HOST_PORT:-8080}:8080"
+    volumes:
+      - ./ops/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ops/nginx/snippets/proxy-common.conf:/etc/nginx/snippets/proxy-common.conf:ro
+      - ./ops/nginx/snippets/web-upstream.conf:/etc/nginx/snippets/web-upstream.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # ── W1 web (nginx-served static build of src/web) ──────────────────────
+  # Reached through the gateway at http://localhost:8080/. compose.dev.yaml
+  # swaps it for the vite dev server on 5173.
+  web:
+    build:
+      context: .
+      dockerfile: src/web/Dockerfile
+    image: trustops/web:local
+    restart: unless-stopped
+    depends_on:
+      gateway:
+        condition: service_healthy
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:80/"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  mongo_data:
+  rabbit_data:
+  minio_data:
