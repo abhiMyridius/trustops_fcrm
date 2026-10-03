@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "react",
+    "typescript",
+    "jsx-a11y",
+    "import"
+  ],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "no-console": [
+      "warn",
+      {
+        "allow": [
+          "warn",
+          "error",
+          "info"
+        ]
+      }
+    ],
+    "typescript/no-explicit-any": "error",
+    "import/no-unassigned-import": "off",
+    "react/no-unstable-nested-components": "off",
+    "jsx-a11y/prefer-tag-over-role": "off"
+  },
+  "ignorePatterns": [
+    "src/api/generated/**",
+    "public/mockServiceWorker.js",
+    "dist/**"
+  ]
+}
