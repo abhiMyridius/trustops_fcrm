@@ -1,0 +1,26 @@
+[project]
+name = "fcrm-identity-service"
+version = "0.1.0"
+description = "X1 identity-service: RS256/JWKS password login for the three seeded roles (PO, analyst, committee), POST /core/validate for nginx's auth_request, and the fixed clone of evoqidentityservice (design A §2.6, §8.1; CLAUDE.md's AEO-reuse table). See UPSTREAM.md."
+requires-python = ">=3.13"
+dependencies = [
+  "fcrm-contracts",
+  "fcrm-common",
+  "fcrm-seed",
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.34",
+  # Password hashing for the seeded demo users (bcrypt, matching the
+  # cloned service's own choice of algorithm); PyJWT[crypto] and
+  # `cryptography` (RSA key loading) already come in via fcrm-common.
+  "bcrypt>=4.2",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.25", "mypy>=1.14", "httpx>=0.28"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["fcrm_identity"]

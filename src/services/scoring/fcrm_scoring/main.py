@@ -18,7 +18,6 @@ from starlette.types import ASGIApp
 
 from fcrm_scoring.lifespan import __version__, lifespan
 from fcrm_scoring.routes import router
-from fcrm_scoring.settings import ScoringSettings
 
 
 def create_app() -> FastAPI:
@@ -43,9 +42,13 @@ def create_app() -> FastAPI:
 
 def create_asgi_app() -> ASGIApp:
     """What ``uvicorn fcrm_scoring.main:app`` actually serves: ``create_app()``
-    mounted under ``ScoringSettings.load().app_root_path`` (empty locally).
+    mounted under the ``APP_ROOT_PATH`` environment variable (empty locally).
+    Reads the bare environment, not ``ScoringSettings.load()``, so a plain
+    ``import fcrm_scoring.main`` never enforces Mongo/secret requirements
+    this ASGI-wiring step has no business checking (see
+    ``fcrm_common.asgi.mount_at_root_path``'s docstring).
     """
-    return mount_at_root_path(create_app(), ScoringSettings.load().app_root_path)
+    return mount_at_root_path(create_app())
 
 
 app = create_asgi_app()
