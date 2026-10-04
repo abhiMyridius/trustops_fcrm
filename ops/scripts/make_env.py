@@ -50,11 +50,16 @@ LOCAL_DEFAULTS = {
 ASSIGNMENT = re.compile(r"^([A-Z][A-Z0-9_]*)=(.*)$")
 
 
-def render(example: str) -> tuple[str, list[str]]:
+def render(
+    example: str, overrides: dict[str, str] | None = None
+) -> tuple[str, list[str]]:
     """Fill the example's assignments; return the text and generated names.
 
     Args:
         example: the contents of ``.env.example``.
+        overrides: values the caller computed (``--set NAME=VALUE``), e.g. the
+            bcrypt ``DEMO_USERS_PASSWORD_HASH`` the Makefile derives with the
+            project venv, since this script runs on the system interpreter.
 
     Returns:
         The rendered ``.env`` text and the names that received a value.
@@ -68,7 +73,12 @@ def render(example: str) -> tuple[str, list[str]]:
             continue
         name = match.group(1)
         value = ""
-        if name in SECRETS:
+        if overrides and name in overrides:
+            # docker compose interpolates ``$NAME`` inside .env values, so a
+            # literal dollar (bcrypt hashes start with ``$2b$12$``) must be
+            # written as ``$$`` or compose silently mangles the value.
+            value = overrides[name].replace("$", "$$")
+        elif name in SECRETS:
             value = secrets.token_hex(24)
         elif name in USERNAMES:
             value = USERNAMES[name]
@@ -86,12 +96,25 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--example", default=".env.example", type=Path)
     parser.add_argument("--out", default=".env", type=Path)
+    parser.add_argument(
+        "--set",
+        action="append",
+        default=[],
+        metavar="NAME=VALUE",
+        help="pre-computed value for one variable (repeatable)",
+    )
     args = parser.parse_args(argv)
+    overrides: dict[str, str] = {}
+    for item in args.set:
+        name, sep, value = item.partition("=")
+        if not sep or not ASSIGNMENT.match(f"{name}="):
+            parser.error(f"--set expects NAME=VALUE, got {item!r}")
+        overrides[name] = value
 
     if args.out.exists():
         logger.info("%s already exists; leaving it untouched", args.out)
         return 0
-    text, filled = render(args.example.read_text(encoding="utf-8"))
+    text, filled = render(args.example.read_text(encoding="utf-8"), overrides)
     fd = os.open(args.out, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as handle:
         handle.write(text)

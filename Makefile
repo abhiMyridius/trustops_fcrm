@@ -76,8 +76,12 @@ tools: ## install the pinned opa into ~/.local/bin if missing (uv is a prerequis
 		&& chmod +x $(HOME)/.local/bin/opa.tmp && mv $(HOME)/.local/bin/opa.tmp $(HOME)/.local/bin/opa \
 		&& echo "tools: installed opa $(OPA_VERSION) to ~/.local/bin"; fi
 
+DEMO_PASSWORD ?= demo-password-2026
 env: ## create .env from .env.example with generated local secrets (never overwrites)
-	@$(PYTHON) ops/scripts/make_env.py --example .env.example --out .env
+	@if [ -f .env ]; then echo ".env already exists; leaving it untouched"; else \
+		hash=$$($(UV_RUN) python -c 'import bcrypt,sys;print(bcrypt.hashpw(sys.argv[1].encode(),bcrypt.gensalt(12)).decode())' "$(DEMO_PASSWORD)") \
+		&& $(PYTHON) ops/scripts/make_env.py --example .env.example --out .env --set "DEMO_USERS_PASSWORD_HASH=$$hash" \
+		&& echo "env: seeded users log in with the demo password '$(DEMO_PASSWORD)' (override with DEMO_PASSWORD=...)"; fi
 
 keys: ## generate the dev RS256 JWT keypair into jwt_keys/ (FORCE=1 to rotate)
 	@if [ -f jwt_keys/jwt.pem ] && [ -z "$(FORCE)" ]; then echo "keys: jwt_keys/jwt.pem exists (FORCE=1 to rotate)"; else \

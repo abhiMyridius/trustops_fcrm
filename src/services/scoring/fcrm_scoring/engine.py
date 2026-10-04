@@ -18,6 +18,7 @@ DomainResult` are rounded only for display, exactly as the prototype's
 from __future__ import annotations
 
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Optional
 
 from fcrm_contracts.api.scoring import (
     BandDef,
@@ -124,7 +125,7 @@ def band_lookup(composite: Decimal, bands: list[BandDef]) -> BandDef:
 
 def boundary_flag(
     composite: Decimal, band: BandDef, bands: list[BandDef], flag_distance: Decimal
-) -> tuple[bool, Decimal | None]:
+) -> tuple[bool, Optional[Decimal]]:
     """ADR-13: a boundary flag fires when the composite is within
     ``flag_distance`` of the next band's lower edge, *or* of the edge just
     crossed (whichever is nearer) — this is what keeps the flag on at 10.4

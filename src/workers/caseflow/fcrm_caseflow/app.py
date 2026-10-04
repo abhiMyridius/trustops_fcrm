@@ -22,6 +22,7 @@ from faststream.asgi import AsgiFastStream
 from faststream.rabbit import RabbitBroker, RabbitMessage
 from fcrm_common.events import Consumer as EventConsumer
 from fcrm_common.health import (
+    ReadinessCheck,
     ReadinessProbe,
     amqp_check,
     build_health_asgi_app,
@@ -174,11 +175,27 @@ def build_app(settings: Optional[CaseflowSettings] = None) -> AsgiFastStream:
     stop_event = asyncio.Event()
     relay_task: list[asyncio.Task[None]] = []
 
+    indexes_ready: list[bool] = []
+
     async def _ensure_indexes() -> None:
-        await runs_store.ensure_indexes()
-        await gate_store.ensure_indexes()
-        await outbox.ensure_indexes()
-        await case_events_consumer.ensure_indexes()
+        # FastStream logs an after_startup exception and keeps running, so a
+        # failure here must flip readiness itself (D-24: on the first
+        # composed boot an IndexOptionsConflict was swallowed while /readyz
+        # kept answering 200).
+        try:
+            await runs_store.ensure_indexes()
+            await gate_store.ensure_indexes()
+            await outbox.ensure_indexes()
+            await case_events_consumer.ensure_indexes()
+        except Exception:
+            logger.exception("index creation failed; readiness stays false")
+            raise
+        indexes_ready.append(True)
+
+    async def _indexes_check() -> None:
+        if not indexes_ready:
+            msg = "indexes not created yet or index creation failed"
+            raise RuntimeError(msg)
 
     async def _start_relay() -> None:
         relay_task.append(asyncio.create_task(relay.run(stop_event)))
@@ -189,7 +206,11 @@ def build_app(settings: Optional[CaseflowSettings] = None) -> AsgiFastStream:
             await relay_task[0]
 
     probe = ReadinessProbe(
-        [mongo_check(mongo_client), amqp_check(configured.rabbitmq_url)]
+        [
+            mongo_check(mongo_client),
+            amqp_check(configured.rabbitmq_url),
+            ReadinessCheck("indexes", _indexes_check, critical=True),
+        ]
     )
     health_app = build_health_asgi_app(probe)
     return AsgiFastStream(
