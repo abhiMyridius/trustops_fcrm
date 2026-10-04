@@ -4,12 +4,12 @@
 #
 #   docker build -f src/services/policy/Dockerfile -t trustops/policy:local .
 #
-# NOTE (as of this build): fcrm_policy has no fcrm_policy/main.py yet (only
-# fcrm_policy.search.rrf's pure rank-fusion logic has landed — no FastAPI/
-# uvicorn dependency in pyproject.toml either). The image below builds and
-# installs cleanly; `uvicorn fcrm_policy.main:app` will fail at container
-# start until S3's HTTP layer lands, matching the pattern every other
-# service in this repo already uses (`fcrm_scoring.main:app`).
+# fcrm_policy.main:app (the S3 HTTP layer) is mounted under APP_ROOT_PATH via
+# fcrm_common.asgi.mount_at_root_path, as every service here does (D-13). The
+# image carries fcrm-context-worker (H4's engine) as a library dependency, base
+# install only: the aioboto3 `s3vectors` extra is not installed, so the image
+# serves VECTOR_BACKEND=memory (the compose default); see
+# src/services/policy/fcrm_policy/search/vector.py for why and what follows.
 #
 # Multi-stage: `builder` resolves and installs the workspace with uv into a
 # venv that is `--no-editable` (built wheels, not path installs), so the

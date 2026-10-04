@@ -15,6 +15,9 @@ fcrm-audit-service = { workspace = true }
 fcrm-caseflow    = { workspace = true }
 fcrm-evals       = { workspace = true }
 fcrm-policy-service = { workspace = true }
+# fcrm-policy-service (S3) imports fcrm-context-worker (H4) as a library
+# (fcrm_policy/search/vector.py docstring explains why).
+fcrm-context-worker = { workspace = true }
 
 [tool.uv]
 package = false
