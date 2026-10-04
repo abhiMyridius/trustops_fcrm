@@ -109,6 +109,67 @@ class CreateDraftCaseResponse(BaseModel):
     case_id: str
 
 
+class CreateCaseRequest(BaseModel):
+    """The PO's initial draft: a title, the owning unit, the owner's user
+    id and the change types confirmed so far. ``change_types`` resolves the
+    required-fields list at creation time (``resolve_required_fields``,
+    pinned to the active field-set version) -- it is never recomputed
+    implicitly later; a later change goes through ``ConfirmCategoriesRequest``
+    (not yet wired to a route in this pass).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str
+    unit: str
+    owner: str
+    change_types: list[ChangeType]
+
+
+class CompletionState(BaseModel):
+    """The one completion shape every role reads (``fcrm_case.domain.
+    completion.compute_completion``'s output, mapped at the HTTP boundary
+    so the wire shape lives here, not in the service's own domain module).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    required_count: int
+    filled_count: int
+    pct: float
+    threshold_pct: float
+    missing_always_required: list[str]
+    all_always_required_filled: bool
+
+
+class WriteFieldValueRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    value: Optional[str] = None
+    # "extracted" | "reused" | "answered" | "owner_corrected"
+    how: str = "owner_corrected"
+    source: Optional[str] = None
+
+
+class WriteFieldValueResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    field_id: str
+    completion: CompletionState
+
+
+class SubmitCaseRequest(BaseModel):
+    """``owner_reviewed_corrections`` is the one input the review-and-submit
+    screen contributes directly; ``no_open_blocking_gaps`` is computed
+    server-side from the case's own clarification threads (design A §2.1).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    owner_reviewed_corrections: bool
+
+
 class UpdateCaseTitleRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

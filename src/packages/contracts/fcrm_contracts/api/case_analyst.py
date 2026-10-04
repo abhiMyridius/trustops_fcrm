@@ -9,8 +9,15 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from fcrm_contracts.api.case_po import (
+    ClarificationThreadPO,
+    CompletionState,
+    ConditionPO,
+    DocumentRefPO,
+    FieldValuePO,
+)
 from fcrm_contracts.api.scoring import ScoreResponse
-from fcrm_contracts.enums import ItemKind, ItemStatus
+from fcrm_contracts.enums import CaseState, ChangeType, ItemKind, ItemStatus
 
 
 class ReviewItem(BaseModel):
@@ -85,3 +92,50 @@ class AcknowledgeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     ack_type: str  # "boundary" | "band_change"
+
+
+class CaseListItemAnalyst(BaseModel):
+    """The analyst/committee queue row: carries the assignment, which
+    ``CaseListItemPO`` (case_po.py) never does.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    title: str
+    state: CaseState
+    change_types: list[ChangeType]
+    analyst_id: Optional[str] = None
+    created_at: datetime
+    submitted_at: Optional[datetime] = None
+    open_clarification_count: int = 0
+
+
+class CaseDetailAnalyst(BaseModel):
+    """The analyst-visible case detail: every field ``CaseDetailPO`` has,
+    plus the assignment, score and harness-facing data the PO shape must
+    never carry (rule 3). Built by ``fcrm_case.shaping``, never by widening
+    ``CaseDetailPO`` itself.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    title: str
+    state: CaseState
+    unit: str
+    owner: str
+    analyst_id: Optional[str] = None
+    change_types: list[ChangeType]
+    completion: CompletionState
+    fields: list[FieldValuePO]
+    documents: list[DocumentRefPO]
+    clarifications: list[ClarificationThreadPO]
+    conditions: list[ConditionPO]
+    score: Optional[ScoreResponse] = None
+    review_items: list[ReviewItem] = []
+    submission_versions: list[SubmissionVersion] = []
+    outcome_summary: Optional[str] = None
+    created_at: datetime
+    submitted_at: Optional[datetime] = None
+    decided_at: Optional[datetime] = None

@@ -1111,26 +1111,38 @@ name = "fcrm-case-service"
 version = "0.1.0"
 source = { editable = "services/case" }
 dependencies = [
+    { name = "fastapi" },
+    { name = "fcrm-common" },
     { name = "fcrm-contracts" },
+    { name = "fcrm-seed" },
+    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.dev-dependencies]
 dev = [
-    { name = "fcrm-seed" },
+    { name = "httpx" },
     { name = "hypothesis" },
     { name = "mypy" },
     { name = "pytest" },
+    { name = "pytest-asyncio" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "fcrm-contracts", editable = "packages/contracts" }]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "fcrm-common", editable = "packages/common" },
+    { name = "fcrm-contracts", editable = "packages/contracts" },
+    { name = "fcrm-seed", editable = "packages/seed" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.34" },
+]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "fcrm-seed", editable = "packages/seed" },
+    { name = "httpx", specifier = ">=0.28" },
     { name = "hypothesis", specifier = ">=6.123" },
     { name = "mypy", specifier = ">=1.14" },
     { name = "pytest", specifier = ">=8.3" },
+    { name = "pytest-asyncio", specifier = ">=0.25" },
 ]
 
 [[package]]

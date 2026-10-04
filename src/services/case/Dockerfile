@@ -4,12 +4,13 @@
 #
 #   docker build -f src/services/case/Dockerfile -t trustops/case:local .
 #
-# NOTE (as of this build): fcrm_case has no fcrm_case/main.py yet (only
-# fcrm_case.domain's pure business logic has landed — see fcrm_case/, no
-# FastAPI/uvicorn dependency in pyproject.toml either). The image below
-# builds and installs cleanly; `uvicorn fcrm_case.main:app` will fail at
-# container start until S1's HTTP layer lands, matching the pattern every
-# other service in this repo already uses (`fcrm_scoring.main:app`).
+# `uvicorn fcrm_case.main:app` serves fcrm_case.routes under APP_ROOT_PATH
+# (/api/fcrm in compose, so the healthcheck below hits /api/fcrm/readyz); it
+# needs MONGODB_URI (a replica set: create/submit write the case and its
+# outbox row in one transaction), SERVICE_TOKEN_SECRET, OPA_URL and one of
+# IDENTITY_JWKS_URL / IDENTITY_VALIDATE_URL, and exits at startup naming every
+# missing variable (fcrm_common.settings.MissingSettingsError) rather than
+# serving traffic half-configured.
 #
 # Multi-stage: `builder` resolves and installs the workspace with uv into a
 # venv that is `--no-editable` (built wheels, not path installs), so the
