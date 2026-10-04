@@ -4,12 +4,10 @@
 #
 #   docker build -f src/services/audit/Dockerfile -t trustops/audit:local .
 #
-# NOTE (as of this build): fcrm_audit has no fcrm_audit/main.py yet (only
-# fcrm_audit.chain's pure, I/O-free hash-chain core has landed — no
-# FastAPI/uvicorn dependency in pyproject.toml either). The image below
-# builds and installs cleanly; `uvicorn fcrm_audit.main:app` will fail at
-# container start until S4's HTTP layer lands, matching the pattern every
-# other service in this repo already uses (`fcrm_scoring.main:app`).
+# S4's HTTP layer (fcrm_audit.main:app) now exists. Run standalone it gets
+# past import and settings, then fails cleanly at startup when MONGODB_URI
+# is unreachable; against the compose Mongo it must connect as the
+# insert-only `fcrm_audit_writer` (see fcrm_audit/lifespan.py's self-tests).
 #
 # Multi-stage: `builder` resolves and installs the workspace with uv into a
 # venv that is `--no-editable` (built wheels, not path installs), so the

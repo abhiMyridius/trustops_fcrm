@@ -5,14 +5,17 @@ description = "S4 audit-service: the evidence ledger (proposals) and the hash-ch
 requires-python = ">=3.13"
 dependencies = [
   "fcrm-contracts",
+  "fcrm-common",
+  "fcrm-seed",
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.34",
 ]
-# fcrm-common, fastapi, uvicorn and the Mongo repository wiring are added
-# once fcrm_common lands; the hash-chain core has no I/O dependency at all.
+# fcrm-seed is a hard dependency now (not test-only): the live service seeds
+# the demo case's 67-record chain on an empty collection at startup
+# (lifespan.py, load_if_empty) and replays it for the chain-verify self-test.
 
 [dependency-groups]
-# fcrm-seed is test-only here (see fcrm_audit/seedmodel.py's docstring): the
-# live service never seeds the demo case's audit trail, only tests replay it.
-dev = ["pytest>=8.3", "mypy>=1.14", "hypothesis>=6.123", "fcrm-seed"]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.25", "mypy>=1.14", "hypothesis>=6.123", "httpx>=0.28"]
 
 [build-system]
 requires = ["hatchling"]
