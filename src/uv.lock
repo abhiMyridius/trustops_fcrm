@@ -41,8 +41,8 @@ name = "aio-pika"
 version = "9.6.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "aiormq", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
-    { name = "yarl", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "aiormq" },
+    { name = "yarl" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/96/63/56354526f2e6e915c93bee6e4dedb35888fe82d6bc1a19f35f5a77e795ff/aio_pika-9.6.2.tar.gz", hash = "sha256:c49e9246080dc8ffa1bb0e4aca407bf3d8ad78c3ee3a93df88b68fe65d7a49b9", size = 70851, upload-time = "2026-03-22T19:03:20.878Z" }
 wheels = [
@@ -198,8 +198,8 @@ name = "aiormq"
 version = "6.9.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pamqp", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
-    { name = "yarl", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "pamqp" },
+    { name = "yarl" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6c/0e/db90154d52d399108903fe603e5110a533c42065180265dd003788264080/aiormq-6.9.4.tar.gz", hash = "sha256:0e7c01b662804e1cc7ace9a17794e8c1192a27fc2afa96162362a6e61ae8e8ef", size = 49232, upload-time = "2026-03-23T09:18:19.493Z" }
 wheels = [
@@ -908,8 +908,8 @@ name = "fast-depends"
 version = "3.0.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "anyio", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
-    { name = "typing-extensions", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "anyio" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/4d/8e/0da74a68d1fab3370962802bde8726fbd9248d8156f9cf98f3562e654cc3/fast_depends-3.0.9.tar.gz", hash = "sha256:c31c3985d0196ea4998da9f5913a76ede75cc4484d89eeafcea1a6bd64fbca82", size = 18437, upload-time = "2026-09-19T12:37:28.181Z" }
 wheels = [
@@ -918,7 +918,7 @@ wheels = [
 
 [package.optional-dependencies]
 pydantic = [
-    { name = "pydantic", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "pydantic" },
 ]
 
 [[package]]
@@ -943,9 +943,9 @@ name = "faststream"
 version = "0.6.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "anyio", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
-    { name = "fast-depends", extra = ["pydantic"], marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
-    { name = "typing-extensions", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "anyio" },
+    { name = "fast-depends", extra = ["pydantic"] },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/19/7b/d02c069be0bc671b2eb8f805a1f824d2bfbe1852c9c3f4ad719a7ad3710b/faststream-0.6.7.tar.gz", hash = "sha256:c732eaf861c4cbddd9c7f9098608486a9f05dff67a72335686c3044039045346", size = 306185, upload-time = "2026-03-01T08:20:27.71Z" }
 wheels = [
@@ -954,7 +954,7 @@ wheels = [
 
 [package.optional-dependencies]
 rabbit = [
-    { name = "aio-pika", marker = "(extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra != 'project-11-fcrm-agents' and extra == 'project-17-fcrm-agent-worker') or (extra != 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "aio-pika" },
 ]
 
 [[package]]
@@ -1126,7 +1126,11 @@ name = "fcrm-caseflow"
 version = "0.1.0"
 source = { editable = "workers/caseflow" }
 dependencies = [
+    { name = "faststream", extra = ["rabbit"] },
+    { name = "fcrm-common" },
     { name = "fcrm-contracts" },
+    { name = "fcrm-guardrails" },
+    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.dev-dependencies]
@@ -1134,16 +1138,24 @@ dev = [
     { name = "hypothesis" },
     { name = "mypy" },
     { name = "pytest" },
+    { name = "pytest-asyncio" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "fcrm-contracts", editable = "packages/contracts" }]
+requires-dist = [
+    { name = "faststream", extras = ["rabbit"], specifier = "==0.6.7" },
+    { name = "fcrm-common", editable = "packages/common" },
+    { name = "fcrm-contracts", editable = "packages/contracts" },
+    { name = "fcrm-guardrails", editable = "packages/guardrails" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.34" },
+]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "hypothesis", specifier = ">=6.123" },
     { name = "mypy", specifier = ">=1.14" },
     { name = "pytest", specifier = ">=8.3" },
+    { name = "pytest-asyncio", specifier = ">=0.25" },
 ]
 
 [[package]]

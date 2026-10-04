@@ -5,13 +5,19 @@ description = "H1 Caseflow: the case-lifecycle state machine. Original code, no 
 requires-python = ">=3.13"
 dependencies = [
   "fcrm-contracts",
+  "fcrm-common",
+  "fcrm-guardrails",
+  "faststream[rabbit]==0.6.7",
+  "uvicorn[standard]>=0.34",
 ]
-# fcrm-common (Mongo/outbox/events), FastStream, and the HTTP clients to
-# S1-S5 are added once fcrm_common lands; the state machine's transition
-# logic is pure and fully testable without them.
+# The pure fcrm_caseflow.states/.transitions/.triggers/.routing/.eventstore
+# modules still have zero I/O dependencies; fcrm-common (Mongo/outbox/
+# events), fcrm-guardrails (human_gate) and FastStream are only imported by
+# the real runtime added alongside them (store.py, gates.py, engine.py,
+# consumers.py, app.py).
 
 [dependency-groups]
-dev = ["pytest>=8.3", "mypy>=1.14", "hypothesis>=6.123"]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.25", "mypy>=1.14", "hypothesis>=6.123"]
 
 [build-system]
 requires = ["hatchling"]
