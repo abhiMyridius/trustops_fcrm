@@ -20,6 +20,14 @@
 #
 # Host ports bind to ${BIND_ADDRESS:-127.0.0.1} and every one can be moved
 # with a *_HOST_PORT variable (the defaults are ADR-20's numbers).
+#
+# The API services (identity, case, scoring, policy, audit, decision) are
+# NOT published to the host: only `expose:`d on the compose network, where
+# the gateway (G1) and the workers reach them. Every request from outside
+# goes through the gateway on ${GATEWAY_HOST_PORT:-8080}, so there is no
+# path that bypasses the gateway's auth_request -- and each service also
+# verifies the bearer token and asks OPA itself (fcrm_common.auth/authz),
+# so a container-network caller gets the same 401/403 (D-23 follow-up).
 
 name: trustops
 
@@ -275,8 +283,8 @@ services:
       REFRESH_COOKIE_NAME: fcrm_refresh
       DEMO_USERS_PASSWORD_HASH: ${DEMO_USERS_PASSWORD_HASH:-}
       LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-10/minute}
-    ports:
-      - "${BIND_ADDRESS:-127.0.0.1}:${IDENTITY_HOST_PORT:-8000}:8000"
+    expose:
+      - "8000"
     volumes:
       - ./jwt_keys:/keys:ro          # `make keys` writes jwt.pem / jwt.pub.pem
     healthcheck:
@@ -305,8 +313,8 @@ services:
       MONGODB_DB: fcrm_scoring
       PORT: "8002"
       SEED_RECOMPUTE_ON_START: ${SEED_RECOMPUTE_ON_START:-true}
-    ports:
-      - "${BIND_ADDRESS:-127.0.0.1}:${SCORING_HOST_PORT:-8002}:8002"
+    expose:
+      - "8002"
     healthcheck:
       <<: *health-timing
       test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8002/api/fcrm/scoring/readyz', timeout=4).status == 200 else 1)"]
@@ -336,8 +344,8 @@ services:
       # with it too, so no code path in S4 can reach a read-write user.
       MONGODB_URI: mongodb://fcrm_audit_writer:${MONGO_AUDIT_WRITER_PASSWORD:?set MONGO_AUDIT_WRITER_PASSWORD in .env}@mongo:27017/fcrm_audit?replicaSet=rs0&authSource=admin
       MONGODB_URI_AUDIT_WRITER: mongodb://fcrm_audit_writer:${MONGO_AUDIT_WRITER_PASSWORD:?set MONGO_AUDIT_WRITER_PASSWORD in .env}@mongo:27017/fcrm_audit?replicaSet=rs0&authSource=admin
-    ports:
-      - "${BIND_ADDRESS:-127.0.0.1}:${AUDIT_HOST_PORT:-8004}:8004"
+    expose:
+      - "8004"
     healthcheck:
       <<: *health-timing
       test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8004/api/fcrm/audit/readyz', timeout=4).status == 200 else 1)"]
@@ -372,8 +380,8 @@ services:
       UPLOAD_MAX_BYTES: "52428800"
       UPLOAD_ALLOWED_EXTENSIONS: .pdf,.docx,.xlsx,.pptx,.csv,.md,.txt
       SSE_HEARTBEAT_S: "15"
-    ports:
-      - "${BIND_ADDRESS:-127.0.0.1}:${CASE_HOST_PORT:-8001}:8001"
+    expose:
+      - "8001"
     healthcheck:
       <<: *health-timing
       test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/api/fcrm/readyz', timeout=4).status == 200 else 1)"]
@@ -405,8 +413,8 @@ services:
       PORT: "8003"
       RRF_K: "60"
       SEARCH_TOP_K_MAX: "30"
-    ports:
-      - "${BIND_ADDRESS:-127.0.0.1}:${POLICY_HOST_PORT:-8003}:8003"
+    expose:
+      - "8003"
     healthcheck:
       <<: *health-timing
       test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8003/api/fcrm/policy/readyz', timeout=4).status == 200 else 1)"]
@@ -435,8 +443,8 @@ services:
       MONGODB_DB: fcrm_decision
       PORT: "8005"
       COMMITTEE_QUORUM: "3"
-    ports:
-      - "${BIND_ADDRESS:-127.0.0.1}:${DECISION_HOST_PORT:-8005}:8005"
+    expose:
+      - "8005"
     healthcheck:
       <<: *health-timing
       test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8005/api/fcrm/decision/readyz', timeout=4).status == 200 else 1)"]

@@ -13,11 +13,11 @@ this and asserted as they actually are rather than as the table words them:
 - The table says each member sees "own choice only" before quorum. S5 is
   stricter and the route docstring says so on purpose: before quorum *no*
   response carries any vote content, not even the caller's own vote read
-  back. S5 also has no caller identity on these routes (route
-  authorisation is OPA's job at the gateway), so a per-member view could
-  not exist here anyway. What is asserted: before the third vote, every
-  response is a bare count and nothing identifying an option, a member or a
-  rationale appears anywhere in it.
+  back. (S5 now does know the caller -- ``member_id`` is bound to the
+  verified principal, D-23 -- but still chooses not to echo a vote back.)
+  What is asserted: before the third vote, every response is a bare count
+  and nothing identifying an option, a member or a rationale appears
+  anywhere in it.
 - "S5 DB has no reveal" cannot be checked over HTTP: the store is not
   reachable from a black-box client. The closest HTTP-observable proof is
   asserted instead -- no outcome exists (``GET .../outcome`` is 409) until
@@ -31,6 +31,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from fcrm_contracts.enums import Role
 
 pytestmark = pytest.mark.integration
 
@@ -188,9 +189,11 @@ def test_a_vote_without_a_rationale_is_refused_and_not_counted(
 def test_a_vote_with_the_rationale_field_missing_entirely_is_a_422(
     build_pack: Callable[..., dict[str, Any]],
     decision_client: TestClient,
+    act_as: Callable[[Role, str], None],
     members: dict[str, str],
 ) -> None:
     pack_id = build_pack("FCRM-2026-0151")["pack_id"]
+    act_as(Role.COMMITTEE, members["okafor"])
     response = decision_client.post(
         f"/packs/{pack_id}/votes",
         json={

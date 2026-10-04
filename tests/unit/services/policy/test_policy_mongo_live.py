@@ -12,11 +12,17 @@ Skipped unless ``FCRM_TEST_MONGO_URI`` points at a replica set::
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
+#: ``tests/conftest.py``'s ``live_client``: real lifespan, real HS256
+#: service token, allow-all OPA stub.
+LiveClient = Callable[..., AbstractContextManager[TestClient]]
 from fcrm_common.errors import install_error_handlers
 from fcrm_common.health import ReadinessProbe, build_health_router
 from fcrm_policy.lifespan import lifespan
@@ -65,14 +71,16 @@ def app(clean_db, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> FastAPI:
     return application
 
 
-def test_the_full_lifespan_seeds_mongo_and_the_vector_index(app: FastAPI) -> None:
+def test_the_full_lifespan_seeds_mongo_and_the_vector_index(
+    app: FastAPI, live_client: LiveClient
+) -> None:
     """Start the app for real (runs the lifespan): Mongo gets the seeded
     clauses/precedents/controls and the memory-backed vector index gets
     the four demo clauses -- if either failed, ``/readyz`` would still be
     ``ok`` (S3 registers no self-test check, unlike S2), so this asserts
     through an actual search instead.
     """
-    with TestClient(app) as client:
+    with live_client(app) as client:
         ready = client.get("/readyz")
         assert ready.status_code == 200
         assert ready.json()["status"] == "ok"
@@ -90,13 +98,15 @@ def test_the_full_lifespan_seeds_mongo_and_the_vector_index(app: FastAPI) -> Non
         assert ids == {"FFIEC-TPPP-04", "FCRM42-3.1", "TP71-2.3", "OFAC-1.2"}
 
 
-def test_restarting_the_app_does_not_duplicate_the_mongo_seed(app: FastAPI) -> None:
+def test_restarting_the_app_does_not_duplicate_the_mongo_seed(
+    app: FastAPI, live_client: LiveClient
+) -> None:
     """Two lifespans in a row (simulating a container restart) must not
     insert the seed documents twice -- ``load_if_empty``'s whole point.
     """
     with TestClient(app):
         pass
-    with TestClient(app) as client:
+    with live_client(app) as client:
         response = client.post(
             "/search",
             json={"index": PRECEDENT_CASES, "query": "payout partner", "top_k": 5},

@@ -21,15 +21,35 @@ layer composes:
   a new pack version because the content hash no longer matches, which is
   exactly the re-request: every member faces a fresh, empty vote round on
   the new pack id.
+
+- **Identity comes from the token, never the body (D-23).** Every route
+  needs a verified principal and an OPA allow (``authorize``, a
+  router-level dependency so a route added later cannot be left open),
+  then its own ``require_roles`` list -- the matrix ``ops/opa/data/
+  permissions.json`` encodes for ``service: decision``. On top of that,
+  the three routes whose body names a person (``VoteCast.member_id``,
+  ``CommitteeQuestion.asked_by``, ``CommitteeAnswer.answered_by``) refuse
+  (403) any body whose named person is not the caller's own ``sub``. The
+  fields stay in the contracts (additive, so existing callers keep
+  working) but are *validated against* the principal, never silently
+  overwritten -- a caller who sends someone else's id learns they may not,
+  rather than having their vote quietly re-attributed.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, Union
+from typing import Annotated, Any, Optional, Union
 
 from fastapi import APIRouter, Depends, Query, Request
-from fcrm_common.errors import ConflictError, NotFoundError, RuleViolationError
+from fcrm_common.auth import require_roles
+from fcrm_common.authz import opa_dependency
+from fcrm_common.errors import (
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    RuleViolationError,
+)
 from fcrm_common.ids import new_id
 from fcrm_common.time import utcnow
 from fcrm_contracts.api.decision import (
@@ -44,6 +64,8 @@ from fcrm_contracts.api.decision import (
     VotesHidden,
     VotesRevealed,
 )
+from fcrm_contracts.common import Principal
+from fcrm_contracts.enums import Role
 
 from fcrm_decision.outcomes import tally_round
 from fcrm_decision.packs import content_hash
@@ -52,7 +74,37 @@ from fcrm_decision.store import QUORUM, DecisionStore, _PackRow, _VoteRow
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["decision"])
+#: Authenticate, then ask OPA for ``service: decision`` on the matched route
+#: template (401 / 403 / 503 fail-closed, see ``fcrm_common.authz``).
+authorize = opa_dependency("decision")
+
+router = APIRouter(tags=["decision"], dependencies=[Depends(authorize)])
+
+#: H1 freezes packs; nobody else builds one.
+_PACK_BUILD_ROLES = (Role.SERVICE,)
+#: Who may read a pack, its vote status and its outcome.
+_PACK_READ_ROLES = (Role.ANALYST, Role.COMMITTEE, Role.SERVICE)
+#: Only a committee member votes or asks a question (Guard 7 denies the
+#: service account in OPA as well).
+_COMMITTEE_ROLES = (Role.COMMITTEE,)
+#: The analyst answers a committee question; H1 may relay one.
+_ANSWER_ROLES = (Role.ANALYST, Role.SERVICE)
+#: Who may poll the stateless release-check derivation.
+_RELEASE_CHECK_ROLES = (Role.ANALYST, Role.SERVICE)
+
+
+def _require_self(principal: Principal, named: str, field: str) -> None:
+    """The person a body names must be the caller (``principal.sub``).
+
+    Raises:
+        ForbiddenError: ``named`` is someone else. Deliberately a 403 and
+            not a silent overwrite, so the contract field keeps meaning
+            what it says and a mismatch is visible to the caller.
+    """
+    if named != principal.sub:
+        raise ForbiddenError(
+            f"{field} must be the caller's own id", rule_id="identity_mismatch"
+        )
 
 
 def get_store(request: Request) -> DecisionStore:
@@ -88,7 +140,10 @@ def _checks_from_snapshot(snapshot: dict[str, Any]) -> ReleaseChecks:
 
 
 @router.post("/release-checks", response_model=ReleaseChecks)
-async def check_release(body: ReleaseChecks) -> ReleaseChecks:
+async def check_release(
+    body: ReleaseChecks,
+    _principal: Annotated[Principal, Depends(require_roles(*_RELEASE_CHECK_ROLES))],
+) -> ReleaseChecks:
     """Re-derive the four release checks through the pure
     ``evaluate_release_checks`` rather than trusting a pre-built
     ``ReleaseChecks`` object -- a thin, stateless wrapper a caller can poll
@@ -99,7 +154,9 @@ async def check_release(body: ReleaseChecks) -> ReleaseChecks:
 
 @router.post("/packs", response_model=Pack)
 async def build_or_reuse_pack(
-    body: PackBuild, store: DecisionStore = Depends(get_store)
+    body: PackBuild,
+    _principal: Annotated[Principal, Depends(require_roles(*_PACK_BUILD_ROLES))],
+    store: DecisionStore = Depends(get_store),
 ) -> Pack:
     """Build a new pack version, or hand back the current one unchanged.
 
@@ -146,7 +203,11 @@ async def build_or_reuse_pack(
 
 
 @router.get("/packs/{pack_id}", response_model=Pack)
-async def get_pack(pack_id: str, store: DecisionStore = Depends(get_store)) -> Pack:
+async def get_pack(
+    pack_id: str,
+    _principal: Annotated[Principal, Depends(require_roles(*_PACK_READ_ROLES))],
+    store: DecisionStore = Depends(get_store),
+) -> Pack:
     """A pack by id, for a committee member's or analyst's own lookup."""
     row = await _require_pack(store, pack_id)
     return row.to_pack(content_hash(row.content))
@@ -164,9 +225,14 @@ async def _require_pack(store: DecisionStore, pack_id: str) -> _PackRow:
 async def cast_vote(
     pack_id: str,
     body: VoteCast,
+    principal: Annotated[Principal, Depends(require_roles(*_COMMITTEE_ROLES))],
     store: DecisionStore = Depends(get_store),
 ) -> Union[VotesHidden, OutcomeSet]:
     """Cast one committee member's vote.
+
+    The member is the caller: ``body.member_id`` must equal the verified
+    ``principal.sub`` (403 otherwise), so no token can vote in another
+    member's name and the one-vote-per-member rule binds to real identity.
 
     Hidden until quorum (R2): the response is always either
     ``VotesHidden`` (a count, never a vote) while fewer than
@@ -175,6 +241,7 @@ async def cast_vote(
     voter who completes the round learns the outcome because quorum is,
     by definition, reached; nobody before that point can.
     """
+    _require_self(principal, body.member_id, "member_id")
     if body.pack_id != pack_id:
         raise ConflictError(
             "pack_id in the body must match the path", rule_id="pack_id_mismatch"
@@ -255,6 +322,7 @@ async def _tally_and_store(
 @router.get("/packs/{pack_id}/votes")
 async def vote_status(
     pack_id: str,
+    _principal: Annotated[Principal, Depends(require_roles(*_PACK_READ_ROLES))],
     round_: Optional[int] = Query(default=None, alias="round"),
     store: DecisionStore = Depends(get_store),
 ) -> Union[VotesHidden, VotesRevealed]:
@@ -289,7 +357,9 @@ async def vote_status(
 
 @router.get("/packs/{pack_id}/outcome", response_model=OutcomeSet)
 async def get_outcome(
-    pack_id: str, store: DecisionStore = Depends(get_store)
+    pack_id: str,
+    _principal: Annotated[Principal, Depends(require_roles(*_PACK_READ_ROLES))],
+    store: DecisionStore = Depends(get_store),
 ) -> OutcomeSet:
     """The persisted tally result for a pack's latest round.
 
@@ -309,14 +379,17 @@ async def get_outcome(
 async def ask_question(
     pack_id: str,
     body: CommitteeQuestion,
+    principal: Annotated[Principal, Depends(require_roles(*_COMMITTEE_ROLES))],
     store: DecisionStore = Depends(get_store),
 ) -> dict[str, Any]:
     """R6: open a committee question thread on ``pack_id``, visible to
-    every member and the analyst. There is no ``Thread`` shape in
+    every member and the analyst. ``body.asked_by`` must be the caller
+    (403 otherwise). There is no ``Thread`` shape in
     ``fcrm_contracts.api.decision`` yet, so the response echoes the
     question with a minted ``question_id`` as a plain object rather than
     inventing a new contract type.
     """
+    _require_self(principal, body.asked_by, "asked_by")
     if body.pack_id != pack_id:
         raise ConflictError(
             "pack_id in the body must match the path", rule_id="pack_id_mismatch"
@@ -331,9 +404,11 @@ async def ask_question(
 async def answer_question(
     question_id: str,
     body: CommitteeAnswer,
+    principal: Annotated[Principal, Depends(require_roles(*_ANSWER_ROLES))],
     store: DecisionStore = Depends(get_store),
 ) -> dict[str, Any]:
     """R6: attach the analyst's answer as a pack addendum.
+    ``body.answered_by`` must be the caller (403 otherwise).
 
     ``numbers_changed=True`` unlocks the pack immediately: it stops
     accepting votes and its already-cast votes for the open round are
@@ -345,6 +420,7 @@ async def answer_question(
     pack v2 and so re-requests every vote (a fresh, empty round on a new
     pack id).
     """
+    _require_self(principal, body.answered_by, "answered_by")
     if body.question_id != question_id:
         raise ConflictError(
             "question_id in the body must match the path",

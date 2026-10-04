@@ -636,6 +636,17 @@
         "effect": "allow"
       },
       {
+        "id": "scoring-get-routing-all-committee",
+        "description": "committee reads the routing rules (R1-R6)",
+        "service": "scoring",
+        "method": "GET",
+        "path": "/routing/*",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
         "id": "scoring-post-score-service",
         "description": "H1 requests the score of record (ADR-07)",
         "service": "scoring",
@@ -735,6 +746,17 @@
         "effect": "allow"
       },
       {
+        "id": "policy-post-search-committee",
+        "description": "committee searches clauses/precedents/controls",
+        "service": "policy",
+        "method": "POST",
+        "path": "/search",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
         "id": "policy-any-internal-all-service",
         "description": "H1/H4 internal routes",
         "service": "policy",
@@ -768,6 +790,17 @@
         "effect": "allow"
       },
       {
+        "id": "policy-post-search-service",
+        "description": "hybrid search (policy_search / precedent_search tools)",
+        "service": "policy",
+        "method": "POST",
+        "path": "/search",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
         "id": "policy-get-all-service",
         "description": "service account reads",
         "service": "policy",
@@ -775,17 +808,6 @@
         "path": "/*",
         "roles": [
           "fcrm_service"
-        ],
-        "effect": "allow"
-      },
-      {
-        "id": "audit-get-verify-case_id-po",
-        "description": "PO: {ok, count, verified_at} only; ownership checked by S4",
-        "service": "audit",
-        "method": "GET",
-        "path": "/verify/{case_id}",
-        "roles": [
-          "fcrm_po"
         ],
         "effect": "allow"
       },
@@ -981,6 +1003,18 @@
         "effect": "allow"
       },
       {
+        "id": "decision-get-packs-pack_id-outcome-analyst-committee",
+        "description": "pack outcome (409 before quorum)",
+        "service": "decision",
+        "method": "GET",
+        "path": "/packs/{pack_id}/outcome",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
         "id": "decision-get-packs-pack_id-threads-analyst-committee",
         "description": "pack threads (votes hidden until tally)",
         "service": "decision",
@@ -1027,6 +1061,30 @@
         "effect": "allow"
       },
       {
+        "id": "decision-post-questions-question_id-answers-analyst-service",
+        "description": "R6 answer / addendum (answered_by must be the caller)",
+        "service": "decision",
+        "method": "POST",
+        "path": "/questions/{question_id}/answers",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-post-release-checks-analyst-service",
+        "description": "re-derive the four release checks (stateless)",
+        "service": "decision",
+        "method": "POST",
+        "path": "/release-checks",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
         "id": "decision-get-committee-queue-committee",
         "description": "committee queue",
         "service": "decision",
@@ -1054,6 +1112,17 @@
         "service": "decision",
         "method": "POST",
         "path": "/packs/{pack_id}/threads",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-post-packs-pack_id-questions-committee",
+        "description": "R6 committee question (asked_by must be the caller)",
+        "service": "decision",
+        "method": "POST",
+        "path": "/packs/{pack_id}/questions",
         "roles": [
           "fcrm_committee"
         ],
@@ -1351,6 +1420,17 @@
         "service": "decision",
         "method": "POST",
         "path": "/packs/{pack_id}/votes",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-decision-post-packs-pack_id-questions",
+        "description": "Guard 7: committee questions are asked by members, never by the service account",
+        "service": "decision",
+        "method": "POST",
+        "path": "/packs/{pack_id}/questions",
         "roles": [
           "fcrm_service"
         ],

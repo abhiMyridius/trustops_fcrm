@@ -21,6 +21,7 @@ visibility, not equality.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,7 @@ from fcrm_common.errors import install_error_handlers
 from fcrm_common.health import ReadinessProbe, build_health_router
 from fcrm_context_worker.config import context_config_from_env
 from fcrm_context_worker.seedload import seeded_store
+from fcrm_contracts.enums import Role
 from fcrm_policy.routes import router
 from fcrm_policy.search.service import SearchService
 from fcrm_policy.search.vector import VectorClauseSource
@@ -62,18 +64,24 @@ async def search_service(tmp_path: Path) -> SearchService:
 
 
 @pytest.fixture
-def app(search_service: SearchService) -> FastAPI:
+def app(
+    search_service: SearchService, wire_test_auth: Callable[[FastAPI], FastAPI]
+) -> FastAPI:
     application = FastAPI()
     install_error_handlers(application)
     application.state.probe = ReadinessProbe()
     application.include_router(router)
     application.include_router(build_health_router(application.state.probe))
     application.state.search = search_service
-    return application
+    return wire_test_auth(application)
 
 
 @pytest.fixture
-def client(app: FastAPI) -> TestClient:
+def client(app: FastAPI, act_as: Callable[[Role, str], None]) -> TestClient:
+    """Searches as the demo analyst; the role matrix is in
+    ``test_policy_auth.py``.
+    """
+    act_as(Role.ANALYST, "u-riyer")
     return TestClient(app)
 
 

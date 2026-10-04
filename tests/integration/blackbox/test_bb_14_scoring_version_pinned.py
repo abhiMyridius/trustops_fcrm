@@ -20,6 +20,7 @@ it" -- demonstrated at the layer that actually exists.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -27,7 +28,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from fcrm_common.errors import install_error_handlers
 from fcrm_common.health import ReadinessProbe, build_health_router
-from fcrm_contracts.enums import Band, Route
+from fcrm_contracts.enums import Band, Role, Route
 from fcrm_scoring.routes import router
 from fcrm_scoring.seedmodel import (
     apply_catalogue_weights,
@@ -40,7 +41,10 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
-def app(seeded_scoring_model: dict[str, Any]) -> FastAPI:
+def app(
+    seeded_scoring_model: dict[str, Any],
+    wire_test_auth: Callable[[FastAPI], FastAPI],
+) -> FastAPI:
     """Two scoring model versions loaded at once: v3 (the real seeded
     model, inactive here) and a hypothetical v10 that is ``active`` and
     deliberately computes retention differently (a higher
@@ -70,11 +74,13 @@ def app(seeded_scoring_model: dict[str, Any]) -> FastAPI:
         }
     )
     application.state.store = InMemoryConfigStore(models=[v3, v10], routing=[])
-    return application
+    return wire_test_auth(application)
 
 
 @pytest.fixture
-def client(app: FastAPI) -> TestClient:
+def client(app: FastAPI, act_as: Callable[[Role, str], None]) -> TestClient:
+    """Calls S2 as H1's service account, its real caller (ADR-07)."""
+    act_as(Role.SERVICE, "svc:caseflow")
     return TestClient(app)
 
 

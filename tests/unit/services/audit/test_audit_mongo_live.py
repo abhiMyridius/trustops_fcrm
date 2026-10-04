@@ -44,7 +44,8 @@ import shutil
 import socket
 import subprocess
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -53,6 +54,10 @@ import pymongo
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
+#: ``tests/conftest.py``'s ``live_client``: real lifespan, real HS256
+#: service token, allow-all OPA stub.
+LiveClient = Callable[..., AbstractContextManager[TestClient]]
 from fcrm_audit.lifespan import InsertOnlyRoleViolatedError, lifespan
 from fcrm_audit.routes import router
 from fcrm_common.errors import install_error_handlers
@@ -120,9 +125,9 @@ class TestSandboxLifespan:
         return application
 
     def test_the_full_lifespan_seeds_the_demo_chain_and_passes_its_self_test(
-        self, app: FastAPI
+        self, app: FastAPI, live_client: LiveClient
     ) -> None:
-        with TestClient(app) as client:
+        with live_client(app) as client:
             ready = client.get("/readyz")
             assert ready.status_code == 200
             body = ready.json()
@@ -140,18 +145,18 @@ class TestSandboxLifespan:
             }
 
     def test_restarting_the_app_does_not_duplicate_the_seeded_chain(
-        self, app: FastAPI
+        self, app: FastAPI, live_client: LiveClient
     ) -> None:
         with TestClient(app):
             pass
-        with TestClient(app) as client:
+        with live_client(app) as client:
             verify = client.get(f"/verify/{DEMO_CASE_ID}")
             assert verify.json()["record_count"] == 67
 
     def test_post_records_appends_through_a_real_transaction_and_chains(
-        self, app: FastAPI
+        self, app: FastAPI, live_client: LiveClient
     ) -> None:
-        with TestClient(app) as client:
+        with live_client(app) as client:
             first = client.post(
                 "/records",
                 json={
@@ -189,9 +194,9 @@ class TestSandboxLifespan:
             }
 
     def test_get_records_paginates_the_real_seeded_demo_chain(
-        self, app: FastAPI
+        self, app: FastAPI, live_client: LiveClient
     ) -> None:
-        with TestClient(app) as client:
+        with live_client(app) as client:
             page = client.get(f"/records/{DEMO_CASE_ID}", params={"limit": 10})
             assert page.status_code == 200
             body = page.json()
@@ -513,7 +518,10 @@ class TestInsertOnlyRoleIsEnforcedByTheDatabase:
             writer.close()
 
     def test_the_real_service_reports_ready_against_the_real_writer_credential(
-        self, auth_enabled_mongo: dict[str, str], monkeypatch: pytest.MonkeyPatch
+        self,
+        auth_enabled_mongo: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+        live_client: LiveClient,
     ) -> None:
         monkeypatch.setenv("MONGODB_URI", auth_enabled_mongo["writer_uri"])
         monkeypatch.setenv("MONGODB_DB", "fcrm_audit")
@@ -533,7 +541,7 @@ class TestInsertOnlyRoleIsEnforcedByTheDatabase:
         application.include_router(router)
         application.include_router(build_health_router(application.state.probe))
 
-        with TestClient(application) as client:
+        with live_client(application) as client:
             ready = client.get("/readyz")
             assert ready.status_code == 200
             body = ready.json()

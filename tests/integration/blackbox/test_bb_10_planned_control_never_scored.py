@@ -35,6 +35,7 @@ route, which does not exist yet -- not claimed here (see
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -43,7 +44,7 @@ from fastapi.testclient import TestClient
 from fcrm_common.errors import install_error_handlers
 from fcrm_common.health import ReadinessProbe, build_health_router
 from fcrm_contracts.api.scoring import ControlInput
-from fcrm_contracts.enums import Band, Domain, Route
+from fcrm_contracts.enums import Band, Domain, Role, Route
 from fcrm_scoring.routes import router
 from fcrm_scoring.seedmodel import (
     apply_catalogue_weights,
@@ -57,7 +58,10 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
-def app(seeded_scoring_model: dict[str, Any]) -> FastAPI:
+def app(
+    seeded_scoring_model: dict[str, Any],
+    wire_test_auth: Callable[[FastAPI], FastAPI],
+) -> FastAPI:
     application = FastAPI()
     install_error_handlers(application)
     application.state.probe = ReadinessProbe()
@@ -65,11 +69,13 @@ def app(seeded_scoring_model: dict[str, Any]) -> FastAPI:
     application.include_router(build_health_router(application.state.probe))
     model = scoring_model_from_seed(seeded_scoring_model)
     application.state.store = InMemoryConfigStore(models=[model], routing=[])
-    return application
+    return wire_test_auth(application)
 
 
 @pytest.fixture
-def client(app: FastAPI) -> TestClient:
+def client(app: FastAPI, act_as: Callable[[Role, str], None]) -> TestClient:
+    """Calls S2 as H1's service account, its real caller (ADR-07)."""
+    act_as(Role.SERVICE, "svc:caseflow")
     return TestClient(app)
 
 

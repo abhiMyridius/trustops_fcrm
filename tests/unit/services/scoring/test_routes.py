@@ -1,17 +1,21 @@
 """HTTP-layer tests for S2, with no Mongo dependency: the route layer
 takes whatever implements ``ConfigStore``, so these wire in
 ``InMemoryConfigStore`` seeded from the real seed data and exercise the
-app exactly as a caller would over HTTP.
+app exactly as a caller would over HTTP. The caller is H1's service
+account (``wire_test_auth`` / ``act_as`` from ``tests/conftest.py``);
+the role matrix itself is covered in ``test_scoring_auth.py``.
 """
 
 from __future__ import annotations
+
+from collections.abc import Callable
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from fcrm_common.errors import install_error_handlers
 from fcrm_common.health import ReadinessProbe, build_health_router
-from fcrm_contracts.enums import Band, Route
+from fcrm_contracts.enums import Band, Role, Route
 from fcrm_scoring.routes import router
 from fcrm_scoring.seedmodel import scoring_model_from_seed
 from fcrm_scoring.store import InMemoryConfigStore
@@ -19,7 +23,7 @@ from fcrm_seed.loader import demo_case, scoring_model
 
 
 @pytest.fixture
-def app() -> FastAPI:
+def app(wire_test_auth: Callable[[FastAPI], FastAPI]) -> FastAPI:
     application = FastAPI()
     install_error_handlers(application)
     application.state.probe = ReadinessProbe()
@@ -28,11 +32,12 @@ def app() -> FastAPI:
 
     model = scoring_model_from_seed(scoring_model())
     application.state.store = InMemoryConfigStore(models=[model], routing=[])
-    return application
+    return wire_test_auth(application)
 
 
 @pytest.fixture
-def client(app: FastAPI) -> TestClient:
+def client(app: FastAPI, act_as: Callable[[Role, str], None]) -> TestClient:
+    act_as(Role.SERVICE, "svc:caseflow")
     return TestClient(app)
 
 

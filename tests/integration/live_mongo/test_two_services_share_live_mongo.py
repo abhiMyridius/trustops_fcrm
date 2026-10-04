@@ -49,6 +49,8 @@ final report rather than silently worked around:
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 from typing import Any
 
 import bcrypt
@@ -156,7 +158,10 @@ def identity_key_path(tmp_path) -> str:
 
 
 def test_both_services_start_up_healthy_against_the_same_mongo_instance(
-    clean_dbs, identity_key_path: str, monkeypatch: pytest.MonkeyPatch
+    clean_dbs,
+    identity_key_path: str,
+    monkeypatch: pytest.MonkeyPatch,
+    live_client: Callable[..., AbstractContextManager[TestClient]],
 ) -> None:
     """Nesting both ``TestClient`` context managers runs both lifespans
     concurrently against one Mongo instance -- if seeding one service's
@@ -169,7 +174,7 @@ def test_both_services_start_up_healthy_against_the_same_mongo_instance(
     """
     _set_scoring_env(monkeypatch)
     scoring_app = _build_scoring_app()
-    with TestClient(scoring_app) as scoring_client:
+    with live_client(scoring_app) as scoring_client:
         scoring_ready = scoring_client.get("/readyz")
         assert scoring_ready.status_code == 200
         assert scoring_ready.json()["checks"]["recompute"]["ok"] is True
@@ -187,15 +192,18 @@ async def test_a_real_score_and_a_real_login_both_work_with_both_services_sharin
     monkeypatch: pytest.MonkeyPatch,
     demo: dict[str, Any],
     catalogue_weights: dict[str, float],
+    live_client: Callable[..., AbstractContextManager[TestClient]],
 ) -> None:
     """The decisive check, not just "both start": drive one real golden
     score through S2 and one real login through X1 in the same test,
     both against the one shared live Mongo instance, and confirm neither
     service's data leaked into or disturbed the other's collections.
+    The score is requested as H1 would: a real HS256 service token
+    verified by the ``TokenVerifier`` S2's own lifespan installed.
     """
     _set_scoring_env(monkeypatch)
     scoring_app = _build_scoring_app()
-    with TestClient(scoring_app) as scoring_client:
+    with live_client(scoring_app) as scoring_client:
         request = score_request_from_case(demo["id"], 3, demo["score_before"]["areas"])
         request = apply_catalogue_weights(request, catalogue_weights)
         score_response = scoring_client.post(

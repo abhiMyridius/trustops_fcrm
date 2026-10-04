@@ -44,6 +44,8 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
+from fcrm_common.auth import TokenVerifier, install_auth
+from fcrm_common.authz import OPAClient, install_authz
 from fcrm_common.errors import UpstreamUnavailableError
 from fcrm_common.health import ReadinessCheck, ReadinessProbe, mongo_check
 from fcrm_common.logging import configure_logging
@@ -138,8 +140,8 @@ async def _insert_only_self_test(collection: AsyncCollection[Any]) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Connect Mongo, seed the demo case's chain on an empty collection,
-    run both startup self-tests, then wire the readiness probe and store
-    onto ``app.state`` for the routes to use.
+    run both startup self-tests, then wire auth/authz, the readiness
+    probe and the store onto ``app.state`` for the routes to use.
     """
     settings = AuditSettings.load()
     configure_logging(
@@ -147,6 +149,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     init_otel(settings.app_name, __version__, environment=settings.env, app=app)
     logger.info("starting", extra={"env": settings.env})
+
+    # Bearer verification (fcrm_common.auth.current_user) and the OPA route
+    # policy (fcrm_common.authz.opa_dependency, router-level in routes.py).
+    # Without these every route answers 503, never 200: fail closed.
+    token_verifier = TokenVerifier.from_settings(settings)
+    install_auth(app.state, token_verifier)
+    assert settings.opa_url is not None  # fail_fast already enforced this
+    opa_client = OPAClient(settings.opa_url)
+    install_authz(app.state, opa_client)
 
     assert settings.mongodb_uri is not None  # fail_fast already enforced this
     async with mongo_client(settings.mongodb_uri) as client:
@@ -190,4 +201,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
             probe.add(ReadinessCheck("insert_only", _insert_only_check, critical=True))
 
-        yield
+        try:
+            yield
+        finally:
+            await token_verifier.aclose()
+            await opa_client.aclose()

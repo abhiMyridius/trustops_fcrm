@@ -13,6 +13,8 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fcrm_common.auth import TokenVerifier, install_auth
+from fcrm_common.authz import OPAClient, install_authz
 from fcrm_common.health import ReadinessProbe, mongo_check
 from fcrm_common.logging import configure_logging
 from fcrm_common.mongo import mongo_client
@@ -29,8 +31,8 @@ __version__ = "0.1.0"
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Connect Mongo, ensure every unique index S5's invariants depend on,
-    then wire the store and the Mongo readiness check onto ``app.state``
-    for the routes to use.
+    then wire auth/authz, the store and the Mongo readiness check onto
+    ``app.state`` for the routes to use.
     """
     settings = DecisionSettings.load()
     configure_logging(
@@ -38,6 +40,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     init_otel(settings.app_name, __version__, environment=settings.env, app=app)
     logger.info("starting", extra={"env": settings.env})
+
+    # Bearer verification (fcrm_common.auth.current_user) and the OPA route
+    # policy (fcrm_common.authz.opa_dependency, router-level in routes.py).
+    # Without these every route answers 503, never 200: fail closed. S5 is
+    # where this matters most: a vote's member_id is bound to the verified
+    # principal in routes.py, which needs a real principal to bind to.
+    token_verifier = TokenVerifier.from_settings(settings)
+    install_auth(app.state, token_verifier)
+    assert settings.opa_url is not None  # fail_fast already enforced this
+    opa_client = OPAClient(settings.opa_url)
+    install_authz(app.state, opa_client)
 
     assert settings.mongodb_uri is not None  # fail_fast already enforced this
     async with mongo_client(settings.mongodb_uri) as client:
@@ -52,4 +65,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         probe: ReadinessProbe = app.state.probe
         probe.add(mongo_check(client))
 
-        yield
+        try:
+            yield
+        finally:
+            await token_verifier.aclose()
+            await opa_client.aclose()

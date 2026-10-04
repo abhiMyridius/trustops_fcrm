@@ -39,8 +39,11 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from fcrm_contracts.enums import Role
 
 pytestmark = pytest.mark.integration
+
+ActAs = Callable[[Role, str], None]
 
 
 def _sha256_of_canonical_json(snapshot: dict[str, Any]) -> str:
@@ -87,7 +90,13 @@ def snapshot(
     )
 
 
-def _post_pack(client: TestClient, snapshot: dict[str, Any]) -> dict[str, Any]:
+def _post_pack(
+    client: TestClient, act_as: ActAs, snapshot: dict[str, Any]
+) -> dict[str, Any]:
+    """POST the snapshot as H1 (the service account, the only role that
+    may build a pack) and return the pack body.
+    """
+    act_as(Role.SERVICE, "svc:caseflow")
     response = client.post(
         "/packs", json={"case_id": snapshot["case_id"], "snapshot": snapshot}
     )
@@ -97,9 +106,9 @@ def _post_pack(client: TestClient, snapshot: dict[str, Any]) -> dict[str, Any]:
 
 
 def test_the_pack_hash_is_stable_across_ten_reads_and_independently_verifiable(
-    decision_client: TestClient, snapshot: dict[str, Any]
+    decision_client: TestClient, act_as: ActAs, snapshot: dict[str, Any]
 ) -> None:
-    posted = _post_pack(decision_client, snapshot)
+    posted = _post_pack(decision_client, act_as, snapshot)
     assert posted["version"] == 1
     assert posted["released_at"] is not None
     assert posted["superseded_by"] is None
@@ -112,17 +121,18 @@ def test_the_pack_hash_is_stable_across_ten_reads_and_independently_verifiable(
 
 def test_reposting_the_same_content_is_a_no_op_even_with_votes_cast(
     decision_client: TestClient,
+    act_as: ActAs,
     cast_vote: Callable[..., Any],
     snapshot: dict[str, Any],
     members: list[str],
 ) -> None:
-    v1 = _post_pack(decision_client, snapshot)
+    v1 = _post_pack(decision_client, act_as, snapshot)
     cast_vote(v1["pack_id"], members[0], "approve_with_conditions")
     cast_vote(v1["pack_id"], members[1], "approve_with_conditions")
 
     # Same content, in the same order and with every key order reversed.
     for variant in (snapshot, _reversed_key_order(snapshot)):
-        again = _post_pack(decision_client, variant)
+        again = _post_pack(decision_client, act_as, variant)
         assert again == v1
 
     votes = decision_client.get(f"/packs/{v1['pack_id']}/votes").json()
@@ -132,12 +142,13 @@ def test_reposting_the_same_content_is_a_no_op_even_with_votes_cast(
 
 def test_a_one_character_edit_mints_v2_with_a_new_hash_and_v1_stays_retrievable(
     decision_client: TestClient,
+    act_as: ActAs,
     cast_vote: Callable[..., Any],
     snapshot: dict[str, Any],
     members: list[str],
     demo: dict[str, Any],
 ) -> None:
-    v1 = _post_pack(decision_client, snapshot)
+    v1 = _post_pack(decision_client, act_as, snapshot)
     cast_vote(v1["pack_id"], members[0], "approve_with_conditions")
     cast_vote(v1["pack_id"], members[1], "approve_with_conditions")
 
@@ -148,7 +159,7 @@ def test_a_one_character_edit_mints_v2_with_a_new_hash_and_v1_stays_retrievable(
             "text": snapshot["recommendation"]["text"] + " ",
         },
     }
-    v2 = _post_pack(decision_client, edited)
+    v2 = _post_pack(decision_client, act_as, edited)
 
     assert v2["version"] == 2
     assert v2["pack_id"] != v1["pack_id"]
@@ -187,15 +198,17 @@ def test_a_one_character_edit_mints_v2_with_a_new_hash_and_v1_stays_retrievable(
 
 def test_a_committee_answer_that_changes_no_number_leaves_pack_and_votes_alone(
     decision_client: TestClient,
+    act_as: ActAs,
     cast_vote: Callable[..., Any],
     snapshot: dict[str, Any],
     members: list[str],
     demo: dict[str, Any],
 ) -> None:
-    v1 = _post_pack(decision_client, snapshot)
+    v1 = _post_pack(decision_client, act_as, snapshot)
     cast_vote(v1["pack_id"], members[0], "approve_with_conditions")
     cast_vote(v1["pack_id"], members[1], "approve_with_conditions")
 
+    act_as(Role.COMMITTEE, members[1])  # the member asks in their own name
     asked = decision_client.post(
         f"/packs/{v1['pack_id']}/questions",
         json={
@@ -206,6 +219,7 @@ def test_a_committee_answer_that_changes_no_number_leaves_pack_and_votes_alone(
     )
     assert asked.status_code == 200
     question_id = asked.json()["question_id"]
+    act_as(Role.ANALYST, demo["analyst"])  # the analyst answers as themselves
     answered = decision_client.post(
         f"/questions/{question_id}/answers",
         json={
@@ -229,15 +243,17 @@ def test_a_committee_answer_that_changes_no_number_leaves_pack_and_votes_alone(
 
 def test_an_answer_that_changes_a_number_unlocks_v1_and_the_correction_is_v2(
     decision_client: TestClient,
+    act_as: ActAs,
     cast_vote: Callable[..., Any],
     snapshot: dict[str, Any],
     members: list[str],
     demo: dict[str, Any],
 ) -> None:
-    v1 = _post_pack(decision_client, snapshot)
+    v1 = _post_pack(decision_client, act_as, snapshot)
     cast_vote(v1["pack_id"], members[0], "approve_with_conditions")
     cast_vote(v1["pack_id"], members[1], "approve_with_conditions")
 
+    act_as(Role.COMMITTEE, members[1])
     question_id = decision_client.post(
         f"/packs/{v1['pack_id']}/questions",
         json={
@@ -246,6 +262,7 @@ def test_an_answer_that_changes_a_number_unlocks_v1_and_the_correction_is_v2(
             "text": "Does the corridor review change the channel control rating?",
         },
     ).json()["question_id"]
+    act_as(Role.ANALYST, demo["analyst"])
     unlocked = decision_client.post(
         f"/questions/{question_id}/answers",
         json={
@@ -271,7 +288,7 @@ def test_an_answer_that_changes_a_number_unlocks_v1_and_the_correction_is_v2(
             "text": "Corrected after the committee question: the rating changed.",
         },
     }
-    v2 = _post_pack(decision_client, corrected)
+    v2 = _post_pack(decision_client, act_as, corrected)
     assert v2["version"] == 2
     assert v2["content_hash"] != v1["content_hash"]
     v1_now = decision_client.get(f"/packs/{v1['pack_id']}").json()

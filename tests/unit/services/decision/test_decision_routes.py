@@ -18,11 +18,19 @@ UI convention (R2, ADR-08):
   replays FCRM-2026-0151's real committee vote through the HTTP route
   (not just ``tally_round`` directly, as
   ``test_packs_and_outcomes.py`` already does).
+
+Every request is made *as someone* (D-23: S5 binds ``member_id``,
+``asked_by`` and ``answered_by`` to the verified principal): the
+``RoleClient`` below wraps ``TestClient`` with ``act_as``, and the helpers
+switch to the right caller -- H1's service account to build a pack, the
+voting member to vote. The role matrix itself (401/403s) is in
+``test_decision_auth.py``.
 """
 
 from __future__ import annotations
 
 import itertools
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -30,6 +38,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from fcrm_common.errors import install_error_handlers
 from fcrm_common.health import ReadinessProbe, build_health_router
+from fcrm_contracts.enums import Role
 from fcrm_decision.routes import router
 from fcrm_decision.store import InMemoryDecisionStore
 from fcrm_seed.loader import demo_case
@@ -41,6 +50,17 @@ PASSING_CHECKS: dict[str, bool] = {
     "boundary_and_band_acknowledged": True,
 }
 
+SERVICE_SUB = "svc:caseflow"
+ANALYST = "Rahul Iyer"
+
+
+class RoleClient(TestClient):
+    """A ``TestClient`` that can switch the caller it authenticates as."""
+
+    def __init__(self, app: FastAPI, act_as: Callable[[Role, str], None]) -> None:
+        super().__init__(app)
+        self.act_as = act_as
+
 
 def _snapshot(case_id: str, **checks: bool) -> dict[str, Any]:
     """A minimal pack snapshot carrying the release-check state in its
@@ -50,22 +70,25 @@ def _snapshot(case_id: str, **checks: bool) -> dict[str, Any]:
 
 
 @pytest.fixture
-def app() -> FastAPI:
+def app(wire_test_auth: Callable[[FastAPI], FastAPI]) -> FastAPI:
     application = FastAPI()
     install_error_handlers(application)
     application.state.probe = ReadinessProbe()
     application.include_router(router)
     application.include_router(build_health_router(application.state.probe))
     application.state.store = InMemoryDecisionStore()
-    return application
+    return wire_test_auth(application)
 
 
 @pytest.fixture
-def client(app: FastAPI) -> TestClient:
-    return TestClient(app)
+def client(app: FastAPI, act_as: Callable[[Role, str], None]) -> RoleClient:
+    """Starts as H1 (service account); helpers switch roles as needed."""
+    act_as(Role.SERVICE, SERVICE_SUB)
+    return RoleClient(app, act_as)
 
 
-def _build_pack(client: TestClient, case_id: str, **checks: bool) -> dict[str, Any]:
+def _build_pack(client: RoleClient, case_id: str, **checks: bool) -> dict[str, Any]:
+    client.act_as(Role.SERVICE, SERVICE_SUB)
     response = client.post(
         "/packs", json={"case_id": case_id, "snapshot": _snapshot(case_id, **checks)}
     )
@@ -74,9 +97,42 @@ def _build_pack(client: TestClient, case_id: str, **checks: bool) -> dict[str, A
     return body
 
 
-def _vote(
-    client: TestClient, pack_id: str, member_id: str, option: str, round_: int = 1
+def _post_pack(client: RoleClient, case_id: str, snapshot: dict[str, Any]) -> Any:
+    """``POST /packs`` with an arbitrary snapshot, as H1; raw response."""
+    client.act_as(Role.SERVICE, SERVICE_SUB)
+    return client.post("/packs", json={"case_id": case_id, "snapshot": snapshot})
+
+
+def _ask(client: RoleClient, pack_id: str, member: str, text: str) -> Any:
+    """A committee member opens an R6 question in their own name."""
+    client.act_as(Role.COMMITTEE, member)
+    return client.post(
+        f"/packs/{pack_id}/questions",
+        json={"pack_id": pack_id, "asked_by": member, "text": text},
+    )
+
+
+def _answer(
+    client: RoleClient, pack_id: str, question_id: str, text: str, *, changed: bool
 ) -> Any:
+    """The analyst answers in their own name."""
+    client.act_as(Role.ANALYST, ANALYST)
+    return client.post(
+        f"/questions/{question_id}/answers",
+        json={
+            "pack_id": pack_id,
+            "question_id": question_id,
+            "answered_by": ANALYST,
+            "text": text,
+            "numbers_changed": changed,
+        },
+    )
+
+
+def _vote(
+    client: RoleClient, pack_id: str, member_id: str, option: str, round_: int = 1
+) -> Any:
+    client.act_as(Role.COMMITTEE, member_id)
     return client.post(
         f"/packs/{pack_id}/votes",
         json={
@@ -288,8 +344,9 @@ def test_voting_in_the_wrong_round_is_rejected(client: TestClient) -> None:
     assert response.status_code == 409
 
 
-def test_a_blank_rationale_is_rejected(client: TestClient) -> None:
+def test_a_blank_rationale_is_rejected(client: RoleClient) -> None:
     pack = _build_pack(client, "FCRM-2026-9023")
+    client.act_as(Role.COMMITTEE, "Joseph Okafor")
     response = client.post(
         f"/packs/{pack['pack_id']}/votes",
         json={
@@ -307,41 +364,33 @@ def test_a_blank_rationale_is_rejected(client: TestClient) -> None:
 # ── R6: committee question -> numbers changed -> pack v2 ────────────────
 
 
-def test_a_committee_question_opens_a_thread(client: TestClient) -> None:
+def test_a_committee_question_opens_a_thread(client: RoleClient) -> None:
     pack = _build_pack(client, "FCRM-2026-9030")
-    response = client.post(
-        f"/packs/{pack['pack_id']}/questions",
-        json={
-            "pack_id": pack["pack_id"],
-            "asked_by": "Lin Chen",
-            "text": "Is the vendor DD review already scheduled?",
-        },
+    response = _ask(
+        client,
+        pack["pack_id"],
+        "Lin Chen",
+        "Is the vendor DD review already scheduled?",
     )
     assert response.status_code == 200
     assert "question_id" in response.json()
 
 
 def test_numbers_changed_unlocks_the_pack_and_blocks_further_votes(
-    client: TestClient,
+    client: RoleClient,
 ) -> None:
     case_id = "FCRM-2026-9031"
     pack = _build_pack(client, case_id)
     pack_id = pack["pack_id"]
     _vote(client, pack_id, "Joseph Okafor", "approve_with_conditions")
 
-    question = client.post(
-        f"/packs/{pack_id}/questions",
-        json={"pack_id": pack_id, "asked_by": "Lin Chen", "text": "Does CE change?"},
-    ).json()
-    answer = client.post(
-        f"/questions/{question['question_id']}/answers",
-        json={
-            "pack_id": pack_id,
-            "question_id": question["question_id"],
-            "answered_by": "Rahul Iyer",
-            "text": "Yes, CTL-T01 rating corrected after review.",
-            "numbers_changed": True,
-        },
+    question = _ask(client, pack_id, "Lin Chen", "Does CE change?").json()
+    answer = _answer(
+        client,
+        pack_id,
+        question["question_id"],
+        "Yes, CTL-T01 rating corrected after review.",
+        changed=True,
     )
     assert answer.status_code == 200
     assert "addendum_id" in answer.json()
@@ -351,12 +400,8 @@ def test_numbers_changed_unlocks_the_pack_and_blocks_further_votes(
     assert blocked.json()["type"].endswith("/rule_violation")
 
     # The already-cast vote is voided, not silently kept valid.
-    rebuilt = client.post(
-        "/packs",
-        json={
-            "case_id": case_id,
-            "snapshot": {**_snapshot(case_id), "composite": 10.4},
-        },
+    rebuilt = _post_pack(
+        client, case_id, {**_snapshot(case_id), "composite": 10.4}
     ).json()
     assert rebuilt["pack_id"] != pack_id
     fresh_status = client.get(f"/packs/{rebuilt['pack_id']}/votes").json()
@@ -422,26 +467,16 @@ def test_a_non_boolean_release_check_flag_never_releases_a_pack(
 
 
 def test_unlocking_a_pack_for_changed_numbers_requires_a_reason(
-    client: TestClient,
+    client: RoleClient,
 ) -> None:
     """R6: a pack is unlocked only with a reason. An empty or blank answer
     must be refused and must leave the pack open for voting."""
     pack = _build_pack(client, "FCRM-2026-9102")
     pack_id = pack["pack_id"]
-    question = client.post(
-        f"/packs/{pack_id}/questions",
-        json={"pack_id": pack_id, "asked_by": "Lin Chen", "text": "Is 4.5 right?"},
-    ).json()
+    question = _ask(client, pack_id, "Lin Chen", "Is 4.5 right?").json()
     for blank in ("", "   "):
-        response = client.post(
-            f"/questions/{question['question_id']}/answers",
-            json={
-                "pack_id": pack_id,
-                "question_id": question["question_id"],
-                "answered_by": "Rahul Iyer",
-                "text": blank,
-                "numbers_changed": True,
-            },
+        response = _answer(
+            client, pack_id, question["question_id"], blank, changed=True
         )
         assert response.status_code == 409
     still_open = _vote(client, pack_id, "Joseph Okafor", "approve")
@@ -449,7 +484,7 @@ def test_unlocking_a_pack_for_changed_numbers_requires_a_reason(
 
 
 def test_a_decided_case_cannot_get_a_second_pack_with_a_second_outcome(
-    client: TestClient,
+    client: RoleClient,
 ) -> None:
     """Closed means closed: once a pack has a decisive outcome, a changed
     snapshot for the same case must be refused, not minted as pack v2 that
@@ -469,11 +504,9 @@ def test_a_decided_case_cannot_get_a_second_pack_with_a_second_outcome(
 
     changed = _snapshot(case_id)
     changed["note"] = "edited after the decision"
-    refused = client.post("/packs", json={"case_id": case_id, "snapshot": changed})
+    refused = _post_pack(client, case_id, changed)
     assert refused.status_code == 409
 
-    same = client.post(
-        "/packs", json={"case_id": case_id, "snapshot": _snapshot(case_id)}
-    )
+    same = _post_pack(client, case_id, _snapshot(case_id))
     assert same.status_code == 200
     assert same.json()["pack_id"] == pack["pack_id"]

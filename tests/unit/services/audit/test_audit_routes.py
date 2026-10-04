@@ -2,11 +2,14 @@
 takes whatever implements ``AuditStore``, so these wire in
 ``InMemoryAuditStore`` and exercise the app exactly as a caller would
 over HTTP -- same shape as ``tests/unit/services/scoring/test_routes.py``.
+The caller is the service account (the only role that may append); the
+role matrix is covered in ``test_audit_auth.py``.
 """
 
 from __future__ import annotations
 
 import copy
+from collections.abc import Callable
 
 import pytest
 from fastapi import FastAPI
@@ -16,22 +19,24 @@ from fcrm_audit.seedmodel import build_demo_chain
 from fcrm_audit.store import InMemoryAuditStore
 from fcrm_common.errors import install_error_handlers
 from fcrm_common.health import ReadinessProbe, build_health_router
+from fcrm_contracts.enums import Role
 from fcrm_seed.loader import demo_case
 
 
 @pytest.fixture
-def app() -> FastAPI:
+def app(wire_test_auth: Callable[[FastAPI], FastAPI]) -> FastAPI:
     application = FastAPI()
     install_error_handlers(application)
     application.state.probe = ReadinessProbe()
     application.include_router(router)
     application.include_router(build_health_router(application.state.probe))
     application.state.store = InMemoryAuditStore()
-    return application
+    return wire_test_auth(application)
 
 
 @pytest.fixture
-def client(app: FastAPI) -> TestClient:
+def client(app: FastAPI, act_as: Callable[[Role, str], None]) -> TestClient:
+    act_as(Role.SERVICE, "svc:caseflow")
     return TestClient(app)
 
 
@@ -122,11 +127,14 @@ def test_get_verify_is_true_with_zero_records_for_an_unknown_case(
     }
 
 
-def test_get_verify_catches_a_tampered_record(app: FastAPI) -> None:
+def test_get_verify_catches_a_tampered_record(
+    app: FastAPI, act_as: Callable[[Role, str], None]
+) -> None:
     """Builds the store directly with a tampered chain (rather than going
     through ``POST /records``, which cannot produce one): exercises the
     real ``verify_chain`` through the HTTP layer end to end.
     """
+    act_as(Role.ANALYST, "u-riyer")
     demo = demo_case()
     records = build_demo_chain(demo)
     tampered = copy.deepcopy(records)
@@ -141,10 +149,13 @@ def test_get_verify_catches_a_tampered_record(app: FastAPI) -> None:
         assert body["first_break_seq"] == 11
 
 
-def test_get_verify_passes_for_the_real_demo_chain(app: FastAPI) -> None:
+def test_get_verify_passes_for_the_real_demo_chain(
+    app: FastAPI, act_as: Callable[[Role, str], None]
+) -> None:
     """The same 67-record replay ``test_chain.py`` proves at the pure
     function level, now proven again through the HTTP layer.
     """
+    act_as(Role.COMMITTEE, "u-amendes")
     demo = demo_case()
     app.state.store = InMemoryAuditStore(build_demo_chain(demo))
 

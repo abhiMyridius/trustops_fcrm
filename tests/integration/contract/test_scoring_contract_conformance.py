@@ -18,6 +18,7 @@ discovered later by a confused caller.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -30,6 +31,7 @@ from fcrm_contracts.api.scoring import (
     ScoreResponse,
     ScoringModelVersion,
 )
+from fcrm_contracts.enums import Role
 from fcrm_scoring.routes import router
 from fcrm_scoring.seedmodel import scoring_model_from_seed
 from fcrm_scoring.store import InMemoryConfigStore
@@ -39,7 +41,10 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
-def app(seeded_scoring_model: dict[str, Any]) -> FastAPI:
+def app(
+    seeded_scoring_model: dict[str, Any],
+    wire_test_auth: Callable[[FastAPI], FastAPI],
+) -> FastAPI:
     application = FastAPI()
     install_error_handlers(application)
     application.state.probe = ReadinessProbe()
@@ -47,11 +52,13 @@ def app(seeded_scoring_model: dict[str, Any]) -> FastAPI:
     application.include_router(build_health_router(application.state.probe))
     model = scoring_model_from_seed(seeded_scoring_model)
     application.state.store = InMemoryConfigStore(models=[model], routing=[])
-    return application
+    return wire_test_auth(application)
 
 
 @pytest.fixture
-def client(app: FastAPI) -> TestClient:
+def client(app: FastAPI, act_as: Callable[[Role, str], None]) -> TestClient:
+    """Calls S2 as H1's service account, its real caller (ADR-07)."""
+    act_as(Role.SERVICE, "svc:caseflow")
     return TestClient(app)
 
 

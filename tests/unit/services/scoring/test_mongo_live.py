@@ -12,10 +12,16 @@ like ``fcrm_common``'s own live tests::
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
+#: ``tests/conftest.py``'s ``live_client``: real lifespan, real HS256
+#: service token, allow-all OPA stub.
+LiveClient = Callable[..., AbstractContextManager[TestClient]]
 from fcrm_common.errors import install_error_handlers
 from fcrm_common.health import ReadinessProbe, build_health_router
 from fcrm_contracts.enums import Band
@@ -61,14 +67,14 @@ def app(clean_db, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
 
 
 def test_the_full_lifespan_seeds_mongo_and_passes_its_own_recompute_self_test(
-    app: FastAPI,
+    app: FastAPI, live_client: LiveClient
 ) -> None:
     """Start the app for real (runs the lifespan): Mongo gets the seeded
     v3 model and v4 routing rules, and the startup self-test recomputes
     all 80 seed cases against them -- if that disagreed, the app would
     never finish starting up (``TestClient`` would raise).
     """
-    with TestClient(app) as client:
+    with live_client(app) as client:
         ready = client.get("/readyz")
         assert ready.status_code == 200
         assert ready.json()["status"] == "ok"
@@ -83,20 +89,24 @@ def test_the_full_lifespan_seeds_mongo_and_passes_its_own_recompute_self_test(
         assert routing.json()["version"] == 4
 
 
-def test_restarting_the_app_does_not_duplicate_the_seed(app: FastAPI) -> None:
+def test_restarting_the_app_does_not_duplicate_the_seed(
+    app: FastAPI, live_client: LiveClient
+) -> None:
     """Two lifespans in a row (simulating a container restart) must not
     insert the model twice -- load_if_empty's whole point.
     """
     with TestClient(app):
         pass
-    with TestClient(app) as client:
+    with live_client(app) as client:
         response = client.get("/models/active")
         assert response.status_code == 200
         assert response.json()["version"] == 3
 
 
-def test_post_score_through_the_real_mongo_backed_store(app: FastAPI) -> None:
-    with TestClient(app) as client:
+def test_post_score_through_the_real_mongo_backed_store(
+    app: FastAPI, live_client: LiveClient
+) -> None:
+    with live_client(app) as client:
         request = {
             "case_id": "FCRM-2026-0151",
             "scoring_v": 3,

@@ -23,6 +23,7 @@ for.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -31,7 +32,7 @@ from fastapi.testclient import TestClient
 from fcrm_caseflow.routing import route_for_band
 from fcrm_common.errors import install_error_handlers
 from fcrm_common.health import ReadinessProbe, build_health_router
-from fcrm_contracts.enums import Band, Route
+from fcrm_contracts.enums import Band, Role, Route
 from fcrm_scoring.routes import router
 from fcrm_scoring.seedmodel import (
     apply_catalogue_weights,
@@ -44,7 +45,11 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
-def client(seeded_scoring_model: dict[str, Any]) -> TestClient:
+def client(
+    seeded_scoring_model: dict[str, Any],
+    wire_test_auth: Callable[[FastAPI], FastAPI],
+    act_as: Callable[[Role, str], None],
+) -> TestClient:
     app = FastAPI()
     install_error_handlers(app)
     app.state.probe = ReadinessProbe()
@@ -52,7 +57,8 @@ def client(seeded_scoring_model: dict[str, Any]) -> TestClient:
     app.include_router(build_health_router(app.state.probe))
     model = scoring_model_from_seed(seeded_scoring_model)
     app.state.store = InMemoryConfigStore(models=[model], routing=[])
-    return TestClient(app)
+    act_as(Role.SERVICE, "svc:caseflow")  # H1 is S2's real caller (ADR-07)
+    return TestClient(wire_test_auth(app))
 
 
 @pytest.mark.parametrize("band", [Band.BAND_1, Band.BAND_2, Band.BAND_3, Band.BAND_4])

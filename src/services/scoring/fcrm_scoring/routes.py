@@ -4,11 +4,22 @@ No route here ever accepts a pre-computed score, band or route from the
 caller — every response is the engine's own output. This is rule 1 at the
 transport boundary, the same way the schema already makes it true at the
 payload boundary.
+
+Every route needs a verified principal and an OPA allow (``authorize``,
+installed as a *router-level* dependency so a route added later cannot be
+left open by omission), and then its own ``require_roles`` list, which is
+the matrix ``ops/opa/data/permissions.json`` encodes for ``service:
+scoring``. The PO role appears in none of them: a score, band or route
+never reaches a PO from this service, whatever the gateway does.
 """
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Request
+from fcrm_common.auth import require_roles
+from fcrm_common.authz import opa_dependency
 from fcrm_common.errors import NotFoundError
 from fcrm_contracts.api.scoring import (
     RoutingRulesVersion,
@@ -16,11 +27,24 @@ from fcrm_contracts.api.scoring import (
     ScoreResponse,
     ScoringModelVersion,
 )
+from fcrm_contracts.common import Principal
+from fcrm_contracts.enums import Role
 
 from fcrm_scoring.engine import compute_score
 from fcrm_scoring.store import ConfigStore
 
-router = APIRouter(tags=["scoring"])
+#: Authenticate, then ask OPA for ``service: scoring`` on the matched route
+#: template. 401 without a token, 403 on deny, 503 when OPA is unreachable
+#: or not installed (fail closed).
+authorize = opa_dependency("scoring")
+
+router = APIRouter(tags=["scoring"], dependencies=[Depends(authorize)])
+
+#: Who may ask for a score of record: H1 (service account) and the analyst's
+#: own override/re-score path. Committee members read but never score.
+_SCORE_ROLES = (Role.SERVICE, Role.ANALYST)
+#: Who may read the scoring model and routing rules a case is pinned to.
+_CONFIG_READ_ROLES = (Role.SERVICE, Role.ANALYST, Role.COMMITTEE)
 
 
 def get_store(request: Request) -> ConfigStore:
@@ -34,7 +58,9 @@ def get_store(request: Request) -> ConfigStore:
 
 @router.post("/score", response_model=ScoreResponse)
 async def score(
-    body: ScoreRequest, store: ConfigStore = Depends(get_store)
+    body: ScoreRequest,
+    _principal: Annotated[Principal, Depends(require_roles(*_SCORE_ROLES))],
+    store: ConfigStore = Depends(get_store),
 ) -> ScoreResponse:
     """Compute a composite score. Idempotent and pure given the same
     ``body`` and the active model matching ``body.scoring_v`` — called by
@@ -47,6 +73,7 @@ async def score(
 
 @router.get("/models/active", response_model=ScoringModelVersion)
 async def active_model(
+    _principal: Annotated[Principal, Depends(require_roles(*_CONFIG_READ_ROLES))],
     store: ConfigStore = Depends(get_store),
 ) -> ScoringModelVersion:
     """The scoring model version currently active for new scoring calls."""
@@ -55,7 +82,9 @@ async def active_model(
 
 @router.get("/models/{version}", response_model=ScoringModelVersion)
 async def model_by_version(
-    version: int, store: ConfigStore = Depends(get_store)
+    version: int,
+    _principal: Annotated[Principal, Depends(require_roles(*_CONFIG_READ_ROLES))],
+    store: ConfigStore = Depends(get_store),
 ) -> ScoringModelVersion:
     """A pinned scoring model version, for replaying an older case's
     score exactly (every case pins the version it was scored with).
@@ -65,6 +94,7 @@ async def model_by_version(
 
 @router.get("/routing/active", response_model=RoutingRulesVersion)
 async def active_routing(
+    _principal: Annotated[Principal, Depends(require_roles(*_CONFIG_READ_ROLES))],
     store: ConfigStore = Depends(get_store),
 ) -> RoutingRulesVersion:
     """The routing rules version currently active (R1-R6, D-19)."""
