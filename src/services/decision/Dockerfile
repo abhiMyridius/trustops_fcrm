@@ -4,12 +4,9 @@
 #
 #   docker build -f src/services/decision/Dockerfile -t trustops/decision:local .
 #
-# NOTE (as of this build): fcrm_decision has no fcrm_decision/main.py yet
-# (only .packs/.release_checks's pure logic has landed — no FastAPI/
-# uvicorn dependency in pyproject.toml either). The image below builds and
-# installs cleanly; `uvicorn fcrm_decision.main:app` will fail at container
-# start until S5's HTTP layer lands, matching the pattern every other
-# service in this repo already uses (`fcrm_scoring.main:app`).
+# S5's HTTP layer (fcrm_decision.routes/.store/.lifespan/.main) now exists,
+# mirroring fcrm_scoring's shape exactly, so `uvicorn fcrm_decision.main:app`
+# boots like every other service here.
 #
 # Multi-stage: `builder` resolves and installs the workspace with uv into a
 # venv that is `--no-editable` (built wheels, not path installs), so the
