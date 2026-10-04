@@ -1,29 +1,42 @@
-"""The BB-xx scenarios that cannot be genuinely exercised yet, and why --
-listed here as explicit, named, skipped tests (so ``pytest --collect-only``
-shows exactly what is blocked and on what) rather than silently omitted,
-per this lane's brief: "clearly list those as not-yet-testable instead of
-faking them."
+"""The BB-xx scenarios (or halves of scenarios) that still cannot be
+genuinely exercised, and exactly what is missing -- listed here as
+explicit, named, skipped tests (so ``pytest --collect-only`` shows what is
+blocked and on what) rather than silently omitted, per this lane's brief:
+"clearly list those as not-yet-testable instead of faking them."
 
-A real documentation drift, found while writing this suite: BUILD-PLAN.md
-(the one-line summary near "Black-box (third-party view)") and
-``docs/architecture/design/C-web-tests-ops-sdlc.md`` section 3.1(f) (the
-detailed table) both enumerate the *same* fourteen rules, but assign them
-*different* BB-xx numbers -- e.g. BUILD-PLAN's BB-04 is "analyst cannot
-edit submission" while the design doc's BB-04 is "audit chain verifies."
-This file (and the rest of this lane's suite) follows the design doc's
-numbering throughout, since it is the more detailed, concretely-checkable
-enumeration (CLAUDE.md's precedence puts "BUILD-PLAN.md and the design
-documents" at the same tier, so neither wins by precedence alone; the
-design doc's table is used here as the more implementable source). This
-drift is worth a governance row (``docs/governance/defect-trail.md``)
-reconciling the two listings to one canonical numbering -- not fixed here,
-since this lane was not asked to edit governance tables or BUILD-PLAN.md.
+Status: S1 (case), S3 (policy), S4 (audit) and S5 (decision) now have real
+FastAPI apps, so every scenario that can be driven through their routes has
+its own file in this directory:
 
-Every ID below names, precisely, the HTTP route or service layer it is
-blocked on, cross-referenced against BUILD-PLAN.md's own status table
-(as of this writing): S1 case, S3 policy, S5 decision and H1 caseflow
-have no HTTP layer merged yet (pure domain logic / pure state machine
-only); only S2 scoring and X1 identity have real routes.
+- BB-05 ``test_bb_05_votes_hidden_until_all_cast.py`` (S5, complete)
+- BB-06 ``test_bb_06_pack_frozen.py`` (S5; the PUT-recommendation half is
+  below)
+- BB-07 ``test_bb_07_closed_means_closed.py`` (S1 + S5, complete; the CLOSED
+  state is written to the store because no route moves a case there)
+- BB-09 ``test_bb_09_analyst_never_edits_submission.py`` (S1; the v2 half is
+  below)
+- BB-12 ``test_bb_12_policy_quoted_not_generated.py`` (S3 via ``POST
+  /search``, plus rule 8)
+- BB-13 ``test_bb_13_unacknowledged_pack_not_released.py`` (S5's release
+  gate only; the acknowledge call is below)
+- BB-14 ``test_bb_14_case_versions_pinned.py`` (S1; the score half is below)
+
+What remains here is blocked on services or routes that do not exist.
+Route inventory at the time of writing -- S1: ``POST/GET /cases``,
+``GET /cases/{id}``, ``PUT .../title``, ``PUT .../fields/{id}``, ``POST
+.../submit``, ``GET .../versions``, ``.../versions/diff``, ``.../stream``;
+S2: ``/score``, ``/models/*``, ``/routing/active``; S3: ``POST /search``;
+S4: ``POST /records``, ``GET /verify/{id}``, ``GET /records/{id}``; S5:
+``/release-checks``, ``/packs``, ``/packs/{id}``, ``.../votes``,
+``.../outcome``, ``.../questions``, ``/questions/{id}/answers``; H1
+(caseflow) is a FastStream worker whose only HTTP is ``/healthz`` and
+``/readyz``. There is no gates/decide route, no override route, no
+acknowledge route, no recommendation route and no clause-by-id route
+anywhere.
+
+Numbering follows the design doc table (``docs/architecture/design/
+C-web-tests-ops-sdlc.md`` section 3.1(f)); BUILD-PLAN.md assigns different
+BB numbers to the same fourteen rules (see the defect trail).
 """
 
 from __future__ import annotations
@@ -35,10 +48,17 @@ pytestmark = pytest.mark.integration
 
 @pytest.mark.skip(
     reason=(
-        "BB-03 'overrides need reasons' needs S1/H1's gates/decide HTTP "
-        "route (422 on no reason / too-short reason, 200 + an audit record "
-        "on a valid one) -- fcrm_caseflow (H1) is pure state machine only, "
-        "no HTTP yet; fcrm_case (S1) has no gates route either."
+        "BB-03 'overrides need reasons' (gates/decide {override} with no "
+        "reason -> 422, with a 10-char reason -> 422, with a valid reason -> "
+        "200 plus a human.override audit record carrying before/after/cause) "
+        "needs a gates/decide or review-item override route, and none exists: "
+        "S1 has no gates or review-item route, S2's /score takes ratings "
+        "that are already overridden and has no notion of a reason, S4's "
+        "POST /records stores any record type without checking for a "
+        "reason, and H1 (the owner of gate state, fcrm_caseflow.gates) has "
+        "no HTTP beyond /healthz and /readyz. The rule exists only as pure "
+        "code with its own unit tests (fcrm_guardrails.rules."
+        "r6_override_has_reason, human_gate.validate_gate_decision)."
     )
 )
 def test_bb_03_overrides_need_reasons() -> None:
@@ -47,46 +67,30 @@ def test_bb_03_overrides_need_reasons() -> None:
 
 @pytest.mark.skip(
     reason=(
-        "BB-05 'votes hidden until all cast' needs S5 decision's GET votes "
-        "route and its per-member storage of cast-but-unrevealed votes -- "
-        "fcrm_decision has the pure tally (outcomes.py) but no HTTP/Mongo "
-        "layer, so there is nowhere a real 'first two votes are each "
-        "member's own choice only' response could come from yet."
+        "BB-06's 'PUT recommendation after lock -> 409' needs a recommendation "
+        "route to refuse. Neither S1 nor S5 has one: S5 freezes only an "
+        "opaque snapshot by content hash (POST /packs), so there is no "
+        "recommendation field that can be PUT. The other halves of BB-06 "
+        "(hash stable over 10 reads, v2 with a new hash, v1 retrievable, "
+        "votes re-requested) are real in test_bb_06_pack_frozen.py. Note "
+        "that the only unlock S5 has, POST /questions/{id}/answers with "
+        "numbers_changed=true, accepts an empty text, i.e. an unlock with "
+        "no reason."
     )
 )
-def test_bb_05_votes_hidden_until_all_cast() -> None:
-    raise AssertionError("blocked: see skip reason")
-
-
-@pytest.mark.skip(
-    reason=(
-        "BB-06 'pack frozen' needs S5's PUT recommendation / unlock routes "
-        "(409 after lock, v2 + re_requested votes after an unlock-with- "
-        "reason) -- fcrm_decision.packs has real, tested pure hashing "
-        "(content_hash, pack_unchanged, build_pack) but no HTTP route to "
-        "drive the lock/unlock state transition against."
-    )
-)
-def test_bb_06_pack_frozen() -> None:
-    raise AssertionError("blocked: see skip reason")
-
-
-@pytest.mark.skip(
-    reason=(
-        "BB-07 'closed means closed' (409 case_closed on every write route, "
-        "for every role) needs S1's case routes plus H1's CLOSED-state "
-        "enforcement wired through HTTP -- neither exists yet."
-    )
-)
-def test_bb_07_closed_means_closed() -> None:
+def test_bb_06_put_recommendation_after_lock_is_409() -> None:
     raise AssertionError("blocked: see skip reason")
 
 
 @pytest.mark.skip(
     reason=(
         "BB-08 'no bulk accept' (gates/decide rejects an array body; 4 "
-        "clauses need 4 calls and 4 gate.decided records) needs S1/H1's "
-        "gates/decide HTTP route -- same gap as BB-03."
+        "clauses need 4 calls and produce 4 gate.decided records) needs a "
+        "gates/decide route, and none exists -- same gap as BB-03. Gate "
+        "state lives only inside H1 (fcrm_caseflow.gates.GateStore, no HTTP), "
+        "and S1 exposes no review-item route that could take an array. The "
+        "rule exists only as pure code with unit tests "
+        "(fcrm_guardrails.rules.r2_no_bulk_accept)."
     )
 )
 def test_bb_08_no_bulk_accept() -> None:
@@ -95,61 +99,52 @@ def test_bb_08_no_bulk_accept() -> None:
 
 @pytest.mark.skip(
     reason=(
-        "BB-09 'analyst never edits submission' (PUT fields/{id} as "
-        "analyst -> 403; a PO answer creates v2 with v1 byte-identical) "
-        "needs S1's fields/answer HTTP routes and OPA role wiring on "
-        "them -- fcrm_case's submission-versioning logic is pure domain "
-        "code today (fieldset.py, submit_checks.py), not reachable over "
-        "HTTP."
+        "BB-09's 'a PO answer creates v2 and v1 stays byte-identical' needs "
+        "a way to create a second submission version, and S1 has none: POST "
+        "/cases/{id}/submit is one-shot (a second submit is 409), there is no "
+        "clarification-thread or answer route, and a PO field write after "
+        "submission is 409. The other half (analyst PUT fields/{id} -> 403, "
+        "and v1 byte-identical after every attempt to change it) is real in "
+        "test_bb_09_analyst_never_edits_submission.py."
     )
 )
-def test_bb_09_analyst_never_edits_submission() -> None:
+def test_bb_09_po_answer_creates_v2_and_v1_stays_byte_identical() -> None:
     raise AssertionError("blocked: see skip reason")
 
 
 @pytest.mark.skip(
     reason=(
-        "BB-12 'policy quoted, not generated' (every accepted clause's "
-        "quote is a substring of GET policy/clauses/{id}'s real text for "
-        "the pinned corpus version) needs S3 policy's HTTP route -- "
-        "fcrm_policy today is pure search logic (search/rrf.py, "
-        "search/filters.py) with no clause-serving route at all, so there "
-        "is no GET route to assert a quote is a substring of."
+        "BB-13 'release without acknowledgement -> 409 listing boundary and "
+        "band_change; after acknowledge -> 200' needs an acknowledge route "
+        "and a release route that answers 409 with the reasons. None "
+        "exists: S1 and H1 have no acknowledge/gates route, and S5's POST "
+        "/packs answers 200 with released_at null and the "
+        "boundary_and_band_acknowledged check false (it takes the flag from "
+        "the snapshot the caller froze; it lists no 'boundary'/'band_change' "
+        "reasons). S5's side of the gate is real in "
+        "test_bb_13_unacknowledged_pack_not_released.py, and the detection "
+        "half (boundary flag and band, through S2's live /score) in "
+        "tests/unit/services/scoring/test_routes.py and "
+        "tests/integration/contract/test_scoring_contract_conformance.py."
     )
 )
-def test_bb_12_policy_quoted_not_generated() -> None:
+def test_bb_13_release_without_ack_is_409_listing_boundary_and_band_change() -> None:
     raise AssertionError("blocked: see skip reason")
 
 
 @pytest.mark.skip(
     reason=(
-        "BB-13 'boundary/band change acknowledged' (release without "
-        "acknowledgement -> 409 listing 'boundary'/'band_change'; 200 "
-        "after acknowledge) needs H1's release-check/acknowledge HTTP "
-        "route. Note: the *detection* half of this rule -- the boundary "
-        "flag and the band itself -- is already real and tested end to "
-        "end through S2's live /score route (see "
-        "tests/unit/services/scoring/test_routes.py and this lane's "
-        "test_scoring_contract_conformance.py); what is missing is only "
-        "the human-acknowledgement *gate* on top of that correct "
-        "detection, which is H1/S1's job, not S2's."
+        "BB-14's 'its score is unchanged' at the level of a case needs a "
+        "case-level score to compare before and after a control-inventory "
+        "publish, and S1 holds none: CaseDetailAnalyst.score is hard-wired "
+        "to null in fcrm_case.shaping (no S2/H1 result is stored on the "
+        "case). The pinning half (the open case still reports controls v9 "
+        "after v10 is published) is real in "
+        "test_bb_14_case_versions_pinned.py, and the scoring-model half "
+        "(a pinned scoring_v recomputes 9.8 and 10.4 unchanged after a newer "
+        "model goes active) against S2 in "
+        "test_bb_14_scoring_version_pinned.py."
     )
 )
-def test_bb_13_boundary_band_change_acknowledged() -> None:
-    raise AssertionError("blocked: see skip reason")
-
-
-@pytest.mark.skip(
-    reason=(
-        "Full BB-14 case-level control-inventory version pinning ('publish "
-        "control inventory v10; the open demo case still reports controls "
-        "v9') needs S1 case storage of a case's pinned versions -- not "
-        "built. The narrower, genuinely-provable slice of this rule -- a "
-        "case's *scoring model* version pins correctly against S2's real, "
-        "multi-version HTTP store -- is covered by "
-        "test_bb_14_scoring_version_pinned.py in this same directory, not "
-        "skipped."
-    )
-)
-def test_bb_14_full_case_level_control_inventory_pinning() -> None:
+def test_bb_14_case_score_unchanged_after_inventory_publish() -> None:
     raise AssertionError("blocked: see skip reason")

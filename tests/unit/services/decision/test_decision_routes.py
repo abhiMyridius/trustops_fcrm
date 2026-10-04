@@ -400,3 +400,80 @@ def test_readyz_is_ok_with_no_checks_registered(client: TestClient) -> None:
     response = client.get("/readyz")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
+
+@pytest.mark.parametrize("bad", ["false", "true", "yes", 1, 2, "0", [], {}, None])
+def test_a_non_boolean_release_check_flag_never_releases_a_pack(
+    client: TestClient, bad: Any
+) -> None:
+    """Fail-open regression: ``bool("false")`` is True, so a string or
+    number in a release-check slot used to release the pack and open it for
+    voting. Only a literal JSON ``true`` may count as a passed check.
+    """
+    snapshot = _snapshot("FCRM-2026-9101")
+    snapshot["checks"]["boundary_and_band_acknowledged"] = bad
+    response = client.post(
+        "/packs", json={"case_id": "FCRM-2026-9101", "snapshot": snapshot}
+    )
+    assert response.status_code == 200
+    assert response.json().get("released_at") is None
+    vote = _vote(client, response.json()["pack_id"], "Joseph Okafor", "approve")
+    assert vote.status_code == 409
+
+
+def test_unlocking_a_pack_for_changed_numbers_requires_a_reason(
+    client: TestClient,
+) -> None:
+    """R6: a pack is unlocked only with a reason. An empty or blank answer
+    must be refused and must leave the pack open for voting."""
+    pack = _build_pack(client, "FCRM-2026-9102")
+    pack_id = pack["pack_id"]
+    question = client.post(
+        f"/packs/{pack_id}/questions",
+        json={"pack_id": pack_id, "asked_by": "Lin Chen", "text": "Is 4.5 right?"},
+    ).json()
+    for blank in ("", "   "):
+        response = client.post(
+            f"/questions/{question['question_id']}/answers",
+            json={
+                "pack_id": pack_id,
+                "question_id": question["question_id"],
+                "answered_by": "Rahul Iyer",
+                "text": blank,
+                "numbers_changed": True,
+            },
+        )
+        assert response.status_code == 409
+    still_open = _vote(client, pack_id, "Joseph Okafor", "approve")
+    assert still_open.status_code == 200
+
+
+def test_a_decided_case_cannot_get_a_second_pack_with_a_second_outcome(
+    client: TestClient,
+) -> None:
+    """Closed means closed: once a pack has a decisive outcome, a changed
+    snapshot for the same case must be refused, not minted as pack v2 that
+    can reach a contradictory second outcome. An identical re-post stays an
+    idempotent no-op."""
+    case_id = "FCRM-2026-9103"
+    pack = _build_pack(client, case_id)
+    for member, option in (
+        ("Joseph Okafor", "approve"),
+        ("Ana Mendes", "approve"),
+        ("Lin Chen", "defer"),
+    ):
+        assert _vote(client, pack["pack_id"], member, option).status_code == 200
+    assert (
+        client.get(f"/packs/{pack['pack_id']}/outcome").json()["outcome"] == "approve"
+    )
+
+    changed = _snapshot(case_id)
+    changed["note"] = "edited after the decision"
+    refused = client.post("/packs", json={"case_id": case_id, "snapshot": changed})
+    assert refused.status_code == 409
+
+    same = client.post(
+        "/packs", json={"case_id": case_id, "snapshot": _snapshot(case_id)}
+    )
+    assert same.status_code == 200
+    assert same.json()["pack_id"] == pack["pack_id"]

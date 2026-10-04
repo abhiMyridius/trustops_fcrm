@@ -73,13 +73,17 @@ def _checks_from_snapshot(snapshot: dict[str, Any]) -> ReleaseChecks:
     """
     raw = snapshot.get("checks")
     data = raw if isinstance(raw, dict) else {}
+
+    def passed(name: str) -> bool:
+        # Only a literal JSON true counts. bool("false") and bool(1) are
+        # True, which would release a pack on a malformed flag (fail open).
+        return data.get(name) is True
+
     return evaluate_release_checks(
-        numbers_locked=bool(data.get("numbers_locked", False)),
-        conditions_drafted=bool(data.get("conditions_drafted", False)),
-        all_review_items_decided=bool(data.get("all_review_items_decided", False)),
-        boundary_and_band_acknowledged=bool(
-            data.get("boundary_and_band_acknowledged", False)
-        ),
+        numbers_locked=passed("numbers_locked"),
+        conditions_drafted=passed("conditions_drafted"),
+        all_review_items_decided=passed("all_review_items_decided"),
+        boundary_and_band_acknowledged=passed("boundary_and_band_acknowledged"),
     )
 
 
@@ -114,6 +118,15 @@ async def build_or_reuse_pack(
         and content_hash(latest.content) == new_hash
     ):
         return latest.to_pack(new_hash)
+
+    if latest is not None:
+        decided = await store.get_outcome(latest.pack_id)
+        if decided is not None and not decided.no_majority:
+            raise ConflictError(
+                "this case already has a committee outcome; a new pack cannot "
+                "be built for it",
+                rule_id="case_decided",
+            )
 
     version = latest.version + 1 if latest is not None else 1
     row = _PackRow(
@@ -340,6 +353,11 @@ async def answer_question(
     question = await store.get_question(question_id)
     if question is None:
         raise NotFoundError(f"no committee question {question_id}")
+    if body.numbers_changed and not body.text.strip():
+        raise RuleViolationError(
+            "unlocking a pack for changed numbers requires a reason (R6)",
+            rule_id="R6",
+        )
     addendum_id = new_id("addm")
     await store.insert_answer(addendum_id, body)
     if body.numbers_changed:
