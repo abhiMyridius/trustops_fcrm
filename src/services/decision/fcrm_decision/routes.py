@@ -262,7 +262,12 @@ async def cast_vote(
         raise RuleViolationError(
             "a rationale is required on every vote (R2)", rule_id="R2"
         )
-    await store.insert_vote(
+    # The checks above give the caller a precise error in the common case;
+    # record_vote re-checks every one of them atomically with the insert,
+    # the quorum count and (for the third vote) the tally and close, so a
+    # concurrent vote can never make a round hold four votes or be tallied
+    # twice.
+    recorded = await store.record_vote(
         _VoteRow(
             pack_id=pack_id,
             round=body.round,
@@ -270,53 +275,44 @@ async def cast_vote(
             option=body.option,
             rationale=body.rationale,
             cast_at=utcnow(),
-        )
+        ),
+        decide=lambda ballot: _decide(row, body.round, ballot),
     )
-    cast_votes = await store.votes_for_round(pack_id, body.round)
-    if len(cast_votes) < QUORUM:
+    if recorded.outcome is None:
         return VotesHidden(
-            pack_id=pack_id, round=body.round, votes_cast=len(cast_votes), quorum=QUORUM
+            pack_id=pack_id,
+            round=body.round,
+            votes_cast=recorded.votes_cast,
+            quorum=QUORUM,
         )
-    return await _tally_and_store(store, row, body.round, cast_votes)
+    outcome = recorded.outcome
+    if outcome.no_majority:
+        logger.info(
+            "no majority; re-vote opened",
+            extra={"pack_id": pack_id, "round": body.round},
+        )
+    else:
+        logger.info(
+            "committee outcome decided",
+            extra={"pack_id": pack_id, "round": body.round, "outcome": outcome.outcome},
+        )
+    return outcome
 
 
-async def _tally_and_store(
-    store: DecisionStore,
-    row: _PackRow,
-    round_: int,
-    cast_votes: list[_VoteRow],
-) -> OutcomeSet:
-    """Quorum just reached: tally the round once (ADR-08) and persist the
-    result. ``no_majority`` opens the next round on the same pack and is
-    never resolved to a default outcome; a majority closes the pack to
-    further votes.
+def _decide(row: _PackRow, round_: int, ballot: list[_VoteRow]) -> OutcomeSet:
+    """Quorum just reached: tally the round once (ADR-08). Pure; the store
+    calls it inside the same atomic step that recorded the deciding vote.
+    ``no_majority`` is never resolved to a default outcome -- the store
+    opens the next round on the same pack instead.
     """
-    result = tally_round([v.option.value for v in cast_votes], round_)
-    outcome = OutcomeSet(
+    result = tally_round([v.option.value for v in ballot], round_)
+    return OutcomeSet(
         case_id=row.case_id,
         pack_id=row.pack_id,
         round=round_,
         outcome=result.outcome,
         no_majority=result.no_majority,
     )
-    await store.save_outcome(outcome)
-    if result.no_majority:
-        await store.bump_round(row.pack_id)
-        logger.info(
-            "no majority; re-vote opened",
-            extra={
-                "pack_id": row.pack_id,
-                "round": round_,
-                "next_round": result.next_round,
-            },
-        )
-    else:
-        await store.set_open_for_voting(row.pack_id, False)
-        logger.info(
-            "committee outcome decided",
-            extra={"pack_id": row.pack_id, "round": round_, "outcome": result.outcome},
-        )
-    return outcome
 
 
 @router.get("/packs/{pack_id}/votes")
@@ -434,14 +430,23 @@ async def answer_question(
             "unlocking a pack for changed numbers requires a reason (R6)",
             rule_id="R6",
         )
-    addendum_id = new_id("addm")
-    await store.insert_answer(addendum_id, body)
     if body.numbers_changed:
-        pack_row = await _require_pack(store, question.pack_id)
-        await store.set_open_for_voting(question.pack_id, False)
-        await store.void_votes(question.pack_id, pack_row.current_round)
+        await _require_pack(store, question.pack_id)
+        # Closed means closed: a decided round's votes are what its outcome
+        # was counted from. Voiding them would leave an outcome with no
+        # valid votes behind it, so the unlock is refused instead -- in the
+        # same atomic step as the close/void, so a deciding vote and an
+        # unlock cannot both win.
+        if not await store.unlock_for_changed_numbers(question.pack_id):
+            raise ConflictError(
+                "this pack already has a committee outcome; its numbers can no "
+                "longer be reopened",
+                rule_id="case_decided",
+            )
         logger.info(
             "committee answer changed a number; pack unlocked pending pack v2",
             extra={"pack_id": question.pack_id},
         )
+    addendum_id = new_id("addm")
+    await store.insert_answer(addendum_id, body)
     return {"addendum_id": addendum_id, **body.model_dump()}
