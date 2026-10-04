@@ -7,7 +7,6 @@ fcrm-common      = { workspace = true }
 fcrm-guardrails  = { workspace = true }
 fcrm-agents      = { workspace = true }
 fcrm-tools       = { workspace = true }
-fcrm-skills      = { workspace = true }
 fcrm-prompts     = { workspace = true }
 fcrm-seed        = { workspace = true }
 fcrm-case-service  = { workspace = true }

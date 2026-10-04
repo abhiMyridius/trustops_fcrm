@@ -178,8 +178,3 @@ class LlmMode(StrEnum):
     LIVE = "live"
     REPLAY = "replay"
     MOCK = "mock"
-
-
-class VectorBackend(StrEnum):
-    S3VECTORS = "s3vectors"
-    MEMORY = "memory"

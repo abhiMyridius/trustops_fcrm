@@ -22,9 +22,10 @@ from pydantic import BaseModel, ConfigDict
 def canonical_json(obj: Any) -> bytes:
     """Deterministic serialisation: sorted keys, no whitespace, UTF-8 —
     the same function fcrm_audit.chain uses, duplicated here rather than
-    imported (a service must not depend on another service's package;
-    both will move to fcrm_common.hashing once it exists, per BUILD-PLAN
-    §5's common-first plan).
+    imported (a service must not depend on another service's package).
+    Do not "consolidate" this with the audit chain's hashing without a
+    hash-format version: changing a canonical form re-hashes everything
+    already stored (see defect-trail D-29).
     """
     return json.dumps(
         obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False

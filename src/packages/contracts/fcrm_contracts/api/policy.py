@@ -84,15 +84,6 @@ class FieldDef(BaseModel):
     change_type: Optional[str] = None
 
 
-class FieldSetOut(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    version: int
-    max_required: int
-    completion_threshold: float
-    fields: list[FieldDef]
-
-
 class PrecedentOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

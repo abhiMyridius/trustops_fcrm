@@ -2,10 +2,10 @@
 identity-validation results (design A §8.3: OPA decisions cached 30 s,
 ``/core/validate`` results 60 s, in Redis).
 
-``fcrm_common`` does not depend on a Redis client: :class:`RedisTTLCache`
-adapts any object with redis-py's asyncio ``get``/``set(..., ex=...)``
-methods (``redis.asyncio.Redis``), and :class:`InMemoryTTLCache` serves
-tests and single-replica local runs. A cache failure is never an
+Only :class:`InMemoryTTLCache` exists today (a Redis-backed
+implementation was removed as dead code: nothing constructed it and no
+Redis client was ever a dependency; add one behind :class:`TTLCache` when
+a multi-replica deployment needs a shared cache). A cache failure is never an
 authorization failure: callers treat a cache error as a miss.
 """
 
@@ -29,42 +29,6 @@ class TTLCache(Protocol):
     async def set(self, key: str, value: str, ttl_s: int) -> None:
         """Store ``value`` for ``ttl_s`` seconds."""
         ...
-
-
-class _RedisLike(Protocol):
-    """The two redis-py asyncio methods the adapter uses."""
-
-    async def get(self, name: str) -> Optional[bytes | str]:
-        """GET."""
-        ...
-
-    async def set(self, name: str, value: str, ex: Optional[int] = None) -> object:
-        """SET with expiry."""
-        ...
-
-
-class RedisTTLCache:
-    """:class:`TTLCache` over a ``redis.asyncio.Redis`` client.
-
-    Args:
-        client: The Redis client (``redis.asyncio.from_url(REDIS_URL)``).
-        prefix: Key namespace, e.g. ``"fcrm:opa:"``.
-    """
-
-    def __init__(self, client: _RedisLike, prefix: str = "fcrm:") -> None:
-        self._client = client
-        self._prefix = prefix
-
-    async def get(self, key: str) -> Optional[str]:
-        """GET ``prefix + key``, decoding bytes."""
-        raw = await self._client.get(self._prefix + key)
-        if raw is None:
-            return None
-        return raw.decode("utf-8") if isinstance(raw, bytes) else raw
-
-    async def set(self, key: str, value: str, ttl_s: int) -> None:
-        """SET ``prefix + key`` with ``EX ttl_s``."""
-        await self._client.set(self._prefix + key, value, ex=ttl_s)
 
 
 @dataclass
