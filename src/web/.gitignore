@@ -4,3 +4,5 @@ dist/
 .vite/
 coverage/
 .env.local
+e2e/artifacts/
+e2e/report/
