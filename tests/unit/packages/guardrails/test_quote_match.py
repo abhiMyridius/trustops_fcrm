@@ -184,3 +184,28 @@ def test_match_quote_inserted_word_never_verifies(
     position = data.draw(st.integers(1, len(words) - 1))
     tampered = " ".join([*words[:position], "NOT", *words[position:]])
     assert not match_quote(tampered, clause).verified
+
+
+@pytest.mark.parametrize(
+    "hidden",
+    [
+        "‎",  # left-to-right mark
+        "‏",  # right-to-left mark
+        "⁡",  # function application
+        "⁤",  # invisible plus
+        "͏",  # combining grapheme joiner
+        "‪",  # LRE
+        "‮",  # RLO
+        "᠎",  # Mongolian vowel separator
+        "⁦",  # LRI
+    ],
+)
+def test_match_quote_ignores_every_zero_width_and_bidi_control(hidden: str) -> None:
+    source = f"screen all parties to a cross{hidden}-border payment"
+    assert match_quote("screen all parties to a cross-border payment", source).verified
+
+
+def test_line_span_negative_tolerance_raises_instead_of_returning_empty() -> None:
+    page = "\n".join(f"line {n}" for n in range(1, 11))
+    with pytest.raises(ValueError, match="tolerance"):
+        line_span(page, 5, 5, tolerance=-1)

@@ -145,6 +145,11 @@ class InMemoryCaseStore:
         limit: int = 50,
         cursor: Optional[str] = None,
     ) -> Page[CaseRecord]:
+        if limit < 1:
+            # Same contract as ``Repository.find_paginated``: a negative
+            # limit would otherwise slice ``[0:-1]`` and silently drop the
+            # last row instead of failing.
+            raise ValueError("limit must be >= 1")
         matching = [
             c
             for c in self._cases.values()

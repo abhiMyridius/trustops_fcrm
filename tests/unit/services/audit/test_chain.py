@@ -7,6 +7,7 @@ from __future__ import annotations
 import copy
 from datetime import UTC, datetime
 
+import pytest
 from fcrm_audit.chain import (
     GENESIS_HASH,
     build_record,
@@ -156,3 +157,79 @@ def test_empty_chain_verifies_trivially() -> None:
     result = verify_chain("EMPTY", [])
     assert result.ok is True
     assert result.record_count == 0
+
+
+def _third_party_recompute(served: dict) -> str:
+    """What an outside verifier does with one item of ``GET /records``: drop
+    ``prev_hash``/``hash``, sorted-key compact JSON, sha256 over
+    ``prev_hash + "\\n" + body``. Uses only the standard library."""
+    import hashlib
+    import json
+
+    body = {k: v for k, v in served.items() if k not in ("prev_hash", "hash")}
+    canonical = json.dumps(
+        body, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    return hashlib.sha256(
+        served["prev_hash"].encode("utf-8") + b"\n" + canonical
+    ).hexdigest()
+
+
+def test_hash_is_reproducible_from_the_served_json_mode_representation() -> None:
+    """The served ``created_at`` prints ``Z``; the hash used to be computed
+    over ``isoformat()``'s ``+00:00``, so nobody outside could recompute it."""
+    append = RecordAppend(
+        case_id="C1", type="case.created", actor="S1", summary="créé", data={"n": 1}
+    )
+    record = build_record(
+        append,
+        seq=1,
+        prev_hash=GENESIS_HASH,
+        created_at=datetime(2026, 10, 1, 9, 0, 1, 123000, tzinfo=UTC),
+    )
+    served = record.model_dump(mode="json")
+    assert served["created_at"].endswith("Z")
+    assert _third_party_recompute(served) == record.hash
+
+
+def test_verify_chain_rejects_a_record_from_another_case() -> None:
+    append = RecordAppend(case_id="C1", type="case.created", actor="S1", summary="x")
+    r1 = build_record(
+        append, seq=1, prev_hash=GENESIS_HASH, created_at=datetime.now(UTC)
+    )
+    foreign = RecordAppend(case_id="C2", type="case.submitted", actor="S1", summary="y")
+    r2 = build_record(foreign, seq=2, prev_hash=r1.hash, created_at=datetime.now(UTC))
+
+    result = verify_chain("C1", [r1, r2])
+    assert result.ok is False
+    assert result.first_break_seq == 2
+
+
+def test_canonical_json_rejects_nan_with_a_clear_error() -> None:
+    with pytest.raises(ValueError, match="NaN"):
+        canonical_json({"x": float("nan")})
+
+
+def test_canonical_json_rejects_a_lone_surrogate_with_a_clear_error() -> None:
+    with pytest.raises(ValueError, match="surrogate"):
+        canonical_json({"s": "bad \ud800 text"})
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        {"summary": "lone \ud800 surrogate"},
+        {"actor": "\udfff"},
+        {"data": {"note": ["ok", {"deep": "\ud800"}]}},
+        {"data": {"\ud800": "key"}},
+        {"data": {"x": float("nan")}},
+        {"data": {"x": [float("inf")]}},
+    ],
+)
+def test_record_append_rejects_unhashable_content_at_the_contract(field: dict) -> None:
+    """A 422 from Pydantic, long before ``canonical_json`` could 500."""
+    from pydantic import ValidationError
+
+    body = {"case_id": "C1", "type": "t", "actor": "a", "summary": "s", **field}
+    with pytest.raises(ValidationError):
+        RecordAppend(**body)

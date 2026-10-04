@@ -204,3 +204,56 @@ def test_readyz_is_ok_with_no_checks_registered(client: TestClient) -> None:
     response = client.get("/readyz")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
+
+def test_post_records_with_a_lone_surrogate_is_a_422_not_a_500(
+    client: TestClient,
+) -> None:
+    """The JSON escape ``\\ud800`` is valid JSON text that ``json.loads``
+    turns into a lone surrogate -- a string Python cannot UTF-8 encode. It
+    used to blow up in ``canonical_json`` as a 500."""
+    raw = (
+        '{"case_id": "FCRM-2026-TEST", "type": "case.created", "actor": "system",'
+        ' "summary": "bad \\ud800 text", "data": {"\\udfff": 1}}'
+    )
+    response = client.post(
+        "/records", content=raw, headers={"content-type": "application/json"}
+    )
+    assert response.status_code == 422
+    assert response.json()["type"].endswith("/validation_failed")
+
+
+def test_post_records_with_nan_in_data_is_a_422(client: TestClient) -> None:
+    raw = (
+        '{"case_id": "FCRM-2026-TEST", "type": "case.created", "actor": "system",'
+        ' "summary": "x", "data": {"amount": NaN}}'
+    )
+    response = client.post(
+        "/records", content=raw, headers={"content-type": "application/json"}
+    )
+    assert response.status_code == 422
+
+
+def test_get_records_hashes_are_reproducible_by_a_third_party(
+    client: TestClient,
+) -> None:
+    """Take the served JSON of ``GET /records`` and recompute every hash with
+    nothing but the standard library: ``sha256(prev_hash + "\\n" +
+    sorted-key compact JSON of the record minus prev_hash/hash)``."""
+    import hashlib
+    import json
+
+    for i in range(3):
+        _append(client, "FCRM-2026-TEST", summary=f"étape {i}", data={"i": i})
+    items = client.get("/records/FCRM-2026-TEST").json()["items"]
+    assert len(items) == 3
+    prev = "0" * 64
+    for item in items:
+        assert item["prev_hash"] == prev
+        body = {k: v for k, v in item.items() if k not in ("prev_hash", "hash")}
+        canonical = json.dumps(
+            body, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode("utf-8")
+        recomputed = hashlib.sha256(prev.encode() + b"\n" + canonical).hexdigest()
+        assert recomputed == item["hash"], item["seq"]
+        prev = item["hash"]

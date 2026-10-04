@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Optional, Union
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fcrm_common.auth import require_roles
 from fcrm_common.errors import (
     ConflictError,
@@ -82,6 +82,11 @@ from fcrm_case.sse import case_update_stream
 from fcrm_case.store import CaseStore
 
 router = APIRouter(tags=["case"])
+
+#: ``GET /cases?limit=`` bounds, the same as S4's ``GET /records``: an
+#: unbounded or non-positive limit is a 422 here, never a store error.
+DEFAULT_PAGE_LIMIT = 50
+MAX_PAGE_LIMIT = 200
 
 CaseDetail = Union[CaseDetailPO, CaseDetailAnalyst, CaseDetailInternal]
 
@@ -194,7 +199,7 @@ async def list_cases(
     state: Optional[CaseState] = None,
     owner: Optional[str] = None,
     analyst_id: Optional[str] = None,
-    limit: int = 50,
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE_LIMIT)] = DEFAULT_PAGE_LIMIT,
     cursor: Optional[str] = None,
 ) -> Union[Page[CaseListItemPO], Page[CaseListItemAnalyst]]:
     """The PO's case list or the analyst/committee queue, role-shaped.

@@ -5,12 +5,14 @@ scheduled corridor review behind condition CND-2's "planned control")."""
 
 from __future__ import annotations
 
+import pytest
 from fcrm_contracts.api.scoring import ControlInput, DomainInput, ScoreRequest
 from fcrm_contracts.enums import Domain
 from fcrm_guardrails.rules.r7_planned_not_scored import check
 from fcrm_seed.loader import demo_case
 from hypothesis import given
 from hypothesis import strategies as st
+from pydantic import ValidationError
 
 AREAS = demo_case()["score_after"]["areas"]
 CHANNEL = AREAS["channel"]["controls"]
@@ -74,10 +76,32 @@ def test_check_unrated_control_counts_as_planned() -> None:
 
 def test_check_score_request_with_duplicated_control_fails() -> None:
     """ControlInput has no planned flag: a planned CTL-T01 that slipped
-    through shows up as CTL-T01 listed twice in one domain."""
-    result = check(_request("CTL-T01", "CTL-T02", "CTL-T01"))
+    through shows up as CTL-T01 listed twice in one domain.
+
+    ``ScoreRequest`` itself now refuses a duplicated control id at
+    validation (``fcrm_contracts.api.scoring``), so a validated request can
+    never reach this rule with one; the rule stays as defence in depth for
+    an instance built without validation, which is what this test builds.
+    """
+    valid = _request("CTL-T01", "CTL-T02")
+    domain = valid.domains[0]
+    duplicated = DomainInput.model_construct(
+        domain=domain.domain,
+        likelihood=domain.likelihood,
+        impact=domain.impact,
+        controls=[*domain.controls, domain.controls[0]],
+    )
+    unvalidated = ScoreRequest.model_construct(
+        case_id=valid.case_id, scoring_v=valid.scoring_v, domains=[duplicated]
+    )
+    result = check(unvalidated)
     assert not result.ok
     assert "CTL-T01 (listed 2x)" in result.detail
+
+
+def test_score_request_contract_refuses_a_duplicated_control_before_rule_7() -> None:
+    with pytest.raises(ValidationError, match="CTL-T01"):
+        _request("CTL-T01", "CTL-T02", "CTL-T01")
 
 
 def test_check_score_request_clean_passes() -> None:

@@ -49,9 +49,13 @@ BULK_ACCEPT_MIN_INTERVAL_MS: Final[int] = 300
 """Rule 2 (design B §4.6): two item decisions by the same actor closer than
 this are treated as a scripted bulk accept."""
 
-RESTRICTED_TERMS_VERSION: Final[str] = "v1"
+RESTRICTED_TERMS_VERSION: Final[str] = "v2"
 """Version of ``restricted_terms.py``; recorded on every rule-3 result so an
-audit reader knows which list a PO response was scanned against."""
+audit reader knows which list a PO response was scanned against. v2: terms
+are letter-bounded (``Band2`` hits), text is normalised before scanning
+(NFKC, zero-width stripped, Cyrillic homoglyphs folded, whitespace
+collapsed) and ``prompt_version``/``model_id`` were added to the key and
+harness-id lists."""
 
 PII_TOKEN_TEMPLATE: Final[str] = "<PII:{entity}:{n}>"
 """Replacement token for a masked span (design B §4.2)."""

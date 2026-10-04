@@ -120,3 +120,44 @@ def test_readyz_is_ok_with_no_checks_registered(client: TestClient) -> None:
     response = client.get("/readyz")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
+
+class TestPostScoreRejectsStructurallyInvalidRequests:
+    """Each of these used to be *scored* (empty domains gave 0.0 / Band 1 /
+    analyst; a repeated domain or control double-counted). They are 422s
+    from the contract now, and the engine never sees them."""
+
+    def test_empty_domains_is_422_not_a_zero_score(self, client: TestClient) -> None:
+        response = client.post(
+            "/score", json={"case_id": "X", "scoring_v": 3, "domains": []}
+        )
+        assert response.status_code == 422
+        assert response.json()["type"].endswith("/validation_failed")
+
+    def test_duplicate_domain_is_422(self, client: TestClient) -> None:
+        body = _demo_request("score_before")
+        body["domains"].append(body["domains"][0])
+        assert client.post("/score", json=body).status_code == 422
+
+    def test_duplicate_control_id_is_422(self, client: TestClient) -> None:
+        body = _demo_request("score_before")
+        first = body["domains"][0]["controls"][0]
+        body["domains"][0]["controls"].append({**first, "catalogue_weight": 0.05})
+        assert client.post("/score", json=body).status_code == 422
+
+    def test_control_in_the_wrong_domain_is_422(self, client: TestClient) -> None:
+        body = _demo_request("score_before")
+        first_domain = body["domains"][0]["domain"]
+        other = next(
+            d["domain"] for d in body["domains"] if d["domain"] != first_domain
+        )
+        body["domains"][0]["controls"][0]["domain"] = other
+        assert client.post("/score", json=body).status_code == 422
+
+    @pytest.mark.parametrize("bad", [True, "3"])
+    def test_non_integer_likelihood_is_422(
+        self, client: TestClient, bad: object
+    ) -> None:
+        body = _demo_request("score_before")
+        body["domains"][0]["likelihood"] = bad
+        assert client.post("/score", json=body).status_code == 422

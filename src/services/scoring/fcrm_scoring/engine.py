@@ -131,6 +131,11 @@ def boundary_flag(
     crossed (whichever is nearer) — this is what keeps the flag on at 10.4
     after the vendor-DD override crosses from Band 2 into Band 3, matching
     the demo and all 18 boundary-flagged seed cases.
+
+    The distance is always to a band's *lower* edge (the next band's, or
+    this band's own), never to this band's upper edge: with bands 2 and 3
+    meeting at 10.0/10.1, a composite of 9.5 is 0.6 from 10.1 and is not
+    flagged, while 9.6 is 0.5 away and is.
     """
     bands_by_num = {int(b.band.value): b for b in bands}
     this_num = int(band.band.value)

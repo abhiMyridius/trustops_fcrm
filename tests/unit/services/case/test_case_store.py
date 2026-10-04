@@ -165,3 +165,34 @@ async def test_next_case_id_increments_per_year(store: InMemoryCaseStore) -> Non
     assert first == "FCRM-2026-0001"
     assert second == "FCRM-2026-0002"
     assert other_year == "FCRM-2027-0001"
+
+
+@pytest.mark.asyncio
+async def test_list_rejects_a_non_positive_limit_instead_of_slicing(
+    store: InMemoryCaseStore,
+) -> None:
+    """``limit=-1`` used to slice ``[0:-1]`` and silently drop the last row;
+    the store now refuses it the way ``Repository.find_paginated`` does."""
+    for i in range(3):
+        case_id = f"FCRM-2026-040{i}"
+        await store.create(_record(case_id), _event(case_id, "case.created"))
+    with pytest.raises(ValueError, match="limit"):
+        await store.list(limit=-1)
+    with pytest.raises(ValueError, match="limit"):
+        await store.list(limit=0)
+
+
+@pytest.mark.parametrize("blank", ["", "   ", "\n\t ", " "])
+def test_a_whitespace_only_value_is_not_a_filled_field(blank: str) -> None:
+    record = _record(
+        "FCRM-2026-0500",
+        fields={
+            "F01": FieldValueRecord(
+                field_id="F01", label="x", value=blank, filled_at=NOW
+            ),
+            "F02": FieldValueRecord(
+                field_id="F02", label="y", value=" ok ", filled_at=NOW
+            ),
+        },
+    )
+    assert record.filled_field_ids == {"F02"}

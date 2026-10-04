@@ -3,13 +3,22 @@
 The engine itself (fcrm_scoring.engine) is pure and has no dependency on
 these; these are the HTTP contract so H1, the web client and tests all
 agree on one shape. See BUILD-PLAN.md §3.6 and design A §5.
+
+Structural validity is enforced here, at the contract, so the engine can
+stay a pure arithmetic function and a malformed request is a 422 from
+Pydantic rather than a wrong score from the engine: a request must carry at
+least one domain, no domain twice, no control id twice (a repeated control
+would otherwise be double-counted and the last ``catalogue_weight`` would
+silently win for every occurrence), and every control must sit inside the
+domain it names. Likelihood and impact are strict integers (``true`` and
+``"3"`` are rejected, not coerced).
 """
 
 from __future__ import annotations
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from fcrm_contracts.enums import Band, Domain, Route
 
@@ -32,9 +41,21 @@ class DomainInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     domain: Domain
-    likelihood: int = Field(ge=1, le=5)
-    impact: int = Field(ge=1, le=5)
+    likelihood: int = Field(ge=1, le=5, strict=True)
+    impact: int = Field(ge=1, le=5, strict=True)
     controls: list[ControlInput]
+
+    @model_validator(mode="after")
+    def _controls_belong_to_this_domain(self) -> DomainInput:
+        """Every control's ``domain`` must equal the enclosing domain."""
+        strays = [c.control_id for c in self.controls if c.domain is not self.domain]
+        if strays:
+            msg = (
+                f"controls {strays} name a different domain than the "
+                f"{self.domain.value!r} domain that contains them"
+            )
+            raise ValueError(msg)
+        return self
 
 
 class ScoreRequest(BaseModel):
@@ -42,7 +63,33 @@ class ScoreRequest(BaseModel):
 
     case_id: str
     scoring_v: int
-    domains: list[DomainInput]
+    domains: list[DomainInput] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _domains_and_controls_are_unique(self) -> ScoreRequest:
+        """No domain may appear twice and no control id may appear twice
+        anywhere in the request."""
+        seen_domains: set[Domain] = set()
+        duplicate_domains: list[str] = []
+        for d in self.domains:
+            if d.domain in seen_domains:
+                duplicate_domains.append(d.domain.value)
+            seen_domains.add(d.domain)
+        if duplicate_domains:
+            msg = f"domains {duplicate_domains} appear more than once"
+            raise ValueError(msg)
+
+        seen_controls: set[str] = set()
+        duplicate_controls: list[str] = []
+        for d in self.domains:
+            for c in d.controls:
+                if c.control_id in seen_controls:
+                    duplicate_controls.append(c.control_id)
+                seen_controls.add(c.control_id)
+        if duplicate_controls:
+            msg = f"control ids {duplicate_controls} appear more than once"
+            raise ValueError(msg)
+        return self
 
 
 class DomainResult(BaseModel):

@@ -6,10 +6,15 @@ or page").
 Design B §4.6: "for role fcrm_po: recursive key set ∩ RESTRICTED_KEYS == ∅
 and no restricted term in string values". The structure is walked
 recursively (mappings, lists, tuples, sets, Pydantic models dumped to
-JSON mode); keys are matched whole and per ``snake_case``/``camelCase``
-token, string values against the word-boundary patterns in
-:mod:`fcrm_guardrails.restricted_terms`. The result names the path and the
-term id of each hit, never the restricted value itself.
+JSON mode); keys are matched whole, per ``snake_case``/``camelCase``/digit
+token and per re-joined token run (``modelId`` -> ``model_id``), string
+values against the letter-bounded patterns in
+:mod:`fcrm_guardrails.restricted_terms` after
+:func:`fcrm_guardrails.textnorm.normalise_for_scan` (NFKC, zero-width
+characters stripped, Cyrillic homoglyphs folded, whitespace collapsed), so
+``Ｂａｎｄ 3``, ``Bаnd 3`` and ``Band​3`` are all caught. The result
+names the path and the term id of each hit, never the restricted value
+itself.
 
 The same scanner backs Guard 4's ``BusinessSummary`` check, so the PO
 summary is refused before it is stored, not only when it is served.
@@ -26,11 +31,13 @@ from pydantic import BaseModel, ConfigDict
 
 from fcrm_guardrails.restricted_terms import RESTRICTED_KEYS, RESTRICTED_VALUE_PATTERNS
 from fcrm_guardrails.rules.result import RuleResult, broken, kept, not_applicable
+from fcrm_guardrails.textnorm import normalise_for_scan
 from fcrm_guardrails.thresholds import RESTRICTED_TERMS_VERSION
 
 RULE_ID: Final = "R-3"
 
 _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+_ALNUM_BOUNDARY = re.compile(r"(?<=[A-Za-z])(?=\d)|(?<=\d)(?=[A-Za-z])")
 _TOKEN_SPLIT = re.compile(r"[_\-\s.]+")
 
 
@@ -46,23 +53,34 @@ class RestrictedHit(BaseModel):
 
 def key_tokens(key: str) -> list[str]:
     """``"bandLabel"`` -> ``["band", "label"]``; ``"composite_score"`` ->
-    ``["composite", "score"]``."""
-    spaced = _CAMEL_BOUNDARY.sub("_", key)
+    ``["composite", "score"]``; ``"band2"`` -> ``["band", "2"]``."""
+    spaced = _CAMEL_BOUNDARY.sub("_", normalise_for_scan(key))
+    spaced = _ALNUM_BOUNDARY.sub("_", spaced)
     return [t.lower() for t in _TOKEN_SPLIT.split(spaced) if t]
 
 
 def restricted_key(key: str, keys: Collection[str] = RESTRICTED_KEYS) -> bool:
-    """True when ``key`` or any of its tokens is restricted."""
-    lowered = key.lower()
-    return lowered in keys or any(token in keys for token in key_tokens(key))
+    """True when ``key``, any of its tokens, or any run of adjacent tokens
+    re-joined with ``_`` is restricted (``modelId`` -> ``model_id``,
+    ``promptV2`` -> ``prompt_v``)."""
+    if key.lower() in keys:
+        return True
+    tokens = key_tokens(key)
+    return any(
+        "_".join(tokens[start:end]) in keys
+        for start in range(len(tokens))
+        for end in range(start + 1, len(tokens) + 1)
+    )
 
 
 def restricted_terms_in(
     text: str,
     patterns: tuple[tuple[str, re.Pattern[str]], ...] = RESTRICTED_VALUE_PATTERNS,
 ) -> list[str]:
-    """The ids of the restricted value patterns that occur in ``text``."""
-    return [term_id for term_id, pattern in patterns if pattern.search(text)]
+    """The ids of the restricted value patterns that occur in ``text``,
+    scanned after :func:`fcrm_guardrails.textnorm.normalise_for_scan`."""
+    scanned = normalise_for_scan(text)
+    return [term_id for term_id, pattern in patterns if pattern.search(scanned)]
 
 
 def find_restricted(

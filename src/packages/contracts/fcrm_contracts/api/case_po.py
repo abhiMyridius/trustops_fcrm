@@ -9,11 +9,18 @@ docs/governance/visibility-matrix.md.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict
 
 from fcrm_contracts.enums import CaseState, ChangeType, ClarificationStatus
+
+#: How a field value arrived (design A §2.1 / the seed's ``fields[].how``):
+#: ``extracted`` by the intake agent from a document, ``reused`` from a
+#: prior case, ``answered`` in a clarification round, or ``owner_corrected``
+#: by the PO. The seed also marks an unfilled field ``open``, which is a
+#: state, not a provenance a write can claim, so it is deliberately absent.
+FieldProvenance = Literal["extracted", "reused", "answered", "owner_corrected"]
 
 
 class FieldValuePO(BaseModel):
@@ -146,8 +153,7 @@ class WriteFieldValueRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     value: Optional[str] = None
-    # "extracted" | "reused" | "answered" | "owner_corrected"
-    how: str = "owner_corrected"
+    how: FieldProvenance = "owner_corrected"
     source: Optional[str] = None
 
 

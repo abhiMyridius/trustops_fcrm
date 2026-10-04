@@ -21,7 +21,10 @@ How a planned control is recognised in the scored set:
    (demo ``score_after.channel``: ``CTL-T01`` rated 4.5, and ``CTL-T01``
    planned with no rating: the scheduled corridor review). ``ControlInput``
    has no ``planned`` flag, so in a ``ScoreRequest`` that duplicate is the
-   only visible trace of a planned entry that slipped through the filter;
+   only visible trace of a planned entry that slipped through the filter.
+   ``ScoreRequest`` itself now refuses a repeated control id at validation
+   (``fcrm_contracts.api.scoring``), so a validated request never carries
+   one; this signal remains for raw control lists and unvalidated inputs;
 4. its id is in ``planned_only_ids``: controls the case holds *only* as
    planned. Do not pass the id of a control that also has a current,
    evidenced instance (the demo's CTL-T01): that id is legitimately scored.

@@ -469,3 +469,82 @@ class TestStream:
         case_id = _create_case(client, principal_box)
         _set(principal_box, [Role.PO], OTHER_PO_SUB)
         assert client.get(f"/cases/{case_id}/stream").status_code == 404
+
+
+class TestListLimitBounds:
+    @pytest.mark.parametrize("limit", [0, -1, 201])
+    def test_an_out_of_range_limit_is_a_422_not_a_500(
+        self, client: TestClient, principal_box: dict[str, Principal], limit: int
+    ) -> None:
+        _create_case(client, principal_box)
+        response = client.get("/cases", params={"limit": limit})
+        assert response.status_code == 422
+        assert response.json()["type"].endswith("/validation_failed")
+
+    def test_the_bounds_are_inclusive(
+        self, client: TestClient, principal_box: dict[str, Principal]
+    ) -> None:
+        _create_case(client, principal_box)
+        assert client.get("/cases", params={"limit": 1}).status_code == 200
+        assert client.get("/cases", params={"limit": 200}).status_code == 200
+
+
+class TestFieldWriteEdgeCases:
+    def test_a_whitespace_only_value_does_not_count_towards_completion(
+        self, client: TestClient, principal_box: dict[str, Principal]
+    ) -> None:
+        case_id = _create_case(client, principal_box)
+        field_id = client.get(f"/cases/{case_id}").json()["fields"][0]["field_id"]
+        response = client.put(
+            f"/cases/{case_id}/fields/{field_id}",
+            json={"value": "   \n\t", "how": "owner_corrected"},
+        )
+        assert response.status_code == 200
+        assert response.json()["completion"]["filled_count"] == 0
+
+    def test_whitespace_in_every_field_cannot_clear_the_submit_threshold(
+        self,
+        client: TestClient,
+        principal_box: dict[str, Principal],
+        store: InMemoryCaseStore,
+    ) -> None:
+        case_id = _create_case(client, principal_box)
+        for field_def in store._cases[case_id].required_fields:
+            client.put(
+                f"/cases/{case_id}/fields/{field_def.field_id}",
+                json={"value": "  ", "how": "owner_corrected"},
+            )
+        response = client.post(
+            f"/cases/{case_id}/submit", json={"owner_reviewed_corrections": True}
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["checks"]["completion_at_least_threshold"] is False
+        assert body["checks"]["all_always_required_filled"] is False
+        assert body["submission_version"] == 0
+
+    def test_an_unknown_provenance_value_is_a_422(
+        self, client: TestClient, principal_box: dict[str, Principal]
+    ) -> None:
+        case_id = _create_case(client, principal_box)
+        field_id = client.get(f"/cases/{case_id}").json()["fields"][0]["field_id"]
+        response = client.put(
+            f"/cases/{case_id}/fields/{field_id}",
+            json={"value": "x", "how": "made_up_by_agent"},
+        )
+        assert response.status_code == 422
+        assert response.json()["type"].endswith("/validation_failed")
+
+    @pytest.mark.parametrize(
+        "how", ["extracted", "reused", "answered", "owner_corrected"]
+    )
+    def test_every_real_provenance_value_is_accepted(
+        self, client: TestClient, principal_box: dict[str, Principal], how: str
+    ) -> None:
+        case_id = _create_case(client, principal_box)
+        field_id = client.get(f"/cases/{case_id}").json()["fields"][0]["field_id"]
+        response = client.put(
+            f"/cases/{case_id}/fields/{field_id}", json={"value": "x", "how": how}
+        )
+        assert response.status_code == 200
+        assert client.get(f"/cases/{case_id}").json()["fields"][0]["how"] == how

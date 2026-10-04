@@ -9,7 +9,8 @@ Normalisation, applied identically to the quote and the source
 
 1. Unicode NFKC (folds compatibility forms: ``…`` becomes ``...``, a
    non-breaking space becomes a space, full-width letters become ASCII).
-2. Zero-width characters and the soft hyphen are removed.
+2. Zero-width characters, bidi controls and the soft hyphen are removed
+   (:data:`fcrm_guardrails.textnorm.ZERO_WIDTH_CHARS`).
 3. Curly single/double quotes and primes map to ``'`` / ``"``; every
    hyphen/dash variant (en dash, em dash, minus sign, non-breaking hyphen)
    maps to ``-``.
@@ -52,9 +53,9 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from fcrm_guardrails.textnorm import strip_zero_width
 from fcrm_guardrails.thresholds import QUOTE_LINE_TOLERANCE, QUOTE_MIN_CHARS
 
-_ZERO_WIDTH = re.compile("[​‌‍⁠﻿­]")
 _WHITESPACE = re.compile(r"\s+")
 _SECTION_SIGNS = re.compile(r"§§\s*")
 _SECTION_SIGN = re.compile(r"§\s*")
@@ -119,7 +120,7 @@ def normalise(text: str) -> str:
     Idempotent: ``normalise(normalise(t)) == normalise(t)``.
     """
     out = unicodedata.normalize("NFKC", text)
-    out = _ZERO_WIDTH.sub("", out)
+    out = strip_zero_width(out)
     out = out.translate(_CHAR_MAP)
     out = _SECTION_SIGNS.sub("sections ", out)
     out = _SECTION_SIGN.sub("section ", out)
@@ -194,9 +195,14 @@ def line_span(
     (design B §4.5: "document span ± quote_line_tolerance lines").
 
     Raises:
-        ValueError: when the span is empty or lies outside the page; Guard 4
-            reports that as an unresolved source, never as a quote miss.
+        ValueError: when the span is empty or lies outside the page, or
+            ``tolerance`` is negative (which would silently shrink the span
+            to nothing); Guard 4 reports that as an unresolved source,
+            never as a quote miss.
     """
+    if tolerance < 0:
+        msg = f"tolerance must be >= 0, got {tolerance}"
+        raise ValueError(msg)
     lines = page_text.splitlines()
     if line_start < 1 or line_end < line_start or line_end > len(lines):
         msg = f"lines {line_start}-{line_end} are outside a {len(lines)}-line page"

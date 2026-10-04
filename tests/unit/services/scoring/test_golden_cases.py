@@ -138,3 +138,34 @@ def test_band_distribution_matches_the_seed(model, weights):
         assert got == expected_count, (
             f"band {band_num}: recomputed {got}, seed says {expected_count}"
         )
+
+
+@pytest.mark.parametrize(
+    ("composite", "flagged", "distance"),
+    [
+        ("9.5", False, "0.6"),
+        ("9.6", True, "0.5"),
+        ("10.0", True, "0.1"),
+        ("10.4", True, "0.3"),
+        ("10.7", False, "0.6"),
+    ],
+)
+def test_adr_13_boundary_distance_is_to_a_lower_edge_never_the_upper_edge(
+    model, composite: str, flagged: bool, distance: str
+):
+    """ADR-13 pinned: the flag measures to the next band's *lower* edge
+    (10.1), or to this band's own lower edge once crossed -- never to this
+    band's upper edge (10.0). So 9.5 is 0.6 away and NOT flagged, 9.6 is
+    0.5 away and is; 10.4 is 0.3 above the 10.1 edge it crossed and stays
+    flagged (the demo); 10.7 drops the flag."""
+    from decimal import Decimal
+
+    from fcrm_scoring.engine import band_lookup, boundary_flag
+
+    value = Decimal(composite)
+    band = band_lookup(value, model.bands)
+    got_flag, got_distance = boundary_flag(
+        value, band, model.bands, Decimal(str(model.boundary_flag_distance))
+    )
+    assert got_flag is flagged
+    assert got_distance == Decimal(distance)

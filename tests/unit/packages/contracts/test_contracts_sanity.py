@@ -91,3 +91,71 @@ def test_envelope_type_is_in_the_catalogue() -> None:
 
 def test_every_catalogue_event_type_is_dotted() -> None:
     assert all("." in t for t in EVENT_TYPES)
+
+
+class TestScoreRequestStructure:
+    """Structural validity lives on the contract so the engine stays pure:
+    a malformed request is a Pydantic 422, never a wrong score."""
+
+    @staticmethod
+    def _control(control_id: str, domain: Domain, weight: float = 0.35) -> ControlInput:
+        return ControlInput(
+            control_id=control_id, domain=domain, rating=7.6, catalogue_weight=weight
+        )
+
+    @staticmethod
+    def _domain(domain: Domain, *controls: ControlInput) -> DomainInput:
+        return DomainInput(
+            domain=domain, likelihood=4, impact=5, controls=list(controls)
+        )
+
+    def test_rejects_an_empty_domain_list(self) -> None:
+        with pytest.raises(ValidationError, match="at least 1 item"):
+            ScoreRequest(case_id="FCRM-2026-0151", scoring_v=3, domains=[])
+
+    def test_rejects_the_same_domain_twice(self) -> None:
+        channel = self._domain(Domain.CHANNEL, self._control("CTL-T01", Domain.CHANNEL))
+        again = self._domain(Domain.CHANNEL, self._control("CTL-T02", Domain.CHANNEL))
+        with pytest.raises(ValidationError, match="appear more than once"):
+            ScoreRequest(case_id="X", scoring_v=3, domains=[channel, again])
+
+    def test_rejects_the_same_control_id_twice_even_with_different_weights(
+        self,
+    ) -> None:
+        channel = self._domain(
+            Domain.CHANNEL,
+            self._control("CTL-T01", Domain.CHANNEL, 0.35),
+            self._control("CTL-T01", Domain.CHANNEL, 0.10),
+        )
+        with pytest.raises(ValidationError, match="CTL-T01"):
+            ScoreRequest(case_id="X", scoring_v=3, domains=[channel])
+
+    def test_rejects_the_same_control_id_in_two_domains(self) -> None:
+        channel = self._domain(Domain.CHANNEL, self._control("CTL-T01", Domain.CHANNEL))
+        geo = self._domain(Domain.GEOGRAPHY, self._control("CTL-T01", Domain.GEOGRAPHY))
+        with pytest.raises(ValidationError, match="CTL-T01"):
+            ScoreRequest(case_id="X", scoring_v=3, domains=[channel, geo])
+
+    def test_rejects_a_control_that_names_another_domain(self) -> None:
+        with pytest.raises(ValidationError, match="different domain"):
+            self._domain(Domain.CHANNEL, self._control("CTL-G01", Domain.GEOGRAPHY))
+
+    @pytest.mark.parametrize("bad", [True, "3", 3.0])
+    def test_likelihood_and_impact_are_strict_ints(self, bad: object) -> None:
+        with pytest.raises(ValidationError):
+            DomainInput(domain=Domain.CHANNEL, likelihood=bad, impact=5, controls=[])  # type: ignore[arg-type]
+        with pytest.raises(ValidationError):
+            DomainInput(domain=Domain.CHANNEL, likelihood=4, impact=bad, controls=[])  # type: ignore[arg-type]
+
+    def test_a_well_formed_request_still_validates(self) -> None:
+        req = ScoreRequest(
+            case_id="X",
+            scoring_v=3,
+            domains=[
+                self._domain(Domain.CHANNEL, self._control("CTL-T01", Domain.CHANNEL)),
+                self._domain(
+                    Domain.GEOGRAPHY, self._control("CTL-G01", Domain.GEOGRAPHY)
+                ),
+            ],
+        )
+        assert len(req.domains) == 2

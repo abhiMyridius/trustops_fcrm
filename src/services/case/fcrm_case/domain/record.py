@@ -99,11 +99,16 @@ class CaseRecord(BaseModel):
 
     @property
     def filled_field_ids(self) -> set[str]:
-        """Field ids currently holding a non-empty value, from any source."""
+        r"""Field ids currently holding a non-empty value, from any source.
+
+        A value that is empty once stripped (``""``, ``"   "``, ``"\n"``) is
+        not filled: it would otherwise count towards completion and let a
+        case clear the submit threshold on whitespace alone.
+        """
         return {
             field_id
             for field_id, value in self.fields.items()
-            if value.value is not None and value.value != ""
+            if value.value is not None and value.value.strip() != ""
         }
 
     @property
