@@ -104,6 +104,10 @@ class CaseRecord(BaseModel):
     owner_name: Optional[str] = None
     analyst_name: Optional[str] = None
     run_id: Optional[str] = None
+    # True once ``case.created`` has been enqueued for the case, so H1 has been
+    # asked to open its run. A seeded draft (the demo case) starts False and
+    # is set by the owner's first write.
+    run_requested: bool = False
     domains: list[str] = Field(default_factory=list)
     geographies: list[str] = Field(default_factory=list)
     stage_flags: StageFlags = Field(default_factory=StageFlags)

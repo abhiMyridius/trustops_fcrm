@@ -285,6 +285,8 @@ services:
       # The ai/ root: EMBEDDING_PROVIDER=bedrock reads the embedding model from
       # ai/models/tiers.yaml, the same file H4 reads (model ids live only there).
       PROMPTS_DIR: /app/ai
+      # S1: the committed demo PDFs a {"demo_files": []} upload reads (scene 3)
+      DEMO_DOCUMENTS_DIR: /app/fixtures/documents
       # S5 decision
       COMMITTEE_QUORUM: "3"
     expose:
@@ -292,6 +294,7 @@ services:
     volumes:
       - ./jwt_keys:/keys:ro          # `make keys` writes jwt.pem / jwt.pub.pem
       - ./ai:/app/ai:ro              # tiers.yaml: the embedding model S3 queries with
+      - ./evals/fixtures/documents:/app/fixtures/documents:ro   # the three demo PDFs
     healthcheck:
       <<: *health-timing
       test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/readyz', timeout=4).status == 200 else 1)"]

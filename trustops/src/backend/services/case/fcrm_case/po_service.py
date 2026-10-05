@@ -296,6 +296,27 @@ class IntakeData:
         ]
 
 
+def _case_created(record: CaseRecord) -> Envelope:
+    """``case.created`` for a case whose run was never requested: the seeded
+    demo draft's first write asks H1 to open its run, exactly as raising the
+    case would have.
+    """
+    return build_envelope(
+        "case.created",
+        CaseCreated(
+            case_id=record.case_id,
+            actor=record.owner,
+            data=CaseCreatedData(
+                title=record.title,
+                unit=record.unit,
+                change_types=list(record.change_types),
+                pins=record.pinned_versions,
+            ),
+        ).model_dump(mode="json"),
+        case_id=record.case_id,
+    )
+
+
 class PoService:
     """The product owner's operations over S1's stores.
 
@@ -529,6 +550,7 @@ class PoService:
                 documents=stored.rows,
                 events=stored.events,
                 activity=stored.activity,
+                open_run=None if record.run_requested else _case_created(record),
             )
         )
         self._publish(committed)

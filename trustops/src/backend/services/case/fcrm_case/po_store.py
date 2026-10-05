@@ -49,6 +49,7 @@ from fcrm_case.domain.fieldset import FieldSetData
 from fcrm_case.domain.po_commands import (
     FieldWrite,
     PoCommand,
+    events_to_enqueue,
     record_after,
     staged_activity,
 )
@@ -88,6 +89,7 @@ _CASE_KEYS: Final = frozenset(
         "current_submission_v",
         "discarded_at",
         "discard_reason",
+        "run_requested",
     }
 )
 
@@ -311,7 +313,7 @@ class MongoPoStore:
     async def create_case(
         self, record: CaseRecord, event: Envelope, activity: UiEventIn
     ) -> PoCommitted:
-        stored = record.model_copy(update={"activity_seq": 1})
+        stored = record.model_copy(update={"activity_seq": 1, "run_requested": True})
 
         async def _do(session: AsyncClientSession) -> PoCommitted:
             await self._cases.insert_one(stored, session=session)
@@ -366,7 +368,7 @@ class MongoPoStore:
             await self._views.documents.insert_many(command.documents, session=session)
         if command.submission is not None:
             await self._submissions.insert_one(command.submission, session=session)
-        for event in command.events:
+        for event in events_to_enqueue(record, command):
             await self._outbox.enqueue(session, event)
         first = updated.activity_seq - len(staged) + 1
         entries = [
@@ -705,7 +707,7 @@ class InMemoryPoStore:
     async def create_case(
         self, record: CaseRecord, event: Envelope, activity: UiEventIn
     ) -> PoCommitted:
-        stored = record.model_copy(update={"activity_seq": 1})
+        stored = record.model_copy(update={"activity_seq": 1, "run_requested": True})
         self._cases.records[stored.case_id] = stored
         entry = self._cases.activity.stage(stored.case_id, 1, activity)
         self._cases.events.append(event)
@@ -737,7 +739,7 @@ class InMemoryPoStore:
             self._views.documents[row.doc_id] = row
         if command.submission is not None:
             self.submissions[command.submission.version_id] = command.submission
-        self._cases.events.extend(command.events)
+        self._cases.events.extend(events_to_enqueue(record, command))
         updated = updated.model_copy(
             update={"activity_seq": record.activity_seq + len(staged)}
         )

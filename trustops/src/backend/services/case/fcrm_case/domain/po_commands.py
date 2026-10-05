@@ -105,6 +105,10 @@ class PoCommand:
         discard_reason: Discard the draft with this reason.
         events: Events enqueued unconditionally (``case.document_stored``,
             ``case.submitted``).
+        open_run: ``case.created``, enqueued ahead of ``events`` only when the
+            case has not yet asked H1 to open its run (a seeded draft's first
+            write); decided inside the transaction, so two first writes at once
+            enqueue it once.
         activity: Activity rows the PO sees, staged in the same transaction.
     """
 
@@ -119,6 +123,19 @@ class PoCommand:
     discard_reason: Optional[str] = None
     events: Sequence[Envelope] = ()
     activity: Sequence[ActivityDraft] = ()
+    open_run: Optional[Envelope] = None
+
+
+def events_to_enqueue(record: CaseRecord, command: PoCommand) -> list[Envelope]:
+    """The events ``command`` enqueues for ``record`` as stored now:
+    ``case.created`` first when the run still has to be requested, then the
+    command's own events.
+    """
+    opening = command.open_run is not None and not record.run_requested
+    return [
+        *([command.open_run] if opening and command.open_run else []),
+        *command.events,
+    ]
 
 
 def record_after(
@@ -138,6 +155,8 @@ def record_after(
     against the version the case pinned, not whatever is current.
     """
     updated = record
+    if command.open_run is not None and not record.run_requested:
+        updated = updated.model_copy(update={"run_requested": True})
     if command.type_delta is not None:
         updated = apply_type_delta(
             updated,

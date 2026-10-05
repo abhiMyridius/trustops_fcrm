@@ -343,6 +343,43 @@ class TestDocuments:
         )  # the replay added nothing
         assert len(scene.objects.objects) == 1
 
+    def test_the_first_upload_of_the_seeded_draft_asks_h1_to_open_its_run(
+        self, scene: CaseService
+    ) -> None:
+        """The demo case is seeded without a run; its owner's first write
+        enqueues ``case.created`` ahead of the document events.
+        """
+        scene.client.post(f"/cases/{CASE}/documents", json={"demo_files": []})
+        order = [e.type for e in scene.store.events]
+        assert order[0] == "case.created"
+        assert order.count("case.created") == 1
+        assert order[1:] == ["case.document_stored", "case.document_stored"]
+        created = events(scene, "case.created")[0]
+        assert created.case_id == CASE
+        assert created.payload["actor"] == PO
+        assert created.payload["data"]["pins"]["fieldset_v"] == 6
+
+    def test_a_second_upload_does_not_ask_again(self, scene: CaseService) -> None:
+        scene.client.post(
+            f"/cases/{CASE}/documents", json={"demo_files": [{"name": BUSINESS_CASE}]}
+        )
+        scene.client.post(
+            f"/cases/{CASE}/documents", json={"demo_files": [{"name": CONTRACT}]}
+        )
+        assert len(events(scene, "case.created")) == 1
+        assert len(events(scene, "case.document_stored")) == 2
+
+    def test_a_case_the_owner_raised_never_asks_a_second_time(
+        self, scene: CaseService
+    ) -> None:
+        case_id = scene.client.post("/cases", json={}).json()["id"]
+        scene.client.post(
+            f"/cases/{case_id}/documents",
+            json={"demo_files": [{"name": BUSINESS_CASE}]},
+        )
+        created = [e for e in events(scene, "case.created") if e.case_id == case_id]
+        assert len(created) == 1
+
     def test_an_empty_demo_list_means_the_two_intake_documents(
         self, scene: CaseService
     ) -> None:
