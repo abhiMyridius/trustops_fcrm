@@ -3,17 +3,16 @@
 #   make up-dev    (= docker compose -f docker-compose.yaml -f compose.obs.yaml
 #                   -f compose.dev.yaml up -d --build)
 #
-# Python units (S1–S5, X1, H1–H4): the production images are built as usual
-# (python:3.13-slim, deps in /app/.venv, ENTRYPOINT uvicorn <pkg>.main:app for
-# services and python -m <pkg> for workers — design A §11.1). Here `src/` is
-# bind-mounted read-only at /workspace/src and ops/scripts/dev_run.sh puts
+# Python processes (api = X1 + S1–S5, workers H1–H4): the production images
+# are built as usual (python:3.13-slim, deps in /app/.venv). Here `src/backend`
+# is bind-mounted read-only at /workspace/src and ops/scripts/dev_run.sh puts
 # every unit folder on PYTHONPATH ahead of the installed copy, then runs
-#   services: uvicorn <pkg>.main:app --reload --reload-dir /workspace/src
+#   api:      uvicorn fcrm_api.main:app --reload --reload-dir /workspace/src
 #   workers:  python -m <pkg>, restarted by watchfiles on any .py change
 # Adding a third-party dependency still needs `docker compose build <svc>`.
 #
 # Web (W1): instead of the nginx-served static build, a node:22 container
-# runs `npm run dev` (vite) on 5173 against the mounted src/web, and the
+# runs `npm run dev` (vite) on 5173 against the mounted src/frontend, and the
 # gateway's web upstream snippet is swapped for web-upstream.dev.conf, so
 # http://localhost:8080 serves the dev build with HMR (vite is also reachable
 # directly on 5173).
@@ -29,43 +28,13 @@ x-dev-python: &dev-python
   entrypoint: ["bash", "/usr/local/bin/dev_run.sh"]
 
 services:
-  identity:
+  api:
     <<: *dev-python
     volumes:
       - ./src/backend:/workspace/src:ro
       - ./ops/scripts/dev_run.sh:/usr/local/bin/dev_run.sh:ro
       - ./jwt_keys:/keys:ro
-    command: ["http", "fcrm_identity.main:app", "8000"]
-    environment:
-      LOG_LEVEL: DEBUG
-
-  case:
-    <<: *dev-python
-    command: ["http", "fcrm_case.main:app", "8001"]
-    environment:
-      LOG_LEVEL: DEBUG
-
-  scoring:
-    <<: *dev-python
-    command: ["http", "fcrm_scoring.main:app", "8002"]
-    environment:
-      LOG_LEVEL: DEBUG
-
-  policy:
-    <<: *dev-python
-    command: ["http", "fcrm_policy.main:app", "8003"]
-    environment:
-      LOG_LEVEL: DEBUG
-
-  audit:
-    <<: *dev-python
-    command: ["http", "fcrm_audit.main:app", "8004"]
-    environment:
-      LOG_LEVEL: DEBUG
-
-  decision:
-    <<: *dev-python
-    command: ["http", "fcrm_decision.main:app", "8005"]
+    command: ["http", "fcrm_api.main:app", "8000"]
     environment:
       LOG_LEVEL: DEBUG
 

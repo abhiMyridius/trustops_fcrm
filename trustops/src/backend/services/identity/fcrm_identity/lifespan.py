@@ -19,12 +19,13 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
-from fcrm_common.auth import TokenVerifier, install_auth
-from fcrm_common.authz import OPAClient, install_authz
+from fcrm_common.auth import install_auth
+from fcrm_common.authz import install_authz
 from fcrm_common.health import ReadinessProbe, mongo_check
 from fcrm_common.logging import configure_logging
-from fcrm_common.mongo import Repository, mongo_client
+from fcrm_common.mongo import Repository
 from fcrm_common.seedload import SeedReader, load_if_empty
+from fcrm_common.service import ServiceDeps, standalone_deps
 from fcrm_common.time import utcnow
 from fcrm_common.tracing import init_otel
 from pymongo import IndexModel
@@ -55,17 +56,16 @@ def _refresh_repo(db: AsyncDatabase[Any]) -> Repository[RefreshTokenRecord]:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Load settings and the signing key, connect Mongo, seed demo users
-    on an empty collection, and wire ``app.state`` for the routes.
-    """
-    settings = IdentitySettings.load()
-    configure_logging(
-        settings.app_name, settings.log_level, version=__version__, env=settings.env
-    )
-    init_otel(settings.app_name, __version__, environment=settings.env, app=app)
-    logger.info("starting", extra={"env": settings.env})
+async def register(
+    app: FastAPI, settings: IdentitySettings, deps: ServiceDeps
+) -> AsyncIterator[None]:
+    """Wire X1 onto ``app`` from injected dependencies: load the signing
+    key, seed demo users on an empty collection, and set ``app.state``
+    for the routes.
 
+    The host owns logging, tracing and the Mongo, verifier and OPA
+    clients (``fcrm_common.service``); this never opens or closes them.
+    """
     assert settings.jwt_key_file is not None  # fail_fast already enforced this
     signing_key = SigningKey.from_file(settings.jwt_key_file)
     issuer = TokenIssuer(
@@ -76,48 +76,51 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         refresh_ttl_s=settings.jwt_refresh_ttl_s,
     )
 
-    assert settings.mongodb_uri is not None  # fail_fast already enforced this
-    async with mongo_client(settings.mongodb_uri) as client:
-        db = client[settings.mongodb_db or "fcrm_identity"]
-        users_repo = _users_repo(db)
-        refresh_repo = _refresh_repo(db)
-        await refresh_repo.ensure_indexes(
-            [IndexModel([("exp", 1)], expireAfterSeconds=0, name="exp_ttl")]
+    db = deps.mongo[settings.mongodb_db or "fcrm_identity"]
+    users_repo = _users_repo(db)
+    refresh_repo = _refresh_repo(db)
+    await refresh_repo.ensure_indexes(
+        [IndexModel([("exp", 1)], expireAfterSeconds=0, name="exp_ttl")]
+    )
+
+    if settings.seed_on_empty:
+        assert settings.demo_users_password_hash is not None
+        reader = SeedReader(settings.seed_path)
+        records = seed_user_records(
+            reader.section("users"),
+            settings.demo_users_password_hash.get_secret_value(),
+            created_at=utcnow(),
         )
+        await load_if_empty(users_repo, [users_repo.to_document(r) for r in records])
 
-        if settings.seed_on_empty:
-            assert settings.demo_users_password_hash is not None
-            reader = SeedReader(settings.seed_path)
-            records = seed_user_records(
-                reader.section("users"),
-                settings.demo_users_password_hash.get_secret_value(),
-                created_at=utcnow(),
-            )
-            await load_if_empty(
-                users_repo, [users_repo.to_document(r) for r in records]
-            )
+    store = MongoIdentityStore(users_repo, refresh_repo)
+    app.state.store = store
+    app.state.signing_key = signing_key
+    app.state.issuer = issuer
+    app.state.settings = settings
 
-        store = MongoIdentityStore(users_repo, refresh_repo)
-        app.state.store = store
-        app.state.signing_key = signing_key
-        app.state.issuer = issuer
-        app.state.settings = settings
+    install_auth(app.state, deps.token_verifier)
+    install_authz(app.state, deps.opa)
 
-        token_verifier = TokenVerifier.from_settings(settings)
-        install_auth(app.state, token_verifier)
-        assert settings.opa_url is not None  # fail_fast already enforced this
-        opa_client = OPAClient(settings.opa_url)
-        install_authz(app.state, opa_client)
+    # main.py built ReadinessProbe() before this ran, so the health router
+    # already holds a reference to it; add checks to that same instance
+    # rather than replacing it (fcrm_common.health's documented usage).
+    probe: ReadinessProbe = app.state.probe
+    probe.add(mongo_check(deps.mongo))
 
-        # main.py built ReadinessProbe() before this lifespan ran, so the
-        # health router already holds a reference to it; add checks to
-        # that same instance rather than replacing it (fcrm_common.health's
-        # documented usage pattern).
-        probe: ReadinessProbe = app.state.probe
-        probe.add(mongo_check(client))
+    yield
 
-        try:
-            yield
-        finally:
-            await token_verifier.aclose()
-            await opa_client.aclose()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Standalone entry (``uvicorn fcrm_identity.main:app``): load settings,
+    configure logging and tracing, build the dependencies, then register.
+    """
+    settings = IdentitySettings.load()
+    configure_logging(
+        settings.app_name, settings.log_level, version=__version__, env=settings.env
+    )
+    init_otel(settings.app_name, __version__, environment=settings.env, app=app)
+    logger.info("starting", extra={"env": settings.env})
+    async with standalone_deps(settings) as deps, register(app, settings, deps):
+        yield

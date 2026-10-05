@@ -16,11 +16,12 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fcrm_common.auth import TokenVerifier, install_auth
+from fcrm_common.auth import install_auth
+from fcrm_common.authz import install_authz
 from fcrm_common.health import ReadinessProbe, mongo_check
 from fcrm_common.logging import configure_logging
-from fcrm_common.mongo import mongo_client
 from fcrm_common.outbox import Outbox
+from fcrm_common.service import ServiceDeps, standalone_deps
 from fcrm_common.tracing import init_otel
 
 from fcrm_case.fieldset_provider import active_field_set, active_pinned_versions
@@ -33,9 +34,43 @@ __version__ = "0.1.0"
 
 
 @asynccontextmanager
+async def register(
+    app: FastAPI, settings: CaseSettings, deps: ServiceDeps
+) -> AsyncIterator[None]:
+    """Wire S1 onto ``app`` from injected dependencies: parse the seed-backed
+    providers, ensure the case and outbox indexes, then set the store,
+    auth/authz and the readiness check on ``app.state``.
+
+    The host owns logging, tracing and the Mongo, verifier and OPA
+    clients (``fcrm_common.service``); this never opens or closes them.
+    """
+    # Fail fast on a corrupted seed file rather than on the first request.
+    active_field_set()
+    active_pinned_versions()
+
+    install_auth(app.state, deps.token_verifier)
+    install_authz(app.state, deps.opa)
+
+    db = deps.mongo[settings.mongodb_db or "fcrm_case"]
+    cases_repo = build_cases_repository(db)
+    counters = db["case_counters"]
+    outbox = Outbox(db["outbox"])
+    await ensure_case_indexes(cases_repo)
+    await outbox.ensure_indexes()
+
+    app.state.store = MongoCaseStore(deps.mongo, cases_repo, counters, outbox)
+    app.state.settings = settings
+
+    probe: ReadinessProbe = app.state.probe
+    probe.add(mongo_check(deps.mongo))
+
+    yield
+
+
+@asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Connect Mongo, wire the store and auth, then wire the readiness
-    probe onto ``app.state`` for the routes to use.
+    """Standalone entry (``uvicorn fcrm_case.main:app``): load settings,
+    configure logging and tracing, build the dependencies, then register.
     """
     settings = CaseSettings.load()
     configure_logging(
@@ -43,27 +78,5 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     init_otel(settings.app_name, __version__, environment=settings.env, app=app)
     logger.info("starting", extra={"env": settings.env})
-
-    # Fail fast on a corrupted seed file rather than on the first request.
-    active_field_set()
-    active_pinned_versions()
-
-    verifier = TokenVerifier.from_settings(settings)
-    install_auth(app.state, verifier)
-
-    assert settings.mongodb_uri is not None  # fail_fast already enforced this
-    async with mongo_client(settings.mongodb_uri) as client:
-        db = client[settings.mongodb_db or "fcrm_case"]
-        cases_repo = build_cases_repository(db)
-        counters = db["case_counters"]
-        outbox = Outbox(db["outbox"])
-        await ensure_case_indexes(cases_repo)
-        await outbox.ensure_indexes()
-
-        app.state.store = MongoCaseStore(client, cases_repo, counters, outbox)
-        app.state.settings = settings
-
-        probe: ReadinessProbe = app.state.probe
-        probe.add(mongo_check(client))
-
+    async with standalone_deps(settings) as deps, register(app, settings, deps):
         yield

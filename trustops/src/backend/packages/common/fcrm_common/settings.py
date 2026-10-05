@@ -19,7 +19,7 @@ hooks forbid reading ``.env*`` files.
 
 from __future__ import annotations
 
-from typing import ClassVar, Optional, Self
+from typing import Any, ClassVar, Optional, Self
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -94,11 +94,17 @@ class BaseServiceSettings(BaseSettings):
     seed_on_empty: bool = False
 
     @classmethod
-    def load(cls) -> Self:
+    def load(cls, **overrides: Any) -> Self:
         """Read the environment and :meth:`fail_fast`; the one way a unit
         should build its settings at startup.
+
+        ``overrides`` are field values that win over the environment
+        (pydantic-settings gives init arguments priority over environment
+        variables). A host that runs several units in one process uses
+        them to give each unit its own ``mongodb_db`` (and, for S4, its
+        own ``mongodb_uri``) without per-unit environment variable names.
         """
-        settings = cls()
+        settings = cls(**overrides)
         settings.fail_fast()
         return settings
 

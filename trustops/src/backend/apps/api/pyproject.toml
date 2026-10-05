@@ -1,0 +1,27 @@
+[project]
+name = "fcrm-api"
+version = "0.1.0"
+description = "The composite api process: X1 identity and S1-S5 mounted as sub-apps of one FastAPI application under their public URL prefixes, sharing one Mongo client per role, one token verifier and one OPA client (ADR-26)."
+requires-python = ">=3.13"
+dependencies = [
+  "fcrm-contracts",
+  "fcrm-common",
+  "fcrm-identity-service",
+  "fcrm-case-service",
+  "fcrm-scoring-service",
+  "fcrm-policy-service",
+  "fcrm-audit-service",
+  "fcrm-decision-service",
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.34",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.25", "mypy>=1.14", "httpx>=0.28"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["fcrm_api"]

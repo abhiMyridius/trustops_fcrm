@@ -124,3 +124,27 @@ def test_subclass_extends_required_settings(monkeypatch):
     with pytest.raises(MissingSettingsError) as info:
         ScoringSettings.load()
     assert info.value.missing == ["SEED_PATH"]
+
+
+def test_load_overrides_win_over_the_environment(monkeypatch):
+    for name, value in ALL_REQUIRED.items():
+        monkeypatch.setenv(name, value)
+    settings = BaseServiceSettings.load(mongodb_db="fcrm_scoring")
+    assert settings.mongodb_db == "fcrm_scoring"
+
+
+def test_load_overrides_can_supply_a_required_value_the_environment_lacks(
+    monkeypatch,
+):
+    for name, value in ALL_REQUIRED.items():
+        if name != "MONGODB_DB":
+            monkeypatch.setenv(name, value)
+    settings = BaseServiceSettings.load(mongodb_db="fcrm_audit")
+    assert settings.mongodb_db == "fcrm_audit"
+
+
+def test_load_still_fails_fast_with_overrides_when_something_else_is_missing():
+    with pytest.raises(MissingSettingsError) as info:
+        BaseServiceSettings.load(mongodb_db="fcrm_audit")
+    assert "MONGODB_DB" not in info.value.missing
+    assert "MONGODB_URI" in info.value.missing

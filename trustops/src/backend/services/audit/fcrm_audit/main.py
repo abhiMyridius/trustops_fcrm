@@ -21,15 +21,21 @@ from fcrm_audit.lifespan import __version__, lifespan
 from fcrm_audit.routes import router
 
 
-def create_app() -> FastAPI:
+def create_app(*, standalone: bool = True) -> FastAPI:
     """Build the FastAPI app: audit routes, health routes, error handlers
     and the readiness probe the lifespan wires Mongo and self-test checks
     into.
+
+    Args:
+        standalone: ``True`` (the default) attaches the service's own
+            ``lifespan``. The composite ``fcrm_api`` passes ``False`` and
+            drives ``lifespan.register`` itself, because a lifespan does
+            not cascade into a mounted sub-app.
     """
     app = FastAPI(
         title="fcrm-audit",
         version=__version__,
-        lifespan=lifespan,
+        lifespan=lifespan if standalone else None,
     )
     # Built before the lifespan runs so the health router can hold a
     # reference to it; the lifespan (``lifespan.py``) adds the real checks

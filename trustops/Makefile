@@ -27,7 +27,7 @@ COMPOSE_TEST  := docker compose -p trustops-test $(COMPOSE_FILES) -f compose.tes
 ONESHOTS := mongo-init minio-init
 INFRA    := mongo rabbitmq redis minio opa
 OBS      := otel-collector jaeger prometheus grafana
-SERVICES := identity scoring audit case policy decision
+SERVICES := api
 WORKERS  := caseflow agent-worker ingestion-worker context-worker
 EDGE     := gateway web
 
@@ -44,7 +44,7 @@ OPA_DIR := ops/opa
 endif
 
 # Every Python import package in the workspace (fcrm_* and the evoq_* clones).
-PY_PACKAGES := $(sort $(foreach d,$(wildcard src/backend/services/*/fcrm_* src/backend/workers/*/fcrm_* src/backend/workers/*/evoq_* src/backend/packages/*/fcrm_*),$(if $(wildcard $(d)/__init__.py),$(notdir $(d)))))
+PY_PACKAGES := $(sort $(foreach d,$(wildcard src/backend/services/*/fcrm_* src/backend/workers/*/fcrm_* src/backend/workers/*/evoq_* src/backend/packages/*/fcrm_* src/backend/apps/*/fcrm_*),$(if $(wildcard $(d)/__init__.py),$(notdir $(d)))))
 MYPY_ARGS   := $(foreach p,$(PY_PACKAGES),-p $(p))
 LINT_PATHS  := src/backend ops/scripts
 
@@ -103,7 +103,7 @@ up-infra: env ## infra + observability only (mongo, rabbitmq, redis, minio, opa,
 		--url otel-collector=http://$$($(COMPOSE) port otel-collector 13133)/
 
 up: env keys ## the full stack, 24 containers (needs every lane's Dockerfile)
-	@missing=""; for f in $(foreach s,$(SERVICES),src/backend/services/$(s)/Dockerfile) $(foreach w,$(WORKERS),src/backend/workers/$(w)/Dockerfile) src/frontend/Dockerfile; do \
+	@missing=""; for f in src/backend/Dockerfile $(foreach w,$(WORKERS),src/backend/workers/$(w)/Dockerfile) src/frontend/Dockerfile; do \
 		[ -f "$$f" ] || missing="$$missing $$f"; done; \
 	if [ -n "$$missing" ]; then echo "up: not buildable yet, missing:$$missing" >&2; echo "up: use 'make up-infra' until those lanes land" >&2; exit 1; fi
 	$(COMPOSE) up -d --build

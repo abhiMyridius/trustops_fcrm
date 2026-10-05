@@ -44,13 +44,14 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
-from fcrm_common.auth import TokenVerifier, install_auth
-from fcrm_common.authz import OPAClient, install_authz
+from fcrm_common.auth import install_auth
+from fcrm_common.authz import install_authz
 from fcrm_common.errors import UpstreamUnavailableError
 from fcrm_common.health import ReadinessCheck, ReadinessProbe, mongo_check
 from fcrm_common.logging import configure_logging
-from fcrm_common.mongo import Repository, mongo_client
+from fcrm_common.mongo import Repository
 from fcrm_common.seedload import SeedReader, load_if_empty
+from fcrm_common.service import ServiceDeps, standalone_deps
 from fcrm_common.tracing import init_otel
 from fcrm_contracts.api.audit import AuditRecord
 from pymongo.asynchronous.collection import AsyncCollection
@@ -138,10 +139,73 @@ async def _insert_only_self_test(collection: AsyncCollection[Any]) -> None:
 
 
 @asynccontextmanager
+async def register(
+    app: FastAPI, settings: AuditSettings, deps: ServiceDeps
+) -> AsyncIterator[None]:
+    """Wire S4 onto ``app`` from injected dependencies: seed the demo
+    case's chain on an empty collection, run both startup self-tests, then
+    set auth/authz, the readiness checks and the store on ``app.state``.
+
+    ``deps.mongo`` must be the insert-only audit-writer client: the
+    insert-only self-test proves that the connected credential cannot
+    update or delete, so handing S4 any other client fails readiness.
+
+    The host owns logging, tracing and the Mongo, verifier and OPA
+    clients (``fcrm_common.service``); this never opens or closes them.
+    """
+    # Bearer verification (fcrm_common.auth.current_user) and the OPA route
+    # policy (fcrm_common.authz.opa_dependency, router-level in routes.py).
+    # Without these every route answers 503, never 200: fail closed.
+    install_auth(app.state, deps.token_verifier)
+    install_authz(app.state, deps.opa)
+
+    db = deps.mongo[settings.mongodb_db or "fcrm_audit"]
+    records_repo = _records_repo(db)
+    # No ensure_indexes() call here on purpose -- see the module
+    # docstring: fcrm_audit_writer cannot create indexes.
+
+    reader = SeedReader(settings.seed_path)
+    demo = reader.demo_case()
+    demo_case_id: str = demo["id"]
+
+    if settings.seed_on_empty:
+        chain_docs = [
+            records_repo.to_document(record) for record in build_demo_chain(demo)
+        ]
+        await load_if_empty(records_repo, chain_docs)
+
+    store = MongoAuditStore(records_repo, deps.mongo)
+    app.state.store = store
+
+    # main.py built ReadinessProbe() before this ran, so the health router
+    # already holds a reference to it; add checks to that same instance
+    # rather than replacing it.
+    probe: ReadinessProbe = app.state.probe
+    probe.add(mongo_check(deps.mongo))
+
+    if settings.chain_verify_on_start:
+        await _chain_verify_self_test(store, demo_case_id)
+
+        async def _chain_check() -> None:
+            await _chain_verify_self_test(store, demo_case_id)
+
+        probe.add(ReadinessCheck("chain_verify", _chain_check, critical=True))
+
+    if settings.insert_only_check_on_start:
+        await _insert_only_self_test(records_repo.collection)
+
+        async def _insert_only_check() -> None:
+            await _insert_only_self_test(records_repo.collection)
+
+        probe.add(ReadinessCheck("insert_only", _insert_only_check, critical=True))
+
+    yield
+
+
+@asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Connect Mongo, seed the demo case's chain on an empty collection,
-    run both startup self-tests, then wire auth/authz, the readiness
-    probe and the store onto ``app.state`` for the routes to use.
+    """Standalone entry (``uvicorn fcrm_audit.main:app``): load settings,
+    configure logging and tracing, build the dependencies, then register.
     """
     settings = AuditSettings.load()
     configure_logging(
@@ -149,60 +213,5 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     init_otel(settings.app_name, __version__, environment=settings.env, app=app)
     logger.info("starting", extra={"env": settings.env})
-
-    # Bearer verification (fcrm_common.auth.current_user) and the OPA route
-    # policy (fcrm_common.authz.opa_dependency, router-level in routes.py).
-    # Without these every route answers 503, never 200: fail closed.
-    token_verifier = TokenVerifier.from_settings(settings)
-    install_auth(app.state, token_verifier)
-    assert settings.opa_url is not None  # fail_fast already enforced this
-    opa_client = OPAClient(settings.opa_url)
-    install_authz(app.state, opa_client)
-
-    assert settings.mongodb_uri is not None  # fail_fast already enforced this
-    async with mongo_client(settings.mongodb_uri) as client:
-        db = client[settings.mongodb_db or "fcrm_audit"]
-        records_repo = _records_repo(db)
-        # No ensure_indexes() call here on purpose -- see the module
-        # docstring: fcrm_audit_writer cannot create indexes.
-
-        reader = SeedReader(settings.seed_path)
-        demo = reader.demo_case()
-        demo_case_id: str = demo["id"]
-
-        if settings.seed_on_empty:
-            chain_docs = [
-                records_repo.to_document(record) for record in build_demo_chain(demo)
-            ]
-            await load_if_empty(records_repo, chain_docs)
-
-        store = MongoAuditStore(records_repo, client)
-        app.state.store = store
-
-        # main.py built ReadinessProbe() before this lifespan ran, so the
-        # health router already holds a reference to it; add checks to
-        # that same instance rather than replacing it.
-        probe: ReadinessProbe = app.state.probe
-        probe.add(mongo_check(client))
-
-        if settings.chain_verify_on_start:
-            await _chain_verify_self_test(store, demo_case_id)
-
-            async def _chain_check() -> None:
-                await _chain_verify_self_test(store, demo_case_id)
-
-            probe.add(ReadinessCheck("chain_verify", _chain_check, critical=True))
-
-        if settings.insert_only_check_on_start:
-            await _insert_only_self_test(records_repo.collection)
-
-            async def _insert_only_check() -> None:
-                await _insert_only_self_test(records_repo.collection)
-
-            probe.add(ReadinessCheck("insert_only", _insert_only_check, critical=True))
-
-        try:
-            yield
-        finally:
-            await token_verifier.aclose()
-            await opa_client.aclose()
+    async with standalone_deps(settings) as deps, register(app, settings, deps):
+        yield

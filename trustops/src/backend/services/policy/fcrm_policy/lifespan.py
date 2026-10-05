@@ -26,12 +26,12 @@ from contextlib import asynccontextmanager
 from evoq_context.llm.client import LLMClient
 from evoq_context.vector.factory import create_vector_store
 from fastapi import FastAPI
-from fcrm_common.auth import TokenVerifier, install_auth
-from fcrm_common.authz import OPAClient, install_authz
+from fcrm_common.auth import install_auth
+from fcrm_common.authz import install_authz
 from fcrm_common.health import ReadinessProbe, mongo_check
 from fcrm_common.logging import configure_logging
-from fcrm_common.mongo import mongo_client
 from fcrm_common.seedload import SeedReader, load_if_empty
+from fcrm_common.service import ServiceDeps, standalone_deps
 from fcrm_common.tracing import init_otel
 from fcrm_context_worker.config import FCRM_PROJECT, context_config_from_env
 from fcrm_context_worker.seedload import load_clauses
@@ -63,10 +63,73 @@ class VectorBackendUnavailableError(RuntimeError):
 
 
 @asynccontextmanager
+async def register(
+    app: FastAPI, settings: PolicySettings, deps: ServiceDeps
+) -> AsyncIterator[None]:
+    """Wire S3 onto ``app`` from injected dependencies: seed its three
+    collections and the vector index on an empty store, then set
+    auth/authz, the readiness check and the search service on
+    ``app.state``.
+
+    The host owns logging, tracing and the Mongo, verifier and OPA
+    clients (``fcrm_common.service``); this never opens or closes them.
+    """
+    # Bearer verification (fcrm_common.auth.current_user) and the OPA route
+    # policy (fcrm_common.authz.opa_dependency, router-level in routes.py).
+    # Without these every route answers 503, never 200: fail closed.
+    install_auth(app.state, deps.token_verifier)
+    install_authz(app.state, deps.opa)
+
+    db = deps.mongo[settings.mongodb_db or "fcrm_policy"]
+    clauses = MongoKeywordCollection(db["clauses"], POLICY_CLAUSES)
+    precedents = MongoKeywordCollection(db["precedents"], PRECEDENT_CASES)
+    controls = MongoKeywordCollection(db["controls"], CONTROLS)
+    for collection in (clauses, precedents, controls):
+        await collection.ensure_text_index()
+
+    if settings.seed_on_empty:
+        reader = SeedReader(settings.seed_path)
+        await load_if_empty(clauses.collection, clause_documents())
+        await load_if_empty(precedents.collection, precedent_documents(reader.raw))
+        await load_if_empty(controls.collection, control_documents(reader.raw))
+
+    context_config = context_config_from_env()
+    vector_store = create_vector_store(context_config, FCRM_PROJECT)
+    if vector_store is None:
+        raise VectorBackendUnavailableError(
+            "VECTOR_BACKEND=none has no index for policy_clauses to search"
+        )
+    llm = LLMClient.from_config(context_config)
+    if settings.seed_on_empty:
+        await vector_store.ensure_index()
+        await load_clauses(vector_store, llm)
+    vector = VectorClauseSource(vector_store, llm, context_config)
+
+    app.state.search = SearchService(
+        collections={
+            POLICY_CLAUSES: clauses,
+            PRECEDENT_CASES: precedents,
+            CONTROLS: controls,
+        },
+        vector=vector,
+        rrf_k=settings.rrf_k,
+        candidate_multiplier=settings.search_candidate_multiplier,
+        top_k_max=settings.search_top_k_max,
+    )
+
+    # main.py built ReadinessProbe() before this ran, so the health router
+    # already holds a reference to it; add checks to that same instance
+    # rather than replacing it.
+    probe: ReadinessProbe = app.state.probe
+    probe.add(mongo_check(deps.mongo))
+
+    yield
+
+
+@asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Connect Mongo, seed its three collections and the vector index on
-    an empty store, then wire auth/authz, the readiness probe and the
-    search service onto ``app.state`` for the routes to use.
+    """Standalone entry (``uvicorn fcrm_policy.main:app``): load settings,
+    configure logging and tracing, build the dependencies, then register.
     """
     settings = PolicySettings.load()
     configure_logging(
@@ -74,63 +137,5 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     init_otel(settings.app_name, __version__, environment=settings.env, app=app)
     logger.info("starting", extra={"env": settings.env})
-
-    # Bearer verification (fcrm_common.auth.current_user) and the OPA route
-    # policy (fcrm_common.authz.opa_dependency, router-level in routes.py).
-    # Without these every route answers 503, never 200: fail closed.
-    token_verifier = TokenVerifier.from_settings(settings)
-    install_auth(app.state, token_verifier)
-    assert settings.opa_url is not None  # fail_fast already enforced this
-    opa_client = OPAClient(settings.opa_url)
-    install_authz(app.state, opa_client)
-
-    assert settings.mongodb_uri is not None  # fail_fast already enforced this
-    async with mongo_client(settings.mongodb_uri) as client:
-        db = client[settings.mongodb_db or "fcrm_policy"]
-        clauses = MongoKeywordCollection(db["clauses"], POLICY_CLAUSES)
-        precedents = MongoKeywordCollection(db["precedents"], PRECEDENT_CASES)
-        controls = MongoKeywordCollection(db["controls"], CONTROLS)
-        for collection in (clauses, precedents, controls):
-            await collection.ensure_text_index()
-
-        if settings.seed_on_empty:
-            reader = SeedReader(settings.seed_path)
-            await load_if_empty(clauses.collection, clause_documents())
-            await load_if_empty(precedents.collection, precedent_documents(reader.raw))
-            await load_if_empty(controls.collection, control_documents(reader.raw))
-
-        context_config = context_config_from_env()
-        vector_store = create_vector_store(context_config, FCRM_PROJECT)
-        if vector_store is None:
-            raise VectorBackendUnavailableError(
-                "VECTOR_BACKEND=none has no index for policy_clauses to search"
-            )
-        llm = LLMClient.from_config(context_config)
-        if settings.seed_on_empty:
-            await vector_store.ensure_index()
-            await load_clauses(vector_store, llm)
-        vector = VectorClauseSource(vector_store, llm, context_config)
-
-        app.state.search = SearchService(
-            collections={
-                POLICY_CLAUSES: clauses,
-                PRECEDENT_CASES: precedents,
-                CONTROLS: controls,
-            },
-            vector=vector,
-            rrf_k=settings.rrf_k,
-            candidate_multiplier=settings.search_candidate_multiplier,
-            top_k_max=settings.search_top_k_max,
-        )
-
-        # main.py built ReadinessProbe() before this lifespan ran, so the
-        # health router already holds a reference to it; add checks to
-        # that same instance rather than replacing it.
-        probe: ReadinessProbe = app.state.probe
-        probe.add(mongo_check(client))
-
-        try:
-            yield
-        finally:
-            await token_verifier.aclose()
-            await opa_client.aclose()
+    async with standalone_deps(settings) as deps, register(app, settings, deps):
+        yield

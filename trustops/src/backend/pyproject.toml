@@ -1,5 +1,5 @@
 [tool.uv.workspace]
-members = ["services/*", "workers/*", "packages/*"]
+members = ["services/*", "workers/*", "packages/*", "apps/*"]
 
 [tool.uv.sources]
 fcrm-contracts   = { workspace = true }
@@ -10,6 +10,9 @@ fcrm-tools       = { workspace = true }
 fcrm-prompts     = { workspace = true }
 fcrm-seed        = { workspace = true }
 fcrm-case-service  = { workspace = true }
+fcrm-identity-service = { workspace = true }
+fcrm-scoring-service = { workspace = true }
+fcrm-decision-service = { workspace = true }
 fcrm-audit-service = { workspace = true }
 fcrm-caseflow    = { workspace = true }
 fcrm-evals       = { workspace = true }

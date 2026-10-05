@@ -65,6 +65,10 @@ class _ClientRegistry:
     """
 
     clients: dict[str, AsyncMongoClient[Document]] = field(default_factory=dict)
+    #: Open :func:`mongo_client` contexts per URI; the client closes only
+    #: when the last one exits, so nested or concurrent users of one URI
+    #: never close each other's pool.
+    refs: dict[str, int] = field(default_factory=dict)
 
 
 _REGISTRY = _ClientRegistry()
@@ -105,22 +109,30 @@ async def close_clients() -> None:
     """Close every cached client (graceful shutdown, design A §10.4)."""
     clients = list(_REGISTRY.clients.values())
     _REGISTRY.clients.clear()
+    _REGISTRY.refs.clear()
     for client in clients:
         await client.close()
 
 
 @asynccontextmanager
 async def mongo_client(uri: str) -> AsyncIterator[AsyncMongoClient[Document]]:
-    """Lifespan form of :func:`get_client`, closing the client on exit.
+    """Lifespan form of :func:`get_client`, closing the client when the
+    last open context for ``uri`` exits.
 
     Usage: ``async with mongo_client(uri) as client: ...``.
     """
     client = get_client(uri)
+    _REGISTRY.refs[uri] = _REGISTRY.refs.get(uri, 0) + 1
     try:
         yield client
     finally:
-        _REGISTRY.clients.pop(uri, None)
-        await client.close()
+        remaining = _REGISTRY.refs.get(uri, 1) - 1
+        if remaining > 0:
+            _REGISTRY.refs[uri] = remaining
+        else:
+            _REGISTRY.refs.pop(uri, None)
+            _REGISTRY.clients.pop(uri, None)
+            await client.close()
 
 
 def to_bson(value: Any) -> Any:

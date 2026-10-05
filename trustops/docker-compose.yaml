@@ -40,8 +40,8 @@ x-app-env: &app-env
   REDIS_URL: redis://redis:6379/0
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
   OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
-  IDENTITY_JWKS_URL: http://identity:8000/api/fcrm/auth/.well-known/jwks.json
-  IDENTITY_VALIDATE_URL: http://identity:8000/api/fcrm/auth/core/validate
+  IDENTITY_JWKS_URL: http://api:8000/api/fcrm/auth/.well-known/jwks.json
+  IDENTITY_VALIDATE_URL: http://api:8000/api/fcrm/auth/core/validate
   OPA_URL: http://opa:8181
   SERVICE_TOKEN_SECRET: ${SERVICE_TOKEN_SECRET:?set SERVICE_TOKEN_SECRET in .env}
   SEED_PATH: ${SEED_PATH:-}
@@ -83,14 +83,14 @@ x-vector-env: &vector-env
   EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
   EMBEDDING_DIMENSION: "1024"
 
-# Base URLs include each service's APP_ROOT_PATH (the gateway strips
-# nothing, so neither do service-to-service clients).
+# Base URLs include each service's public prefix on the api process (the
+# gateway strips nothing, so neither do service-to-service clients).
 x-service-urls: &service-urls
-  CASE_SERVICE_URL: http://case:8001/api/fcrm
-  SCORING_SERVICE_URL: http://scoring:8002/api/fcrm/scoring
-  POLICY_SERVICE_URL: http://policy:8003/api/fcrm/policy
-  AUDIT_SERVICE_URL: http://audit:8004/api/fcrm/audit
-  DECISION_SERVICE_URL: http://decision:8005/api/fcrm/decision
+  CASE_SERVICE_URL: http://api:8000/api/fcrm
+  SCORING_SERVICE_URL: http://api:8000/api/fcrm/scoring
+  POLICY_SERVICE_URL: http://api:8000/api/fcrm/policy
+  AUDIT_SERVICE_URL: http://api:8000/api/fcrm/audit
+  DECISION_SERVICE_URL: http://api:8000/api/fcrm/decision
 
 x-service: &service
   restart: unless-stopped
@@ -263,23 +263,28 @@ services:
       timeout: 3s
       retries: 20
 
-  # ── X1 identity ────────────────────────────────────────────────────────
-  identity:
+  # ── api: X1 identity + S1 case + S2 scoring + S3 policy + S4 audit + S5 decision
+  # One process (fcrm_api.main:app, ADR-26). The services are mounted under their
+  # public prefixes, so the gateway still strips nothing. S4's insert-only Mongo
+  # credential is a separate MONGODB_URI_AUDIT_WRITER used only by S4's client.
+  api:
     <<: *service
     build:
       context: .
-      dockerfile: src/backend/services/identity/Dockerfile
-    image: trustops/identity:local
+      dockerfile: src/backend/Dockerfile
+    image: trustops/backend:local
+    command: ["uvicorn", "fcrm_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
     depends_on:
       mongo-init:
         condition: service_completed_successfully
+      opa:
+        condition: service_healthy
     environment:
-      <<: *app-env
-      OTEL_SERVICE_NAME: identity
-      OTEL_RESOURCE_ATTRIBUTES: component.id=X1,service.namespace=trustops
-      APP_ROOT_PATH: /api/fcrm/auth
-      MONGODB_DB: fcrm_identity
-      PORT: "8000"
+      <<: [*app-env, *s3-env, *aws-env, *vector-env]
+      OTEL_SERVICE_NAME: api
+      OTEL_RESOURCE_ATTRIBUTES: component.id=api,service.namespace=trustops
+      MONGODB_URI_AUDIT_WRITER: mongodb://fcrm_audit_writer:${MONGO_AUDIT_WRITER_PASSWORD:?set MONGO_AUDIT_WRITER_PASSWORD in .env}@mongo:27017/fcrm_audit?replicaSet=rs0&authSource=admin
+      # X1 identity
       JWT_KEY_FILE: /keys/jwt.pem
       JWT_ACCESS_TTL_S: "900"
       JWT_REFRESH_TTL_S: "28800"
@@ -288,171 +293,24 @@ services:
       REFRESH_COOKIE_NAME: fcrm_refresh
       DEMO_USERS_PASSWORD_HASH: ${DEMO_USERS_PASSWORD_HASH:-}
       LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-10/minute}
+      # S1 case
+      UPLOAD_MAX_BYTES: "52428800"
+      UPLOAD_ALLOWED_EXTENSIONS: .pdf,.docx,.xlsx,.pptx,.csv,.md,.txt
+      SSE_HEARTBEAT_S: "15"
+      # S2 scoring
+      SEED_RECOMPUTE_ON_START: ${SEED_RECOMPUTE_ON_START:-true}
+      # S3 policy
+      RRF_K: "60"
+      SEARCH_TOP_K_MAX: "30"
+      # S5 decision
+      COMMITTEE_QUORUM: "3"
     expose:
       - "8000"
     volumes:
       - ./jwt_keys:/keys:ro          # `make keys` writes jwt.pem / jwt.pub.pem
     healthcheck:
       <<: *health-timing
-      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/fcrm/auth/readyz', timeout=4).status == 200 else 1)"]
-
-  # ── S2 scoring (no bus dependency) ─────────────────────────────────────
-  scoring:
-    <<: *service
-    build:
-      context: .
-      dockerfile: src/backend/services/scoring/Dockerfile
-    image: trustops/scoring:local
-    depends_on:
-      mongo-init:
-        condition: service_completed_successfully
-      identity:
-        condition: service_healthy
-      opa:
-        condition: service_healthy
-    environment:
-      <<: *app-env
-      OTEL_SERVICE_NAME: scoring
-      OTEL_RESOURCE_ATTRIBUTES: component.id=S2,service.namespace=trustops
-      APP_ROOT_PATH: /api/fcrm/scoring
-      MONGODB_DB: fcrm_scoring
-      PORT: "8002"
-      SEED_RECOMPUTE_ON_START: ${SEED_RECOMPUTE_ON_START:-true}
-    expose:
-      - "8002"
-    healthcheck:
-      <<: *health-timing
-      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8002/api/fcrm/scoring/readyz', timeout=4).status == 200 else 1)"]
-
-  # ── S4 audit (insert-only DB user; no bus dependency) ──────────────────
-  audit:
-    <<: *service
-    build:
-      context: .
-      dockerfile: src/backend/services/audit/Dockerfile
-    image: trustops/audit:local
-    depends_on:
-      mongo-init:
-        condition: service_completed_successfully
-      identity:
-        condition: service_healthy
-      opa:
-        condition: service_healthy
-    environment:
-      <<: *app-env
-      OTEL_SERVICE_NAME: audit
-      OTEL_RESOURCE_ATTRIBUTES: component.id=S4,service.namespace=trustops
-      APP_ROOT_PATH: /api/fcrm/audit
-      MONGODB_DB: fcrm_audit
-      PORT: "8004"
-      # S4 holds ONLY the insert-only credential: MONGODB_URI is overridden
-      # with it too, so no code path in S4 can reach a read-write user.
-      MONGODB_URI: mongodb://fcrm_audit_writer:${MONGO_AUDIT_WRITER_PASSWORD:?set MONGO_AUDIT_WRITER_PASSWORD in .env}@mongo:27017/fcrm_audit?replicaSet=rs0&authSource=admin
-      MONGODB_URI_AUDIT_WRITER: mongodb://fcrm_audit_writer:${MONGO_AUDIT_WRITER_PASSWORD:?set MONGO_AUDIT_WRITER_PASSWORD in .env}@mongo:27017/fcrm_audit?replicaSet=rs0&authSource=admin
-    expose:
-      - "8004"
-    healthcheck:
-      <<: *health-timing
-      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8004/api/fcrm/audit/readyz', timeout=4).status == 200 else 1)"]
-
-  # ── S1 case ────────────────────────────────────────────────────────────
-  case:
-    <<: *service
-    build:
-      context: .
-      dockerfile: src/backend/services/case/Dockerfile
-    image: trustops/case:local
-    depends_on:
-      mongo-init:
-        condition: service_completed_successfully
-      rabbitmq:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
-      identity:
-        condition: service_healthy
-      opa:
-        condition: service_healthy
-    environment:
-      <<: [*app-env, *s3-env]
-      OTEL_SERVICE_NAME: case
-      OTEL_RESOURCE_ATTRIBUTES: component.id=S1,service.namespace=trustops
-      APP_ROOT_PATH: /api/fcrm
-      MONGODB_DB: fcrm_case
-      PORT: "8001"
-      UPLOAD_MAX_BYTES: "52428800"
-      UPLOAD_ALLOWED_EXTENSIONS: .pdf,.docx,.xlsx,.pptx,.csv,.md,.txt
-      SSE_HEARTBEAT_S: "15"
-    expose:
-      - "8001"
-    healthcheck:
-      <<: *health-timing
-      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/api/fcrm/readyz', timeout=4).status == 200 else 1)"]
-
-  # ── S3 policy ──────────────────────────────────────────────────────────
-  policy:
-    <<: *service
-    build:
-      context: .
-      dockerfile: src/backend/services/policy/Dockerfile
-    image: trustops/policy:local
-    depends_on:
-      mongo-init:
-        condition: service_completed_successfully
-      rabbitmq:
-        condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
-      identity:
-        condition: service_healthy
-      opa:
-        condition: service_healthy
-    environment:
-      <<: [*app-env, *s3-env, *aws-env, *vector-env]
-      OTEL_SERVICE_NAME: policy
-      OTEL_RESOURCE_ATTRIBUTES: component.id=S3,service.namespace=trustops
-      APP_ROOT_PATH: /api/fcrm/policy
-      MONGODB_DB: fcrm_policy
-      PORT: "8003"
-      RRF_K: "60"
-      SEARCH_TOP_K_MAX: "30"
-    expose:
-      - "8003"
-    healthcheck:
-      <<: *health-timing
-      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8003/api/fcrm/policy/readyz', timeout=4).status == 200 else 1)"]
-
-  # ── S5 decision ────────────────────────────────────────────────────────
-  decision:
-    <<: *service
-    build:
-      context: .
-      dockerfile: src/backend/services/decision/Dockerfile
-    image: trustops/decision:local
-    depends_on:
-      mongo-init:
-        condition: service_completed_successfully
-      rabbitmq:
-        condition: service_healthy
-      identity:
-        condition: service_healthy
-      opa:
-        condition: service_healthy
-    environment:
-      <<: *app-env
-      OTEL_SERVICE_NAME: decision
-      OTEL_RESOURCE_ATTRIBUTES: component.id=S5,service.namespace=trustops
-      APP_ROOT_PATH: /api/fcrm/decision
-      MONGODB_DB: fcrm_decision
-      PORT: "8005"
-      COMMITTEE_QUORUM: "3"
-    expose:
-      - "8005"
-    healthcheck:
-      <<: *health-timing
-      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8005/api/fcrm/decision/readyz', timeout=4).status == 200 else 1)"]
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/readyz', timeout=4).status == 200 else 1)"]
 
   # ── H1 Caseflow ────────────────────────────────────────────────────────
   caseflow:
@@ -466,15 +324,7 @@ services:
         condition: service_completed_successfully
       rabbitmq:
         condition: service_healthy
-      case:
-        condition: service_healthy
-      scoring:
-        condition: service_healthy
-      policy:
-        condition: service_healthy
-      audit:
-        condition: service_healthy
-      decision:
+      api:
         condition: service_healthy
     environment:
       <<: [*app-env, *service-urls]
@@ -511,16 +361,10 @@ services:
         condition: service_healthy
       opa:
         condition: service_healthy
-      policy:
-        condition: service_healthy
-      audit:
-        condition: service_healthy
-      case:
-        condition: service_healthy
-      scoring:
-        condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+      api:
+        condition: service_healthy
     environment:
       <<: [*app-env, *service-urls, *s3-env, *aws-env]
       OTEL_SERVICE_NAME: agent-worker
@@ -594,7 +438,7 @@ services:
         condition: service_completed_successfully
       minio-init:
         condition: service_completed_successfully
-      policy:
+      api:
         condition: service_healthy
     environment:
       <<: [*app-env, *service-urls, *s3-env, *aws-env, *vector-env]
@@ -615,17 +459,7 @@ services:
     image: nginx:1.27-alpine
     restart: unless-stopped
     depends_on:
-      identity:
-        condition: service_healthy
-      case:
-        condition: service_healthy
-      scoring:
-        condition: service_healthy
-      policy:
-        condition: service_healthy
-      audit:
-        condition: service_healthy
-      decision:
+      api:
         condition: service_healthy
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${GATEWAY_HOST_PORT:-8080}:8080"

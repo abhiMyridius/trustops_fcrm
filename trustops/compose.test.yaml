@@ -28,36 +28,17 @@ services:
     environment:
       <<: *test-modes
 
-  policy:
-    environment:
-      <<: *test-modes
-
   context-worker:
     environment:
       <<: *test-modes
 
-  # The remaining app containers only need ENV=test (log/trace labels,
-  # otel overlay) and an always-seeded database.
-  identity:
+  # api (X1 + S1–S5) takes the in-memory vector index and dummy embeddings
+  # for S3, ENV=test and an always-seeded database.
+  api:
     environment:
-      ENV: test
-      SEED_ON_EMPTY: "true"
-  case:
-    environment:
-      ENV: test
-      SEED_ON_EMPTY: "true"
-  scoring:
-    environment:
-      ENV: test
-      SEED_ON_EMPTY: "true"
-  audit:
-    environment:
-      ENV: test
-      SEED_ON_EMPTY: "true"
-  decision:
-    environment:
-      ENV: test
-      SEED_ON_EMPTY: "true"
+      <<: *test-modes
+
+  # The remaining workers only need ENV=test (log/trace labels, otel overlay).
   caseflow:
     environment:
       ENV: test

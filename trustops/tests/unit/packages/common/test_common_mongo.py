@@ -138,3 +138,26 @@ async def test_get_client_lets_uri_options_override_defaults(monkeypatch):
 def test_mongo_lease_rejects_margin_not_below_ttl():
     with pytest.raises(ValueError, match="margin_s"):
         mongo.MongoLease(None, "x", "me", ttl_s=1.0, margin_s=1.0)  # type: ignore[arg-type]
+
+
+async def test_mongo_client_closes_only_when_the_last_context_exits(monkeypatch):
+    monkeypatch.setattr(mongo, "_REGISTRY", mongo._ClientRegistry())
+    uri = "mongodb://localhost:1/?replicaSet=rs0"
+    async with mongo.mongo_client(uri) as outer:
+        async with mongo.mongo_client(uri) as inner:
+            assert inner is outer
+        # The inner exit must not have closed or dropped the shared client.
+        assert mongo._REGISTRY.clients[uri] is outer
+        assert mongo._REGISTRY.refs[uri] == 1
+    assert uri not in mongo._REGISTRY.clients
+    assert uri not in mongo._REGISTRY.refs
+
+
+async def test_mongo_client_releases_its_reference_when_the_body_raises(monkeypatch):
+    monkeypatch.setattr(mongo, "_REGISTRY", mongo._ClientRegistry())
+    uri = "mongodb://localhost:1/?replicaSet=rs0"
+    with pytest.raises(RuntimeError, match="boom"):
+        async with mongo.mongo_client(uri):
+            raise RuntimeError("boom")
+    assert mongo._REGISTRY.refs == {}
+    assert mongo._REGISTRY.clients == {}

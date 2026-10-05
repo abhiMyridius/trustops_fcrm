@@ -16,13 +16,14 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
-from fcrm_common.auth import TokenVerifier, install_auth
-from fcrm_common.authz import OPAClient, install_authz
+from fcrm_common.auth import install_auth
+from fcrm_common.authz import install_authz
 from fcrm_common.errors import UpstreamUnavailableError
 from fcrm_common.health import ReadinessCheck, ReadinessProbe, mongo_check
 from fcrm_common.logging import configure_logging
-from fcrm_common.mongo import Repository, mongo_client
+from fcrm_common.mongo import Repository
 from fcrm_common.seedload import SeedReader, load_if_empty
+from fcrm_common.service import ServiceDeps, standalone_deps
 from fcrm_common.tracing import init_otel
 from fcrm_contracts.api.scoring import (
     RoutingRule,
@@ -125,11 +126,64 @@ def _routing_version_from_seed(routing_raw: dict[str, Any]) -> RoutingRulesVersi
 
 
 @asynccontextmanager
+async def register(
+    app: FastAPI, settings: ScoringSettings, deps: ServiceDeps
+) -> AsyncIterator[None]:
+    """Wire S2 onto ``app`` from injected dependencies: seed the scoring
+    model and routing rules on an empty collection, run the startup
+    self-test, then set auth/authz, the readiness checks and the store on
+    ``app.state`` for the routes to use.
+
+    The host owns logging, tracing and the Mongo, verifier and OPA
+    clients (``fcrm_common.service``); this never opens or closes them.
+    """
+    # Bearer verification (fcrm_common.auth.current_user) and the OPA route
+    # policy (fcrm_common.authz.opa_dependency, router-level in routes.py).
+    # Without these every route answers 503, never 200: fail closed.
+    install_auth(app.state, deps.token_verifier)
+    install_authz(app.state, deps.opa)
+
+    db = deps.mongo[settings.mongodb_db or "fcrm_scoring"]
+    models_repo = _models_repo(db)
+    routing_repo = _routing_repo(db)
+    await models_repo.ensure_indexes(
+        [IndexModel([("version", 1)], unique=True, name="version_unique")]
+    )
+    await routing_repo.ensure_indexes(
+        [IndexModel([("version", 1)], unique=True, name="version_unique")]
+    )
+
+    if settings.seed_on_empty:
+        reader = SeedReader(settings.seed_path)
+        model = scoring_model_from_seed(reader.scoring_model())
+        routing = _routing_version_from_seed(reader.section("routing"))
+        await load_if_empty(models_repo, [models_repo.to_document(model)])
+        await load_if_empty(routing_repo, [routing_repo.to_document(routing)])
+
+    store = MongoConfigStore(models_repo, routing_repo)
+    app.state.store = store
+
+    # main.py built ReadinessProbe() before this ran, so the health router
+    # already holds a reference to it; add checks to that same instance
+    # rather than replacing it.
+    probe: ReadinessProbe = app.state.probe
+    probe.add(mongo_check(deps.mongo))
+    if settings.seed_recompute_on_start:
+        active = await store.active_model()
+        await _recompute_self_test(active)
+
+        async def _recompute_check() -> None:
+            await _recompute_self_test(await store.active_model())
+
+        probe.add(ReadinessCheck("recompute", _recompute_check, critical=True))
+
+    yield
+
+
+@asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Connect Mongo, seed the scoring model and routing rules on an
-    empty collection, run the startup self-test, then wire auth/authz,
-    the readiness probe and the store onto ``app.state`` for the routes
-    to use.
+    """Standalone entry (``uvicorn fcrm_scoring.main:app``): load settings,
+    configure logging and tracing, build the dependencies, then register.
     """
     settings = ScoringSettings.load()
     configure_logging(
@@ -137,54 +191,5 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     init_otel(settings.app_name, __version__, environment=settings.env, app=app)
     logger.info("starting", extra={"env": settings.env})
-
-    # Bearer verification (fcrm_common.auth.current_user) and the OPA route
-    # policy (fcrm_common.authz.opa_dependency, router-level in routes.py).
-    # Without these every route answers 503, never 200: fail closed.
-    token_verifier = TokenVerifier.from_settings(settings)
-    install_auth(app.state, token_verifier)
-    assert settings.opa_url is not None  # fail_fast already enforced this
-    opa_client = OPAClient(settings.opa_url)
-    install_authz(app.state, opa_client)
-
-    assert settings.mongodb_uri is not None  # fail_fast already enforced this
-    async with mongo_client(settings.mongodb_uri) as client:
-        db = client[settings.mongodb_db or "fcrm_scoring"]
-        models_repo = _models_repo(db)
-        routing_repo = _routing_repo(db)
-        await models_repo.ensure_indexes(
-            [IndexModel([("version", 1)], unique=True, name="version_unique")]
-        )
-        await routing_repo.ensure_indexes(
-            [IndexModel([("version", 1)], unique=True, name="version_unique")]
-        )
-
-        if settings.seed_on_empty:
-            reader = SeedReader(settings.seed_path)
-            model = scoring_model_from_seed(reader.scoring_model())
-            routing = _routing_version_from_seed(reader.section("routing"))
-            await load_if_empty(models_repo, [models_repo.to_document(model)])
-            await load_if_empty(routing_repo, [routing_repo.to_document(routing)])
-
-        store = MongoConfigStore(models_repo, routing_repo)
-        app.state.store = store
-
-        # main.py built ReadinessProbe() before this lifespan ran, so the
-        # health router already holds a reference to it; add checks to
-        # that same instance rather than replacing it.
-        probe: ReadinessProbe = app.state.probe
-        probe.add(mongo_check(client))
-        if settings.seed_recompute_on_start:
-            active = await store.active_model()
-            await _recompute_self_test(active)
-
-            async def _recompute_check() -> None:
-                await _recompute_self_test(await store.active_model())
-
-            probe.add(ReadinessCheck("recompute", _recompute_check, critical=True))
-
-        try:
-            yield
-        finally:
-            await token_verifier.aclose()
-            await opa_client.aclose()
+    async with standalone_deps(settings) as deps, register(app, settings, deps):
+        yield

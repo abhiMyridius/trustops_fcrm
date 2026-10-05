@@ -1,0 +1,222 @@
+"""The composite ``api`` process (X1 + S1-S5) running its real lifespan
+against one live MongoDB 8 replica set.
+
+``fcrm_api.lifespan.api_lifespan`` is the only code that starts all six
+services together, so this is the one test that proves they share a process,
+a verifier, an OPA client and two Mongo clients (application and insert-only
+audit writer) without interfering: all six come up, each writes only into
+its own database, and the clients close when the process stops.
+
+The registry's database names are suffixed with ``_apitest`` for the test,
+so it can never touch a developer's real ``fcrm_*`` databases. The two Mongo
+URIs differ by ``appName`` (a distinct ``fcrm_common.mongo`` registry key),
+which gives the application and audit-writer roles separate clients against
+the one ``mongod``, as production has with two credentials. A test Mongo has
+no insert-only user, so S4's insert-only self-test is switched off here; it is
+exercised against an auth-enabled Mongo in ``test_audit_mongo_live.py``.
+
+    export FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:27217/?replicaSet=rs0'
+    uv run --project src/backend --all-packages \\
+        pytest tests/integration/live_mongo/test_api_composite_live.py -m integration
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import os
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager, contextmanager
+from pathlib import Path
+
+import bcrypt
+import fcrm_api.lifespan
+import fcrm_api.main
+import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from fastapi.testclient import TestClient
+from fcrm_api.registry import MOUNTS
+from fcrm_audit.lifespan import InsertOnlyRoleViolatedError
+from fcrm_common import mongo
+from fcrm_common.authz import OPAClient, install_authz
+from fcrm_common.mongo import Document
+from pymongo import AsyncMongoClient
+
+URI = os.environ.get("FCRM_TEST_MONGO_URI", "")
+APP_URI = f"{URI}&appName=fcrm-api-test-app" if URI else ""
+WRITER_URI = f"{URI}&appName=fcrm-api-test-audit" if URI else ""
+SUFFIX = "_apitest"
+DEMO_PASSWORD = "composite-demo-password"
+
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(not URI, reason="FCRM_TEST_MONGO_URI not set"),
+]
+
+TEST_MOUNTS = tuple(
+    dataclasses.replace(mount, db_name=f"{mount.db_name}{SUFFIX}") for mount in MOUNTS
+)
+
+
+@pytest.fixture
+async def clean_dbs() -> Iterator[None]:
+    client: AsyncMongoClient[Document] = AsyncMongoClient(URI)
+    for mount in TEST_MOUNTS:
+        await client.drop_database(mount.db_name)
+    yield
+    for mount in TEST_MOUNTS:
+        await client.drop_database(mount.db_name)
+    await client.close()
+
+
+@pytest.fixture
+def composite_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Environment for every service the composite loads, set once: the
+    composite reads the same process environment each mounted service does.
+    """
+    pem = rsa.generate_private_key(public_exponent=65537, key_size=2048).private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    key_path = tmp_path / "jwt.pem"
+    key_path.write_bytes(pem)
+    password_hash = bcrypt.hashpw(DEMO_PASSWORD.encode(), bcrypt.gensalt()).decode()
+    for name, value in {
+        "MONGODB_URI": APP_URI,
+        "MONGODB_URI_AUDIT_WRITER": WRITER_URI,
+        "SERVICE_TOKEN_SECRET": "x" * 32,
+        "OPA_URL": "http://localhost:8181",
+        "IDENTITY_VALIDATE_URL": "http://localhost:8000/api/fcrm/auth/core/validate",
+        "ENV": "test",
+        "SEED_ON_EMPTY": "true",
+        "JWT_KEY_FILE": str(key_path),
+        "DEMO_USERS_PASSWORD_HASH": password_hash,
+        "INSERT_ONLY_CHECK_ON_START": "false",
+        "VECTOR_BACKEND": "memory",
+        "EMBEDDING_PROVIDER": "dummy",
+        "EMBEDDING_DIMENSION": "64",
+        "CONTEXT_PROJECTS_ROOT": str(tmp_path),
+    }.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setattr(fcrm_api.main, "MOUNTS", TEST_MOUNTS)
+    monkeypatch.setattr(fcrm_api.lifespan, "MOUNTS", TEST_MOUNTS)
+
+
+@pytest.fixture
+def composite_client(
+    allow_all_opa: OPAClient, bearer_for: Callable[..., dict[str, str]]
+) -> Callable[[], AbstractContextManager[TestClient]]:
+    """``with composite_client() as client:`` runs the real composite
+    lifespan, then replaces OPA on every mounted service with the allow-all
+    stub (no OPA sidecar runs here) and acts as H1's service account.
+    """
+
+    @contextmanager
+    def _open() -> Iterator[TestClient]:
+        app = fcrm_api.main.create_app()
+        with TestClient(app) as client:
+            for sub in app.state.mounted.values():
+                install_authz(sub.state, allow_all_opa)
+            client.headers.update(bearer_for("x" * 32, "caseflow"))
+            yield client
+
+    return _open
+
+
+def test_all_six_services_start_and_the_aggregate_readiness_lists_them(
+    clean_dbs: None,
+    composite_env: None,
+    composite_client: Callable[[], AbstractContextManager[TestClient]],
+) -> None:
+    with composite_client() as client:
+        ready = client.get("/readyz")
+        assert ready.status_code == 200
+        assert set(ready.json()["checks"]) == {m.component_id for m in MOUNTS}
+
+
+def test_real_requests_reach_each_mounted_service_through_the_shared_clients(
+    clean_dbs: None,
+    composite_env: None,
+    composite_client: Callable[[], AbstractContextManager[TestClient]],
+    demo: dict[str, object],
+) -> None:
+    with composite_client() as client:
+        login = client.post(
+            "/api/fcrm/auth/login",
+            json={"email": "u-riyer", "password": DEMO_PASSWORD},
+        )
+        assert login.status_code == 200
+        assert login.json()["access_token"]
+
+        model = client.get("/api/fcrm/scoring/models/active")
+        assert model.status_code == 200
+
+        verify = client.get(f"/api/fcrm/audit/verify/{demo['id']}")
+        assert verify.status_code == 200
+        assert verify.json()["ok"] is True
+
+        cases = client.get("/api/fcrm/cases")
+        assert cases.status_code == 200
+
+
+def test_each_service_writes_only_into_its_own_database(
+    clean_dbs: None,
+    composite_env: None,
+    composite_client: Callable[[], AbstractContextManager[TestClient]],
+) -> None:
+    with composite_client() as client:
+        assert client.get("/readyz").status_code == 200
+
+    async def collections() -> dict[str, set[str]]:
+        raw: AsyncMongoClient[Document] = AsyncMongoClient(URI)
+        try:
+            return {
+                mount.component_id: set(
+                    await raw[mount.db_name].list_collection_names()
+                )
+                for mount in TEST_MOUNTS
+            }
+        finally:
+            await raw.close()
+
+    import asyncio
+
+    found = asyncio.run(collections())
+    assert "users" in found["X1"]
+    assert "scoring_model_versions" in found["S2"]
+    assert "audit_records" in found["S4"]
+    assert "cases" in found["S1"] or "case_counters" in found["S1"]
+    # Nothing leaked across: identity's users never reach another service's db.
+    for component_id, names in found.items():
+        if component_id != "X1":
+            assert "users" not in names, component_id
+    assert "audit_records" not in found["S2"]
+
+
+def test_every_mongo_client_is_closed_when_the_process_stops(
+    clean_dbs: None,
+    composite_env: None,
+    composite_client: Callable[[], AbstractContextManager[TestClient]],
+) -> None:
+    with composite_client() as client:
+        assert client.get("/readyz").status_code == 200
+        assert {APP_URI, WRITER_URI} <= set(mongo._REGISTRY.clients)
+    assert APP_URI not in mongo._REGISTRY.clients
+    assert WRITER_URI not in mongo._REGISTRY.clients
+    assert mongo._REGISTRY.refs == {}
+
+
+def test_a_failing_self_test_stops_the_whole_process_from_starting(
+    clean_dbs: None,
+    composite_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Hand S4 the application URI as its "audit writer": the insert-only
+    # self-test must then refuse to start, and the composite must not come
+    # up half-serving. (The test Mongo has no auth, so the check is enabled
+    # here and the update it attempts succeeds, which is the violation.)
+    monkeypatch.setenv("INSERT_ONLY_CHECK_ON_START", "true")
+    app = fcrm_api.main.create_app()
+    with pytest.raises(InsertOnlyRoleViolatedError), TestClient(app):
+        pass
