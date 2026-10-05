@@ -218,6 +218,42 @@ def test_s1_relays_its_outbox_through_the_composites_broker(
     assert fake_broker.started is False
 
 
+def test_s5_relays_its_outbox_through_the_composites_broker(
+    clean_dbs: None,
+    composite_env: None,
+    fake_broker: FakeBroker,
+    composite_client: Callable[[], AbstractContextManager[TestClient]],
+) -> None:
+    with composite_client() as client:
+        store = client.app.state.mounted["S5"].state.store  # type: ignore[attr-defined]
+        recorded: Envelope = build_envelope(
+            "outcome.set",
+            {"case_id": "FCRM-2026-0301", "mode": "delegated", "outcome": "approve"},
+            case_id="FCRM-2026-0301",
+        )
+
+        async def enqueue(tx: object) -> None:
+            await tx.enqueue(recorded)  # type: ignore[attr-defined]
+
+        # The store belongs to the app's event loop: call it on the same one.
+        client.portal.call(store.run, enqueue)  # type: ignore[union-attr]
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and not any(
+            Envelope.model_validate_json(body).event_id == recorded.event_id
+            for body, _kwargs in fake_broker.published
+        ):
+            time.sleep(0.05)
+        sent = [
+            kwargs
+            for body, kwargs in fake_broker.published
+            if Envelope.model_validate_json(body).event_id == recorded.event_id
+        ]
+        assert len(sent) == 1
+        assert sent[0]["routing_key"] == "outcome.set"
+        ready = client.get("/api/fcrm/decision/readyz")
+        assert ready.json()["checks"]["outbox"]["ok"] is True
+
+
 def test_real_requests_reach_each_mounted_service_through_the_shared_clients(
     clean_dbs: None,
     composite_env: None,
