@@ -36,13 +36,13 @@ The application is two parts. The backend is one Docker stack. The frontend is o
 
 8. `cd src/frontend` then `npm ci`. Once.
 9. Choose the backend for the UI:
-   - Mock backend, the default. Run `npm run dev`. Every screen works. This is the one to use for the demo today.
-   - Live backend. Run `printf 'VITE_API_MODE=live\nVITE_DEMO_USERS=false\n' > .env.local` then `npm run dev`. Sign-in fails today with a 422, see below. Delete `.env.local` to go back to mock.
-10. Open http://localhost:5173. The badge at the top says which backend you are on.
+   - Live backend, the default. Run `npm run dev`. Vite proxies `/api` to the gateway on :8080, so the stack from terminal 1 must be up. Sign-in works; most screens still lack a backend route, see the last section.
+   - Mock backend. Run `npm run dev:msw`. Every screen works against the in-browser mock. This is the one to use for the full click-through while the live join is unfinished.
+10. Open http://localhost:5173. On the live backend the login page offers the seeded-user picker only when the identity service serves one (see below); otherwise it shows a username and password form.
 
 **To stop:** `make down` in terminal 1, Ctrl-C in terminal 2.
 
-**Why live mode does not work yet, in plain words.** The backend starts and answers `curl` correctly. The frontend works against its mock. Put together, the web login sends a field named `username` and the identity service only accepts a field named `email`, so the very first request fails. Behind that, most analyst screens have no backend route yet, and the backend holds no seeded cases. The full list is in the last section of this file. The first fix is the login field name.
+**Why live mode is only partly useful yet, in plain words.** The backend starts and answers `curl` correctly, and the web now signs in against it (the login contract was aligned, ADR-30). Behind the login, most analyst screens have no backend route yet, and the backend holds no seeded cases. The full list is in the last section of this file, and `src/frontend/src/test/contract/paths.test.ts` keeps it honest: it fails when a route the web calls is neither in `docs/architecture/openapi/api.json` nor in its `PENDING_ROUTES` list.
 
 ## What works today
 
@@ -53,8 +53,8 @@ The application is two parts. The backend is one Docker stack. The frontend is o
 | Web unit tests and type check | ✅ `npm test`, `npm run typecheck` |
 | Backend stack: `api` (identity, S1–S5), `harness` (H1, H2), gateway, web, infra | ✅ `make up` starts 8 containers, all healthy, from empty volumes |
 | Login and access policy on every service, checked with `curl` through the gateway | ✅ |
-| Web app on its own, against the in-browser mock backend (MSW) | ✅ every screen for all three personas |
-| Web app against the live backend | ⏳ login fails (field-name mismatch); after that about a third of the screens have a backend route. See [Where the backend and the frontend stand](#where-the-backend-and-the-frontend-stand) |
+| Web app on its own, against the in-browser mock backend (`npm run dev:msw`) | ✅ every screen for all three personas |
+| Web app against the live backend | ⏳ sign-in works; about a fifth of the web's routes have a backend route (17 of 83). See [Where the backend and the frontend stand](#where-the-backend-and-the-frontend-stand) |
 | H3 ingestion and H4 context workers | ⏳ built and tested, but no start entry point yet, so they are not part of the harness |
 | Driving case FCRM-2026-0151 end to end through the live stack | ⏳ the services do not yet pass events to each other, and S1 holds no seeded cases |
 | Agents on live Bedrock only (no replay mode, ADR-27) | ⏳ needs AWS keys in `.env`; without them every agent run fails at the model call |
@@ -206,21 +206,21 @@ There are three ways to see the UI. Pick by what you want to look at.
 
 | Way | URL | Backend | Use it for |
 |---|---|---|---|
-| **A. Mock, dev server** (default) | http://localhost:5173 | MSW in the browser, fed by the P7 seed | Every screen, every persona, the full 0151 click-through. Needs no Docker |
+| **A. Mock, dev server** (`npm run dev:msw`) | http://localhost:5173 | MSW in the browser, fed by the P7 seed | Every screen, every persona, the full 0151 click-through. Needs no Docker |
 | **B. Live, packaged** | http://localhost:8080 | The real services through the gateway | Checking what the backend really serves. This is what `make up` gives you |
-| **C. Live, dev server** | http://localhost:5173 | The real services, proxied by Vite to :8080 | Working on the FE against the real BE with hot reload |
+| **C. Live, dev server** (`npm run dev`) | http://localhost:5173 | The real services, proxied by Vite to :8080 | Working on the FE against the real BE with hot reload |
 
-The badge at the top of every page tells you which backend you are on: "Mock backend (MSW)" or "Live".
+On the Monitor page the badge says how updates arrive: "live stream", "reconnecting" or "polling". The mock mode has no stream, so it polls.
 
-### A. Mock mode (what you get by default)
+### A. Mock mode
 
 ```bash
 cd src/frontend
 npm ci                           # first time only
-npm run dev                      # http://localhost:5173
+npm run dev:msw                  # http://localhost:5173
 ```
 
-`VITE_API_MODE` defaults to `msw`, so with no `.env.local` in `src/frontend` this is what runs. The login page shows a picker of seeded users and collects no password. The URL prefix chooses the persona: `/` is the product owner, `/analyst` the FCRM analyst, `/committee` the risk committee.
+`dev:msw` sets `VITE_API_MODE=msw`. The login page shows a picker of seeded users and collects no password. The URL prefix chooses the persona: `/` is the product owner, `/analyst` the FCRM analyst, `/committee` the risk committee. vitest and the Playwright scenes in `e2e/scenes` use this mode too; a production build never contains it.
 
 ### B. Live mode, packaged (the web image behind the gateway)
 
@@ -229,7 +229,7 @@ make up
 open http://localhost:8080
 ```
 
-The web image is built with `VITE_API_MODE=live`, so every request goes to the real services. **Today the login form posts `username` while the identity service expects `email`, so sign-in returns 422.** That is the first item on the seam list below. Until it is fixed, test the live backend with the `curl` checks in step 4.
+The web image is built with `VITE_API_MODE=live` and the MSW worker file is removed from it, so every request goes to the real services. The login page asks the identity service for the demo picker; the service answers it only when `DEMO_USERS_ENABLED=true` and `ENV` is `local`, `test` or `ci`, and answers 404 anywhere else, in which case the page shows the username and password form (`riyer` / `demo-password-2026`).
 
 ### C. Live mode on the dev server
 
@@ -237,11 +237,10 @@ Start the backend (step 3), then point the dev server at it:
 
 ```bash
 cd src/frontend
-printf 'VITE_API_MODE=live\nVITE_DEMO_USERS=false\n' > .env.local
-npm run dev                      # Vite proxies /api/* to http://localhost:8080
+npm run dev                      # live is the default; Vite proxies /api/* to http://localhost:8080
 ```
 
-`VITE_DEMO_USERS=false` matters: the demo picker calls `GET /api/fcrm/auth/demo-users`, which the identity service does not serve, and posts an empty password, which it rejects. With the picker off you get the username/password form. Log in with a seed id and the demo password (`riyer` / `demo-password-2026`). Delete `.env.local` to go back to mock mode. `.env.local` is ignored by git.
+The login page uses the demo picker when identity serves one, otherwise the username/password form: log in with a seed id and the demo password (`riyer` / `demo-password-2026`). `VITE_DEMO_USERS=false` in `src/frontend/.env.local` (ignored by git) skips the picker request altogether.
 
 If Vite says `Port 5173 is already in use`, an earlier `npm run dev` is still running, often from before a folder move. Stop it with `kill $(lsof -tnP -iTCP:5173 -sTCP:LISTEN)` and start again. The dev server uses `strictPort`, so it never picks another port.
 
@@ -258,7 +257,7 @@ The frontend was built against the MSW mock contract, which is the full design: 
 
 | Web area | What the web calls | What the backend serves | Live today? |
 |---|---|---|---|
-| Login | `POST auth/login` with `{username, password}`, `GET auth/demo-users`, `auth/me`, `auth/refresh`, `auth/logout` | `POST auth/login` with `{email, password}` (extra fields rejected), `auth/me`, `auth/refresh`, `auth/logout`. No `demo-users` | ❌ 422 until the field name matches. Everything after that depends on this one fix |
+| Login | `POST auth/login` with `{username, password}`, `GET auth/demo-users`, `auth/me`, `auth/refresh`, `auth/logout` | The same, plus `GET auth/users?role=` (roster). `login` takes `username` or `email`; `demo-users` and an empty password work only in a local environment with `DEMO_USERS_ENABLED=true` (ADR-30) | ✅ |
 | PO: my queue, case list, create case | `GET dashboard`, `GET/POST cases`, `GET cases/{id}` | `GET/POST cases`, `GET cases/{id}`, `GET cases/{id}/stream`. No `dashboard` | Partial. S1 holds **no seeded cases**, so the list is empty until a case is created in the UI |
 | PO: intake fields, review, submit | `PUT cases/{id}/intake/values/{field}`, `intake/categories`, `review`, `validate`, `submit` | `PUT cases/{id}/fields/{field}`, `PUT cases/{id}/title`, `POST cases/{id}/submit`, `GET versions`, `versions/diff` | Partial. Submit and title match; the field-write path differs; review and validate are missing |
 | PO: documents, inbox, clarifications, conditions, outcome, activity, integrations | 10 routes | None | ❌ |
@@ -267,11 +266,11 @@ The frontend was built against the MSW mock contract, which is the full design: 
 | Policy search and config | `POST policy/search`, `policy/config/*` | `POST policy/search` only | Partial. Search works (4 clauses indexed, not 197); config screens are missing |
 | Audit | `GET audit/records`, `verify/{case}`, `examiner/ask`, `overrides`, `agent-quality`, `versions/{case}` | `GET records/{case}`, `verify/{case}`, `POST records` (service role only) | Partial. Verify works; the records list and the three analytics views differ or are missing |
 | Committee: queue, packs, votes, threads, outcome | `committee/queue`, `packs`, `cases/{id}/packs[/latest]`, `packs/{id}/release`, `packs/{id}/votes`, `packs/{id}/threads`, `threads/{id}/answer`, `cases/{id}/outcome` | `POST packs`, `GET packs/{id}`, `packs/{id}/votes`, `packs/{id}/outcome`, `POST packs/{id}/questions`, `questions/{id}/answers`, `release-checks` | Partial. Build pack, read pack, vote and read votes work; the queue, per-case lookups and thread paths differ |
-| Live updates | `GET cases/{id}/stream` as an `EventSource` | `GET cases/{id}/stream`, bearer token required | ❌ `EventSource` cannot send the header; the app falls back to polling silently |
+| Live updates | `GET cases/{id}/stream` as an `EventSource` with `?access_token=` (the gateway forwards it as the header) | `GET cases/{id}/stream`, bearer token required | Partial. The app connects, refreshes its session before each reconnect and polls while the stream is not live; the backend's frame format is still to be aligned |
 
 Behind the HTTP seam there is a second gap inside the backend: S5 writes votes but publishes no event, S1 never updates a case's state, and the H3/H4 workers have no process. So even with every route matched, a case would not yet move from intake to a decision. The order of work to close the gap is:
 
-1. Align the login payload (one field name) so the live UI can sign in.
+1. ~~Align the login payload so the live UI can sign in.~~ Done (ADR-30).
 2. Seed S1 with the 80 cases so the PO and analyst queues are not empty.
 3. Add the analyst workbench routes to S1, or a thin read model over H1's `case_runs`, since those 25 routes are the bulk of the missing surface.
 4. Make S5 publish its events and S1 consume state changes, so the case actually moves.
@@ -289,10 +288,9 @@ Behind the HTTP seam there is a second gap inside the backend: S5 writes votes b
 | `audit` keeps restarting with `ChainVerifyFailedError` | The audit records in the Mongo volume were written under an older hash format (D-29). Run `make down-v`, then start again, to reseed |
 | `api` fails at start, asking for `DEMO_USERS_PASSWORD_HASH` | `.env` predates D-25. Move it aside and run `make env` again |
 | Every API call returns `503` | OPA is not reachable, and the services fail closed by design. Check with `make ps` and `make logs svc=opa` |
-| The page shows "Mock backend (MSW)" when you expected the live stack | You are on the dev server with no `src/frontend/.env.local`, so `VITE_API_MODE` defaulted to `msw`. See step 5 C. Also check `make ps`: if the services are down, live mode would only show errors |
+| Every screen shows an error on the dev server | `npm run dev` is the live mode and proxies to the gateway on :8080: start the stack (`make up`) or use `npm run dev:msw` for the mock |
 | `Port 5173 is already in use` | A previous `npm run dev` is still running (it survives a folder move). `kill $(lsof -tnP -iTCP:5173 -sTCP:LISTEN)` and start again |
-| Live login returns `422` | The web posts `username`, the identity service wants `email`. First item in the seam table above |
-| Live login page hangs on the demo picker | `GET auth/demo-users` does not exist on the backend. Set `VITE_DEMO_USERS=false` in `src/frontend/.env.local` |
+| The login page shows a password form instead of the demo picker | Identity serves the picker only when `DEMO_USERS_ENABLED=true` and `ENV` is `local`, `test` or `ci` (otherwise `GET auth/demo-users` is a 404). Use the form with a seed id and the demo password |
 | Live PO queue is empty | S1 has no seeded cases yet (`make seed` is pending). Create a case from the UI, or use mock mode to see the 80 seed cases |
 | Agent jobs fail with a Bedrock or credentials error | Agents call live Bedrock only (ADR-27). Fill in the AWS keys in `.env` |
 | `ports are not available ... 127.0.0.1:6379 ... address already in use` | Only `make up-cache` with `make up-debug` publishes Redis. A Homebrew `redis-server` holds the port: `brew services stop redis`, or set `REDIS_HOST_PORT=6380` in `.env` |
