@@ -3,19 +3,21 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "TrustOps W1 web app: React 19 + Vite + Tailwind v4, MSW-backed until the services' OpenAPI lands",
+  "description": "TrustOps W1 web app: React 19 + Vite + Tailwind v4, talking to the gateway; MSW is the vitest backend",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
     "dev": "vite",
+    "dev:msw": "VITE_API_MODE=msw vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "oxlint --deny-warnings src && eslint src --max-warnings 0",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test --config e2e/playwright.config.ts",
-    "test:e2e:ui": "playwright test --config e2e/playwright.config.ts --ui",
+    "test:e2e": "VITE_API_MODE=msw playwright test --config e2e/playwright.config.ts",
+    "test:e2e:ui": "VITE_API_MODE=msw playwright test --config e2e/playwright.config.ts --ui",
+    "test:e2e:live": "playwright test --config e2e/playwright.live.config.ts --pass-with-no-tests",
     "typecheck": "tsc -b --noEmit"
   },
   "msw": {

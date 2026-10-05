@@ -1,6 +1,6 @@
 /**
  * Playwright config for TrustOps's web app, run against its own MSW-mocked dev server
- * (`npm run dev`), not the composed stack.
+ * (`npm run dev:msw`), not the composed stack. The live counterpart is playwright.live.config.ts.
  *
  * BUILD-PLAN.md / docs/architecture/design/C-web-tests-ops-sdlc.md describe a `/tests/e2e`
  * Playwright suite with a `baseURL` of `http://localhost:8080` (the nginx gateway in front of
@@ -10,8 +10,8 @@
  * and this machine's Docker Desktop has a `~/Downloads` bind-mount permission issue) -- so this
  * config intentionally does not point at port 8080 or try to start docker-compose.
  *
- * Instead it starts the web app's own standalone dev server (`npm run dev`, MSW-backed,
- * `VITE_API_MODE=msw` is already the default) and runs real, scripted browser scenes against it.
+ * Instead it starts the web app's own standalone dev server (`npm run dev:msw`, MSW-backed,
+ * `VITE_API_MODE=msw`) and runs real, scripted browser scenes against it.
  * These are genuine, runnable, passing tests today -- not a live-stack rehearsal. When the real
  * services and the nginx gateway exist, the composed-stack config described in the design doc
  * belongs at the repo-root `tests/e2e/` (per that doc's own tree), reusing these scene scripts
@@ -38,7 +38,7 @@ export default defineConfig({
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: {
-    command: `npm run dev -- --port ${PORT} --strictPort`,
+    command: `npm run dev:msw -- --port ${PORT} --strictPort`,
     url: BASE_URL,
     cwd: '..',
     reuseExistingServer: !process.env.CI,

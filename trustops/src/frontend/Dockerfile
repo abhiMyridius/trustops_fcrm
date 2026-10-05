@@ -25,10 +25,12 @@ COPY src/backend/packages/seed/fcrm_seed/seed.json ./src/backend/packages/seed/f
 WORKDIR /app/src/frontend
 # package-lock.json is committed (npm ci, not npm install: reproducible).
 RUN npm ci
-# Production default: talk to the real gateway-routed backend, not the
-# in-browser MSW mock (VITE_API_MODE=msw is the dev-server default).
+# Production talks to the real gateway-routed backend (live is also the dev-server
+# default; VITE_API_MODE=msw exists only for `npm run dev:msw`, vitest and the MSW scenes).
 ENV VITE_API_MODE=live
 RUN npm run build
+# MSW must never ship: vite copies public/mockServiceWorker.js into dist, so drop it.
+RUN rm -f dist/mockServiceWorker.js
 
 FROM nginx:1.27-alpine AS runtime
 

@@ -6,3 +6,5 @@ coverage/
 .env.local
 e2e/artifacts/
 e2e/report/
+e2e/report-live/
+e2e/artifacts-live/
