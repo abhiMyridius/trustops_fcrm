@@ -3,6 +3,10 @@
 - ``build [--check]``: regenerate (or verify) the bundled datasets.
 - ``run --producer echo|degraded|recorded [--agent A] [--outputs F] --out D``:
   score agents and write ``<agent>.<producer>.json`` plus ``report.md``.
+- ``run --producer live [--sample N --seed S --judge bedrock|fake ...]``: run
+  the agents on Bedrock over a sampled slice, grade them, write the run folder
+  and the dashboard, optionally publish (:mod:`fcrm_evals.live_cli`).
+- ``gate --agent A``: the promotion gate on the newest live result.
 - ``selfcheck --out D``: the offline proof (echo perfect and passing,
   degraded failing the gate); writes results, ``gate.json`` and
   ``report.md``; exit code 1 if any expectation fails.
@@ -26,6 +30,12 @@ from typing import Optional
 from fcrm_contracts.enums import AgentName
 
 from fcrm_evals.datasets import build as dataset_build
+from fcrm_evals.live_cli import (
+    add_gate_parser,
+    add_live_arguments,
+    gate_command,
+    run_live_command,
+)
 from fcrm_evals.outputs import load_outputs
 from fcrm_evals.pipeline import evaluate_agent, selfcheck
 from fcrm_evals.producers import (
@@ -107,16 +117,20 @@ def _parser() -> argparse.ArgumentParser:
     build.add_argument("--check", action="store_true")
     for name in ("run", "selfcheck"):
         cmd = sub.add_parser(name)
-        cmd.add_argument("--out", type=Path, required=True)
+        cmd.add_argument("--out", type=Path, required=name == "selfcheck")
         cmd.add_argument("--timestamp", type=datetime.fromisoformat, default=None)
         if name == "run":
             cmd.add_argument(
-                "--producer", choices=["echo", "degraded", "recorded"], default="echo"
+                "--producer",
+                choices=["echo", "degraded", "recorded", "live"],
+                default="echo",
             )
             cmd.add_argument(
                 "--agent", choices=[a.value for a in AgentName], default=None
             )
             cmd.add_argument("--outputs", type=Path, default=None)
+            add_live_arguments(cmd)
+    add_gate_parser(sub)
     return parser
 
 
@@ -128,7 +142,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     if args.command == "build":
         return dataset_build.main(["--check"] if args.check else [])
+    if args.command == "gate":
+        return gate_command(args)
+    if args.command == "run" and args.producer == "live":
+        return asyncio.run(run_live_command(args))
     if args.command == "run":
+        if args.out is None:
+            msg = "--out is required unless --producer live"
+            raise SystemExit(msg)
         return asyncio.run(_run(args))
     return asyncio.run(_selfcheck(args))
 

@@ -71,6 +71,42 @@ Each of the three versioned collections has a unique `version` index and a parti
 | `users` | — | 11 seeded users (5 PO, 3 analyst, 3 committee) |
 | `refresh_tokens` | — | One per active session; distinct `typ` from access tokens fixes the cloned identity's verified bug of accepting a refresh token as an access token |
 
+## `fcrm_evals` (X6)
+
+Written by `python -m fcrm_evals run --producer live --publish` (`fcrm_evals.publish`), read by S4's `GET audit/agent-quality` and `GET audit/agent-quality/dashboard`. Nothing else writes here and no service reads it for a decision: it is assurance data about the agents, not case data.
+
+| Collection | Shape | Notes |
+|---|---|---|
+| `eval_runs` | `fcrm_evals.publish.run_document` (below) | One document per run **and agent**, `_id = "<run_id>:<agent>"` (`run_id` is `<UTC minute>-<git sha>`, e.g. `2026-10-05T14-22Z-64dd794`). Index `agent_ts` = `{agent: 1, ts: -1}`. Written with `replace_one(upsert=True)`, so publishing a run twice leaves one document per agent |
+| `eval_dashboards` | `{_id, run_id, ts, git_sha, html, bytes}` | Two documents per run: `_id = "latest"` (moved by every publish) and `_id = "run:<run_id>"` (kept). `html` is the self-contained one-page dashboard, served as is |
+
+`eval_runs` document, one agent in one run:
+
+```
+{ _id, run_id, agent, ts (tz-aware), week ("2026-W41"), git_sha,
+  producer ("live"), judge ("bedrock" | "fake"), judge_votes,
+  dataset ("screening/fast-lane-100"), dataset_sha256, n,
+  sample: {n, of, seed, strategy, row_ids[], demo_row_ids[]} | null,
+  primary_metric,
+  gate: {status: "PASS" | "FAIL", candidate, baseline, threshold, tolerance, reasons[]},
+  metrics: [{name, kind: "deterministic" | "llm_judge", score | null, threshold,
+             passed | null, rows_scored, primary, flags[<=5]}],
+  usage:       {calls, retries, blocked_rows, failed_rows, input_tokens, output_tokens,
+                cache_read_tokens, cache_write_tokens, cost_usd, latency_p50_s,
+                latency_max_s, models[]} | null,
+  judge_usage: same shape, the judge's calls | null,
+  cases: [{row_id, status: "ok" | "blocked" | "failed" | null, tokens, cost_usd,
+           latency_s | null, metrics: {name: score | null}}] }
+```
+
+Rules for readers:
+
+- `models` hold **labels** from `ai/models/tiers.yaml` (`models.<id>.label`, else the tier slot such as `mid.primary`), never model ids: committed result files live under `/evals`, where ADR-04 forbids ids.
+- `score: null` / `passed: null` mean *not measured* (no row produced an observation), which is a FAIL for a gate's primary metric, never a pass.
+- `gate.status` is the agent's primary metric against its threshold, and against the baseline run when `baseline` is set; judge metrics are reported in `metrics` and do not decide it.
+- `cost_usd` is an estimate at the list prices in `tiers.yaml` (`prices_usd_per_mtok.status`), not an invoice.
+- `GET audit/agent-quality?week=` filters on `week`; 404 (no run yet) is the FE's empty state.
+
 ## Files
 
 MinIO/S3 buckets: `uploads` (as submitted), `canonical` (post-ingestion Markdown), `packs` (versioned), `vectors` (local fixture mode), `jobs` (scratch space for workers).
