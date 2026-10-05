@@ -116,7 +116,18 @@ def to_row(record: AuditRecord) -> AuditRecordRow:
     )
 
 
-@router.post("/records", response_model=AuditRecord, status_code=201)
+@router.post(
+    "/records",
+    response_model=AuditRecord,
+    status_code=201,
+    responses={
+        200: {
+            "model": AuditRecord,
+            "description": "An Idempotency-Key replay: the record already stored.",
+        },
+        409: {"description": "The key was used for a different request."},
+    },
+)
 async def append_record(
     body: RecordAppend,
     response: Response,
@@ -137,7 +148,21 @@ async def append_record(
     return stored.value
 
 
-@router.post("/proposals", response_model=Proposal, status_code=201)
+@router.post(
+    "/proposals",
+    response_model=Proposal,
+    status_code=201,
+    responses={
+        200: {
+            "model": Proposal,
+            "description": "An Idempotency-Key replay: the proposal already stored.",
+        },
+        409: {
+            "description": "The key was used for a different request, or "
+            "`supersedes` already has a successor."
+        },
+    },
+)
 async def append_proposal(
     body: ProposalAppend,
     response: Response,

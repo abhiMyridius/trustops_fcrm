@@ -3688,6 +3688,16 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Proposal"
+                }
+              }
+            },
+            "description": "An Idempotency-Key replay: the proposal already stored."
+          },
           "201": {
             "content": {
               "application/json": {
@@ -3697,6 +3707,9 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "description": "The key was used for a different request, or `supersedes` already has a successor."
           },
           "422": {
             "content": {
@@ -3828,6 +3841,16 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditRecord"
+                }
+              }
+            },
+            "description": "An Idempotency-Key replay: the record already stored."
+          },
           "201": {
             "content": {
               "application/json": {
@@ -3837,6 +3860,9 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "description": "The key was used for a different request."
           },
           "422": {
             "content": {
