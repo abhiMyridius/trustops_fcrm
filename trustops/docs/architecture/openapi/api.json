@@ -1,6 +1,119 @@
 {
   "components": {
     "schemas": {
+      "ActivityEventPO": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "enum": [
+              "You",
+              "FCRM",
+              "System",
+              "AI"
+            ],
+            "title": "Actor",
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "actor",
+          "text"
+        ],
+        "title": "ActivityEventPO",
+        "type": "object"
+      },
+      "AnswerItem": {
+        "additionalProperties": false,
+        "properties": {
+          "field_id": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Id"
+          },
+          "question_id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Question Id",
+            "type": "string"
+          },
+          "value": {
+            "maxLength": 2000,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "value"
+        ],
+        "title": "AnswerItem",
+        "type": "object"
+      },
+      "AnswersBody": {
+        "additionalProperties": false,
+        "properties": {
+          "answers": {
+            "items": {
+              "$ref": "#/components/schemas/AnswerItem"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Answers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "answers"
+        ],
+        "title": "AnswersBody",
+        "type": "object"
+      },
+      "AssistantStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "line": {
+            "title": "Line",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "waiting",
+              "reading",
+              "done"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "line"
+        ],
+        "title": "AssistantStatus",
+        "type": "object"
+      },
       "AuditRecord": {
         "additionalProperties": false,
         "properties": {
@@ -145,582 +258,6 @@
         "title": "BandDef",
         "type": "object"
       },
-      "CaseDetailAnalyst": {
-        "additionalProperties": false,
-        "description": "The analyst-visible case detail: every field ``CaseDetailPO`` has,\nplus the assignment, score and harness-facing data the PO shape must\nnever carry (rule 3). Built by ``fcrm_case.shaping``, never by widening\n``CaseDetailPO`` itself.",
-        "properties": {
-          "analyst_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Analyst Id"
-          },
-          "case_id": {
-            "title": "Case Id",
-            "type": "string"
-          },
-          "change_types": {
-            "items": {
-              "$ref": "#/components/schemas/ChangeType"
-            },
-            "title": "Change Types",
-            "type": "array"
-          },
-          "clarifications": {
-            "items": {
-              "$ref": "#/components/schemas/ClarificationThreadPO"
-            },
-            "title": "Clarifications",
-            "type": "array"
-          },
-          "completion": {
-            "$ref": "#/components/schemas/CompletionState"
-          },
-          "conditions": {
-            "items": {
-              "$ref": "#/components/schemas/ConditionPO"
-            },
-            "title": "Conditions",
-            "type": "array"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "decided_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Decided At"
-          },
-          "documents": {
-            "items": {
-              "$ref": "#/components/schemas/DocumentRefPO"
-            },
-            "title": "Documents",
-            "type": "array"
-          },
-          "fields": {
-            "items": {
-              "$ref": "#/components/schemas/FieldValuePO"
-            },
-            "title": "Fields",
-            "type": "array"
-          },
-          "outcome_summary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Outcome Summary"
-          },
-          "owner": {
-            "title": "Owner",
-            "type": "string"
-          },
-          "review_items": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/ReviewItem"
-            },
-            "title": "Review Items",
-            "type": "array"
-          },
-          "score": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ScoreResponse"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "state": {
-            "$ref": "#/components/schemas/CaseState"
-          },
-          "submission_versions": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/SubmissionVersion"
-            },
-            "title": "Submission Versions",
-            "type": "array"
-          },
-          "submitted_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Submitted At"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          },
-          "unit": {
-            "title": "Unit",
-            "type": "string"
-          }
-        },
-        "required": [
-          "case_id",
-          "title",
-          "state",
-          "unit",
-          "owner",
-          "change_types",
-          "completion",
-          "fields",
-          "documents",
-          "clarifications",
-          "conditions",
-          "created_at"
-        ],
-        "title": "CaseDetailAnalyst",
-        "type": "object"
-      },
-      "CaseDetailInternal": {
-        "additionalProperties": false,
-        "description": "What H1 (and other services, via a service-account bearer token)\nread: everything the analyst shape has, plus the pinned versions a\ncase runs against -- never sent to the web client.",
-        "properties": {
-          "analyst_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Analyst Id"
-          },
-          "case_id": {
-            "title": "Case Id",
-            "type": "string"
-          },
-          "change_types": {
-            "items": {
-              "$ref": "#/components/schemas/ChangeType"
-            },
-            "title": "Change Types",
-            "type": "array"
-          },
-          "clarifications": {
-            "items": {
-              "$ref": "#/components/schemas/ClarificationThreadPO"
-            },
-            "title": "Clarifications",
-            "type": "array"
-          },
-          "completion": {
-            "$ref": "#/components/schemas/CompletionState"
-          },
-          "conditions": {
-            "items": {
-              "$ref": "#/components/schemas/ConditionPO"
-            },
-            "title": "Conditions",
-            "type": "array"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "decided_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Decided At"
-          },
-          "documents": {
-            "items": {
-              "$ref": "#/components/schemas/DocumentRefPO"
-            },
-            "title": "Documents",
-            "type": "array"
-          },
-          "fields": {
-            "items": {
-              "$ref": "#/components/schemas/FieldValuePO"
-            },
-            "title": "Fields",
-            "type": "array"
-          },
-          "fieldset_v": {
-            "title": "Fieldset V",
-            "type": "integer"
-          },
-          "outcome_summary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Outcome Summary"
-          },
-          "owner": {
-            "title": "Owner",
-            "type": "string"
-          },
-          "pinned_versions": {
-            "$ref": "#/components/schemas/PinnedVersions"
-          },
-          "review_items": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/ReviewItem"
-            },
-            "title": "Review Items",
-            "type": "array"
-          },
-          "score": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ScoreResponse"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "state": {
-            "$ref": "#/components/schemas/CaseState"
-          },
-          "submission_versions": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/SubmissionVersion"
-            },
-            "title": "Submission Versions",
-            "type": "array"
-          },
-          "submitted_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Submitted At"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          },
-          "unit": {
-            "title": "Unit",
-            "type": "string"
-          }
-        },
-        "required": [
-          "case_id",
-          "title",
-          "state",
-          "unit",
-          "owner",
-          "change_types",
-          "completion",
-          "fields",
-          "documents",
-          "clarifications",
-          "conditions",
-          "created_at",
-          "fieldset_v",
-          "pinned_versions"
-        ],
-        "title": "CaseDetailInternal",
-        "type": "object"
-      },
-      "CaseDetailPO": {
-        "additionalProperties": false,
-        "description": "No field here may ever carry a score, band, rating or harness\nidentifier — that is the contract, not a runtime check.",
-        "properties": {
-          "case_id": {
-            "title": "Case Id",
-            "type": "string"
-          },
-          "change_types": {
-            "items": {
-              "$ref": "#/components/schemas/ChangeType"
-            },
-            "title": "Change Types",
-            "type": "array"
-          },
-          "clarifications": {
-            "items": {
-              "$ref": "#/components/schemas/ClarificationThreadPO"
-            },
-            "title": "Clarifications",
-            "type": "array"
-          },
-          "completion_pct": {
-            "title": "Completion Pct",
-            "type": "number"
-          },
-          "conditions": {
-            "items": {
-              "$ref": "#/components/schemas/ConditionPO"
-            },
-            "title": "Conditions",
-            "type": "array"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "decided_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Decided At"
-          },
-          "documents": {
-            "items": {
-              "$ref": "#/components/schemas/DocumentRefPO"
-            },
-            "title": "Documents",
-            "type": "array"
-          },
-          "fields": {
-            "items": {
-              "$ref": "#/components/schemas/FieldValuePO"
-            },
-            "title": "Fields",
-            "type": "array"
-          },
-          "outcome_summary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Outcome Summary"
-          },
-          "owner": {
-            "title": "Owner",
-            "type": "string"
-          },
-          "required_field_count": {
-            "title": "Required Field Count",
-            "type": "integer"
-          },
-          "required_fields_filled": {
-            "title": "Required Fields Filled",
-            "type": "integer"
-          },
-          "state": {
-            "$ref": "#/components/schemas/CaseState"
-          },
-          "submitted_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Submitted At"
-          },
-          "threshold_pct": {
-            "title": "Threshold Pct",
-            "type": "number"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          },
-          "unit": {
-            "title": "Unit",
-            "type": "string"
-          }
-        },
-        "required": [
-          "case_id",
-          "title",
-          "state",
-          "unit",
-          "owner",
-          "change_types",
-          "completion_pct",
-          "threshold_pct",
-          "required_field_count",
-          "required_fields_filled",
-          "fields",
-          "documents",
-          "clarifications",
-          "conditions",
-          "created_at"
-        ],
-        "title": "CaseDetailPO",
-        "type": "object"
-      },
-      "CaseListItemAnalyst": {
-        "additionalProperties": false,
-        "description": "The analyst/committee queue row: carries the assignment, which\n``CaseListItemPO`` (case_po.py) never does.",
-        "properties": {
-          "analyst_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Analyst Id"
-          },
-          "case_id": {
-            "title": "Case Id",
-            "type": "string"
-          },
-          "change_types": {
-            "items": {
-              "$ref": "#/components/schemas/ChangeType"
-            },
-            "title": "Change Types",
-            "type": "array"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "open_clarification_count": {
-            "default": 0,
-            "title": "Open Clarification Count",
-            "type": "integer"
-          },
-          "state": {
-            "$ref": "#/components/schemas/CaseState"
-          },
-          "submitted_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Submitted At"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          }
-        },
-        "required": [
-          "case_id",
-          "title",
-          "state",
-          "change_types",
-          "created_at"
-        ],
-        "title": "CaseListItemAnalyst",
-        "type": "object"
-      },
-      "CaseListItemPO": {
-        "additionalProperties": false,
-        "properties": {
-          "case_id": {
-            "title": "Case Id",
-            "type": "string"
-          },
-          "change_types": {
-            "items": {
-              "$ref": "#/components/schemas/ChangeType"
-            },
-            "title": "Change Types",
-            "type": "array"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "open_clarification_count": {
-            "default": 0,
-            "title": "Open Clarification Count",
-            "type": "integer"
-          },
-          "state": {
-            "$ref": "#/components/schemas/CaseState"
-          },
-          "submitted_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Submitted At"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          }
-        },
-        "required": [
-          "case_id",
-          "title",
-          "state",
-          "change_types",
-          "created_at"
-        ],
-        "title": "CaseListItemPO",
-        "type": "object"
-      },
       "CaseOutcome": {
         "additionalProperties": false,
         "description": "``GET /cases/{case_id}/outcome``: what was decided and how.",
@@ -827,25 +364,300 @@
         "title": "CaseOutcome",
         "type": "object"
       },
-      "CaseState": {
-        "description": "Caseflow's state machine (design A §3.1). Sub-states are run-snapshot\nflags (fast_lane, round_open, locked, pack_version, vote_round), not\nenum values.",
-        "enum": [
-          "intake",
-          "review_and_submit",
-          "triage",
-          "screening",
-          "assess",
-          "critic",
-          "completeness",
-          "clarification",
-          "review",
-          "recommend",
-          "decide",
+      "CasePO": {
+        "additionalProperties": false,
+        "properties": {
+          "analyst_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analyst Name"
+          },
+          "change_types": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeType"
+            },
+            "title": "Change Types",
+            "type": "array"
+          },
+          "closed": {
+            "title": "Closed",
+            "type": "boolean"
+          },
+          "completion": {
+            "$ref": "#/components/schemas/Completion"
+          },
+          "created": {
+            "title": "Created",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "inbox_open": {
+            "title": "Inbox Open",
+            "type": "integer"
+          },
+          "lifecycle": {
+            "items": {
+              "$ref": "#/components/schemas/StageStep"
+            },
+            "title": "Lifecycle",
+            "type": "array"
+          },
+          "next_action": {
+            "title": "Next Action",
+            "type": "string"
+          },
+          "owner_name": {
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "stage": {
+            "enum": [
+              "draft",
+              "submitted",
+              "under_assessment",
+              "awaiting_your_answer",
+              "decision",
+              "closed"
+            ],
+            "title": "Stage",
+            "type": "string"
+          },
+          "stage_label": {
+            "title": "Stage Label",
+            "type": "string"
+          },
+          "submitted": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "unit",
+          "owner_name",
+          "change_types",
+          "stage",
+          "stage_label",
+          "lifecycle",
+          "created",
+          "submitted",
+          "analyst_name",
+          "next_action",
+          "completion",
           "closed",
-          "handoff"
+          "inbox_open"
         ],
-        "title": "CaseState",
-        "type": "string"
+        "title": "CasePO",
+        "type": "object"
+      },
+      "CasePOListItem": {
+        "additionalProperties": false,
+        "properties": {
+          "analyst_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analyst Name"
+          },
+          "change_types": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeType"
+            },
+            "title": "Change Types",
+            "type": "array"
+          },
+          "completion_pct": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completion Pct"
+          },
+          "due": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "needs_response": {
+            "title": "Needs Response",
+            "type": "boolean"
+          },
+          "next_action": {
+            "title": "Next Action",
+            "type": "string"
+          },
+          "stage": {
+            "enum": [
+              "draft",
+              "submitted",
+              "under_assessment",
+              "awaiting_your_answer",
+              "decision",
+              "closed"
+            ],
+            "title": "Stage",
+            "type": "string"
+          },
+          "stage_label": {
+            "title": "Stage Label",
+            "type": "string"
+          },
+          "submitted": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "change_types",
+          "stage",
+          "stage_label",
+          "next_action",
+          "analyst_name",
+          "submitted",
+          "completion_pct",
+          "due",
+          "needs_response"
+        ],
+        "title": "CasePOListItem",
+        "type": "object"
+      },
+      "CategoryDecisionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "confirm",
+              "remove"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "CategoryDecisionBody",
+        "type": "object"
+      },
+      "CategoryProposalPO": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "proposed",
+              "confirmed",
+              "removed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ChangeType"
+          }
+        },
+        "required": [
+          "type",
+          "label",
+          "status",
+          "source",
+          "reason"
+        ],
+        "title": "CategoryProposalPO",
+        "type": "object"
       },
       "ChainHead": {
         "additionalProperties": false,
@@ -878,88 +690,6 @@
         ],
         "title": "ChangeType",
         "type": "string"
-      },
-      "ClarificationQuestionPO": {
-        "additionalProperties": false,
-        "properties": {
-          "answer": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Answer"
-          },
-          "answered_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Answered At"
-          },
-          "question_id": {
-            "title": "Question Id",
-            "type": "string"
-          },
-          "text": {
-            "title": "Text",
-            "type": "string"
-          }
-        },
-        "required": [
-          "question_id",
-          "text"
-        ],
-        "title": "ClarificationQuestionPO",
-        "type": "object"
-      },
-      "ClarificationStatus": {
-        "enum": [
-          "awaiting-response",
-          "answered",
-          "resolved"
-        ],
-        "title": "ClarificationStatus",
-        "type": "string"
-      },
-      "ClarificationThreadPO": {
-        "additionalProperties": false,
-        "properties": {
-          "questions": {
-            "items": {
-              "$ref": "#/components/schemas/ClarificationQuestionPO"
-            },
-            "title": "Questions",
-            "type": "array"
-          },
-          "round": {
-            "title": "Round",
-            "type": "integer"
-          },
-          "status": {
-            "$ref": "#/components/schemas/ClarificationStatus"
-          },
-          "thread_id": {
-            "title": "Thread Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "thread_id",
-          "status",
-          "round",
-          "questions"
-        ],
-        "title": "ClarificationThreadPO",
-        "type": "object"
       },
       "CommitteeQueueItem": {
         "additionalProperties": false,
@@ -1106,81 +836,44 @@
         "title": "CommitteeThread",
         "type": "object"
       },
-      "CompletionState": {
+      "Completion": {
         "additionalProperties": false,
-        "description": "The one completion shape every role reads (``fcrm_case.domain.\ncompletion.compute_completion``'s output, mapped at the HTTP boundary\nso the wire shape lives here, not in the service's own domain module).",
+        "description": "Filled over required fields, rounded half up, as the server computes it\n(the client never does arithmetic on these).",
         "properties": {
-          "all_always_required_filled": {
-            "title": "All Always Required Filled",
-            "type": "boolean"
-          },
-          "filled_count": {
-            "title": "Filled Count",
+          "always_required_filled": {
+            "title": "Always Required Filled",
             "type": "integer"
           },
-          "missing_always_required": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Missing Always Required",
-            "type": "array"
+          "always_required_total": {
+            "title": "Always Required Total",
+            "type": "integer"
+          },
+          "filled": {
+            "title": "Filled",
+            "type": "integer"
           },
           "pct": {
             "title": "Pct",
-            "type": "number"
+            "type": "integer"
           },
-          "required_count": {
-            "title": "Required Count",
+          "required": {
+            "title": "Required",
             "type": "integer"
           },
           "threshold_pct": {
             "title": "Threshold Pct",
-            "type": "number"
+            "type": "integer"
           }
         },
         "required": [
-          "required_count",
-          "filled_count",
+          "filled",
+          "required",
           "pct",
           "threshold_pct",
-          "missing_always_required",
-          "all_always_required_filled"
+          "always_required_filled",
+          "always_required_total"
         ],
-        "title": "CompletionState",
-        "type": "object"
-      },
-      "ConditionPO": {
-        "additionalProperties": false,
-        "properties": {
-          "condition_id": {
-            "title": "Condition Id",
-            "type": "string"
-          },
-          "due": {
-            "title": "Due",
-            "type": "string"
-          },
-          "owner": {
-            "title": "Owner",
-            "type": "string"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          },
-          "text": {
-            "title": "Text",
-            "type": "string"
-          }
-        },
-        "required": [
-          "condition_id",
-          "text",
-          "owner",
-          "due",
-          "status"
-        ],
-        "title": "ConditionPO",
+        "title": "Completion",
         "type": "object"
       },
       "ControlInput": {
@@ -1308,51 +1001,73 @@
         "title": "ControlVersionOut",
         "type": "object"
       },
-      "CreateCaseRequest": {
+      "CreateCaseBody": {
         "additionalProperties": false,
-        "description": "The PO's initial draft: a title, the owning unit, the owner's user\nid and the change types confirmed so far. ``change_types`` resolves the\nrequired-fields list at creation time (``resolve_required_fields``,\npinned to the active field-set version) -- it is never recomputed\nimplicitly later; a later change goes through ``ConfirmCategoriesRequest``\n(not yet wired to a route in this pass).",
+        "description": "``POST /cases``: both fields are optional; the web posts ``{}``.",
         "properties": {
-          "change_types": {
-            "items": {
-              "$ref": "#/components/schemas/ChangeType"
-            },
-            "title": "Change Types",
-            "type": "array"
-          },
-          "owner": {
-            "title": "Owner",
-            "type": "string"
-          },
           "title": {
-            "title": "Title",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           },
           "unit": {
-            "title": "Unit",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
           }
         },
-        "required": [
-          "title",
-          "unit",
-          "owner",
-          "change_types"
-        ],
-        "title": "CreateCaseRequest",
+        "title": "CreateCaseBody",
         "type": "object"
       },
-      "CreateDraftCaseResponse": {
+      "DashboardPO": {
         "additionalProperties": false,
         "properties": {
-          "case_id": {
-            "title": "Case Id",
-            "type": "string"
+          "active": {
+            "title": "Active",
+            "type": "integer"
+          },
+          "avg_days_intake_to_decision": {
+            "title": "Avg Days Intake To Decision",
+            "type": "number"
+          },
+          "awaiting_my_answer": {
+            "title": "Awaiting My Answer",
+            "type": "integer"
+          },
+          "my_cases": {
+            "items": {
+              "$ref": "#/components/schemas/CasePOListItem"
+            },
+            "title": "My Cases",
+            "type": "array"
+          },
+          "open_conditions": {
+            "title": "Open Conditions",
+            "type": "integer"
           }
         },
         "required": [
-          "case_id"
+          "active",
+          "awaiting_my_answer",
+          "avg_days_intake_to_decision",
+          "open_conditions",
+          "my_cases"
         ],
-        "title": "CreateDraftCaseResponse",
+        "title": "DashboardPO",
         "type": "object"
       },
       "DemoUser": {
@@ -1422,11 +1137,48 @@
         "title": "DemoUserGroup",
         "type": "object"
       },
-      "DocumentRefPO": {
+      "DiscardBody": {
         "additionalProperties": false,
         "properties": {
-          "doc_id": {
-            "title": "Doc Id",
+          "reason": {
+            "maxLength": 1000,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "DiscardBody",
+        "type": "object"
+      },
+      "DocumentOut": {
+        "additionalProperties": false,
+        "properties": {
+          "added_in": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added In"
+          },
+          "guard_line": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guard Line"
+          },
+          "id": {
+            "title": "Id",
             "type": "string"
           },
           "name": {
@@ -1437,19 +1189,67 @@
             "title": "Pages",
             "type": "integer"
           },
-          "stored_at": {
+          "size_mb": {
+            "title": "Size Mb",
+            "type": "number"
+          },
+          "status": {
+            "enum": [
+              "uploading",
+              "stored",
+              "scanned",
+              "read"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "uploaded_at": {
             "format": "date-time",
-            "title": "Stored At",
+            "title": "Uploaded At",
             "type": "string"
           }
         },
         "required": [
-          "doc_id",
+          "id",
           "name",
           "pages",
-          "stored_at"
+          "size_mb",
+          "status",
+          "guard_line",
+          "added_in",
+          "uploaded_at"
         ],
-        "title": "DocumentRefPO",
+        "title": "DocumentOut",
+        "type": "object"
+      },
+      "DocumentsViewPO": {
+        "additionalProperties": false,
+        "properties": {
+          "assistant": {
+            "$ref": "#/components/schemas/AssistantStatus"
+          },
+          "completion": {
+            "$ref": "#/components/schemas/Completion"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentOut"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "sharepoint_connected": {
+            "title": "Sharepoint Connected",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "documents",
+          "assistant",
+          "sharepoint_connected",
+          "completion"
+        ],
+        "title": "DocumentsViewPO",
         "type": "object"
       },
       "Domain": {
@@ -1541,6 +1341,13 @@
         "title": "DomainResult",
         "type": "object"
       },
+      "EmptyBody": {
+        "additionalProperties": false,
+        "description": "``POST validate`` and ``POST submit`` carry no input: the server reads the\ncase. The web posts ``{}``.",
+        "properties": {},
+        "title": "EmptyBody",
+        "type": "object"
+      },
       "FieldDef": {
         "additionalProperties": false,
         "properties": {
@@ -1625,38 +1432,32 @@
         "title": "FieldSetOut",
         "type": "object"
       },
-      "FieldValuePO": {
+      "GapQuestionPO": {
         "additionalProperties": false,
         "properties": {
+          "answered": {
+            "title": "Answered",
+            "type": "boolean"
+          },
+          "blocking": {
+            "title": "Blocking",
+            "type": "boolean"
+          },
           "field_id": {
             "title": "Field Id",
             "type": "string"
           },
-          "how": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "How"
+          "id": {
+            "title": "Id",
+            "type": "string"
           },
           "label": {
             "title": "Label",
             "type": "string"
           },
-          "source": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source"
+          "question": {
+            "title": "Question",
+            "type": "string"
           },
           "value": {
             "anyOf": [
@@ -1671,10 +1472,15 @@
           }
         },
         "required": [
+          "id",
           "field_id",
-          "label"
+          "label",
+          "question",
+          "blocking",
+          "answered",
+          "value"
         ],
-        "title": "FieldValuePO",
+        "title": "GapQuestionPO",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1690,31 +1496,160 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
-      "ItemKind": {
-        "description": "What an S1 ``review_item`` carries. ``clause``, ``factor``, ``control``\nand ``critic_finding`` sit behind Gate A (the analyst's ``review_item``\ngates); ``category``, ``value`` and ``gap`` are the intake items the PO\ndecides (``po_confirm_category``, ``po_confirm_value``, ``po_answer_gaps``).",
-        "enum": [
-          "clause",
-          "factor",
-          "control",
-          "critic_finding",
-          "category",
-          "value",
-          "gap"
+      "IntakeViewPO": {
+        "additionalProperties": false,
+        "properties": {
+          "candidates_found": {
+            "title": "Candidates Found",
+            "type": "integer"
+          },
+          "change_types": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryProposalPO"
+            },
+            "title": "Change Types",
+            "type": "array"
+          },
+          "completion": {
+            "$ref": "#/components/schemas/Completion"
+          },
+          "field_set_version": {
+            "title": "Field Set Version",
+            "type": "string"
+          },
+          "gaps": {
+            "items": {
+              "$ref": "#/components/schemas/GapQuestionPO"
+            },
+            "title": "Gaps",
+            "type": "array"
+          },
+          "precedent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrecedentPO"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "required_fields": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Fields"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/ValuePO"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ready",
+          "change_types",
+          "values",
+          "precedent",
+          "gaps",
+          "completion",
+          "required_fields",
+          "field_set_version",
+          "candidates_found"
         ],
-        "title": "ItemKind",
-        "type": "string"
+        "title": "IntakeViewPO",
+        "type": "object"
       },
-      "ItemStatus": {
-        "enum": [
-          "proposed",
-          "confirmed",
-          "overridden",
-          "removed",
-          "explained",
-          "adjusted"
+      "Integration": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "disconnect_consequence": {
+            "title": "Disconnect Consequence",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "document_source",
+              "notification_channel",
+              "data_catalogue"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          },
+          "status": {
+            "enum": [
+              "connected",
+              "connected_demo",
+              "not_connected"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "status",
+          "description",
+          "scope",
+          "disconnect_consequence"
         ],
-        "title": "ItemStatus",
-        "type": "string"
+        "title": "Integration",
+        "type": "object"
+      },
+      "IntegrationActionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "scope": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          }
+        },
+        "title": "IntegrationActionBody",
+        "type": "object"
       },
       "JurisdictionListOut": {
         "additionalProperties": false,
@@ -1885,6 +1820,32 @@
           "cast_at"
         ],
         "title": "MyVote",
+        "type": "object"
+      },
+      "OriginalValue": {
+        "additionalProperties": false,
+        "description": "What a value held before the owner corrected it (the original is kept).",
+        "properties": {
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "source"
+        ],
+        "title": "OriginalValue",
         "type": "object"
       },
       "Outcome": {
@@ -2926,6 +2887,45 @@
         "title": "PackView",
         "type": "object"
       },
+      "Page_ActivityEventPO_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityEventPO"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[ActivityEventPO]",
+        "type": "object"
+      },
       "Page_AuditRecordRow_": {
         "additionalProperties": false,
         "properties": {
@@ -3004,12 +3004,12 @@
         "title": "Page[AuditRecord]",
         "type": "object"
       },
-      "Page_CaseListItemAnalyst_": {
+      "Page_CasePOListItem_": {
         "additionalProperties": false,
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/CaseListItemAnalyst"
+              "$ref": "#/components/schemas/CasePOListItem"
             },
             "title": "Items",
             "type": "array"
@@ -3040,46 +3040,7 @@
         "required": [
           "items"
         ],
-        "title": "Page[CaseListItemAnalyst]",
-        "type": "object"
-      },
-      "Page_CaseListItemPO_": {
-        "additionalProperties": false,
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/CaseListItemPO"
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "next_cursor": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Next Cursor"
-          },
-          "total": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Total"
-          }
-        },
-        "required": [
-          "items"
-        ],
-        "title": "Page[CaseListItemPO]",
+        "title": "Page[CasePOListItem]",
         "type": "object"
       },
       "Page_CommitteeQueueItem_": {
@@ -3199,6 +3160,45 @@
         "title": "Page[ControlVersionOut]",
         "type": "object"
       },
+      "Page_Integration_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Integration"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[Integration]",
+        "type": "object"
+      },
       "Page_JurisdictionVersionOut_": {
         "additionalProperties": false,
         "properties": {
@@ -3316,49 +3316,47 @@
         "title": "Page[Proposal]",
         "type": "object"
       },
-      "PinnedVersions": {
+      "PrecedentPO": {
         "additionalProperties": false,
-        "description": "Recorded once per case run on ``case_runs`` and echoed on every\n``ScoreRequest`` and the audit record for scoring (ADR-16 / design A §5).",
+        "description": "The closest closed case: its title, unit and closed month, and which of\nits values may be reused. Never its outcome, rating or similarity.",
         "properties": {
-          "controls_v": {
-            "title": "Controls V",
-            "type": "integer"
-          },
-          "corpus_v": {
-            "title": "Corpus V",
-            "type": "integer"
-          },
-          "fieldset_v": {
-            "title": "Fieldset V",
-            "type": "integer"
-          },
-          "jurisdictions_v": {
-            "title": "Jurisdictions V",
+          "case_id": {
+            "title": "Case Id",
             "type": "string"
           },
-          "prompts_v": {
-            "title": "Prompts V",
+          "closed_month": {
+            "title": "Closed Month",
             "type": "string"
           },
-          "routing_v": {
-            "title": "Routing V",
-            "type": "integer"
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/ReuseFieldPO"
+            },
+            "title": "Fields",
+            "type": "array"
           },
-          "scoring_v": {
-            "title": "Scoring V",
-            "type": "integer"
+          "reused": {
+            "title": "Reused",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
           }
         },
         "required": [
-          "scoring_v",
-          "corpus_v",
-          "controls_v",
-          "fieldset_v",
-          "jurisdictions_v",
-          "routing_v",
-          "prompts_v"
+          "case_id",
+          "title",
+          "unit",
+          "closed_month",
+          "fields",
+          "reused"
         ],
-        "title": "PinnedVersions",
+        "title": "PrecedentPO",
         "type": "object"
       },
       "PrincipalOut": {
@@ -3667,6 +3665,43 @@
         "title": "RefreshRequest",
         "type": "object"
       },
+      "RequiredCard": {
+        "additionalProperties": false,
+        "properties": {
+          "always_required": {
+            "title": "Always Required",
+            "type": "integer"
+          },
+          "field_set_version": {
+            "title": "Field Set Version",
+            "type": "string"
+          },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "required": {
+            "title": "Required",
+            "type": "integer"
+          },
+          "threshold_pct": {
+            "title": "Threshold Pct",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "field_set_version",
+          "required",
+          "always_required",
+          "threshold_pct",
+          "labels"
+        ],
+        "title": "RequiredCard",
+        "type": "object"
+      },
       "ResolvedFieldSetOut": {
         "additionalProperties": false,
         "description": "``GET /field-sets/{version}/resolve?change_types=a,b``: the fields a\ncase with those change types must fill (the always-required set, then each\ntype's own fields in the order the types were given, de-duplicated by\nfield id). Each per-type field carries the change type that adds it.",
@@ -3708,88 +3743,185 @@
         "title": "ResolvedFieldSetOut",
         "type": "object"
       },
-      "ReviewItem": {
+      "ReuseBody": {
         "additionalProperties": false,
-        "description": "One row behind Gate A (review_item). The analyst confirms, overrides\nor removes each item individually; there is no bulk-accept endpoint\n(rule 2).",
         "properties": {
-          "confirmed_value": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Confirmed Value"
-          },
-          "decided_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Decided At"
-          },
-          "decided_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Decided By"
-          },
-          "item_id": {
-            "title": "Item Id",
-            "type": "string"
-          },
-          "kind": {
-            "$ref": "#/components/schemas/ItemKind"
-          },
-          "override_reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Override Reason"
-          },
-          "proposed_value": {
-            "additionalProperties": true,
-            "title": "Proposed Value",
-            "type": "object"
-          },
-          "source_refs": {
-            "default": [],
+          "field_ids": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "type": "string"
             },
-            "title": "Source Refs",
+            "maxItems": 40,
+            "minItems": 1,
+            "title": "Field Ids",
             "type": "array"
           },
-          "status": {
-            "$ref": "#/components/schemas/ItemStatus"
+          "from_case_id": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "From Case Id",
+            "type": "string"
           }
         },
         "required": [
-          "item_id",
-          "kind",
-          "status",
-          "proposed_value"
+          "from_case_id",
+          "field_ids"
         ],
-        "title": "ReviewItem",
+        "title": "ReuseBody",
+        "type": "object"
+      },
+      "ReuseFieldPO": {
+        "additionalProperties": false,
+        "properties": {
+          "field_id": {
+            "title": "Field Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reusable": {
+            "title": "Reusable",
+            "type": "boolean"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field_id",
+          "label",
+          "value",
+          "reusable",
+          "reason"
+        ],
+        "title": "ReuseFieldPO",
+        "type": "object"
+      },
+      "ReviewRowPO": {
+        "additionalProperties": false,
+        "properties": {
+          "always_required": {
+            "title": "Always Required",
+            "type": "boolean"
+          },
+          "field_id": {
+            "title": "Field Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "extracted",
+              "reused",
+              "answered",
+              "owner_declared",
+              "analyst_override",
+              "jurisdiction_list",
+              "open"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "original": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OriginalValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "field_id",
+          "label",
+          "value",
+          "origin",
+          "source",
+          "original",
+          "always_required"
+        ],
+        "title": "ReviewRowPO",
+        "type": "object"
+      },
+      "ReviewViewPO": {
+        "additionalProperties": false,
+        "properties": {
+          "completion": {
+            "$ref": "#/components/schemas/Completion"
+          },
+          "required_card": {
+            "$ref": "#/components/schemas/RequiredCard"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewRowPO"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "submit_blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submit Blocked Reason"
+          },
+          "submitted": {
+            "title": "Submitted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "rows",
+          "required_card",
+          "completion",
+          "submitted",
+          "submit_blocked_reason"
+        ],
+        "title": "ReviewViewPO",
         "type": "object"
       },
       "RevoteRequest": {
@@ -4259,60 +4391,11 @@
         "title": "SearchResponse",
         "type": "object"
       },
-      "SubmissionDiffOutput": {
+      "SourceRef": {
         "additionalProperties": false,
+        "description": "A page:line pointer into a stored document; ``label`` is the display\nform, e.g. ``business_case.pdf p.4 l.12``.",
         "properties": {
-          "changed_fields": {
-            "items": {
-              "$ref": "#/components/schemas/SubmissionVersionDiff"
-            },
-            "title": "Changed Fields",
-            "type": "array"
-          }
-        },
-        "required": [
-          "changed_fields"
-        ],
-        "title": "SubmissionDiffOutput",
-        "type": "object"
-      },
-      "SubmissionVersion": {
-        "additionalProperties": false,
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "created_by": {
-            "title": "Created By",
-            "type": "string"
-          },
-          "diff": {
-            "items": {
-              "$ref": "#/components/schemas/SubmissionVersionDiff"
-            },
-            "title": "Diff",
-            "type": "array"
-          },
-          "version": {
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "version",
-          "created_at",
-          "created_by",
-          "diff"
-        ],
-        "title": "SubmissionVersion",
-        "type": "object"
-      },
-      "SubmissionVersionDiff": {
-        "additionalProperties": false,
-        "properties": {
-          "after": {
+          "document": {
             "anyOf": [
               {
                 "type": "string"
@@ -4321,98 +4404,154 @@
                 "type": "null"
               }
             ],
-            "title": "After"
+            "title": "Document"
           },
-          "before": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "line": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Before"
+            "title": "Line"
           },
-          "field_id": {
-            "title": "Field Id",
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "SourceRef",
+        "type": "object"
+      },
+      "StageStep": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "done",
+              "current",
+              "upcoming"
+            ],
+            "title": "State",
             "type": "string"
           }
         },
         "required": [
-          "field_id",
-          "before",
-          "after"
+          "key",
+          "label",
+          "state"
         ],
-        "title": "SubmissionVersionDiff",
+        "title": "StageStep",
         "type": "object"
       },
-      "SubmitCaseChecks": {
-        "additionalProperties": false,
-        "description": "The four submit checks (design A §2.1 \"proposed enumeration\").",
-        "properties": {
-          "all_always_required_filled": {
-            "title": "All Always Required Filled",
-            "type": "boolean"
-          },
-          "completion_at_least_threshold": {
-            "title": "Completion At Least Threshold",
-            "type": "boolean"
-          },
-          "no_open_blocking_gaps": {
-            "title": "No Open Blocking Gaps",
-            "type": "boolean"
-          },
-          "owner_reviewed_corrections": {
-            "title": "Owner Reviewed Corrections",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "completion_at_least_threshold",
-          "all_always_required_filled",
-          "no_open_blocking_gaps",
-          "owner_reviewed_corrections"
-        ],
-        "title": "SubmitCaseChecks",
-        "type": "object"
-      },
-      "SubmitCaseRequest": {
-        "additionalProperties": false,
-        "description": "``owner_reviewed_corrections`` is the one input the review-and-submit\nscreen contributes directly; ``no_open_blocking_gaps`` is computed\nserver-side from the case's own clarification threads (design A §2.1).",
-        "properties": {
-          "owner_reviewed_corrections": {
-            "title": "Owner Reviewed Corrections",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "owner_reviewed_corrections"
-        ],
-        "title": "SubmitCaseRequest",
-        "type": "object"
-      },
-      "SubmitCaseResponse": {
+      "SubmitCheck": {
         "additionalProperties": false,
         "properties": {
-          "case_id": {
-            "title": "Case Id",
+          "blocking": {
+            "title": "Blocking",
+            "type": "boolean"
+          },
+          "detail": {
+            "title": "Detail",
             "type": "string"
           },
+          "id": {
+            "enum": [
+              "completion",
+              "always_required",
+              "types_confirmed",
+              "no_conflicts"
+            ],
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "ok",
+          "blocking",
+          "detail"
+        ],
+        "title": "SubmitCheck",
+        "type": "object"
+      },
+      "SubmitResult": {
+        "additionalProperties": false,
+        "properties": {
           "checks": {
-            "$ref": "#/components/schemas/SubmitCaseChecks"
+            "items": {
+              "$ref": "#/components/schemas/SubmitCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
           },
           "submission_version": {
-            "title": "Submission Version",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submission Version"
           }
         },
         "required": [
-          "case_id",
+          "ok",
           "checks",
-          "submission_version"
+          "submission_version",
+          "message"
         ],
-        "title": "SubmitCaseResponse",
+        "title": "SubmitResult",
         "type": "object"
       },
       "SupersedeRequest": {
@@ -4552,20 +4691,6 @@
         "title": "ThreadAsk",
         "type": "object"
       },
-      "UpdateCaseTitleRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "title": {
-            "title": "Title",
-            "type": "string"
-          }
-        },
-        "required": [
-          "title"
-        ],
-        "title": "UpdateCaseTitleRequest",
-        "type": "object"
-      },
       "ValidateResponse": {
         "additionalProperties": false,
         "description": "What ``/core/validate`` returns to nginx's ``auth_request`` and to any\nservice that falls back to it when JWKS is unavailable.",
@@ -4632,6 +4757,121 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "ValueDecisionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "confirm",
+              "correct"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "ValueDecisionBody",
+        "type": "object"
+      },
+      "ValuePO": {
+        "additionalProperties": false,
+        "properties": {
+          "always_required": {
+            "title": "Always Required",
+            "type": "boolean"
+          },
+          "candidates": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidates"
+          },
+          "field_id": {
+            "title": "Field Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "extracted",
+              "reused",
+              "answered",
+              "owner_declared",
+              "analyst_override",
+              "jurisdiction_list",
+              "open"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "field_id",
+          "label",
+          "value",
+          "origin",
+          "source",
+          "candidates",
+          "always_required"
+        ],
+        "title": "ValuePO",
         "type": "object"
       },
       "VerifyResult": {
@@ -4879,69 +5119,6 @@
           "members"
         ],
         "title": "VotesView",
-        "type": "object"
-      },
-      "WriteFieldValueRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "how": {
-            "default": "owner_corrected",
-            "enum": [
-              "extracted",
-              "reused",
-              "answered",
-              "owner_corrected"
-            ],
-            "title": "How",
-            "type": "string"
-          },
-          "source": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source"
-          },
-          "value": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Value"
-          }
-        },
-        "title": "WriteFieldValueRequest",
-        "type": "object"
-      },
-      "WriteFieldValueResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "case_id": {
-            "title": "Case Id",
-            "type": "string"
-          },
-          "completion": {
-            "$ref": "#/components/schemas/CompletionState"
-          },
-          "field_id": {
-            "title": "Field Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "case_id",
-          "field_id",
-          "completion"
-        ],
-        "title": "WriteFieldValueResponse",
         "type": "object"
       }
     },
@@ -5811,55 +5988,41 @@
     },
     "/api/fcrm/cases": {
       "get": {
-        "description": "The PO's case list or the analyst/committee queue, role-shaped.\n\nA PO is always scoped to their own cases (``owner`` is forced to their\n``sub``, overriding anything passed); an analyst or committee member\nmay browse freely (fine-grained per-analyst queue scoping through OPA\nis deferred -- see the task report). A service caller's filters pass\nthrough unchanged.",
+        "description": "The owner's cases, newest first; ``stage`` and ``needs_response`` filter.",
         "operationId": "S1_list_cases_cases_get",
         "parameters": [
           {
             "in": "query",
-            "name": "state",
+            "name": "stage",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "$ref": "#/components/schemas/CaseState"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "State"
-            }
-          },
-          {
-            "in": "query",
-            "name": "owner",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
+                  "enum": [
+                    "draft",
+                    "submitted",
+                    "under_assessment",
+                    "awaiting_your_answer",
+                    "decision",
+                    "closed"
+                  ],
                   "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Owner"
+              "title": "Stage"
             }
           },
           {
             "in": "query",
-            "name": "analyst_id",
+            "name": "needs_response",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Analyst Id"
+              "default": false,
+              "title": "Needs Response",
+              "type": "boolean"
             }
           },
           {
@@ -5896,15 +6059,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/Page_CaseListItemPO_"
-                    },
-                    {
-                      "$ref": "#/components/schemas/Page_CaseListItemAnalyst_"
-                    }
-                  ],
-                  "title": "Response List Cases Cases Get"
+                  "$ref": "#/components/schemas/Page_CasePOListItem_"
                 }
               }
             },
@@ -5928,28 +6083,35 @@
         ],
         "summary": "List Cases",
         "tags": [
-          "case"
+          "po"
         ]
       },
       "post": {
-        "description": "Create a draft case and resolve its required fields from the active\nfield set, pinned to this case for its whole lifetime (CLAUDE.md:\n\"each case pins the versions of its scoring model, corpus, controls,\nfield set and prompts\").",
+        "description": "Raise a draft case: the id is minted and the versions in force pinned.",
         "operationId": "S1_create_case_cases_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateCaseRequest"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateCaseBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "201": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreateDraftCaseResponse"
+                  "$ref": "#/components/schemas/CasePO"
                 }
               }
             },
@@ -5973,13 +6135,13 @@
         ],
         "summary": "Create Case",
         "tags": [
-          "case"
+          "po"
         ]
       }
     },
     "/api/fcrm/cases/{case_id}": {
       "get": {
-        "description": "The case, shaped for the caller's role (module docstring).",
+        "description": "The case header, stage and what the owner does next.",
         "operationId": "S1_get_case_cases__case_id__get",
         "parameters": [
           {
@@ -5997,18 +6159,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/CaseDetailPO"
-                    },
-                    {
-                      "$ref": "#/components/schemas/CaseDetailAnalyst"
-                    },
-                    {
-                      "$ref": "#/components/schemas/CaseDetailInternal"
-                    }
-                  ],
-                  "title": "Response Get Case Cases  Case Id  Get"
+                  "$ref": "#/components/schemas/CasePO"
                 }
               }
             },
@@ -6032,14 +6183,511 @@
         ],
         "summary": "Get Case",
         "tags": [
-          "case"
+          "po"
         ]
       }
     },
-    "/api/fcrm/cases/{case_id}/fields/{field_id}": {
-      "put": {
-        "description": "Write one field's value and return the recomputed completion state\n(``fcrm_case.domain.completion.compute_completion``, never\nreimplemented here).\n\nPO only, and only on a case they own: rule 4 (\"the analyst never edits\nthe submission\", design A §2.1.2 \"``field_values`` writes accept only\n``fcrm_po``\") refuses every other role, the service role included --\nagents propose values, the PO confirms or corrects them.",
-        "operationId": "S1_write_field_value_cases__case_id__fields__field_id__put",
+    "/api/fcrm/cases/{case_id}/activity": {
+      "get": {
+        "description": "The owner's activity feed, newest first, in plain words.",
+        "operationId": "S1_get_activity_cases__case_id__activity_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ActivityEventPO_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Activity",
+        "tags": [
+          "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/discard": {
+      "post": {
+        "description": "Discard an unsubmitted draft, with a reason.",
+        "operationId": "S1_discard_case_cases__case_id__discard_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscardBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Discard Case",
+        "tags": [
+          "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/documents": {
+      "get": {
+        "description": "The Documents tab.",
+        "operationId": "S1_get_documents_cases__case_id__documents_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentsViewPO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Documents",
+        "tags": [
+          "po"
+        ]
+      },
+      "post": {
+        "description": "Upload files (multipart ``files``), or use the committed demo documents\n(JSON ``{\"demo_files\": [...]}``). Each file is checked, stored and announced\nto Caseflow in one transaction.",
+        "operationId": "S1_upload_documents_cases__case_id__documents_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "demo_files": {
+                    "items": {
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "size": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "name"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "files": {
+                    "items": {
+                      "format": "binary",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "files"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentsViewPO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Upload Documents",
+        "tags": [
+          "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/intake": {
+      "get": {
+        "description": "The Overview tab: proposed types, values with sources, precedent, questions.",
+        "operationId": "S1_get_intake_cases__case_id__intake_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeViewPO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Intake",
+        "tags": [
+          "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/intake/answers": {
+      "post": {
+        "description": "Answer the assistant's questions (one decision per question).",
+        "operationId": "S1_answer_questions_cases__case_id__intake_answers_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswersBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeViewPO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Answer Questions",
+        "tags": [
+          "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/intake/categories/{change_type}": {
+      "post": {
+        "description": "Confirm or remove one proposed change type (a removal needs a reason).",
+        "operationId": "S1_decide_category_cases__case_id__intake_categories__change_type__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "change_type",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ChangeType"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryDecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeViewPO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Decide Category",
+        "tags": [
+          "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/intake/reuse": {
+      "post": {
+        "description": "Reuse values from the precedent the assistant found.",
+        "operationId": "S1_reuse_values_cases__case_id__intake_reuse_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReuseBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeViewPO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reuse Values",
+        "tags": [
+          "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/intake/values/{field_id}": {
+      "post": {
+        "description": "Confirm or correct one value; a correction keeps the original.",
+        "operationId": "S1_decide_value_cases__case_id__intake_values__field_id__post",
         "parameters": [
           {
             "in": "path",
@@ -6064,7 +6712,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WriteFieldValueRequest"
+                "$ref": "#/components/schemas/ValueDecisionBody"
               }
             }
           },
@@ -6075,7 +6723,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WriteFieldValueResponse"
+                  "$ref": "#/components/schemas/ReviewViewPO"
                 }
               }
             },
@@ -6097,9 +6745,57 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Write Field Value",
+        "summary": "Decide Value",
         "tags": [
-          "case"
+          "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/review": {
+      "get": {
+        "description": "The Review & submit tab.",
+        "operationId": "S1_get_review_cases__case_id__review_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewViewPO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Review",
+        "tags": [
+          "po"
         ]
       }
     },
@@ -6183,7 +6879,7 @@
     },
     "/api/fcrm/cases/{case_id}/submit": {
       "post": {
-        "description": "Run the four submit checks; a case that passes gets a new,\nimmutable submission-version snapshot and ``submitted_at`` is stamped\n(one-shot: a second submit attempt gets 409, same as any other write\nto an already-submitted case).",
+        "description": "Run the four checks again and submit; 422 names the failing check.",
         "operationId": "S1_submit_case_cases__case_id__submit_post",
         "parameters": [
           {
@@ -6200,18 +6896,25 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SubmitCaseRequest"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EmptyBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SubmitCaseResponse"
+                  "$ref": "#/components/schemas/SubmitResult"
                 }
               }
             },
@@ -6235,14 +6938,14 @@
         ],
         "summary": "Submit Case",
         "tags": [
-          "case"
+          "po"
         ]
       }
     },
-    "/api/fcrm/cases/{case_id}/title": {
-      "put": {
-        "description": "Rename a case the caller owns.",
-        "operationId": "S1_update_title_cases__case_id__title_put",
+    "/api/fcrm/cases/{case_id}/validate": {
+      "post": {
+        "description": "A dry run of the four submit checks (always 200).",
+        "operationId": "S1_validate_case_cases__case_id__validate_post",
         "parameters": [
           {
             "in": "path",
@@ -6258,136 +6961,25 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateCaseTitleRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CaseDetailPO"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Update Title",
-        "tags": [
-          "case"
-        ]
-      }
-    },
-    "/api/fcrm/cases/{case_id}/versions": {
-      "get": {
-        "description": "Every submission version recorded so far, each diffed against the\none before it (an arbitrary pair is ``GET .../versions/diff``).",
-        "operationId": "S1_list_submission_versions_cases__case_id__versions_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "case_id",
-            "required": true,
-            "schema": {
-              "title": "Case Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/SubmissionVersion"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EmptyBody"
                   },
-                  "title": "Response List Submission Versions Cases  Case Id  Versions Get",
-                  "type": "array"
-                }
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
               }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
+            }
           }
         },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "List Submission Versions",
-        "tags": [
-          "case"
-        ]
-      }
-    },
-    "/api/fcrm/cases/{case_id}/versions/diff": {
-      "get": {
-        "description": "What changed between any two of a case's submission versions\n(``fcrm_contracts.tools.submission_diff``, backed by S1).",
-        "operationId": "S1_diff_submission_version_pair_cases__case_id__versions_diff_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "case_id",
-            "required": true,
-            "schema": {
-              "title": "Case Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "from_version",
-            "required": true,
-            "schema": {
-              "title": "From Version",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "to_version",
-            "required": true,
-            "schema": {
-              "title": "To Version",
-              "type": "integer"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SubmissionDiffOutput"
+                  "$ref": "#/components/schemas/SubmitResult"
                 }
               }
             },
@@ -6409,9 +7001,36 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Diff Submission Version Pair",
+        "summary": "Validate Case",
         "tags": [
-          "case"
+          "po"
+        ]
+      }
+    },
+    "/api/fcrm/dashboard": {
+      "get": {
+        "description": "The owner's KPIs and open cases.",
+        "operationId": "S1_dashboard_dashboard_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardPO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Dashboard",
+        "tags": [
+          "po"
         ]
       }
     },
@@ -7336,6 +7955,111 @@
         "summary": "Answer",
         "tags": [
           "decision"
+        ]
+      }
+    },
+    "/api/fcrm/integrations": {
+      "get": {
+        "description": "The owner's integrations and their choices.",
+        "operationId": "S1_list_integrations_integrations_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Integration_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Integrations",
+        "tags": [
+          "po"
+        ]
+      }
+    },
+    "/api/fcrm/integrations/{integration_id}/{action}": {
+      "post": {
+        "description": "Connect an integration to a location or channel, or disconnect it.",
+        "operationId": "S1_set_integration_integrations__integration_id___action__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "integration_id",
+            "required": true,
+            "schema": {
+              "title": "Integration Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "action",
+            "required": true,
+            "schema": {
+              "enum": [
+                "connect",
+                "disconnect"
+              ],
+              "title": "Action",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/IntegrationActionBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Integration"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set Integration",
+        "tags": [
+          "po"
         ]
       }
     },

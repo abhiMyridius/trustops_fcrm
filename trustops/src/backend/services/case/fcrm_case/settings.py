@@ -1,18 +1,26 @@
-"""S1's own settings: the shared contract plus the case-specific flags
-``docker-compose.yaml``'s ``case:`` service block already sets.
+"""S1's own settings: the shared contract, the object store and the case-specific
+flags ``docker-compose.yaml``'s ``case:`` service block already sets.
 """
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import ClassVar, Optional
 
-from fcrm_common.settings import BaseServiceSettings
+from fcrm_common.settings import BaseServiceSettings, S3Settings
 from pydantic import Field
 
 
-class CaseSettings(BaseServiceSettings):
-    """``UPLOAD_MAX_BYTES``/``UPLOAD_ALLOWED_EXTENSIONS`` are declared here
-    for the document-upload route a later lane adds; nothing reads them yet.
+class CaseSettings(BaseServiceSettings, S3Settings):
+    """Upload: ``UPLOAD_MAX_BYTES`` caps one file, ``UPLOAD_ALLOWED_EXTENSIONS``
+    lists the extensions the PO's upload accepts (:mod:`fcrm_case.po_documents`),
+    ``UPLOAD_MAX_FILES`` how many files one request may carry. The files go to
+    the ``S3_BUCKET_UPLOADS`` bucket (:class:`~fcrm_common.settings.S3Settings`,
+    the variables compose's ``x-s3-env`` block sets).
+
+    ``DEMO_DOCUMENTS_DIR`` names a directory holding the committed demo PDFs
+    (``evals/fixtures/documents``) for a ``{"demo_files": [...]}`` upload; unset,
+    they are read from the uploads bucket's ``_fixtures/`` prefix, which ``make
+    seed`` fills.
 
     The stream: ``SSE_HEARTBEAT_S`` paces the keep-alive comment on ``GET
     /cases/{case_id}/stream``; ``SSE_MAX_LIFETIME_S`` (not in compose; defaults
@@ -28,9 +36,16 @@ class CaseSettings(BaseServiceSettings):
     harness's service URLs).
     """
 
+    required_settings: ClassVar[tuple[str, ...]] = (
+        *BaseServiceSettings.required_settings,
+        *S3Settings.s3_required_settings,
+    )
+
     app_name: str = "fcrm-case"
-    upload_max_bytes: int = 52_428_800
+    upload_max_bytes: int = Field(default=52_428_800, ge=1)
+    upload_max_files: int = Field(default=10, ge=1)
     upload_allowed_extensions: str = ".pdf,.docx,.xlsx,.pptx,.csv,.md,.txt"
+    demo_documents_dir: Optional[str] = None
     sse_heartbeat_s: float = Field(default=15.0, gt=0)
     sse_max_lifetime_s: float = Field(default=3600.0, gt=0)
     sse_queue_size: int = Field(default=256, ge=1)

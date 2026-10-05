@@ -43,6 +43,7 @@ from fcrm_common.authz import OPAClient, install_authz
 from fcrm_common.events import build_envelope
 from fcrm_common.health import ReadinessCheck
 from fcrm_common.mongo import Document
+from fcrm_contracts.api.case_internal import UiActor, UiEventIn
 from fcrm_contracts.events.envelope import Envelope
 from pymongo import AsyncMongoClient
 
@@ -191,15 +192,21 @@ def test_s1_relays_its_outbox_through_the_composites_broker(
 ) -> None:
     with composite_client() as client:
         assert fake_broker.started is True
-        store = client.app.state.mounted["S1"].state.store  # type: ignore[attr-defined]
+        store = client.app.state.mounted["S1"].state.po_store  # type: ignore[attr-defined]
         record = make_case_record("FCRM-2026-0300", title="Relay check")
         created: Envelope = build_envelope(
             "case.created",
             {"case_id": "FCRM-2026-0300", "actor": "u-pnair", "data": {}},
             case_id="FCRM-2026-0300",
         )
+        first_row = UiEventIn(
+            type="case.created",
+            visibility="po",
+            summary="You created the case",
+            actor=UiActor(id="u-pnair", role="fcrm_po", component="S1"),
+        )
         # The store belongs to the app's event loop: call it on the same one.
-        client.portal.call(store.create, record, created)  # type: ignore[union-attr]
+        client.portal.call(store.create_case, record, created, first_row)  # type: ignore[union-attr]
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline and not any(
             Envelope.model_validate_json(body).event_id == created.event_id
@@ -281,8 +288,10 @@ def test_real_requests_reach_each_mounted_service_through_the_shared_clients(
         untouched = client.get(f"/api/fcrm/audit/verify/{demo['id']}")
         assert untouched.json()["record_count"] == 0
 
-        cases = client.get("/api/fcrm/cases")
-        assert cases.status_code == 200
+        # S1: the owner's routes are mounted at the shared prefix and are the
+        # owner's alone: the service account this client acts as is refused.
+        for url in ("/api/fcrm/cases", "/api/fcrm/dashboard", "/api/fcrm/integrations"):
+            assert client.get(url).status_code == 403, url
 
 
 def test_each_service_writes_only_into_its_own_database(

@@ -23,8 +23,10 @@ its own file in this directory:
 
 What remains here is blocked on services or routes that do not exist.
 Route inventory at the time of writing -- S1: ``POST/GET /cases``,
-``GET /cases/{id}``, ``PUT .../title``, ``PUT .../fields/{id}``, ``POST
-.../submit``, ``GET .../versions``, ``.../versions/diff``, ``.../stream``;
+``GET /dashboard``, ``GET /cases/{id}`` and the owner's intake routes
+(``.../documents``, ``.../intake/*``, ``.../review``, ``.../validate``,
+``.../submit``, ``.../discard``, ``.../activity``), ``.../stream``, the
+internal routes H1 calls and ``GET/POST /integrations``;
 S2: ``/score``, ``/models/*``, ``/routing/active``; S3: ``POST /search``;
 S4: ``POST /records``, ``GET /verify/{id}``, ``GET /records/{id}``; S5 (the
 web's names, ADR-30): ``/committee/queue``, ``/packs``, ``/packs/{id}``,
@@ -102,12 +104,12 @@ def test_bb_08_no_bulk_accept() -> None:
 @pytest.mark.skip(
     reason=(
         "BB-09's 'a PO answer creates v2 and v1 stays byte-identical' needs "
-        "a way to create a second submission version, and S1 has none: POST "
-        "/cases/{id}/submit is one-shot (a second submit is 409), there is no "
-        "clarification-thread or answer route, and a PO field write after "
-        "submission is 409. The other half (analyst PUT fields/{id} -> 403, "
-        "and v1 byte-identical after every attempt to change it) is real in "
-        "test_bb_09_analyst_never_edits_submission.py."
+        "a way to create a second submission version, and S1 has none yet: POST "
+        "/cases/{id}/submit is one-shot (a second submit answers with v1), there "
+        "is no clarification-thread or answer route, and a PO value write after "
+        "submission is 409. The other half (an analyst POST intake/values/{id} "
+        "-> 403, and v1 byte-identical after every attempt to change it) is "
+        "real in test_bb_09_analyst_never_edits_submission.py."
     )
 )
 def test_bb_09_po_answer_creates_v2_and_v1_stays_byte_identical() -> None:

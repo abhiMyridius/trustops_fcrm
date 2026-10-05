@@ -13,6 +13,8 @@ const EXPECTED: Record<string, string[]> = {
   'document.extracted': ['documents', 'intake'],
   'intake.proposed': ['intake', 'review'],
   'intake.proposals_ready': ['intake', 'review'],
+  'fieldset.resolved': ['', 'activity'],
+  'case.assigned': ['', 'activity'],
   'gate.opened': ['', 'assessment', 'policy', 'risk', 'intake', 'review', 'handoff'],
   'gate.decided': ['', 'assessment', 'policy', 'risk', 'intake', 'review', 'handoff'],
   'score.computed': ['assessment', 'risk'],

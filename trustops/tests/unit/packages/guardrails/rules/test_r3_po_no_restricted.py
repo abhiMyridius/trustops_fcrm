@@ -3,11 +3,15 @@ The clean fixtures are the demo case's real PO-facing strings."""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
 import pytest
-from fcrm_contracts.api.case_po import CaseDetailPO, ConditionPO, FieldValuePO
-from fcrm_contracts.enums import CaseState, ChangeType, Role
+from fcrm_contracts.api.case_po import (
+    CasePO,
+    Completion,
+    ConditionPO,
+    OutcomePO,
+    StageStep,
+)
+from fcrm_contracts.enums import ChangeType, Role
 from fcrm_guardrails.rules.r3_po_no_restricted import (
     check,
     find_restricted,
@@ -18,59 +22,76 @@ from fcrm_guardrails.rules.r3_po_no_restricted import (
 from fcrm_seed.loader import demo_case
 
 DEMO = demo_case()
-AT = datetime(2026, 10, 3, tzinfo=UTC)
 
-PO_DETAIL = CaseDetailPO(
-    case_id=DEMO["id"],
+PO_DETAIL = CasePO(
+    id=DEMO["id"],
     title=DEMO["title"],
-    state=CaseState.CLOSED,
     unit=DEMO["unit"],
-    owner=DEMO["owner"],
+    owner_name="Priya Nair",
     change_types=[
         ChangeType.VENDOR_ONBOARDING,
         ChangeType.NEW_GEOGRAPHY,
         ChangeType.NEW_PRODUCT,
     ],
-    completion_pct=100.0,
-    threshold_pct=80.0,
-    required_field_count=18,
-    required_fields_filled=18,
-    fields=[
-        FieldValuePO(
-            field_id=f["id"],
-            label=f["id"],
-            value=f["value"],
-            source=f.get("source"),
-            how=f.get("how"),
+    stage="closed",
+    stage_label="Closed",
+    lifecycle=[
+        StageStep(key=key, label=label, state="done")
+        for key, label in (
+            ("draft", "Draft"),
+            ("submitted", "Submitted"),
+            ("under_assessment", "Under assessment"),
+            ("decision", "Decision"),
+            ("closed", "Closed"),
         )
-        for f in DEMO["fields"]
     ],
-    documents=[],
-    clarifications=[],
+    created="2026-10-01",
+    submitted="2026-10-01",
+    analyst_name="Rahul Iyer",
+    next_action="3 open conditions",
+    completion=Completion(
+        filled=18,
+        required=18,
+        pct=100,
+        threshold_pct=80,
+        always_required_filled=6,
+        always_required_total=6,
+    ),
+    closed=True,
+    inbox_open=0,
+)
+
+PO_OUTCOME = OutcomePO(
+    decided=True,
+    outcome_label="Approved with conditions",
+    plain_summary=(
+        "Approved with conditions. Three conditions apply before and after go-live."
+    ),
+    decided_at="2026-10-03T12:00:00Z",
     conditions=[
         ConditionPO(
-            condition_id=c["id"],
+            id=c["id"],
             text=c["text"],
             owner=c["owner"],
             due=c["due"],
-            status=c["status"],
+            status="open",
+            mine=False,
         )
         for c in DEMO["conditions"]
     ],
-    outcome_summary=(
-        "Approved with conditions. Three conditions apply before and after go-live."
-    ),
-    created_at=AT,
+    reminder_days=14,
 )
 
 
-def test_check_demo_po_case_detail_is_clean() -> None:
-    result = check(PO_DETAIL, Role.PO)
-    assert result.ok, result.detail
+def test_check_demo_po_case_and_outcome_are_clean() -> None:
+    for body in (PO_DETAIL, PO_OUTCOME):
+        result = check(body, Role.PO)
+        assert result.ok, result.detail
 
 
 def test_check_po_contract_schema_has_no_restricted_keys() -> None:
-    assert check(dict.fromkeys(CaseDetailPO.model_fields, ""), Role.PO).ok
+    for model in (CasePO, OutcomePO):
+        assert check(dict.fromkeys(model.model_fields, ""), Role.PO).ok
 
 
 @pytest.mark.parametrize(

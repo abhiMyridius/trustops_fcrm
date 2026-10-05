@@ -12,15 +12,21 @@ import logging
 from typing import Any
 
 from fastapi import Request
+from fcrm_common.authz import opa_dependency
 from fcrm_common.errors import UpstreamUnavailableError
 
 from fcrm_case.directory import AnalystLoadService, IdentityDirectory
+from fcrm_case.po_service import PoService
 from fcrm_case.settings import CaseSettings
 from fcrm_case.sse import ActivityWriter, EventHub
 from fcrm_case.store import CaseStore
 from fcrm_case.views_store import ViewStore
 
 logger = logging.getLogger(__name__)
+
+#: Authenticate the caller, then ask OPA whether their role may call this route
+#: (``ops/opa/data/permissions.json``, service ``case``); fail closed.
+authorize_case = opa_dependency("case")
 
 
 def _wired(request: Request, name: str) -> Any:
@@ -77,3 +83,16 @@ def get_writer(request: Request) -> ActivityWriter:
     then publish it to the open streams.
     """
     return ActivityWriter(get_store(request).activity, get_hub(request))
+
+
+def get_po_service(request: Request) -> PoService:
+    """The product owner's use cases over the stores ``lifespan.py`` wired: one
+    cheap object per request, built from what is on ``app.state``.
+    """
+    return PoService(
+        cases=get_store(request),
+        views=get_views(request),
+        po=_wired(request, "po_store"),
+        writer=get_writer(request),
+        intake=_wired(request, "intake"),
+    )

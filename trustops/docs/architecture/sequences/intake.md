@@ -21,7 +21,8 @@ sequenceDiagram
     H1->>S1: PATCH state intake; event case.stage_changed
 
     PO->>W1: Upload documents
-    W1->>S1: POST /cases/{id}/documents
+    W1->>S1: POST /cases/{id}/documents (multipart files, or the committed demo files)
+    Note over S1: file checked, stored in MinIO uploads/{case}/{doc}/{name}; row + outbox event in one transaction
     S1->>X3: case.document_stored
     X3->>H1: consume
     Note over H1: CASE_DOCUMENT_STORED (INTAKE -> INTAKE)
@@ -45,8 +46,9 @@ sequenceDiagram
     S1-->>W1: SSE: intake.proposals_ready
 
     PO->>W1: Confirm change types
-    W1->>S1: gate.decided po_confirm_category (per type)
-    S1->>X3: gate.decided
+    W1->>S1: POST /cases/{id}/intake/categories/{type}
+    Note over S1: type joins the case, required fields follow; case, item, activity row and gate.decided commit together
+    S1->>X3: gate.decided po_confirm_category (per type)
     X3->>H1: consume
     Note over H1: not the last: step intake.po_action only (gate.decided record), no transition
     Note over H1: the last: GATE_DECIDED_PO_CONFIRM_CATEGORY_ALL (INTAKE -> INTAKE); step intake.fieldset_resolved
@@ -55,12 +57,13 @@ sequenceDiagram
     H2-->>H1: agent.done; intake.publish merges every intake result again
 
     PO->>W1: Reuse values, answer questions, correct a value
-    W1->>S1: gate.decided po_reuse / po_answer_gaps / po_confirm_value
+    W1->>S1: POST /cases/{id}/intake/reuse, /intake/answers, /intake/values/{field}
+    S1->>X3: gate.decided po_reuse / po_answer_gaps / po_confirm_value
     Note over H1: step intake.po_action (values.reused, owner.answered, owner.corrected)
 
     PO->>W1: Submit
     W1->>S1: POST /cases/{id}/submit
-    S1->>S1: evaluate_submit_checks (completion, always-required, gaps, owner-reviewed)
+    S1->>S1: four checks (completion, always_required, types_confirmed, no_conflicts), submission v1 frozen
     S1->>X3: case.submitted
     X3->>H1: consume
     Note over H1: CASE_SUBMITTED, guard: four_submit_checks_passed (INTAKE -> TRIAGE); step submit.record
@@ -75,6 +78,7 @@ sequenceDiagram
 
 - **Idempotent.** A step may run again after a failure. S1 writes are PUT or PATCH of the whole intended state; every audit record and S1 event carries an `Idempotency-Key` derived from the step id; gate and job ids are deterministic (`deterministic_id("gate", run_id, gate_type, subject_key)`); the R5 pick looks for an analyst S1 already assigned before choosing.
 - **One join for the fan-out.** The intake agent runs once per document. The engine stores every `agent.done` (`agent_results`, one row per job) and tracks the run's pending jobs by `"<agent>:<job_id>"`, so `AGENT_DONE_INTAKE` fires when the last one reports, and `intake.publish` merges all of them: one candidate per field (highest confidence, ties broken by document, page, line), one entry per change type and per question.
+- **S1's side of a decision.** One PO action is one Mongo transaction: the case document, its field values, review items, documents, the frozen submission, the activity rows and the outbox events commit together or not at all. Caseflow decides a gate once, so S1 keeps a ledger (`po_decisions`, deterministic `_id` per gate): the first decision on a gate emits `gate.decided`; a later change to the same data updates it (the original stays in `history`) and is logged in the activity feed, without a second event. A repeat of the same request changes nothing.
 - **The PO's gates.** `po_confirm_category` and `po_answer_gaps` move the case; `po_confirm_value` (one per proposed value) and `po_reuse` (one for the precedent) are opened so that S1's `gate.decided` for them meets a gate H1 opened (Guard 7) instead of being refused as unknown. A gate id is `deterministic_id("gate", run_id, <gate type>, <field id | change type | question id | precedent case id>)`.
 - **What the PO sees.** Only `visibility: po | all` events, none with a score or band; `case.assigned` carries the analyst's name and nothing else.
 - **A document that cannot be used** (a scan, an unsupported type, Guard 1's quarantine, a deadline overrun) is an `ingest.failed` with a code; H1 marks the document and tells the PO to upload another version, and still reads the case's other documents. A store or broker outage is retried, then dead-lettered, never answered.

@@ -43,7 +43,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Optional, Protocol
 
 from fcrm_common.errors import ConflictError
@@ -450,7 +450,7 @@ class MongoViewStore:
             now = utcnow()
             existing = await repo.collection.find_one({"_id": row_id}, session=session)
             previous = repo.from_document(existing) if existing is not None else None
-            row = _next_row(
+            row = next_field_row(
                 previous, case_id, field_id, label, value, origin, source, by, now
             )
             await repo.collection.replace_one(
@@ -537,7 +537,10 @@ class MongoViewStore:
                 )
             if items:
                 await self._repos.review_items.collection.bulk_write(
-                    [item_upsert_op(case_id, push.run_id, i, now) for i in items],
+                    [
+                        item_upsert_op(case_id, push.run_id, item, at)
+                        for item, at in _in_push_order(items, now)
+                    ],
                     ordered=False,
                     session=session,
                 )
@@ -578,7 +581,7 @@ class MongoViewStore:
         return repo.from_document(doc) if doc is not None else None
 
 
-def _next_row(
+def next_field_row(
     previous: Optional[FieldValueRow],
     case_id: str,
     field_id: str,
@@ -626,6 +629,18 @@ def _next_row(
             "updated_by": by,
         }
     )
+
+
+def _in_push_order(
+    items: Sequence[ReviewItemUpsert], now: datetime
+) -> list[tuple[ReviewItemUpsert, datetime]]:
+    """Each item of a push with the ``created_at`` it is inserted with: ``now`` plus
+    one millisecond per position (BSON dates have millisecond resolution), so
+    listing items by ``created_at`` reads them back in the order H1 merged them
+    (the owner sees the change types and questions in that order). An item that
+    already exists keeps its first ``created_at``, so a re-push never reorders.
+    """
+    return [(item, now + timedelta(milliseconds=n)) for n, item in enumerate(items)]
 
 
 class InMemoryViewStore:
@@ -692,7 +707,7 @@ class InMemoryViewStore:
         events: Sequence[Envelope] = (),
     ) -> FieldValueRow:
         row_id = field_value_id(case_id, field_id)
-        row = _next_row(
+        row = next_field_row(
             self.field_values.get(row_id),
             case_id,
             field_id,
@@ -803,8 +818,8 @@ class InMemoryViewStore:
             )
             written += 1
         self._check_proposals(case_id, items)
-        for item in items:
-            self._upsert_item(case_id, push.run_id, item, now)
+        for item, at in _in_push_order(items, now):
+            self._upsert_item(case_id, push.run_id, item, at)
         self.intake[case_id] = intake_view_from_push(case_id, push)
         return IntakeApplied(
             values_written=written,
