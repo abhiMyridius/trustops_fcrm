@@ -83,7 +83,10 @@ async def test_agent_run_to_agent_done_through_the_real_broker(
         Envelope.model_validate_json(done_received[0].body).payload
     )
     assert done.job_id == "job-research-1"
-    assert len(recording_audit.records) == 1
+    assert [r.type for r in recording_audit.records] == [
+        "guard.permit",
+        "guard.output",
+    ]
 
 
 async def test_permit_denied_publishes_agent_failed_through_the_real_broker(

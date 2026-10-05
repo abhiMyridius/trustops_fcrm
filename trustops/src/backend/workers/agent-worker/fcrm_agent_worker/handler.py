@@ -14,18 +14,34 @@ A guard ``BLOCKED`` verdict (any stage) is not a bug: it is reported
 faithfully as ``agent.failed`` so H1 can open the human handoff gate
 (design A §3.1, ``HANDOFF``) -- this consumer never retries a blocked job
 itself and never marks a job done it did not actually finish.
+
+**Audit vocabulary.** H2 writes the guard-side records of the walkthrough
+seed (``demo.audit[].type``) through S4 once the terminal event is published:
+``guard.permit`` (Guard 2, with the allowed tools), one ``guard.output`` per
+Guard 4 result ("<agent> attempt n: k of n claims carry sources", or the
+rejection), ``agent.retry`` between two attempts, and ``agent.failed`` on a
+terminal failure. There is deliberately **no** ``agent.done`` record: what an
+agent proposed is recorded by H1 as ``proposal.*`` when it consumes
+``agent.done``. These records carry ``job_id``, so they can interleave with
+H1's for the same job; S4 orders them by arrival.
 """
 
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field
 from typing import Any, Final, Optional
 
-from fcrm_agents.builders import builder_for
-from fcrm_agents.context_pack import BuildRequest, PackBuildError, PackOverflowError
+from fcrm_agents.builders import NarrativePackBuilder, builder_for
+from fcrm_agents.context_pack import (
+    BuildRequest,
+    ContextPack,
+    PackBuildError,
+    PackOverflowError,
+)
 from fcrm_agents.runtime import AgentRunResult, RunVerdict
-from fcrm_agents.spec import get_spec
+from fcrm_agents.spec import AgentSpec, get_spec
 from fcrm_common.events import (
     Consumer,
     Publisher,
@@ -39,9 +55,11 @@ from fcrm_contracts.api.audit import RecordAppend
 from fcrm_contracts.enums import AgentName
 from fcrm_contracts.events.envelope import Envelope
 from fcrm_contracts.events.payloads import AgentDone, AgentFailed, JobPayload
-from fcrm_guardrails import CaseBudget, GuardName, PermitGuard
+from fcrm_contracts.proposals.screening import ScreeningProposal
+from fcrm_guardrails import CaseBudget, GuardName, GuardResult, PermitGuard
 from fcrm_guardrails.opa_client import OPAClient
 from fcrm_tools import ToolError, ToolNotPermittedError, ToolRegistry, ToolScopeError
+from pydantic import ValidationError
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -77,16 +95,153 @@ _FAILURE_REASON_CODE: Final[dict[GuardName, str]] = {
 
 #: Context-pack construction failures that are a legitimate, deterministic
 #: "this job cannot run" outcome (a missing builder input, a stale pinned
-#: version, a tool refusal) -- reported as ``agent.failed``, never retried
-#: by the broker, since redelivering the identical message would fail the
-#: same way.
+#: version, a tool refusal, ``refs`` that are not ``BuildRequest`` fields) --
+#: reported as ``agent.failed``, never retried by the broker, since
+#: redelivering the identical message would fail the same way.
 _CONTEXT_PACK_ERRORS: Final = (
     PackBuildError,
     PackOverflowError,
     ToolError,
     ToolNotPermittedError,
     ToolScopeError,
+    ValidationError,
 )
+
+
+@dataclass(frozen=True)
+class AuditEntry:
+    """One S4 record H2 means to write for a job.
+
+    Attributes:
+        record_type: The seed's audit vocabulary (``guard.permit``...).
+        summary: The one-line text a reader of the chain sees.
+        data: Extra structured facts, merged under ``run_id``/``job_id``/
+            ``agent``.
+    """
+
+    record_type: str
+    summary: str
+    data: Mapping[str, Any] = field(default_factory=dict)
+
+
+def pack_refs(job: JobPayload) -> dict[str, Any]:
+    """The ``BuildRequest`` inputs for ``job``: its ``refs`` as H1 sent them.
+
+    A narrative job's ``scope`` is its mode (``completeness`` or
+    ``recommendation``); when H1 left ``mode`` out of ``refs`` it is taken
+    from ``scope``, because the builder otherwise defaults to ``completeness``
+    and a recommendation job would silently run as a completeness check.
+    """
+    refs = dict(job.refs)
+    if (
+        job.agent is AgentName.NARRATIVE
+        and "mode" not in refs
+        and job.scope in NarrativePackBuilder.MODES
+    ):
+        refs["mode"] = job.scope
+    return refs
+
+
+def _shape_results(result: AgentRunResult, attempt_index: int) -> list[GuardResult]:
+    """Guard 4 results of one attempt (a failed model call is reported under
+    Guard 4's name too, see ``live_runtime.LiveRun.call_model``).
+    """
+    return [
+        r
+        for r in result.attempts[attempt_index].guard_results
+        if r.guard is GuardName.OUTPUT_SHAPE
+    ]
+
+
+def _output_summary(agent: str, attempt: int, shape: GuardResult) -> str:
+    """``<agent> attempt n: k of n claims carry sources`` for a result that may
+    proceed, otherwise the guard's own rejection text.
+    """
+    claims, verified = shape.details.get("claims"), shape.details.get("verified")
+    if shape.passed and claims is not None and verified is not None:
+        return f"{agent} attempt {attempt}: {verified} of {claims} claims carry sources"
+    return shape.summary
+
+
+def audit_entries(
+    result: AgentRunResult, spec: AgentSpec, *, failed_reason: Optional[str] = None
+) -> list[AuditEntry]:
+    """The records to write for a finished job, in chain order: ``guard.permit``,
+    then for each attempt its ``guard.output`` (and an ``agent.retry`` before
+    the next attempt), then ``agent.failed`` on a terminal failure. Never an
+    ``agent.done``.
+    """
+    agent = spec.name.value
+    entries: list[AuditEntry] = []
+    for permit in (r for r in result.pre_guards if r.guard is GuardName.PERMIT):
+        tools = list(spec.tools)
+        text = (
+            f"Guard 2 · {agent} agent permitted: {', '.join(tools)}"
+            if permit.passed
+            else f"Guard 2 · {agent} agent denied: {permit.summary}"
+        )
+        entries.append(
+            AuditEntry("guard.permit", text, {"allowed": permit.passed, "tools": tools})
+        )
+    for index, attempt in enumerate(result.attempts):
+        for shape in _shape_results(result, index):
+            entries.append(
+                AuditEntry(
+                    "guard.output",
+                    _output_summary(agent, attempt.attempt, shape),
+                    {
+                        "attempt": attempt.attempt,
+                        "status": shape.status.value,
+                        "claims_total": shape.details.get("claims"),
+                        "claims_with_source": shape.details.get("verified"),
+                    },
+                )
+            )
+        if index + 1 < len(result.attempts):
+            following = result.attempts[index + 1]
+            entries.append(
+                AuditEntry(
+                    "agent.retry",
+                    f"{agent} retried once with the error shown · {following.slot} "
+                    "model slot",
+                    {"attempt": following.attempt, "slot": following.slot},
+                )
+            )
+    if failed_reason is not None:
+        entries.append(
+            AuditEntry("agent.failed", f"{agent} blocked: {failed_reason}", {})
+        )
+    return entries
+
+
+def guard_summary(result: AgentRunResult) -> dict[str, int]:
+    """``AgentDone.output["guard_summary"]``: how many claims the last Guard 4
+    pass saw, how many carried a verified source, and how many items were
+    dropped.
+    """
+    shapes = [
+        shape
+        for index in range(len(result.attempts))
+        for shape in _shape_results(result, index)
+    ]
+    details = shapes[-1].details if shapes else {}
+    return {
+        "claims_total": int(details.get("claims", 0)),
+        "claims_with_source": int(details.get("verified", 0)),
+        "dropped": len(result.dropped),
+    }
+
+
+def fast_lane_proposed(agent: AgentName, result: AgentRunResult) -> Optional[bool]:
+    """The screening agent's own R4 proposal, copied to the top level of
+    ``agent.done`` for H1's guard; ``None`` for every other agent.
+    """
+    if agent is not AgentName.SCREENING:
+        return None
+    for item in result.accepted:
+        if isinstance(item, ScreeningProposal):
+            return item.fast_lane
+    return False
 
 
 class AgentJobConsumer(Consumer):
@@ -170,21 +325,8 @@ class AgentJobConsumer(Consumer):
             job_id=job.job_id,
             agent=job.agent.value,
         ):
-            try:
-                pack = await builder_for(job.agent).build(
-                    BuildRequest.from_job(job), self._registry
-                )
-            except _CONTEXT_PACK_ERRORS as exc:
-                logger.warning(
-                    "context pack build failed; reporting agent.failed",
-                    extra={"agent": job.agent.value, "error": type(exc).__name__},
-                )
-                await self._publish_failed(
-                    job, attempt=job.attempt, reason=f"context_pack_error: {exc}"
-                )
-                await self._write_audit(
-                    job, "agent.failed", f"{job.agent.value} context pack failed: {exc}"
-                )
+            pack = await self._build_pack(job)
+            if pack is None:
                 return
 
             spec = get_spec(job.agent)
@@ -205,18 +347,43 @@ class AgentJobConsumer(Consumer):
             attempt_count = len(result.attempts) or job.attempt
             if result.verdict in (RunVerdict.PASS, RunVerdict.PASS_WITH_DROPS):
                 await self._publish_done(job, result, model_used, usage, attempt_count)
-                await self._write_audit(
-                    job,
-                    "agent.done",
-                    f"{job.agent.value} {result.verdict.value}: "
-                    f"{len(result.accepted)} accepted, {len(result.dropped)} dropped",
-                )
+                await self._write_audit_entries(job, audit_entries(result, spec))
                 return
             reason = self._failure_reason(result)
             await self._publish_failed(job, attempt=attempt_count, reason=reason)
-            await self._write_audit(
-                job, "agent.failed", f"{job.agent.value} blocked: {reason}"
+            await self._write_audit_entries(
+                job, audit_entries(result, spec, failed_reason=reason)
             )
+
+    async def _build_pack(self, job: JobPayload) -> Optional[ContextPack]:
+        """The job's context pack, or ``None`` after reporting ``agent.failed``.
+
+        ``job.refs`` go to the builder unchanged (:func:`pack_refs`). A build
+        failure is deterministic (redelivering the same message fails the same
+        way), so it is a terminal ``agent.failed``, not a broker retry.
+        """
+        try:
+            return await builder_for(job.agent).build(
+                BuildRequest.from_job(job, **pack_refs(job)), self._registry
+            )
+        except _CONTEXT_PACK_ERRORS as exc:
+            logger.warning(
+                "context pack build failed; reporting agent.failed",
+                extra={"agent": job.agent.value, "error": type(exc).__name__},
+            )
+            await self._publish_failed(
+                job, attempt=job.attempt, reason=f"context_pack_error: {exc}"
+            )
+            await self._write_audit_entries(
+                job,
+                [
+                    AuditEntry(
+                        "agent.failed",
+                        f"{job.agent.value} context pack failed: {exc}",
+                    )
+                ],
+            )
+            return None
 
     @staticmethod
     def _failure_reason(result: AgentRunResult) -> str:
@@ -245,10 +412,13 @@ class AgentJobConsumer(Consumer):
                 "accepted": [item.model_dump(mode="json") for item in result.accepted],
                 "dropped": result.dropped,
                 "notes_for_analyst": result.notes_for_analyst,
+                "guard_summary": guard_summary(result),
+                "attempts": attempt,
             },
             usage=usage,
             model=model_used,
             attempt=attempt,
+            fast_lane_proposed=fast_lane_proposed(job.agent, result),
         )
         env = build_envelope(
             "agent.done",
@@ -284,9 +454,26 @@ class AgentJobConsumer(Consumer):
             env,
         )
 
-    async def _write_audit(
-        self, job: JobPayload, record_type: str, summary: str
+    async def _write_audit_entries(
+        self, job: JobPayload, entries: Sequence[AuditEntry]
     ) -> None:
+        """Write ``entries`` in order, best-effort. After the first failure
+        the rest of this job's records are skipped (logged), so an S4 that is
+        down costs one timeout, not one per record.
+        """
+        for index, entry in enumerate(entries):
+            if await self._write_audit(job, entry):
+                continue
+            skipped = len(entries) - index - 1
+            if skipped:
+                logger.warning(
+                    "skipping %d remaining audit record(s) for this job",
+                    skipped,
+                    extra={"case_id": job.case_id, "job_id": job.job_id},
+                )
+            return
+
+    async def _write_audit(self, job: JobPayload, entry: AuditEntry) -> bool:
         """Best-effort audit write: a write failure is logged, never
         re-raised -- the event is already published and this consumer must
         not turn S4 being slow or down into a redelivered/duplicated
@@ -294,15 +481,19 @@ class AgentJobConsumer(Consumer):
         degrades audit completeness, not job delivery; a replayed hash
         chain gap is visible at ``GET /verify``, which is the intended
         detection path).
+
+        Returns:
+            Whether the record was written.
         """
         try:
             await self._audit.append(
                 RecordAppend(
                     case_id=job.case_id,
-                    type=record_type,
+                    type=entry.record_type,
                     actor="ai",
-                    summary=summary,
+                    summary=entry.summary,
                     data={
+                        **entry.data,
                         "run_id": job.run_id,
                         "job_id": job.job_id,
                         "agent": job.agent.value,
@@ -315,6 +506,8 @@ class AgentJobConsumer(Consumer):
                 extra={
                     "case_id": job.case_id,
                     "job_id": job.job_id,
-                    "type": record_type,
+                    "type": entry.record_type,
                 },
             )
+            return False
+        return True

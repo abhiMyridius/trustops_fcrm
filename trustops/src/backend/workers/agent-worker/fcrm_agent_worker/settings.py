@@ -52,6 +52,11 @@ class AgentWorkerSettings(BaseServiceSettings):
     # root directory, not a path to tiers.yaml itself.
     prompts_dir: str = "ai"
 
+    # ADR-27: agents call live Bedrock only. ``FCRM_LLM_MODE`` is read once, in
+    # ``fcrm_agent_worker.app.build_unit``, which refuses to start on anything
+    # but ``live`` (unset or empty means live). There is no replay or mock mode.
+    fcrm_llm_mode: str = "live"
+
     # Worker tuning.
     agent_max_tool_calls: int = 12
     model_cache_enabled: bool = False

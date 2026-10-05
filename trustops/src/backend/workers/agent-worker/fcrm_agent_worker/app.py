@@ -37,9 +37,9 @@ from fcrm_common.health import (
 from fcrm_common.http import ServiceClient
 from fcrm_common.logging import configure_logging
 from fcrm_common.mongo import Document, close_clients, get_client
-from fcrm_common.settings import required_value
+from fcrm_common.settings import MissingSettingsError, required_value
 from fcrm_common.worker import WorkerUnit
-from fcrm_contracts.enums import AgentName
+from fcrm_contracts.enums import AgentName, LlmMode
 from fcrm_tools import ToolRegistry, build_seed_registry
 from pymongo import AsyncMongoClient
 
@@ -83,6 +83,31 @@ def _instructions_for(settings: AgentWorkerSettings) -> InstructionsFor:
             return None
 
     return instructions_for
+
+
+def require_live_llm_mode(settings: AgentWorkerSettings) -> None:
+    """Refuse to start unless agents are to call live Bedrock (ADR-27).
+
+    ``FCRM_LLM_MODE`` may be ``live`` in any case, or unset or empty (both
+    mean live). Anything else (``replay``, ``mock``...) names a mode that no
+    longer exists, and silently running live under such a setting would
+    spend Bedrock tokens the operator believed were being replayed.
+
+    Raises:
+        fcrm_common.settings.MissingSettingsError: the mode is not ``live``;
+            ``invalid`` names ``FCRM_LLM_MODE`` and the value.
+    """
+    mode = settings.fcrm_llm_mode.strip().lower()
+    if mode in ("", LlmMode.LIVE.value):
+        return
+    raise MissingSettingsError(
+        settings.app_name,
+        [],
+        [
+            f"FCRM_LLM_MODE: {settings.fcrm_llm_mode!r} is not supported, agents "
+            "call live Bedrock only (ADR-27); unset it or set it to 'live'"
+        ],
+    )
 
 
 def build_broker(rabbitmq_url: str) -> RabbitBroker:
@@ -131,7 +156,12 @@ def build_unit(
     Returns:
         The unit: the ``agent-worker.run`` subscriber, an OPA readiness check,
         and a shutdown hook closing the OPA and audit HTTP clients.
+
+    Raises:
+        fcrm_common.settings.MissingSettingsError: ``FCRM_LLM_MODE`` is set to
+            anything but ``live`` (ADR-27), or a required variable is missing.
     """
+    require_live_llm_mode(settings)
     db_name = required_value(settings.mongodb_db, "MONGODB_DB", settings.app_name)
     opa_url = required_value(settings.opa_url, "OPA_URL", settings.app_name)
     audit_url = required_value(
