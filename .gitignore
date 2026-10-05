@@ -19,3 +19,6 @@ htmlcov/
 src/.venv/
 src/uv.lock.bak
 .claude/worktrees/
+
+# personal direnv files
+.envrc*

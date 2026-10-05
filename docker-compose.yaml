@@ -61,8 +61,13 @@ x-s3-env: &s3-env
   S3_BUCKET_JOBS: jobs
 
 # Bedrock / S3 Vectors credentials (live mode only; empty = replay/memory).
+# One region setting, AWS_DEFAULT_REGION, passed under both names: boto3 and
+# Pydantic AI's BedrockProvider read AWS_DEFAULT_REGION (without it, live mode
+# fails with "You must provide a region_name"), and the cloned context
+# engine reads AWS_REGION.
 x-aws-env: &aws-env
-  AWS_REGION: ${AWS_REGION:-us-east-1}
+  AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+  AWS_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
   AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
   AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
   AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}

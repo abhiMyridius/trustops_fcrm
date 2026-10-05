@@ -349,7 +349,7 @@ Mechanics: Claude Code hooks (protect paths, commit-message guard requiring a `D
 
 The run needs exactly two things from the operator, neither of which blocks it:
 
-1. **AWS credentials** for Bedrock, S3 and S3 Vectors in `.env` (names in `.env.example`; `AWS_REGION=us-east-1`). Until they exist the run works in `replay`/`memory` mode and switches to live automatically when they appear.
+1. **AWS credentials** for Bedrock, S3 and S3 Vectors in `.env` (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION=us-east-1`; compose passes the region under both names, see D-30). Until they exist the run works in `replay`/`memory` mode and switches to live automatically when they appear.
 2. **Objections**, if any, as new rows in `docs/governance/decision-log.md` or `defect-trail.md`. Proposed ADR rows are treated as accepted when the run starts; the gates register records operator gates as "passed pending review".
 
 Everything else — tooling installation into `~/.local` (no sudo), scaffolding, every lane, every milestone assertion, the clean-clone proof, reports and the deck draft — is performed by the run.

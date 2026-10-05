@@ -53,9 +53,20 @@ def test_only_the_short_set_is_written_and_every_name_exists_in_the_example() ->
 
 
 def test_aws_keys_are_empty_and_mode_is_replay_so_no_live_call_by_default() -> None:
-    values = _assignments(make_env.render(EXAMPLE)[0])
+    text = make_env.render(EXAMPLE)[0]
+    values = _assignments(text)
     assert values["FCRM_LLM_MODE"] == "replay"
-    assert all(values[n] == "" for n in make_env.AWS)
+    assert values["AWS_ACCESS_KEY_ID"] == ""
+    assert values["AWS_SECRET_ACCESS_KEY"] == ""
+    assert values["AWS_DEFAULT_REGION"] == "us-east-1"
+    assert "AWS_SESSION_TOKEN" not in values
+    assert re.search(r"^# AWS_SESSION_TOKEN=", text, re.MULTILINE)
+
+
+def test_compose_passes_the_one_region_under_both_names() -> None:
+    compose = (ROOT / "docker-compose.yaml").read_text(encoding="utf-8")
+    assert "AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}" in compose
+    assert "AWS_REGION: ${AWS_DEFAULT_REGION:-us-east-1}" in compose
 
 
 def test_ports_are_commented_out_with_the_example_defaults() -> None:
@@ -79,8 +90,10 @@ def test_secrets_are_fresh_hex_and_dollars_are_escaped_for_compose() -> None:
 
 
 def test_a_name_missing_from_the_example_is_refused() -> None:
-    with pytest.raises(ValueError, match="AWS_REGION"):
-        make_env.render(EXAMPLE.replace("AWS_REGION=", "AWS_REGION_RENAMED="))
+    with pytest.raises(ValueError, match="AWS_DEFAULT_REGION"):
+        make_env.render(
+            EXAMPLE.replace("AWS_DEFAULT_REGION=", "AWS_DEFAULT_REGION_RENAMED=")
+        )
 
 
 def test_main_never_overwrites_and_writes_mode_0600(tmp_path: Path) -> None:

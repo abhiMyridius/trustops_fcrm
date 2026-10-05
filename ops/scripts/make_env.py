@@ -55,13 +55,16 @@ LOCAL_DEFAULTS = {
     "VECTOR_BACKEND": "memory",
     "EMBEDDING_PROVIDER": "dummy",
 }
-#: The live-mode block, always written so there is one obvious place to add keys.
+#: The live-mode block, always written so there is one obvious place to add
+#: keys: the three standard boto3 / AWS CLI names, with the region pre-filled.
 AWS = (
-    "AWS_REGION",
     "AWS_ACCESS_KEY_ID",
     "AWS_SECRET_ACCESS_KEY",
-    "AWS_SESSION_TOKEN",
+    "AWS_DEFAULT_REGION",
 )
+AWS_DEFAULT_REGION = "us-east-1"
+#: Written commented out: only temporary (SSO / assumed-role) keys need it.
+AWS_SESSION_TOKEN = "AWS_SESSION_TOKEN"
 #: Host ports that most often clash with other local stacks, with what each is.
 COMMON_PORTS = (
     ("GATEWAY_HOST_PORT", "the app and API"),
@@ -137,6 +140,7 @@ def render(
     known = example_defaults(example)
     wanted = [
         *AWS,
+        AWS_SESSION_TOKEN,
         "FCRM_LLM_MODE",
         *(n for n, _ in COMMON_PORTS),
         *USERNAMES,
@@ -160,7 +164,11 @@ def render(
 
     filled: list[str] = []
     lines = [HEADER.rstrip("\n"), "", AWS_INTRO.rstrip("\n"), "FCRM_LLM_MODE=replay"]
-    lines += [f"{name}=" for name in AWS]
+    lines += [
+        f"{name}={AWS_DEFAULT_REGION if name == 'AWS_DEFAULT_REGION' else ''}"
+        for name in AWS
+    ]
+    lines.append(f"# {AWS_SESSION_TOKEN}=    only for temporary (SSO) credentials")
     lines += ["", PORTS_INTRO.rstrip("\n")]
     width = max(len(f"{n}={known[n]}") for n, _ in COMMON_PORTS)
     lines += [f"# {f'{n}={known[n]}':<{width}}  {what}" for n, what in COMMON_PORTS]

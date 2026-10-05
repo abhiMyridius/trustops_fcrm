@@ -56,7 +56,7 @@ Every seeded demo user shares one password, `demo-password-2026`. To choose your
 
 | Section | What to do |
 |---|---|
-| **1. Live AI on Amazon Bedrock** | Optional. Leave it empty and the agents run on recorded replays: no cost, no cloud. To go live, fill in `AWS_REGION`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (plus `AWS_SESSION_TOKEN` for SSO or temporary keys), and set `FCRM_LLM_MODE=live` |
+| **1. Live AI on Amazon Bedrock** | Optional. Leave it empty and the agents run on recorded replays: no cost, no cloud. To go live, fill in `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (`AWS_DEFAULT_REGION` is already `us-east-1`; uncomment `AWS_SESSION_TOKEN` only for SSO or temporary keys) and set `FCRM_LLM_MODE=live`. These are the standard boto3 and AWS CLI names. The agents call Bedrock through Pydantic AI's Bedrock provider, and the vector store calls S3 Vectors through aioboto3 |
 | **2. Host ports** | Optional. Change a port only if `up` reports `port is already allocated`: uncomment that line and choose a free port |
 | **3. Generated** | Leave as is. These are local passwords. The databases are created with them on the first start, so changing them later needs `make down-v`, which deletes local data |
 
