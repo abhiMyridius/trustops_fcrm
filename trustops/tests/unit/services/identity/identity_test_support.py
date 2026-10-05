@@ -15,7 +15,7 @@ module cache.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Optional
 
 import bcrypt
 import httpx
@@ -74,7 +74,14 @@ def make_settings(**overrides: Any) -> IdentitySettings:
     production one, so it is fixed here rather than by changing the
     shipped default.
     """
-    fields: dict[str, Any] = {"refresh_cookie_path": "/", **overrides}
+    fields: dict[str, Any] = {
+        "refresh_cookie_path": "/",
+        # Pinned so the shell's own ENV / DEMO_USERS_ENABLED never leaks in:
+        # demo login is off unless a test turns it on.
+        "env": "local",
+        "demo_users_enabled": False,
+        **overrides,
+    }
     return IdentitySettings(**fields)
 
 
@@ -113,7 +120,14 @@ def make_token_verifier(signing_key: SigningKey) -> TokenVerifier:
 
 
 def make_user(
-    user_id: str, name: str, role: Role, *, password: str = DEMO_PASSWORD
+    user_id: str,
+    name: str,
+    role: Role,
+    *,
+    password: str = DEMO_PASSWORD,
+    title: str = "",
+    unit: Optional[str] = None,
+    enabled: bool = True,
 ) -> UserRecord:
     """A seeded-looking user whose password is ``password`` (bcrypt-hashed
     here so tests can log in with the plaintext).
@@ -125,19 +139,25 @@ def make_user(
         id=user_id,
         name=name,
         roles=[role],
+        title=title,
+        unit=unit,
         password_hash=password_hash,
-        enabled=True,
+        enabled=enabled,
         created_at=datetime.now(UTC),
     )
 
 
 def build_app(
-    users: list[UserRecord], *, opa_allow: bool = True
+    users: list[UserRecord],
+    *,
+    opa_allow: bool = True,
+    **settings_overrides: Any,
 ) -> tuple[FastAPI, SigningKey]:
     """A fully wired identity app over :class:`InMemoryIdentityStore`,
     plus the signing key it was built with (so a test can mint its own
     tokens, e.g. an expired or wrong-``typ`` one, with the same key the
-    app's ``TokenVerifier`` trusts).
+    app's ``TokenVerifier`` trusts). ``settings_overrides`` go to
+    :func:`make_settings` (e.g. ``demo_users_enabled=True, env="local"``).
     """
     signing_key = make_signing_key()
     app = FastAPI()
@@ -148,7 +168,7 @@ def build_app(
     app.state.store = InMemoryIdentityStore(users)
     app.state.signing_key = signing_key
     app.state.issuer = make_issuer(signing_key)
-    app.state.settings = make_settings()
+    app.state.settings = make_settings(**settings_overrides)
     install_auth(app.state, make_token_verifier(signing_key))
     install_authz(app.state, make_opa_client(allow=opa_allow))
     return app, signing_key

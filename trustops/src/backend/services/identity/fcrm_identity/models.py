@@ -23,6 +23,11 @@ from pydantic import BaseModel, ConfigDict
 class UserRecord(BaseModel):
     """One seeded person. ``id`` is the seed id (``u-riyer``) and is also
     the document's ``_id`` (see ``store.py``'s ``id_of``).
+
+    ``title`` is the seed's ``role`` text ("FCRM Analyst"), shown under the
+    person's name in the web app. It defaults to empty so a document written
+    before the field existed still loads; the routes then fall back to the
+    role's own label (``routes.title_for``).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -30,6 +35,7 @@ class UserRecord(BaseModel):
     id: str
     name: str
     roles: list[Role]
+    title: str = ""
     unit: Optional[str] = None
     password_hash: str
     enabled: bool = True

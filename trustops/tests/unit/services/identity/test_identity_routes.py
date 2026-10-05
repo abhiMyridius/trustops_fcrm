@@ -10,15 +10,18 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 from fcrm_contracts.enums import Role
+from fcrm_identity.store import InMemoryIdentityStore
 from identity_test_support import DEMO_PASSWORD, build_app, make_user
 
 
 @pytest.fixture
 def users():
     return [
-        make_user("u-pnair", "Priya Nair", Role.PO),
-        make_user("u-riyer", "Rahul Iyer", Role.ANALYST),
-        make_user("u-amendes", "Ana Mendes", Role.COMMITTEE),
+        make_user(
+            "u-pnair", "Priya Nair", Role.PO, title="Product Owner", unit="Payments"
+        ),
+        make_user("u-riyer", "Rahul Iyer", Role.ANALYST, title="FCRM Analyst"),
+        make_user("u-amendes", "Ana Mendes", Role.COMMITTEE, title="Risk Committee"),
     ]
 
 
@@ -68,11 +71,76 @@ def test_login_unknown_user_is_401(client: TestClient):
     assert response.status_code == 401
 
 
+def test_login_with_username_returns_the_web_contract(client: TestClient):
+    """The web posts ``{username, password}`` and reads
+    ``{access_token, token_type, expires_in, user}`` (``Principal``).
+    """
+    response = client.post(
+        "/login", json={"username": "pnair", "password": DEMO_PASSWORD}
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["token_type"] == "bearer"
+    assert body["expires_in"] == 900
+    assert body["user"] == {
+        "id": "u-pnair",
+        "name": "Priya Nair",
+        "roles": ["fcrm_po"],
+        "title": "Product Owner",
+        "unit": "Payments",
+    }
+
+
+def test_login_user_omits_unit_when_the_person_has_none(client: TestClient):
+    response = client.post(
+        "/login", json={"username": "riyer", "password": DEMO_PASSWORD}
+    )
+    assert "unit" not in response.json()["user"]
+
+
+@pytest.mark.parametrize(
+    "credentials",
+    [
+        {"username": "riyer", "email": "u-riyer"},
+        {},
+    ],
+    ids=["both", "neither"],
+)
+def test_login_needs_exactly_one_of_username_or_email(
+    client: TestClient, credentials: dict[str, str]
+):
+    response = client.post("/login", json={**credentials, "password": DEMO_PASSWORD})
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+
+
+def test_login_rejects_unknown_fields_and_a_blank_login(client: TestClient):
+    extra = client.post(
+        "/login", json={"username": "riyer", "password": DEMO_PASSWORD, "otp": "1"}
+    )
+    blank = client.post("/login", json={"username": "", "password": DEMO_PASSWORD})
+    assert extra.status_code == 422
+    assert blank.status_code == 422
+
+
 def test_login_response_never_carries_a_refresh_token_in_the_body(client: TestClient):
     response = client.post(
         "/login", json={"email": "u-riyer", "password": DEMO_PASSWORD}
     )
-    assert set(response.json().keys()) == {"access_token", "expires_in"}
+    assert set(response.json().keys()) == {
+        "access_token",
+        "token_type",
+        "expires_in",
+        "user",
+    }
+
+
+def test_refresh_returns_the_same_body_shape_as_login(client: TestClient):
+    client.post("/login", json={"username": "riyer", "password": DEMO_PASSWORD})
+    body = client.post("/refresh").json()
+    assert body["token_type"] == "bearer"
+    assert body["user"]["id"] == "u-riyer"
+    assert body["user"]["title"] == "FCRM Analyst"
 
 
 # ── refresh ──────────────────────────────────────────────────────────────
@@ -127,10 +195,34 @@ def test_me_returns_the_caller_profile(client: TestClient):
     response = client.get("/me", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     assert response.json() == {
-        "sub": "u-riyer",
+        "id": "u-riyer",
         "name": "Rahul Iyer",
         "roles": ["fcrm_analyst"],
+        "title": "FCRM Analyst",
     }
+
+
+def test_me_carries_the_unit_when_there_is_one(client: TestClient):
+    login = client.post("/login", json={"username": "pnair", "password": DEMO_PASSWORD})
+    token = login.json()["access_token"]
+    response = client.get("/me", headers={"Authorization": f"Bearer {token}"})
+    assert response.json()["unit"] == "Payments"
+
+
+def test_me_for_an_account_disabled_after_login_is_401(app, users):
+    """The access token outlives the account by up to 15 minutes; the
+    profile route must not keep answering for a user who was disabled.
+    """
+    client = TestClient(app)
+    login = client.post("/login", json={"username": "riyer", "password": DEMO_PASSWORD})
+    token = login.json()["access_token"]
+    disabled = [
+        u.model_copy(update={"enabled": False}) if u.id == "u-riyer" else u
+        for u in users
+    ]
+    app.state.store = InMemoryIdentityStore(disabled)
+    response = client.get("/me", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 401
 
 
 def test_users_me_is_the_same_as_me(client: TestClient):

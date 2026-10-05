@@ -46,6 +46,25 @@ test_service_appends_audit_records if {
 	authz.allow with input as req("fcrm_service", "audit", "POST", "/records")
 }
 
+test_roster_is_readable_by_analyst_committee_and_service if {
+	# GET /auth/users?role= (R5 auto-triage, committee release): the route
+	# template is "/users" relative to X1's mount.
+	authz.allow with input as req("fcrm_analyst", "identity", "GET", "/users")
+	authz.allow with input as req("fcrm_committee", "identity", "GET", "/users")
+	authz.allow with input as req("fcrm_service", "identity", "GET", "/users")
+}
+
+test_roster_is_not_readable_by_po_or_observer if {
+	not authz.allow with input as req("fcrm_po", "identity", "GET", "/users")
+	not authz.allow with input as req("fcrm_observer", "identity", "GET", "/users")
+}
+
+test_own_profile_is_readable_by_every_person_role if {
+	authz.allow with input as req("fcrm_po", "identity", "GET", "/me")
+	authz.allow with input as req("fcrm_observer", "identity", "GET", "/me")
+	authz.allow with input as req("fcrm_po", "identity", "GET", "/users/me")
+}
+
 test_method_is_case_insensitive if {
 	authz.allow with input as req("fcrm_po", "case", "post", "/cases")
 }

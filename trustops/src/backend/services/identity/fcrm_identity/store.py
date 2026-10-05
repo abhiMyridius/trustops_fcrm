@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Optional, Protocol
 
 from fcrm_common.mongo import Repository
+from fcrm_contracts.enums import Role
 
 from fcrm_identity.models import RefreshTokenRecord, UserRecord
 
@@ -41,6 +42,13 @@ class IdentityStore(Protocol):
 
     async def user_by_id(self, user_id: str) -> Optional[UserRecord]:
         """The user with this seed id, or ``None``."""
+        ...
+
+    async def list_users(self, role: Optional[Role] = None) -> list[UserRecord]:
+        """Every *enabled* user in seed (insertion) order; only those holding
+        ``role`` when one is given. A disabled account is never listed, so
+        it can neither be assigned work nor appear on the demo picker.
+        """
         ...
 
     async def save_refresh(self, record: RefreshTokenRecord) -> None:
@@ -74,6 +82,13 @@ class InMemoryIdentityStore:
 
     async def user_by_id(self, user_id: str) -> Optional[UserRecord]:
         return self._users.get(user_id)
+
+    async def list_users(self, role: Optional[Role] = None) -> list[UserRecord]:
+        return [
+            user
+            for user in self._users.values()
+            if user.enabled and (role is None or role in user.roles)
+        ]
 
     async def save_refresh(self, record: RefreshTokenRecord) -> None:
         self._refresh[record.jti] = record
@@ -110,6 +125,14 @@ class MongoIdentityStore:
 
     async def user_by_id(self, user_id: str) -> Optional[UserRecord]:
         return await self._users.find_one({"_id": user_id})
+
+    async def list_users(self, role: Optional[Role] = None) -> list[UserRecord]:
+        query: dict[str, object] = {"enabled": True}
+        if role is not None:
+            query["roles"] = role.value
+        # No sort: a freshly seeded collection reads back in seed order, which
+        # is the order the demo picker and the roster should show.
+        return await self._users.find(query)
 
     async def save_refresh(self, record: RefreshTokenRecord) -> None:
         await self._refresh_tokens.insert_one(record)

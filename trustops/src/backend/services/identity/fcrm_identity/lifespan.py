@@ -93,6 +93,18 @@ async def register(
         )
         await load_if_empty(users_repo, [users_repo.to_document(r) for r in records])
 
+    if settings.demo_login_active:
+        logger.warning(
+            "demo login is ON: the demo picker is served and an empty password "
+            "signs a named user in (ENV=%s)",
+            settings.env,
+        )
+    elif settings.demo_users_enabled:
+        logger.warning(
+            "DEMO_USERS_ENABLED ignored: ENV=%s is not a local environment",
+            settings.env,
+        )
+
     store = MongoIdentityStore(users_repo, refresh_repo)
     app.state.store = store
     app.state.signing_key = signing_key

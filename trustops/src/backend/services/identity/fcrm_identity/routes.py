@@ -1,7 +1,8 @@
 """X1's HTTP surface (design A §8.1).
 
 Every route here except the login family (``/login``, ``/refresh``,
-``/core/validate``, ``/core/userinfo``, ``/.well-known/jwks.json``)
+``/demo-users``, ``/core/validate``, ``/core/userinfo``,
+``/.well-known/jwks.json``)
 carries ``Depends(current_user)`` and ``Depends(opa_dependency("identity"))``,
 matching the convention design A §2 sets for every service in this
 workspace, including X1 itself: identity verifies its own issued tokens
@@ -20,20 +21,23 @@ from fastapi import APIRouter, Body, Depends, Request, Response
 from fastapi.responses import JSONResponse
 from fcrm_common.auth import current_user
 from fcrm_common.authz import opa_dependency
-from fcrm_common.errors import UnauthorizedError
+from fcrm_common.errors import NotFoundError, UnauthorizedError
 from fcrm_common.time import utcnow
 from fcrm_contracts.api.identity import (
+    DemoUserGroup,
     LoginRequest,
     LoginResponse,
-    MeResponse,
+    PrincipalOut,
+    RosterUser,
     ValidateResponse,
 )
 from fcrm_contracts.common import Principal
 from fcrm_contracts.enums import Role
 from pydantic import BaseModel, ConfigDict
 
+from fcrm_identity.directory import demo_groups, principal_out, roster_user
 from fcrm_identity.jwks import JWKS_CACHE_CONTROL, build_jwks
-from fcrm_identity.models import RefreshTokenRecord
+from fcrm_identity.models import RefreshTokenRecord, UserRecord
 from fcrm_identity.security import DUMMY_HASH, verify_password
 from fcrm_identity.settings import IdentitySettings
 from fcrm_identity.store import IdentityStore
@@ -107,25 +111,27 @@ async def _issue_tokens(
     settings: IdentitySettings,
     response: Response,
     *,
-    sub: str,
-    roles: list[str],
-    name: str,
+    user: UserRecord,
 ) -> LoginResponse:
-    """Mint and persist a fresh access+refresh pair, set the refresh
-    cookie and return the body every login-family route answers with.
+    """Mint and persist a fresh access+refresh pair for ``user``, set the
+    refresh cookie and return the body every login-family route answers
+    with (the token plus the web's ``user`` profile).
     """
-    access = issuer.mint_access(sub=sub, roles=roles, name=name)
-    refresh = issuer.mint_refresh(sub=sub, roles=roles, name=name)
+    roles = [str(r.value) for r in user.roles]
+    access = issuer.mint_access(sub=user.id, roles=roles, name=user.name)
+    refresh = issuer.mint_refresh(sub=user.id, roles=roles, name=user.name)
     await store.save_refresh(
-        RefreshTokenRecord(jti=refresh.jti, sub=sub, exp=refresh.exp, revoked=False)
+        RefreshTokenRecord(jti=refresh.jti, sub=user.id, exp=refresh.exp, revoked=False)
     )
     _set_refresh_cookie(response, settings, refresh)
     return LoginResponse(
-        access_token=access.token, expires_in=settings.jwt_access_ttl_s
+        access_token=access.token,
+        expires_in=settings.jwt_access_ttl_s,
+        user=principal_out(user),
     )
 
 
-@router.post("/login", response_model=LoginResponse)
+@router.post("/login", response_model=LoginResponse, response_model_exclude_none=True)
 async def login(
     body: LoginRequest,
     response: Response,
@@ -136,28 +142,30 @@ async def login(
     """Password login for a seeded user. Rate-limited at the gateway
     (nginx ``limit_req zone=fcrm_login``), not here.
 
+    The account is named by ``username`` or ``email`` (exactly one, see
+    :class:`~fcrm_contracts.api.identity.LoginRequest`). When the local demo
+    picker is on (:attr:`IdentitySettings.demo_login_active`) an *empty*
+    password signs the named, enabled user in without a hash check; in every
+    other environment an empty password is checked like any other and fails.
+
     Raises:
         UnauthorizedError: Unknown login, disabled account or wrong
             password -- one message for all three, so the response never
             reveals which it was.
     """
-    user = await store.find_user_by_login(body.email)
+    user = await store.find_user_by_login(body.login)
+    demo_pick = settings.demo_login_active and body.password == ""
+    if demo_pick and user is not None and user.enabled:
+        logger.info("demo login", extra={"sub": user.id})
+        return await _issue_tokens(store, issuer, settings, response, user=user)
     password_hash = user.password_hash if user is not None else DUMMY_HASH
     password_ok = verify_password(body.password, password_hash)
     if user is None or not user.enabled or not password_ok:
         raise UnauthorizedError("Unknown user or wrong password.")
-    return await _issue_tokens(
-        store,
-        issuer,
-        settings,
-        response,
-        sub=user.id,
-        roles=[str(r.value) for r in user.roles],
-        name=user.name,
-    )
+    return await _issue_tokens(store, issuer, settings, response, user=user)
 
 
-@router.post("/refresh", response_model=LoginResponse)
+@router.post("/refresh", response_model=LoginResponse, response_model_exclude_none=True)
 async def refresh(
     request: Request,
     response: Response,
@@ -185,15 +193,7 @@ async def refresh(
     if user is None or not user.enabled:
         raise UnauthorizedError("Account is no longer active.")
     await store.revoke_refresh(decoded.jti)
-    return await _issue_tokens(
-        store,
-        issuer,
-        settings,
-        response,
-        sub=user.id,
-        roles=[str(r.value) for r in user.roles],
-        name=user.name,
-    )
+    return await _issue_tokens(store, issuer, settings, response, user=user)
 
 
 @router.post("/logout", status_code=204)
@@ -224,28 +224,77 @@ async def logout(
     )
 
 
-def _me(principal: Principal) -> MeResponse:
-    return MeResponse(
-        sub=principal.sub, name=principal.name, roles=[Role(r) for r in principal.roles]
-    )
+async def _own_profile(principal: Principal, store: IdentityStore) -> PrincipalOut:
+    """The stored profile of the token's subject (the token only carries
+    ``sub``, ``name`` and ``roles``; the title and unit live in the store).
+
+    Raises:
+        UnauthorizedError: The subject no longer exists or was disabled
+            since the access token was minted.
+    """
+    user = await store.user_by_id(principal.sub)
+    if user is None or not user.enabled:
+        raise UnauthorizedError("Account is no longer active.")
+    return principal_out(user)
 
 
-@router.get("/me", response_model=MeResponse)
+@router.get("/me", response_model=PrincipalOut, response_model_exclude_none=True)
 async def me(
     principal: Annotated[Principal, Depends(current_user)],
     _authorized: Annotated[Principal, Depends(opa_dependency("identity"))],
-) -> MeResponse:
-    """The caller's own profile, decoded from its access token."""
-    return _me(principal)
+    store: Annotated[IdentityStore, Depends(get_store)],
+) -> PrincipalOut:
+    """The caller's own profile (id, name, roles, title, unit)."""
+    return await _own_profile(principal, store)
 
 
-@router.get("/users/me", response_model=MeResponse)
+@router.get("/users/me", response_model=PrincipalOut, response_model_exclude_none=True)
 async def users_me(
     principal: Annotated[Principal, Depends(current_user)],
     _authorized: Annotated[Principal, Depends(opa_dependency("identity"))],
-) -> MeResponse:
+    store: Annotated[IdentityStore, Depends(get_store)],
+) -> PrincipalOut:
     """Alias of ``GET /me`` (design A §8.1)."""
-    return _me(principal)
+    return await _own_profile(principal, store)
+
+
+@router.get("/users", response_model=list[RosterUser], response_model_exclude_none=True)
+async def users(
+    role: Role,
+    _principal: Annotated[Principal, Depends(current_user)],
+    _authorized: Annotated[Principal, Depends(opa_dependency("identity"))],
+    store: Annotated[IdentityStore, Depends(get_store)],
+) -> list[RosterUser]:
+    """The enabled people holding ``role``: the roster R5 auto-triage picks
+    an analyst from and committee release counts members against. OPA lets
+    analysts, committee members and the service account call it
+    (``permissions.json``'s ``identity-get-users-...`` rule).
+    """
+    return [roster_user(u) for u in await store.list_users(role)]
+
+
+@router.get(
+    "/demo-users",
+    response_model=list[DemoUserGroup],
+    response_model_exclude_none=True,
+)
+async def demo_users(
+    store: Annotated[IdentityStore, Depends(get_store)],
+    settings: Annotated[IdentitySettings, Depends(get_settings)],
+) -> list[DemoUserGroup]:
+    """The seeded people grouped for the web's demo picker. Unauthenticated
+    by design (it is shown before anyone has signed in) and therefore
+    available only where password-less login is
+    (:attr:`IdentitySettings.demo_login_active`).
+
+    Raises:
+        NotFoundError: Demo mode is off or ``ENV`` is not local -- the same
+            404 an unknown route gets, so the endpoint does not advertise
+            itself.
+    """
+    if not settings.demo_login_active:
+        raise NotFoundError("Not found.")
+    return demo_groups(await store.list_users())
 
 
 @router.post("/core/validate", response_model=ValidateResponse)

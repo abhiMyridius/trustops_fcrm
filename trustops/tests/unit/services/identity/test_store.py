@@ -79,3 +79,35 @@ async def test_refresh_token_lifecycle():
 async def test_revoke_refresh_unknown_jti_is_a_no_op():
     store = InMemoryIdentityStore([_user()])
     await store.revoke_refresh("never-issued")  # must not raise
+
+
+def _person(user_id: str, role: Role, *, enabled: bool = True) -> UserRecord:
+    return _user(user_id).model_copy(update={"roles": [role], "enabled": enabled})
+
+
+async def test_list_users_returns_enabled_users_in_insertion_order():
+    store = InMemoryIdentityStore(
+        [
+            _person("u-b", Role.ANALYST),
+            _person("u-a", Role.PO),
+            _person("u-off", Role.PO, enabled=False),
+        ]
+    )
+    assert [u.id for u in await store.list_users()] == ["u-b", "u-a"]
+
+
+async def test_list_users_filters_by_role():
+    store = InMemoryIdentityStore(
+        [
+            _person("u-b", Role.ANALYST),
+            _person("u-a", Role.PO),
+            _person("u-c", Role.ANALYST),
+        ]
+    )
+    assert [u.id for u in await store.list_users(Role.ANALYST)] == ["u-b", "u-c"]
+    assert await store.list_users(Role.COMMITTEE) == []
+
+
+async def test_list_users_never_lists_a_disabled_account_of_the_role():
+    store = InMemoryIdentityStore([_person("u-off", Role.ANALYST, enabled=False)])
+    assert await store.list_users(Role.ANALYST) == []

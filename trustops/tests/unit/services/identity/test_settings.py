@@ -22,6 +22,8 @@ ALL_REQUIRED = {
 }
 GENERIC_VARS = [
     *ALL_REQUIRED,
+    "ENV",
+    "DEMO_USERS_ENABLED",
     "IDENTITY_VALIDATE_URL",
     "SEED_PATH",
     "SEED_ON_EMPTY",
@@ -70,3 +72,34 @@ def test_jwt_defaults_match_docker_compose(monkeypatch):
     assert settings.jwt_issuer == "fcrm-identity"
     assert settings.jwt_audience == "fcrm"
     assert settings.refresh_cookie_name == "fcrm_refresh"
+
+
+def test_demo_users_are_off_by_default(monkeypatch):
+    for name, value in ALL_REQUIRED.items():
+        monkeypatch.setenv(name, value)
+    settings = IdentitySettings.load()
+    assert settings.demo_users_enabled is False
+    assert settings.demo_login_active is False
+
+
+@pytest.mark.parametrize(
+    ("flag", "env", "active"),
+    [
+        ("true", "local", True),
+        ("true", "test", True),
+        ("true", "ci", True),
+        ("true", "prod", False),
+        ("true", "staging", False),
+        ("false", "local", False),
+        ("", "local", False),
+    ],
+)
+def test_demo_login_needs_both_the_flag_and_a_local_env(
+    monkeypatch, flag: str, env: str, active: bool
+):
+    for name, value in ALL_REQUIRED.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("ENV", env)
+    monkeypatch.setenv("DEMO_USERS_ENABLED", flag)
+    settings = IdentitySettings.load()
+    assert settings.demo_login_active is active

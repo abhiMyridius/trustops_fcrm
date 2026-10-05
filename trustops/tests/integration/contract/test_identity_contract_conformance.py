@@ -30,7 +30,7 @@ from fcrm_common.auth import JwksCache, TokenVerifier, install_auth
 from fcrm_common.authz import OPAClient, install_authz
 from fcrm_common.errors import install_error_handlers
 from fcrm_common.health import ReadinessProbe, build_health_router
-from fcrm_contracts.api.identity import LoginResponse, MeResponse, ValidateResponse
+from fcrm_contracts.api.identity import LoginResponse, PrincipalOut, ValidateResponse
 from fcrm_contracts.enums import Role
 from fcrm_identity.jwks import build_jwks
 from fcrm_identity.jwtkeys import SigningKey
@@ -58,6 +58,7 @@ def _build_app() -> FastAPI:
         id="u-riyer",
         name="Rahul Iyer",
         roles=[Role.ANALYST],
+        title="FCRM Analyst",
         password_hash=password_hash,
         enabled=True,
         created_at=datetime.now(UTC),
@@ -112,18 +113,22 @@ def client() -> TestClient:
 def test_login_response_round_trips_through_the_contracts_model(
     client: TestClient,
 ) -> None:
-    """``LoginResponse`` has exactly two fields (``access_token``,
-    ``expires_in``) -- no refresh token in the body (rule: the refresh
-    token is the ``httpOnly`` cookie only). A second, independent parse
-    of the raw wire JSON through the contract model is the proof that
-    stays true at the wire level, not just in the route's own type hints.
+    """``LoginResponse`` is ``{access_token, token_type, expires_in, user}``
+    -- no refresh token in the body (rule: the refresh token is the
+    ``httpOnly`` cookie only). A second, independent parse of the raw wire
+    JSON through the contract model is the proof that stays true at the
+    wire level, not just in the route's own type hints. ``None`` fields are
+    left out of the body (``unit`` for a person with none), so the round
+    trip compares against ``exclude_none`` output.
     """
     response = client.post("/login", json={"email": "u-riyer", "password": PASSWORD})
     assert response.status_code == 200
     raw_json = json.loads(response.text)
 
     reparsed = LoginResponse.model_validate(raw_json)
-    assert reparsed.model_dump(mode="json") == raw_json
+    assert reparsed.model_dump(mode="json", exclude_none=True) == raw_json
+    assert reparsed.token_type == "bearer"
+    assert reparsed.user.id == "u-riyer"
 
     with pytest.raises(ValidationError):
         LoginResponse.model_validate({**raw_json, "refresh_token": "should-not-exist"})
@@ -139,9 +144,9 @@ def test_me_response_round_trips_and_carries_only_the_declared_role_shape(
     assert response.status_code == 200
     raw_json = json.loads(response.text)
 
-    reparsed = MeResponse.model_validate(raw_json)
+    reparsed = PrincipalOut.model_validate(raw_json)
     assert reparsed.roles == [Role.ANALYST]
-    assert reparsed.model_dump(mode="json") == raw_json
+    assert reparsed.model_dump(mode="json", exclude_none=True) == raw_json
 
 
 def test_core_validate_response_round_trips_through_validate_response(
