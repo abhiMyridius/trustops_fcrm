@@ -265,6 +265,8 @@ services:
       REFRESH_COOKIE_NAME: fcrm_refresh
       DEMO_USERS_PASSWORD_HASH: ${DEMO_USERS_PASSWORD_HASH:-}
       LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-10/minute}
+      # Password-less demo picker: honoured only while ENV is local, test or ci.
+      DEMO_USERS_ENABLED: "true"
       # S1 case
       UPLOAD_MAX_BYTES: "52428800"
       UPLOAD_ALLOWED_EXTENSIONS: .pdf,.docx,.xlsx,.pptx,.csv,.md,.txt
