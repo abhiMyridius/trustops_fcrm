@@ -65,6 +65,10 @@ Only the engine was cloned. The AEO host (`app.py`, `jobs/runner.py` with its al
 - List-valued filter keys (`risk_area`, `trigger_type`) are stored comma-joined per the contract, so an equality filter matches only the exact joined string on both backends. Storing them as string arrays (S3 Vectors supports array membership) is the follow-up.
 - Upstream defaults still name chat/embedding model ids in `core/config.py` (`analysis_model`, `synthesis_model`, `embedding_model`); the repo rule puts model ids only in `ai/models/tiers.yaml`. The chat ids are dead with synthesis off; the host should pass the embedding id from `tiers.yaml`.
 
+### litellm must not load `.env` (found 5 Oct 2026)
+
+`litellm` calls `load_dotenv()` at import unless `LITELLM_MODE` is set to something other than `DEV`. python-dotenv searches upward from the installed package, and inside this repo's `src/backend/.venv` that reaches the repository's own `.env`. Every process that imported `evoq_context` (S3 imports it as a library, so the whole `api` process and every test run) therefore had the developer's `.env` loaded into `os.environ`, including real AWS keys and, after ADR-27, a stale `FCRM_LLM_MODE=replay` that made unrelated tests fail. Containers were never affected (`.dockerignore` keeps `.env` out of the image). The engine itself may not read the environment (`test_context_no_host_imports.py` enforces it), so the host package `fcrm_context_worker/__init__.py` sets `LITELLM_MODE=PRODUCTION` before the engine is first imported, and `tests/conftest.py` does the same for tests that import the engine directly (`tests/unit/workers/context-worker/fcrm_context_worker/test_litellm_env.py` pins both).
+
 ### Post-merge fix: aioboto3 made an optional extra (workspace dependency conflict)
 
 Merging this clone into the single uv workspace alongside `fcrm-agents`

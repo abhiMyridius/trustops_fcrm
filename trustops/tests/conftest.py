@@ -12,6 +12,7 @@ from here instead of adding another nested one, per the standard.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager
 from pathlib import Path
@@ -25,6 +26,14 @@ from fcrm_seed.loader import (
     load_raw,
     scoring_model,
 )
+
+# Hermetic tests: litellm loads the nearest ``.env`` (the developer's secrets)
+# into the process when it is first imported unless LITELLM_MODE is set. None
+# of the imports above pull it in; it is imported lazily by the context engine,
+# after this runs (this file loads before any test module). The host package
+# sets it too at runtime (``fcrm_context_worker/__init__.py``); this covers
+# tests that import the engine directly.
+os.environ.setdefault("LITELLM_MODE", "PRODUCTION")
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
