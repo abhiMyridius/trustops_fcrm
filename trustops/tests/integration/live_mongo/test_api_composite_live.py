@@ -39,6 +39,7 @@ from fcrm_api.registry import MOUNTS
 from fcrm_audit.lifespan import InsertOnlyRoleViolatedError
 from fcrm_common import mongo
 from fcrm_common.authz import OPAClient, install_authz
+from fcrm_common.health import ReadinessCheck
 from fcrm_common.mongo import Document
 from pymongo import AsyncMongoClient
 
@@ -58,6 +59,29 @@ TEST_MOUNTS = tuple(
 )
 
 
+class FakeBroker:
+    """Stands in for the process's one ``RabbitBroker`` (no RabbitMQ runs in
+    these tests): it records what the services' relays publish through it.
+    """
+
+    def __init__(self) -> None:
+        self.started = False
+        self.published: list[tuple[bytes, dict[str, object]]] = []
+
+    async def start(self) -> None:
+        self.started = True
+
+    async def stop(self) -> None:
+        self.started = False
+
+    async def publish(self, body: bytes, **kwargs: object) -> None:
+        self.published.append((body, kwargs))
+
+
+async def _always_ok() -> None:
+    return None
+
+
 @pytest.fixture
 async def clean_dbs() -> Iterator[None]:
     client: AsyncMongoClient[Document] = AsyncMongoClient(URI)
@@ -70,7 +94,24 @@ async def clean_dbs() -> Iterator[None]:
 
 
 @pytest.fixture
-def composite_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def fake_broker(monkeypatch: pytest.MonkeyPatch) -> FakeBroker:
+    """The composite's broker, replaced: a recording fake, and a RabbitMQ
+    readiness check that passes (there is no AMQP server to handshake with).
+    """
+    broker = FakeBroker()
+    monkeypatch.setattr(fcrm_api.lifespan, "build_broker", lambda url: broker)
+    monkeypatch.setattr(
+        fcrm_api.lifespan,
+        "amqp_check",
+        lambda url: ReadinessCheck("rabbitmq", _always_ok),
+    )
+    return broker
+
+
+@pytest.fixture
+def composite_env(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, fake_broker: FakeBroker
+) -> None:
     """Environment for every service the composite loads, set once: the
     composite reads the same process environment each mounted service does.
     """
@@ -87,6 +128,7 @@ def composite_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         "MONGODB_URI_AUDIT_WRITER": WRITER_URI,
         "SERVICE_TOKEN_SECRET": "x" * 32,
         "OPA_URL": "http://localhost:8181",
+        "RABBITMQ_URL": "amqp://guest:guest@localhost:5672/",
         "IDENTITY_VALIDATE_URL": "http://localhost:8000/api/fcrm/auth/core/validate",
         "ENV": "test",
         "SEED_ON_EMPTY": "true",
@@ -132,7 +174,9 @@ def test_all_six_services_start_and_the_aggregate_readiness_lists_them(
     with composite_client() as client:
         ready = client.get("/readyz")
         assert ready.status_code == 200
-        assert set(ready.json()["checks"]) == {m.component_id for m in MOUNTS}
+        assert set(ready.json()["checks"]) == {m.component_id for m in MOUNTS} | {
+            "rabbitmq"
+        }
 
 
 def test_real_requests_reach_each_mounted_service_through_the_shared_clients(

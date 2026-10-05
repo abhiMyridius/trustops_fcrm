@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from fcrm_common.authz import OPAClient
     from fcrm_contracts.common import Principal
     from fcrm_contracts.enums import CaseState, Role
+    from fcrm_contracts.events.envelope import Envelope
     from fcrm_policy.search.service import SearchService
 
 #: The four release checks all true -- what a pack snapshot's ``checks``
@@ -561,3 +562,127 @@ def synthetic_corpus_clauses(
         "fcrm_context_worker.seedload.generated_clauses", lambda: clauses
     )
     return clauses
+
+
+# ── the outbox relay's fakes (the relay and its runner, no database or broker) ─
+class _FakeCursor:
+    def __init__(self, docs: list[dict[str, Any]]) -> None:
+        self._docs = docs
+
+    async def to_list(self) -> list[dict[str, Any]]:
+        return self._docs
+
+
+class FakeOutboxCollection:
+    """The handful of collection operations ``Outbox`` and ``OutboxRelay``
+    issue, over a list. A session is accepted and ignored.
+    """
+
+    full_name = "fcrm_case.outbox"
+
+    def __init__(self) -> None:
+        self.docs: list[dict[str, Any]] = []
+
+    async def insert_one(self, doc: dict[str, Any], session: Any = None) -> None:
+        self.docs.append(doc)
+
+    def _unpublished(self) -> list[dict[str, Any]]:
+        return sorted(
+            (d for d in self.docs if d["published_at"] is None), key=lambda d: d["_id"]
+        )
+
+    def find(self, query: Any, sort: Any = None, limit: int = 0) -> _FakeCursor:
+        docs = self._unpublished()
+        return _FakeCursor(docs[:limit] if limit else docs)
+
+    async def find_one(
+        self, query: Any, sort: Any = None, projection: Any = None
+    ) -> Any:
+        docs = self._unpublished()
+        return docs[0] if docs else None
+
+    async def update_one(self, query: Any, update: Any) -> None:
+        for doc in self.docs:
+            if doc["_id"] == query["_id"]:
+                doc.update(update.get("$set", {}))
+                for key, value in update.get("$inc", {}).items():
+                    doc[key] = doc.get(key, 0) + value
+
+
+class FakeRelayLease:
+    """A leadership lease that is held (the only replica) or not (a standby)."""
+
+    def __init__(self, held: bool = True) -> None:
+        self._held = held
+        self.released = False
+
+    @property
+    def held(self) -> bool:
+        return self._held
+
+    async def acquire(self) -> bool:
+        return self._held
+
+    async def release(self) -> None:
+        self.released = True
+        self._held = False
+
+
+class RecordingPublisher:
+    """An ``fcrm_common.events.Publisher`` that keeps the envelopes it was given."""
+
+    def __init__(self) -> None:
+        self.sent: list[Envelope] = []
+
+    async def publish(
+        self, exchange: str, routing_key: str, body: bytes, headers: dict[str, Any]
+    ) -> None:
+        from fcrm_contracts.events.envelope import Envelope
+
+        self.sent.append(Envelope.model_validate_json(body))
+
+
+class _InTransaction:
+    in_transaction = True
+
+
+@pytest.fixture
+def fake_outbox() -> FakeOutboxCollection:
+    """An empty in-memory ``outbox`` collection."""
+    return FakeOutboxCollection()
+
+
+@pytest.fixture
+def recording_publisher() -> RecordingPublisher:
+    """A publisher that records what the relay publishes."""
+    return RecordingPublisher()
+
+
+@pytest.fixture
+def make_relay_lease() -> Callable[..., FakeRelayLease]:
+    """``make_relay_lease(held=True)``: a fake leadership lease."""
+    return FakeRelayLease
+
+
+@pytest.fixture
+def queue_events(
+    fake_outbox: FakeOutboxCollection,
+) -> Callable[..., Any]:
+    """``await queue_events(count)``: enqueue ``count`` ``case.created`` events
+    through the real :class:`~fcrm_common.outbox.Outbox` (as a store would, in
+    a transaction) and return their envelopes.
+    """
+    from fcrm_common.events import build_envelope
+    from fcrm_common.outbox import Outbox
+
+    async def _queue(count: int, case_id: str = "FCRM-2026-0151") -> list[Envelope]:
+        outbox = Outbox(fake_outbox)  # type: ignore[arg-type]
+        return [
+            await outbox.enqueue(
+                _InTransaction(),  # type: ignore[arg-type]
+                build_envelope("case.created", {"n": n}, case_id=case_id),
+            )
+            for n in range(count)
+        ]
+
+    return _queue

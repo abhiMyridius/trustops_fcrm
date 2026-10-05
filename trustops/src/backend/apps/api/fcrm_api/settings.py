@@ -33,4 +33,5 @@ class ApiSettings(BaseServiceSettings):
         "MONGODB_URI_AUDIT_WRITER",
         "SERVICE_TOKEN_SECRET",
         "OPA_URL",
+        "RABBITMQ_URL",
     )
