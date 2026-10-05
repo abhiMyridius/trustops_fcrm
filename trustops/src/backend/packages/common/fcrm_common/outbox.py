@@ -342,3 +342,110 @@ async def _sleep_unless(stop: asyncio.Event, delay_s: float) -> None:
             await stop.wait()
     except TimeoutError:
         return
+
+
+class RelayStoppedError(RuntimeError):
+    """The relay task is not running (it was never started, or it died), so
+    committed events are not leaving the outbox.
+    """
+
+
+class RelayLagError(RuntimeError):
+    """The oldest unpublished outbox row is older than the allowed lag."""
+
+
+class RelayRunner:
+    """Runs one :class:`OutboxRelay` as a background task for the life of a
+    service, and says whether it is healthy.
+
+    A service starts it from its lifespan and stops it on the way out::
+
+        runner = RelayRunner(relay, name="case")
+        runner.start()
+        probe.add(ReadinessCheck("outbox", runner.check))
+        try:
+            yield
+        finally:
+            await runner.stop()
+
+    Args:
+        relay: The relay to run.
+        name: Short name for the task and the logs (``"case"``).
+        max_lag_s: Age of the oldest unpublished row beyond which
+            :meth:`check` fails. A broker outage longer than this makes the
+            service report unready, which is the truth: events are not leaving.
+    """
+
+    def __init__(
+        self, relay: OutboxRelay, *, name: str, max_lag_s: float = 60.0
+    ) -> None:
+        self._relay = relay
+        self._name = name
+        self._max_lag_s = max_lag_s
+        self._stop_event = asyncio.Event()
+        self._task: Optional[asyncio.Task[None]] = None
+
+    @property
+    def running(self) -> bool:
+        """Whether the relay task exists and has not finished."""
+        return self._task is not None and not self._task.done()
+
+    def start(self) -> None:
+        """Start the relay task (a no-op if it is already running). Must be
+        called from a running event loop.
+        """
+        if self.running:
+            return
+        self._stop_event.clear()
+        task = asyncio.create_task(
+            self._relay.run(self._stop_event), name=f"outbox-relay:{self._name}"
+        )
+        task.add_done_callback(self._on_done)
+        self._task = task
+
+    def _on_done(self, task: asyncio.Task[None]) -> None:
+        """Log a relay that ended with an exception; a clean stop is silent."""
+        if task.cancelled():
+            return
+        error = task.exception()
+        if error is not None:
+            logger.error(
+                "outbox relay stopped unexpectedly",
+                extra={"relay": self._name, "error": {"type": type(error).__name__}},
+                exc_info=error,
+            )
+
+    async def stop(self, timeout_s: float = DRAIN_TIMEOUT_S + 5.0) -> None:
+        """Ask the relay to stop, wait for its bounded drain and lease release,
+        and cancel it if it overruns ``timeout_s``.
+        """
+        task = self._task
+        if task is None:
+            return
+        self._stop_event.set()
+        done, _pending = await asyncio.wait({task}, timeout=timeout_s)
+        if not done:
+            logger.warning(
+                "outbox relay did not stop in time; cancelling",
+                extra={"relay": self._name},
+            )
+            task.cancel()
+            await asyncio.wait({task})
+        self._task = None
+
+    async def check(self) -> None:
+        """Readiness: the task is running and the outbox is draining.
+
+        Raises:
+            RelayStoppedError: The task is not running.
+            RelayLagError: The oldest unpublished row is older than
+                ``max_lag_s``.
+        """
+        if not self.running:
+            raise RelayStoppedError(f"outbox relay {self._name!r} is not running")
+        lag = await self._relay.record_lag()
+        if lag > self._max_lag_s:
+            raise RelayLagError(
+                f"outbox relay {self._name!r} is {lag:.0f}s behind "
+                f"(limit {self._max_lag_s:.0f}s)"
+            )

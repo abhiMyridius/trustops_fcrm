@@ -10,6 +10,7 @@ real against whatever :class:`Principal` the override returns.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
@@ -18,10 +19,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from fcrm_case.routes import router
 from fcrm_case.settings import CaseSettings
+from fcrm_case.sse import EventHub
 from fcrm_case.store import InMemoryCaseStore
 from fcrm_common.auth import current_user
 from fcrm_common.errors import install_error_handlers
 from fcrm_common.health import ReadinessProbe, build_health_router
+from fcrm_contracts.api.case_internal import UiActor, UiEventIn
 from fcrm_contracts.common import Principal
 from fcrm_contracts.enums import CaseState, Role
 
@@ -51,6 +54,7 @@ def app(principal_box: dict[str, Principal], store: InMemoryCaseStore) -> FastAP
     application.state.probe = ReadinessProbe()
     application.state.store = store
     application.state.settings = CaseSettings(sse_heartbeat_s=0.02)
+    application.state.hub = EventHub()
     application.include_router(router)
     application.include_router(build_health_router(application.state.probe))
 
@@ -436,25 +440,104 @@ class TestSubmissionVersionsAndDiff:
 class TestStream:
     """The stream is bounded (``sse_max_lifetime_s``) so a plain
     ``client.get`` drains it to completion -- no disconnect handling needed
-    to test it. The generator's own behaviour (update vs heartbeat,
-    disconnect) is covered offline in ``test_case_sse.py``.
+    to test it. The stream's own behaviour (replay, role filtering, gap fill,
+    slow consumers) is covered offline in ``test_case_sse.py``.
     """
 
-    def test_stream_emits_an_initial_snapshot_then_heartbeats_and_ends(
+    @staticmethod
+    def _short(app: FastAPI) -> None:
+        app.state.settings = CaseSettings(sse_heartbeat_s=0.01, sse_max_lifetime_s=0.05)
+
+    @staticmethod
+    def _frames(text: str) -> list[dict[str, Any]]:
+        return [
+            json.loads(line[len("data: ") :])
+            for line in text.splitlines()
+            if line.startswith("data: ")
+        ]
+
+    def test_stream_opens_heartbeats_and_ends_with_unnamed_frames_only(
         self, app: FastAPI, client: TestClient, principal_box: dict[str, Principal]
     ) -> None:
         case_id = _create_case(client, principal_box)
-        app.state.settings = CaseSettings(sse_heartbeat_s=0.01, sse_max_lifetime_s=0.05)
+        self._short(app)
         response = client.get(f"/cases/{case_id}/stream")
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("text/event-stream")
         assert response.headers["cache-control"] == "no-cache"
         lines = response.text.splitlines()
-        assert lines[0] == "event: snapshot"
-        payload: dict[str, Any] = json.loads(lines[1][len("data: ") :])
-        assert payload["case_id"] == case_id
-        assert payload["state"] == "intake"
-        assert ": heartbeat" in lines  # nothing changed, so only keep-alives follow
+        assert lines[0] == ": open"
+        assert ": heartbeat" in lines
+        assert not any(line.startswith("event:") for line in lines)
+
+    def test_last_event_id_replays_what_came_after_it(
+        self,
+        app: FastAPI,
+        client: TestClient,
+        principal_box: dict[str, Principal],
+        store: InMemoryCaseStore,
+    ) -> None:
+        case_id = _create_case(client, principal_box)
+        for number in (1, 2, 3):
+            asyncio.run(
+                store.activity.append(
+                    case_id,
+                    UiEventIn(
+                        type="document.extracted",
+                        visibility="po",
+                        summary=f"extracted {number}",
+                        actor=UiActor(
+                            id="svc:caseflow", role="fcrm_service", component="H1"
+                        ),
+                    ),
+                )
+            )
+        self._short(app)
+        from_header = client.get(
+            f"/cases/{case_id}/stream", headers={"Last-Event-ID": "1"}
+        )
+        from_query = client.get(
+            f"/cases/{case_id}/stream", params={"last_event_id": "1"}
+        )
+        for response in (from_header, from_query):
+            frames = self._frames(response.text)
+            assert [f["seq"] for f in frames] == [2, 3]
+            assert {f["caseId"] for f in frames} == {case_id}
+            assert "id: 2\ndata: " in response.text
+
+    def test_a_fresh_connection_starts_at_the_head_not_the_history(
+        self,
+        app: FastAPI,
+        client: TestClient,
+        principal_box: dict[str, Principal],
+        store: InMemoryCaseStore,
+    ) -> None:
+        case_id = _create_case(client, principal_box)
+        asyncio.run(
+            store.activity.append(
+                case_id,
+                UiEventIn(
+                    type="document.extracted",
+                    visibility="po",
+                    summary="old",
+                    actor=UiActor(
+                        id="svc:caseflow", role="fcrm_service", component="H1"
+                    ),
+                ),
+            )
+        )
+        self._short(app)
+        assert self._frames(client.get(f"/cases/{case_id}/stream").text) == []
+
+    def test_a_malformed_or_negative_last_event_id_is_a_422(
+        self, client: TestClient, principal_box: dict[str, Principal]
+    ) -> None:
+        case_id = _create_case(client, principal_box)
+        for value in ("abc", "-1"):
+            response = client.get(
+                f"/cases/{case_id}/stream", headers={"Last-Event-ID": value}
+            )
+            assert response.status_code == 422
 
     def test_stream_of_an_unknown_case_is_404(
         self, client: TestClient, principal_box: dict[str, Principal]
@@ -469,6 +552,14 @@ class TestStream:
         case_id = _create_case(client, principal_box)
         _set(principal_box, [Role.PO], OTHER_PO_SUB)
         assert client.get(f"/cases/{case_id}/stream").status_code == 404
+
+    def test_an_observer_may_stream_and_an_unknown_role_may_not(
+        self, app: FastAPI, client: TestClient, principal_box: dict[str, Principal]
+    ) -> None:
+        case_id = _create_case(client, principal_box)
+        self._short(app)
+        _set(principal_box, [Role.OBSERVER], "u-obs")
+        assert client.get(f"/cases/{case_id}/stream").status_code == 200
 
 
 class TestListLimitBounds:

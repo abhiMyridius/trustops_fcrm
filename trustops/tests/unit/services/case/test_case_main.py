@@ -48,6 +48,16 @@ def test_create_asgi_app_without_a_root_path_is_the_bare_app(
         ("get", "/cases/FCRM-2026-0001/versions"),
         ("get", "/cases/FCRM-2026-0001/versions/diff?from_version=1&to_version=2"),
         ("get", "/cases/FCRM-2026-0001/stream"),
+        ("get", "/internal/cases/FCRM-2026-0001/record"),
+        ("get", "/internal/cases/FCRM-2026-0001/items"),
+        ("put", "/internal/cases/FCRM-2026-0001/items"),
+        ("put", "/internal/cases/FCRM-2026-0001/intake"),
+        ("patch", "/internal/cases/FCRM-2026-0001/state"),
+        ("post", "/internal/cases/FCRM-2026-0001/assign"),
+        ("post", "/internal/cases/FCRM-2026-0001/events"),
+        ("get", "/internal/documents/doc_x"),
+        ("patch", "/internal/documents/doc_x"),
+        ("get", "/internal/analysts/load"),
     ],
 )
 def test_every_case_route_refuses_an_unauthenticated_caller(

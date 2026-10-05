@@ -13,8 +13,10 @@ from here instead of adding another nested one, per the standard.
 from __future__ import annotations
 
 import os
-from collections.abc import Callable, Iterator
+import uuid
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import AbstractContextManager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -38,10 +40,16 @@ os.environ.setdefault("LITELLM_MODE", "PRODUCTION")
 if TYPE_CHECKING:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+    from fcrm_case.directory import AnalystLoadService, StaticIdentityDirectory
+    from fcrm_case.domain.record import CaseRecord
+    from fcrm_case.sse import EventHub
     from fcrm_case.store import InMemoryCaseStore
+    from fcrm_case.views_store import InMemoryViewStore
     from fcrm_common.authz import OPAClient
+    from fcrm_contracts.api.case_internal import UiEventIn
     from fcrm_contracts.common import Principal
     from fcrm_contracts.enums import CaseState, Role
+    from fcrm_contracts.events.envelope import Envelope
     from fcrm_policy.search.service import SearchService
 
 #: The four release checks all true -- what a pack snapshot's ``checks``
@@ -561,3 +569,388 @@ def synthetic_corpus_clauses(
         "fcrm_context_worker.seedload.generated_clauses", lambda: clauses
     )
     return clauses
+
+
+# ── S1 foundation: records, events, the view store and the internal API ─────
+#: The analysts the fake identity roster holds (the seed's three, by id).
+ROSTER_ANALYSTS: tuple[tuple[str, str], ...] = (
+    ("u-riyer", "Rahul Iyer"),
+    ("u-mshah", "Meera Shah"),
+    ("u-dbrooks", "Daniel Brooks"),
+)
+
+
+@pytest.fixture
+def make_case_record() -> Callable[..., CaseRecord]:
+    """``make_case_record(case_id="FCRM-2026-0151", **overrides)``: a stored
+    case at ``intake`` owned by Priya Nair, with the active field set's
+    always-required fields and no change types, as the demo case is seeded.
+    """
+    from datetime import UTC, datetime
+
+    from fcrm_case.domain.fieldset import resolve_required_fields
+    from fcrm_case.domain.record import CaseRecord
+    from fcrm_case.fieldset_provider import active_field_set, active_pinned_versions
+
+    def _make(case_id: str = "FCRM-2026-0151", **overrides: Any) -> CaseRecord:
+        field_set = active_field_set()
+        fields: dict[str, Any] = {
+            "case_id": case_id,
+            "title": "Consumer remittances US to Mexico",
+            "unit": "Payments",
+            "owner": "u-pnair",
+            "owner_name": "Priya Nair",
+            "created_by": "u-pnair",
+            "change_types": [],
+            "fieldset_v": field_set.version,
+            "completion_threshold": field_set.completion_threshold,
+            "pinned_versions": active_pinned_versions(),
+            "required_fields": resolve_required_fields([], field_set),
+            "created_at": datetime(2026, 10, 1, 9, tzinfo=UTC),
+        }
+        return CaseRecord(**{**fields, **overrides})
+
+    return _make
+
+
+@pytest.fixture
+def stored_case(
+    case_store: InMemoryCaseStore, make_case_record: Callable[..., CaseRecord]
+) -> CaseRecord:
+    """The demo case, stored in the in-memory case store at ``intake``."""
+    record = make_case_record()
+    case_store._cases[record.case_id] = record
+    return record
+
+
+@pytest.fixture
+def make_event() -> Callable[..., UiEventIn]:
+    """``make_event(type=..., visibility=..., summary=..., detail=None)``: an
+    event as H1 would post it (actor ``svc:caseflow``).
+    """
+    from fcrm_contracts.api.case_internal import UiActor, UiEventIn
+
+    def _make(
+        type: str = "document.extracted",
+        visibility: str = "po",
+        summary: str = "Documents read",
+        detail: Optional[dict[str, Any]] = None,
+    ) -> UiEventIn:
+        return UiEventIn(
+            type=type,
+            visibility=visibility,  # type: ignore[arg-type]
+            summary=summary,
+            detail=detail or {},
+            actor=UiActor(id="svc:caseflow", role="fcrm_service", component="caseflow"),
+        )
+
+    return _make
+
+
+@pytest.fixture
+def event_hub() -> EventHub:
+    """A fresh in-process stream hub."""
+    from fcrm_case.sse import EventHub
+
+    return EventHub()
+
+
+@pytest.fixture
+def view_store() -> InMemoryViewStore:
+    """S1's in-memory view store (field values, documents, review items)."""
+    from fcrm_case.views_store import InMemoryViewStore
+
+    return InMemoryViewStore()
+
+
+@dataclass
+class CaseService:
+    """The real S1 app over in-memory stores, with its parts exposed so a test
+    can arrange and inspect state: ``client`` drives HTTP as whoever
+    ``act_as`` last set.
+    """
+
+    client: TestClient
+    store: InMemoryCaseStore
+    views: InMemoryViewStore
+    hub: EventHub
+    directory: StaticIdentityDirectory
+    loads: AnalystLoadService
+
+
+@pytest.fixture
+def case_service(
+    case_store: InMemoryCaseStore,
+    view_store: InMemoryViewStore,
+    event_hub: EventHub,
+    acting_principal: dict[str, Principal],
+) -> CaseService:
+    """The S1 app (public and internal routes) wired with in-memory stores, an
+    in-process hub, a fixed analyst roster and a fake caller (``act_as``).
+    """
+    from fastapi.testclient import TestClient
+    from fcrm_case.directory import AnalystLoadService, StaticIdentityDirectory
+    from fcrm_case.main import create_app
+    from fcrm_case.settings import CaseSettings
+    from fcrm_common.auth import current_user
+    from fcrm_contracts.api.identity import RosterUser
+    from fcrm_contracts.enums import Role
+
+    directory = StaticIdentityDirectory(
+        [
+            RosterUser(id=uid, name=name, roles=[Role.ANALYST], unit=None)
+            for uid, name in ROSTER_ANALYSTS
+        ]
+    )
+    loads = AnalystLoadService(case_store, directory)
+    app = create_app()
+    app.state.store = case_store
+    app.state.views = view_store
+    app.state.hub = event_hub
+    app.state.directory = directory
+    app.state.loads = loads
+    app.state.settings = CaseSettings(sse_heartbeat_s=0.01, sse_max_lifetime_s=0.05)
+    app.dependency_overrides[current_user] = lambda: acting_principal["principal"]
+    return CaseService(
+        client=TestClient(app),
+        store=case_store,
+        views=view_store,
+        hub=event_hub,
+        directory=directory,
+        loads=loads,
+    )
+
+
+# ── the outbox relay's fakes (the relay and its runner, no database or broker) ─
+class _FakeCursor:
+    def __init__(self, docs: list[dict[str, Any]]) -> None:
+        self._docs = docs
+
+    async def to_list(self) -> list[dict[str, Any]]:
+        return self._docs
+
+
+class FakeOutboxCollection:
+    """The handful of collection operations ``Outbox`` and ``OutboxRelay``
+    issue, over a list. A session is accepted and ignored.
+    """
+
+    full_name = "fcrm_case.outbox"
+
+    def __init__(self) -> None:
+        self.docs: list[dict[str, Any]] = []
+
+    async def insert_one(self, doc: dict[str, Any], session: Any = None) -> None:
+        self.docs.append(doc)
+
+    def _unpublished(self) -> list[dict[str, Any]]:
+        return sorted(
+            (d for d in self.docs if d["published_at"] is None), key=lambda d: d["_id"]
+        )
+
+    def find(self, query: Any, sort: Any = None, limit: int = 0) -> _FakeCursor:
+        docs = self._unpublished()
+        return _FakeCursor(docs[:limit] if limit else docs)
+
+    async def find_one(
+        self, query: Any, sort: Any = None, projection: Any = None
+    ) -> Any:
+        docs = self._unpublished()
+        return docs[0] if docs else None
+
+    async def update_one(self, query: Any, update: Any) -> None:
+        for doc in self.docs:
+            if doc["_id"] == query["_id"]:
+                doc.update(update.get("$set", {}))
+                for key, value in update.get("$inc", {}).items():
+                    doc[key] = doc.get(key, 0) + value
+
+
+class FakeRelayLease:
+    """A leadership lease that is held (the only replica) or not (a standby)."""
+
+    def __init__(self, held: bool = True) -> None:
+        self._held = held
+        self.released = False
+
+    @property
+    def held(self) -> bool:
+        return self._held
+
+    async def acquire(self) -> bool:
+        return self._held
+
+    async def release(self) -> None:
+        self.released = True
+        self._held = False
+
+
+class RecordingPublisher:
+    """An ``fcrm_common.events.Publisher`` that keeps the envelopes it was given."""
+
+    def __init__(self) -> None:
+        self.sent: list[Envelope] = []
+
+    async def publish(
+        self, exchange: str, routing_key: str, body: bytes, headers: dict[str, Any]
+    ) -> None:
+        from fcrm_contracts.events.envelope import Envelope
+
+        self.sent.append(Envelope.model_validate_json(body))
+
+
+class _InTransaction:
+    in_transaction = True
+
+
+@pytest.fixture
+def fake_outbox() -> FakeOutboxCollection:
+    """An empty in-memory ``outbox`` collection."""
+    return FakeOutboxCollection()
+
+
+@pytest.fixture
+def recording_publisher() -> RecordingPublisher:
+    """A publisher that records what the relay publishes."""
+    return RecordingPublisher()
+
+
+@pytest.fixture
+def make_relay_lease() -> Callable[..., FakeRelayLease]:
+    """``make_relay_lease(held=True)``: a fake leadership lease."""
+    return FakeRelayLease
+
+
+@pytest.fixture
+def queue_events(
+    fake_outbox: FakeOutboxCollection,
+) -> Callable[..., Any]:
+    """``await queue_events(count)``: enqueue ``count`` ``case.created`` events
+    through the real :class:`~fcrm_common.outbox.Outbox` (as a store would, in
+    a transaction) and return their envelopes.
+    """
+    from fcrm_common.events import build_envelope
+    from fcrm_common.outbox import Outbox
+
+    async def _queue(count: int, case_id: str = "FCRM-2026-0151") -> list[Envelope]:
+        outbox = Outbox(fake_outbox)  # type: ignore[arg-type]
+        return [
+            await outbox.enqueue(
+                _InTransaction(),  # type: ignore[arg-type]
+                build_envelope("case.created", {"n": n}, case_id=case_id),
+            )
+            for n in range(count)
+        ]
+
+    return _queue
+
+
+# ── a real MongoDB replica set (opt-in, like tests/integration/live_mongo) ─────
+@pytest.fixture
+async def live_db() -> AsyncIterator[Any]:
+    """A throw-away database on the replica set ``FCRM_TEST_MONGO_URI`` names
+    (``mongodb://127.0.0.1:27417/?replicaSet=rs0``); the test is skipped when
+    the variable is unset. Dropped afterwards, so it is safe against a Mongo
+    other work is using. The client is tz-aware, as ``fcrm_common.mongo`` makes
+    every service's.
+    """
+    uri = os.environ.get("FCRM_TEST_MONGO_URI", "")
+    if not uri:
+        pytest.skip("FCRM_TEST_MONGO_URI not set")
+    from pymongo import AsyncMongoClient
+
+    client: AsyncMongoClient[Any] = AsyncMongoClient(
+        uri, tz_aware=True, uuidRepresentation="standard"
+    )
+    name = f"fcrm_case_live_{uuid.uuid4().hex[:10]}"
+    try:
+        yield client[name]
+    finally:
+        await client.drop_database(name)
+        await client.close()
+
+
+@dataclass
+class LiveCase:
+    """S1's real lifespan (``register``) running on a throw-away database of a
+    real replica set, with a recording publisher in place of the broker.
+    ``http`` calls the app in-process (same event loop as the Mongo client) as
+    H1's service account.
+    """
+
+    app: FastAPI
+    db: Any
+    publisher: RecordingPublisher
+    http: Any
+
+    @property
+    def store(self) -> Any:
+        """The ``MongoCaseStore`` the lifespan wired."""
+        return self.app.state.store
+
+    @property
+    def views(self) -> Any:
+        """The ``MongoViewStore`` the lifespan wired."""
+        return self.app.state.views
+
+
+@pytest.fixture
+async def live_case(
+    live_db: Any,
+    recording_publisher: RecordingPublisher,
+    bearer_for: Callable[..., dict[str, str]],
+) -> AsyncIterator[LiveCase]:
+    """The S1 lifespan on a real Mongo: indexes ensured, the seed loaded
+    (``SEED_ON_EMPTY``), the outbox relay running under the case lease with
+    ``recording_publisher``, the analyst roster fixed to the seed's three.
+    """
+    import httpx
+    from fcrm_case.directory import AnalystLoadService, StaticIdentityDirectory
+    from fcrm_case.lifespan import register
+    from fcrm_case.main import create_app
+    from fcrm_case.settings import CaseSettings
+    from fcrm_common.auth import TokenVerifier
+    from fcrm_common.authz import OPAClient
+    from fcrm_common.service import ServiceDeps
+    from fcrm_contracts.api.identity import RosterUser
+    from fcrm_contracts.enums import Role
+
+    secret = "x" * 32
+    settings = CaseSettings(
+        mongodb_db=live_db.name,
+        seed_on_empty=True,
+        service_token_secret=secret,
+        env="test",
+        identity_service_url="http://identity.invalid/api/fcrm/auth",
+        sse_heartbeat_s=0.02,
+        sse_max_lifetime_s=0.3,
+    )
+    verifier = TokenVerifier(service_secret=secret)
+    opa = OPAClient("http://opa.invalid")
+    deps = ServiceDeps(
+        mongo=live_db.client,
+        token_verifier=verifier,
+        opa=opa,
+        publisher=recording_publisher,
+        lease_holder="relay_test",
+    )
+    app = create_app(standalone=False)
+    try:
+        async with register(app, settings, deps):
+            directory = StaticIdentityDirectory(
+                [
+                    RosterUser(id=uid, name=name, roles=[Role.ANALYST])
+                    for uid, name in ROSTER_ANALYSTS
+                ]
+            )
+            app.state.directory = directory
+            app.state.loads = AnalystLoadService(app.state.store, directory)
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app),
+                base_url="http://case.test",
+                headers=bearer_for(secret, "caseflow"),
+            ) as http:
+                yield LiveCase(app, live_db, recording_publisher, http)
+    finally:
+        await verifier.aclose()
+        await opa.aclose()

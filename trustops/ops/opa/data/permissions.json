@@ -235,14 +235,16 @@
         "effect": "allow"
       },
       {
-        "id": "case-get-cases-id-stream-po-analyst",
-        "description": "SSE (role-filtered by S1)",
+        "id": "case-get-cases-id-stream-po-analyst-committee-observer",
+        "description": "SSE (role-filtered by S1: the PO sees po/all entries of its own case only; the others also see the analyst feed, which the harness monitor reads)",
         "service": "case",
         "method": "GET",
         "path": "/cases/{id}/stream",
         "roles": [
           "fcrm_po",
-          "fcrm_analyst"
+          "fcrm_analyst",
+          "fcrm_committee",
+          "fcrm_observer"
         ],
         "effect": "allow"
       },

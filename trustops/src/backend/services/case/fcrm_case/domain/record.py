@@ -17,7 +17,7 @@ from typing import Optional
 
 from fcrm_contracts.enums import CaseState, ChangeType
 from fcrm_contracts.versions import PinnedVersions
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from fcrm_case.domain.fieldset import FieldDef
 
@@ -37,6 +37,20 @@ OPEN_FOR_WRITES_STATES: frozenset[CaseState] = frozenset(
         CaseState.REVIEW,
     }
 )
+
+
+class StageFlags(BaseModel):
+    """The run-snapshot flags H1 pushes with ``PATCH /internal/cases/{id}/
+    state``: sub-states of a stage, not stages of their own (design A §3.1).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    fast_lane_proposed: bool = False
+    round_open: bool = False
+    locked: bool = False
+    pack_version: Optional[int] = None
+    vote_round: Optional[int] = None
 
 
 class FieldValueRecord(BaseModel):
@@ -85,6 +99,14 @@ class CaseRecord(BaseModel):
     analyst_id: Optional[str] = None
     state: CaseState = CaseState.INTAKE
     change_types: list[ChangeType]
+    # The display names behind ``owner``/``analyst_id`` (user ids), stored when
+    # the case is created or assigned so a read never calls X1.
+    owner_name: Optional[str] = None
+    analyst_name: Optional[str] = None
+    run_id: Optional[str] = None
+    domains: list[str] = Field(default_factory=list)
+    geographies: list[str] = Field(default_factory=list)
+    stage_flags: StageFlags = Field(default_factory=StageFlags)
     fieldset_v: int
     completion_threshold: float
     pinned_versions: PinnedVersions
@@ -96,6 +118,11 @@ class CaseRecord(BaseModel):
     created_at: datetime
     submitted_at: Optional[datetime] = None
     decided_at: Optional[datetime] = None
+    closed_at: Optional[datetime] = None
+    current_submission_v: Optional[int] = None
+    # Highest ``activity.seq`` allocated for this case; bumped in the same
+    # write that inserts the activity row, so seqs are gap-free per case.
+    activity_seq: int = 0
 
     @property
     def filled_field_ids(self) -> set[str]:

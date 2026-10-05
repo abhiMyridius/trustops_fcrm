@@ -12,6 +12,7 @@ flagged, because their shapes carry ``score``.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
@@ -20,9 +21,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from fcrm_case.routes import router
 from fcrm_case.settings import CaseSettings
+from fcrm_case.sse import EventHub
 from fcrm_case.store import InMemoryCaseStore
 from fcrm_common.auth import current_user
 from fcrm_common.errors import install_error_handlers
+from fcrm_contracts.api.case_internal import UiActor, UiEventIn
 from fcrm_contracts.common import Principal
 from fcrm_contracts.enums import Role
 from fcrm_guardrails.rules.r3_po_no_restricted import check
@@ -43,6 +46,7 @@ def client(principal_box: dict[str, Principal]) -> TestClient:
     install_error_handlers(app)
     app.state.store = InMemoryCaseStore()
     app.state.settings = CaseSettings(sse_heartbeat_s=0.01, sse_max_lifetime_s=0.03)
+    app.state.hub = EventHub()
     app.include_router(router)
     app.dependency_overrides[current_user] = lambda: principal_box["principal"]
     return TestClient(app)
@@ -98,13 +102,31 @@ def test_every_po_response_for_a_demo_shaped_case_passes_rule_3(
     _assert_clean("GET /cases/{id} (submitted)", detail)
     assert detail["submitted_at"] is not None
 
-    stream = client.get(f"/cases/{case_id}/stream")
+    # The stream carries what was written to the activity log: a PO-visible
+    # event reaches the PO; an analyst-visible one never does.
+    log = client.app.state.store.activity  # type: ignore[attr-defined]
+    actor = UiActor(id="svc:caseflow", role="fcrm_service", component="H1")
+    for visibility, summary in (("po", "Documents read"), ("analyst", "Score ready")):
+        asyncio.run(
+            log.append(
+                case_id,
+                UiEventIn(
+                    type="document.extracted"
+                    if visibility == "po"
+                    else "score.computed",
+                    visibility=visibility,
+                    summary=summary,
+                    actor=actor,
+                ),
+            )
+        )
+    stream = client.get(f"/cases/{case_id}/stream", headers={"Last-Event-ID": "0"})
     frames = [
         json.loads(line[len("data: ") :])
         for line in stream.text.splitlines()
         if line.startswith("data: ")
     ]
-    assert frames, "the stream carried no data frames to scan"
+    assert [f["type"] for f in frames] == ["document.extracted"]
     for frame in frames:
         _assert_clean("SSE frame", frame)
 

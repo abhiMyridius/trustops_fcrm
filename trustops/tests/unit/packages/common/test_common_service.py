@@ -37,6 +37,31 @@ async def test_standalone_deps_yield_the_process_clients_and_close_them():
     assert URI not in mongo._REGISTRY.clients
 
 
+async def test_standalone_deps_have_no_publisher_and_no_lease_holder():
+    """A standalone service runs without publishing: it owns no broker."""
+    async with standalone_deps(_settings()) as deps:
+        assert deps.publisher is None
+        assert deps.lease_holder == ""
+
+
+async def test_a_host_hands_every_service_the_same_publisher_and_lease_holder():
+    class FakePublisher:
+        async def publish(self, exchange, routing_key, body, headers):
+            return None
+
+    publisher = FakePublisher()
+    async with standalone_deps(_settings()) as base:
+        deps = ServiceDeps(
+            mongo=base.mongo,
+            token_verifier=base.token_verifier,
+            opa=base.opa,
+            publisher=publisher,
+            lease_holder="relay_01",
+        )
+    assert deps.publisher is publisher
+    assert deps.lease_holder == "relay_01"
+
+
 async def test_standalone_deps_close_everything_when_the_body_raises():
     settings = _settings()
     with pytest.raises(RuntimeError, match="boom"):
