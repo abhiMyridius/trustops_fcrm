@@ -157,6 +157,59 @@ class AgentName(StrEnum):
     POLICY_GAP = "policy_gap"
 
 
+class StepKind(StrEnum):
+    """What one ``harness.step`` message asks H1 to do (ADR-28).
+
+    A trigger that needs HTTP work (S1/S2/S3/S4/S5 calls, audit records)
+    cannot run inside the consumer's Mongo transaction, so the engine
+    enqueues a ``harness.step`` carrying one of these kinds in that same
+    transaction; ``caseflow.steps`` runs the matching handler outside it
+    and finishes with ``CaseflowEngine.complete_step``. The names are
+    ``<area>.<verb>``; the audit records each kind writes are documented in
+    ``fcrm_caseflow.audit_map.RECORDS_FOR``.
+    """
+
+    INTAKE_OPEN = "intake.open"
+    INTAKE_DOCUMENT_STORED = "intake.document_stored"
+    INTAKE_INGESTED = "intake.ingested"
+    INTAKE_INGEST_FAILED = "intake.ingest_failed"
+    INTAKE_PUBLISH = "intake.publish"
+    INTAKE_FIELDSET_RESOLVED = "intake.fieldset_resolved"
+    INTAKE_PO_ACTION = "intake.po_action"
+    SUBMIT_RECORD = "submit.record"
+    TRIAGE_ASSIGN = "triage.assign"
+    SCREENING_PUBLISH = "screening.publish"
+    ASSESS_OPEN = "assess.open"
+    ASSESS_PUBLISH = "assess.publish"
+    CRITIC_PUBLISH = "critic.publish"
+    COMPLETENESS_PUBLISH = "completeness.publish"
+    CLARIFICATION_RECORD = "clarification.record"
+    RERUN_RECORD = "rerun.record"
+    RERUN_PUBLISH = "rerun.publish"
+    REVIEW_ITEM = "review.item"
+    REVIEW_ACK = "review.ack"
+    GAP_RECORD = "gap.record"
+    CONTROL_PLANNED = "control.planned"
+    RETAG_RECORD = "retag.record"
+    RERUN_REQUESTED = "rerun.requested"
+    NARRATIVE_PUBLISH = "narrative.publish"
+    LOCK_BUILD_PACK = "lock.build_pack"
+    PACK_APPROVED = "pack.approved"
+    UNLOCK_SUPERSEDE = "unlock.supersede"
+    VOTE_RECORD = "vote.record"
+    COMMITTEE_QUESTION = "committee.question"
+    COMMITTEE_ANSWER = "committee.answer"
+    DECIDE_DELEGATED = "decide.delegated"
+    DECIDE_OUTCOME = "decide.outcome"
+    DECIDE_NO_MAJORITY = "decide.no_majority"
+    CLOSED_FINALIZE = "closed.finalize"
+    HANDOFF_OPEN = "handoff.open"
+    EXAMINER_ANSWER = "examiner.answer"
+    WATCHLIST_PUBLISH = "watchlist.publish"
+    REFLAG_ACK = "reflag.ack"
+    STATE_PUSH = "state.push"
+
+
 class ClarificationStatus(StrEnum):
     AWAITING_RESPONSE = "awaiting-response"
     ANSWERED = "answered"

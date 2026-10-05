@@ -70,5 +70,15 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "chain.verified",
         "outcome.delivered",
         "eval.recorded",
+        # live wiring (ADR-28; routing in docs/architecture/event-catalogue.md)
+        "harness.step",  # H1 -> H1: HTTP-side work, run outside the Mongo txn
+        "pack.released",  # S5 -> H1, S1
+        "vote.tallied",  # S5 -> H1: the tally, votes revealed together
+        "committee.question_asked",  # S5 -> H1
+        "committee.answered",  # S5 -> H1
+        "case.clarification_sent",  # S1 -> H1
+        "case.control_planned",  # S1 -> H1
+        "jurisdiction.list_published",  # S3 -> H1 (watchlist)
+        "examiner.asked",  # S4 -> H1 (examiner)
     }
 )

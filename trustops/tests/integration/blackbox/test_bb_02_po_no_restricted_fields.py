@@ -186,10 +186,10 @@ def test_restricted_event_prefixes_match_the_catalogue_s_naming_convention() -> 
     scoreish = {e for e in EVENT_TYPES if e.startswith("score.")}
     auditish = {e for e in EVENT_TYPES if e.startswith("audit.")}
     assert scoreish == {"score.computed", "score.recomputed"}
-    # "harness." is a design-doc umbrella label, not a literal event
-    # prefix in the catalogue today (workflow.*, agent.*, gate.* play that
-    # role) -- documented here rather than silently assumed, since a
-    # literal ``harness.*`` filter would match nothing.
-    assert not any(e.startswith("harness.") for e in EVENT_TYPES)
+    # "harness." was a design-doc umbrella label (workflow.*, agent.*, gate.*
+    # played that role). ADR-28 added one literal member, ``harness.step``
+    # (H1's own HTTP-side work, carrying agent output): the PO stream filter
+    # must drop it, and this assertion fails if another one appears unnoticed.
+    assert {e for e in EVENT_TYPES if e.startswith("harness.")} == {"harness.step"}
     assert auditish == set()  # audit events are carried via chain.verified, not audit.*
     assert "chain.verified" in EVENT_TYPES
