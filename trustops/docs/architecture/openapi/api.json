@@ -1,0 +1,4474 @@
+{
+  "components": {
+    "schemas": {
+      "AuditRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "prev_hash": {
+            "title": "Prev Hash",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "seq",
+          "type",
+          "actor",
+          "summary",
+          "data",
+          "prev_hash",
+          "hash",
+          "created_at"
+        ],
+        "title": "AuditRecord",
+        "type": "object"
+      },
+      "Band": {
+        "enum": [
+          "1",
+          "2",
+          "3",
+          "4"
+        ],
+        "title": "Band",
+        "type": "string"
+      },
+      "BandDef": {
+        "additionalProperties": false,
+        "properties": {
+          "band": {
+            "$ref": "#/components/schemas/Band"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "lower": {
+            "title": "Lower",
+            "type": "number"
+          },
+          "route": {
+            "$ref": "#/components/schemas/Route"
+          },
+          "upper": {
+            "title": "Upper",
+            "type": "number"
+          }
+        },
+        "required": [
+          "band",
+          "label",
+          "lower",
+          "upper",
+          "route"
+        ],
+        "title": "BandDef",
+        "type": "object"
+      },
+      "CaseDetailAnalyst": {
+        "additionalProperties": false,
+        "description": "The analyst-visible case detail: every field ``CaseDetailPO`` has,\nplus the assignment, score and harness-facing data the PO shape must\nnever carry (rule 3). Built by ``fcrm_case.shaping``, never by widening\n``CaseDetailPO`` itself.",
+        "properties": {
+          "analyst_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analyst Id"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "change_types": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeType"
+            },
+            "title": "Change Types",
+            "type": "array"
+          },
+          "clarifications": {
+            "items": {
+              "$ref": "#/components/schemas/ClarificationThreadPO"
+            },
+            "title": "Clarifications",
+            "type": "array"
+          },
+          "completion": {
+            "$ref": "#/components/schemas/CompletionState"
+          },
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/ConditionPO"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentRefPO"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/FieldValuePO"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "outcome_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Summary"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "review_items": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReviewItem"
+            },
+            "title": "Review Items",
+            "type": "array"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScoreResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state": {
+            "$ref": "#/components/schemas/CaseState"
+          },
+          "submission_versions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SubmissionVersion"
+            },
+            "title": "Submission Versions",
+            "type": "array"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "title",
+          "state",
+          "unit",
+          "owner",
+          "change_types",
+          "completion",
+          "fields",
+          "documents",
+          "clarifications",
+          "conditions",
+          "created_at"
+        ],
+        "title": "CaseDetailAnalyst",
+        "type": "object"
+      },
+      "CaseDetailInternal": {
+        "additionalProperties": false,
+        "description": "What H1 (and other services, via a service-account bearer token)\nread: everything the analyst shape has, plus the pinned versions a\ncase runs against -- never sent to the web client.",
+        "properties": {
+          "analyst_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analyst Id"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "change_types": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeType"
+            },
+            "title": "Change Types",
+            "type": "array"
+          },
+          "clarifications": {
+            "items": {
+              "$ref": "#/components/schemas/ClarificationThreadPO"
+            },
+            "title": "Clarifications",
+            "type": "array"
+          },
+          "completion": {
+            "$ref": "#/components/schemas/CompletionState"
+          },
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/ConditionPO"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentRefPO"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/FieldValuePO"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "fieldset_v": {
+            "title": "Fieldset V",
+            "type": "integer"
+          },
+          "outcome_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Summary"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "pinned_versions": {
+            "$ref": "#/components/schemas/PinnedVersions"
+          },
+          "review_items": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReviewItem"
+            },
+            "title": "Review Items",
+            "type": "array"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScoreResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state": {
+            "$ref": "#/components/schemas/CaseState"
+          },
+          "submission_versions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SubmissionVersion"
+            },
+            "title": "Submission Versions",
+            "type": "array"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "title",
+          "state",
+          "unit",
+          "owner",
+          "change_types",
+          "completion",
+          "fields",
+          "documents",
+          "clarifications",
+          "conditions",
+          "created_at",
+          "fieldset_v",
+          "pinned_versions"
+        ],
+        "title": "CaseDetailInternal",
+        "type": "object"
+      },
+      "CaseDetailPO": {
+        "additionalProperties": false,
+        "description": "No field here may ever carry a score, band, rating or harness\nidentifier — that is the contract, not a runtime check.",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "change_types": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeType"
+            },
+            "title": "Change Types",
+            "type": "array"
+          },
+          "clarifications": {
+            "items": {
+              "$ref": "#/components/schemas/ClarificationThreadPO"
+            },
+            "title": "Clarifications",
+            "type": "array"
+          },
+          "completion_pct": {
+            "title": "Completion Pct",
+            "type": "number"
+          },
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/ConditionPO"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentRefPO"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/FieldValuePO"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "outcome_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Summary"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "required_field_count": {
+            "title": "Required Field Count",
+            "type": "integer"
+          },
+          "required_fields_filled": {
+            "title": "Required Fields Filled",
+            "type": "integer"
+          },
+          "state": {
+            "$ref": "#/components/schemas/CaseState"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "threshold_pct": {
+            "title": "Threshold Pct",
+            "type": "number"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "title",
+          "state",
+          "unit",
+          "owner",
+          "change_types",
+          "completion_pct",
+          "threshold_pct",
+          "required_field_count",
+          "required_fields_filled",
+          "fields",
+          "documents",
+          "clarifications",
+          "conditions",
+          "created_at"
+        ],
+        "title": "CaseDetailPO",
+        "type": "object"
+      },
+      "CaseListItemAnalyst": {
+        "additionalProperties": false,
+        "description": "The analyst/committee queue row: carries the assignment, which\n``CaseListItemPO`` (case_po.py) never does.",
+        "properties": {
+          "analyst_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analyst Id"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "change_types": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeType"
+            },
+            "title": "Change Types",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "open_clarification_count": {
+            "default": 0,
+            "title": "Open Clarification Count",
+            "type": "integer"
+          },
+          "state": {
+            "$ref": "#/components/schemas/CaseState"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "title",
+          "state",
+          "change_types",
+          "created_at"
+        ],
+        "title": "CaseListItemAnalyst",
+        "type": "object"
+      },
+      "CaseListItemPO": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "change_types": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeType"
+            },
+            "title": "Change Types",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "open_clarification_count": {
+            "default": 0,
+            "title": "Open Clarification Count",
+            "type": "integer"
+          },
+          "state": {
+            "$ref": "#/components/schemas/CaseState"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "title",
+          "state",
+          "change_types",
+          "created_at"
+        ],
+        "title": "CaseListItemPO",
+        "type": "object"
+      },
+      "CaseState": {
+        "description": "Caseflow's state machine (design A §3.1). Sub-states are run-snapshot\nflags (fast_lane, round_open, locked, pack_version, vote_round), not\nenum values.",
+        "enum": [
+          "intake",
+          "review_and_submit",
+          "triage",
+          "screening",
+          "assess",
+          "critic",
+          "completeness",
+          "clarification",
+          "review",
+          "recommend",
+          "decide",
+          "closed",
+          "handoff"
+        ],
+        "title": "CaseState",
+        "type": "string"
+      },
+      "ChangeType": {
+        "enum": [
+          "new_product",
+          "new_feature",
+          "process_change",
+          "vendor_onboarding",
+          "new_geography",
+          "new_segment"
+        ],
+        "title": "ChangeType",
+        "type": "string"
+      },
+      "ClarificationQuestionPO": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer"
+          },
+          "answered_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answered At"
+          },
+          "question_id": {
+            "title": "Question Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "text"
+        ],
+        "title": "ClarificationQuestionPO",
+        "type": "object"
+      },
+      "ClarificationStatus": {
+        "enum": [
+          "awaiting-response",
+          "answered",
+          "resolved"
+        ],
+        "title": "ClarificationStatus",
+        "type": "string"
+      },
+      "ClarificationThreadPO": {
+        "additionalProperties": false,
+        "properties": {
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/ClarificationQuestionPO"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ClarificationStatus"
+          },
+          "thread_id": {
+            "title": "Thread Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "thread_id",
+          "status",
+          "round",
+          "questions"
+        ],
+        "title": "ClarificationThreadPO",
+        "type": "object"
+      },
+      "CommitteeAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "answered_by": {
+            "title": "Answered By",
+            "type": "string"
+          },
+          "numbers_changed": {
+            "title": "Numbers Changed",
+            "type": "boolean"
+          },
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "question_id": {
+            "title": "Question Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pack_id",
+          "question_id",
+          "answered_by",
+          "text",
+          "numbers_changed"
+        ],
+        "title": "CommitteeAnswer",
+        "type": "object"
+      },
+      "CommitteeQuestion": {
+        "additionalProperties": false,
+        "properties": {
+          "asked_by": {
+            "title": "Asked By",
+            "type": "string"
+          },
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pack_id",
+          "asked_by",
+          "text"
+        ],
+        "title": "CommitteeQuestion",
+        "type": "object"
+      },
+      "CompletionState": {
+        "additionalProperties": false,
+        "description": "The one completion shape every role reads (``fcrm_case.domain.\ncompletion.compute_completion``'s output, mapped at the HTTP boundary\nso the wire shape lives here, not in the service's own domain module).",
+        "properties": {
+          "all_always_required_filled": {
+            "title": "All Always Required Filled",
+            "type": "boolean"
+          },
+          "filled_count": {
+            "title": "Filled Count",
+            "type": "integer"
+          },
+          "missing_always_required": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Always Required",
+            "type": "array"
+          },
+          "pct": {
+            "title": "Pct",
+            "type": "number"
+          },
+          "required_count": {
+            "title": "Required Count",
+            "type": "integer"
+          },
+          "threshold_pct": {
+            "title": "Threshold Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "required_count",
+          "filled_count",
+          "pct",
+          "threshold_pct",
+          "missing_always_required",
+          "all_always_required_filled"
+        ],
+        "title": "CompletionState",
+        "type": "object"
+      },
+      "ConditionPO": {
+        "additionalProperties": false,
+        "properties": {
+          "condition_id": {
+            "title": "Condition Id",
+            "type": "string"
+          },
+          "due": {
+            "title": "Due",
+            "type": "string"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "condition_id",
+          "text",
+          "owner",
+          "due",
+          "status"
+        ],
+        "title": "ConditionPO",
+        "type": "object"
+      },
+      "ControlInput": {
+        "additionalProperties": false,
+        "description": "One control's rating as confirmed (or AI-proposed) for scoring.\nA planned control must never appear here (rule 7); the engine does not\nspecial-case it — it is the caller's job to exclude it.",
+        "properties": {
+          "catalogue_weight": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1.0,
+            "title": "Catalogue Weight",
+            "type": "number"
+          },
+          "control_id": {
+            "title": "Control Id",
+            "type": "string"
+          },
+          "domain": {
+            "$ref": "#/components/schemas/Domain"
+          },
+          "rating": {
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Rating",
+            "type": "number"
+          }
+        },
+        "required": [
+          "control_id",
+          "domain",
+          "rating",
+          "catalogue_weight"
+        ],
+        "title": "ControlInput",
+        "type": "object"
+      },
+      "CreateCaseRequest": {
+        "additionalProperties": false,
+        "description": "The PO's initial draft: a title, the owning unit, the owner's user\nid and the change types confirmed so far. ``change_types`` resolves the\nrequired-fields list at creation time (``resolve_required_fields``,\npinned to the active field-set version) -- it is never recomputed\nimplicitly later; a later change goes through ``ConfirmCategoriesRequest``\n(not yet wired to a route in this pass).",
+        "properties": {
+          "change_types": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeType"
+            },
+            "title": "Change Types",
+            "type": "array"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "unit",
+          "owner",
+          "change_types"
+        ],
+        "title": "CreateCaseRequest",
+        "type": "object"
+      },
+      "CreateDraftCaseResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id"
+        ],
+        "title": "CreateDraftCaseResponse",
+        "type": "object"
+      },
+      "DemoUser": {
+        "additionalProperties": false,
+        "description": "One person on the local demo picker (``GET /auth/demo-users``).",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "name",
+          "role",
+          "title"
+        ],
+        "title": "DemoUser",
+        "type": "object"
+      },
+      "DemoUserGroup": {
+        "additionalProperties": false,
+        "description": "The demo picker's people of one role, with the heading the page shows.",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/DemoUser"
+            },
+            "title": "Users",
+            "type": "array"
+          }
+        },
+        "required": [
+          "role",
+          "label",
+          "users"
+        ],
+        "title": "DemoUserGroup",
+        "type": "object"
+      },
+      "DocumentRefPO": {
+        "additionalProperties": false,
+        "properties": {
+          "doc_id": {
+            "title": "Doc Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pages": {
+            "title": "Pages",
+            "type": "integer"
+          },
+          "stored_at": {
+            "format": "date-time",
+            "title": "Stored At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "doc_id",
+          "name",
+          "pages",
+          "stored_at"
+        ],
+        "title": "DocumentRefPO",
+        "type": "object"
+      },
+      "Domain": {
+        "description": "The four FFIEC risk domains (scoring v3 / design A §5).",
+        "enum": [
+          "customer",
+          "product",
+          "geography",
+          "channel"
+        ],
+        "title": "Domain",
+        "type": "string"
+      },
+      "DomainInput": {
+        "additionalProperties": false,
+        "properties": {
+          "controls": {
+            "items": {
+              "$ref": "#/components/schemas/ControlInput"
+            },
+            "title": "Controls",
+            "type": "array"
+          },
+          "domain": {
+            "$ref": "#/components/schemas/Domain"
+          },
+          "impact": {
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Impact",
+            "type": "integer"
+          },
+          "likelihood": {
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Likelihood",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain",
+          "likelihood",
+          "impact",
+          "controls"
+        ],
+        "title": "DomainInput",
+        "type": "object"
+      },
+      "DomainResult": {
+        "additionalProperties": false,
+        "properties": {
+          "contribution": {
+            "title": "Contribution",
+            "type": "number"
+          },
+          "control_effectiveness": {
+            "title": "Control Effectiveness",
+            "type": "number"
+          },
+          "domain": {
+            "$ref": "#/components/schemas/Domain"
+          },
+          "domain_weight_normalised": {
+            "title": "Domain Weight Normalised",
+            "type": "number"
+          },
+          "inherent": {
+            "title": "Inherent",
+            "type": "integer"
+          },
+          "residual": {
+            "title": "Residual",
+            "type": "number"
+          },
+          "retention": {
+            "title": "Retention",
+            "type": "number"
+          }
+        },
+        "required": [
+          "domain",
+          "inherent",
+          "control_effectiveness",
+          "retention",
+          "residual",
+          "domain_weight_normalised",
+          "contribution"
+        ],
+        "title": "DomainResult",
+        "type": "object"
+      },
+      "FieldValuePO": {
+        "additionalProperties": false,
+        "properties": {
+          "field_id": {
+            "title": "Field Id",
+            "type": "string"
+          },
+          "how": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "How"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "field_id",
+          "label"
+        ],
+        "title": "FieldValuePO",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ItemKind": {
+        "description": "What a review_item (Gate A, review_item gate) carries.",
+        "enum": [
+          "clause",
+          "factor",
+          "control",
+          "critic_finding"
+        ],
+        "title": "ItemKind",
+        "type": "string"
+      },
+      "ItemStatus": {
+        "enum": [
+          "proposed",
+          "confirmed",
+          "overridden",
+          "removed",
+          "explained",
+          "adjusted"
+        ],
+        "title": "ItemStatus",
+        "type": "string"
+      },
+      "LoginRequest": {
+        "additionalProperties": false,
+        "description": "Credentials for ``POST /login``.\n\nExactly one of ``username`` (the web form's field; the seed id without its\n``u-`` prefix) or ``email`` (the original contract field; either spelling\nof the seed id) names the account. ``password`` may be empty only for the\nlocal demo picker (see ``fcrm_identity.settings.IdentitySettings\n.demo_login_active``); everywhere else an empty password is just a wrong\none.",
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "password": {
+            "maxLength": 1024,
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "LoginResponse": {
+        "additionalProperties": false,
+        "description": "What every login-family route answers with.\n\nThe refresh token is an httpOnly cookie and never appears in the body.",
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "token_type": {
+            "const": "bearer",
+            "default": "bearer",
+            "title": "Token Type",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/PrincipalOut"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in",
+          "user"
+        ],
+        "title": "LoginResponse",
+        "type": "object"
+      },
+      "Outcome": {
+        "description": "Four outcomes required by the brief; no fifth value, ever (rule: nothing\nis approved or rejected automatically).",
+        "enum": [
+          "approve",
+          "approve_with_conditions",
+          "defer",
+          "reject"
+        ],
+        "title": "Outcome",
+        "type": "string"
+      },
+      "OutcomeSet": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "no_majority": {
+            "default": false,
+            "title": "No Majority",
+            "type": "boolean"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Outcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "case_id",
+          "pack_id",
+          "round"
+        ],
+        "title": "OutcomeSet",
+        "type": "object"
+      },
+      "Pack": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "checks": {
+            "$ref": "#/components/schemas/ReleaseChecks"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "released_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Released At"
+          },
+          "superseded_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superseded By"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pack_id",
+          "case_id",
+          "version",
+          "content_hash",
+          "checks"
+        ],
+        "title": "Pack",
+        "type": "object"
+      },
+      "PackBuild": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "snapshot": {
+            "additionalProperties": true,
+            "title": "Snapshot",
+            "type": "object"
+          }
+        },
+        "required": [
+          "case_id",
+          "snapshot"
+        ],
+        "title": "PackBuild",
+        "type": "object"
+      },
+      "Page_AuditRecord_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditRecord"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[AuditRecord]",
+        "type": "object"
+      },
+      "Page_CaseListItemAnalyst_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CaseListItemAnalyst"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[CaseListItemAnalyst]",
+        "type": "object"
+      },
+      "Page_CaseListItemPO_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CaseListItemPO"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[CaseListItemPO]",
+        "type": "object"
+      },
+      "PinnedVersions": {
+        "additionalProperties": false,
+        "description": "Recorded once per case run on ``case_runs`` and echoed on every\n``ScoreRequest`` and the audit record for scoring (ADR-16 / design A §5).",
+        "properties": {
+          "controls_v": {
+            "title": "Controls V",
+            "type": "integer"
+          },
+          "corpus_v": {
+            "title": "Corpus V",
+            "type": "integer"
+          },
+          "fieldset_v": {
+            "title": "Fieldset V",
+            "type": "integer"
+          },
+          "jurisdictions_v": {
+            "title": "Jurisdictions V",
+            "type": "string"
+          },
+          "prompts_v": {
+            "title": "Prompts V",
+            "type": "string"
+          },
+          "routing_v": {
+            "title": "Routing V",
+            "type": "integer"
+          },
+          "scoring_v": {
+            "title": "Scoring V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "scoring_v",
+          "corpus_v",
+          "controls_v",
+          "fieldset_v",
+          "jurisdictions_v",
+          "routing_v",
+          "prompts_v"
+        ],
+        "title": "PinnedVersions",
+        "type": "object"
+      },
+      "PrincipalOut": {
+        "additionalProperties": false,
+        "description": "A person as the web shows them: the login ``user`` and ``GET /me``.\n\n``id`` is the seed id (``u-riyer``), which is the JWT ``sub`` and the key\nevery other service stores (``analyst_id``, ``owner``).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/Role"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "roles",
+          "title"
+        ],
+        "title": "PrincipalOut",
+        "type": "object"
+      },
+      "RecordAppend": {
+        "additionalProperties": false,
+        "description": "What the caller submits; ``prev_hash``/``hash``/``seq`` are computed\nby the service, never supplied by the caller.",
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "data": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Data",
+            "type": "object"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "type",
+          "actor",
+          "summary"
+        ],
+        "title": "RecordAppend",
+        "type": "object"
+      },
+      "RefreshRequest": {
+        "additionalProperties": false,
+        "description": "Non-browser clients may send the refresh token in the body instead\nof relying on the cookie (design A §8.1: \"cookie or {refresh_token}\").\nNot a shared contract shape (no other service calls this): kept local\nto this package rather than added to ``fcrm_contracts`` on this pass.",
+        "properties": {
+          "refresh_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Token"
+          }
+        },
+        "title": "RefreshRequest",
+        "type": "object"
+      },
+      "ReleaseChecks": {
+        "additionalProperties": false,
+        "description": "The four release checks before a pack may go to committee (design A\n§3.1 \"proposed enumeration\", mirrors SubmitCaseChecks in spirit).",
+        "properties": {
+          "all_review_items_decided": {
+            "title": "All Review Items Decided",
+            "type": "boolean"
+          },
+          "boundary_and_band_acknowledged": {
+            "title": "Boundary And Band Acknowledged",
+            "type": "boolean"
+          },
+          "conditions_drafted": {
+            "title": "Conditions Drafted",
+            "type": "boolean"
+          },
+          "numbers_locked": {
+            "title": "Numbers Locked",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "numbers_locked",
+          "conditions_drafted",
+          "all_review_items_decided",
+          "boundary_and_band_acknowledged"
+        ],
+        "title": "ReleaseChecks",
+        "type": "object"
+      },
+      "RevealedVote": {
+        "additionalProperties": false,
+        "properties": {
+          "member_id": {
+            "title": "Member Id",
+            "type": "string"
+          },
+          "option": {
+            "$ref": "#/components/schemas/VoteOption"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "member_id",
+          "option",
+          "rationale"
+        ],
+        "title": "RevealedVote",
+        "type": "object"
+      },
+      "ReviewItem": {
+        "additionalProperties": false,
+        "description": "One row behind Gate A (review_item). The analyst confirms, overrides\nor removes each item individually; there is no bulk-accept endpoint\n(rule 2).",
+        "properties": {
+          "confirmed_value": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed Value"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decided_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ItemKind"
+          },
+          "override_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Override Reason"
+          },
+          "proposed_value": {
+            "additionalProperties": true,
+            "title": "Proposed Value",
+            "type": "object"
+          },
+          "source_refs": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ItemStatus"
+          }
+        },
+        "required": [
+          "item_id",
+          "kind",
+          "status",
+          "proposed_value"
+        ],
+        "title": "ReviewItem",
+        "type": "object"
+      },
+      "Role": {
+        "enum": [
+          "fcrm_po",
+          "fcrm_analyst",
+          "fcrm_committee",
+          "fcrm_observer",
+          "fcrm_service"
+        ],
+        "title": "Role",
+        "type": "string"
+      },
+      "RosterUser": {
+        "additionalProperties": false,
+        "description": "One entry of ``GET /users?role=``: who can be assigned or can vote.\n\nDeliberately narrower than :class:`PrincipalOut`: no title, no account\nflags, never a credential.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/Role"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "roles"
+        ],
+        "title": "RosterUser",
+        "type": "object"
+      },
+      "Route": {
+        "enum": [
+          "analyst",
+          "committee"
+        ],
+        "title": "Route",
+        "type": "string"
+      },
+      "RoutingRule": {
+        "additionalProperties": false,
+        "description": "One of R1..R6 as data (ADR-19 as D-19 origin; routing v4).",
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Params",
+            "type": "object"
+          },
+          "rule_id": {
+            "title": "Rule Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "label",
+          "description"
+        ],
+        "title": "RoutingRule",
+        "type": "object"
+      },
+      "RoutingRulesVersion": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "default": false,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "committee_quorum": {
+            "default": 3,
+            "title": "Committee Quorum",
+            "type": "integer"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/RoutingRule"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "rules"
+        ],
+        "title": "RoutingRulesVersion",
+        "type": "object"
+      },
+      "ScoreRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "domains": {
+            "items": {
+              "$ref": "#/components/schemas/DomainInput"
+            },
+            "minItems": 1,
+            "title": "Domains",
+            "type": "array"
+          },
+          "scoring_v": {
+            "title": "Scoring V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "case_id",
+          "scoring_v",
+          "domains"
+        ],
+        "title": "ScoreRequest",
+        "type": "object"
+      },
+      "ScoreResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "band": {
+            "$ref": "#/components/schemas/Band"
+          },
+          "boundary_distance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boundary Distance"
+          },
+          "boundary_flag": {
+            "title": "Boundary Flag",
+            "type": "boolean"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "composite": {
+            "title": "Composite",
+            "type": "number"
+          },
+          "domains": {
+            "items": {
+              "$ref": "#/components/schemas/DomainResult"
+            },
+            "title": "Domains",
+            "type": "array"
+          },
+          "route": {
+            "$ref": "#/components/schemas/Route"
+          },
+          "scoring_v": {
+            "title": "Scoring V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "case_id",
+          "scoring_v",
+          "domains",
+          "composite",
+          "band",
+          "route",
+          "boundary_flag"
+        ],
+        "title": "ScoreResponse",
+        "type": "object"
+      },
+      "ScoringModelVersion": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "default": false,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "approved": {
+            "title": "Approved",
+            "type": "string"
+          },
+          "bands": {
+            "items": {
+              "$ref": "#/components/schemas/BandDef"
+            },
+            "title": "Bands",
+            "type": "array"
+          },
+          "boundary_flag_distance": {
+            "title": "Boundary Flag Distance",
+            "type": "number"
+          },
+          "domain_weights": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Domain"
+            },
+            "title": "Domain Weights",
+            "type": "object"
+          },
+          "impact_scale": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Impact Scale",
+            "type": "object"
+          },
+          "likelihood_scale": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Likelihood Scale",
+            "type": "object"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "planned_controls_scored": {
+            "title": "Planned Controls Scored",
+            "type": "boolean"
+          },
+          "retention_factor_pct": {
+            "title": "Retention Factor Pct",
+            "type": "number"
+          },
+          "retention_floor_pct": {
+            "title": "Retention Floor Pct",
+            "type": "number"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "likelihood_scale",
+          "impact_scale",
+          "domain_weights",
+          "retention_floor_pct",
+          "retention_factor_pct",
+          "bands",
+          "boundary_flag_distance",
+          "planned_controls_scored",
+          "owner",
+          "approved"
+        ],
+        "title": "ScoringModelVersion",
+        "type": "object"
+      },
+      "SearchFilters": {
+        "additionalProperties": false,
+        "properties": {
+          "closed_date_before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed Date Before"
+          },
+          "corpus_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corpus Version"
+          },
+          "jurisdiction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jurisdiction"
+          },
+          "risk_area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Area"
+          },
+          "trigger_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigger Type"
+          }
+        },
+        "title": "SearchFilters",
+        "type": "object"
+      },
+      "SearchHit": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "score",
+          "text",
+          "metadata"
+        ],
+        "title": "SearchHit",
+        "type": "object"
+      },
+      "SearchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "filters": {
+            "$ref": "#/components/schemas/SearchFilters",
+            "default": {}
+          },
+          "index": {
+            "title": "Index",
+            "type": "string"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "top_k": {
+            "default": 10,
+            "title": "Top K",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "index",
+          "query"
+        ],
+        "title": "SearchRequest",
+        "type": "object"
+      },
+      "SearchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/SearchHit"
+            },
+            "title": "Hits",
+            "type": "array"
+          }
+        },
+        "required": [
+          "hits"
+        ],
+        "title": "SearchResponse",
+        "type": "object"
+      },
+      "SubmissionDiffOutput": {
+        "additionalProperties": false,
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "$ref": "#/components/schemas/SubmissionVersionDiff"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed_fields"
+        ],
+        "title": "SubmissionDiffOutput",
+        "type": "object"
+      },
+      "SubmissionVersion": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "title": "Created By",
+            "type": "string"
+          },
+          "diff": {
+            "items": {
+              "$ref": "#/components/schemas/SubmissionVersionDiff"
+            },
+            "title": "Diff",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "created_at",
+          "created_by",
+          "diff"
+        ],
+        "title": "SubmissionVersion",
+        "type": "object"
+      },
+      "SubmissionVersionDiff": {
+        "additionalProperties": false,
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "field_id": {
+            "title": "Field Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field_id",
+          "before",
+          "after"
+        ],
+        "title": "SubmissionVersionDiff",
+        "type": "object"
+      },
+      "SubmitCaseChecks": {
+        "additionalProperties": false,
+        "description": "The four submit checks (design A §2.1 \"proposed enumeration\").",
+        "properties": {
+          "all_always_required_filled": {
+            "title": "All Always Required Filled",
+            "type": "boolean"
+          },
+          "completion_at_least_threshold": {
+            "title": "Completion At Least Threshold",
+            "type": "boolean"
+          },
+          "no_open_blocking_gaps": {
+            "title": "No Open Blocking Gaps",
+            "type": "boolean"
+          },
+          "owner_reviewed_corrections": {
+            "title": "Owner Reviewed Corrections",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "completion_at_least_threshold",
+          "all_always_required_filled",
+          "no_open_blocking_gaps",
+          "owner_reviewed_corrections"
+        ],
+        "title": "SubmitCaseChecks",
+        "type": "object"
+      },
+      "SubmitCaseRequest": {
+        "additionalProperties": false,
+        "description": "``owner_reviewed_corrections`` is the one input the review-and-submit\nscreen contributes directly; ``no_open_blocking_gaps`` is computed\nserver-side from the case's own clarification threads (design A §2.1).",
+        "properties": {
+          "owner_reviewed_corrections": {
+            "title": "Owner Reviewed Corrections",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "owner_reviewed_corrections"
+        ],
+        "title": "SubmitCaseRequest",
+        "type": "object"
+      },
+      "SubmitCaseResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "checks": {
+            "$ref": "#/components/schemas/SubmitCaseChecks"
+          },
+          "submission_version": {
+            "title": "Submission Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "case_id",
+          "checks",
+          "submission_version"
+        ],
+        "title": "SubmitCaseResponse",
+        "type": "object"
+      },
+      "UpdateCaseTitleRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "UpdateCaseTitleRequest",
+        "type": "object"
+      },
+      "ValidateResponse": {
+        "additionalProperties": false,
+        "description": "What ``/core/validate`` returns to nginx's ``auth_request`` and to any\nservice that falls back to it when JWKS is unavailable.",
+        "properties": {
+          "roles": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Role"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "sub": {
+            "default": "",
+            "title": "Sub",
+            "type": "string"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid"
+        ],
+        "title": "ValidateResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VerifyResult": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "first_break_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Break Seq"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "record_count": {
+            "title": "Record Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "case_id",
+          "record_count",
+          "ok"
+        ],
+        "title": "VerifyResult",
+        "type": "object"
+      },
+      "VoteCast": {
+        "additionalProperties": false,
+        "properties": {
+          "member_id": {
+            "title": "Member Id",
+            "type": "string"
+          },
+          "option": {
+            "$ref": "#/components/schemas/VoteOption"
+          },
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pack_id",
+          "member_id",
+          "round",
+          "option",
+          "rationale"
+        ],
+        "title": "VoteCast",
+        "type": "object"
+      },
+      "VoteOption": {
+        "description": "Mirrors Outcome; kept distinct so a cast vote and a tallied outcome are\nnever structurally confusable.",
+        "enum": [
+          "approve",
+          "approve_with_conditions",
+          "defer",
+          "reject"
+        ],
+        "title": "VoteOption",
+        "type": "string"
+      },
+      "VotesHidden": {
+        "additionalProperties": false,
+        "properties": {
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "quorum": {
+            "title": "Quorum",
+            "type": "integer"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "votes_cast": {
+            "title": "Votes Cast",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pack_id",
+          "round",
+          "votes_cast",
+          "quorum"
+        ],
+        "title": "VotesHidden",
+        "type": "object"
+      },
+      "VotesRevealed": {
+        "additionalProperties": false,
+        "properties": {
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "tally": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Tally",
+            "type": "object"
+          },
+          "votes": {
+            "items": {
+              "$ref": "#/components/schemas/RevealedVote"
+            },
+            "title": "Votes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "pack_id",
+          "round",
+          "votes",
+          "tally"
+        ],
+        "title": "VotesRevealed",
+        "type": "object"
+      },
+      "WriteFieldValueRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "how": {
+            "default": "owner_corrected",
+            "enum": [
+              "extracted",
+              "reused",
+              "answered",
+              "owner_corrected"
+            ],
+            "title": "How",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "title": "WriteFieldValueRequest",
+        "type": "object"
+      },
+      "WriteFieldValueResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "completion": {
+            "$ref": "#/components/schemas/CompletionState"
+          },
+          "field_id": {
+            "title": "Field Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "field_id",
+          "completion"
+        ],
+        "title": "WriteFieldValueResponse",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "description": "FCRM access token",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "description": "Every service of the api process under its public prefix (X1 /api/fcrm/auth, S1 /api/fcrm, S2 /scoring, S3 /policy, S4 /audit, S5 /decision).",
+    "title": "TrustOps API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/fcrm/audit/records": {
+      "post": {
+        "description": "Append one record to ``body.case_id``'s chain. The only write route\nS4 exposes (design A §2.4; ``docs/governance/audit-chain.md``).",
+        "operationId": "S4_append_record_records_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordAppend"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Append Record",
+        "tags": [
+          "audit"
+        ]
+      }
+    },
+    "/api/fcrm/audit/records/{case_id}": {
+      "get": {
+        "description": "One page of ``case_id``'s chain, in ``seq`` order, oldest first.",
+        "operationId": "S4_list_records_records__case_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_AuditRecord_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Records",
+        "tags": [
+          "audit"
+        ]
+      }
+    },
+    "/api/fcrm/audit/verify/{case_id}": {
+      "get": {
+        "description": "Recompute ``case_id``'s whole chain and report whether it is\nintact, and the first broken ``seq`` if not (``fcrm_audit.chain.\nverify_chain``, the only place a chain is ever verified). A case with\nno records yet verifies trivially (``ok=True``, ``record_count=0``).",
+        "operationId": "S4_verify_case_verify__case_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Verify Case",
+        "tags": [
+          "audit"
+        ]
+      }
+    },
+    "/api/fcrm/auth/core/userinfo": {
+      "get": {
+        "description": "Alias of ``POST /core/validate`` (design A §8.1).",
+        "operationId": "X1_core_userinfo_core_userinfo_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Core Userinfo",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/fcrm/auth/core/validate": {
+      "post": {
+        "description": "The AEO contract kept for nginx's ``auth_request`` (``ops/nginx``)\nand for any service falling back to it when JWKS is unreachable.\n``current_user`` already rejects a non-access, expired or badly\nsigned token with 401 before this body ever runs (bug 1's fix, shared\nwith every other service via :class:`fcrm_common.auth.TokenVerifier`).",
+        "operationId": "X1_core_validate_core_validate_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Core Validate",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/fcrm/auth/demo-users": {
+      "get": {
+        "description": "The seeded people grouped for the web's demo picker. Unauthenticated\nby design (it is shown before anyone has signed in) and therefore\navailable only where password-less login is\n(:attr:`IdentitySettings.demo_login_active`).\n\nRaises:\n    NotFoundError: Demo mode is off or ``ENV`` is not local -- the same\n        404 an unknown route gets, so the endpoint does not advertise\n        itself.",
+        "operationId": "X1_demo_users_demo_users_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DemoUserGroup"
+                  },
+                  "title": "Response Demo Users Demo Users Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Demo Users",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/fcrm/auth/login": {
+      "post": {
+        "description": "Password login for a seeded user. Rate-limited at the gateway\n(nginx ``limit_req zone=fcrm_login``), not here.\n\nThe account is named by ``username`` or ``email`` (exactly one, see\n:class:`~fcrm_contracts.api.identity.LoginRequest`). When the local demo\npicker is on (:attr:`IdentitySettings.demo_login_active`) an *empty*\npassword signs the named, enabled user in without a hash check; in every\nother environment an empty password is checked like any other and fails.\n\nRaises:\n    UnauthorizedError: Unknown login, disabled account or wrong\n        password -- one message for all three, so the response never\n        reveals which it was.",
+        "operationId": "X1_login_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/fcrm/auth/logout": {
+      "post": {
+        "description": "Revoke the caller's refresh token (if one is presented and still\ndecodes) and clear the cookie. Always 204: logging out an\nalready-expired session is not an error.",
+        "operationId": "X1_logout_logout_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RefreshRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Logout",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/fcrm/auth/me": {
+      "get": {
+        "description": "The caller's own profile (id, name, roles, title, unit).",
+        "operationId": "X1_me_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrincipalOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Me",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/fcrm/auth/refresh": {
+      "post": {
+        "description": "Rotate a refresh token for a new access token.\n\nRaises:\n    UnauthorizedError: No refresh token presented, it is not a\n        ``refresh``-typed token (rejects an access token here, the\n        mirror image of bug 1), it was never issued, is revoked or\n        expired, or its owner is no longer enabled.",
+        "operationId": "X1_refresh_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RefreshRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/fcrm/auth/users": {
+      "get": {
+        "description": "The enabled people holding ``role``: the roster R5 auto-triage picks\nan analyst from and committee release counts members against. OPA lets\nanalysts, committee members and the service account call it\n(``permissions.json``'s ``identity-get-users-...`` rule).",
+        "operationId": "X1_users_users_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "role",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Role"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RosterUser"
+                  },
+                  "title": "Response Users Users Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Users",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/fcrm/auth/users/me": {
+      "get": {
+        "description": "Alias of ``GET /me`` (design A §8.1).",
+        "operationId": "X1_users_me_users_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrincipalOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Users Me",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/fcrm/cases": {
+      "get": {
+        "description": "The PO's case list or the analyst/committee queue, role-shaped.\n\nA PO is always scoped to their own cases (``owner`` is forced to their\n``sub``, overriding anything passed); an analyst or committee member\nmay browse freely (fine-grained per-analyst queue scoping through OPA\nis deferred -- see the task report). A service caller's filters pass\nthrough unchanged.",
+        "operationId": "S1_list_cases_cases_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CaseState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "owner",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Owner"
+            }
+          },
+          {
+            "in": "query",
+            "name": "analyst_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Analyst Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Page_CaseListItemPO_"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Page_CaseListItemAnalyst_"
+                    }
+                  ],
+                  "title": "Response List Cases Cases Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Cases",
+        "tags": [
+          "case"
+        ]
+      },
+      "post": {
+        "description": "Create a draft case and resolve its required fields from the active\nfield set, pinned to this case for its whole lifetime (CLAUDE.md:\n\"each case pins the versions of its scoring model, corpus, controls,\nfield set and prompts\").",
+        "operationId": "S1_create_case_cases_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCaseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateDraftCaseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Case",
+        "tags": [
+          "case"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}": {
+      "get": {
+        "description": "The case, shaped for the caller's role (module docstring).",
+        "operationId": "S1_get_case_cases__case_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/CaseDetailPO"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CaseDetailAnalyst"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CaseDetailInternal"
+                    }
+                  ],
+                  "title": "Response Get Case Cases  Case Id  Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Case",
+        "tags": [
+          "case"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/fields/{field_id}": {
+      "put": {
+        "description": "Write one field's value and return the recomputed completion state\n(``fcrm_case.domain.completion.compute_completion``, never\nreimplemented here).\n\nPO only, and only on a case they own: rule 4 (\"the analyst never edits\nthe submission\", design A §2.1.2 \"``field_values`` writes accept only\n``fcrm_po``\") refuses every other role, the service role included --\nagents propose values, the PO confirms or corrects them.",
+        "operationId": "S1_write_field_value_cases__case_id__fields__field_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "field_id",
+            "required": true,
+            "schema": {
+              "title": "Field Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteFieldValueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WriteFieldValueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Write Field Value",
+        "tags": [
+          "case"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/stream": {
+      "get": {
+        "description": "A live-update SSE stream for one case (module docstring: this polls\nthis service's own store; no caseflow/outbox tap is wired yet).",
+        "operationId": "S1_stream_case_cases__case_id__stream_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Stream Case",
+        "tags": [
+          "case"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/submit": {
+      "post": {
+        "description": "Run the four submit checks; a case that passes gets a new,\nimmutable submission-version snapshot and ``submitted_at`` is stamped\n(one-shot: a second submit attempt gets 409, same as any other write\nto an already-submitted case).",
+        "operationId": "S1_submit_case_cases__case_id__submit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitCaseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmitCaseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Submit Case",
+        "tags": [
+          "case"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/title": {
+      "put": {
+        "description": "Rename a case the caller owns.",
+        "operationId": "S1_update_title_cases__case_id__title_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCaseTitleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseDetailPO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Title",
+        "tags": [
+          "case"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/versions": {
+      "get": {
+        "description": "Every submission version recorded so far, each diffed against the\none before it (an arbitrary pair is ``GET .../versions/diff``).",
+        "operationId": "S1_list_submission_versions_cases__case_id__versions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SubmissionVersion"
+                  },
+                  "title": "Response List Submission Versions Cases  Case Id  Versions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Submission Versions",
+        "tags": [
+          "case"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/versions/diff": {
+      "get": {
+        "description": "What changed between any two of a case's submission versions\n(``fcrm_contracts.tools.submission_diff``, backed by S1).",
+        "operationId": "S1_diff_submission_version_pair_cases__case_id__versions_diff_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from_version",
+            "required": true,
+            "schema": {
+              "title": "From Version",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to_version",
+            "required": true,
+            "schema": {
+              "title": "To Version",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionDiffOutput"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Diff Submission Version Pair",
+        "tags": [
+          "case"
+        ]
+      }
+    },
+    "/api/fcrm/decision/packs": {
+      "post": {
+        "description": "Build a new pack version, or hand back the current one unchanged.\n\n``pack_unchanged`` (by content hash) is a no-op: the same pack id and\nversion come back, no new row is written. Any real content change --\nincluding a number corrected after an R6 unlock -- mints a new pack id\nand version, and supersedes the previous one (its votes are voided,\nnever deleted: design A §3.6 \"pack v2\").",
+        "operationId": "S5_build_or_reuse_pack_packs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackBuild"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pack"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Build Or Reuse Pack",
+        "tags": [
+          "decision"
+        ]
+      }
+    },
+    "/api/fcrm/decision/packs/{pack_id}": {
+      "get": {
+        "description": "A pack by id, for a committee member's or analyst's own lookup.",
+        "operationId": "S5_get_pack_packs__pack_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "title": "Pack Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pack"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Pack",
+        "tags": [
+          "decision"
+        ]
+      }
+    },
+    "/api/fcrm/decision/packs/{pack_id}/outcome": {
+      "get": {
+        "description": "The persisted tally result for a pack's latest round.\n\nRaises :class:`ConflictError` (409) while quorum has not yet been\nreached -- there is no outcome to read, and none is ever invented.",
+        "operationId": "S5_get_outcome_packs__pack_id__outcome_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "title": "Pack Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutcomeSet"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Outcome",
+        "tags": [
+          "decision"
+        ]
+      }
+    },
+    "/api/fcrm/decision/packs/{pack_id}/questions": {
+      "post": {
+        "description": "R6: open a committee question thread on ``pack_id``, visible to\nevery member and the analyst. ``body.asked_by`` must be the caller\n(403 otherwise). There is no ``Thread`` shape in\n``fcrm_contracts.api.decision`` yet, so the response echoes the\nquestion with a minted ``question_id`` as a plain object rather than\ninventing a new contract type.",
+        "operationId": "S5_ask_question_packs__pack_id__questions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "title": "Pack Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitteeQuestion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Ask Question Packs  Pack Id  Questions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ask Question",
+        "tags": [
+          "decision"
+        ]
+      }
+    },
+    "/api/fcrm/decision/packs/{pack_id}/votes": {
+      "get": {
+        "description": "Before quorum: :class:`VotesHidden` (a count only, R2). Once the\nrequested round has been tallied, its votes are revealed with full\nrationale and the tally -- never before.",
+        "operationId": "S5_vote_status_packs__pack_id__votes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "title": "Pack Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "round",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Round"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/VotesHidden"
+                    },
+                    {
+                      "$ref": "#/components/schemas/VotesRevealed"
+                    }
+                  ],
+                  "title": "Response Vote Status Packs  Pack Id  Votes Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Vote Status",
+        "tags": [
+          "decision"
+        ]
+      },
+      "post": {
+        "description": "Cast one committee member's vote.\n\nThe member is the caller: ``body.member_id`` must equal the verified\n``principal.sub`` (403 otherwise), so no token can vote in another\nmember's name and the one-vote-per-member rule binds to real identity.\n\nHidden until quorum (R2): the response is always either\n``VotesHidden`` (a count, never a vote) while fewer than\n:data:`QUORUM` members have voted this round, or the freshly computed\n``OutcomeSet`` *only once the third vote has just landed* -- the\nvoter who completes the round learns the outcome because quorum is,\nby definition, reached; nobody before that point can.",
+        "operationId": "S5_cast_vote_packs__pack_id__votes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "title": "Pack Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoteCast"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/VotesHidden"
+                    },
+                    {
+                      "$ref": "#/components/schemas/OutcomeSet"
+                    }
+                  ],
+                  "title": "Response Cast Vote Packs  Pack Id  Votes Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Cast Vote",
+        "tags": [
+          "decision"
+        ]
+      }
+    },
+    "/api/fcrm/decision/questions/{question_id}/answers": {
+      "post": {
+        "description": "R6: attach the analyst's answer as a pack addendum.\n``body.answered_by`` must be the caller (403 otherwise).\n\n``numbers_changed=True`` unlocks the pack immediately: it stops\naccepting votes and its already-cast votes for the open round are\nvoided (kept for audit, never deleted). No new pack is built here --\nthe real \"did a number change\" detection and the corrected content\nboth live with whatever calls this service (H1 caseflow); S5's job is\nonly to act on the flag once it is told. The next ``POST /packs`` for\nthis case, carrying the corrected snapshot, is what actually produces\npack v2 and so re-requests every vote (a fresh, empty round on a new\npack id).",
+        "operationId": "S5_answer_question_questions__question_id__answers_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "title": "Question Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitteeAnswer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Answer Question Questions  Question Id  Answers Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Answer Question",
+        "tags": [
+          "decision"
+        ]
+      }
+    },
+    "/api/fcrm/decision/release-checks": {
+      "post": {
+        "description": "Re-derive the four release checks through the pure\n``evaluate_release_checks`` rather than trusting a pre-built\n``ReleaseChecks`` object -- a thin, stateless wrapper a caller can poll\nbefore assembling a pack's snapshot.",
+        "operationId": "S5_check_release_release_checks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseChecks"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseChecks"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Check Release",
+        "tags": [
+          "decision"
+        ]
+      }
+    },
+    "/api/fcrm/policy/search": {
+      "post": {
+        "description": "Hybrid search over one of the three indexes (``policy_clauses``,\n``precedent_cases``, ``controls``): rank fusion of a keyword ranking\n(Mongo ``$text``) and, for ``policy_clauses``, H4's semantic ranking,\nwith the Index Contract's metadata filters pushed down to both.",
+        "operationId": "S3_search_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Search",
+        "tags": [
+          "policy"
+        ]
+      }
+    },
+    "/api/fcrm/scoring/models/active": {
+      "get": {
+        "description": "The scoring model version currently active for new scoring calls.",
+        "operationId": "S2_active_model_models_active_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoringModelVersion"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Active Model",
+        "tags": [
+          "scoring"
+        ]
+      }
+    },
+    "/api/fcrm/scoring/models/{version}": {
+      "get": {
+        "description": "A pinned scoring model version, for replaying an older case's\nscore exactly (every case pins the version it was scored with).",
+        "operationId": "S2_model_by_version_models__version__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoringModelVersion"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Model By Version",
+        "tags": [
+          "scoring"
+        ]
+      }
+    },
+    "/api/fcrm/scoring/routing/active": {
+      "get": {
+        "description": "The routing rules version currently active (R1-R6, D-19).",
+        "operationId": "S2_active_routing_routing_active_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoutingRulesVersion"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Active Routing",
+        "tags": [
+          "scoring"
+        ]
+      }
+    },
+    "/api/fcrm/scoring/score": {
+      "post": {
+        "description": "Compute a composite score. Idempotent and pure given the same\n``body`` and the active model matching ``body.scoring_v`` — called by\nH1 after assessment proposals land, by the review-item override path,\nand by nothing else (design A §3.1; ADR-07: no agent calls this).",
+        "operationId": "S2_score_score_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoreResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Score",
+        "tags": [
+          "scoring"
+        ]
+      }
+    }
+  }
+}

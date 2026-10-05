@@ -228,6 +228,10 @@ api-gen: ## regenerate src/frontend/src/api/generated from the OpenAPI exports
 locks: ## regenerate ai/registry.lock after a change under /ai
 	@$(call pending,the prompts-loader lane (P4))
 
+.PHONY: openapi
+openapi: ## export the api process's merged OpenAPI (every service under its prefix) to docs/architecture/openapi/api.json
+	$(UV_RUN) python ops/scripts/export_openapi.py
+
 # ── operations ───────────────────────────────────────────────────────────
 .PHONY: dlq dlq-replay token-report build-usage backup restore rotate-keys
 dlq: ## list dead-letter queues with their depth
