@@ -55,8 +55,9 @@ The application is two parts. The backend is one Docker stack. The frontend is o
 | Login and access policy on every service, checked with `curl` through the gateway | ✅ |
 | Web app on its own, against the in-browser mock backend (`npm run dev:msw`) | ✅ every screen for all three personas |
 | Web app against the live backend | ⏳ sign-in works; about a fifth of the web's routes have a backend route (17 of 83). See [Where the backend and the frontend stand](#where-the-backend-and-the-frontend-stand) |
-| H3 ingestion and H4 context workers | ⏳ built and tested, but no start entry point yet, so they are not part of the harness |
-| Driving case FCRM-2026-0151 end to end through the live stack | ⏳ the services do not yet pass events to each other, and S1 holds no seeded cases |
+| H3 ingestion worker | ✅ a unit of the harness; consumes `ingestion-worker.run` |
+| H4 context worker | ⏳ built and tested, joins the harness in iteration I3 |
+| Driving case FCRM-2026-0151 end to end through the live stack | ⏳ in progress: S1 holds the 80 seeded cases, and `case.created` already travels S1 outbox → RabbitMQ → H1 → S4 audit → SSE live; the PO routes, assessment and decision legs are still landing |
 | Agents on live Bedrock only (no replay mode, ADR-27) | ⏳ needs AWS keys in `.env`; without them every agent run fails at the model call |
 | `make demo`, `make seed-verify`, `make verify`, `make e2e`, `make evals` | ⏳ placeholders that print "pending" |
 
@@ -182,8 +183,8 @@ C=$(login amendes)               # Ana Mendes, risk committee
 | Check | Command | Expect |
 |---|---|---|
 | The analyst reads the active scoring model | `curl -s -H "Authorization: Bearer $A" $G/api/fcrm/scoring/models/active` | `200` with the model JSON |
-| The demo case's audit chain verifies | `curl -s -H "Authorization: Bearer $A" $G/api/fcrm/audit/verify/FCRM-2026-0151` | `200`, chain valid |
-| The committee can read the audit trail | `curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $C" $G/api/fcrm/audit/records/FCRM-2026-0151` | `200` |
+| A seeded case's audit chain verifies (0151 starts empty, its 67 records appear when the demo runs) | `curl -s -H "Authorization: Bearer $A" $G/api/fcrm/audit/verify/FCRM-2026-0118` | `200`, `ok: true`, 9 records |
+| The committee can read the audit trail | `curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $C" $G/api/fcrm/audit/records/FCRM-2026-0118` | `200` |
 | The product owner never sees scores | `curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $P" $G/api/fcrm/scoring/models/active` | `403` |
 | No token is rejected | `curl -s -o /dev/null -w '%{http_code}\n' $G/api/fcrm/scoring/models/active` | `401` |
 | Nobody but a service account can write audit records | `curl -s -o /dev/null -w '%{http_code}\n' -X POST -H "Authorization: Bearer $A" -H 'content-type: application/json' -d '{}' $G/api/fcrm/audit/records` | `403` |
