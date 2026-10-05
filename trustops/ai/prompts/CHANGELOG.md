@@ -23,3 +23,4 @@ Append-only. One row per prompt file version, newest last. The same entry appear
 | 2026-10-03 | watchlist.user | 1 | 2026-10-03.1 | initial | — | baseline pending |
 | 2026-10-03 | policy_gap.system | 1 | 2026-10-03.1 | initial; scope suggestion prefixed "Suggested scope (not policy): " | — | baseline pending |
 | 2026-10-03 | policy_gap.user | 1 | 2026-10-03.1 | initial | — | baseline pending |
+| 2026-10-05 | narrative.judge | 1 | 2026-10-05 | initial; the rubric judge behind the narrative_faithfulness eval metric, judge tier, evals only | — | baseline pending |
