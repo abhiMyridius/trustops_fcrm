@@ -54,19 +54,24 @@ import pymongo
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
-#: ``tests/conftest.py``'s ``live_client``: real lifespan, real HS256
-#: service token, allow-all OPA stub.
-LiveClient = Callable[..., AbstractContextManager[TestClient]]
 from fcrm_audit.lifespan import InsertOnlyRoleViolatedError, lifespan
 from fcrm_audit.routes import router
 from fcrm_common.errors import install_error_handlers
 from fcrm_common.health import ReadinessProbe, build_health_router
-from fcrm_seed.loader import demo_case
+from fcrm_seed.loader import closed_cases, demo_case
 from pymongo import AsyncMongoClient
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
+#: ``tests/conftest.py``'s ``live_client``: real lifespan, real HS256
+#: service token, allow-all OPA stub.
+LiveClient = Callable[..., AbstractContextManager[TestClient]]
+
+#: The demo case has no seeded records: its 67 are the live demo's output.
 DEMO_CASE_ID = demo_case()["id"]
+#: A closed case whose nine seeded records the startup self-test verifies.
+SEEDED_CASE_ID = demo_case()["precedent"]["id"]
+SEEDED_RECORDS_PER_CASE = 9
+SEEDED_CLOSED_CASES = len(closed_cases())
 REPO_ROOT = Path(__file__).resolve().parents[4]
 INIT_DIR = REPO_ROOT / "ops" / "mongo" / "init"
 
@@ -124,7 +129,7 @@ class TestSandboxLifespan:
         application.include_router(build_health_router(application.state.probe))
         return application
 
-    def test_the_full_lifespan_seeds_the_demo_chain_and_passes_its_self_test(
+    def test_the_full_lifespan_seeds_the_closed_case_chains_and_passes_its_self_test(
         self, app: FastAPI, live_client: LiveClient
     ) -> None:
         with live_client(app) as client:
@@ -135,14 +140,32 @@ class TestSandboxLifespan:
             assert body["checks"]["chain_verify"]["ok"] is True
             assert "insert_only" not in body["checks"]
 
-            verify = client.get(f"/verify/{DEMO_CASE_ID}")
+            verify = client.get(f"/verify/{SEEDED_CASE_ID}")
             assert verify.status_code == 200
             assert verify.json() == {
-                "case_id": DEMO_CASE_ID,
-                "record_count": 67,
+                "case_id": SEEDED_CASE_ID,
+                "record_count": SEEDED_RECORDS_PER_CASE,
                 "ok": True,
                 "first_break_seq": None,
             }
+            # The demo case is produced live, never seeded.
+            demo = client.get(f"/verify/{DEMO_CASE_ID}")
+            assert demo.json()["record_count"] == 0
+
+    async def test_one_bulk_insert_seeds_nine_records_for_each_closed_case(
+        self, app: FastAPI, live_client: LiveClient
+    ) -> None:
+        with live_client(app):
+            pass
+        client: AsyncMongoClient = AsyncMongoClient(URI)
+        try:
+            records = client["fcrm_audit"]["audit_records"]
+            total = await records.count_documents({})
+            assert total == SEEDED_CLOSED_CASES * SEEDED_RECORDS_PER_CASE
+            assert await records.count_documents({"case_id": DEMO_CASE_ID}) == 0
+            assert len(await records.distinct("case_id")) == SEEDED_CLOSED_CASES
+        finally:
+            await client.close()
 
     def test_restarting_the_app_does_not_duplicate_the_seeded_chain(
         self, app: FastAPI, live_client: LiveClient
@@ -150,8 +173,8 @@ class TestSandboxLifespan:
         with TestClient(app):
             pass
         with live_client(app) as client:
-            verify = client.get(f"/verify/{DEMO_CASE_ID}")
-            assert verify.json()["record_count"] == 67
+            verify = client.get(f"/verify/{SEEDED_CASE_ID}")
+            assert verify.json()["record_count"] == SEEDED_RECORDS_PER_CASE
 
     def test_post_records_appends_through_a_real_transaction_and_chains(
         self, app: FastAPI, live_client: LiveClient
@@ -193,24 +216,25 @@ class TestSandboxLifespan:
                 "first_break_seq": None,
             }
 
-    def test_get_records_paginates_the_real_seeded_demo_chain(
+    def test_get_records_paginates_a_real_seeded_closed_case_trail(
         self, app: FastAPI, live_client: LiveClient
     ) -> None:
         with live_client(app) as client:
-            page = client.get(f"/records/{DEMO_CASE_ID}", params={"limit": 10})
+            page = client.get(f"/records/{SEEDED_CASE_ID}", params={"limit": 4})
             assert page.status_code == 200
             body = page.json()
-            assert len(body["items"]) == 10
-            assert [r["seq"] for r in body["items"]] == list(range(1, 11))
+            assert len(body["items"]) == 4
+            assert [r["seq"] for r in body["items"]] == [1, 2, 3, 4]
             assert body["next_cursor"] is not None
 
             rest = client.get(
-                f"/records/{DEMO_CASE_ID}",
+                f"/records/{SEEDED_CASE_ID}",
                 params={"limit": 100, "cursor": body["next_cursor"]},
             )
             rest_body = rest.json()
-            assert len(rest_body["items"]) == 57
-            assert rest_body["items"][-1]["seq"] == 67
+            assert len(rest_body["items"]) == SEEDED_RECORDS_PER_CASE - 4
+            assert rest_body["items"][-1]["seq"] == SEEDED_RECORDS_PER_CASE
+            assert rest_body["items"][-1]["type"] == "chain.verified"
             assert rest_body["next_cursor"] is None
 
 
@@ -549,8 +573,8 @@ class TestInsertOnlyRoleIsEnforcedByTheDatabase:
             assert body["checks"]["insert_only"]["ok"] is True
             assert body["checks"]["chain_verify"]["ok"] is True
 
-            verify = client.get(f"/verify/{DEMO_CASE_ID}")
-            assert verify.json()["record_count"] == 67
+            verify = client.get(f"/verify/{SEEDED_CASE_ID}")
+            assert verify.json()["record_count"] == SEEDED_RECORDS_PER_CASE
 
     def test_the_real_service_refuses_to_start_with_an_over_privileged_credential(
         self, auth_enabled_mongo: dict[str, str], monkeypatch: pytest.MonkeyPatch

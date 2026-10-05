@@ -471,3 +471,93 @@ async def policy_client(
     app.state.search = service
     act_as(Role.ANALYST, ANALYST_SUB)
     return TestClient(app)
+
+
+# ── the synthetic policy corpus (ADR-29) ───────────────────────────────────
+#: ``fcrm_seed.gen_clauses`` writes ``clauses.json`` once, live; until that
+#: output is committed, and in every unit test that wants a known corpus, these
+#: fixtures pin which one the loaders see. Tests that exercise search *mechanics*
+#: on the four demo clauses take ``four_clause_corpus``; tests of the full
+#: corpus take ``synthetic_corpus_clauses`` (197 deterministic clauses from a
+#: fake writer, never model output).
+CORPUS_STAMP = "2026-10-05T10:00:00Z"
+
+
+class FakeClauseWriter:
+    """A deterministic ``fcrm_seed.gen_clauses.ClauseWriter``: each clause's
+    text is a pure function of its id and ``flavour``; it records its requests.
+    """
+
+    model_id = "fake-writer"
+
+    def __init__(self, flavour: str = "a") -> None:
+        self.flavour = flavour
+        self.requests: list[Any] = []
+
+    async def write(self, request: Any) -> Any:
+        """Answer ``request`` with one fixed-shape draft per slot."""
+        from fcrm_seed.gen_clauses import ClauseBatch, ClauseDraft, WrittenBatch
+
+        self.requests.append(request)
+        areas = ("customer", "product", "geography", "channel")
+        triggers = ("new_product", "new_geography", "vendor_onboarding")
+        drafts = [
+            ClauseDraft(
+                clause_id=slot.clause_id,
+                title=f"Control expectation {slot.clause_id}",
+                text=(
+                    f"The bank should maintain a documented control for item "
+                    f"{slot.clause_id}, assign a named owner, record the evidence "
+                    f"it relies on and review it at a defined interval so that "
+                    f"exceptions are escalated and decided before the related "
+                    f"change goes live. Variant {self.flavour}."
+                ),
+                risk_areas=[areas[slot.ordinal % 4]],
+                trigger_types=[triggers[slot.ordinal % 3]],
+                jurisdictions=["US"],
+            )
+            for slot in request.slots
+        ]
+        return WrittenBatch(batch=ClauseBatch(clauses=drafts), model_id=self.model_id)
+
+
+@pytest.fixture
+def fake_clause_writer() -> Callable[..., FakeClauseWriter]:
+    """``fake_clause_writer(flavour="a")``: a fresh :class:`FakeClauseWriter`."""
+    return FakeClauseWriter
+
+
+@pytest.fixture(scope="session")
+def synthetic_corpus() -> Any:
+    """The full 197-clause corpus (a ``GeneratedCorpus``) from the fake writer,
+    built once per session.
+    """
+    import asyncio
+
+    from fcrm_seed.gen_clauses import generate_corpus
+
+    return asyncio.run(
+        generate_corpus(load_raw(), FakeClauseWriter(), generated_at=CORPUS_STAMP)
+    )
+
+
+@pytest.fixture
+def four_clause_corpus(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make the loaders see no ``clauses.json``: the four demo clauses only."""
+    monkeypatch.setattr("fcrm_context_worker.seedload.generated_clauses", lambda: None)
+
+
+@pytest.fixture
+def synthetic_corpus_clauses(
+    monkeypatch: pytest.MonkeyPatch, synthetic_corpus: Any
+) -> list[dict[str, Any]]:
+    """Make the loaders see the 197 fake-writer clauses as if ``clauses.json``
+    had been committed; returns them.
+    """
+    clauses: list[dict[str, Any]] = [
+        c.model_dump(mode="json") for c in synthetic_corpus.file.clauses
+    ]
+    monkeypatch.setattr(
+        "fcrm_context_worker.seedload.generated_clauses", lambda: clauses
+    )
+    return clauses

@@ -424,9 +424,9 @@ resolution-markers = [
     "python_full_version < '3.15'",
 ]
 dependencies = [
-    { name = "botocore", version = "1.40.61", source = { registry = "https://pypi.org/simple" } },
-    { name = "jmespath" },
-    { name = "s3transfer", version = "0.14.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "botocore", version = "1.40.61", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "jmespath", marker = "extra == 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "s3transfer", version = "0.14.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ed/f9/6ef8feb52c3cce5ec3967a535a6114b57ac7949fd166b0f3090c2b06e4e5/boto3-1.40.61.tar.gz", hash = "sha256:d6c56277251adf6c2bdd25249feae625abe4966831676689ff23b4694dea5b12", size = 111535, upload-time = "2025-10-28T19:26:57.247Z" }
 wheels = [
@@ -1239,6 +1239,8 @@ name = "fcrm-common"
 version = "0.1.0"
 source = { editable = "packages/common" }
 dependencies = [
+    { name = "boto3", version = "1.40.61", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "boto3", version = "1.43.108", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
     { name = "fastapi" },
     { name = "faststream", extra = ["rabbit"] },
     { name = "fcrm-contracts" },
@@ -1267,6 +1269,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "boto3", specifier = ">=1.40" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "faststream", extras = ["rabbit"], specifier = "==0.6.7" },
     { name = "fcrm-contracts", editable = "packages/contracts" },
@@ -1730,6 +1733,10 @@ dependencies = [
 dev = [
     { name = "mypy" },
     { name = "pytest" },
+    { name = "reportlab" },
+]
+gen = [
+    { name = "reportlab" },
 ]
 
 [package.metadata]
@@ -1739,7 +1746,9 @@ requires-dist = [{ name = "pydantic", specifier = ">=2.9" }]
 dev = [
     { name = "mypy", specifier = ">=1.14" },
     { name = "pytest", specifier = ">=8.3" },
+    { name = "reportlab", specifier = ">=4.0" },
 ]
+gen = [{ name = "reportlab", specifier = ">=4.0" }]
 
 [[package]]
 name = "fcrm-tools"
@@ -3951,7 +3960,7 @@ resolution-markers = [
     "python_full_version < '3.15'",
 ]
 dependencies = [
-    { name = "botocore", version = "1.40.61", source = { registry = "https://pypi.org/simple" } },
+    { name = "botocore", version = "1.40.61", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/62/74/8d69dcb7a9efe8baa2046891735e5dfe433ad558ae23d9e3c14c633d1d58/s3transfer-0.14.0.tar.gz", hash = "sha256:eff12264e7c8b4985074ccce27a3b38a485bb7f7422cc8046fee9be4983e4125", size = 151547, upload-time = "2025-09-09T19:23:31.089Z" }
 wheels = [

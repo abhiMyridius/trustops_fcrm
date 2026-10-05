@@ -11088,7 +11088,27 @@
     "boundary_distance": 1.0
    },
    "open_conditions": 0,
-   "geographies": []
+   "geographies": [],
+   "field_values": [
+    {
+     "id": "F31",
+     "label": "Transaction limits and velocity",
+     "value": "$2,999 per transaction \u00b7 $10,000 per 30 days",
+     "source": "FCRM-2026-0118 \u00b7 submission v1 \u00b7 owner declared"
+    },
+    {
+     "id": "F33",
+     "label": "Disclosure text reference",
+     "value": "Standard remittance disclosure v3",
+     "source": "FCRM-2026-0118 \u00b7 submission v1 \u00b7 owner declared"
+    },
+    {
+     "id": "F34",
+     "label": "Monitoring rule coverage",
+     "value": "Remittance rule set v3 (structuring, velocity, corridor anomalies)",
+     "source": "FCRM-2026-0118 \u00b7 submission v1 \u00b7 owner declared"
+    }
+   ]
   },
   {
    "id": "FCRM-2026-0119",

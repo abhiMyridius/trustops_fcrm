@@ -152,9 +152,15 @@ def test_real_requests_reach_each_mounted_service_through_the_shared_clients(
         model = client.get("/api/fcrm/scoring/models/active")
         assert model.status_code == 200
 
-        verify = client.get(f"/api/fcrm/audit/verify/{demo['id']}")
+        # S4 seeds the closed cases' trails, not the demo case's (that one is
+        # produced live): the closest precedent has nine seeded records.
+        precedent = demo["precedent"]["id"]  # type: ignore[index]
+        verify = client.get(f"/api/fcrm/audit/verify/{precedent}")
         assert verify.status_code == 200
         assert verify.json()["ok"] is True
+        assert verify.json()["record_count"] == 9
+        untouched = client.get(f"/api/fcrm/audit/verify/{demo['id']}")
+        assert untouched.json()["record_count"] == 0
 
         cases = client.get("/api/fcrm/cases")
         assert cases.status_code == 200
