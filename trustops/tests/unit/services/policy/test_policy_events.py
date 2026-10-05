@@ -49,11 +49,17 @@ class _Objects:
 
 
 class _Status:
-    """Records what ``IndexStatusStore`` would be told."""
+    """Records what ``IndexStatusStore`` would be told, and answers
+    ``latest_built`` with ``latest``.
+    """
 
-    def __init__(self) -> None:
+    def __init__(self, latest: Optional[dict[str, Any]] = None) -> None:
         self.built: list[IndexBuilt] = []
         self.failed: list[IndexFailed] = []
+        self.latest = latest
+
+    async def latest_built(self, index: str) -> Optional[dict[str, Any]]:
+        return self.latest
 
     async def mark_built(self, event: IndexBuilt, at: datetime) -> None:
         self.built.append(event)
@@ -189,6 +195,72 @@ async def test_a_fixture_missing_from_the_bucket_is_an_error_to_retry(
     )
     with pytest.raises(NotFoundError):
         await reloader.reload(_built())
+
+
+# ── starting from the newest fixture ──────────────────────────────────────
+
+
+def _row(**overrides: Any) -> dict[str, Any]:
+    row: dict[str, Any] = {
+        "_id": "policy_clauses:14",
+        "index": "policy_clauses",
+        "version": 14,
+        "status": "built",
+        "vector_count": 197,
+        "fixture_key": "policy_clauses/14.json",
+        "job_id": "job_x",
+    }
+    row.update(overrides)
+    return row
+
+
+async def test_startup_loads_the_newest_fixture_h4_left(
+    built_fixture: bytes, empty_source: tuple[VectorClauseSource, ContextConfig]
+) -> None:
+    source, config = empty_source
+    reloader = VectorFixtureReloader(
+        store=_Objects({("vectors", "policy_clauses/14.json"): built_fixture}),  # type: ignore[arg-type]
+        bucket="vectors",
+        source=source,
+        config=config,
+    )
+
+    served = await reloader.reload_latest(_Status(_row()))  # type: ignore[arg-type]
+
+    assert served == 197
+    assert len(await _ranked(source)) == 5
+
+
+async def test_startup_with_no_build_yet_leaves_the_seeded_vectors(
+    empty_source: tuple[VectorClauseSource, ContextConfig],
+) -> None:
+    source, config = empty_source
+    objects = _Objects()
+    reloader = VectorFixtureReloader(
+        store=objects,  # type: ignore[arg-type]
+        bucket="vectors",
+        source=source,
+        config=config,
+    )
+
+    assert await reloader.reload_latest(_Status(None)) is None  # type: ignore[arg-type]
+    assert objects.gets == []
+
+
+async def test_startup_survives_a_fixture_that_is_gone_from_the_bucket(
+    empty_source: tuple[VectorClauseSource, ContextConfig],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    source, config = empty_source
+    reloader = VectorFixtureReloader(
+        store=_Objects(),  # type: ignore[arg-type]
+        bucket="vectors",
+        source=source,
+        config=config,
+    )
+
+    assert await reloader.reload_latest(_Status(_row())) is None  # type: ignore[arg-type]
+    assert "serving the seeded vectors" in caplog.text
 
 
 # ── the consumer ──────────────────────────────────────────────────────────

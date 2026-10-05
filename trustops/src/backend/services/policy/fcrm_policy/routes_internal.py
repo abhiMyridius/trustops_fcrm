@@ -95,7 +95,7 @@ async def record_precedent(
         extra={
             "case_id": body.case_id,
             "actor": principal.sub,
-            "created": stored.created,
+            "precedent_created": stored.created,
             "index_requested": stored.index_requested,
         },
     )

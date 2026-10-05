@@ -107,6 +107,8 @@ async def start_events_consumer(
         reloader=reloader,
     )
     await consumer.ensure_indexes()
+    await status.ensure_indexes()
+    await reloader.reload_latest(status)
     subscribers = await wire_consumer_running(
         broker,
         consumer,

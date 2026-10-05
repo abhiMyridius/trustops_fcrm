@@ -161,3 +161,29 @@ async def test_a_closed_case_rebuilds_the_precedent_index_through_the_same_loop(
         dimension=DIMENSION,
     )
     assert "FCRM-2026-0151" in {c.metadata["case_id"] for c in chunks}
+
+
+async def test_a_restarted_s3_starts_from_the_fixture_h4_left(loop: Loop) -> None:
+    from evoq_context.llm.client import LLMClient
+    from evoq_context.vector.factory import create_vector_store
+    from fcrm_context_worker.config import FCRM_PROJECT, context_config_from_env
+    from fcrm_policy.events import VectorFixtureReloader
+    from fcrm_policy.indexing import IndexStatusStore
+    from fcrm_policy.search.vector import VectorClauseSource
+
+    await _built_rows(loop)
+    config = context_config_from_env()
+    store = create_vector_store(config, FCRM_PROJECT)
+    assert store is not None
+    fresh = VectorClauseSource(store, LLMClient.from_config(config), config)
+    assert await fresh.rank("cash pickup agent", filters=None, top_k=3) == []
+
+    served = await VectorFixtureReloader(
+        store=loop.objects,  # type: ignore[arg-type]
+        bucket="vectors",
+        source=fresh,
+        config=config,
+    ).reload_latest(IndexStatusStore(loop.db["index_status"]))
+
+    assert served == 197
+    assert len(await fresh.rank("cash pickup agent", filters=None, top_k=3)) == 3

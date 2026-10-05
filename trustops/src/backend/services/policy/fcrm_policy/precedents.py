@@ -262,8 +262,8 @@ class MongoPrecedentStore:
             "precedent recorded",
             extra={
                 "case_id": record.case_id,
-                "created": stored.created,
-                "changed": stored.changed,
+                "precedent_created": stored.created,
+                "precedent_changed": stored.changed,
             },
         )
         return stored

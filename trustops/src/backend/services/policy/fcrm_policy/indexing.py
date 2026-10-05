@@ -36,7 +36,7 @@ from fcrm_common.outbox import Outbox
 from fcrm_common.time import utcnow
 from fcrm_contracts.events.envelope import Envelope
 from fcrm_contracts.events.payloads import IndexBuild, IndexBuilt, IndexFailed
-from pymongo import AsyncMongoClient
+from pymongo import ASCENDING, DESCENDING, AsyncMongoClient, IndexModel
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
@@ -99,6 +99,32 @@ class IndexStatusStore:
 
     def __init__(self, collection: AsyncCollection[Document]) -> None:
         self._collection = collection
+
+    async def ensure_indexes(self) -> None:
+        """The one query path besides ``_id``: the newest built version of an
+        index (:meth:`latest_built`). Idempotent.
+        """
+        await self._collection.create_indexes(
+            [
+                IndexModel(
+                    [
+                        ("index", ASCENDING),
+                        ("status", ASCENDING),
+                        ("version", DESCENDING),
+                    ],
+                    name="newest_built",
+                )
+            ]
+        )
+
+    async def latest_built(self, index: str) -> Optional[Document]:
+        """The status row of the newest version of ``index`` H4 built and left a
+        fixture for, or ``None``.
+        """
+        return await self._collection.find_one(
+            {"index": index, "status": "built", "fixture_key": {"$ne": None}},
+            sort=[("version", DESCENDING)],
+        )
 
     async def request(
         self, session: AsyncClientSession, index: str, version: int

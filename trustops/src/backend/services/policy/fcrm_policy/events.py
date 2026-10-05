@@ -28,6 +28,7 @@ from typing import Optional
 
 from evoq_context.core.config import ContextConfig
 from evoq_context.vector.factory import create_vector_store
+from fcrm_common.errors import NotFoundError, UpstreamUnavailableError
 from fcrm_common.events import Consumer, Publisher
 from fcrm_common.mongo import Document
 from fcrm_common.objectstore import ObjectStore
@@ -123,6 +124,39 @@ class VectorFixtureReloader:
             },
         )
         return len(chunks)
+
+    async def reload_latest(self, status: IndexStatusStore) -> Optional[int]:
+        """Start from the newest clause fixture H4 left, if there is one: what
+        S3 does when it starts (a restart after a rebuild would otherwise search
+        the vectors it seeded for itself until the next build).
+
+        Best effort by design: S3 already serves from its own seeded vectors, so
+        a missing fixture or an unreachable store is logged and S3 carries on.
+
+        Returns:
+            The number of vectors now served, or ``None`` when nothing was
+            loaded.
+        """
+        row = await status.latest_built(POLICY_CLAUSES)
+        if row is None:
+            return None
+        built = IndexBuilt(
+            job_id=str(row.get("job_id") or "startup"),
+            index=POLICY_CLAUSES,
+            version=int(row["version"]),
+            vector_count=int(row.get("vector_count") or 0),
+            fixture_key=row["fixture_key"],
+        )
+        try:
+            return await self.reload(built)
+        except (NotFoundError, UpstreamUnavailableError):
+            logger.warning(
+                "could not load the latest vector fixture at startup; "
+                "serving the seeded vectors",
+                extra={"index": POLICY_CLAUSES, "fixture_key": built.fixture_key},
+                exc_info=True,
+            )
+            return None
 
 
 class PolicyEventsConsumer(Consumer):

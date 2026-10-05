@@ -254,6 +254,40 @@ def test_s3_adds_its_index_consumer_to_the_composites_started_broker(
     assert subscriber.running is False
 
 
+def test_the_webs_policy_search_path_is_answered_in_the_webs_shape(
+    clean_dbs: None,
+    composite_env: None,
+    composite_client: Callable[[], AbstractContextManager[TestClient]],
+) -> None:
+    """The web's ``policy.search`` is ``/api/fcrm/policy/search`` with
+    ``{q, case_id}``: on S3's prefix that is ``/search``, which also answers the
+    tools' shape. Through the real composite, over a real Mongo.
+    """
+    with composite_client() as client:
+        web = client.post(
+            "/api/fcrm/policy/search",
+            json={"q": "cash pickup agent", "case_id": "FCRM-2026-0151"},
+        )
+        tool = client.post(
+            "/api/fcrm/policy/search",
+            json={"index": "policy_clauses", "query": "cash pickup agent", "top_k": 3},
+        )
+        clause = client.get("/api/fcrm/policy/clauses/FCRM42-3.1")
+
+    assert web.status_code == 200, web.text
+    body = web.json()
+    assert body["query"] == "cash pickup agent"
+    assert body["corpus_version"] == "v14"
+    assert body["results"]
+    assert {"clause_id", "quote", "ref", "source_ref", "similarity"} <= set(
+        body["results"][0]
+    )
+    assert tool.status_code == 200, tool.text
+    assert len(tool.json()["hits"]) == 3
+    assert clause.status_code == 200
+    assert clause.json()["source_ref"]["corpus_v"] == 14
+
+
 def test_real_requests_reach_each_mounted_service_through_the_shared_clients(
     clean_dbs: None,
     composite_env: None,

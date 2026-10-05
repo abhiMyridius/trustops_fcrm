@@ -9,6 +9,7 @@ a structured ``source_ref`` that points back at it.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from typing import Any
 
@@ -488,6 +489,33 @@ def test_internal_precedents_pages_all_sixty_five_seeded_cases(
     assert second["next_cursor"] is None
     ids = [i["case_id"] for i in first["items"] + second["items"]]
     assert ids == sorted(ids)
+
+
+def test_every_route_that_logs_survives_an_info_level_handler(
+    corpus_as: ClientFor, caplog: pytest.LogCaptureFixture
+) -> None:
+    """``extra={...}`` keys must not collide with ``LogRecord`` attributes
+    (``created`` does): that only fails once INFO is actually emitted, which a
+    quiet test run never does.
+    """
+    caplog.set_level(logging.INFO)
+    service = corpus_as(Role.SERVICE)
+    assert (
+        service.post("/internal/precedents", json=_new_precedent()).status_code == 201
+    )
+    assert (
+        service.post("/policy/search", json={"q": "cash pickup agent"}).status_code
+        == 200
+    )
+    analyst = corpus_as(Role.ANALYST)
+    activate = analyst.post("/jurisdictions/versions/fixture/activate")
+    assert activate.status_code == 200
+    messages = {r.getMessage() for r in caplog.records}
+    assert {
+        "precedent posted",
+        "policy search",
+        "jurisdiction list activated",
+    } <= messages
 
 
 # ── POST /jurisdictions/versions/{version}/activate ───────────────────────

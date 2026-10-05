@@ -18,6 +18,7 @@ Skipped unless ``FCRM_TEST_MONGO_URI`` points at a replica set::
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -389,3 +390,38 @@ async def test_h4_s_answer_is_recorded_on_the_request_it_answers(
     other = await status.get("controls", 9)
     assert other is not None
     assert other["status"] == "requested"
+
+
+async def test_the_newest_built_fixture_is_found_for_a_restart(
+    live_policy: LivePolicy,
+) -> None:
+    status = IndexStatusStore(live_policy.db["index_status"])
+    assert await status.latest_built("policy_clauses") is None  # only requested
+
+    for version in (14, 15):
+        await status.mark_built(
+            IndexBuilt(
+                job_id=f"job_{version}",
+                index="policy_clauses",
+                version=version,
+                vector_count=197,
+                fixture_key=f"policy_clauses/{version}.json",
+            ),
+            datetime.now(UTC),
+        )
+    await status.mark_built(
+        IndexBuilt(
+            job_id="job_s3",
+            index="policy_clauses",
+            version=16,
+            vector_count=197,
+            fixture_key=None,
+        ),
+        datetime.now(UTC),
+    )
+
+    row = await status.latest_built("policy_clauses")
+
+    assert row is not None
+    assert row["version"] == 15  # the newest one with a fixture to load
+    assert await status.latest_built("controls") is None

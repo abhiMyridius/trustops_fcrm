@@ -16,6 +16,7 @@ delete-by-manifest is not implemented, see ``UPSTREAM.md``).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -125,7 +126,12 @@ class IndexBuilder:
         chunks = _chunks(records, embeddings)
         await store.ensure_index()
         result = await store.upsert(chunks)
-        fixture = encode_fixture(store) if isinstance(store, FixtureSource) else None
+        fixture = (
+            # JSON-encoding ~200k floats is CPU work: off the event loop.
+            await asyncio.to_thread(encode_fixture, store)
+            if isinstance(store, FixtureSource)
+            else None
+        )
         logger.info(
             "index built",
             extra={
