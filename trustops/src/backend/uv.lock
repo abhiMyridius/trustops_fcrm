@@ -1757,6 +1757,7 @@ source = { editable = "packages/tools" }
 dependencies = [
     { name = "fcrm-audit-service" },
     { name = "fcrm-case-service" },
+    { name = "fcrm-common" },
     { name = "fcrm-contracts" },
     { name = "fcrm-guardrails" },
     { name = "fcrm-prompts" },
@@ -1775,6 +1776,7 @@ dev = [
 requires-dist = [
     { name = "fcrm-audit-service", editable = "services/audit" },
     { name = "fcrm-case-service", editable = "services/case" },
+    { name = "fcrm-common", editable = "packages/common" },
     { name = "fcrm-contracts", editable = "packages/contracts" },
     { name = "fcrm-guardrails", editable = "packages/guardrails" },
     { name = "fcrm-prompts", editable = "packages/prompts-loader" },

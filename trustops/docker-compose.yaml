@@ -303,6 +303,8 @@ services:
         condition: service_healthy
       api:
         condition: service_healthy
+      minio:
+        condition: service_healthy
     environment:
       <<: [*app-env, *service-urls, *s3-env, *aws-env]
       OTEL_SERVICE_NAME: fcrm-harness

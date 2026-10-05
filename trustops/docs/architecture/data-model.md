@@ -25,10 +25,12 @@ One MongoDB database per service (no service reads another's database directly â
 | Collection | Shape | Notes |
 |---|---|---|
 | `corpus_versions` / `clauses` | `ClauseOut` | 197 clauses across 9 sources in the seed (v14) |
-| `control_inventory_versions` | `ControlOut` | 24 controls in the seed (v9) |
-| `jurisdiction_list_versions` | `JurisdictionListOut` | Active list plus the watchlist-demo fixture list |
-| `field_set_versions` | mirrors `fcrm_case.domain.fieldset.FieldSetData` | The one source both S1's resolution logic and this service's `FieldRulesOutput` read |
+| `control_inventory_versions` | `ControlOut` | 24 controls in the seed (v9); `_id` = `version`, `controls[]`, `active` |
+| `jurisdiction_list_versions` | `JurisdictionListOut` | `v2026-06` (active) and the watchlist-demo fixture `v2026-10-fixture` (`fixture: true`, inactive); `_id` = `version` |
+| `field_set_versions` | mirrors `fcrm_case.domain.fieldset.FieldSetData` | `v6`; the one source both S1's resolution logic and this service's `/field-sets/{v}/resolve` read (a test pins them equal for every combination of change types) |
 | `precedents` | `PrecedentOut` | Closed-case summaries for precedent matching |
+
+Each of the three versioned collections has a unique `version` index and a partial unique index on `active: true`, so at most one version is active (`fcrm_policy.reference`). They are seeded per collection under `SEED_ON_EMPTY`.
 
 **Vector indexes** (S3 Vectors, not Mongo): `policy_clauses`, `precedent_cases`, `controls`, each with the Index Contract metadata keys in `fcrm_policy.search.filters.ALLOWED_METADATA_KEYS`.
 
@@ -36,8 +38,9 @@ One MongoDB database per service (no service reads another's database directly â
 
 | Collection | Shape | Notes |
 |---|---|---|
-| `proposals` | `Proposal` | The evidence ledger; `superseded_by` links a re-run's new proposal to the one it replaces |
+| `proposals` | `Proposal` | The evidence ledger; `seq` is one monotonic number per case (`{case_id, seq}` unique); a later version is a new entry whose `supersedes` names the one it replaces, and `superseded_by` is derived on read |
 | `audit_records` | `AuditRecord` | Hash-chained, append-only (see `docs/governance/audit-chain.md`); written only by the `fcrm_audit_writer` Mongo user, which has no `update`/`remove` grant |
+| `idempotency_keys` | `_id` = the `Idempotency-Key` | `{kind, case_id, fingerprint, seq, result_id, at}`, inserted in the same transaction as the record or proposal it produced; 24 h TTL on `at`. A repeat with the same body replays the stored result, another body is a 409 |
 
 ## `fcrm_decision` (S5)
 

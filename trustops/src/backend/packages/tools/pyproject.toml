@@ -18,6 +18,8 @@ dependencies = [
   # ToolRegistry.check_agent_specs reads ai/agents/*.agent.yaml through the
   # one /ai loader rather than parsing the YAML a second way.
   "fcrm-prompts",
+  # http_backed.py builds on the shared ServiceClient and ObjectStore.
+  "fcrm-common",
   "pydantic>=2.9",
 ]
 # The HTTP-backed clients (httpx against S1/S3/S4) land with fcrm_common;

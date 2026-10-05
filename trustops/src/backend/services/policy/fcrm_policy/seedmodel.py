@@ -150,3 +150,103 @@ def control_documents(raw: Mapping[str, Any]) -> list[dict[str, Any]]:
             }
         )
     return docs
+
+
+#: ``seed.json`` carries version labels like ``"v9"``; ``fixture`` is the
+#: marker the watchlist demo relies on (a synthetic list, never an FATF
+#: publication).
+FIXTURE_PUBLISHED = "fixture"
+
+
+def jurisdiction_documents(raw: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The two stored jurisdiction lists: the current FATF-style list (active)
+    and the synthetic ``v2026-10-fixture`` list (inactive, ``fixture: true``).
+
+    The fixture is the current list with its ``removed`` countries taken out
+    and its ``added`` ones put in, ``published`` as ``"fixture"`` and the
+    seed's note as ``source``: the same derivation ``fcrm_tools.seed_data.
+    jurisdiction_list_out`` makes for the seed-backed tool, which the tests pin
+    against this one.
+    """
+    lists = raw["jurisdictions"]
+    current, fixture = lists["current"], lists["fixture"]
+    removed = set(fixture["removed"])
+    monitored = [c for c in current["increased_monitoring"] if c not in removed]
+    return [
+        {
+            "_id": current["version"],
+            "version": current["version"],
+            "published": current["published"],
+            "source": current["source"],
+            "call_for_action": list(current["call_for_action"]),
+            "increased_monitoring": list(current["increased_monitoring"]),
+            "changes": {
+                "added": list(current["changes"]["added"]),
+                "removed": list(current["changes"]["removed"]),
+            },
+            "fixture": False,
+            "active": True,
+        },
+        {
+            "_id": fixture["version"],
+            "version": fixture["version"],
+            "published": FIXTURE_PUBLISHED,
+            "source": fixture["note"],
+            "call_for_action": list(current["call_for_action"]),
+            "increased_monitoring": sorted({*monitored, *fixture["added"]}),
+            "changes": {
+                "added": list(fixture["added"]),
+                "removed": list(fixture["removed"]),
+            },
+            "fixture": True,
+            "active": False,
+        },
+    ]
+
+
+def field_set_documents(raw: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The stored field-set versions: ``seed.field_set`` (v6), active. Each
+    field keeps the seed's own keys (``id``, ``label`` and, for one
+    always-required field, a ``note``).
+    """
+    field_set = raw["field_set"]
+    version = str(field_set["version"])
+    return [
+        {
+            "_id": version,
+            "version": version,
+            "active": True,
+            "max_required": field_set["max_required"],
+            "completion_threshold": field_set["completion_threshold"],
+            "always_required": [dict(f) for f in field_set["always_required"]],
+            "per_type": {
+                change_type: [dict(f) for f in fields]
+                for change_type, fields in field_set["per_type"].items()
+            },
+        }
+    ]
+
+
+def control_inventory_documents(raw: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The stored control-inventory versions: ``seed.controls`` (v9, 24
+    controls), active, each control in the shape of ``ControlOut``.
+    """
+    version = str(raw["meta"]["controls"])
+    return [
+        {
+            "_id": version,
+            "version": version,
+            "active": True,
+            "controls": [
+                {
+                    "control_id": c["id"],
+                    "domain": c["domain"],
+                    "name": c["name"],
+                    "catalogue_weight": c["weight"],
+                    "evidence_artifact": c["evidence_artefact"],
+                    "last_tested": c["last_tested"],
+                }
+                for c in raw["controls"]
+            ],
+        }
+    ]

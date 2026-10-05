@@ -91,3 +91,68 @@ class PrecedentOut(BaseModel):
     title: str
     outcome: str
     closed_date: str
+
+
+class JurisdictionVersionOut(BaseModel):
+    """``GET /jurisdictions/versions``: one stored jurisdiction list version.
+    ``fixture`` marks a synthetic test list (never an FATF publication);
+    ``active`` is the one list new work is checked against.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: str
+    published: str
+    fixture: bool
+    active: bool
+
+
+class FieldSetOut(BaseModel):
+    """``GET /field-sets/{version}``: one stored field-set version."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: str
+    active: bool
+    max_required: int
+    completion_threshold: float
+    always_required: list[FieldDef]
+    per_type: dict[str, list[FieldDef]]
+
+
+class ResolvedFieldSetOut(BaseModel):
+    """``GET /field-sets/{version}/resolve?change_types=a,b``: the fields a
+    case with those change types must fill (the always-required set, then each
+    type's own fields in the order the types were given, de-duplicated by
+    field id). Each per-type field carries the change type that adds it.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: str
+    change_types: list[str]
+    fields: list[FieldDef]
+    max_required: int
+    completion_threshold: float
+
+
+class ControlVersionOut(BaseModel):
+    """``GET /controls/versions``: one stored control-inventory version."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: str
+    active: bool
+    control_count: int
+
+
+class ControlInventoryOut(BaseModel):
+    """``GET /controls?version=&domain=``: a control inventory version,
+    optionally narrowed to one risk domain.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: str
+    active: bool
+    controls: list[ControlOut]

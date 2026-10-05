@@ -223,6 +223,70 @@ test_audit_matrix if {
 	not authz.allow with input as req("fcrm_observer", "audit", "GET", "/records/{case_id}")
 }
 
+test_audit_proposals_head_and_rows_matrix if {
+	# POST /proposals: the service account only (H1 appends what an agent proposed)
+	authz.allow with input as req("fcrm_service", "audit", "POST", "/proposals")
+	not authz.allow with input as req("fcrm_analyst", "audit", "POST", "/proposals")
+	not authz.allow with input as req("fcrm_committee", "audit", "POST", "/proposals")
+	not authz.allow with input as req("fcrm_po", "audit", "POST", "/proposals")
+	not authz.allow with input as req("fcrm_observer", "audit", "POST", "/proposals")
+	# reads: analyst, committee, service; never PO or observer. GET /records is
+	# the web's audit/records (row shape), GET /head/{case_id} the chain head.
+	every role in ["fcrm_analyst", "fcrm_committee", "fcrm_service"] {
+		authz.allow with input as req(role, "audit", "GET", "/proposals")
+		authz.allow with input as req(role, "audit", "GET", "/head/{case_id}")
+		authz.allow with input as req(role, "audit", "GET", "/records")
+	}
+	every role in ["fcrm_po", "fcrm_observer"] {
+		not authz.allow with input as req(role, "audit", "GET", "/proposals")
+		not authz.allow with input as req(role, "audit", "GET", "/head/{case_id}")
+		not authz.allow with input as req(role, "audit", "GET", "/records")
+	}
+}
+
+test_policy_reference_data_matrix if {
+	# jurisdictions, controls and field sets: read by analyst, committee and
+	# the service account (the agent tools run through H2); never the observer.
+	every role in ["fcrm_analyst", "fcrm_committee", "fcrm_service"] {
+		every route in [
+			"/jurisdictions",
+			"/jurisdictions/versions",
+			"/controls",
+			"/controls/versions",
+			"/field-sets/{version}",
+			"/field-sets/{version}/resolve",
+		] {
+			authz.allow with input as req(role, "policy", "GET", route)
+		}
+	}
+	every route in [
+		"/jurisdictions",
+		"/jurisdictions/versions",
+		"/controls",
+		"/controls/versions",
+		"/field-sets/{version}",
+		"/field-sets/{version}/resolve",
+	] {
+		not authz.allow with input as req("fcrm_observer", "policy", "GET", route)
+	}
+	# the PO reads only the field labels of a resolved field set
+	authz.allow with input as req("fcrm_po", "policy", "GET", "/field-sets/{version}/resolve")
+	every route in [
+		"/jurisdictions",
+		"/jurisdictions/versions",
+		"/controls",
+		"/controls/versions",
+		"/field-sets/{version}",
+	] {
+		not authz.allow with input as req("fcrm_po", "policy", "GET", route)
+	}
+	# nobody but the analyst (who owns configuration, D-03) may publish a version
+	authz.allow with input as req("fcrm_analyst", "policy", "POST", "/jurisdictions/versions")
+	not authz.allow with input as req("fcrm_committee", "policy", "POST", "/jurisdictions/versions")
+	not authz.allow with input as req("fcrm_committee", "policy", "POST", "/controls/versions")
+	not authz.allow with input as req("fcrm_po", "policy", "POST", "/controls/versions")
+}
+
 test_decision_matrix if {
 	# POST /packs: the service account only (H1 freezes the pack)
 	authz.allow with input as req("fcrm_service", "decision", "POST", "/packs")
@@ -264,6 +328,13 @@ test_po_denied_on_every_s2_to_s5_route if {
 		["audit", "POST", "/records"],
 		["audit", "GET", "/verify/{case_id}"],
 		["audit", "GET", "/records/{case_id}"],
+		["audit", "GET", "/records"],
+		["audit", "POST", "/proposals"],
+		["audit", "GET", "/proposals"],
+		["audit", "GET", "/head/{case_id}"],
+		["policy", "GET", "/jurisdictions"],
+		["policy", "GET", "/controls"],
+		["policy", "GET", "/field-sets/{version}"],
 		["decision", "POST", "/release-checks"],
 		["decision", "POST", "/packs"],
 		["decision", "GET", "/packs/{pack_id}"],

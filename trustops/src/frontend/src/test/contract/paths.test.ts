@@ -75,11 +75,10 @@ const PENDING_ROUTES: readonly string[] = [
   'PUT /api/fcrm/policy/config/{id}/draft',
   'POST /api/fcrm/policy/config/{id}/draft/preview',
   'POST /api/fcrm/policy/config/{id}/draft/publish',
-  // S4 audit (5)
+  // S4 audit (4)
   'GET /api/fcrm/audit/agent-quality',
   'POST /api/fcrm/audit/examiner/ask',
   'GET /api/fcrm/audit/overrides',
-  'GET /api/fcrm/audit/records',
   'GET /api/fcrm/audit/versions/{id}',
   // S5 decision (8)
   'GET /api/fcrm/decision/cases/{id}/outcome',

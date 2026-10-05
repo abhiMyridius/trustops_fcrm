@@ -680,6 +680,28 @@
         "effect": "allow"
       },
       {
+        "id": "policy-get-field-sets-version-committee",
+        "description": "committee reads reference data",
+        "service": "policy",
+        "method": "GET",
+        "path": "/field-sets/{version}",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "policy-get-field-sets-version-resolve-committee",
+        "description": "committee reads reference data",
+        "service": "policy",
+        "method": "GET",
+        "path": "/field-sets/{version}/resolve",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
         "id": "policy-any-all-analyst",
         "description": "analyst: every policy route (owns configuration, D-03)",
         "service": "policy",
@@ -852,6 +874,39 @@
         "path": "/proposals/*",
         "roles": [
           "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-proposals-committee",
+        "description": "committee reads the evidence ledger of a case",
+        "service": "audit",
+        "method": "GET",
+        "path": "/proposals",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-head-all-analyst",
+        "description": "analyst reads a case chain head (seq, hash)",
+        "service": "audit",
+        "method": "GET",
+        "path": "/head/*",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-head-all-committee",
+        "description": "committee reads a case chain head (seq, hash)",
+        "service": "audit",
+        "method": "GET",
+        "path": "/head/*",
+        "roles": [
+          "fcrm_committee"
         ],
         "effect": "allow"
       },

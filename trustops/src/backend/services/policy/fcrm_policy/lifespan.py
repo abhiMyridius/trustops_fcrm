@@ -4,8 +4,10 @@ vector index), the ``SearchService``, readiness.
 Two independent seed-loading paths run here, each idempotent in the way
 that fits its own storage:
 
-- The three Mongo collections (``clauses``, ``precedents``, ``controls``)
-  use :func:`fcrm_common.seedload.load_if_empty`, the same guarantee every
+- The Mongo collections (``clauses``, ``precedents``, ``controls`` and the
+  three reference-data collections ``jurisdiction_list_versions``,
+  ``field_set_versions``, ``control_inventory_versions``) use
+  :func:`fcrm_common.seedload.load_if_empty`, the same guarantee every
   other service's lifespan uses: insert only into an empty collection, so
   a container restart never duplicates documents.
 - The vector index has no such "is it empty" primitive exposed by
@@ -36,11 +38,20 @@ from fcrm_common.tracing import init_otel
 from fcrm_context_worker.config import FCRM_PROJECT, context_config_from_env
 from fcrm_context_worker.seedload import load_clauses
 
+from fcrm_policy.reference import (
+    CONTROL_INVENTORIES,
+    FIELD_SETS,
+    JURISDICTION_LISTS,
+    MongoReferenceStore,
+)
 from fcrm_policy.search.service import SearchService
 from fcrm_policy.search.vector import VectorClauseSource
 from fcrm_policy.seedmodel import (
     clause_documents,
     control_documents,
+    control_inventory_documents,
+    field_set_documents,
+    jurisdiction_documents,
     precedent_documents,
 )
 from fcrm_policy.settings import PolicySettings
@@ -86,12 +97,27 @@ async def register(
     controls = MongoKeywordCollection(db["controls"], CONTROLS)
     for collection in (clauses, precedents, controls):
         await collection.ensure_text_index()
+    reference = MongoReferenceStore(db)
+    await reference.ensure_indexes()
 
     if settings.seed_on_empty:
         reader = SeedReader(settings.seed_path)
         await load_if_empty(clauses.collection, clause_documents())
         await load_if_empty(precedents.collection, precedent_documents(reader.raw))
         await load_if_empty(controls.collection, control_documents(reader.raw))
+        # Reference data: loaded per collection, so a volume that predates
+        # one of them gets just that one on the next start.
+        await load_if_empty(
+            reference.collections[JURISDICTION_LISTS],
+            jurisdiction_documents(reader.raw),
+        )
+        await load_if_empty(
+            reference.collections[FIELD_SETS], field_set_documents(reader.raw)
+        )
+        await load_if_empty(
+            reference.collections[CONTROL_INVENTORIES],
+            control_inventory_documents(reader.raw),
+        )
 
     context_config = context_config_from_env()
     vector_store = create_vector_store(context_config, FCRM_PROJECT)
@@ -105,6 +131,7 @@ async def register(
         await load_clauses(vector_store, llm)
     vector = VectorClauseSource(vector_store, llm, context_config)
 
+    app.state.reference = reference
     app.state.search = SearchService(
         collections={
             POLICY_CLAUSES: clauses,

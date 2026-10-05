@@ -8,10 +8,11 @@ broker and ``/healthz``/``/readyz`` (``fcrm_common.health``'s documented
 ``AsgiFastStream`` wiring) for ``python -m fcrm_agent_worker``.
 
 Both wire real dependencies (Mongo, the real OPA client, the S4 audit HTTP
-client, the seed-backed tool registry -- see the package report for why that
-last one is not yet a live, HTTP-backed registry); tests call
-:func:`build_broker` / :func:`wire_subscriber` directly with fakes instead,
-per ``faststream.rabbit.TestRabbitBroker``.
+client and, by default, the HTTP-backed tool registry over S1, S3 and the
+object store); tests call :func:`build_broker` / :func:`wire_subscriber`
+directly with fakes instead, per ``faststream.rabbit.TestRabbitBroker``, and
+pass ``registry=`` (the seed-backed one, which ``fcrm_evals`` also uses) to
+:func:`build_unit` when they want no services.
 """
 
 from __future__ import annotations
@@ -37,10 +38,11 @@ from fcrm_common.health import (
 from fcrm_common.http import ServiceClient
 from fcrm_common.logging import configure_logging
 from fcrm_common.mongo import Document, close_clients, get_client
+from fcrm_common.objectstore import ObjectStore
 from fcrm_common.settings import MissingSettingsError, required_value
 from fcrm_common.worker import WorkerUnit
 from fcrm_contracts.enums import AgentName, LlmMode
-from fcrm_tools import ToolRegistry, build_seed_registry
+from fcrm_tools import ToolClients, ToolRegistry, build_http_registry
 from pymongo import AsyncMongoClient
 
 from fcrm_agent_worker.audit_client import AuditClient
@@ -150,12 +152,15 @@ def build_unit(
         mongo: The host's Mongo client; never closed here.
         publisher: The host's publisher, used to publish ``agent.done`` and
             ``agent.failed``.
-        registry: The tool registry; defaults to the seed-backed one.
+        registry: The tool registry. ``None`` (the default) builds the
+            HTTP-backed one: S1 and S3 through service-account clients and the
+            canonical bucket through the object store. Pass the seed-backed
+            registry (tests, evals) to run with no service.
         model_factory: Builds the model for each attempt (a fake in tests).
 
     Returns:
         The unit: the ``agent-worker.run`` subscriber, an OPA readiness check,
-        and a shutdown hook closing the OPA and audit HTTP clients.
+        and a shutdown hook closing the OPA, audit and tool HTTP clients.
 
     Raises:
         fcrm_common.settings.MissingSettingsError: ``FCRM_LLM_MODE`` is set to
@@ -170,16 +175,36 @@ def build_unit(
     consumed = mongo[db_name][CONSUMED_MESSAGES_COLLECTION]
 
     opa_client = RealOPAClient(opa_url)
+    token_secret = (
+        settings.service_token_secret.get_secret_value()
+        if settings.service_token_secret
+        else None
+    )
     audit_http = ServiceClient(
         audit_url,
         dependency="audit",
         caller=settings.app_name,
-        token_secret=(
-            settings.service_token_secret.get_secret_value()
-            if settings.service_token_secret
-            else None
-        ),
+        token_secret=token_secret,
     )
+    tool_clients: Optional[ToolClients] = None
+    if registry is None:
+        tool_clients = ToolClients.create(
+            case_url=required_value(
+                settings.case_service_url, "CASE_SERVICE_URL", settings.app_name
+            ),
+            policy_url=required_value(
+                settings.policy_service_url, "POLICY_SERVICE_URL", settings.app_name
+            ),
+            audit_url=audit_url,
+            caller=settings.app_name,
+            token_secret=token_secret,
+            audit_client=audit_http,
+        )
+        registry = build_http_registry(
+            tool_clients,
+            ObjectStore.from_settings(settings),
+            canonical_bucket=settings.s3_bucket_canonical,
+        )
 
     from fcrm_agents.models import load_tiers_config
 
@@ -187,7 +212,7 @@ def build_unit(
     consumer = AgentJobConsumer(
         consumed,
         publisher,
-        registry=registry if registry is not None else build_seed_registry(),
+        registry=registry,
         permit_client=opa_client,
         audit=AuditClient(audit_http),
         tiers_config=tiers_config,
@@ -199,7 +224,8 @@ def build_unit(
 
     async def _close_clients() -> None:
         await opa_client.aclose()
-        await audit_http.aclose()
+        # The tool clients include the audit client (one pool per peer).
+        await (tool_clients or audit_http).aclose()
 
     return WorkerUnit(
         "H2",

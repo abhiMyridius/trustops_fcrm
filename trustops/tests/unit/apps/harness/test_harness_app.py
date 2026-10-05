@@ -38,6 +38,15 @@ ENV_NAMES = (
     "DECISION_SERVICE_URL",
     "CASEFLOW_PREFETCH",
     "AGENT_PREFETCH",
+    "S3_ENDPOINT_URL",
+    "S3_REGION",
+    "S3_ACCESS_KEY",
+    "S3_SECRET_KEY",
+    "S3_BUCKET_UPLOADS",
+    "S3_BUCKET_CANONICAL",
+    "S3_BUCKET_PACKS",
+    "S3_BUCKET_VECTORS",
+    "S3_BUCKET_JOBS",
 )
 
 
@@ -75,6 +84,41 @@ def test_unit_settings_are_derived_with_their_own_prefetch(tmp_path: Path):
     assert agent.prefetch == 4
     assert agent.prompts_dir == str(tmp_path)
     assert agent.decision_service_url == "http://localhost:8000/api/fcrm/decision"
+
+
+def test_the_object_store_settings_reach_h2(tmp_path: Path):
+    """``document_reader`` reads the anchored text H3 wrote, so H2 needs the
+    harness's object-store variables: endpoint, region, keys and every bucket."""
+    settings = _settings(
+        tmp_path,
+        s3_endpoint_url="http://minio:9000",
+        s3_region="eu-west-1",
+        s3_access_key="minio",
+        s3_secret_key="minio-secret",
+        s3_bucket_canonical="canonical-eu",
+        s3_bucket_uploads="uploads-eu",
+    )
+    agent = settings.agent_worker_settings()
+    assert agent.s3_endpoint_url == "http://minio:9000"
+    assert agent.s3_region == "eu-west-1"
+    assert agent.s3_access_key == "minio"
+    assert agent.s3_secret_key is not None
+    assert agent.s3_secret_key.get_secret_value() == "minio-secret"
+    assert agent.s3_bucket_canonical == "canonical-eu"
+    assert agent.s3_bucket_uploads == "uploads-eu"
+    assert agent.s3_bucket_packs == "packs"
+
+
+def test_the_object_store_defaults_are_the_compose_bucket_names(tmp_path: Path):
+    agent = _settings(tmp_path).agent_worker_settings()
+    assert agent.s3_endpoint_url is None
+    assert (
+        agent.s3_bucket_uploads,
+        agent.s3_bucket_canonical,
+        agent.s3_bucket_packs,
+        agent.s3_bucket_vectors,
+        agent.s3_bucket_jobs,
+    ) == ("uploads", "canonical", "packs", "vectors", "jobs")
 
 
 def test_the_harness_database_is_shared_by_every_unit(tmp_path: Path):
@@ -128,7 +172,7 @@ def test_the_units_contribute_their_startup_shutdown_hooks_and_checks(
     assert [check.name for check in by_id["H1"].checks] == ["indexes"]
     # H2: nothing to start; it closes its OPA and audit clients and probes OPA.
     assert by_id["H2"].after_startup == ()
-    assert len(by_id["H2"].on_shutdown) == 1
+    assert len(by_id["H2"].on_shutdown) == 1  # OPA, audit and tool clients, together
     assert [check.name for check in by_id["H2"].checks] == ["opa"]
 
 
