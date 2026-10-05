@@ -167,6 +167,37 @@ def wire_consumer(
         )(_handler_for(consumer))
 
 
+async def wire_consumer_running(
+    broker: RabbitBroker,
+    consumer: Consumer,
+    *,
+    exchange: str,
+    routing_keys: Sequence[str],
+    prefetch: Optional[int] = None,
+) -> list[Any]:
+    """:func:`wire_consumer` for a broker that is **already started**: a service
+    inside the ``api`` process learns its broker only after the host has
+    connected it, and FastStream starts a subscriber added after that only when
+    told to.
+
+    Returns:
+        The subscribers added, already running; the caller stops each one
+        (``await subscriber.stop()``) before the host stops the broker.
+    """
+    known = {id(sub) for sub in broker.subscribers}
+    wire_consumer(
+        broker,
+        consumer,
+        exchange=exchange,
+        routing_keys=routing_keys,
+        prefetch=prefetch,
+    )
+    added = [sub for sub in broker.subscribers if id(sub) not in known]
+    for subscriber in added:
+        await subscriber.start()
+    return added
+
+
 def _handler_for(consumer: Consumer) -> Any:
     """The subscriber callback that hands a delivery to ``consumer.process``."""
 

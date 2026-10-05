@@ -10,6 +10,8 @@ that fits its own storage:
   :func:`fcrm_common.seedload.load_if_empty`, the same guarantee every
   other service's lifespan uses: insert only into an empty collection, so
   a container restart never duplicates documents.
+- The first seed also asks H4 to build the three vector indexes, once each
+  (:class:`~fcrm_policy.indexing.IndexRequester`), through S3's outbox.
 - The vector index has no such "is it empty" primitive exposed by
   ``evoq_context.vector.interface.VectorStore`` in general (S3 Vectors has
   no cheap count; the ``memory`` backend's upsert is naturally idempotent
@@ -23,7 +25,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 from evoq_context.llm.client import LLMClient
 from evoq_context.vector.factory import create_vector_store
@@ -32,17 +34,23 @@ from fcrm_common.auth import install_auth
 from fcrm_common.authz import install_authz
 from fcrm_common.health import ReadinessProbe, mongo_check
 from fcrm_common.logging import configure_logging
+from fcrm_common.outbox import Outbox
 from fcrm_common.seedload import SeedReader, load_if_empty
 from fcrm_common.service import ServiceDeps, standalone_deps
 from fcrm_common.tracing import init_otel
 from fcrm_context_worker.config import FCRM_PROJECT, context_config_from_env
 from fcrm_context_worker.seedload import load_clauses
 
+from fcrm_policy.bus import start_events_consumer, start_relay
+from fcrm_policy.corpus import MongoClauseStore
+from fcrm_policy.indexing import IndexName, IndexRequester, IndexStatusStore
+from fcrm_policy.precedents import MongoPrecedentStore
 from fcrm_policy.reference import (
     CONTROL_INVENTORIES,
     FIELD_SETS,
     JURISDICTION_LISTS,
     MongoReferenceStore,
+    ReferenceStore,
 )
 from fcrm_policy.search.service import SearchService
 from fcrm_policy.search.vector import VectorClauseSource
@@ -97,8 +105,14 @@ async def register(
     controls = MongoKeywordCollection(db["controls"], CONTROLS)
     for collection in (clauses, precedents, controls):
         await collection.ensure_text_index()
-    reference = MongoReferenceStore(db)
+    outbox = Outbox(db["outbox"])
+    await outbox.ensure_indexes()
+    clause_store = MongoClauseStore(clauses.collection)
+    await clause_store.ensure_indexes()
+    reference = MongoReferenceStore(db, client=deps.mongo, outbox=outbox)
     await reference.ensure_indexes()
+    precedent_store = MongoPrecedentStore(deps.mongo, precedents.collection, outbox)
+    status = IndexStatusStore(db["index_status"])
 
     if settings.seed_on_empty:
         reader = SeedReader(settings.seed_path)
@@ -118,6 +132,9 @@ async def register(
             reference.collections[CONTROL_INVENTORIES],
             control_inventory_documents(reader.raw),
         )
+        await IndexRequester(deps.mongo, status, outbox).request_missing(
+            await _index_versions(clause_store, precedent_store, reference)
+        )
 
     context_config = context_config_from_env()
     vector_store = create_vector_store(context_config, FCRM_PROJECT)
@@ -132,6 +149,8 @@ async def register(
     vector = VectorClauseSource(vector_store, llm, context_config)
 
     app.state.reference = reference
+    app.state.clauses = clause_store
+    app.state.precedents = precedent_store
     app.state.search = SearchService(
         collections={
             POLICY_CLAUSES: clauses,
@@ -150,7 +169,40 @@ async def register(
     probe: ReadinessProbe = app.state.probe
     probe.add(mongo_check(deps.mongo))
 
-    yield
+    async with AsyncExitStack() as stack:
+        start_relay(stack, probe, outbox, db, deps)
+        await start_events_consumer(
+            stack,
+            db=db,
+            deps=deps,
+            settings=settings,
+            status=status,
+            source=vector,
+            config=context_config,
+        )
+        yield
+
+
+async def _index_versions(
+    clauses: MongoClauseStore,
+    precedents: MongoPrecedentStore,
+    reference: ReferenceStore,
+) -> dict[IndexName, int]:
+    """The version of the data each index is to be built from: the corpus
+    version, the number of precedents, and the active control inventory's
+    version. An index with no data yet is left out (nothing to build).
+    """
+    versions: dict[IndexName, int] = {}
+    corpus = await clauses.latest_version()
+    if corpus is not None:
+        versions["policy_clauses"] = corpus
+    count = await precedents.count()
+    if count > 0:
+        versions["precedent_cases"] = count
+    inventory = await reference.control_inventory(None, None)
+    if inventory is not None:
+        versions["controls"] = int(inventory.version.lstrip("v"))
+    return versions
 
 
 @asynccontextmanager

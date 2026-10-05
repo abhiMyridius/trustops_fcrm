@@ -33,18 +33,27 @@ import re
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, Final, Optional, Protocol
 
+from fcrm_common.errors import UpstreamUnavailableError
 from fcrm_common.errors import ValidationError as FcrmValidationError
+from fcrm_common.events import build_envelope
+from fcrm_common.mongo import with_transaction
+from fcrm_common.outbox import Outbox
+from fcrm_common.time import utcnow
 from fcrm_contracts.api.policy import (
     ControlInventoryOut,
     ControlOut,
     ControlVersionOut,
     FieldDef,
     FieldSetOut,
+    JurisdictionActivateOut,
     JurisdictionListOut,
     JurisdictionVersionOut,
     ResolvedFieldSetOut,
 )
-from pymongo import IndexModel
+from fcrm_contracts.events.envelope import Envelope
+from fcrm_contracts.events.payloads import JurisdictionListPublished
+from pymongo import AsyncMongoClient, IndexModel
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -187,6 +196,42 @@ def control_inventory_out(doc: Mapping[str, Any]) -> ControlInventoryOut:
     )
 
 
+EVENT_JURISDICTION_PUBLISHED: Final = "jurisdiction.list_published"
+
+
+def activation_result(
+    target: Mapping[str, Any],
+    previous: Optional[Mapping[str, Any]],
+    *,
+    already_active: bool,
+) -> JurisdictionActivateOut:
+    """What activating ``target`` (over ``previous``) amounts to: the version
+    now active, the one it replaced and the change it announces.
+    """
+    changes = target.get("changes", {})
+    return JurisdictionActivateOut(
+        version=target["version"],
+        previous_version=previous["version"] if previous is not None else None,
+        fixture=bool(target.get("fixture", False)),
+        added=list(changes.get("added", [])),
+        removed=list(changes.get("removed", [])),
+        already_active=already_active,
+    )
+
+
+def published_envelope(result: JurisdictionActivateOut) -> Envelope:
+    """The ``jurisdiction.list_published`` event for an activation (the
+    watchlist agent re-flags open cases against ``result.version``).
+    """
+    payload = JurisdictionListPublished(
+        version=result.version,
+        added=result.added,
+        removed=result.removed,
+        fixture=result.fixture,
+    )
+    return build_envelope(EVENT_JURISDICTION_PUBLISHED, payload.model_dump(mode="json"))
+
+
 def parse_change_types(raw: Optional[str]) -> list[str]:
     """``"new_product, vendor_onboarding"`` -> the types, in order, trimmed,
     without empties or repeats.
@@ -261,6 +306,14 @@ class ReferenceStore(Protocol):
         self, version: Optional[str], domain: Optional[str]
     ) -> Optional[ControlInventoryOut]: ...
 
+    async def activate_jurisdiction(
+        self, version: str
+    ) -> Optional[JurisdictionActivateOut]:
+        """Make ``version`` the active jurisdiction list and announce it, in one
+        step; ``None`` when there is no such version.
+        """
+        ...
+
 
 class InMemoryReferenceStore:
     """Used by unit tests: the same seed documents the Mongo store is loaded
@@ -277,6 +330,9 @@ class InMemoryReferenceStore:
         self._jurisdictions = [dict(d) for d in jurisdictions]
         self._field_sets = [dict(d) for d in field_sets]
         self._controls = [dict(d) for d in control_inventories]
+        #: The ``jurisdiction.list_published`` events an activation announced
+        #: (what the Mongo store writes to its outbox).
+        self.events: list[Envelope] = []
 
     @classmethod
     def from_seed(cls, raw: Mapping[str, Any]) -> InMemoryReferenceStore:
@@ -329,13 +385,44 @@ class InMemoryReferenceStore:
         rows = [c for c in doc["controls"] if domain is None or c["domain"] == domain]
         return control_inventory_out({**doc, "controls": rows})
 
+    async def activate_jurisdiction(
+        self, version: str
+    ) -> Optional[JurisdictionActivateOut]:
+        """Activate like the Mongo store: the previous list off, this one on,
+        one event; a repeat of the active list changes and announces nothing.
+        """
+        target = self._pick(self._jurisdictions, version, numeric=False)
+        if target is None:
+            return None
+        current = next((d for d in self._jurisdictions if d["active"]), None)
+        if current is target:
+            return activation_result(target, current, already_active=True)
+        if current is not None:
+            current["active"] = False
+        target["active"] = True
+        result = activation_result(target, current, already_active=False)
+        self.events.append(published_envelope(result))
+        return result
+
 
 class MongoReferenceStore:
     """The real store over the three reference collections (read-only here;
     versions are published by the analyst's configuration routes and the seed).
     """
 
-    def __init__(self, db: AsyncDatabase[Document]) -> None:
+    def __init__(
+        self,
+        db: AsyncDatabase[Document],
+        *,
+        client: Optional[AsyncMongoClient[Document]] = None,
+        outbox: Optional[Outbox] = None,
+    ) -> None:
+        """Read the three collections of ``db``. ``client`` and ``outbox`` are
+        what :meth:`activate_jurisdiction` needs to change a list and announce
+        it in one transaction; without them it refuses.
+        """
+        self._client = client
+        self._outbox = outbox
         self._jurisdictions: AsyncCollection[Document] = db[JURISDICTION_LISTS]
         self._field_sets: AsyncCollection[Document] = db[FIELD_SETS]
         self._controls: AsyncCollection[Document] = db[CONTROL_INVENTORIES]
@@ -447,3 +534,49 @@ class MongoReferenceStore:
         )
         docs = await cursor.to_list()
         return control_inventory_out(docs[0]) if docs else None
+
+    async def activate_jurisdiction(
+        self, version: str
+    ) -> Optional[JurisdictionActivateOut]:
+        """One transaction: deactivate the active list, activate ``version``,
+        enqueue ``jurisdiction.list_published``. Either all three happen or
+        none (the partial unique index keeps at most one list active).
+
+        Raises:
+            UpstreamUnavailableError: The store was built without a Mongo
+                client and outbox (it cannot announce what it changes).
+        """
+        client, outbox = self._client, self._outbox
+        if client is None or outbox is None:
+            raise UpstreamUnavailableError(
+                "Jurisdiction activation needs the outbox and a replica set.",
+                dependency="mongo",
+            )
+
+        async def txn(session: AsyncClientSession) -> Optional[JurisdictionActivateOut]:
+            target = await self._jurisdictions.find_one(
+                version_filter(version, numeric=False), session=session
+            )
+            if target is None:
+                return None
+            current = await self._jurisdictions.find_one(
+                {"active": True}, session=session
+            )
+            if current is not None and current["_id"] == target["_id"]:
+                return activation_result(target, current, already_active=True)
+            if current is not None:
+                await self._jurisdictions.update_one(
+                    {"_id": current["_id"]},
+                    {"$set": {"active": False}},
+                    session=session,
+                )
+            await self._jurisdictions.update_one(
+                {"_id": target["_id"]},
+                {"$set": {"active": True, "activated_at": utcnow()}},
+                session=session,
+            )
+            result = activation_result(target, current, already_active=False)
+            await outbox.enqueue(session, published_envelope(result))
+            return result
+
+        return await with_transaction(client, txn)

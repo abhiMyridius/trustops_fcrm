@@ -37,10 +37,13 @@ async def test_standalone_deps_yield_the_process_clients_and_close_them():
     assert URI not in mongo._REGISTRY.clients
 
 
-async def test_standalone_deps_have_no_publisher_and_no_lease_holder():
-    """A standalone service runs without publishing: it owns no broker."""
+async def test_standalone_deps_have_no_publisher_no_broker_and_no_lease_holder():
+    """A standalone service runs without publishing or consuming: it owns no
+    broker.
+    """
     async with standalone_deps(_settings()) as deps:
         assert deps.publisher is None
+        assert deps.broker is None
         assert deps.lease_holder == ""
 
 

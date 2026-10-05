@@ -16,14 +16,15 @@ object to run a function call; separate deployability and "callable
 synchronously from S3" are different questions, and only the second one
 decides this module's shape.
 
-Design A §6.3 names the intended production-consistency mechanism for the
-offline ``memory`` backend: H4 dumps its in-memory store's fixture to MinIO
+Design A §6.3 names the production-consistency mechanism for the offline
+``memory`` backend: H4 dumps its in-memory store's fixture to MinIO
 (``vectors/{index}/{version}.json``) on ``index.built``, and S3 loads that
-fixture into its *own* ``InMemoryVectorStore`` on startup and on the next
-``index.built`` event. That MinIO dump/reload handshake is real, additional
-work (a new H4 job-consumer path, a new MinIO client in S3, an
-``index.built`` subscriber) that is out of scope for this pass -- tracked
-below, not silently skipped.
+fixture into its *own* ``InMemoryVectorStore`` on the next ``index.built``
+event. That handshake now exists: H4's consumer
+(``fcrm_context_worker.consumer``) writes the fixture and S3's
+``fcrm_policy.events`` consumer reads it back and calls
+:meth:`VectorClauseSource.replace_store`. What is described below is what S3
+does *before* any such event, so ``/search`` works at once and offline.
 
 What ships in this pass instead: S3 imports ``fcrm_context_worker`` (and
 transitively ``evoq_context``) as an ordinary Python dependency and builds
@@ -59,15 +60,10 @@ exists to avoid. A one-directional runtime dependency (S3 -> H4 as a
 library) is the smaller violation. ``src/backend/pyproject.toml`` gained one new
 ``[tool.uv.sources]`` line for it (disclosed in this change's description).
 
-Not done in this pass (tracked, mirroring ``fcrm_context_worker/UPSTREAM.md
-``'s own "not done" list):
-- The MinIO fixture dump/reload handshake (design A §6.3) that would make
-  the ``memory`` backend consistent across the two *actual* containers in
-  a composed stack, rather than only within whichever process seeded it.
-- A second, distinct named vector index for ``precedent_cases`` (H4's own
-  UPSTREAM.md already tracks "three named indexes... not yet done"); S3's
-  ``precedent_cases`` and ``controls`` searches are Mongo-keyword-only for
-  this reason (see ``fcrm_policy.search.service``).
+Not done (tracked, mirroring ``fcrm_context_worker/UPSTREAM.md``'s own list):
+- S3's ``precedent_cases`` and ``controls`` searches stay Mongo-keyword-only
+  (see ``fcrm_policy.search.service``): H4 builds and dumps those two indexes
+  too, but nothing queries their vectors yet.
 """
 
 from __future__ import annotations
@@ -91,6 +87,13 @@ class VectorClauseSource:
         self._store = store
         self._llm = llm
         self._config = config
+
+    def replace_store(self, store: VectorStore) -> None:
+        """Serve from ``store`` from now on. A single reference assignment, so a
+        search already running finishes against the store it started with and
+        the next one sees the new one: there is no moment with an empty index.
+        """
+        self._store = store
 
     async def rank(
         self,

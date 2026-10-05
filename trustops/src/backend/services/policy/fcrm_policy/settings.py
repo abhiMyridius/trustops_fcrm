@@ -1,20 +1,26 @@
-"""S3's own settings: the shared contract plus its search knobs.
+"""S3's own settings: the shared contract, its search knobs and the object
+store its vector reload reads from.
 
 ``RRF_K`` and ``SEARCH_TOP_K_MAX`` match the environment variables
-``docker-compose.yaml`` already sets for the ``policy`` container (D-13's
+``docker-compose.yaml`` already sets for the ``api`` container (D-13's
 sibling for S3). ``SEARCH_CANDIDATE_MULTIPLIER`` is design A §6.2's
 "top_k×3": how many candidates each ranked source (vector, keyword)
 contributes before fusion truncates to ``top_k``.
+
+The object-store variables (:class:`~fcrm_common.settings.S3Settings`) are
+optional here: S3 reads one bucket (``S3_BUCKET_VECTORS``) and only when a
+broker is present to tell it a fixture is ready.
 """
 
 from __future__ import annotations
 
-from fcrm_common.settings import BaseServiceSettings
+from fcrm_common.settings import BaseServiceSettings, S3Settings
 
 
-class PolicySettings(BaseServiceSettings):
-    """Adds S3's rank-fusion and candidate-window knobs to the generic
-    per-service environment contract.
+class PolicySettings(BaseServiceSettings, S3Settings):
+    """Adds S3's rank-fusion and candidate-window knobs, and the object-store
+    contract its vector reload needs, to the generic per-service environment
+    contract.
     """
 
     app_name: str = "fcrm-policy"

@@ -166,6 +166,7 @@ async def api_lifespan(app: FastAPI) -> AsyncIterator[None]:
                 opa=opa,
                 publisher=publisher,
                 lease_holder=lease_holder,
+                broker=broker,
             )
             await stack.enter_async_context(
                 mount.register(sub, _service_settings(mount, settings), deps)

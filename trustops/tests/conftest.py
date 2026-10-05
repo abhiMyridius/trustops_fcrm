@@ -954,3 +954,74 @@ async def live_case(
     finally:
         await verifier.aclose()
         await opa.aclose()
+
+
+@dataclass
+class LivePolicy:
+    """S3's real lifespan (``register``) running on a throw-away database of a
+    real replica set, with a recording publisher in place of the broker.
+    ``http`` calls the app in-process (same event loop as the Mongo client) as
+    H1's service account; OPA allows every route (the route rules are tested
+    by ``opa test``), so each route's own role check still decides.
+    """
+
+    app: FastAPI
+    db: Any
+    publisher: RecordingPublisher
+    http: Any
+
+
+@pytest.fixture
+async def live_policy(
+    live_db: Any,
+    recording_publisher: RecordingPublisher,
+    bearer_for: Callable[..., dict[str, str]],
+    allow_all_opa: OPAClient,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> AsyncIterator[LivePolicy]:
+    """The S3 lifespan on a real Mongo: indexes ensured, the 197-clause corpus,
+    the precedents, controls and reference data seeded (``SEED_ON_EMPTY``), the
+    three first-seed ``index.build`` requests in the outbox, the relay running
+    under the policy lease with ``recording_publisher``, and the memory vector
+    backend with dummy embeddings.
+    """
+    import httpx
+    from fcrm_common.auth import TokenVerifier
+    from fcrm_common.service import ServiceDeps
+    from fcrm_policy.lifespan import register
+    from fcrm_policy.main import create_app
+    from fcrm_policy.settings import PolicySettings
+
+    monkeypatch.setenv("VECTOR_BACKEND", "memory")
+    monkeypatch.setenv("EMBEDDING_PROVIDER", "dummy")
+    monkeypatch.setenv("EMBEDDING_DIMENSION", "64")
+    monkeypatch.setenv("CONTEXT_PROJECTS_ROOT", str(tmp_path))
+    secret = "x" * 32
+    settings = PolicySettings(
+        mongodb_db=live_db.name,
+        seed_on_empty=True,
+        service_token_secret=secret,
+        env="test",
+    )
+    verifier = TokenVerifier(service_secret=secret)
+    deps = ServiceDeps(
+        mongo=live_db.client,
+        token_verifier=verifier,
+        opa=allow_all_opa,
+        publisher=recording_publisher,
+        lease_holder="relay_test",
+    )
+    app = create_app(standalone=False)
+    try:
+        async with (
+            register(app, settings, deps),
+            httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app),
+                base_url="http://policy.test",
+                headers=bearer_for(secret, "caseflow"),
+            ) as http,
+        ):
+            yield LivePolicy(app, live_db, recording_publisher, http)
+    finally:
+        await verifier.aclose()

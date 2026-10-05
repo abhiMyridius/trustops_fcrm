@@ -855,6 +855,146 @@
         "title": "ClarificationThreadPO",
         "type": "object"
       },
+      "ClauseDetailOut": {
+        "additionalProperties": false,
+        "description": "One policy clause as the system of record holds it: ``GET /clauses/{id}``\nand each item of ``GET /internal/clauses`` (H4's input).\n\n``text`` is verbatim from ``clauses.json`` (never generated, never\nrewritten); ``source_ref`` is the structured citation an agent claim carries\nand ``ref`` the human-readable one. ``provenance_kind`` says whether the text\nis a seed verbatim quote or a declared synthetic stand-in (ADR-29).",
+        "properties": {
+          "clause_id": {
+            "title": "Clause Id",
+            "type": "string"
+          },
+          "corpus_version": {
+            "title": "Corpus Version",
+            "type": "integer"
+          },
+          "jurisdictions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Jurisdictions",
+            "type": "array"
+          },
+          "line_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line End"
+          },
+          "line_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line Start"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "provenance_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provenance Kind"
+          },
+          "quotable": {
+            "default": true,
+            "title": "Quotable",
+            "type": "boolean"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "risk_areas": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Risk Areas",
+            "type": "array"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_ref": {
+            "$ref": "#/components/schemas/ClauseSourceRef"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "trigger_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Trigger Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "clause_id",
+          "source_id",
+          "title",
+          "text",
+          "ref",
+          "source_ref",
+          "corpus_version"
+        ],
+        "title": "ClauseDetailOut",
+        "type": "object"
+      },
+      "ClauseSourceRef": {
+        "additionalProperties": false,
+        "description": "A clause in the policy corpus.",
+        "properties": {
+          "clause_id": {
+            "title": "Clause Id",
+            "type": "string"
+          },
+          "corpus_v": {
+            "title": "Corpus V",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "clause",
+            "default": "clause",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "clause_id",
+          "corpus_v"
+        ],
+        "title": "ClauseSourceRef",
+        "type": "object"
+      },
       "CommitteeAnswer": {
         "additionalProperties": false,
         "properties": {
@@ -1523,6 +1663,56 @@
         "title": "ItemStatus",
         "type": "string"
       },
+      "JurisdictionActivateOut": {
+        "additionalProperties": false,
+        "description": "``POST /jurisdictions/versions/{version}/activate``: the list that is now\nactive, the one it replaced and the change it announced. ``already_active``\nis ``True`` for a repeat of an activation that had already happened (no\nevent is published again).",
+        "properties": {
+          "added": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Added",
+            "type": "array"
+          },
+          "already_active": {
+            "default": false,
+            "title": "Already Active",
+            "type": "boolean"
+          },
+          "fixture": {
+            "title": "Fixture",
+            "type": "boolean"
+          },
+          "previous_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Version"
+          },
+          "removed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Removed",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "fixture"
+        ],
+        "title": "JurisdictionActivateOut",
+        "type": "object"
+      },
       "JurisdictionListOut": {
         "additionalProperties": false,
         "properties": {
@@ -1952,6 +2142,45 @@
         "title": "Page[CaseListItemPO]",
         "type": "object"
       },
+      "Page_ClauseDetailOut_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ClauseDetailOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[ClauseDetailOut]",
+        "type": "object"
+      },
       "Page_ControlVersionOut_": {
         "additionalProperties": false,
         "properties": {
@@ -2028,6 +2257,45 @@
           "items"
         ],
         "title": "Page[JurisdictionVersionOut]",
+        "type": "object"
+      },
+      "Page_PrecedentIndexRecord_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PrecedentIndexRecord"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[PrecedentIndexRecord]",
         "type": "object"
       },
       "Page_Proposal_": {
@@ -2112,6 +2380,564 @@
           "prompts_v"
         ],
         "title": "PinnedVersions",
+        "type": "object"
+      },
+      "PolicyClauseHit": {
+        "additionalProperties": false,
+        "description": "One clause hit of a policy search: the verbatim text under the web's\nname (``quote``), both citations, its place in ``corpus/<source>.md`` and\nits scores. ``similarity`` is the fused rank-agreement score in (0, 1];\n``vector_score`` and ``text_score`` are the two rankers' own numbers.",
+        "properties": {
+          "clause_id": {
+            "title": "Clause Id",
+            "type": "string"
+          },
+          "line_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line End"
+          },
+          "line_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line Start"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "provenance_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provenance Kind"
+          },
+          "quotable": {
+            "default": true,
+            "title": "Quotable",
+            "type": "boolean"
+          },
+          "quote": {
+            "title": "Quote",
+            "type": "string"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "risk_areas": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Risk Areas",
+            "type": "array"
+          },
+          "similarity": {
+            "title": "Similarity",
+            "type": "number"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_ref": {
+            "$ref": "#/components/schemas/ClauseSourceRef"
+          },
+          "text_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Score"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "vector_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vector Score"
+          }
+        },
+        "required": [
+          "clause_id",
+          "source_id",
+          "title",
+          "quote",
+          "ref",
+          "source_ref",
+          "similarity"
+        ],
+        "title": "PolicyClauseHit",
+        "type": "object"
+      },
+      "PolicySearchResultOut": {
+        "additionalProperties": false,
+        "description": "``POST /policy/search`` response (the web's ``PolicySearchResult``).",
+        "properties": {
+          "corpus_version": {
+            "title": "Corpus Version",
+            "type": "string"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/PolicyClauseHit"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "query",
+          "results",
+          "corpus_version"
+        ],
+        "title": "PolicySearchResultOut",
+        "type": "object"
+      },
+      "PolicySearchWebRequest": {
+        "additionalProperties": false,
+        "description": "``POST /policy/search`` as the web sends it (``{q, case_id}``). ``case_id``\nis for the log line only: it never narrows or re-ranks a search.",
+        "properties": {
+          "case_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "q": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Q",
+            "type": "string"
+          },
+          "top_k": {
+            "default": 8,
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "q"
+        ],
+        "title": "PolicySearchWebRequest",
+        "type": "object"
+      },
+      "PrecedentHitOut": {
+        "additionalProperties": false,
+        "description": "One similar closed case.",
+        "properties": {
+          "band": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Band"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "closed_date": {
+            "title": "Closed Date",
+            "type": "string"
+          },
+          "control_ratings": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Control Ratings",
+            "type": "object"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "similarity": {
+            "title": "Similarity",
+            "type": "number"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "title",
+          "similarity",
+          "closed_date"
+        ],
+        "title": "PrecedentHitOut",
+        "type": "object"
+      },
+      "PrecedentIndexRecord": {
+        "additionalProperties": false,
+        "description": "One stored precedent as H4 embeds it (``GET /internal/precedents``).",
+        "properties": {
+          "band": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Band"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "change_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Change Types",
+            "type": "array"
+          },
+          "closed_date": {
+            "title": "Closed Date",
+            "type": "string"
+          },
+          "domains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Domains",
+            "type": "array"
+          },
+          "geographies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Geographies",
+            "type": "array"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "search_text": {
+            "title": "Search Text",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "title",
+          "change_types",
+          "domains",
+          "geographies",
+          "closed_date",
+          "search_text"
+        ],
+        "title": "PrecedentIndexRecord",
+        "type": "object"
+      },
+      "PrecedentRecordIn": {
+        "additionalProperties": false,
+        "description": "``POST /internal/precedents``: the closed-case feedback loop (H1 posts one\nwhen a case closes). Posting the same ``case_id`` again replaces the row.\n``outcome`` is stored in the seed's vocabulary (``approved``, ``deferred``,\n``rejected``) so closed cases and seeded ones filter alike.",
+        "properties": {
+          "band": {
+            "anyOf": [
+              {
+                "maximum": 4.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Band"
+          },
+          "case_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Case Id",
+            "type": "string"
+          },
+          "change_types": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Change Types",
+            "type": "array"
+          },
+          "closed_date": {
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "title": "Closed Date",
+            "type": "string"
+          },
+          "control_ratings": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Control Ratings",
+            "type": "object"
+          },
+          "domains": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Domains",
+            "type": "array"
+          },
+          "geographies": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Geographies",
+            "type": "array"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/Outcome"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "case_id",
+          "title",
+          "closed_date",
+          "outcome"
+        ],
+        "title": "PrecedentRecordIn",
+        "type": "object"
+      },
+      "PrecedentRecordOut": {
+        "additionalProperties": false,
+        "description": "What ``POST /internal/precedents`` did: ``created`` for a new row,\n``changed`` when an existing one was replaced with different content;\n``index_requested`` says whether an ``index.build`` was enqueued (not for\nan identical repost). ``index_version`` is the precedent index version.",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "index_requested": {
+            "title": "Index Requested",
+            "type": "boolean"
+          },
+          "index_version": {
+            "title": "Index Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "case_id",
+          "created",
+          "changed",
+          "index_requested",
+          "index_version"
+        ],
+        "title": "PrecedentRecordOut",
+        "type": "object"
+      },
+      "PrecedentSearchFilters": {
+        "additionalProperties": false,
+        "description": "Metadata filters of a precedent search; every field narrows, none ranks.\nThe date bounds are ISO dates (``closed_after`` inclusive, ``closed_before``\nexclusive); the two list fields match any of their values.",
+        "properties": {
+          "closed_after": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed After"
+          },
+          "closed_before": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed Before"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "risk_areas": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Risk Areas",
+            "type": "array"
+          },
+          "trigger_types": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Trigger Types",
+            "type": "array"
+          }
+        },
+        "title": "PrecedentSearchFilters",
+        "type": "object"
+      },
+      "PrecedentSearchRequest": {
+        "additionalProperties": false,
+        "description": "``POST /precedents/search``: closed cases similar to a case summary.",
+        "properties": {
+          "filters": {
+            "$ref": "#/components/schemas/PrecedentSearchFilters"
+          },
+          "query": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          },
+          "top_k": {
+            "default": 5,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "PrecedentSearchRequest",
+        "type": "object"
+      },
+      "PrecedentSearchResponse": {
+        "additionalProperties": false,
+        "description": "Precedent hits and, per control, the mean rating over the hits that rated\nit (``precedent_avg``: code, not a model, so the critic can re-derive it).",
+        "properties": {
+          "precedent_avg": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Precedent Avg",
+            "type": "object"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/PrecedentHitOut"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "title": "PrecedentSearchResponse",
         "type": "object"
       },
       "PrincipalOut": {
@@ -5385,6 +6211,71 @@
         ]
       }
     },
+    "/api/fcrm/policy/clauses/{clause_id}": {
+      "get": {
+        "description": "One clause: verbatim text, ``ref`` and structured ``source_ref``, page\nand lines, provenance. ``corpus_version`` pins a version (the latest when\nomitted).",
+        "operationId": "S3_get_clause_clauses__clause_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clause_id",
+            "required": true,
+            "schema": {
+              "title": "Clause Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "corpus_version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Corpus Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClauseDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Clause",
+        "tags": [
+          "policy",
+          "policy"
+        ]
+      }
+    },
     "/api/fcrm/policy/controls": {
       "get": {
         "description": "One control-inventory version (``v9`` or ``9``; the active one when\nomitted), optionally only the controls of one risk ``domain``.",
@@ -5597,6 +6488,204 @@
         ]
       }
     },
+    "/api/fcrm/policy/internal/clauses": {
+      "get": {
+        "description": "One page of a corpus version's clauses in id order (the latest version\nwhen ``corpus_version`` is omitted): the records H4 embeds into\n``policy_clauses``. Follow ``next_cursor`` until it is ``None``.\n\nRaises:\n    NotFoundError: The corpus is empty or holds no such version.",
+        "operationId": "S3_internal_clauses_internal_clauses_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "corpus_version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Corpus Version"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ClauseDetailOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Internal Clauses",
+        "tags": [
+          "policy",
+          "policy-internal"
+        ]
+      }
+    },
+    "/api/fcrm/policy/internal/precedents": {
+      "get": {
+        "description": "One page of the stored precedents in case-id order: the records H4\nembeds into ``precedent_cases``.",
+        "operationId": "S3_internal_precedents_internal_precedents_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_PrecedentIndexRecord_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Internal Precedents",
+        "tags": [
+          "policy",
+          "policy-internal"
+        ]
+      },
+      "post": {
+        "description": "Add a closed case to the precedents (H1 posts one on ``case.closed``).\n\nThe row and the ``index.build`` request for ``precedent_cases`` are\nwritten in one transaction. Posting a case again is idempotent: an\nidentical repost is a 200 that changes and enqueues nothing; a new case is\na 201.",
+        "operationId": "S3_record_precedent_internal_precedents_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrecedentRecordIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrecedentRecordOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Record Precedent",
+        "tags": [
+          "policy",
+          "policy-internal"
+        ]
+      }
+    },
     "/api/fcrm/policy/jurisdictions": {
       "get": {
         "description": "One jurisdiction list: ``version`` is a version id (``v2026-06``),\n``latest``/``current`` or none for the active list, or ``fixture`` for the\nsynthetic re-flag list.",
@@ -5679,15 +6768,63 @@
         ]
       }
     },
-    "/api/fcrm/policy/search": {
+    "/api/fcrm/policy/jurisdictions/versions/{version}/activate": {
       "post": {
-        "description": "Hybrid search over one of the three indexes (``policy_clauses``,\n``precedent_cases``, ``controls``): rank fusion of a keyword ranking\n(Mongo ``$text``) and, for ``policy_clauses``, H4's semantic ranking,\nwith the Index Contract's metadata filters pushed down to both.",
-        "operationId": "S3_search_search_post",
+        "description": "Make a stored jurisdiction list the active one (the analyst only: the\nservice account never decides this). The previous list is deactivated and\n``jurisdiction.list_published`` is announced in the same transaction, which\nis what starts the watchlist run. ``version`` is a version id\n(``v2026-10-fixture``) or ``fixture``; activating the list that is already\nactive is a no-op that announces nothing.",
+        "operationId": "S3_activate_jurisdiction_version_jurisdictions_versions__version__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JurisdictionActivateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Activate Jurisdiction Version",
+        "tags": [
+          "policy"
+        ]
+      }
+    },
+    "/api/fcrm/policy/policy/search": {
+      "post": {
+        "description": "Search the policy corpus for ``body.q`` (design A §6.2). The web reaches\nthe same search at ``POST /search`` (its ``policy.search`` path on this\nservice's prefix), which tells the two request shapes apart.",
+        "operationId": "S3_policy_search_policy_search_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SearchRequest"
+                "$ref": "#/components/schemas/PolicySearchWebRequest"
               }
             }
           },
@@ -5698,7 +6835,119 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SearchResponse"
+                  "$ref": "#/components/schemas/PolicySearchResultOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Policy Search",
+        "tags": [
+          "policy",
+          "policy"
+        ]
+      }
+    },
+    "/api/fcrm/policy/precedents/search": {
+      "post": {
+        "description": "Closed cases similar to ``body.query`` under its filters, with each\none's control ratings and the mean rating per control (``precedent_avg``).",
+        "operationId": "S3_search_precedents_precedents_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrecedentSearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrecedentSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Search Precedents",
+        "tags": [
+          "policy",
+          "policy"
+        ]
+      }
+    },
+    "/api/fcrm/policy/search": {
+      "post": {
+        "description": "Hybrid search over one of the three indexes (``policy_clauses``,\n``precedent_cases``, ``controls``): rank fusion of a keyword ranking\n(Mongo ``$text``) and, for ``policy_clauses``, H4's semantic ranking,\nwith the Index Contract's metadata filters pushed down to both.\n\nA body of the web's shape (``{q, case_id}``) is the web's policy search\nand is answered in its shape: clause hits with their verbatim text.",
+        "operationId": "S3_search_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/SearchRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PolicySearchWebRequest"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SearchResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PolicySearchResultOut"
+                    }
+                  ],
+                  "title": "Response Search Search Post"
                 }
               }
             },

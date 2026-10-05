@@ -62,14 +62,37 @@ TEST_MOUNTS = tuple(
 )
 
 
+class FakeSubscriber:
+    """One subscriber a service added to the broker after it started."""
+
+    def __init__(self, queue: object) -> None:
+        self.queue = queue
+        self.running = False
+
+    async def start(self) -> None:
+        self.running = True
+
+    async def stop(self) -> None:
+        self.running = False
+
+
 class FakeBroker:
     """Stands in for the process's one ``RabbitBroker`` (no RabbitMQ runs in
-    these tests): it records what the services' relays publish through it.
+    these tests): it records what the services' relays publish through it and
+    which subscribers the services add to it (S3's ``index.*`` consumer).
     """
 
     def __init__(self) -> None:
         self.started = False
         self.published: list[tuple[bytes, dict[str, object]]] = []
+        self.subscribers: list[FakeSubscriber] = []
+
+    def subscriber(self, queue: object, *args: object, **kwargs: object) -> object:
+        """``RabbitBroker.subscriber``: returns the decorator that registers
+        the handler (kept as is; nothing is delivered in these tests).
+        """
+        self.subscribers.append(FakeSubscriber(queue))
+        return lambda handler: handler
 
     async def start(self) -> None:
         self.started = True
@@ -216,6 +239,19 @@ def test_s1_relays_its_outbox_through_the_composites_broker(
         ready = client.get("/api/fcrm/readyz")
         assert ready.json()["checks"]["outbox"]["ok"] is True
     assert fake_broker.started is False
+
+
+def test_s3_adds_its_index_consumer_to_the_composites_started_broker(
+    clean_dbs: None,
+    composite_env: None,
+    fake_broker: FakeBroker,
+    composite_client: Callable[[], AbstractContextManager[TestClient]],
+) -> None:
+    with composite_client():
+        [subscriber] = fake_broker.subscribers
+        assert subscriber.running is True
+        assert getattr(subscriber.queue, "name", None) == "policy-service.events"
+    assert subscriber.running is False
 
 
 def test_real_requests_reach_each_mounted_service_through_the_shared_clients(
