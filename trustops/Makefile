@@ -167,8 +167,8 @@ verify: ## verify one case's audit chain: make verify case=FCRM-2026-0118
 	@$(call pending,the S4 audit service GET /verify/{case_id})
 
 # ── quality gates ────────────────────────────────────────────────────────
-.PHONY: check lint format-check typecheck test test-unit opa-check opa-test compose-check gate
-check: lint format-check typecheck opa-check opa-test test-unit compose-check ## commit gate (< 90 s): ruff, format, mypy, OPA, unit tests, env contract
+.PHONY: check lint format-check typecheck test test-unit opa-check opa-test compose-check web-install web-check gate
+check: lint format-check typecheck opa-check opa-test test-unit compose-check web-check ## commit gate: ruff, format, mypy, OPA, unit tests, env contract, web typecheck and vitest
 	@echo "check: green"
 
 lint: ## ruff over src/backend and ops/scripts
@@ -194,9 +194,17 @@ test: test-unit ## alias of test-unit
 compose-check: ## .env.example ⇄ compose files contract + `compose config` of base/dev/test
 	$(PYTHON) ops/scripts/check_env_contract.py
 
+web-install: ## install the web dependencies from the lockfile (needed once per checkout)
+	cd src/frontend && npm ci
+
+web-check: ## web typecheck and vitest; skipped, loudly, when node_modules is missing
+	@if [ -d src/frontend/node_modules ]; then \
+		cd src/frontend && npm run --silent typecheck && npm test --silent; \
+	else echo "web-check: SKIPPED, src/frontend/node_modules is missing (run 'make web-install')"; fi
+
 gate: check ## push / task-done gate: check plus the parts other lanes have wired
 	@if [ -d tests/integration ]; then $(MAKE) --no-print-directory test-int; else echo "gate: no tests/integration yet (skipped)"; fi
-	@echo "gate: pending pieces, not yet run: contracts (oasdiff, event schemas), web vitest/tsc, evals-gate, semgrep"
+	@echo "gate: pending pieces, not yet run: contracts (oasdiff, event schemas), evals-gate, semgrep"
 
 # ── integration, e2e, resilience, evals ──────────────────────────────────
 .PHONY: test-int test-integration e2e resilience evals evals-gate nightly

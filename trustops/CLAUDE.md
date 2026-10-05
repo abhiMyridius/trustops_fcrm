@@ -30,7 +30,7 @@ make bootstrap     # uv sync, pre-commit install, pull images
 make up / down     # the stack via docker-compose: 8 containers (make up-obs adds 4 observability containers, make up-debug publishes the infrastructure ports)
 make seed-verify   # seed loaded and the 80-case recompute matches
 make demo          # drive FCRM-2026-0151 end to end and assert the goldens (9.8 → 10.4, 2–1, 67 records)
-make check         # commit gate: ruff, mypy, unit tests, tsc, vitest, governance checks  (< 90 s)
+make check         # commit gate: ruff, mypy, OPA, unit tests, env contract, web tsc + vitest (about 5 min; the web lane skips loudly without node_modules, run make web-install)
 make gate          # push gate: everything in check for all packages + contract tests + eval gate  (< 10 min)
 make e2e           # 21 Playwright scenes + black-box suite BB-01…BB-14 against the composed stack
 make evals         # per-agent eval run; writes evals/results/<date>/
