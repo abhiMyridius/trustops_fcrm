@@ -1,0 +1,789 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Risk Assessment Workbench · Blueprint</title></head><body>
+<title>Workbench Blueprint</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one page, two tabs. Architecture (scrolling board + tables) and Flow map (pan/zoom canvas). A component strip under the flow map bridges the two. Fixed light theme. */
+html,body{height:100%;margin:0;overflow:hidden}
+body{display:flex;flex-direction:column;background:#F2F4F3;color:#0C2226;font-family:"IBM Plex Sans",system-ui,sans-serif}
+.topbar{flex:none;display:flex;align-items:center;gap:16px;padding:10px 20px;background:#FFFFFF;border-bottom:1px solid #D3DDDB;flex-wrap:wrap}
+.topbar h1{font-family:"IBM Plex Sans Condensed","Arial Narrow",sans-serif;font-weight:700;font-size:20px;margin:0;color:#194247}
+.topbar h1 span{color:#09A78D}
+.tabs{display:flex;border:1px solid #D3DDDB;border-radius:999px;overflow:hidden}
+.tabs button{border:0;background:transparent;font:600 13px "IBM Plex Sans",system-ui,sans-serif;padding:8px 18px;color:#2B5358;cursor:pointer}
+.tabs button.on{background:#194247;color:#fff}
+.tabs button:focus-visible{outline:2px solid #09A78D;outline-offset:2px}
+.bridge{margin-left:auto;font-size:12.5px;color:#5C7F84;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.bridge .chipid{font-family:"IBM Plex Mono",monospace;font-size:12px;background:#DDF3EE;color:#0b6b5a;padding:1px 8px;border-radius:999px;font-weight:600}
+.bridge button{font:600 12px "IBM Plex Sans",system-ui,sans-serif;padding:4px 10px;border-radius:999px;border:1px solid #D3DDDB;background:#fff;color:#2B5358;cursor:pointer}
+.hiddenTab{display:none!important}
+/* ===== architecture tab ===== */
+
+/* Layout: component diagram with IDs, a component table, then the full case cycle as a flow chart and a sequence view, all referencing the same IDs. Fixed light theme. */
+:root{color-scheme:light;
+  --bg:#F2F4F3; --surface:#FFFFFF; --surface-2:#E7ECEA; --ink:#0C2226; --ink-2:#2B5358; --ink-3:#5C7F84; --border:#D3DDDB; --moss:#194247; --accent:#09A78D;
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif; --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+#tabArch{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.4;overflow:auto;flex:1;min-height:0}
+.wrap{max-width:1240px;margin:0 auto;padding-inline:20px;padding-block:24px 48px}
+header{margin-bottom:14px}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(26px,3vw,38px);margin:0;line-height:1.05;color:var(--moss)}
+h1 span{color:var(--accent)}
+.sub{color:var(--ink-2);margin:4px 0 0;max-width:80ch}
+nav.toc{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--border);margin:0 -20px 18px;padding:0 20px;overflow-x:auto}
+nav.toc ul{display:flex;gap:2px;list-style:none;margin:0;padding:0;white-space:nowrap}
+nav.toc a{display:inline-block;padding:9px 10px;font-size:13px;color:var(--ink-2);text-decoration:none;border-bottom:2px solid transparent}
+nav.toc a:hover{color:var(--ink);border-bottom-color:var(--accent)}
+section{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:18px;scroll-margin-top:48px}
+section>h2{font-family:var(--f-display);font-weight:700;font-size:22px;margin:0 0 4px;color:var(--moss)}
+section>h2 small{font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;color:var(--accent);margin-right:10px;vertical-align:middle}
+.lede{color:var(--ink-2);margin:0 0 12px;max-width:80ch}
+.keys{display:flex;flex-wrap:wrap;gap:8px 14px;margin:8px 0}
+.key{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-2)}
+.key i{width:14px;height:11px;border-radius:3px;display:inline-block;border:1.5px solid #557a7f}
+.zoombar{display:flex;gap:6px;justify-content:flex-end;margin-bottom:8px;flex-wrap:wrap}
+.zoombar button{font:500 13px var(--f-body);padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface-2);color:var(--ink);cursor:pointer}
+.zoombar button:hover{border-color:var(--accent)}
+.zoomwrap{overflow:auto;max-height:88vh;background:#FAFBFA;border:1px solid var(--border);border-radius:8px;padding:14px}
+.zoomwrap:fullscreen{max-height:none;padding:24px;background:#FAFBFA}
+.zoomwrap pre.mmd{margin:0;background:transparent;text-align:center}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+th{background:var(--surface-2);font-size:11.5px;font-weight:600;color:var(--ink-2)}
+tbody tr:last-child td{border-bottom:none}
+td.id{font-family:var(--f-mono);font-weight:600;white-space:nowrap}
+.scroll{overflow-x:auto;border:1px solid var(--border);border-radius:8px}
+.kw{font-family:var(--f-mono);font-size:12px;background:var(--surface-2);padding:0 5px;border-radius:4px;white-space:nowrap}
+.cap{font-size:12.5px;color:var(--ink-3);margin:6px 0 0}
+.note{border-left:3px solid var(--accent);background:#F0F7F5;padding:8px 12px;border-radius:0 8px 8px 0;margin-top:12px;font-size:13px}
+.mmd .edgeLabel,.mmd .edgeLabel foreignObject div{color:#0C2226!important;background:transparent!important;font-size:12px!important}
+.mmd .edgeLabel p,.mmd .edgeLabel span.edgeLabel{color:#0C2226!important;background:#FBF1D9!important;padding:0 3px;border-radius:3px;margin:0}
+.mmd .edgeLabel rect{fill:#FBF1D9!important}
+
+.board{display:flex;flex-direction:column;gap:0}
+.row{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:stretch}
+.rl{font-family:var(--f-display);font-weight:600;font-size:15px;color:var(--moss);padding:10px 8px;border-right:2px solid var(--border)}
+.rl small{display:block;font-family:var(--f-body);font-weight:400;font-size:11.5px;color:var(--ink-3);margin-top:3px}
+.cards{display:grid;gap:8px;padding:6px 0}
+.c2{grid-template-columns:repeat(2,1fr)}.c7{grid-template-columns:repeat(7,1fr)}.c4{grid-template-columns:repeat(4,1fr)}.c5{grid-template-columns:repeat(5,1fr)}.c6{grid-template-columns:repeat(6,1fr)}
+.c{border:1.5px solid #557a7f;border-radius:8px;padding:8px 10px;font-size:12.5px;line-height:1.35;min-width:0}
+.c b{display:block;font-family:var(--f-display);font-size:14px;margin-bottom:3px}
+.c.web{background:#FFFFFF}.c.svc{background:#DDF3EE;border-color:#09A78D}.c.core{background:#194247;border-color:#0C2226;color:#fff}.c.pkg{background:#ECE7F7;border-color:#5C4A9A}.c.clone{background:#E3EBF5;border-color:#1f4a7a}.c.data{background:#F4E6BE;border-color:#b98a1e}.c.ext{background:#EDEEEC;border-color:#9CAAAB}
+.link{margin-left:160px;font-family:var(--f-mono);font-size:11.5px;color:var(--ink-3);padding:4px 10px;border-left:2px dashed var(--border)}
+@media(max-width:900px){.row{grid-template-columns:1fr}.rl{border-right:0;border-bottom:2px solid var(--border)}.link{margin-left:0}.c4,.c5,.c6,.c7{grid-template-columns:repeat(2,1fr)}}
+pre.mmd{white-space:normal;font-family:inherit;margin:0;background:transparent;text-align:center}
+pre.mmd:not([data-processed]){white-space:pre;font-family:var(--f-mono);font-size:11px;color:var(--ink-3);text-align:left}
+
+.c{cursor:pointer;transition:opacity .2s,box-shadow .2s,transform .15s}
+.c:hover{transform:translateY(-1px)}
+.c:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.board.dim .c:not(.lit){opacity:.28}
+.c.lit{box-shadow:0 0 0 2px var(--accent)}
+.c.sel{box-shadow:0 0 0 3px var(--moss)}
+.detail{margin-top:12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px}
+.detail .dh{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.detail .k{font-family:var(--f-display);font-weight:700;font-size:16px;color:var(--moss)}
+.detail button{margin-left:auto;font:500 12px var(--f-body);padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface-2);cursor:pointer}
+.detail .db{font-size:13px;color:var(--ink-2)}
+.detail .db .g{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 16px}
+.detail .db h5{margin:0 0 3px;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.detail .db ul{margin:0;padding-left:16px}
+.detail .db li{margin:2px 0}
+
+#tabArch .wrap{padding-block:18px 48px}
+#tabArch header{margin-bottom:10px}
+.flowbtn{font:600 12.5px "IBM Plex Sans",system-ui,sans-serif;padding:6px 12px;border-radius:6px;border:1px solid #09A78D;background:#DDF3EE;color:#0b6b5a;cursor:pointer}
+/* ===== flow tab ===== */
+
+  /* Layout: full-height pan/zoom canvas for one Mermaid flow map, header with layout modes and zoom, legend row, glossary side panel. Myridius tokens. Fixed light theme. */
+  :root{
+    color-scheme:light;
+    --font-sans:"Montserrat",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --cloud-white:#FFFFFF; --base-linen:#F6F3F0; --carbon-moss:#0C2226; --quantum-leaf:#194247; --virtual-tide:#09A78D; --digital-pavo:#337077; --pulse-green:#52E081;
+    --bg:var(--base-linen); --paper:var(--cloud-white); --ink:var(--carbon-moss); --ink-2:var(--quantum-leaf); --ink-3:#5E7C7F;
+    --rule:rgba(25,66,71,.12); --rule-soft:rgba(25,66,71,.07); --accent:var(--virtual-tide); --accent-ink:#0B7A66; --focus:var(--virtual-tide);
+    --sw-person-bg:#FFFFFF; --sw-person-bd:#194247;
+    --sw-agent-bg:#09A78D; --sw-agent-bd:#066E5D;
+    --sw-code-bg:#E9EEED; --sw-code-bd:#337077;
+    --sw-guard-bg:#FBE9E5; --sw-guard-bd:#B03E39;
+    --sw-gate-bg:#F4FBCF; --sw-gate-bd:#9EB22C;
+    --sw-rec-bg:#FBF1D9; --sw-rec-bd:#B98A1E;
+    --sw-dec-bd:#194247; --sw-ext-bd:#7F9A9C; --danger:#B03E39;
+    --tip-bg:var(--carbon-moss); --tip-ink:var(--base-linen); --tip-label:var(--pulse-green);
+    --radius-sm:6px; --radius-md:12px; --radius-pill:999px;
+  }
+  *{box-sizing:border-box}
+    #tabFlow{background:var(--bg);color:var(--ink);font-family:var(--font-sans);font-size:14px;line-height:1.5;display:flex;flex-direction:column;flex:1;min-height:0}
+  #tabFlow .bar{position:relative;flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px 20px;padding:12px clamp(16px,3vw,24px);background:var(--paper);flex-wrap:wrap;overflow:hidden}
+  #tabFlow .bar>*{position:relative;z-index:1}
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--accent-ink);margin-bottom:3px}
+  #tabFlow .bar h1{font-size:17px;font-weight:700;margin:0;letter-spacing:-.015em;white-space:nowrap}
+  #tabFlow .bar .sub{font-size:12px;font-weight:500;color:var(--ink-3);white-space:nowrap;margin-top:3px}
+  #tabFlow .bar .sub b{font-weight:600;color:var(--ink-2)}
+  .ornament{position:absolute;right:0;top:0;height:100%;width:min(300px,34vw);pointer-events:none;z-index:0}
+  #tabFlow .legendrow{flex:none;display:flex;gap:8px 18px;flex-wrap:wrap;align-items:center;font-size:12px;font-weight:500;color:var(--ink-2);padding:8px clamp(16px,3vw,24px) 10px;border-top:1px solid var(--rule-soft);border-bottom:1px solid var(--rule);background:var(--paper)}
+  #tabFlow .sw{display:inline-block;width:13px;height:13px;border-radius:4px;vertical-align:-2px;margin-right:6px;border:1.5px solid}
+  #tabFlow .sw.person{background:var(--sw-person-bg);border-color:var(--sw-person-bd)}
+  #tabFlow .sw.agent{background:var(--sw-agent-bg);border-color:var(--sw-agent-bd)}
+  #tabFlow .sw.code{background:var(--sw-code-bg);border-color:var(--sw-code-bd)}
+  #tabFlow .sw.guard{background:var(--sw-guard-bg);border-color:var(--sw-guard-bd);border-style:dashed}
+  #tabFlow .sw.gate{background:var(--sw-gate-bg);border-color:var(--sw-gate-bd);border-radius:var(--radius-pill)}
+  #tabFlow .sw.rec{background:var(--sw-rec-bg);border-color:var(--sw-rec-bd)}
+  #tabFlow .sw.dec{background:transparent;border-color:var(--sw-dec-bd);transform:rotate(45deg) scale(.8)}
+  #tabFlow .sw.ext{background:transparent;border-color:var(--sw-ext-bd);border-style:dotted}
+  #tabFlow .esc-key{color:var(--danger);font-weight:600}
+  #tabFlow .ctrl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  #tabFlow .seg{display:flex;border:1px solid var(--rule);border-radius:var(--radius-pill);overflow:hidden}
+  #tabFlow .seg button{border:0;background:transparent;color:var(--ink-2);padding:7px 14px;font:inherit;font-size:12px;font-weight:600;letter-spacing:.02em;cursor:pointer;white-space:nowrap}
+  #tabFlow .seg button.on{background:var(--virtual-tide);color:#fff}
+  #tabFlow .ctrl>button{border:1.5px solid var(--rule);background:transparent;color:var(--ink-2);border-radius:var(--radius-pill);padding:7px 13px;font:inherit;font-size:12px;font-weight:600;letter-spacing:.02em;cursor:pointer;min-width:36px}
+  #tabFlow .ctrl button:hover{border-color:var(--accent);color:var(--accent-ink)}
+  #tabFlow .ctrl button:focus-visible,.seg button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+  #tabFlow .ctrl #gloss{border-color:var(--virtual-tide);color:var(--accent-ink)}
+  #tabFlow .ctrl #legbtn{display:none}
+  #tabFlow .hint{font-size:11px;font-weight:500;color:var(--ink-3);margin-left:auto}
+  @media (max-width:1180px){ .seg .long{display:none} .hint{display:none} }
+  @media (max-width:760px){ .bar .sub{display:none} .ctrl #legbtn{display:inline-block} .legendrow{display:none} .legendrow.open{display:flex} .ctrl>button{padding:7px 11px} .ornament{display:none} }
+  #tabFlow .main{flex:1;min-height:0;display:flex;position:relative}
+  #tabFlow .canvas{flex:1;min-width:0;min-height:0;position:relative;overflow:auto;background:var(--bg);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+  #tabFlow .canvas.drag{cursor:grabbing}
+  #tabFlow .layer{display:inline-block;padding:28px}
+  #tabFlow .layer svg{display:block}
+  #tabFlow .err{padding:20px;font-size:13px;font-weight:500;color:var(--danger);white-space:pre-wrap}
+  #tabFlow .zoom{position:absolute;right:16px;bottom:16px;z-index:5;font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--ink-2);background:var(--paper);border:1px solid var(--rule);border-radius:var(--radius-pill);padding:5px 12px;font-variant-numeric:tabular-nums;pointer-events:none}
+  #tabFlow .brandmark{position:absolute;left:16px;bottom:16px;z-index:5;display:flex;align-items:center;gap:9px;pointer-events:none}
+  #tabFlow .brandmark .mark{width:28px;height:28px;border-radius:50%;background:var(--pulse-green);color:var(--carbon-moss);display:grid;place-items:center;font-weight:600;font-style:italic;font-size:15px;line-height:1}
+  #tabFlow .brandmark .word{font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink-2)}
+  #tabFlow .layer svg .nodeLabel,.layer svg .edgeLabel,.layer svg .cluster-label{font-family:var(--font-sans) !important}
+  #tabFlow .layer svg .edgeLabel{font-size:12px;font-weight:500}
+  #tabFlow .layer svg .edgeLabel p,.layer svg .edgeLabel span{background:var(--paper) !important;color:var(--ink-2) !important}
+  #tabFlow .layer svg .cluster-label .nodeLabel{font-weight:700;font-size:15px;letter-spacing:-.005em}
+  #tabFlow .layer svg .cluster{cursor:zoom-in}
+  #tabFlow .layer svg .nodeLabel{line-height:1.35;font-weight:500}
+  #tabFlow .layer svg .nodeLabel small{display:block;margin-top:4px;font-size:10.5px;font-weight:500;letter-spacing:.02em;color:var(--ink-3);opacity:.95}
+  #tabFlow .layer svg .node.agent .nodeLabel small,.layer svg .node.term .nodeLabel small{color:#D5F2EA}
+  .gl{border-bottom:1px dotted var(--accent);cursor:help}
+  .tip{position:fixed;z-index:30;max-width:min(340px,88vw);background:var(--tip-bg);color:var(--tip-ink);font-size:12.5px;font-weight:400;line-height:1.5;padding:12px 14px;border-radius:var(--radius-md);box-shadow:0 12px 34px rgba(12,34,38,.28);pointer-events:none;display:none}
+  .tip b{display:block;color:var(--tip-label);margin-bottom:4px;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase}
+  #tabFlow .panel{flex:none;width:min(380px,38vw);border-left:1px solid var(--rule);background:var(--paper);display:none;flex-direction:column;min-height:0;position:relative;z-index:6}
+  #tabFlow .panel.open{display:flex}
+  #tabFlow .panel .ph{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 20px 14px;border-bottom:1px solid var(--rule)}
+  #tabFlow .panel .ph h2{font-size:15px;margin:0;font-weight:700;letter-spacing:-.01em}
+  #tabFlow .panel .ph button{border:1.5px solid var(--rule);background:transparent;border-radius:var(--radius-pill);padding:5px 12px;cursor:pointer;font:inherit;font-size:12px;font-weight:600;color:var(--ink-2);flex:none}
+  #tabFlow .panel input{margin:14px 20px 6px;padding:11px 14px;border:1px solid var(--rule);border-radius:var(--radius-md);font:inherit;font-size:13px;color:var(--ink);background:var(--bg)}
+  #tabFlow .panel input:focus-visible{outline:none;border:2px solid var(--virtual-tide);box-shadow:0 0 0 4px rgba(9,167,141,.15)}
+  #tabFlow .panel .list{overflow:auto;padding:8px 20px 24px;min-height:0}
+  #tabFlow .term{padding:11px 0;border-bottom:1px solid var(--rule-soft)}
+  #tabFlow .term dt{font-weight:700;font-size:13px;color:var(--accent-ink);margin-bottom:3px}
+  #tabFlow .term dd{margin:0;font-size:12.5px;color:var(--ink-2);line-height:1.55}
+  #tabFlow .term.hit{background:#DBF4D0;margin:0 -10px;padding:11px 10px;border-radius:var(--radius-sm)}
+  @media (max-width:900px){ .panel{position:fixed;right:0;top:0;bottom:0;width:min(92vw,380px);box-shadow:-12px 0 36px rgba(12,34,38,.22);z-index:20} }
+  @media (prefers-reduced-motion:reduce){ *{animation:none !important;transition:none !important} }
+
+#tabFlow .bar{justify-content:flex-end}
+/* component strip (bridge) */
+#strip{flex:none;display:flex;gap:6px 10px;flex-wrap:wrap;align-items:center;padding:8px 16px;background:#FFFFFF;border-top:1px solid rgba(25,66,71,.12);font-family:"Montserrat",system-ui,sans-serif;font-size:12px}
+#strip .lbl{font-weight:600;color:#5E7C7F;margin-right:4px}
+#strip .grp{display:flex;gap:4px;align-items:center;padding-right:10px;border-right:1px solid rgba(25,66,71,.12)}
+#strip .grp:last-of-type{border-right:0}
+#strip .id{font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;border:1.5px solid #D3DDDB;background:#fff;color:#2B5358;cursor:pointer;line-height:1.4}
+#strip .id:hover{border-color:#09A78D}
+#strip .id.glow{background:#F4FBCF;border-color:#9EB22C}
+#strip .id.on{background:#194247;border-color:#194247;color:#fff}
+#strip .count{margin-left:auto;color:#194247;font-weight:600}
+#strip .count button{margin-left:8px;font:600 11.5px "Montserrat",system-ui,sans-serif;padding:3px 9px;border-radius:999px;border:1px solid #D3DDDB;background:#fff;cursor:pointer}
+#tabFlow .layer svg.filtered g.node:not(.hit){opacity:.14}
+#tabFlow .layer svg.filtered .edgePath,#tabFlow .layer svg.filtered .edgeLabel,#tabFlow .layer svg.filtered .flowchart-link{opacity:.18}
+#tabFlow .layer svg.filtered g.node.hit rect,#tabFlow .layer svg.filtered g.node.hit polygon,#tabFlow .layer svg.filtered g.node.hit path{filter:drop-shadow(0 0 6px rgba(9,167,141,.7))}
+#tabFlow .layer svg g.node{cursor:pointer}
+.nodepop{position:fixed;z-index:31;background:#fff;border:1px solid #D3DDDB;border-radius:10px;box-shadow:0 12px 34px rgba(12,34,38,.22);padding:10px 12px;font-family:"Montserrat",system-ui,sans-serif;font-size:12.5px;display:none;max-width:320px}
+.nodepop b{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#0B7A66;margin-bottom:6px}
+.nodepop .ids{display:flex;gap:5px;flex-wrap:wrap}
+.nodepop .id{font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:999px;border:1.5px solid #09A78D;background:#DDF3EE;color:#0b6b5a;cursor:pointer}
+.nodepop small{display:block;margin-top:6px;color:#5E7C7F}
+
+  /* focus + fullscreen for the diagram only */
+  body.focus .legendrow,body.focus #strip,body.focus .topbar,body.focus .bar .sub,body.focus .bar .ttl{display:none!important}
+  body.focus .bar{padding-top:6px;padding-bottom:6px}
+  .canvasbar{display:none;position:fixed;top:12px;right:12px;z-index:40;gap:6px;background:rgba(255,255,255,.92);border:1px solid rgba(25,66,71,.18);border-radius:999px;padding:6px 8px;box-shadow:0 8px 24px rgba(12,34,38,.18)}
+  .canvasbar button{border:1.5px solid rgba(25,66,71,.18);background:#fff;color:#194247;border-radius:999px;padding:5px 11px;font:600 12px "Montserrat",system-ui,sans-serif;cursor:pointer;min-width:34px}
+  .canvasbar button:hover{border-color:#09A78D;color:#0B7A66}
+  .canvas:fullscreen{background:#F6F3F0}
+  .canvas:fullscreen .canvasbar{display:flex}
+  .canvas:fullscreen .layer{padding:20px}
+</style>
+
+<div class="topbar">
+  <h1>Workbench <span>· blueprint</span></h1>
+  <div class="tabs" role="tablist"><button type="button" id="tabBtnArch" class="on" role="tab">Architecture</button><button type="button" id="tabBtnFlow" role="tab">Flow map</button></div>
+  <div class="bridge" id="bridge"><span>Pick a component on either tab; the other tab follows it.</span></div>
+</div>
+
+<div id="tabArch">
+  <div class="wrap">
+    <header><h1 style="font-family:'IBM Plex Sans Condensed','Arial Narrow',sans-serif;font-weight:700;font-size:clamp(22px,2.6vw,32px);margin:0;line-height:1.05;color:#194247">Architecture <span style="color:#09A78D">· event-driven microservices with an orchestrated agent harness</span></h1>
+    <p class="sub">Click any box to see what sits under it and to light up its steps on the Flow map tab. IDs are the same everywhere.</p></header>
+    <nav class="toc"><ul><li><a href="#diagram">1 Component diagram</a></li><li><a href="#table">2 Components</a></li><li><a href="#names">2b Naming standard</a></li><li><a href="#seq">3 Assessment sequence</a></li></ul></nav>
+<section id="diagram">
+  <h2><small>01</small>Component diagram</h2>
+  <p class="lede"><b>Architecture type: event-driven microservices with an orchestrated agent harness.</b> Patterns used: API gateway (G1) · database-per-service (D1, MongoDB) · event-driven integration over a broker (X3) · orchestrator state machine (H1) · competing-consumer workers (H2–H4) · shared versioned libraries (P1–P6) · policy sidecar (X2) · routes → services → repository inside every service.</p>
+  <div class="keys">
+    <span class="key"><i style="background:#FFFFFF"></i>Web</span>
+    <span class="key"><i style="background:#DDF3EE"></i>HTTP services (own repo each)</span>
+    <span class="key"><i style="background:#194247"></i>Harness workers</span>
+    <span class="key"><i style="background:#ECE7F7"></i>Shared packages</span>
+    <span class="key"><i style="background:#E3EBF5"></i>Cloned from AEO into our repos</span>
+    <span class="key"><i style="background:#F4E6BE"></i>Data</span>
+    <span class="key"><i style="background:#EDEEEC"></i>External / platform</span>
+  </div>
+  <div class="board">
+    <div class="row"><div class="rl">Users and screens</div><div class="cards c2">
+      <div class="c web" data-id="W1" tabindex="0"><b>W1 · fcrm-web</b>React · PO, Analyst, Committee screens · live agent panel (SSE)</div>
+      <div class="c ext" data-id="G1" tabindex="0"><b>G1 · nginx gateway</b>/api/fcrm/* · token check with X1 · route permit with X2</div></div></div>
+    <div class="link">REST + SSE ↓ · every call carries a validated token and an OPA decision</div>
+    <div class="row"><div class="rl">HTTP services<br><small>FastAPI · system of record · one Mongo database each · one repo each</small></div><div class="cards c5">
+      <div class="c svc" data-id="S1" tabindex="0"><b>S1 · case-service</b>cases · versions · fields · documents · clarifications · conditions · SSE · emits events</div>
+      <div class="c svc" data-id="S2" tabindex="0"><b>S2 · scoring-service</b>pure engine · bands · routing · model versions</div>
+      <div class="c svc" data-id="S3" tabindex="0"><b>S3 · policy-service</b>corpus · clauses · controls · jurisdictions · vector search</div>
+      <div class="c svc" data-id="S4" tabindex="0"><b>S4 · audit-service</b>evidence ledger · hash chain · verify · examiner read</div>
+      <div class="c svc" data-id="S5" tabindex="0"><b>S5 · decision-service</b>packs · hidden votes · tally · outcome</div></div></div>
+    <div class="link">events and jobs via X3 RabbitMQ ↓↑ · workers write back only through service APIs</div>
+    <div class="row"><div class="rl">Harness<br><small>workers · scale by count</small></div><div class="cards c4">
+      <div class="c core" data-id="H1" tabindex="0"><b>H1 · orchestrator (Caseflow)</b>original · state machine per case · intake, assessment, decision, oversight cores · gates · budgets · outbox</div>
+      <div class="c core" data-id="H2" tabindex="0"><b>H2 · agent-worker ×N</b>runs one agent job · guards in, guards out · Pydantic AI adapter</div>
+      <div class="c clone" data-id="H3" tabindex="0"><b>H3 · ingestion-worker</b>clone of evoq_ingestion · docs → Markdown with page:line</div>
+      <div class="c clone" data-id="H4" tabindex="0"><b>H4 · context-worker</b>clone of evoq_context · chunk · embed · index into S3’s database</div></div></div>
+    <div class="link">library calls ↓ · packages are versioned and pinned per repo</div>
+    <div class="row"><div class="rl">Shared packages</div><div class="cards c6">
+      <div class="c pkg" data-id="P1" tabindex="0"><b>P1 · fcrm-agents</b>registry · 9 agents</div>
+      <div class="c pkg" data-id="P2" tabindex="0"><b>P2 · fcrm-tools</b>registry · read-only clients to S1–S4</div>
+      <div class="c pkg" data-id="P3" tabindex="0"><b>P3 · fcrm-skills</b>skill catalogue</div>
+      <div class="c pkg" data-id="P4" tabindex="0"><b>P4 · fcrm-prompts</b>prompt library · versions</div>
+      <div class="c pkg" data-id="P5" tabindex="0"><b>P5 · fcrm-guardrails</b>7 guards · 8 rules · OPA client</div>
+      <div class="c pkg" data-id="P6" tabindex="0"><b>P6 · fcrm-contracts</b>schemas · events · fixtures</div></div></div>
+    <div class="link">MongoDB and object storage ↓ · no service reads another’s database</div>
+    <div class="row"><div class="rl">Data</div><div class="cards c2">
+      <div class="c data" data-id="D1" tabindex="0"><b>D1 · MongoDB 8</b>databases: case · scoring · policy · audit · decision · harness · insert-only user on audit</div>
+      <div class="c data" data-id="D2" tabindex="0"><b>D2 · MinIO + S3 Vectors</b>MinIO: uploads · canonical Markdown · packs · S3 Vectors (AWS): clause, precedent and control indexes</div></div></div>
+    <div class="link">platform ↓ · cloned sidecars and external services</div>
+    <div class="row"><div class="rl">Platform</div><div class="cards c7">
+      <div class="c clone" data-id="X1" tabindex="0"><b>X1 · identity</b>clone of evoqidentityservice · tokens · 3 roles</div>
+      <div class="c clone" data-id="X2" tabindex="0"><b>X2 · OPA sidecar</b>clone · route authz + agent→tool permits</div>
+      <div class="c ext" data-id="X3" tabindex="0"><b>X3 · RabbitMQ</b>case events · agent jobs</div>
+      <div class="c ext" data-id="X4" tabindex="0"><b>X4 · model vendors</b>Anthropic · OpenAI · Bedrock · direct via Pydantic AI providers · FallbackModel</div>
+      <div class="c ext" data-id="X5" tabindex="0"><b>X5 · Logfire</b>OpenTelemetry from every box</div>
+      <div class="c ext" data-id="X7" tabindex="0"><b>X7 · Redis</b>token and permit cache · SSE fan-out · rate limits · never case state</div>
+      <div class="c pkg" data-id="X6" tabindex="0"><b>X6 · evals runner</b>golden sets · judge adapters · reports</div></div></div>
+  </div>
+
+  <div class="detail" id="detail"><div class="dh"><span class="k" id="dk">Click any box</span><button type="button" id="dclear" hidden>Clear</button></div><div class="db" id="db">Click a component to see what it contains, which repo it lives in, who it talks to, and which agents or screens sit under it. Related boxes light up; the rest dim.</div></div>
+  <p class="cap">Blue boxes are AEO code cloned into our own repositories and modified there. The running AEO platform is never called. Full call detail is in the cycle chart below.</p>
+</section>
+<section id="table">
+  <h2><small>02</small>Components</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>ID</th><th>Component</th><th>Repo</th><th>Does</th><th>Never does</th><th>Origin</th></tr></thead>
+    <tbody>
+      <tr><td class="id">W1</td><td>fcrm-web</td><td><span class="kw">fcrm-web</span></td><td>All screens for the three roles; live agent panel via SSE from S1</td><td>Call agents or models</td><td>BA React code, service layer swapped</td></tr>
+      <tr><td class="id">G1</td><td>nginx gateway</td><td><span class="kw">fcrm-platform</span> (image built by root compose)</td><td>Routes <span class="kw">/api/fcrm/*</span>; validates token with X1; asks X2 for route permission</td><td>Business logic</td><td>Pattern from AEO nginx-compose</td></tr>
+      <tr><td class="id">S1</td><td>case-service</td><td><span class="kw">fcrm-case-service</span></td><td>Case lifecycle, submission versions, fields, documents, clarifications, conditions; publishes case events; streams SSE</td><td>Score; call a model</td><td>GenericService template clone (FastAPI + Mongo repo)</td></tr>
+      <tr><td class="id">S2</td><td>scoring-service</td><td><span class="kw">fcrm-scoring-service</span></td><td>Pure scoring, bands, routing, versioned models, boundary flag</td><td>Store case data; call a model</td><td>BA engine ported</td></tr>
+      <tr><td class="id">S3</td><td>policy-service</td><td><span class="kw">fcrm-policy-service</span></td><td>Policy corpus versions, clauses, controls, jurisdictions, precedent index; search over S3 Vectors with metadata filters</td><td>Decide applicability</td><td>Template clone; indexes built by H4</td></tr>
+      <tr><td class="id">S4</td><td>audit-service</td><td><span class="kw">fcrm-audit-service</span></td><td>Evidence ledger, append-only hash-chained records, verify, examiner read API</td><td>Update or delete anything</td><td>Template clone</td></tr>
+      <tr><td class="id">S5</td><td>decision-service</td><td><span class="kw">fcrm-decision-service</span></td><td>Pack assembly from locked numbers, hidden votes, tally, outcome, condition activation</td><td>Reveal a vote early; call a model</td><td>Template clone</td></tr>
+      <tr><td class="id">H1</td><td>orchestrator (Caseflow)</td><td><span class="kw">fcrm-orchestrator</span></td><td>Original state machine per case; intake, assessment, decision, oversight cores; gates; retries; fallbacks; token budgets; event store; outbox</td><td>Reason; it is plain code</td><td>Original</td></tr>
+      <tr><td class="id">H2</td><td>agent-worker</td><td><span class="kw">fcrm-agent-worker</span></td><td>Consumes <span class="kw">agent.run</span>; loads agent from P1; runs guards from P5; calls tools from P2; returns typed proposals</td><td>Write to S1/S4 directly; only via H1</td><td>Job-worker pattern, original code</td></tr>
+      <tr><td class="id">H3</td><td>ingestion-worker</td><td><span class="kw">fcrm-ingestion-worker</span></td><td>Documents → canonical Markdown with page:line references; policy corpus ingestion</td><td>Interpret content</td><td>Clone of evoq_ingestion, Jira/Confluence removed</td></tr>
+      <tr><td class="id">H4</td><td>context-worker</td><td><span class="kw">fcrm-context-worker</span></td><td>Chunk by clause, embed (Bedrock Titan v2), write S3 Vectors indexes owned by S3</td><td>Serve queries (S3 does)</td><td>Clone of evoq_context, S3 Vectors backend as is</td></tr>
+      <tr><td class="id">P1</td><td>fcrm-agents</td><td><span class="kw">fcrm-agents</span></td><td>Agent registry and 9 agent folders: spec, schema, tool allow-list, model tier, eval set</td><td>Orchestrate</td><td>Original</td></tr>
+      <tr><td class="id">P2</td><td>fcrm-tools</td><td><span class="kw">fcrm-tools</span></td><td>Tool registry; thin read-only clients to S1–S4; document_reader over H3 output</td><td>Write</td><td>Original</td></tr>
+      <tr><td class="id">P3</td><td>fcrm-skills</td><td><span class="kw">fcrm-skills</span></td><td>Reusable instruction packs: cite_verbatim, declare_gap, compare_precedent, draft_for_business_reader, batch_questions</td><td>—</td><td>Original</td></tr>
+      <tr><td class="id">P4</td><td>fcrm-prompts</td><td><span class="kw">fcrm-prompts</span></td><td>Versioned prompt files with front-matter; rendered per run; version pinned on every proposal</td><td>—</td><td>Original</td></tr>
+      <tr><td class="id">P5</td><td>fcrm-guardrails</td><td><span class="kw">fcrm-guardrails</span></td><td>Seven guards and the eight rules as pure functions; OPA client for permits</td><td>Network service (it is a library)</td><td>Original</td></tr>
+      <tr><td class="id">P6</td><td>fcrm-contracts</td><td><span class="kw">fcrm-contracts</span></td><td>Proposal schema, event names, API schemas, golden fixtures shared by all repos</td><td>Code</td><td>Pattern from AEO contracts/</td></tr>
+      <tr><td class="id">D1</td><td>MongoDB 8</td><td><span class="kw">fcrm-platform</span></td><td>One database per service plus harness; insert-only user on audit</td><td>Cross-database reads</td><td>Our own instance (FARM), not AEO’s</td></tr>
+      <tr><td class="id">D2</td><td>MinIO + S3 Vectors</td><td><span class="kw">fcrm-platform</span></td><td>MinIO: uploads, canonical Markdown, packs. S3 Vectors (AWS): the three vector indexes</td><td>—</td><td>MinIO container; S3 Vectors via cloned evoq_context backend</td></tr>
+      <tr><td class="id">X1</td><td>identity</td><td><span class="kw">fcrm-identity</span></td><td>Tokens and three roles; validate endpoint</td><td>Authorisation (X2 does)</td><td>Clone of evoqidentityservice</td></tr>
+      <tr><td class="id">X2</td><td>OPA sidecar</td><td><span class="kw">fcrm-platform</span></td><td>Default-deny: route permissions and agent→tool permits</td><td>—</td><td>Clone of aeo-opaserver-dcsetup, new tools.rego</td></tr>
+      <tr><td class="id">X3</td><td>RabbitMQ</td><td><span class="kw">fcrm-platform</span></td><td>Case events and agent jobs</td><td>Hold state</td><td>Standard</td></tr>
+      <tr><td class="id">X4</td><td>Model vendors</td><td>—</td><td>Anthropic, OpenAI and Bedrock called directly by Pydantic AI providers with our keys; FallbackModel per tier; usage per run</td><td>—</td><td>No gateway service</td></tr>
+      <tr><td class="id">X5</td><td>Logfire</td><td>—</td><td>Receives OpenTelemetry from every service and worker</td><td>—</td><td>SaaS via OTLP</td></tr>
+      <tr><td class="id">X7</td><td>Redis</td><td><span class="kw">fcrm-platform</span></td><td>Token-validation and OPA decision cache, SSE pub/sub across S1 replicas, rate limits, model vendor (Pydantic AI) eval cache</td><td>Hold case state, proposals or audit records</td><td>Already present via the identity clone; optional until S1 has two replicas</td></tr>
+      <tr><td class="id">X6</td><td>evals runner</td><td><span class="kw">fcrm-evals</span></td><td>Golden sets per agent, judge adapters, committed reports; gate on prompt change</td><td>Run in production path</td><td>Pattern + adapters from evoq_evals</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><b>Repos:</b> one per service, worker and package (about 18), plus <span class="kw">fcrm-platform</span> (compose, nginx, OPA, Mongo init, Logfire) and <span class="kw">fcrm-submission</span>, the umbrella repo the judges open: it pulls every repo in as a submodule, holds <span class="kw">/docs /ai /evals /ops README</span> at the top level, and carries the <b>single root <span class="kw">docker-compose.yaml</span></b> that builds each image from its repo’s own <span class="kw">dockerfiles/Dockerfile</span>. More repos can be added at any time.</div>
+</section>
+<section id="names">
+  <h2><small>02b</small>Naming standard · used in every document</h2>
+  <p class="lede">One name per thing. IDs are stable; display names may be shortened only to the form shown.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Kind</th><th>Canonical names</th><th>Do not use</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Components</td><td>W1 fcrm-web · G1 nginx gateway · S1 case-service · S2 scoring-service · S3 policy-service · S4 audit-service · S5 decision-service · H1 orchestrator (Caseflow) · H2 agent-worker · H3 ingestion-worker · H4 context-worker · P1 fcrm-agents · P2 fcrm-tools · P3 fcrm-skills · P4 fcrm-prompts · P5 fcrm-guardrails · P6 fcrm-contracts · D1 MongoDB · D2 MinIO + S3 Vectors · X1 identity · X2 OPA sidecar · X3 RabbitMQ · X4 model vendors · X5 Logfire · X6 evals runner · X7 Redis (cache and bus, never memory)</td><td>"backend", "the API", "harness service", "vector DB", "the queue" without its ID</td></tr>
+      <tr><td class="id">Harness cores</td><td>intake core · assessment core · decision core · oversight core (all modules of H1) · gate manager</td><td>"stage service", "pipeline"</td></tr>
+      <tr><td class="id">Agents</td><td>screening · intake · research · assessment · critic · narrative · examiner · watchlist · policy_gap (always lower-case, always "… agent", run on H2, defined in P1)</td><td>BA names: Policy Mapping, Risk Drafting, Control Matching, Precedent, Clarification, Extraction, Classification, Submission Validation</td></tr>
+      <tr><td class="id">Tools (P2)</td><td>document_reader · case_record · case_search · field_rules · policy_search · precedent_search · control_inventory · evidence_store · jurisdiction_list · scoring_engine · rules_check · evidence_ledger · audit_log</td><td>"the search", "lookup"</td></tr>
+      <tr><td class="id">Guards (P5)</td><td>Guard 1 input scan · Guard 2 permit · Guard 3 budget · Guard 4 output shape · Guard 5 rules as code · Guard 6 critic · Guard 7 human gate</td><td>"validation", "safety layer"</td></tr>
+      <tr><td class="id">Records</td><td>proposal (in the evidence ledger, S4) · audit record (hash-chained, S4) · submission version (S1) · pack · vote · outcome (S5) · condition (S1)</td><td>"log entry", "history"</td></tr>
+      <tr><td class="id">Data</td><td>D1 databases: fcrm_case · fcrm_scoring · fcrm_policy · fcrm_audit · fcrm_decision · fcrm_harness · D2 S3 Vectors indexes: policy_clauses · precedent_cases · controls</td><td>"the database" without its name</td></tr>
+      <tr><td class="id">Roles</td><td>Product Owner (PO) · FCRM Analyst · Risk Committee · identity roles fcrm_po · fcrm_analyst · fcrm_committee</td><td>"business user", "reviewer"</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">The walkthrough’s backend monitor, the stack page, the scope page and the build plan all use these names. The prototype analysis page keeps the BA’s original names because it describes the BA’s code.</div>
+</section>
+<section id="seq">
+  <h2><small>03</small>The same cycle as a sequence between components</h2>
+  <p class="lede">Condensed to the assessment stage, where most components interact. Read top to bottom.</p>
+  <div class="zoombar" data-for="z3"><button type="button" data-z="out">Zoom out</button><button type="button" data-z="in">Zoom in</button><button type="button" data-z="reset">Fit</button><button type="button" data-z="full">Full screen</button></div>
+  <div class="zoomwrap" id="z3">
+<pre class="mmd">
+sequenceDiagram
+  autonumber
+  participant W1 as W1 fcrm-web
+  participant S1 as S1 case-service
+  participant X3 as X3 RabbitMQ
+  participant H1 as H1 orchestrator (Caseflow)
+  participant H2 as H2 agent-worker
+  participant X2 as X2 OPA sidecar
+  participant S3 as S3 policy-service
+  participant S2 as S2 scoring-service
+  participant S4 as S4 audit-service
+  participant X4 as X4 model vendor
+  S1->>X3: case.submitted
+  X3->>H1: event
+  H1->>H1: assessment_core starts · budget set
+  H1->>X3: agent.run research · agent.run assessment
+  X3->>H2: jobs (parallel workers)
+  H2->>X2: permit? research → policy_search
+  X2-->>H2: allow
+  H2->>S3: search clauses, precedents (read)
+  S3-->>H2: clauses with text, version
+  H2->>X4: model call (strong tier)
+  X4-->>H2: typed ClauseProposal[]
+  H2->>H2: guard 4 output shape · sources present
+  H2-->>H1: agent.done (proposals)
+  H1->>S4: append proposals to ledger
+  H1->>S2: POST /score (proposed inputs)
+  S2-->>H1: 9.8 · Band 2 · boundary flag
+  H1->>X3: agent.run critic
+  X3->>H2: job
+  H2->>S4: read ledger (permit via X2)
+  H2->>X4: judge-tier call
+  H2-->>H1: CriticFinding[]
+  H1->>S1: update case view (proposals, flags) · SSE
+  S1-->>W1: live panel updates
+  W1->>S1: analyst override 7.6 → 4.5 + reason
+  S1->>X3: gate.decided
+  X3->>H1: event
+  H1->>H1: guard 5 rules check
+  H1->>S2: POST /score (confirmed inputs)
+  S2-->>H1: 11.5 · Band 3 · route committee
+  H1->>S4: append record #31 (prev_hash → #30)
+  H1->>S1: status · route · SSE
+</pre>
+  </div>
+</section>
+  </div>
+</div>
+
+<div id="tabFlow" class="hiddenTab">
+<div class="bar">
+      <div class="ctrl">
+    <div class="seg" role="group" aria-label="Layout"><button data-mode="cols" class="on"><span class="long">Landscape &#183; </span>columns</button><button data-mode="rows"><span class="long">Wide &#183; </span>rows</button><button data-mode="tall"><span class="long">Portrait &#183; </span>tall</button></div>
+    <button id="zin" aria-label="Zoom in">+</button><button id="zout" aria-label="Zoom out">&#8722;</button><button id="z100">100%</button><button id="fit">Fit</button>
+    <button id="gloss" aria-expanded="false">Glossary</button><button id="focus" aria-pressed="false" title="Hide header, legend and component strip">Focus</button><button id="fullc" title="Diagram only, full screen">Full screen</button>
+    <button id="legbtn" aria-expanded="false">Legend</button>
+  </div>
+</div>
+<div class="legendrow" id="legendrow">
+  <span><i class="sw person"></i>a person acts (W1)</span>
+  <span><i class="sw agent"></i>an agent runs (H2, from P1)</span>
+  <span><i class="sw code"></i>plain code (H1 / S1&#8211;S5)</span>
+  <span><i class="sw guard"></i>guard (P5 / X2)</span>
+  <span><i class="sw gate"></i>human gate &#183; pipeline waits</span>
+  <span><i class="sw rec"></i>record written (S4)</span>
+  <span><i class="sw dec"></i>decision</span>
+  <span><i class="sw ext"></i>web / gateway</span>
+  <span class="esc-key">&#8594; HAND TO HUMAN = retries and fallbacks exhausted</span>
+  <span><span class="gl">underlined term</span> &#8212; hover for meaning</span>
+  <span class="hint">drag to move &#183; wheel or pinch to zoom &#183; click a phase box to zoom to it &#183; Focus hides the chrome &#183; Full screen shows the diagram only</span>
+</div>
+<div class="main">
+  <div class="canvas" id="canvas"><div class="layer" id="layer"></div><div class="canvasbar" id="canvasbar"><button type="button" data-z="in" aria-label="Zoom in">+</button><button type="button" data-z="out" aria-label="Zoom out">&#8722;</button><button type="button" data-z="fit">Fit</button><button type="button" data-z="100">100%</button><button type="button" data-z="exit">Exit full screen</button></div></div>
+  <div class="zoom" id="zoomlbl">100%</div>
+  <div class="brandmark" aria-label="myridius"><span class="mark">M</span><span class="word">myridius</span></div>
+  <aside class="panel" id="panel" aria-label="Glossary">
+    <div class="ph"><div><div class="eyebrow">Reference</div><h2>Terms as used in this map</h2></div><button id="closeg">Close</button></div>
+    <input id="gsearch" type="search" placeholder="Search a term&#8230;" aria-label="Search glossary">
+    <dl class="list" id="glist"></dl>
+  </aside>
+</div>
+
+  <div id="strip"><span class="lbl">Components</span></div>
+</div>
+<div class="tip" id="tip" role="tooltip"></div>
+<div class="nodepop" id="nodepop"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>
+(function(){
+  var M={
+    W1:{repo:'fcrm-web',contains:['PO screens: Dashboard · New case · Case detail · Templates · Integrations','Analyst screens: Dashboard · Queue · Workbench (8 tabs) · Assurance · Config (8 sections)','Committee screens: Queue · Case (Pack · Inbox · Vote)','Live agent panel component · SSE client · UI kit (from BA)'],talks:['G1 for every API call','S1 SSE stream for live updates'],under:[]},
+    G1:{repo:'fcrm-platform',contains:['nginx config · /api/fcrm/* routes','token validation call to X1','route permission call to X2'],talks:['S1 S2 S3 S4 S5'],under:[]},
+    S1:{repo:'fcrm-case-service',contains:['Collections: cases · submission_versions · field_values · documents · clarification_threads · conditions','Role-based response models (PO gets no score fields)','SSE endpoint · event publisher'],talks:['publishes case.created · case.submitted · case.answered · gate.decided to X3','files to D2 · database fcrm_case in D1'],under:['Screens: all PO case screens · analyst Submission and Inbox tabs']},
+    S2:{repo:'fcrm-scoring-service',contains:['Pure scoring engine (ported from BA)','band table · routing rules · scoring_model_versions','boundary flag · rounding rules'],talks:['called by H1 and by P2 scoring_engine tool','database fcrm_scoring in D1'],under:['Screens: analyst Risk & Controls score panel · Config → Scoring model, Rules & Routing']},
+    S3:{repo:'fcrm-policy-service',contains:['corpus_versions · clauses (+embedding) · controls · jurisdiction_list_versions · field_set_versions · precedent_index','search API over S3 Vectors'],talks:['read by P2 tools: policy_search · precedent_search · control_inventory · jurisdiction_list · field_rules','indexes written by H4 · database fcrm_policy in D1'],under:['Agents served: research · assessment · intake · watchlist · policy_gap','Screens: analyst Policy tab · Config → Policy corpus, Control inventory, Jurisdictions, Categories & Fields']},
+    S4:{repo:'fcrm-audit-service',contains:['proposals (evidence ledger) · audit_records with prev_hash · verify endpoint · examiner read API','insert-only database user · collection schema validation'],talks:['written by H1 only · read by P2 evidence_ledger and audit_log tools','database fcrm_audit in D1'],under:['Agents served: critic · examiner','Screens: Activity Log tabs · Assurance → Ask']},
+    S5:{repo:'fcrm-decision-service',contains:['packs · votes (hidden until N) · tally · outcomes · condition activation'],talks:['written by H1 · read by W1 committee screens via G1','database fcrm_decision in D1'],under:['Screens: analyst Handoff tab · committee Pack and Vote · PO Conditions tab']},
+    H1:{repo:'fcrm-orchestrator',contains:['Caseflow: CaseState · Step protocol · Gate · Budget · event store · outbox','Cores: intake_core · assessment_core · decision_core · oversight_core · gate_manager','Retry and fallback policy · token budgets'],talks:['consumes case events from X3 · publishes agent.run jobs','writes via APIs to S1 S4 S5 · reads S2','uses P5 guards (rules, budget) · database fcrm_harness in D1'],under:['All 9 agents are scheduled from here · all human gates wait here']},
+    H2:{repo:'fcrm-agent-worker',contains:['FastStream consumer for agent.run','Pydantic AI adapter (one agent call)','guards in: input, permit, budget · guards out: output shape'],talks:['loads P1 agents, P4 prompts, P3 skills · calls P2 tools · asks X2 permits · model via X4','returns agent.done to H1 via X3'],under:['Agents run here: screening · intake · research · assessment · critic · narrative · examiner · watchlist · policy_gap']},
+    H3:{repo:'fcrm-ingestion-worker',contains:['Clone of evoq_ingestion: extractors pdf · docx · xlsx · pptx · csv · text','canonical Markdown with page:line refs · UPSTREAM.md'],talks:['jobs from X3 · reads/writes D2','output consumed by P2 document_reader and by H4'],under:['Agents served: intake (documents) · research (policy corpus ingestion)']},
+    H4:{repo:'fcrm-context-worker',contains:['Clone of evoq_context: segmenters · enrichers · model vendor (Pydantic AI) embeddings · VectorStore protocol','S3 Vectors backend used as is · UPSTREAM.md'],talks:['jobs from X3 · embeddings via Bedrock Titan v2 · writes S3 Vectors indexes (D2) owned by S3'],under:['Indexes: policy_clauses · precedent_cases · controls']},
+    P1:{repo:'fcrm-agents',contains:['registry.py · AgentSpec · 9 agent folders: spec · schema.py · tools allow-list · tier · evals/','lock file expected_agents.txt'],talks:['used by H2 · tested by X6'],under:['screening · intake · research · assessment · critic · narrative · examiner · watchlist · policy_gap']},
+    P2:{repo:'fcrm-tools',contains:['registry.py · ToolSpec · read-only clients','document_reader · case_record · case_search · field_rules · policy_search · precedent_search · control_inventory · evidence_store · jurisdiction_list · scoring_engine · rules_check · evidence_ledger · audit_log'],talks:['reads S1 S2 S3 S4 · H3 output'],under:[]},
+    P3:{repo:'fcrm-skills',contains:['cite_verbatim · declare_gap · compare_precedent · draft_for_business_reader · batch_questions'],talks:['loaded by P1 agent specs'],under:[]},
+    P4:{repo:'fcrm-prompts',contains:['one folder per agent · versioned Markdown with front-matter · Jinja render','version pinned on every proposal'],talks:['rendered by H2 · gated by X6 evals'],under:[]},
+    P5:{repo:'fcrm-guardrails',contains:['input/ · permit/ (OPA client) · budget/ · output/ · rules/ (8 functions) · critic hook · gate check','one test module per guard'],talks:['called by H1 and H2 · asks X2'],under:['Guards 1 2 3 4 5 7 live here; guard 6 is the critic agent']},
+    P6:{repo:'fcrm-contracts',contains:['Proposal schema · event names · API schemas · golden fixtures · canonical Markdown contract (from AEO contracts/)'],talks:['imported by every repo'],under:[]},
+    D1:{repo:'fcrm-platform',contains:['Databases: fcrm_case · fcrm_scoring · fcrm_policy · fcrm_audit · fcrm_decision · fcrm_harness','insert-only user on fcrm_audit.audit_records'],talks:['each service reads only its own database'],under:[]},
+    D2:{repo:'fcrm-platform',contains:['MinIO container (S3 API) · buckets: uploads · canonical · packs','S3 Vectors (AWS) · indexes: policy_clauses · precedent_cases · controls'],talks:['files: written by S1 and H3, read by P2 document_reader','vectors: written by H4, queried by S3'],under:[]},
+    X1:{repo:'fcrm-identity',contains:['Clone of evoqidentityservice · token issue · /core/validate · MSAL route','roles fcrm_po · fcrm_analyst · fcrm_committee · 3 demo users'],talks:['called by G1'],under:[]},
+    X2:{repo:'fcrm-platform',contains:['Clone of OPA sidecar · authz.rego + permissions.json (routes)','new tools.rego + tool_permits.json (agent → tool)'],talks:['asked by G1 and by P5'],under:[]},
+    X3:{repo:'fcrm-platform',contains:['exchanges: case.events · agent.jobs · ingestion.jobs · context.jobs'],talks:['S1 H1 H2 H3 H4'],under:[]},
+    X4:{repo:'\u2014',contains:['Pydantic AI providers: anthropic:* · openai:* · bedrock:*','tiers cheap · mid · strong · judge as model string + fallback string','usage per run → X5'],talks:['H2'],under:[]},
+    X5:{repo:'\u2014',contains:['OpenTelemetry via OTLP · one trace per case · spans per agent step · tokens · cost · latency','dashboards: cost per case · override rate · gate waits · eval scores'],talks:['every service and worker'],under:[]},
+    X7:{repo:'fcrm-platform',contains:['Token-validation cache (60 s) in front of X1','OPA decision cache for route and tool permits','SSE pub/sub so any S1 replica can push to any browser','Rate limits · idempotency keys · model vendor (Pydantic AI) eval cache'],talks:['G1 S1 P5 X4'],under:['Never: case state, proposals, gates, audit records, agent memory']},
+    X6:{repo:'fcrm-evals',contains:['datasets per agent · runner (pydantic-evals + pytest) · DeepEval/Ragas adapters (cloned pattern) · reports/','gate on prompt change via make check'],talks:['tests P1 P4'],under:[]}
+  };
+
+  var BODY = [
+'subgraph ENTRY["1 · ENTRY — a product owner signs in and opens a case"]',
+'  direction __IN__',
+'  E1["The product owner signs in with the bank login<br><small>W1 → G1 · X1 validates token · X2 allows route</small>"]:::ext --> E2["She lands on her dashboard: her cases, stage, next action<br><small>W1 · S1 role model · no score fields</small>"]:::person --> E3["She clicks New case. A case ID exists before any content<br><small>S1 creates case · emits case.created → X3</small>"]:::code --> E4["The intake core opens a workflow for this case<br><small>H1 intake core · case_runs event store</small>"]:::code',
+'end',
+'',
+'subgraph INTAKE["2 · INTAKE — documents first, questions second"]',
+'  direction __IN__',
+'  I1["She uploads what she already has:<br>business case, partner contract<br><small>W1 → S1 · files to D2</small>"]:::person --> I2["Guard 1: scan each file for hidden instructions,<br>mask personal data<br><small>P5 input scan · presidio</small>"]:::guard --> I3["Turn the documents into text with page and line numbers<br><small>H3 ingestion-worker · evoq_ingestion clone</small>"]:::code --> I4["Guard 2: may the intake agent use these tools?<br><small>P5 permit → X2 tool_permits</small>"]:::guard --> I5["The intake agent reads the text and proposes:<br>values found, change types, questions for the gaps<br><small>H2 · P1 intake · P2 document_reader, precedent_search</small>"]:::agent --> I6["Guard 4: does every value point to a page and line?<br><small>P5 output shape · no source, no claim</small>"]:::guard --> I6D{"All values<br>sourced?"}:::dec',
+'  I6D -->|"no — retry once, then drop the value"| I5',
+'  I6D -->|yes| I7["Proposals written to the evidence ledger;<br>screen updates live<br><small>S4 proposals · S1 SSE → W1</small>"]:::rec --> I8["She confirms each change type<br>(removing one needs a reason)<br><small>W1 → S1 · gate.decided</small>"]:::person --> I9["Required field list is now known<br>(union of the confirmed types)<br><small>H1 · P2 field_rules</small>"]:::code --> I10{"A similar<br>closed case?<br><small>precedent_search</small>"}:::dec',
+'  I10 -->|yes| I11["She ticks which past answers to reuse;<br>each keeps a label naming its source case<br><small>W1 → S1 · provenance</small>"]:::person --> I12',
+'  I10 -->|no| I12["The intake agent asks only for what is still missing<br><small>H2 · P1 intake · P3 batch_questions</small>"]:::agent --> I13["She answers the gaps; new facts are flagged,<br>not blocked<br><small>W1 → S1</small>"]:::person --> I14{"80% filled and every<br>always-required field?<br><small>H1 · P5 rules</small>"}:::dec',
+'  I14 -->|"no — asks only for what is missing"| I12',
+'  I14 -->|yes| I15["Four visible checks pass; status Submitted;<br>analyst assigned by workload<br><small>H1 gate · auto-triage · S1</small>"]:::code --> I16["Intake agent graded on this case<br><small>X6 · values kept, types confirmed</small>"]:::rec',
+'end',
+'',
+'subgraph ASSESS["3 · ASSESSMENT — two agents work before the analyst looks"]',
+'  direction __IN__',
+'  A1["The assessment core starts; token budget set<br><small>H1 assessment core · Guard 3 budget</small>"]:::code --> A2["Two agent jobs go out in parallel<br><small>H1 → X3 agent.run research · assessment</small>"]:::code',
+'  A2 --> A3["The research agent finds applicable policy clauses and<br>the five closest past cases. Quotes word for word.<br>Says nothing found when nothing is found<br><small>H2 · P1 research · P2 policy_search, precedent_search → S3</small>"]:::agent',
+'  A2 --> A4["The assessment agent proposes likelihood, impact and<br>a strength rating for each existing control, with evidence dates<br><small>H2 · P1 assessment · P2 control_inventory → S3</small>"]:::agent',
+'  A3 --> A5["Guard 4 on both: sources present, shape valid<br><small>P5 output shape</small>"]:::guard',
+'  A4 --> A5',
+'  A5 --> A6["Plain arithmetic turns the proposed inputs into a score and a band<br><small>S2 scoring-service · composite 9.8 · Band 2</small>"]:::code --> A7{"Within 0.5 of<br>a band edge?<br><small>boundary flag</small>"}:::dec',
+'  A7 -->|yes| A8["Flag it; the analyst must acknowledge later<br><small>H1 · S4 record</small>"]:::rec --> A9',
+'  A7 -->|no| A9["The critic agent checks the work: every claim sourced?<br>ratings in line with the five precedents? eight rules kept?<br>evidence recent?<br><small>H2 · P1 critic · Guard 6 · P2 evidence_ledger, rules_check</small>"]:::agent --> A10["Findings and proposals written to the ledger<br><small>S4 proposals</small>"]:::rec',
+'end',
+'',
+'subgraph REVIEW["4 · ANALYST REVIEW — check completeness first, then accept or override item by item (Gate A)"]',
+'  direction __IN__',
+'  R1["The analyst opens the case from his queue.<br>He sees facts, flags and critic findings. No score yet<br><small>W1 → S1 · score withheld</small>"]:::person --> R0["Completeness check first: the narrative agent lists what is<br>missing, stale or contradictory, and drafts the questions<br><small>H2 · P1 narrative · Guard 6 findings · P2 case_record</small>"]:::agent --> R0D{"Enough to assess<br>without asking?"}:::dec',
+'  R0D -->|"no — ask now, before any review"| R8',
+'  R0D -->|yes| R2(["GATE A · the analyst accepts or removes each policy clause,<br>confirms or overrides each control rating, with a reason on every override<br><small>W1 → S1 gate.decided · Guard 7</small>"]):::gate --> R3["Guard 5: the eight rules checked before any state change<br><small>P5 rules as code</small>"]:::guard --> R4["Score recomputed from the confirmed inputs<br><small>S2 · 7.6 → 4.5 moves 9.8 → 11.5</small>"]:::code --> R5{"Did the band<br>change?"}:::dec',
+'  R5 -->|"yes — route changes"| R6["Before, after and cause written as one hash-chained record<br><small>S4 audit record #31 · prev_hash → #30</small>"]:::rec --> R7',
+'  R5 -->|no| R7{"A gap found<br>during review?"}:::dec',
+'  R7 -->|yes| R8["The analyst edits the drafted questions, each tied to the field it concerns,<br>and sends them as one round<br><small>W1 → S1 clarification_threads · P3 batch_questions</small>"]:::person --> R9["Analyst clock pauses; total clock keeps running<br><small>S1 two clocks</small>"]:::code --> R10["The product owner answers in her inbox;<br>her answers become submission version 2 with a diff<br><small>W1 → S1 submission_versions</small>"]:::person --> R11["Research and assessment agents re-run on the changed fields only<br><small>H1 → X3 · H2</small>"]:::agent --> R1',
+'  R7 -->|no| R12["The narrative agent drafts the recommendation, the conditions<br>and a plain-language summary for the business. Numbers are locked<br><small>H2 · P1 narrative · P3 draft_for_business_reader</small>"]:::agent --> R13["The analyst edits the words and locks the recommendation<br><small>W1 → S1 · unlock later needs a reason</small>"]:::person --> R14{"Band 1 or 2?<br><small>delegated authority</small>"}:::dec',
+'  R14 -->|"yes — analyst decides"| R15["The analyst closes the case under delegated authority<br><small>S5 outcome</small>"]:::person',
+'  R14 -->|"no — band 3 or 4"| R16["Continue to the committee<br><small>→ DECIDE</small>"]:::code',
+'end',
+'',
+'subgraph DECIDE["5 · COMMITTEE DECISION — three votes, hidden until all are in (Gate B)"]',
+'  direction __IN__',
+'  D1["Code assembles the pack from the locked numbers, clauses,<br>override log and pinned versions<br><small>S5 decision-service · no model involved</small>"]:::code --> D2["Four release checks: locked · all items reviewed ·<br>boundary acknowledged · business summary present<br><small>H1 decision core · P5 rules</small>"]:::guard --> D3["The analyst approves the pack<br><small>W1 → S5</small>"]:::person --> D4(["GATE B · three committee members read the pack and vote<br>with a written rationale; nobody sees the others\' votes<br><small>W1 → S5 votes · Guard 7</small>"]):::gate --> D5{"All three<br>votes in?"}:::dec',
+'  D5 -->|"no — waits, days if needed"| D4',
+'  D5 -->|yes| D6["Code counts the votes and reveals them together<br><small>S5 tally · majority</small>"]:::code --> D7{"Outcome?"}:::dec',
+'  D7 -->|approve| D8["Approved<br><small>S5 outcome</small>"]:::code',
+'  D7 -->|"approve with conditions"| D9["Approved with conditions; each condition gets an owner, a date and a status<br><small>S5 → S1 conditions</small>"]:::code',
+'  D7 -->|defer| D10["Deferred, with what is needed to return<br><small>S5 outcome</small>"]:::code',
+'  D7 -->|reject| D11["Rejected, with the committee\'s reasons<br><small>S5 outcome</small>"]:::code',
+'end',
+'',
+'subgraph CLOSE["6 · OUTCOME AND CLOSE — plain words back to the business"]',
+'  direction __IN__',
+'  C1["The product owner reads the decision and the reasons in business terms.<br>Scores, bands, ratings and clauses are never sent to her role<br><small>W1 ← S1 role model</small>"]:::person --> C2["Conditions tracked to done; reminders before due dates<br><small>S1 conditions · H1 oversight core</small>"]:::code --> C3["Case closed for assessment. Nobody, including the signer, can re-run or edit it<br><small>H1 · closed means closed</small>"]:::code --> C4["Chain verified end to end<br><small>S4 verify</small>"]:::rec --> DONE["Done. The next case starts again at step 1<br><small>H1 → IDLE · next case</small>"]:::term',
+'end',
+'',
+'subgraph OVERSEE["7 · OVERSIGHT — months later, and all the time"]',
+'  direction __IN__',
+'  O1["An examiner asks why this case went to committee<br><small>W1 Assurance → S4</small>"]:::person --> O2["The examiner agent answers from the audit chain only,<br>citing every record it uses; refuses if the records do not hold the answer<br><small>H2 · P1 examiner · P2 audit_log · Guard 4 grounding</small>"]:::agent',
+'  O3["A new FATF country list is published<br><small>S3 jurisdiction_list v2026-10</small>"]:::code --> O4["The watchlist agent re-flags open cases with affected geographies<br><small>H2 · P1 watchlist · P2 case_search</small>"]:::agent --> O5["Analysts acknowledge the re-flag<br><small>W1 → S1</small>"]:::person',
+'  O6["Every week, all agents are re-tested against the 80 reference cases;<br>analyst override rates reviewed<br><small>X6 evals runner · S4 override rate · X5 traces</small>"]:::rec --> O7{"Any agent<br>got worse?"}:::dec',
+'  O7 -->|yes| O8["Its prompt is fixed and must pass its eval set before release<br><small>P4 prompt version · X6 gate</small>"]:::code',
+'  O7 -->|no| O9["No change<br><small>prompt set stays live</small>"]:::code',
+'end',
+'',
+'subgraph FAIL["WHEN A STEP FAILS — retries, fallbacks, then a person"]',
+'  direction __IN__',
+'  F1{"Agent output failed<br>Guard 4?"}:::dec -->|"retry once with the error shown"| F2["Same agent, same tier<br><small>H1 retry policy</small>"]:::agent --> F3{"Still<br>failing?"}:::dec',
+'  F3 -->|yes| F4["Switch to the fallback model for this tier<br><small>H1 · X4 fallback chain</small>"]:::agent --> F5{"Still failing, or<br>budget exhausted?<br><small>Guard 3</small>"}:::dec',
+'  F5 -->|yes| F6["Hand to a human: the analyst sees the raw inputs<br>and does this step by hand; the case does not stall<br><small>H1 → gate · S4 record</small>"]:::gate',
+'  F5 -->|no| F7["Continue<br><small>back to the step</small>"]:::code',
+'  F3 -->|no| F7',
+'  F8{"Validation gate<br>failed at submit?"}:::dec -->|"names the failing check"| F9["Intake reopens asking only for what is missing<br><small>H1 intake core</small>"]:::code',
+'  F10{"Recommendation must<br>change after lock?"}:::dec -->|"reason required"| F11["Unlock with reason; pack regenerated; both versions kept<br><small>S1 · S5 · S4 record</small>"]:::rec',
+'end',
+'',
+'%% ───── phase-to-phase edges (phase level so inner direction holds) ─────',
+'ENTRY ==>|"case ID issued"| INTAKE',
+'INTAKE ==>|"submitted · analyst assigned"| ASSESS',
+'ASSESS ==>|"proposals, score and critic findings ready"| REVIEW',
+'REVIEW ==>|"band 3 or 4 · recommendation locked"| DECIDE',
+'REVIEW -->|"band 1 or 2 · delegated close"| CLOSE',
+'DECIDE ==>|"outcome set"| CLOSE',
+'CLOSE ==>|"case in the record"| OVERSEE',
+'REVIEW -.->|"any guard or budget failure"| FAIL'
+  ].join('\n');
+
+  var PAL = {
+    person:['#FFFFFF','#194247','#194247'],
+    agent :['#09A78D','#066E5D','#FFFFFF'],
+    code  :['#E9EEED','#337077','#194247'],
+    guard :['#FBE9E5','#B03E39','#7A2A26'],
+    gate  :['#F4FBCF','#8E9F26','#3D4A08'],
+    rec   :['#FBF1D9','#B98A1E','#5E4608'],
+    dec   :['#FFFFFF','#194247','#194247'],
+    term  :['#0C2226','#0C2226','#F6F3F0'],
+    ext   :['#F6F3F0','#7F9A9C','#337077'],
+    cl:{ plain:['#FBFAF8','#D8D2CB','#194247'], gate:['#FCFDF1','#D0DE86','#3D4A08'], tide:['#F1FAF6','#A3DCC7','#0B6354'], entry:['#FCFBF9','#C3BDB6','#337077'], end:['#EBEFEE','#337077','#0C2226'], fail:['#FFFFFF','#C84B47','#A8352F'] },
+    line:'#6F8B8C', edgeBg:'#FFFFFF', text:'#194247'
+  };
+  var CLUSTERS = { ENTRY:'entry', INTAKE:'plain', ASSESS:'tide', REVIEW:'gate', DECIDE:'gate', CLOSE:'end', OVERSEE:'tide', FAIL:'fail' };
+  function stylesFor(p){
+    var L=[];
+    function cd(n,v,x){ L.push('classDef '+n+' fill:'+v[0]+',stroke:'+v[1]+',color:'+v[2]+(x||'')); }
+    cd('person',p.person,',stroke-width:1.5px'); cd('agent',p.agent,',stroke-width:1.5px'); cd('code',p.code,',stroke-width:1px');
+    cd('guard',p.guard,',stroke-width:1.5px,stroke-dasharray:6 3'); cd('gate',p.gate,',stroke-width:2px'); cd('rec',p.rec,',stroke-width:1.5px');
+    cd('dec',p.dec,',stroke-width:1px'); cd('term',p.term,''); cd('ext',p.ext,',stroke-dasharray:2 2');
+    Object.keys(CLUSTERS).forEach(function(id){ var c=p.cl[CLUSTERS[id]], dash=(id==='ENTRY'||id==='FAIL')?',stroke-dasharray:4 3':''; L.push('style '+id+' fill:'+c[0]+',stroke:'+c[1]+',color:'+c[2]+dash); });
+    return L.join('\n');
+  }
+
+  function drawWave(){ var svg=document.getElementById('ornament'); if(!svg) return; var n=34,out=''; for(var i=0;i<n;i++){ var dx=-i*5.4,dy=i*2.6,op=(1-i/n)*0.9; out+='<path d="M -40 104 C 70 74, 150 112, 250 34 S 330 -12, 372 -34" fill="none" stroke="#09A78D" stroke-width="1" stroke-linecap="round" opacity="'+(op*0.9).toFixed(3)+'" transform="translate('+dx.toFixed(1)+','+dy.toFixed(1)+')"/>'; } svg.innerHTML='<g style="opacity:.45">'+out+'</g>'; }
+  drawWave();
+
+  var GLOSSARY = [
+    ['case','Case','One change request from the business: new product, feature, process change, vendor, geography or customer segment. Gets an ID (FCRM-2026-0151) before any content and is the key to every record afterwards.',/\bcase\b(?! ?ID)/i],
+    ['change types','Change types','The six kinds of change that trigger an assessment. A case can carry several; the required fields are the union of what each type needs.',/\bchange types?\b/i],
+    ['always required','Always-required field','A field that must be filled no matter what the completion percentage says, so the 80% slack never lands on a field that decides the assessment.',/\balways-?required\b/i],
+    ['eighty','80% gate','Submission needs 80% of required fields plus every always-required field. Plain code. A failure names the check and reopens intake for only what is missing.',/\b80%/],
+    ['proposal','Proposal','What an agent returns: a claim, the source it came from, the exact quote, and a confidence. Stored in the evidence ledger (S4). A proposal with no source is rejected by Guard 4 before anyone sees it.',/\bproposals?\b/i],
+    ['evidence ledger','Evidence ledger','The table of every agent proposal and the human decision on it (accepted, overridden, reason). Lives in S4 audit-service. The Examiner reads from here.',/\bevidence ledger\b|\bledger\b/i],
+    ['audit record','Audit record / hash chain','Every state change is a record that stores the fingerprint (hash) of the record before it. Change one and the chain breaks. S4 exposes a verify endpoint.',/\bhash-?chained\b|\baudit record\b|\bprev_hash\b|\bchain\b/i],
+    ['guard','Guards 1–7','The seven checks every agent call passes through, in order: 1 input scan · 2 permit · 3 budget · 4 output shape · 5 rules as code · 6 critic · 7 human gate. One package (P5), one test file each.',/\bGuard \d\b/],
+    ['permit','Tool permit (OPA)','Before an agent may call a tool, the harness asks the OPA sidecar (X2): may this agent use this tool on this case? Default deny. Same engine that authorises API routes.',/\bpermit\b|\btool_permits\b|\bX2\b/i],
+    ['rules','The eight rules','From the BA\'s design, now code: AI proposes, humans decide · scoring is arithmetic · policy is quoted not generated · the PO cannot set her own gate · the analyst never edits the submission · overrides carry reasons · visibility is asymmetric · closed means closed.',/\beight rules\b|\brules as code\b|\bP5 rules\b/i],
+    ['critic','Critic agent','A second agent whose only job is to challenge the first: is every claim sourced, is each rating within range of the five closest past cases, are the eight rules kept, is the evidence recent? It flags; it never decides.',/\bcritic\b/i],
+    ['precedent','Precedents / five closest cases','Closed cases most similar to this one by change types, geography and controls. Used for field reuse at intake and for the critic\'s consistency check.',/\bprecedents?\b|\bfive closest\b|\bpast cases?\b|\bsimilar closed case\b/i],
+    ['band','Band','Where the composite residual score falls: 1 (0–5), 2 (5.1–10), 3 (10.1–17), 4 (17.1–25). Bands 1–2 close under the analyst\'s delegated authority; 3–4 go to the committee.',/\bband(s)?\b/i],
+    ['boundary','Boundary flag','When the composite lands within 0.5 of a band edge, the analyst must acknowledge it before proceeding, because a judgement-derived decimal is changing who decides.',/\bboundary\b|\bband edge\b/i],
+    ['retention','Retention floor (40%)','Controls reduce risk, never to zero. Retention = 1 − 0.6 × effectiveness ÷ 10, so even perfect controls leave 40% of inherent risk. A real domain principle, kept in the arithmetic.',/\bretention\b|\b40%/i],
+    ['delegated','Delegated authority','The analyst\'s power to close a band 1 or 2 case without the committee.',/\bdelegated\b/i],
+    ['override','Override with reason','The analyst may change any AI-proposed rating or remove any clause, but must write why. The reason becomes the permanent record and feeds the eval signal.',/\boverrides?\b/i],
+    ['two clocks','Two clocks','Total elapsed time and analyst-active time. The analyst clock pauses while the business answers, so the 2-day target is measured fairly for each side.',/\btwo clocks\b|\banalyst clock\b/i],
+    ['completeness','Completeness check','Before reviewing anything, the analyst checks whether the case can be assessed at all. The narrative agent lists what is missing, stale or contradictory and drafts the questions. If there is a gap, it is asked now, in one round, instead of being discovered halfway through the recommendation.',/\bcompleteness check\b|\benough to assess\b/i],
+    ['clarification','Clarification round','One batched set of questions from analyst to product owner, each tied to a field. Answers come back as a new submission version with the original kept and a diff shown.',/\bclarification\b|\bone round\b/i],
+    ['version','Submission version','The business owner\'s answers are never overwritten. Each round of answers creates version N+1; FCRM sees exactly what changed.',/\bsubmission version\b|\bversion 2\b|\bsubmission_versions\b/i],
+    ['planned','Planned control','A control that does not exist yet. Recorded so the recommendation can reference it, excluded from the score because it cannot mitigate anything today.',/\bplanned control\b/i],
+    ['conditions','Conditions','Requirements attached to an approval: each has an owner, a due date and a status, tracked until done with reminders. This is what makes "approved with conditions" real.',/\bconditions?\b/i],
+    ['hidden votes','Hidden votes','Committee members vote with a mandatory rationale and cannot see each other\'s votes until all three are cast, so the last voter judges the case rather than the tally.',/\bhidden\b|\bnobody sees\b/i],
+    ['pack','Committee pack','Assembled by code from locked numbers, quoted clauses, the override log and the versions in force. Only the narrative text is AI-drafted, and a human edited it.',/\bpack\b/i],
+    ['role model','Role response model','The server builds a different response shape per role. The product owner\'s shape has no score, band, rating or clause fields at all; nothing is hidden on screen because nothing is sent.',/\brole model\b|\bnever sent\b|\bno score fields\b/i],
+    ['closed','Closed means closed','Once an outcome is delivered, nobody, including the analyst who signed, can re-run or edit the assessment. A change means a new case.',/\bclosed means closed\b|\bcannot re-run\b/i],
+    ['examiner','Examiner agent','Answers "why was this rated so?" using only the audit chain, citing every record. Refuses when the records do not contain the answer.',/\bexaminer\b/i],
+    ['watchlist','Watchlist agent','When a reference list changes (FATF country list, policy version), re-checks open cases with affected attributes and flags them for the analyst.',/\bwatchlist\b|\bFATF\b/i],
+    ['evals','Evals (X6)','Golden test sets per agent built from the 80 synthetic cases. Run weekly and on any prompt change; a prompt that scores lower than the last committed result cannot go live.',/\bevals?\b|\bre-tested\b|\beval set\b/i],
+    ['tier','Model tier','cheap · mid · strong · judge. Set per agent in config: cheap for extraction, strong for assessment and research, judge for the critic. Routed through model vendor (Pydantic AI) (X4).',/\btier\b/i],
+    ['fallback','Fallback chain','If a model call fails or times out, the harness retries once, then switches to the next model configured for that tier, then hands to a human. The case never stalls silently.',/\bfallback\b/i],
+    ['budget','Token budget (Guard 3)','Each agent run and each case has a token and time ceiling. Exhausting it is a failure path, not a surprise bill.',/\bbudget\b/i],
+    ['provenance','Provenance','Every value remembers where it came from: a document page and line, a reused case, or a human answer. Reused values carry the ID of the case they came from.',/\bprovenance\b|\bsource case\b/i],
+    ['caseflow','Caseflow (H1)','Our own orchestrator: a state machine per case with four cores (intake, assessment, decision, oversight), idempotent steps, human gates, retries, budgets and an event store. No workflow framework.',/\bintake core\b|\bassessment core\b|\bdecision core\b|\boversight core\b|\bH1\b/i],
+    ['gate','Human gate','The pipeline stops and waits for a named person to act in the normal screens; the decision and reason are recorded. Gate A: analyst review. Gate B: committee vote. Plus per-item confirms at intake.',/\bGATE [AB]\b|\bhuman gate\b|\bGate [AB]\b/],
+    ['sse','Live screen (SSE)','The case service streams events to the browser so proposals, flags and status appear as they happen, inside the normal screens, not in a chat window.',/\bSSE\b|\blive\b/i]
+  ];
+
+
+  /* ---------- shared state ---------- */
+  var IDS=['W1','G1','S1','S2','S3','S4','S5','H1','H2','H3','H4','P1','P2','P3','P4','P5','P6','D1','D2','X1','X2','X3','X4','X5','X6','X7'];
+  var SHORT={W1:'web',G1:'gateway',S1:'case',S2:'scoring',S3:'policy',S4:'audit',S5:'decision',H1:'orchestrator',H2:'agent-worker',H3:'ingestion',H4:'context',P1:'agents',P2:'tools',P3:'skills',P4:'prompts',P5:'guardrails',P6:'contracts',D1:'mongodb',D2:'minio',X1:'identity',X2:'opa',X3:'rabbitmq',X4:'models',X5:'logfire',X6:'evals',X7:'redis'};
+  var activeIds=[], flowRendered=false, pendingFilter=null;
+
+  /* ---------- tabs ---------- */
+  var tabArch=document.getElementById('tabArch'), tabFlow=document.getElementById('tabFlow'), bA=document.getElementById('tabBtnArch'), bF=document.getElementById('tabBtnFlow');
+  function switchTab(t){
+    var flow=t==='flow';
+    tabArch.classList.toggle('hiddenTab',flow); tabFlow.classList.toggle('hiddenTab',!flow);
+    bA.classList.toggle('on',!flow); bF.classList.toggle('on',flow);
+    if(flow && !flowRendered){ flowRendered=true; var start='cols'; try{ start=localStorage.getItem('fcrm_flow_mode')||'cols'; }catch(e){} if(!MODES[start]) start='cols'; setMode(start); }
+    hideNodePop();
+  }
+  bA.addEventListener('click',function(){switchTab('arch');}); bF.addEventListener('click',function(){switchTab('flow');});
+
+  /* ---------- bridge: strip under the flow map ---------- */
+  var strip=document.getElementById('strip');
+  var groups=[['Web',['W1','G1']],['Services',['S1','S2','S3','S4','S5']],['Harness',['H1','H2','H3','H4']],['Packages',['P1','P2','P3','P4','P5','P6']],['Data',['D1','D2']],['Platform',['X1','X2','X3','X4','X5','X6','X7']]];
+  groups.forEach(function(g){ var d=document.createElement('span'); d.className='grp'; d.innerHTML='<span class="lbl">'+g[0]+'</span>'; g[1].forEach(function(id){ var b=document.createElement('button'); b.type='button'; b.className='id'; b.dataset.id=id; b.textContent=id+' '+SHORT[id]; b.title='Show only the steps that touch '+id; b.addEventListener('click',function(){ toggleId(id); }); d.appendChild(b); }); strip.appendChild(d); });
+  var count=document.createElement('span'); count.className='count'; count.id='stripcount'; strip.appendChild(count);
+  function toggleId(id){ var i=activeIds.indexOf(id); if(i>=0) activeIds.splice(i,1); else activeIds.push(id); applyFilter(); }
+  function clearFilter(){ activeIds=[]; applyFilter(); }
+  function applyFilter(){
+    Array.prototype.forEach.call(strip.querySelectorAll('.id'),function(b){ b.classList.toggle('on',activeIds.indexOf(b.dataset.id)>=0); });
+    var svg=document.querySelector('#layer svg'); var hits=0, total=0;
+    if(svg){ var nodes=svg.querySelectorAll('g.node'); total=nodes.length; if(activeIds.length){ svg.classList.add('filtered'); Array.prototype.forEach.call(nodes,function(n){ var ids=(n.dataset.ids||'').split(' '); var hit=activeIds.some(function(a){return ids.indexOf(a)>=0;}); n.classList.toggle('hit',hit); if(hit)hits++; }); } else { svg.classList.remove('filtered'); Array.prototype.forEach.call(nodes,function(n){n.classList.remove('hit');}); } }
+    count.innerHTML=activeIds.length?('<span>'+hits+' of '+total+' steps touch '+activeIds.join(' or ')+'</span><button type="button" id="clrf">Show all</button>'):'<span>Click a chip, or a box on the Architecture tab, to filter the map</span>';
+    var c=document.getElementById('clrf'); if(c) c.addEventListener('click',clearFilter);
+    var br=document.getElementById('bridge'); br.innerHTML=activeIds.length?('<span>Following</span>'+activeIds.map(function(i){return '<span class="chipid">'+i+' '+SHORT[i]+'</span>';}).join('')+'<button type="button" id="brclr">Clear</button>'):'<span>Pick a component on either tab; the other tab follows it.</span>';
+    var bc=document.getElementById('brclr'); if(bc) bc.addEventListener('click',function(){clearFilter(); if(typeof clearArch==='function') clearArch();});
+  }
+  function indexNodes(svg){
+    Array.prototype.forEach.call(svg.querySelectorAll('g.node'),function(n){
+      var sm=n.querySelector('small'); var txt=(sm?sm.textContent:'')+' '+n.textContent;
+      var ids=[]; var m; var re=/\b([WGSHPDX]\d)\b/g; while((m=re.exec(txt))){ if(IDS.indexOf(m[1])>=0 && ids.indexOf(m[1])<0) ids.push(m[1]); }
+      /* Guard n → P5, GATE → W1, agent → H2 */
+      if(/Guard \d/.test(txt) && ids.indexOf('P5')<0) ids.push('P5');
+      if(/\bagent\b/i.test(txt) && ids.indexOf('H2')<0 && n.classList.contains('agent')) ids.push('H2');
+      n.dataset.ids=ids.join(' ');
+      n.addEventListener('mouseenter',function(){ ids.forEach(function(id){ var b=strip.querySelector('.id[data-id="'+id+'"]'); if(b) b.classList.add('glow'); }); });
+      n.addEventListener('mouseleave',function(){ Array.prototype.forEach.call(strip.querySelectorAll('.id.glow'),function(b){b.classList.remove('glow');}); });
+    });
+  }
+  /* node popover → jump to Architecture */
+  var pop=document.getElementById('nodepop');
+  function showNodePop(nd,e){
+    var ids=(nd.dataset.ids||'').split(' ').filter(Boolean); if(!ids.length){hideNodePop();return;}
+    pop.innerHTML='<b>Components in this step</b><div class="ids">'+ids.map(function(i){return '<span class="id" data-id="'+i+'">'+i+' '+SHORT[i]+'</span>';}).join('')+'</div><small>Click one to open it on the Architecture tab</small>';
+    pop.style.display='block'; var x=Math.min(e.clientX+12,window.innerWidth-pop.offsetWidth-8), y=Math.min(e.clientY+12,window.innerHeight-pop.offsetHeight-8); pop.style.left=x+'px'; pop.style.top=y+'px';
+    Array.prototype.forEach.call(pop.querySelectorAll('.id'),function(s){ s.addEventListener('click',function(ev){ ev.stopPropagation(); hideNodePop(); openArch(s.dataset.id); }); });
+  }
+  function hideNodePop(){ pop.style.display='none'; }
+  document.addEventListener('click',function(e){ if(!e.target.closest('.nodepop') && !e.target.closest('g.node')) hideNodePop(); });
+  function openArch(id){ switchTab('arch'); var c=document.querySelector('.board .c[data-id="'+id+'"]'); if(c){ selArch(c); c.scrollIntoView({block:'center',behavior:'smooth'}); } activeIds=[id]; applyFilter(); }
+  function showInFlow(id){ activeIds=[id]; switchTab('flow'); applyFilter(); }
+
+  var layer=document.getElementById('layer'), canvas=document.getElementById('canvas'), zl=document.getElementById('zoomlbl'), tip=document.getElementById('tip');
+  var scale=1,natW=0,natH=0,svgEl=null,fitMode=false;
+  function applyScale(){ if(!svgEl) return; svgEl.setAttribute('width',Math.round(natW*scale)); svgEl.setAttribute('height',Math.round(natH*scale)); zl.textContent=Math.round(scale*100)+'%'; }
+  function setScale(ns,anchor){ fitMode=false; ns=Math.max(0.15,Math.min(4,ns)); var c=canvas.getBoundingClientRect(); var ax=anchor?anchor.x:c.width/2, ay=anchor?anchor.y:c.height/2; var cx=(canvas.scrollLeft+ax)/scale, cy=(canvas.scrollTop+ay)/scale; scale=ns; applyScale(); canvas.scrollLeft=cx*scale-ax; canvas.scrollTop=cy*scale-ay; }
+  function fit(){ if(!natW) return; var c=canvas.getBoundingClientRect(); setScale(Math.min((c.width-56)/natW,(c.height-56)/natH)); canvas.scrollLeft=0; canvas.scrollTop=0; fitMode=true; }
+  var rT=null; window.addEventListener('resize',function(){ clearTimeout(rT); rT=setTimeout(function(){ if(fitMode) fit(); },120); });
+  /* focus mode and canvas-only fullscreen */
+  var focusBtn=document.getElementById('focus'), fullBtn=document.getElementById('fullc');
+  function setFocus(on){ document.body.classList.toggle('focus',on); focusBtn.setAttribute('aria-pressed',on?'true':'false'); focusBtn.textContent=on?'Exit focus':'Focus'; setTimeout(function(){ if(fitMode) fit(); },60); }
+  focusBtn.addEventListener('click',function(){ setFocus(!document.body.classList.contains('focus')); });
+  fullBtn.addEventListener('click',function(){ try{ var p=canvas.requestFullscreen&&canvas.requestFullscreen(); if(p&&p.catch) p.catch(function(){ setFocus(true); }); if(!canvas.requestFullscreen) setFocus(true); }catch(e){ setFocus(true); } });
+  document.addEventListener('fullscreenchange',function(){ setTimeout(function(){ fit(); },80); });
+  document.getElementById('canvasbar').addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; var z=b.getAttribute('data-z'); if(z==='in') setScale(scale*1.25); else if(z==='out') setScale(scale/1.25); else if(z==='fit') fit(); else if(z==='100') setScale(1); else if(z==='exit'){ if(document.fullscreenElement&&document.exitFullscreen) document.exitFullscreen(); } });
+  window.addEventListener('keydown',function(e){ if(e.target.tagName==='INPUT') return; if(e.key==='Escape'&&document.body.classList.contains('focus')&&!document.fullscreenElement) setFocus(false); if(e.key==='F'||e.key==='f'){ if(e.shiftKey){ fullBtn.click(); } } });
+
+  var legbtn=document.getElementById('legbtn'), legrow=document.getElementById('legendrow');
+  legbtn.addEventListener('click',function(){ var o=legrow.classList.toggle('open'); legbtn.setAttribute('aria-expanded',o?'true':'false'); });
+
+  var byKey={}; GLOSSARY.forEach(function(g){ byKey[g[0]]=g; });
+  function buildPanel(filter){ var dl=document.getElementById('glist'); dl.innerHTML=''; var f=(filter||'').trim().toLowerCase(); GLOSSARY.forEach(function(g){ if(f && (g[1]+' '+g[2]).toLowerCase().indexOf(f)<0) return; var d=document.createElement('div'); d.className='term'; d.id='term-'+g[0].replace(/\W+/g,'-'); d.innerHTML='<dt>'+g[1]+'</dt><dd>'+g[2]+'</dd>'; dl.appendChild(d); }); }
+  function markKeywords(root){
+    var walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null),texts=[]; while(walker.nextNode()) texts.push(walker.currentNode);
+    texts.forEach(function(tn){
+      if(!tn.parentNode||tn.parentNode.closest('.gl')||tn.parentNode.tagName==='SMALL') return;
+      var t=tn.nodeValue; if(!t||!t.trim()) return;
+      var frag=document.createDocumentFragment(),rest=t,any=false,guard=0;
+      while(rest&&guard++<8){ var hit=null; for(var i=0;i<GLOSSARY.length;i++){ var m=GLOSSARY[i][3].exec(rest); if(m&&m[0]&&(hit===null||m.index<hit.m.index)) hit={m:m,g:GLOSSARY[i]}; } if(!hit) break; any=true; var m=hit.m; if(m.index>0) frag.appendChild(document.createTextNode(rest.slice(0,m.index))); var span=document.createElement('span'); span.className='gl'; span.setAttribute('data-term',hit.g[0]); span.textContent=m[0]; frag.appendChild(span); rest=rest.slice(m.index+m[0].length); }
+      if(!any) return; if(rest) frag.appendChild(document.createTextNode(rest)); tn.parentNode.replaceChild(frag,tn);
+    });
+  }
+  function showTip(el){ var g=byKey[el.getAttribute('data-term')]; if(!g) return; tip.innerHTML='<b>'+g[1]+'</b>'+g[2]; tip.style.display='block'; var r=el.getBoundingClientRect(),tw=tip.offsetWidth,th=tip.offsetHeight; var x=Math.min(Math.max(8,r.left),window.innerWidth-tw-8); var y=r.bottom+8; if(y+th>window.innerHeight-8) y=r.top-th-8; tip.style.left=x+'px'; tip.style.top=y+'px'; }
+  function hideTip(){ tip.style.display='none'; }
+  layer.addEventListener('mouseover',function(e){ var k=e.target.closest('.gl'); if(k) showTip(k); });
+  layer.addEventListener('mouseout',function(e){ if(e.target.closest('.gl')) hideTip(); });
+  layer.addEventListener('click',function(e){ if(moved){moved=false;return;} var k=e.target.closest('.gl'); if(k){ e.stopPropagation(); openPanel(); var id='term-'+k.getAttribute('data-term').replace(/\W+/g,'-'); var d=document.getElementById(id); if(d){ d.scrollIntoView({block:'center'}); d.classList.add('hit'); setTimeout(function(){d.classList.remove('hit')},1600);} return; } var nd=e.target.closest('g.node'); if(nd){ e.stopPropagation(); showNodePop(nd,e); return; } hideNodePop(); var cl=e.target.closest('.cluster'); if(cl) zoomToCluster(cl); });
+  canvas.addEventListener('scroll',hideTip);
+  var panel=document.getElementById('panel'), gbtn=document.getElementById('gloss');
+  function openPanel(){ panel.classList.add('open'); gbtn.setAttribute('aria-expanded','true'); }
+  function closePanel(){ panel.classList.remove('open'); gbtn.setAttribute('aria-expanded','false'); }
+  gbtn.addEventListener('click',function(){ panel.classList.contains('open')?closePanel():openPanel(); });
+  document.getElementById('closeg').addEventListener('click',closePanel);
+  document.getElementById('gsearch').addEventListener('input',function(e){ buildPanel(e.target.value); });
+  buildPanel('');
+  function zoomToCluster(cl){ var b=cl.getBoundingClientRect(),c=canvas.getBoundingClientRect(); var k=Math.min(c.width/(b.width+60),c.height/(b.height+60)); var ns=Math.min(scale*k,1.6); var ux=(b.left-c.left+canvas.scrollLeft+b.width/2)/scale, uy=(b.top-c.top+canvas.scrollTop+b.height/2)/scale; scale=ns; applyScale(); canvas.scrollLeft=ux*scale-c.width/2; canvas.scrollTop=uy*scale-c.height/2; }
+
+  var MODES={cols:['LR','TB'],rows:['TB','LR'],tall:['TB','TB']};
+  function render(mode){
+    var dirs=MODES[mode]||MODES.cols, dir=dirs[0], inner=dirs[1];
+    if(!window.mermaid){ layer.innerHTML='<div class="err">Mermaid failed to load from the CDN. Check network access and reload.</div>'; return; }
+    var p=PAL;
+    mermaid.initialize({ startOnLoad:false, securityLevel:'loose', theme:'base',
+      themeVariables:{ fontFamily:'Montserrat, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', fontSize:'14px', primaryColor:p.code[0], primaryBorderColor:p.code[1], primaryTextColor:p.text, lineColor:p.line, edgeLabelBackground:p.edgeBg, clusterBkg:p.cl.plain[0], clusterBorder:p.cl.plain[1] },
+      flowchart:{ htmlLabels:true, curve:'basis', nodeSpacing:30, rankSpacing:48, padding:12, useMaxWidth:false } });
+    var code='flowchart '+dir+'\n'+BODY.split('__IN__').join(inner)+'\n'+stylesFor(p);
+    mermaid.render('fm_'+mode+'_'+Date.now(),code).then(function(r){
+      layer.innerHTML=r.svg; svgEl=layer.querySelector('svg');
+      var vb=(svgEl.getAttribute('viewBox')||'0 0 1000 600').split(/\s+/).map(Number); natW=vb[2]; natH=vb[3];
+      svgEl.style.maxWidth='none'; svgEl.setAttribute('preserveAspectRatio','xMidYMid meet');
+      markKeywords(svgEl); indexNodes(svgEl); applyFilter();
+      scale=canvas.clientWidth<520?0.8:1; fitMode=false; applyScale();
+      var entry=[].slice.call(layer.querySelectorAll('.cluster')).filter(function(c){return (c.textContent||'').indexOf('1 · ENTRY')>=0;})[0];
+      if(entry){ var eb=entry.getBoundingClientRect(),cb=canvas.getBoundingClientRect(); canvas.scrollLeft=Math.max(0,eb.left-cb.left+canvas.scrollLeft-40); canvas.scrollTop=Math.max(0,eb.top-cb.top+canvas.scrollTop-40); } else { canvas.scrollLeft=0; canvas.scrollTop=0; }
+    }).catch(function(e){ layer.innerHTML='<div class="err">'+String(e.message||e)+'</div>'; });
+  }
+  document.getElementById('zin').addEventListener('click',function(){ setScale(scale*1.25); });
+  document.getElementById('zout').addEventListener('click',function(){ setScale(scale/1.25); });
+  document.getElementById('z100').addEventListener('click',function(){ setScale(1); });
+  document.getElementById('fit').addEventListener('click',fit);
+  canvas.addEventListener('wheel',function(e){ e.preventDefault(); var c=canvas.getBoundingClientRect(); var f=e.deltaY<0?1.12:1/1.12; setScale(scale*f,{x:e.clientX-c.left,y:e.clientY-c.top}); },{passive:false});
+  window.addEventListener('keydown',function(e){ if(e.target.tagName==='INPUT') return; if(e.key==='0') setScale(1); if(e.key==='f') fit(); if(e.key==='+'||e.key==='=') setScale(scale*1.25); if(e.key==='-') setScale(scale/1.25); if(e.key==='g'){ panel.classList.contains('open')?closePanel():openPanel(); } if(e.key==='Escape') closePanel(); var step=80; if(e.key==='ArrowLeft'){canvas.scrollLeft-=step;} if(e.key==='ArrowRight'){canvas.scrollLeft+=step;} if(e.key==='ArrowUp'){canvas.scrollTop-=step;} if(e.key==='ArrowDown'){canvas.scrollTop+=step;} });
+  var pts={},drag=null,pinch=null,moved=false;
+  function npts(){ return Object.keys(pts).length; }
+  function pdist(){ var k=Object.keys(pts); var a=pts[k[0]],b=pts[k[1]]; return Math.hypot(a.x-b.x,a.y-b.y); }
+  function pmid(){ var k=Object.keys(pts); var a=pts[k[0]],b=pts[k[1]]; var c=canvas.getBoundingClientRect(); return {x:(a.x+b.x)/2-c.left,y:(a.y+b.y)/2-c.top}; }
+  canvas.addEventListener('pointerdown',function(e){ if(e.pointerType==='mouse'&&e.button!==0) return; pts[e.pointerId]={x:e.clientX,y:e.clientY}; canvas.setPointerCapture(e.pointerId); if(npts()===1){ drag={x:e.clientX,y:e.clientY,sl:canvas.scrollLeft,st:canvas.scrollTop}; pinch=null; moved=false; canvas.classList.add('drag'); } else if(npts()===2){ drag=null; pinch={d:pdist(),s:scale}; } });
+  canvas.addEventListener('pointermove',function(e){ if(!pts[e.pointerId]) return; pts[e.pointerId]={x:e.clientX,y:e.clientY}; if(pinch&&npts()===2){ setScale(pinch.s*pdist()/pinch.d,pmid()); moved=true; return; } if(drag){ var dx=e.clientX-drag.x,dy=e.clientY-drag.y; if(Math.abs(dx)>4||Math.abs(dy)>4){ moved=true; hideTip(); } canvas.scrollLeft=drag.sl-dx; canvas.scrollTop=drag.st-dy; } });
+  function endPointer(e){ delete pts[e.pointerId]; if(npts()===0){ drag=null; pinch=null; canvas.classList.remove('drag'); } else if(npts()===1){ pinch=null; var k=Object.keys(pts)[0]; drag={x:pts[k].x,y:pts[k].y,sl:canvas.scrollLeft,st:canvas.scrollTop}; } }
+  canvas.addEventListener('pointerup',endPointer); canvas.addEventListener('pointercancel',endPointer); canvas.addEventListener('lostpointercapture',endPointer);
+  var segBtns=[].slice.call(document.querySelectorAll('.seg button'));
+  function setMode(m){ segBtns.forEach(function(b){ b.classList.toggle('on',b.getAttribute('data-mode')===m); }); render(m); try{localStorage.setItem('fcrm_flow_mode',m)}catch(e){} }
+  segBtns.forEach(function(b){ b.addEventListener('click',function(){ setMode(b.getAttribute('data-mode')); }); });
+
+  document.addEventListener('click',function(e){ var b=e.target.closest('.flowbtn'); if(b) showInFlow(b.dataset.id); });
+
+  /* ---------- architecture board interactivity ---------- */
+  var board=document.querySelector('.board'),cards=Array.prototype.slice.call(document.querySelectorAll('.board .c')),dk=document.getElementById('dk'),db=document.getElementById('db'),clr=document.getElementById('dclear'),cur=null;
+  var defK=dk.textContent,defB=db.innerHTML;
+  function ids(s){return (s.match(/\b[WGSHPDX]\d\b/g)||[]);}
+  function clearArch(){board.classList.remove('dim');cards.forEach(function(c){c.classList.remove('lit','sel');});dk.textContent=defK;db.innerHTML=defB;clr.hidden=true;cur=null;}
+  function selArch(c){
+    if(cur===c){clearArch();return;}
+    clearArch();cur=c;var id=c.dataset.id,m=M[id];if(!m)return;
+    board.classList.add('dim');c.classList.add('sel','lit');
+    var rel=ids(m.talks.join(' ')+' '+m.under.join(' ')+' '+m.contains.join(' '));
+    cards.forEach(function(o){if(rel.indexOf(o.dataset.id)>=0)o.classList.add('lit');var om=M[o.dataset.id];if(om&&ids(om.talks.join(' ')+' '+om.under.join(' ')).indexOf(id)>=0)o.classList.add('lit');});
+    dk.textContent=c.querySelector('b').textContent;
+    var h='<div class="g"><div><h5>Repo</h5><ul><li>'+m.repo+'</li></ul></div><div><h5>Contains</h5><ul>'+m.contains.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul></div><div><h5>Talks to</h5><ul>'+m.talks.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul></div>'+(m.under.length?'<div><h5>Sits under it</h5><ul>'+m.under.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul></div>':'')+'</div>';
+    db.innerHTML=h+'<div style="margin-top:8px"><button type="button" class="flowbtn" data-id="'+id+'">Show the steps that touch '+id+' on the Flow map →</button></div>';clr.hidden=false;
+  }
+  cards.forEach(function(c){c.addEventListener('click',function(){selArch(c);});c.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();selArch(c);}});});
+  clr.addEventListener('click',clearArch);document.addEventListener('keydown',function(e){if(e.key==='Escape')clearArch();});
+
+  /* when a component is selected on the board, pre-arm the flow filter */
+  var _origSel=selArch; selArch=function(c){ _origSel(c); var id=c.dataset.id; if(cur===c){ activeIds=[id]; } else { activeIds=[]; } applyFilter(); };
+
+  /* ---------- sequence diagram on the architecture tab ---------- */
+  if(window.mermaid){ mermaid.initialize({startOnLoad:false,securityLevel:'loose',theme:'base',themeVariables:{fontFamily:'IBM Plex Sans, system-ui, sans-serif',fontSize:'14px',primaryColor:'#FFFFFF',primaryBorderColor:'#557a7f',primaryTextColor:'#0C2226',lineColor:'#557a7f',actorBkg:'#DDF3EE',actorBorder:'#09A78D',actorTextColor:'#0C2226',signalColor:'#0C2226',signalTextColor:'#0C2226',noteBkgColor:'#FBF1D9',sequenceNumberColor:'#FFFFFF'}}); mermaid.run({nodes:document.querySelectorAll('pre.mmd')}).catch(function(e){console.error(e);}); }
+  if(location.hash==='#flow') switchTab('flow');
+  var scales={};
+  function svgIn(id){var w=document.getElementById(id);return w?w.querySelector('svg'):null;}
+  function apply(id){var s=svgIn(id);if(!s)return;var wrap=document.getElementById(id);if(!s.dataset.base){s.dataset.base=String(s.getBoundingClientRect().width||wrap.clientWidth);}var base=parseFloat(s.dataset.base);s.style.maxWidth='none';s.style.width=Math.round(base*scales[id])+'px';s.style.height='auto';}
+  document.querySelectorAll('.zoombar').forEach(function(bar){var id=bar.getAttribute('data-for');scales[id]=1;bar.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;var z=b.getAttribute('data-z');if(z==='in')scales[id]=Math.min(scales[id]*1.3,5);else if(z==='out')scales[id]=Math.max(scales[id]/1.3,0.4);else if(z==='reset')scales[id]=1;else if(z==='full'){var w=document.getElementById(id);try{var p=w.requestFullscreen&&w.requestFullscreen();if(p&&p.catch)p.catch(function(){});}catch(err){}return;}apply(id);});});
+
+})();
+</script>
+</body></html>

@@ -1,0 +1,698 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Risk Assessment Workbench · Guided walkthrough</title></head><body>
+<title>Workbench Walkthrough</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: control bar · mocked enterprise workbench (sidebar, topbar, content, docked backend monitor) with an animated cursor · caption · scene timeline. Fixed light theme. */
+:root{color-scheme:light;
+  --bg:#EEF1F0; --surface:#FFFFFF; --surface-2:#E6EBE9; --surface-3:#F6F8F7;
+  --ink:#0C2226; --ink-2:#2B5358; --ink-3:#5C7F84; --border:#D3DDDB;
+  --moss:#194247; --accent:#09A78D; --accent-soft:#DDF3EE; --leaf:#CBEBBD;
+  --warn:#8a6512; --warn-bg:#FBF1D9; --bad:#9a3524; --bad-bg:#F7E3DE; --ok:#1f7a45; --ok-bg:#E1F4E6;
+  --mon:#0F262A; --mon-2:#163338; --mon-ink:#DDE7E5; --mon-dim:#8FB0B3;
+  --fs:clamp(12px,1.05vw,15.5px); --fs-s:clamp(11px,.92vw,13.5px); --fs-xs:clamp(10px,.8vw,12px);
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:var(--fs);line-height:1.4;overflow:hidden}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr auto;gap:.8vh;padding:1vh 1.2vw}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bar h1{font-family:var(--f-display);font-size:clamp(18px,1.8vw,26px);margin:0;color:var(--moss);font-weight:700}
+.bar h1 span{color:var(--accent)}
+.bar .sp{flex:1}
+.bar button{font:500 var(--fs-s) var(--f-body);padding:7px 14px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer}
+.bar button.primary{background:var(--accent);border-color:var(--accent);color:#fff;min-width:84px}
+.bar button:disabled{opacity:.45;cursor:default}
+.bar button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.bar .cnt{font-family:var(--f-mono);font-size:var(--fs-s);color:var(--ink-3)}
+/* frame */
+.frame{position:relative;display:grid;grid-template-columns:clamp(130px,12vw,190px) 1fr clamp(260px,25vw,380px);grid-template-rows:auto 1fr;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;min-height:0}
+.side{grid-row:1/3;background:var(--surface-3);border-right:1px solid var(--border);padding:1.4vh 1vw;display:flex;flex-direction:column;gap:.6vh}
+.side .brand{font-family:var(--f-display);font-weight:700;font-size:clamp(15px,1.35vw,20px);color:var(--moss)}
+.side .brand small{display:block;font-family:var(--f-body);font-weight:600;font-size:var(--fs-xs);letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}
+.side .newcase{margin-top:1vh;background:var(--moss);color:#fff;border-radius:6px;padding:.8vh .8vw;font-weight:600;text-align:center;font-size:var(--fs-s)}
+.side .nav{margin-top:.8vh;display:flex;flex-direction:column;gap:3px}
+.side .nav div{padding:.75vh .7vw;border-radius:6px;color:var(--ink-2);font-size:var(--fs-s)}
+.side .nav div.on{background:var(--surface-2);color:var(--ink);font-weight:600}
+.side .who{margin-top:auto;padding:.8vh .7vw;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:var(--fs-s)}
+.side .who b{display:block}.side .who small{color:var(--ink-3);font-size:var(--fs-xs)}
+.top{grid-column:2/4;display:flex;align-items:center;gap:12px;padding:1vh 1.1vw;border-bottom:1px solid var(--border)}
+.top .crumb{color:var(--ink-3);font-size:var(--fs-s)}
+.top .title{font-weight:600}
+.top .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:var(--fs-xs);font-weight:600;white-space:nowrap;background:var(--surface-2);color:var(--ink-2)}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.bad{background:var(--bad-bg);color:var(--bad)}.pill.ac{background:var(--accent-soft);color:var(--accent)}
+.main{padding:1.1vh 1.1vw;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:.9vh}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);font-size:var(--fs-s);flex-wrap:wrap}
+.tabs span{padding:.5vh .8vw;color:var(--ink-3);border-bottom:2px solid transparent}
+.tabs span.on{color:var(--ink);font-weight:600;border-bottom-color:var(--accent)}
+.grid{display:grid;gap:.8vw;min-height:0}
+.g2{grid-template-columns:1fr 1fr}.g31{grid-template-columns:1.4fr 1fr}.g13{grid-template-columns:1fr 1.5fr}.g3{grid-template-columns:repeat(3,1fr)}
+.box{background:var(--surface-3);border:1px solid var(--border);border-radius:8px;padding:1vh 1vw;min-height:0;overflow:hidden}
+.box h4{margin:0 0 .6vh;font-size:var(--fs-s);font-weight:600;color:var(--ink-2)}
+.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:.8vw}
+.kpi .box b{display:block;font-family:var(--f-display);font-size:clamp(22px,2.2vw,34px);line-height:1;color:var(--moss)}
+.kpi .box small{color:var(--ink-3);font-size:var(--fs-xs)}
+table.t{width:100%;border-collapse:collapse;font-size:var(--fs-s)}
+.t th{text-align:left;color:var(--ink-3);font-weight:600;padding:.4vh .5vw;border-bottom:1px solid var(--border);font-size:var(--fs-xs)}
+.t td{padding:.55vh .5vw;border-bottom:1px solid var(--border);vertical-align:middle}
+.t tr:last-child td{border-bottom:none}
+.t td.n{font-family:var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+.t tr.hl td{background:var(--warn-bg)}.t tr.hlok td{background:var(--ok-bg)}.t tr.hlac td{background:var(--accent-soft)}
+.src{font-family:var(--f-mono);font-size:var(--fs-xs);color:var(--accent);background:var(--accent-soft);padding:0 6px;border-radius:4px;white-space:nowrap}
+.src.from{color:var(--ink-2);background:var(--surface-2)}
+.btn{display:inline-block;padding:4px 11px;border-radius:5px;font-size:var(--fs-xs);font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--ink);white-space:nowrap}
+.btn.p{background:var(--moss);border-color:var(--moss);color:#fff}
+.btn.a{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.d{border-color:var(--bad);color:var(--bad)}
+.btn.done{background:var(--ok-bg);border-color:var(--ok-bg);color:var(--ok)}
+.ring{width:clamp(64px,6.5vw,96px);height:clamp(64px,6.5vw,96px);border-radius:50%;background:conic-gradient(var(--accent) calc(var(--p)*1%),var(--surface-2) 0);display:grid;place-items:center;position:relative;transition:--p .8s}
+.ring::after{content:attr(data-v);position:absolute;inset:14%;background:var(--surface-3);border-radius:50%;display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:clamp(14px,1.3vw,20px);color:var(--moss)}
+.score{display:flex;gap:1.2vw;align-items:center}
+.big{font-family:var(--f-display);font-weight:700;font-size:clamp(26px,2.8vw,44px);line-height:1;color:var(--moss);font-variant-numeric:tabular-nums}
+.arrow{color:var(--ink-3);font-size:clamp(16px,1.5vw,22px)}
+.band{display:inline-block;padding:2px 9px;border-radius:5px;font-weight:700;font-family:var(--f-display);font-size:var(--fs-s)}
+.b2{background:var(--leaf);color:#1f5a33}.b3{background:var(--warn-bg);color:var(--warn)}
+.upload{border:1.5px dashed var(--border);border-radius:8px;padding:1.2vh 1vw;display:flex;flex-direction:column;gap:.7vh;min-height:14vh}
+.doc{display:flex;gap:8px;align-items:center;font-size:var(--fs-s)}
+.doc i{width:12px;height:15px;border:1.5px solid var(--ink-3);border-radius:2px;display:inline-block;flex:none}
+.doc .p{flex:1;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden}
+.doc .p b{display:block;height:100%;width:0;background:var(--accent);transition:width 1.4s ease}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.1vh 1vw;box-shadow:0 10px 28px rgba(12,34,38,.14)}
+.modal h4{margin:0 0 .5vh;font-size:var(--fs);color:var(--ink)}
+label.l{display:block;font-size:var(--fs-xs);color:var(--ink-3);margin-top:.6vh}
+.field{border:1px solid var(--border);border-radius:5px;padding:.55vh .6vw;background:var(--surface);font-size:var(--fs-s);min-height:3vh}
+.field.focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.field .caret{display:inline-block;width:1px;height:1em;background:var(--ink);vertical-align:-2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.banner{border-radius:8px;padding:.9vh 1vw;font-size:var(--fs-s);border-left:3px solid}
+.banner.warn{background:var(--warn-bg);border-color:var(--warn)}.banner.ok{background:var(--ok-bg);border-color:var(--ok)}.banner.ac{background:var(--accent-soft);border-color:var(--accent)}.banner.bad{background:var(--bad-bg);border-color:var(--bad)}
+.votes{display:grid;grid-template-columns:repeat(3,1fr);gap:.7vw}
+.vote{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.8vh .7vw;text-align:center;font-size:var(--fs-s)}
+.vote b{display:block}.vote .st{margin-top:.5vh;font-family:var(--f-display);font-weight:700}
+.lock{font-family:var(--f-mono);font-size:var(--fs-xs);color:var(--ink-3)}
+.qa{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.9vh 1vw;font-size:var(--fs-s)}
+.qa .q{font-weight:600}.qa .a{margin-top:.6vh;color:var(--ink-2)}
+.qa .refs{margin-top:.6vh;display:flex;gap:6px;flex-wrap:wrap}
+.ref{font-family:var(--f-mono);font-size:var(--fs-xs);padding:1px 7px;border-radius:4px;background:var(--surface-2);color:var(--ink-2)}
+.check{display:flex;gap:8px;align-items:center;padding:.4vh 0;font-size:var(--fs-s)}
+.check i{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--border);display:inline-grid;place-items:center;font-size:10px;color:#fff;flex:none}
+.check.ok i{background:var(--ok);border-color:var(--ok)}
+.check.ok i::after{content:"✓"}
+.cb{width:14px;height:14px;border:1.5px solid var(--ink-3);border-radius:3px;display:inline-block;vertical-align:-2px;margin-right:6px}
+.cb.on{background:var(--accent);border-color:var(--accent);position:relative}
+.cb.on::after{content:"✓";color:#fff;font-size:10px;position:absolute;left:2px;top:-2px}
+.login{margin:auto;width:min(420px,90%);text-align:center;padding:3vh 2vw}
+.login .brand{font-family:var(--f-display);font-weight:700;font-size:clamp(24px,2.4vw,36px);color:var(--moss)}
+.login .brand small{display:block;font-family:var(--f-body);font-weight:600;font-size:var(--fs-xs);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-top:4px}
+.login .btn{display:block;margin:2vh auto 0;padding:1vh 1.4vw;font-size:var(--fs)}
+.aicard{border:1px solid var(--accent);background:var(--accent-soft);border-radius:8px;padding:.8vh 1vw;font-size:var(--fs-s);display:flex;gap:10px;align-items:flex-start}
+.aicard .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);margin-top:6px;flex:none;animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(9,167,141,.25)}50%{box-shadow:0 0 0 7px rgba(9,167,141,.12)}}
+.aicard.still .dot{animation:none}
+.hidden{display:none!important}
+.fade{animation:rise .4s both}
+@keyframes rise{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+/* backend monitor */
+.mon{border-left:1px solid var(--border);background:var(--mon);color:var(--mon-ink);display:flex;flex-direction:column;min-height:0;font-size:var(--fs-s)}
+.mon .mhd{padding:.9vh 1vw;border-bottom:1px solid var(--mon-2);display:flex;flex-direction:column;gap:3px}
+.mon .mhd .row{display:flex;align-items:center;gap:8px}
+.mon .mhd b{font-weight:600}
+.mon .mhd .dot{width:8px;height:8px;border-radius:50%;background:#3ED2B4}
+.mon .mhd .dot.run{animation:pulse 1.2s infinite}
+.mon .st{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;font-family:var(--f-mono);font-size:var(--fs-xs);color:var(--mon-dim)}
+.mon .st span b{color:var(--mon-ink);font-weight:500}
+.mlog{padding:.7vh 1vw;display:flex;flex-direction:column;gap:.5vh;overflow:auto;min-height:0;flex:1;scrollbar-width:thin}
+.ml{display:flex;gap:8px;align-items:flex-start;animation:rise .3s both}
+.ml .who{font-family:var(--f-mono);font-size:var(--fs-xs);padding:1px 6px;border-radius:4px;background:#1E8F7B;color:#fff;white-space:nowrap;margin-top:2px}
+.ml .who.core{background:#2E6B72}.ml .who.guard{background:#9A3524}.ml .who.eng{background:#5C7F84}.ml .who.audit{background:#3C4F52}.ml .who.eval{background:#0E6E5F}.ml .who.ui{background:#7A5A10}
+.ml .txt{flex:1}.ml .txt small{display:block;color:var(--mon-dim)}
+.ml .prog{height:5px;background:var(--mon-2);border-radius:3px;margin-top:5px;overflow:hidden}
+.ml .prog b{display:block;height:100%;width:0;background:#3ED2B4;transition:width 1.5s ease}
+/* cursor */
+.cursor{position:absolute;left:0;top:0;width:22px;height:30px;pointer-events:none;z-index:9;transform:translate(-100px,-100px);transition:transform .7s cubic-bezier(.3,.8,.3,1);filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
+.cursor svg{display:block}
+.cursor::after{content:"";position:absolute;left:-9px;top:-9px;width:26px;height:26px;border-radius:50%;border:2px solid var(--accent);opacity:0;transform:scale(.4)}
+.cursor.click::after{animation:ripple .45s ease-out}
+@keyframes ripple{0%{opacity:.9;transform:scale(.4)}100%{opacity:0;transform:scale(1.6)}}
+/* caption + timeline */
+.cap p{margin:0 0 .6vh;font-size:clamp(13px,1.15vw,17px)}
+.cap p b{color:var(--accent)}
+.tl{display:grid;grid-template-columns:repeat(20,1fr);gap:4px}
+.tl button{border:0;background:transparent;padding:0;cursor:pointer;text-align:left;font:inherit;color:var(--ink-3)}
+.tl button i{display:block;height:6px;border-radius:3px;background:var(--surface-2);margin-bottom:4px}
+.tl button.done i{background:var(--accent);opacity:.45}.tl button.on i{background:var(--accent)}
+.tl button.on{color:var(--ink);font-weight:600}
+.tl button span{font-size:var(--fs-xs);display:block;line-height:1.2}
+@media (max-width:1100px){
+  .frame{grid-template-columns:clamp(120px,14vw,160px) 1fr;grid-template-rows:auto 1fr auto}
+  .top{grid-column:2/3}
+  .mon{grid-column:1/3;border-left:0;border-top:1px solid var(--border);max-height:26vh}
+  .tl{grid-template-columns:repeat(10,1fr)}
+}
+@media (max-width:760px){
+  body{overflow:auto}.app{height:auto;min-height:100%}
+  .frame{grid-template-columns:1fr;grid-template-rows:auto auto auto auto}
+  .side{grid-row:auto;flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px}.side .nav{flex-direction:row;flex-wrap:wrap;margin:0}.side .who,.side .newcase{margin:0}
+  .top{grid-column:1}.mon{grid-column:1;max-height:none}
+  .main{min-height:52vh}
+  .g2,.g31,.g13,.g3{grid-template-columns:1fr}.kpi{grid-template-columns:1fr 1fr}
+  .tl{grid-template-columns:repeat(4,1fr)}
+}
+@media (prefers-reduced-motion:reduce){.cursor{transition:none}.ml,.fade{animation:none}.doc .p b,.ml .prog b{transition:none}}
+
+/* annotations */
+.note{position:absolute;z-index:8;max-width:clamp(200px,22vw,300px);background:rgba(255,246,219,.9);backdrop-filter:blur(2px);border:1.5px solid #D9B85A;border-radius:8px;padding:8px 10px 8px 34px;font-size:var(--fs-s);line-height:1.35;color:var(--ink);box-shadow:0 6px 18px rgba(12,34,38,.14);pointer-events:none;animation:rise .35s both}
+.note b{display:block;font-family:var(--f-display);font-size:var(--fs-s);color:#7A5A10;margin-bottom:2px}
+.note .n{position:absolute;left:8px;top:8px;width:20px;height:20px;border-radius:50%;background:#B98A1E;color:#fff;font-family:var(--f-display);font-weight:700;font-size:12px;display:grid;place-items:center}
+.note::before{content:"";position:absolute;width:10px;height:10px;background:#FFF6DB;border-left:1.5px solid #D9B85A;border-top:1.5px solid #D9B85A;transform:rotate(-45deg)}
+.note.right::before{left:-7px;top:14px}
+.note.left::before{right:-7px;top:14px;transform:rotate(135deg)}
+.note.below::before{top:-7px;left:16px;transform:rotate(45deg)}
+.note.above::before{bottom:-7px;left:16px;transform:rotate(225deg)}
+.note.mon{background:rgba(230,244,241,.92);border-color:#3ED2B4}.note.mon b{color:#0E6E5F}.note.mon .n{background:#0E6E5F}
+.note.mon::before{background:#E6F4F1;border-color:#3ED2B4}
+.hand{position:absolute;inset:0;z-index:12;background:rgba(12,34,38,.86);color:#fff;display:grid;place-items:center;text-align:center;animation:rise .3s both}
+.hand .in{max-width:70%}
+.hand .k{font-family:var(--f-mono);font-size:var(--fs-xs);letter-spacing:.12em;text-transform:uppercase;color:#94DEA5}
+.hand h2{font-family:var(--f-display);font-size:clamp(20px,2.2vw,32px);margin:.4vh 0;line-height:1.15}
+.hand p{margin:0;color:#DDE3E2;font-size:var(--fs)}
+.hand .who{display:inline-flex;gap:10px;align-items:center;margin-top:1.4vh;background:rgba(255,255,255,.1);border-radius:999px;padding:6px 14px;font-size:var(--fs-s)}
+.hand .who i{width:10px;height:10px;border-radius:50%;background:#52E081}
+.side .nav div{cursor:default}
+.tabs span{cursor:default}
+.btn.dis{opacity:.45}
+
+.side .who .sw{display:block;margin-top:4px;color:var(--accent);font-weight:600;cursor:default}
+.swmenu{position:absolute;z-index:11;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 10px 28px rgba(12,34,38,.18);min-width:220px;font-size:var(--fs-s);animation:rise .25s both;overflow:hidden}
+.swmenu .h{padding:6px 12px;font-family:var(--f-mono);font-size:var(--fs-xs);color:var(--ink-3);border-bottom:1px solid var(--border)}
+.swmenu div:not(.h){padding:8px 12px}
+.swmenu div.on{background:var(--accent-soft);font-weight:600}
+.note.inmon::before{display:none}
+.note.inmon{box-shadow:0 -6px 18px rgba(0,0,0,.25)}
+</style>
+
+<div class="app">
+  <div class="bar">
+    <h1>Risk Assessment Workbench <span>· guided walkthrough</span></h1>
+    <span class="sp"></span>
+    <span class="cnt" id="cnt"></span>
+    <button type="button" id="prev">Back</button>
+    <button type="button" id="play" class="primary">Play</button>
+    <button type="button" id="next">Next</button>
+    <button type="button" id="speed" title="Playback speed">1×</button>
+  </div>
+
+  <div class="frame" id="frame">
+    <aside class="side" id="side"></aside>
+    <div class="top" id="top"></div>
+    <div class="main" id="main"></div>
+    <aside class="mon" id="mon">
+      <div class="mhd">
+        <div class="row"><span class="dot" id="mdot"></span><b>Harness monitor · H1</b><span style="margin-left:auto;font-family:var(--f-mono);font-size:var(--fs-xs);color:var(--mon-dim)" id="mcore">idle</span></div>
+        <div class="st"><span>agents <b id="magents">—</b></span><span>guardrails <b id="mguards">—</b></span><span>audit records <b id="maudit">0</b></span><span>tokens <b id="mtok">0</b></span></div>
+      </div>
+      <div class="mlog" id="mlog"></div>
+    </aside>
+    <div class="cursor" id="cur"><svg width="22" height="30" viewBox="0 0 22 30"><path d="M2 2 L2 24 L8 18 L13 29 L17 27 L12 16 L20 16 Z" fill="#0C2226" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg></div>
+  </div>
+
+  <div class="cap"><p id="capt"></p><div class="tl" id="tl"></div></div>
+</div>
+
+<script>
+(function(){
+var $=function(id){return document.getElementById(id);};
+var CASE='FCRM-2026-0151';
+var NAV={po:['Dashboard','My Queue','Templates','Settings'],an:['Dashboard','Queue','Assurance','Config'],co:['Queue']};
+var WHO={po:['Priya Nair','Product Owner · Payments'],an:['Rahul Iyer','FCRM Analyst'],co:['Ana Mendes','Risk Committee']};
+function slug(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');}
+
+/* ---------- builders ---------- */
+function side(p,on){
+  if(!p) return '<div class="brand">TrustOps<small>Risk Assessment Workbench</small></div>';
+  return '<div class="brand">TrustOps<small>Risk Assessment Workbench</small></div>'+(p==='po'?'<div class="newcase" id="nav-newcase">+ New case</div>':'')+
+  '<div class="nav">'+NAV[p].map(function(n){return '<div id="nav-'+slug(n)+'" class="'+(n===on?'on':'')+'">'+n+'</div>';}).join('')+'</div>'+
+  '<div class="who" id="who"><b>'+WHO[p][0]+'</b><small>'+WHO[p][1]+'</small><small class="sw">Switch user \u25be</small></div>';
+}
+function top(crumb,title,right){return '<span class="crumb">'+crumb+'</span><span class="title">'+title+'</span><span class="right" id="topright">'+(right||'')+'</span>';}
+function tabs(list,on){return '<div class="tabs">'+list.map(function(t){return '<span id="tab-'+slug(t)+'" class="'+(t===on?'on':'')+'">'+t+'</span>';}).join('')+'</div>';}
+function box(title,inner,id,cls){return '<div class="box '+(cls||'')+'" '+(id?'id="'+id+'"':'')+'>'+(title?'<h4>'+title+'</h4>':'')+inner+'</div>';}
+function aicard(id,text){return '<div class="aicard" id="'+id+'"><span class="dot"></span><div><b>Assistant</b> · <span class="ai-txt">'+text+'</span></div></div>';}
+var PO_TABS=['Overview','Documents','Inbox','Activity'], AN_TABS=['Summary','Submission','Inbox','Policy','Risk & Controls','Recommendation','Handoff','Activity'];
+
+/* ---------- runtime helpers ---------- */
+var timers=[], t0=0, elapsed=0, playing=false, speed=1, cur=0, noteN=0;
+var audit=0, tok=0;
+function setScreen(p,nav,topHtml,mainHtml){$('side').innerHTML=side(p,nav);$('top').innerHTML=topHtml;$('main').innerHTML=mainHtml;clearNotes();}
+function q(sel){return document.querySelector(sel);}
+function rect(el){var f=$('frame').getBoundingClientRect(),r=el.getBoundingClientRect();return {x:r.left-f.left,y:r.top-f.top,w:r.width,h:r.height,fw:f.width,fh:f.height};}
+function cursorTo(sel,dx,dy){var el=q(sel);if(!el)return;var r=rect(el);var x=r.x+Math.min(r.w*0.5,r.w-14)+(dx||0),y=r.y+r.h*0.55+(dy||0);$('cur').style.transform='translate('+x+'px,'+y+'px)';}
+function click(sel,fn){cursorTo(sel);setTimeout(function(){var c=$('cur');c.classList.remove('click');void c.offsetWidth;c.classList.add('click');if(fn)fn(q(sel));},650/speed);}
+function typeInto(sel,text,done){var el=q(sel);if(!el)return;el.classList.add('focus');el.innerHTML='<span class="caret"></span>';var i=0;var per=Math.max(16,Math.min(42,1300/text.length))/speed;(function step(){i++;el.innerHTML=text.slice(0,i)+(i<text.length?'<span class="caret"></span>':'');if(i<text.length){timers.push(setTimeout(step,per));}else{el.classList.remove('focus');if(done)done();}})();}
+function show(sel){var el=q(sel);if(el){el.classList.remove('hidden');el.classList.add('fade');}}
+function hide(sel){var el=q(sel);if(el)el.classList.add('hidden');}
+function setHtml(sel,html){var el=q(sel);if(el){el.innerHTML=html;el.classList.add('fade');}}
+var WHO_NAMES={core:'H1 core',guard:'P5 guard',eng:'S2 scoring',audit:'S4 audit',eval:'X6 evals',Intake:'intake agent',Research:'research agent',Assessment:'assessment agent',Critic:'critic agent',Narrative:'narrative agent',Examiner:'examiner agent'};
+function log(who,cls,txt,sub,prog){var l=$('mlog');var d=document.createElement('div');d.className='ml';d.innerHTML='<span class="who '+(cls||'')+'">'+(WHO_NAMES[who]||who)+'</span><div class="txt">'+txt+(sub?'<small>'+sub+'</small>':'')+(prog?'<div class="prog"><b></b></div>':'')+'</div>';l.appendChild(d);if(prog){setTimeout(function(){var b=d.querySelector('.prog b');if(b)b.style.width='100%';},60);}l.scrollTop=l.scrollHeight;while(l.children.length>40)l.removeChild(l.firstChild);}
+function state(core,agents,guards,run){$('mcore').textContent=core;$('magents').textContent=agents;$('mguards').textContent=guards;$('mdot').className='dot'+(run?' run':'');}
+function bump(a,t){audit+=a||0;tok+=t||0;$('maudit').textContent=audit;$('mtok').textContent=tok>=1000?(tok/1000).toFixed(1)+'k':tok;}
+function cap(html){$('capt').innerHTML=html;}
+/* annotations: anchored callouts. side: right|left|below|above. cls 'mon' for backend notes */
+function clearNotes(){Array.prototype.forEach.call(document.querySelectorAll('.note,.hand'),function(n){n.remove();});noteN=0;}
+function note(sel,title,text,side,cls){
+  var el=q(sel);if(!el)return;var r=rect(el);noteN++;
+  var n=document.createElement('div');n.className='note '+(side||'right')+' '+(cls||'');n.innerHTML='<span class="n">'+noteN+'</span><b>'+title+'</b>'+text;
+  $('frame').appendChild(n);var w=n.offsetWidth,h=n.offsetHeight,x,y;
+  if(side==='left'){x=r.x-w-12;y=r.y+Math.min(8,r.h/2-14);}
+  else if(side==='below'){x=r.x+8;y=r.y+r.h+10;}
+  else if(side==='above'){x=r.x+8;y=r.y-h-10;}
+  else{x=r.x+r.w+12;y=r.y+Math.min(8,r.h/2-14);}
+  x=Math.max(6,Math.min(x,r.fw-w-6));y=Math.max(6,Math.min(y,r.fh-h-6));
+  n.style.left=x+'px';n.style.top=y+'px';
+}
+function monNote(title,text){var m=q('#mon');if(!m)return;var r=rect(m);noteN++;var n=document.createElement('div');n.className='note mon inmon';n.innerHTML='<span class="n">'+noteN+'</span><b>'+title+'</b>'+text;$('frame').appendChild(n);n.style.maxWidth='none';n.style.width=(r.w-20)+'px';n.style.left=(r.x+10)+'px';n.style.top=(r.y+r.h-n.offsetHeight-10)+'px';}
+function openSwitch(){var w=q('#who');if(!w)return;var r=rect(w);var m=document.createElement('div');m.className='swmenu';m.id='swmenu';m.innerHTML='<div class="h">Switch user (demo)</div><div id="sw-po">Priya Nair \u00b7 Product Owner</div><div id="sw-an">Rahul Iyer \u00b7 FCRM Analyst</div><div id="sw-co">Ana Mendes \u00b7 Risk Committee</div>';$('frame').appendChild(m);m.style.left=(r.x+6)+'px';m.style.top=(r.y-m.offsetHeight-8)+'px';}
+function switchTo(id,t,label){timers.push(setTimeout(function(){cursorTo('#who');},t));timers.push(setTimeout(function(){click('#who',openSwitch);},t+900));timers.push(setTimeout(function(){click('#'+id,function(el){if(el)el.classList.add('on');});cap('<b>Switching user.</b> '+label);},t+2100));}
+function handover(k,h,p,who,ms){var d=document.createElement('div');d.className='hand';d.innerHTML='<div class="in"><div class="k">'+k+'</div><h2>'+h+'</h2><p>'+p+'</p>'+(who?'<div class="who"><i></i>'+who+'</div>':'')+'</div>';$('frame').appendChild(d);setTimeout(function(){d.remove();},(ms||2200)/speed);}
+
+/* ---------- scenes ---------- */
+var S=[];
+function scene(o){S.push(o);}
+
+/* 1 · Sign in → dashboard */
+scene({label:'Sign in',dur:9500,
+ base:function(){setScreen(null,null,top('','TrustOps'),'<div class="login"><div class="brand">TrustOps<small>Risk Assessment Workbench</small></div><p style="color:var(--ink-3)">One governed place for change risk assessments</p><span class="btn p" id="sso">Sign in with corporate SSO</span><p style="color:var(--ink-3);font-size:var(--fs-xs);margin-top:2vh">Your role and what you can see are set by the bank’s directory, not by this app.</p></div>');
+  state('idle','—','—',false);audit=0;tok=0;bump(0,0);
+  cap('<b>1 · Sign in.</b> Priya, a Product Owner in Payments, signs in with the bank’s single sign-on. Her role decides what she can see.');},
+ actions:[[400,function(){note('#sso','Enterprise sign-in','Same corporate login as every other bank system. No new passwords, no separate user list.','below');}],
+  [900,function(){cursorTo('#sso');}],[2000,function(){click('#sso');}],
+  [2800,function(){log('core','core','Session opened · role = Product Owner (from SSO group)','Visibility rules loaded for this role: no scores, bands or ratings are ever sent to her screen');bump(1,0);}],
+  [3600,function(){setScreen('po','Dashboard',top('Home','Dashboard'),
+   '<div class="kpi" id="kpis">'+box('',"<b>4</b><small>my active cases</small>")+box('',"<b>1</b><small>awaiting my answer</small>")+box('',"<b>2.1 d</b><small>avg intake to decision</small>")+box('',"<b>3</b><small>open conditions</small>")+'</div>'+
+   box('My cases','<table class="t"><tr><th>Case</th><th>Change</th><th>Stage</th><th>Next action</th></tr><tr><td>FCRM-2026-0146</td><td>Merchant onboarding API</td><td><span class="pill">Under assessment</span></td><td>None</td></tr><tr><td>FCRM-2026-0139</td><td>Wealth referral partner</td><td><span class="pill warn">Awaiting you</span></td><td>1 question</td></tr><tr><td>FCRM-2026-0121</td><td>SME lending, Texas</td><td><span class="pill ok">Approved w/ conditions</span></td><td>2 conditions open</td></tr></table>','cases')+
+   '<div class="banner ac">Starting a new change? Upload what you already have first. You will only be asked for what is missing.</div>');
+   cap('<b>1 · Where she lands.</b> A dashboard of her own cases in business language: what stage each is at and what she needs to do next.');}],
+  [4300,function(){note('#kpis','What she sees','Her cases, her waiting actions, her open conditions. No risk numbers: those belong to the risk team.','below');}],
+  [5200,function(){monNote('What the backend did','It read her role from the directory and loaded the rule that her screens never receive scores or ratings. This is enforced on the server, not hidden in the page.');}],
+  [7000,function(){cursorTo('#nav-newcase');}],[8300,function(){click('#nav-newcase');}]]
+});
+
+/* 2 · New case created */
+scene({label:'New case',dur:9000,
+ base:function(){setScreen('po','My Queue',top('My Queue / New case',CASE+' · Draft','<span class="pill">Intake</span>'),
+  tabs(PO_TABS,'Documents')+
+  '<div class="grid g31">'+box('Documents','<div class="upload" id="up"><div class="doc" style="color:var(--ink-3)">Drop files here, or <span class="btn" id="browse">Browse</span> · <span class="btn" id="sp">Import from SharePoint</span></div></div>','docs')+
+  box('Required information','<div class="score"><div class="ring" style="--p:0" data-v="0%"></div><div><b>0 of ? fields</b><br><small style="color:var(--ink-3)">The field list depends on the type of change. We work that out from your documents.</small></div></div>','req')+'</div>'+
+  aicard('ai','Waiting for documents. Nothing to type yet.'));
+  state('intake core','—','—',true);
+  cap('<b>2 · A case ID before any content.</b> One click created case '+CASE+'. From now on every document, answer and decision attaches to that ID.');},
+ actions:[[300,function(){log('core','core','Workflow started for '+CASE,'Durable: survives restarts, can wait days for a person without losing its place');bump(1,0);}],
+  [700,function(){note('#topright','A case exists already','The ID is issued before Priya types anything, so nothing is ever lost in email or a personal folder.','below');}],
+  [1600,function(){log('core','core','Field set v6 loaded · 6 always-required fields · rest depends on change types');}],
+  [2200,function(){note('#req','No form yet','Traditional intake starts with a long form. Here the required fields are worked out from the documents, so she is asked less.','below');}],
+  [3400,function(){monNote('Backend: Intake core','A "core" is plain software that runs one stage of the process and pauses whenever a person must act. It is not AI. It decides order and gates.');}],
+  [6200,function(){cursorTo('#browse');}],[7500,function(){click('#browse');}]]
+});
+
+/* 3 · Upload + reading */
+scene({label:'Upload',dur:14000,
+ base:function(){setScreen('po','My Queue',top('My Queue / New case',CASE+' · Draft','<span class="pill">Intake</span>'),
+  tabs(PO_TABS,'Documents')+
+  '<div class="grid g31">'+box('Documents','<div class="upload" id="up"><div class="doc" id="d1"><i></i>business_case_remittance_MX.pdf<span class="p"><b id="p1"></b></span><span id="s1" class="pill">uploading</span></div><div class="doc hidden" id="d2"><i></i>payout_partner_contract.pdf<span class="p"><b id="p2"></b></span><span id="s2" class="pill">uploading</span></div></div>','docs')+
+  box('Required information','<div class="score"><div class="ring" style="--p:0" data-v="0%"></div><div><b>0 of ? fields</b><br><small style="color:var(--ink-3)">Reading your documents.</small></div></div>')+'</div>'+
+  aicard('ai','Uploading 2 files…'));
+  state('intake core','—','input scan',true);
+  cap('<b>3 · Upload.</b> Priya picks the two files she already has: the business case and the partner contract. The system does the reading.');},
+ actions:[[200,function(){q('#p1').style.width='100%';}],[300,function(){log('core','core','Upload received: business_case_remittance_MX.pdf (14 pages, 2.1 MB)');}],
+  [1500,function(){setHtml('#s1','<span class="pill ok">stored</span>');show('#d2');setTimeout(function(){q('#p2').style.width='100%';},50);log('core','core','Upload received: payout_partner_contract.pdf (9 pages, 0.8 MB)');}],
+  [1900,function(){log('guard','guard','Input scan · file 1','No prompt-injection patterns · 3 personal-data fields masked before any agent reads it');bump(2,0);}],
+  [2400,function(){monNote('Backend: safety check first','Before any AI reads a file, it is scanned for hidden instructions (a known attack on AI systems) and personal data is masked. Why: a document must never be able to steer the assessment.');}],
+  [3000,function(){setHtml('#s2','<span class="pill ok">stored</span>');log('guard','guard','Input scan · file 2','Clean · contract signatures masked');bump(1,0);}],
+  [4000,function(){state('intake core','intake','input scan · tool permits',true);log('Intake','','Called tool: document_reader on 2 files','Intake may only use: document_reader, precedent_search, jurisdiction_list',true);setHtml('#ai .ai-txt','Reading business_case_remittance_MX.pdf · page 1 of 14');}],
+  [4600,function(){note('#ai','On screen: a status line','Priya sees plain progress, not a chat. She can carry on with other work; the case will tell her when it needs her.','below');}],
+  [6200,function(){setHtml('#ai .ai-txt','Reading business_case_remittance_MX.pdf · page 9 of 14');}],
+  [7400,function(){log('Intake','','Found 11 candidate values in the business case','Each with page and line reference');bump(0,1800);setHtml('#ai .ai-txt','Reading payout_partner_contract.pdf · page 3 of 9');}],
+  [8200,function(){clearNotes();monNote('Backend: the Intake agent','The agent is reading both documents and pulling out facts: partner name, corridor, volumes. It may only use three tools and cannot write anything to the case itself.');}],
+  [9400,function(){log('Intake','','Found 4 candidate values in the contract');bump(0,900);}],
+  [10300,function(){log('guard','guard','Output shape check','15 of 15 values carry a source · 0 rejected');setHtml('#ai .ai-txt','Done. 15 values found, 3 change types proposed. Review them on the Overview tab.');q('#ai').classList.add('still');}],
+  [10900,function(){note('#ai','Done in seconds','15 facts found and 3 types of change proposed. In the old process this was a 40-field form filled from memory.','below');}],
+  [12200,function(){cursorTo('#tab-overview');}],[13200,function(){click('#tab-overview');}]]
+});
+
+/* 4 · Proposals */
+scene({label:'Proposals',dur:13500,
+ base:function(){setScreen('po','My Queue',top('My Queue / New case',CASE+' · Draft','<span class="pill">Intake</span>'),
+  tabs(PO_TABS,'Overview')+
+  '<div class="grid g13">'+box('Proposed change types','<table class="t"><tr><td>Vendor onboarding</td><td><span class="src">contract p.2 §1.1</span></td><td><span class="btn a" id="c1">Confirm</span> <span class="btn d">Remove</span></td></tr><tr><td>New geography</td><td><span class="src">case p.4 l.12</span></td><td><span class="btn a" id="c2">Confirm</span> <span class="btn d">Remove</span></td></tr><tr><td>New product</td><td><span class="src">case p.1 l.3</span></td><td><span class="btn a" id="c3">Confirm</span> <span class="btn d">Remove</span></td></tr></table><small style="color:var(--ink-3)">Removing a type needs a reason. Confirming fixes the list of required fields.</small>','types')+
+  box('Values found in your documents <span class="pill ok">15</span>','<table class="t" id="vals"><tr><th>Field</th><th>Value</th><th>Source</th></tr></table>','valsbox')+'</div>'+
+  '<div id="setbanner" class="banner ac hidden">Change types confirmed. Required fields for this case: <b>18</b>. You have 15.</div>');
+  state('intake core','intake','output shape · human gate',false);
+  cap('<b>4 · Proposals, not answers.</b> The Overview shows what the AI found. Nothing is final until Priya confirms it.');},
+ actions:(function(){
+   var rows=[['Partner entity','Remesas del Norte S.A.','contract p.1'],['Corridor','US → Mexico','case p.4 l.12'],['Expected volume, year 1','$48M','case p.6 tbl 2'],['Customer segment','Retail consumers','case p.2 l.8'],['Payout channels','Bank deposit','contract p.5'],['Settlement currency','MXN','contract p.3 §4'],['Go-live target','Q1 2027','case p.1 l.9']];
+   var a=[];rows.forEach(function(r,i){a.push([300+i*380,function(){var t=q('#vals');var tr=document.createElement('tr');tr.className='fade';tr.innerHTML='<td>'+r[0]+'</td><td>'+r[1]+'</td><td><span class="src">'+r[2]+'</span></td>';t.appendChild(tr);}]);});
+   a.push([3200,function(){note('#valsbox','Every value shows its source','The green chips say which page and line a value came from. Click one and the document opens there. If the AI cannot point to a source, the value is not shown at all.','below');}]);
+   a.push([3400,function(){log('Intake','','Proposed 3 change types','confidence 0.94 vendor · 0.91 geography · 0.83 product');}]);
+   a.push([5400,function(){monNote('Backend: the "no source, no claim" rule','A guardrail checked all 15 values. Each must carry a document reference. Why: an examiner years later must be able to see where every fact came from.');}]);
+   a.push([7200,function(){clearNotes();note('#types','She confirms, the AI does not','The three change types are proposals. Priya confirms each one. Removing one needs a written reason, which is recorded.','below');}]);
+   a.push([8000,function(){cursorTo('#c1');}]);a.push([8800,function(){click('#c1',function(el){el.textContent='Confirmed';el.className='btn done';});}]);
+   a.push([9800,function(){click('#c2',function(el){el.textContent='Confirmed';el.className='btn done';});}]);
+   a.push([10800,function(){click('#c3',function(el){el.textContent='Confirmed';el.className='btn done';});}]);
+   a.push([11600,function(){show('#setbanner');log('core','core','Change types confirmed by PO → required field set = union of 3 types = 18 fields');log('audit','audit','Records #4–#9 written','extraction · proposals · confirmations');bump(6,0);}]);
+   a.push([12000,function(){note('#setbanner','Now the form is known','Three types of change together need 18 fields. 15 are already filled from the documents.','below');cap('<b>4 · The first human gate.</b> Priya confirms each change type. The system then knows exactly which 18 fields this case needs. Plain rules do that arithmetic, not AI.');}]);
+   return a;})()
+});
+
+/* 5 · Reuse */
+scene({label:'Reuse',dur:11500,
+ base:function(){setScreen('po','My Queue',top('My Queue / New case',CASE+' · Draft','<span class="pill">Intake</span>'),
+  tabs(PO_TABS,'Overview')+
+  aicard('ai','A similar past case exists. Reuse some of its answers?')+
+  '<div class="grid g2">'+box('Similar case · FCRM-2026-0118 <span class="pill">closed Jun 2026</span>','<p style="margin:0 0 .6vh;color:var(--ink-2)">Payout partner onboarding, Guatemala corridor. Same business unit.</p><table class="t"><tr><td><span class="cb" id="k1"></span>Sanctions screening approach</td><td>Fircosoft real-time, OFAC/UN/EU</td></tr><tr><td><span class="cb" id="k2"></span>Customer disclosure text</td><td>Standard remittance disclosure v3</td></tr><tr><td><span class="cb" id="k3"></span>Complaints handling process</td><td>Payments CX process 2.1</td></tr><tr><td><span class="cb" id="k4"></span>Partner licence number</td><td style="color:var(--ink-3)">different partner, do not reuse</td></tr></table><div style="margin-top:.7vh"><span class="btn p" id="reuse">Reuse selected</span></div>','sim')+
+  box('Completion','<div class="score"><div class="ring" id="ring" style="--p:39" data-v="39%"></div><div><b id="cnttxt">7 of 18 fields</b><br><small style="color:var(--ink-3)">Threshold 80%. Reused values keep a label naming their source case.</small></div></div>','comp')+'</div>');
+  state('intake core','intake','human gate',false);
+  cap('<b>5 · Reuse, field by field.</b> The system found a closed case from the same team. Priya picks which answers carry over.');},
+ actions:[[400,function(){log('Intake','','Called tool: precedent_search','1 match above threshold: FCRM-2026-0118 (similarity 0.81)');bump(0,600);}],
+  [900,function(){note('#sim','Why this saves days','Teams answer the same questions case after case. Reusing three answers here removes three back-and-forth emails. She ticks only what applies; nothing is copied blindly.','below');}],
+  [2400,function(){cursorTo('#k1');}],[3200,function(){click('#k1',function(el){el.classList.add('on');});}],
+  [4100,function(){click('#k2',function(el){el.classList.add('on');});}],
+  [5000,function(){click('#k3',function(el){el.classList.add('on');});}],
+  [6100,function(){click('#reuse',function(el){el.textContent='3 values reused';el.className='btn done';});}],
+  [6900,function(){var r=q('#ring');r.style.setProperty('--p',56);r.setAttribute('data-v','56%');setHtml('#cnttxt','10 of 18 fields');log('core','core','3 values written with provenance = FCRM-2026-0118','Source case retained on each value');log('audit','audit','Records #10–#12 written');bump(3,0);}],
+  [7500,function(){clearNotes();monNote('Backend: provenance travels','Each reused value is stored with a label saying it came from case 0118. So later, anyone can tell a borrowed answer from an original one.');note('#comp','Progress in the open','The ring shows how close she is to the 80% threshold that lets the case go to the risk team.','below');cap('<b>5 · Borrowed answers stay labelled.</b> Every reused value carries the name of the case it came from, so nobody later mistakes it for a fresh answer.');}]]
+});
+
+/* 6 · Gaps */
+scene({label:'Gaps',dur:15000,
+ base:function(){setScreen('po','My Queue',top('My Queue / New case',CASE+' · Draft','<span class="pill warn">8 fields left</span>'),
+  tabs(PO_TABS,'Overview')+
+  aicard('ai','I still need 8 things. Three are required for any assessment. Here they are, nothing else.')+
+  '<div class="grid g13">'+box('Completion','<div class="score"><div class="ring" id="ring" style="--p:56" data-v="56%"></div><div><b id="cnttxt">10 of 18</b><br><small style="color:var(--ink-3)">Always-required: 3 of 6 filled</small></div></div><div style="margin-top:1vh"><span class="btn p dis" id="submit">Submit for assessment</span></div>','comp')+
+  box('Only what is missing','<label class="l">Partner licence number <span class="src">always required</span></label><div class="field" id="f1"></div><label class="l">Estimated monthly transaction count <span class="src">always required</span></label><div class="field" id="f2"></div><label class="l">Payout channels beyond bank deposit? <span class="src">always required</span></label><div class="field" id="f3"></div><small style="color:var(--ink-3)">5 optional fields can wait. They do not block submission.</small>','gaps')+'</div>');
+  state('intake core','intake','human gate',false);
+  cap('<b>6 · Only the gaps.</b> Three questions, the ones the documents could not answer. Nothing already known is asked again.');},
+ actions:[[500,function(){log('Intake','','Gap analysis: 8 missing · 3 always-required · 5 optional','Questions generated only for the 3 blocking fields');bump(0,400);}],
+  [900,function(){note('#gaps','Three questions instead of forty','"Always required" fields must be filled no matter what. The five optional ones can wait. This is the biggest time saver in intake.','below');}],
+  [2400,function(){cursorTo('#f1');}],[3100,function(){click('#f1');}],[3600,function(){typeInto('#f1','CNBV-TR-2041-88');}],
+  [5400,function(){click('#f2');}],[5900,function(){typeInto('#f2','About 62,000 per month by month 6');}],
+  [8200,function(){click('#f3');}],[8700,function(){typeInto('#f3','Yes. Cash pickup at partner agents.');}],
+  [10600,function(){var r=q('#ring');r.style.setProperty('--p',72);r.setAttribute('data-v','72%');setHtml('#cnttxt','13 of 18');}],
+  [11200,function(){clearNotes();log('Intake','','New fact: cash pickup channel','Not in the business case. Flagged for the analyst as an inconsistency, not blocked.');log('core','core','Always-required now 6 of 6');bump(2,300);monNote('Backend: a new fact appears','"Cash pickup" was not in the business case. The system does not stop Priya; it flags the difference for the analyst to look at later. Why: intake should be fast, and judgement belongs with the risk team.');}],
+  [12600,function(){var r=q('#ring');r.style.setProperty('--p',83);r.setAttribute('data-v','83%');setHtml('#cnttxt','15 of 18');q('#submit').classList.remove('dis');log('core','core','Two optional fields auto-filled from the contract after the channel answer');note('#submit','Ready to submit','83% is above the 80% threshold and all six must-have fields are in. The button unlocks.','below');cap('<b>6 · Threshold reached.</b> With the three answers, the case passes 80% and all must-have fields are filled. Submission unlocks.');}],
+  [13800,function(){cursorTo('#submit');}]]
+});
+
+/* 7 · Submit + validation */
+scene({label:'Submit',dur:15900,
+ base:function(){setScreen('po','My Queue',top('My Queue / New case',CASE+' · Draft','<span class="pill ok">ready</span>'),
+  tabs(PO_TABS,'Overview')+
+  '<div class="grid g2">'+box('Completion','<div class="score"><div class="ring" style="--p:83" data-v="83%"></div><div><b>15 of 18 fields</b><br><small style="color:var(--ink-3)">Above the 80% threshold. All always-required fields filled.</small></div></div><div style="margin-top:1vh"><span class="btn p" id="submit">Submit for assessment</span></div>')+
+  '<div class="modal hidden" id="val"><h4>Validation</h4><div class="check" id="v1"><i></i>Completion 83% ≥ 80%</div><div class="check" id="v2"><i></i>Always-required fields 6 of 6</div><div class="check" id="v3"><i></i>Change types confirmed by owner</div><div class="check" id="v4"><i></i>No conflicting values across documents</div><div class="banner ok hidden" id="vok" style="margin-top:.8vh">Submitted. Assigned to <b>Rahul Iyer</b>, FCRM. Target: decision-ready in 2 business days.</div></div>'+'</div>');
+  state('intake core','—','rules as code',false);
+  cap('<b>7 · The gate is code.</b> Four checks run in the open. No AI decides whether a submission may proceed.');},
+ actions:[[300,function(){cursorTo('#submit');}],[1200,function(){click('#submit',function(){show('#val');});}],
+  [2100,function(){q('#v1').classList.add('ok');log('core','core','Gate check 1: completion 83% ≥ 80% ✓');}],
+  [2900,function(){q('#v2').classList.add('ok');log('core','core','Gate check 2: always-required 6/6 ✓');}],
+  [3700,function(){q('#v3').classList.add('ok');log('core','core','Gate check 3: types confirmed ✓');}],
+  [4500,function(){q('#v4').classList.add('ok');log('core','core','Gate check 4: no conflicts ✓ (1 inconsistency flagged, not blocking)');}],
+  [5000,function(){note('#val','Four plain checks, visible','If one fails, Priya is told which one and asked only for what is missing. Why plain rules: a gate must behave the same way every time.','below');}],
+  [6200,function(){show('#vok');setHtml('#topright','<span class="pill ac">Submitted</span>');log('core','core','Auto-triage: Rahul Iyer (4 open cases, lowest load)','Round-robin with workload balance. Every case has a named owner from arrival.');}],
+  [7400,function(){monNote('Backend: assigned by workload','The case goes to the analyst with the fewest open cases. Every case has a named owner from the first minute, so nothing sits unowned in a shared inbox.');}],
+  [8600,function(){log('eval','eval','Intake eval recorded','15 extracted values, 0 corrected by owner · 3 proposed types, 3 confirmed');log('audit','audit','Records #13–#19 written · chain verified');bump(7,0);}],
+  [9400,function(){clearNotes();monNote('Backend: the AI is being graded','Every case doubles as a test. Here: 15 of 15 extracted values were kept by Priya, 3 of 3 proposed types confirmed. Over time this shows whether the Intake agent is getting better or worse.');cap('<b>7 · Handed over in about 20 minutes.</b> Submitted, assigned to Rahul by workload, and the Intake agent’s performance on this case is recorded for quality tracking.');}],[12300,function(){switchTo('sw-an',0,'In the demo we switch to Rahul Iyer, the FCRM analyst, to follow the case to his side. In production he would simply open his own queue.');}]]
+});
+
+/* 8 · Handover → analyst queue */
+scene({label:'Analyst queue',dur:12500,
+ base:function(){setScreen('an','Queue',top('Queue','My queue · 5 cases','<span class="pill ac">1 new</span>'),
+  box('','<table class="t"><tr><th>Case</th><th>Change</th><th>Types</th><th>Arrived</th><th>SLA</th><th>Stage</th></tr><tr class="hlac" id="row"><td><b>'+CASE+'</b></td><td>Mexico remittances via payout partner</td><td>Vendor · Geography · Product</td><td>just now</td><td>2d 0h</td><td><span class="pill ac">New</span></td></tr><tr><td>FCRM-2026-0146</td><td>Merchant onboarding API</td><td>Feature</td><td>1d ago</td><td>1d 2h</td><td><span class="pill">Assessing</span></td></tr><tr><td>FCRM-2026-0143</td><td>Card controls in app</td><td>Feature</td><td>2d ago</td><td>0d 4h</td><td><span class="pill warn">Awaiting business</span></td></tr><tr><td>FCRM-2026-0140</td><td>KYC vendor renewal</td><td>Vendor</td><td>3d ago</td><td>—</td><td><span class="pill">Fast lane</span></td></tr><tr><td>FCRM-2026-0138</td><td>Crypto custody pilot</td><td>Product · Segment</td><td>4d ago</td><td>0d 6h</td><td><span class="pill warn">Committee</span></td></tr></table>','qbox')+
+  '<div class="banner ac">While the case sat in the queue, the Assessment core already started Research and Assessment. Proposals will be ready when you open it.</div>');
+  state('assessment core','research · assessment','tool permits',true);
+  handover('Handover','Now on the analyst’s screen','Priya is done for now. The case appears in the FCRM analyst’s work queue.','Rahul Iyer · FCRM Analyst',1900);
+  cap('<b>8 · The risk team’s side.</b> Rahul sees a normal work queue. The new case is at the top with its 2-day clock already running.');},
+ actions:[[2600,function(){log('core','core','Assessment core started for '+CASE,'Research ∥ Assessment in parallel');}],
+  [3000,function(){note('#row','A normal queue, nothing exotic','Case, type of change, arrival, clock, stage. The analyst works the way he always has; the difference is what is waiting inside the case.','below');}],
+  [3500,function(){log('research','','policy_search over corpus v14','Filters: vendor, geography=MX, product=remittance',true);bump(0,1200);}],
+  [4400,function(){log('Assessment','','control_inventory v9 → matching controls for 3 risk areas','',true);bump(0,1500);}],
+  [5200,function(){monNote('Backend: two agents working in parallel','Research looks up which policies apply and which past cases are similar. Assessment matches the bank’s existing controls. Both started the moment the case arrived, so Rahul never waits for them.');}],
+  [7800,function(){log('research','','4 clauses found · 5 precedents found · 1 clause gap (cash pickup agents)');log('Assessment','','7 controls matched · 1 evidence artefact past recency window');bump(0,2000);}],
+  [9600,function(){clearNotes();cursorTo('#row');}],[11000,function(){click('#row');}]]
+});
+
+/* 9 · Summary */
+scene({label:'Summary',dur:13200,
+ base:function(){setScreen('an','Queue',top('Queue / Case',CASE+' · Under assessment','<span class="pill ac">proposals ready</span>'),
+  tabs(AN_TABS,'Summary')+
+  '<div class="grid g2">'+box('Submission summary','Consumer remittances US → Mexico through payout partner Remesas del Norte S.A. $48M year-1 volume, ~62k transactions a month, bank deposit and cash pickup at partner agents. Go-live Q1 2027.<br><br><span class="pill">Vendor onboarding</span> <span class="pill">New geography</span> <span class="pill">New product</span>','summ')+
+  box('Flags before you start','<table class="t"><tr><td>Cash pickup channel added at intake, not in business case</td><td><span class="src">answer 6 · contract p.5</span></td></tr><tr><td>Partner audit dated Nov 2023, domestic scope</td><td><span class="src">contract annex B</span></td></tr><tr><td>Mexico: not on FATF increased-monitoring list</td><td><span class="src">jurisdiction list v2026-06</span></td></tr><tr><td>No policy clause found for cash-pickup agent networks</td><td><span class="src">corpus v14</span></td></tr></table>','flags')+'</div>'+
+  '<div class="grid g2"><div class="box" id="compl"><h4>Completeness check <span class="pill ok">enough to assess</span></h4><table class="t"><tr><td>Missing</td><td>None of the 18 required fields</td></tr><tr><td>Stale</td><td>Partner audit Nov 2023 \u00b7 will be tested in review</td></tr><tr><td>Contradictory</td><td>Cash pickup vs business case \u00b7 question drafted</td></tr></table><div style="margin-top:.6vh"><span class="btn" id="askfirst">Ask now (1 drafted question)</span> <span class="btn p" id="proceed">Enough to assess \u00b7 proceed</span></div></div>'+
+  '<div class="banner ac" id="noscore">No score is shown yet. Review the proposals in Policy and Risk &amp; Controls first.</div></div>');
+  state('assessment core','research · assessment','fixed output shape',true);
+  cap('<b>9 · Facts first, numbers later.</b> The Summary shows what was submitted and four flags with sources. The score exists in the backend but is not shown yet.');},
+ actions:[[500,function(){note('#flags','Flags, each with a source','The system noticed the cash-pickup mismatch, an old audit, and a missing policy. It shows them up front so the analyst starts with the right questions.','below');}],
+  [1200,function(){log('Assessment','','Proposed likelihood and impact per risk area with written justification','Delivery/third party L4 I5 · Geography L4 I4 · Product L3 I4');}],
+  [2600,function(){log('Assessment','','Called scoring_engine (plain code) with proposed inputs');}],
+  [3600,function(){state('assessment core','assessment','rules as code',true);log('eng','eng','Composite residual 9.8 → Band 2 (delegated close)','Boundary flag: 0.3 below Band 3 threshold');bump(1,0);}],
+  [4400,function(){clearNotes();note('#compl','Completeness first','Before reviewing anything, the narrative agent lists what is missing, stale or contradictory and drafts the questions. If there were a gap, Rahul would ask now, in one round, instead of finding it halfway through the recommendation.','below');log('Narrative','','Completeness report: 0 missing \u00b7 1 stale evidence \u00b7 1 contradiction \u00b7 1 question drafted','Analyst decides: ask now, or proceed');}],
+  [5400,function(){cursorTo('#proceed');}],[6200,function(){click('#proceed',function(el){el.textContent='Proceeding';el.className='btn done';});}],
+  [6600,function(){clearNotes();note('#noscore','Why hide the score?','If an analyst sees "9.8" before reading anything, that number anchors the whole review. So the workbench holds it back until the evidence has been looked at.','below');}],
+  [7400,function(){monNote('Backend: the score is arithmetic','The AI proposed the inputs (how likely, how severe, how strong each control is). A plain calculator turned them into 9.8. No AI ever writes a score. Why: scores must be repeatable and explainable to a regulator.');}],
+  [8000,function(){log('research','','Clause gap declared honestly','"No applicable clause for cash-pickup agent networks in corpus v14" rather than a plausible invention');bump(2,0);}],
+  [9400,function(){clearNotes();monNote('Backend: "nothing found" is an answer','Research found no policy for cash-pickup agents and said so. It is built to refuse to invent a citation. A made-up policy reference in a bank’s risk file is worse than none.');cap('<b>9 · Honest gaps.</b> The Research agent found no policy on cash-pickup agents and says so, instead of producing something plausible.');}],
+  [11400,function(){cursorTo('#tab-policy');}],[12400,function(){click('#tab-policy');}]]
+});
+
+/* 10 · Policy */
+scene({label:'Policy',dur:13500,
+ base:function(){setScreen('an','Queue',top('Queue / Case',CASE+' · Under assessment','<span class="pill ac">4 clauses</span>'),
+  tabs(AN_TABS,'Policy')+
+  box('Applicable policy · quoted verbatim, accept or remove each','<table class="t"><tr><td><b>FFIEC BSA/AML Manual · Third-Party Payment Processors</b><br><span style="color:var(--ink-2)">"…banks should assess the risks of the processor’s customer base, transaction volumes and geographic reach…"</span><br><span class="src">FFIEC 2024 ed. · p.312</span></td><td><span class="btn a" id="p1">Accept</span> <span class="btn d">Remove</span></td></tr><tr><td><b>Internal FCRM Policy 4.2 · High-Risk Corridor Jurisdictions</b><br><span style="color:var(--ink-2)">"…new corridors require jurisdiction screening at onboarding and enhanced due diligence where the destination is rated High…"</span><br><span class="src">Policy 4.2 §3.1 · v2026-03</span></td><td><span class="btn a" id="p2">Accept</span> <span class="btn d">Remove</span></td></tr><tr><td><b>Internal Third-Party AML Standard 7.1 · Payout Agents</b><br><span style="color:var(--ink-2)">"…the bank shall obtain an independent assessment of the agent network’s AML controls covering the specific corridor…"</span><br><span class="src">Standard 7.1 §2 · v2025-11</span></td><td><span class="btn a" id="p3">Accept</span> <span class="btn d">Remove</span></td></tr><tr><td><b>OFAC Sanctions Screening Standard</b><br><span class="src">OFAC std §1 · v2026-01</span></td><td><span class="btn a" id="p4">Accept</span> <span class="btn d">Remove</span></td></tr><tr class="hl" id="gaprow"><td><b>Gap:</b> no clause for cash-pickup agent networks in corpus v14. <span class="btn" id="srch">Search corpus</span> or <span class="btn">Note gap</span></td><td></td></tr></table>','polbox'));
+  state('assessment core','research','human gate · fixed output shape',false);
+  cap('<b>10 · Policy is quoted, never written.</b> Each clause appears word for word with its document, section and version. Rahul accepts them one at a time.');},
+ actions:[[500,function(){note('#polbox','Word for word, with the source','In the old process an analyst looked policy up from scratch each time. Here the relevant clauses are found and quoted exactly. There is no "accept all" button, on purpose: each acceptance is a recorded decision.','below');}],
+  [2200,function(){cursorTo('#p1');}],[3000,function(){click('#p1',function(el){el.textContent='Accepted';el.className='btn done';});}],
+  [4100,function(){click('#p2',function(el){el.textContent='Accepted';el.className='btn done';});}],
+  [5200,function(){click('#p3',function(el){el.textContent='Accepted';el.className='btn done';});}],
+  [6300,function(){click('#p4',function(el){el.textContent='Accepted';el.className='btn done';});log('core','core','4 clauses accepted individually · each acceptance is its own audit record');bump(4,0);}],
+  [7200,function(){clearNotes();monNote('Backend: one record per decision','Four acceptances, four audit records. If the analyst had accepted everything with one click, the record would show consent, not review.');}],
+  [8400,function(){click('#srch',function(el){el.textContent='Searched: 0 results';});log('research','','Manual search: "cash pickup agent" · 0 clauses above threshold','Gap noted on case. Suggest policy owner adds coverage.');bump(1,300);}],
+  [9200,function(){note('#gaprow','A gap becomes a to-do','The search confirms the policy library has nothing on cash-pickup agents. That gap is now part of the case record and a signal to whoever owns policy.','below');cap('<b>10 · The gap is recorded.</b> A manual search confirms it. The missing policy becomes part of the case and a task for the policy owner.');}],
+  [11200,function(){log('guard','guard','Rule: no bulk accept · per-item review enforced ✓');}],
+  [12000,function(){cursorTo('#tab-risk-controls');}],[12900,function(){click('#tab-risk-controls');}]]
+});
+
+/* 11 · Controls + Critic */
+scene({label:'Controls',dur:13500,
+ base:function(){setScreen('an','Queue',top('Queue / Case',CASE+' · Under assessment','<span class="pill warn">critic: 2 flags</span>'),
+  tabs(AN_TABS,'Risk & Controls')+
+  box('Delivery channel &amp; third party · L 4 · I 5 · inherent 20','<table class="t"><tr><th>Control</th><th>Weight</th><th>Proposed rating</th><th>Evidence</th><th></th></tr><tr><td>Sanctions list screening</td><td class="n">0.30</td><td class="n">8.5</td><td><span class="src">test 2026-07</span></td><td><span class="btn a" id="k1">Confirm</span></td></tr><tr class="hl" id="vdd"><td>Vendor due-diligence assessment</td><td class="n">0.35</td><td class="n">7.6</td><td><span class="src" style="color:var(--warn);background:var(--warn-bg)">audit 2023-11 · stale</span></td><td><span class="btn" id="rev">Review</span></td></tr><tr><td>Payout agent transaction monitoring</td><td class="n">0.20</td><td class="n">6.8</td><td><span class="src">rules v3 · 2026-05</span></td><td><span class="btn a" id="k3">Confirm</span></td></tr><tr><td>Third-party contract AML clauses</td><td class="n">0.15</td><td class="n">7.0</td><td><span class="src">contract §9</span></td><td><span class="btn a" id="k4">Confirm</span></td></tr></table>','ctrl')+
+  '<div class="banner warn hidden" id="crit"><b>Critic:</b> the vendor due-diligence rating of 7.6 is well above the 4.9 average across the five closest payout-partner cases, and its only evidence is a 2023 audit of domestic operations. Explain or adjust before sign-off.</div>');
+  state('assessment core','critic','rules as code',true);
+  cap('<b>11 · Controls with evidence.</b> Each existing control has a proposed strength rating and the evidence behind it. One piece of evidence is stale.');},
+ actions:[[400,function(){note('#ctrl','What is a control?','A control is something the bank already does to reduce risk, like sanctions screening. Each gets a strength rating 0 to 10 and must point to evidence with a date. Stale evidence is marked.','below');}],
+  [1400,function(){log('Critic','','Source check','23 of 23 claims carry a source ✓');bump(0,900);}],
+  [2400,function(){log('Critic','','Precedent check','Vendor DD 7.6 vs 5-case average 4.9 · deviation 2.7 ⚠');}],
+  [3400,function(){log('Critic','','Evidence check','Audit dated 2023-11 · scope: domestic operations only · corridor not covered ⚠');}],
+  [4400,function(){log('Critic','','Rules check','8 of 8 kept · no agent wrote a score ✓');show('#crit');bump(4,0);}],
+  [4900,function(){clearNotes();note('#crit','A second opinion, before the analyst','The Critic is a separate AI whose only job is to challenge the first one: is every claim backed, is this rating in line with similar past cases, are the rules kept? It found the rating too generous.','below');}],
+  [6400,function(){monNote('Backend: why a Critic?','This is how the workbench tackles "two analysts, two answers". Every case is compared with its five closest past cases before a human signs off. The Critic flags; it never decides.');}],
+  [8400,function(){clearNotes();cursorTo('#k1');}],[9200,function(){click('#k1',function(el){el.textContent='Confirmed';el.className='btn done';});}],
+  [10200,function(){click('#k3',function(el){el.textContent='Confirmed';el.className='btn done';});}],
+  [11200,function(){click('#k4',function(el){el.textContent='Confirmed';el.className='btn done';});log('core','core','3 control ratings confirmed by analyst');bump(3,0);cap('<b>11 · Three agreed, one questioned.</b> Rahul confirms the three well-evidenced controls and opens the one the Critic flagged.');}],
+  [12300,function(){cursorTo('#rev');}],[13000,function(){click('#rev');}]]
+});
+
+/* 12 · Override */
+scene({label:'Override',dur:15500,
+ base:function(){setScreen('an','Queue',top('Queue / Case',CASE+' · Under assessment','<span class="pill warn">override</span>'),
+  tabs(AN_TABS,'Risk & Controls')+
+  '<div class="grid g2">'+'<div class="modal" id="ovm"><h4>Override control rating</h4><label class="l">Vendor due-diligence assessment · proposed 7.6 · evidence: audit 2023-11</label><div class="field" id="nv"></div><label class="l">Reason (required)</label><div class="field" id="rs" style="min-height:6vh"></div><div style="margin-top:.8vh;display:flex;gap:6px"><span class="btn p" id="save">Save override</span><span class="btn">Cancel</span></div></div>'+
+  box('Score','<div class="score"><div><div class="big" id="sc1">9.8</div><span class="band b2" id="bd1">Band 2</span></div><span class="arrow hidden" id="arr">→</span><div class="hidden" id="new"><div class="big">11.5</div><span class="band b3">Band 3</span></div></div><small style="color:var(--ink-3)" id="scsub">Delegated close · boundary flag: 0.3 from Band 3</small>','scorebox')+'</div>'+
+  '<div class="banner bad hidden" id="bb">Band boundary crossed. Logged with before, after and cause. Oversight changes from delegated close to <b>committee review</b>.</div>');
+  state('assessment core','—','human gate · rules as code',false);
+  cap('<b>12 · The human disagrees.</b> Rahul lowers the rating from 7.6 to 4.5. He must write why.');},
+ actions:[[400,function(){note('#ovm','Disagreeing is built in','The analyst can overrule any AI proposal. The price is a written reason. That reason, not the AI’s guess, becomes the permanent record.','below');}],
+  [1400,function(){cursorTo('#nv');}],[2100,function(){click('#nv');}],[2600,function(){typeInto('#nv','4.5');}],
+  [3800,function(){click('#rs');}],[4300,function(){typeInto('#rs','Audit predates the corridor arrangement and covers domestic operations only. Corridor-specific due diligence is not yet evidenced.');}],
+  [8800,function(){click('#save',function(el){el.textContent='Saved';el.className='btn done';});}],
+  [9600,function(){clearNotes();log('core','core','Override received: CTL-VDD 7.6 → 4.5 by R. Iyer, reason recorded');log('eng','eng','Recompute','retention 0.54 → 0.73 · residual 10.9 → 14.6 · composite 9.8 → 11.5');show('#arr');show('#new');setHtml('#scsub','Route: <b>committee review</b>');}],
+  [11400,function(){show('#bb');note('#bb','One change, recalculated instantly','Same arithmetic, new input. The score moves from 9.8 to 11.5 and crosses into Band 3. That band means the committee decides, not the analyst alone.','below');log('guard','guard','Rule: override per item, by analyst, with reason ✓ · band change requires acknowledgement');log('audit','audit','Record #31 · hash 8f3a…c21e · prev #30','type human_override · before 7.6 · after 4.5 · cause: evidence scope');bump(2,0);}],
+  [12200,function(){monNote('Backend: a tamper-evident record','Record #31 stores the old value, the new value, who changed it, why, and a fingerprint (hash) of the record before it. Change any past record and the chain of fingerprints breaks. This is what an examiner can trust.');}],
+  [13000,function(){log('eval','eval','Override logged against Assessment agent · control-matching eval set updated');cap('<b>12 · Consequences handled.</b> The score recomputes, the route changes to committee, and record #31 stores before, after and cause, chained to the record before it.');}],
+  [14300,function(){cursorTo('#tab-inbox');}],[15000,function(){click('#tab-inbox');}]]
+});
+
+/* 13 · Clarification */
+scene({label:'Clarify',dur:15400,
+ base:function(){setScreen('an','Queue',top('Queue / Case',CASE+' · Under assessment','<span class="pill">clock: analyst 3h 10m</span>'),
+  tabs(AN_TABS,'Inbox')+
+  box('Clarification round 1 · drafted for your review','<table class="t"><tr><th>Question</th><th>Anchored to</th><th></th></tr><tr><td>Is a corridor-specific due-diligence review of Remesas del Norte planned or complete? Please attach the scope and date if available.</td><td><span class="src">Vendor DD control</span></td><td><span class="btn a" id="q1">Keep</span></td></tr><tr><td>Please confirm the cash-pickup agent locations and whether agent onboarding follows the partner’s KYC standard.</td><td><span class="src">Payout channels</span></td><td><span class="btn a" id="q2">Keep</span></td></tr><tr><td style="color:var(--ink-3)">Suggested third question dropped by Narrative: already answered in contract §9.</td><td></td><td></td></tr></table><div style="margin-top:.8vh"><span class="btn p" id="send">Send round · 2 questions</span></div>','clar')+
+  '<div class="banner ac hidden" id="sent">Sent to Priya Nair. Analyst clock paused; total clock keeps running. Answers will arrive as submission v2 with a diff.</div>');
+  state('assessment core','narrative','rules as code',false);
+  cap('<b>13 · One batch of questions.</b> The Narrative agent drafted two questions from the flags. Rahul reviews and sends them together.');},
+ actions:[[500,function(){log('Narrative','','Drafted 3 questions from critic flags + policy gap · removed 1 already answered','Each anchored to a field id');bump(0,700);}],
+  [900,function(){note('#clar','Drafted, tied to fields, sent once','In the old process questions dribbled out by email over days. Here they go as one round, each tied to the field it concerns, so the answer lands in the right place.','below');}],
+  [2600,function(){cursorTo('#q1');}],[3400,function(){click('#q1',function(el){el.textContent='Kept';el.className='btn done';});}],
+  [4400,function(){click('#q2',function(el){el.textContent='Kept';el.className='btn done';});}],
+  [5600,function(){click('#send',function(el){el.textContent='Sent';el.className='btn done';});}],
+  [6400,function(){clearNotes();show('#sent');log('guard','guard','Batch rule: one round, no single questions ✓');log('core','core','Analyst-active clock paused · total elapsed clock continues · PO notified');log('audit','audit','Records #32–#35 written');bump(4,0);}],
+  [7000,function(){note('#sent','Two clocks','The analyst’s clock stops while the business answers. The total clock keeps going. So the 2-day target is measured fairly for each side.','below');monNote('Backend: the analyst never edits the submission','He asks; the owner answers. Answers come back as version 2 with the original kept. Why: the business must own what it declared.');cap('<b>13 · Fair timing.</b> The analyst’s clock pauses while the business answers. He never edits the submission himself; the owner does.');}],[11800,function(){switchTo('sw-po',0,'Back to Priya, the product owner, whose inbox now holds the two questions.');}]]
+});
+
+/* 14 · Handover → PO answers */
+scene({label:'PO answers',dur:17400,
+ base:function(){setScreen('po','My Queue',top('My Queue / Case',CASE+' · Awaiting you','<span class="pill warn">2 questions</span>'),
+  tabs(PO_TABS,'Inbox')+
+  box('Questions from FCRM · round 1','<label class="l">1 · Corridor-specific due-diligence review of the partner?</label><div class="field" id="a1" style="min-height:5vh"></div><div class="doc hidden" id="att" style="margin-top:.5vh"><i></i>vendor_DD_scope_letter_2026.pdf <span class="pill ok">attached</span></div><label class="l">2 · Cash-pickup agent locations and onboarding standard?</label><div class="field" id="a2" style="min-height:5vh"></div><div style="margin-top:.8vh"><span class="btn p" id="reply">Send answers</span></div>','qs')+
+  '<div class="banner ok hidden" id="v2">Saved as submission v2. The original is kept. FCRM sees exactly what changed.</div>');
+  state('assessment core','—','human gate',false);
+  handover('Handover','Back to the product owner','Priya gets a notification: two questions from FCRM are waiting in her case inbox.','Priya Nair · Product Owner',1900);
+  cap('<b>14 · The business answers.</b> Priya sees the two questions in her own inbox, tied to the fields they concern.');},
+ actions:[[2600,function(){note('#qs','Answers become version 2','Her answers do not overwrite anything. They create version 2 of the submission; version 1 stays, and the analyst sees a side-by-side of what changed.','below');}],
+  [3600,function(){cursorTo('#a1');}],[4300,function(){click('#a1');}],[4800,function(){typeInto('#a1','A corridor review is scheduled with the auditor for Nov 2026. Scope letter attached.');}],
+  [7800,function(){show('#att');}],
+  [8400,function(){click('#a2');}],[8900,function(){typeInto('#a2','38 agent locations in 6 states. Agents onboarded under the partner’s KYC standard v4.');}],
+  [11600,function(){click('#reply',function(el){el.textContent='Sent';el.className='btn done';});}],
+  [12300,function(){clearNotes();show('#v2');log('core','core','Submission v2 created · diff: 2 fields changed, 1 document added · v1 retained');log('guard','guard','Input scan on new document ✓');log('core','core','Re-run Research ∥ Assessment on changed fields only');log('Assessment','','Corridor DD review is planned, not live → recorded as planned control · affects no score');bump(5,1100);monNote('Backend: a plan is not a control','The review is scheduled, not done. The system records it as "planned" so the recommendation can mention it, but the score ignores it. A control that does not exist yet cannot reduce risk today.');cap('<b>14 · Planned is not done.</b> The scheduled review is recorded but does not improve the score. The rating stays at 4.5.');}],[13800,function(){switchTo('sw-an',0,'Back to Rahul, the analyst. Version 2 has arrived and the agents have re-run.');}]]
+});
+
+/* 15 · Handover → Recommendation */
+scene({label:'Recommend',dur:13500,
+ base:function(){setScreen('an','Queue',top('Queue / Case',CASE+' · Under assessment','<span class="band b3">Band 3</span>'),
+  tabs(AN_TABS,'Recommendation')+
+  '<div class="grid g2">'+box('Recommendation <span class="lock">numbers locked 🔒</span>','<span class="band b3">Approve with conditions</span><p style="margin:.7vh 0 0">Residual risk sits in Band 3, driven by the third-party channel. Sanctions screening and transaction monitoring are effective and evidenced. Vendor due diligence is not yet evidenced for the corridor; a review is scheduled for Nov 2026. Recommend approval conditional on that review completing before go-live and enhanced payout-agent monitoring for six months.</p><small style="color:var(--ink-3)">Drafted by Narrative · 2 edits by R. Iyer</small>','rec')+
+  box('Conditions · drafted from weak and planned controls','<table class="t"><tr><th>Condition</th><th>Owner</th><th>Due</th></tr><tr><td>Corridor-scope vendor DD review completed and filed</td><td>P. Nair</td><td>before go-live</td></tr><tr><td>Enhanced monitoring rules on payout agents live</td><td>FCRM Ops</td><td>go-live</td></tr><tr><td>Quarterly sample review of agent KYC files</td><td>P. Nair</td><td>6 months</td></tr></table><div style="margin-top:.8vh"><span class="btn p" id="lock">Lock recommendation</span> <span class="btn" id="gen">Generate committee pack</span></div>','conds')+'</div>'+
+  '<div class="banner ok hidden" id="pk">Pack generated by code from locked numbers. Plain-language summary for the business owner: <b>present</b> (required before approval).</div>');
+  state('assessment core','narrative','rules as code',false);
+  handover('Handover','Back on the analyst’s screen','The answers arrived as version 2. The agents re-ran on the changed fields. Rahul opens the Recommendation tab.','Rahul Iyer · FCRM Analyst',1900);
+  cap('<b>15 · Words drafted, numbers locked.</b> The Narrative agent wrote the recommendation, three conditions and a plain summary. It cannot touch a rating or a score.');},
+ actions:[[2600,function(){log('Narrative','','Drafted recommendation from confirmed ratings, critic findings and clarification answers','Ratings and scores passed as read-only inputs');bump(0,1400);}],
+  [3000,function(){note('#rec','AI writes the words only','The text is a draft the analyst edits. The padlock means every number in it comes from the locked calculation and cannot be typed over.','below');}],
+  [4400,function(){log('Narrative','','Drafted 3 conditions from: 1 overridden control, 1 planned control, 1 policy gap');}],
+  [5000,function(){note('#conds','Conditions with owners and dates','"Approve with conditions" only works if someone tracks the conditions. Each one has an owner and a due date and will be followed up after go-live.','below');}],
+  [6400,function(){log('guard','guard','PO-summary scan: 0 restricted terms (score, band, rating, clause) ✓');}],
+  [7400,function(){clearNotes();cursorTo('#lock');}],[8200,function(){click('#lock',function(el){el.textContent='Locked';el.className='btn done';});log('core','core','Recommendation locked · unlock later requires a reason and regenerates the pack');bump(1,0);}],
+  [9600,function(){click('#gen',function(el){el.textContent='Generated';el.className='btn done';});}],
+  [10400,function(){show('#pk');log('core','core','Committee pack assembled by code: scores, ratings, clauses, overrides, versions','No model involved in assembly');log('audit','audit','Records #36–#41 written');bump(5,0);monNote('Backend: the pack is assembled by code','Numbers, ratings, quoted clauses, the override and every version in force are pulled straight from the record. Only the narrative text was AI-drafted, and a human edited it.');cap('<b>15 · Pack ready.</b> Code assembles it from the locked numbers. The only AI-written part is the narrative, already edited by Rahul.');}],
+  [12300,function(){cursorTo('#tab-handoff');}],[13000,function(){click('#tab-handoff');}]]
+});
+
+/* 16 · Handoff */
+scene({label:'Handoff',dur:13400,
+ base:function(){setScreen('an','Queue',top('Queue / Case',CASE+' · Handoff','<span class="pill">pack v1</span>'),
+  tabs(AN_TABS,'Handoff')+
+  '<div class="grid g2">'+box('Committee pack · preview','<table class="t"><tr><td>Composite residual</td><td class="n">11.5 · Band 3</td></tr><tr><td>Risk areas in scope</td><td class="n">3</td></tr><tr><td>Controls · overrides</td><td class="n">7 · 1</td></tr><tr><td>Policy clauses · gaps</td><td class="n">4 · 1</td></tr><tr><td>Clarification rounds</td><td class="n">1</td></tr><tr><td>Versions</td><td class="n">scoring v3 · corpus v14 · controls v9</td></tr></table>','pv')+
+  box('Checks before release','<div class="check ok"><i></i>Recommendation locked</div><div class="check ok"><i></i>All proposals accepted or overridden with reason</div><div class="check ok"><i></i>Boundary flag acknowledged</div><div class="check ok"><i></i>Business-owner summary present</div><div style="margin-top:.8vh"><span class="btn p" id="appr">Approve pack and send to committee</span></div>','chk')+'</div>'+
+  '<div class="banner ok hidden" id="rel">Released to 3 committee members. Votes are hidden until all three are cast.</div>');
+  state('assessment core → decision core','—','rules as code · human gate',false);
+  cap('<b>16 · Handoff.</b> Four release checks, all green. Rahul approves the pack and the Decision core takes over.');},
+ actions:[[500,function(){note('#pv','Versions are pinned','The pack records which scoring model, policy library and control list were in force. If any of them change next month, this case is still judged on what applied at the time.','below');}],
+  [2000,function(){note('#chk','Nothing leaves half-done','A pack cannot go to the committee with an unreviewed proposal or without a plain-language summary for the business owner.','below');}],
+  [4200,function(){clearNotes();cursorTo('#appr');}],[5200,function(){click('#appr',function(el){el.textContent='Approved';el.className='btn done';});}],
+  [6000,function(){show('#rel');setHtml('#topright','<span class="pill warn">Committee review</span>');state('decision core','—','rules as code',true);log('core','core','Decision core started · pack v1 released to A. Mendes, J. Okafor, L. Chen');log('guard','guard','Committee view is read-only · tallies hidden until vote 3 ✓');log('audit','audit','Records #42–#43 written');bump(2,0);}],
+  [6800,function(){monNote('Backend: a new core takes over','The Decision core runs the vote. Committee members can read everything and edit nothing. It will wait, for days if needed, until all three votes are in.');}],[9800,function(){switchTo('sw-co',0,'Switching to Ana Mendes, one of three Risk Committee members.');}]]
+});
+
+/* 17 · Handover → Committee */
+scene({label:'Committee',dur:18400,
+ base:function(){setScreen('co','Queue',top('Queue / Case',CASE+' · Committee review','<span class="pill" id="vc">1 of 3 votes in</span>'),
+  tabs(['Pack','Inbox'],'Pack')+
+  box('Pack · generated by code, approved by analyst','<div style="display:flex;gap:1.2vw;align-items:center"><div><div class="big">11.5</div><span class="band b3">Band 3 of 4</span></div><div style="flex:1">3 risk areas · 7 controls · 1 override with reason · 1 clarification round · 1 policy gap noted · recommendation: <b>approve with 3 conditions</b></div></div>','pack')+
+  box('Your vote','<div class="votes"><div class="vote" id="myvote"><b>A. Mendes (you)</b><div class="field" id="rat" style="text-align:left;min-height:5vh;margin-top:.5vh"></div><div style="margin-top:.6vh"><span class="btn a" id="vote">Approve with conditions</span> <span class="btn">Defer</span> <span class="btn d">Reject</span></div></div><div class="vote"><b>J. Okafor</b>voted · hidden<div class="st" id="s2" style="color:var(--ink-3)">●●●</div></div><div class="vote"><b>L. Chen</b><span id="s3t">not yet voted</span><div class="st" id="s3" style="color:var(--ink-3)">—</div></div></div>','votes')+
+  '<div class="banner ok hidden" id="out">All three votes in. Revealed together: <b>Approve with conditions ×2 · Defer ×1</b>. Majority: <b>Approved with conditions</b>.</div>');
+  state('decision core','—','rules as code',true);
+  handover('Handover','Now on a committee member’s screen','Ana Mendes, one of three Risk Committee members, opens the pack. One colleague has already voted.','Ana Mendes · Risk Committee',1900);
+  cap('<b>17 · The committee.</b> Ana reads the pack and must write a rationale before voting. She cannot see how the others voted.');},
+ actions:[[2600,function(){note('#votes','Hidden until all three are in','Ana cannot see her colleagues’ votes. Why: the last voter should judge the case, not the running score. A written rationale is mandatory.','below');}],
+  [3800,function(){cursorTo('#rat');}],[4500,function(){click('#rat');}],[5000,function(){typeInto('#rat','Channel risk is real but the conditions address the evidence gap directly. Approve subject to DD review before go-live.');}],
+  [9200,function(){click('#vote',function(el){el.textContent='Voted';el.className='btn done';});}],
+  [10000,function(){clearNotes();setHtml('#vc','2 of 3 votes in');log('core','core','Vote 2 of 3 received · rationale 24 words · tally still hidden');bump(2,0);}],
+  [11400,function(){setHtml('#s3t','voted · hidden');setHtml('#s3','●●●');setHtml('#vc','3 of 3 votes in');log('core','core','Vote 3 of 3 received');}],
+  [12400,function(){setHtml('#s2','<span style="color:var(--ok)">Approve w/ conditions</span>');setHtml('#s3','<span style="color:var(--warn)">Defer</span>');show('#out');log('eng','eng','Tally (code): 2 approve with conditions · 1 defer → majority');log('core','core','Outcome set: Approved with conditions · 3 conditions activated with owners and due dates');log('audit','audit','Records #44–#50 written · votes · rationales · reveal · outcome');bump(7,0);}],
+  [13000,function(){note('#out','Revealed together, counted by code','Two approve with conditions, one defers. Plain code counts. No AI touches the decision, and all three rationales go into the permanent record.','below');cap('<b>17 · Decided.</b> Revealed together: two approve with conditions, one defers. Code tallies the majority. No AI is involved in the decision.');}],[14800,function(){switchTo('sw-po',0,'Back to Priya to see the outcome as the business receives it.');}]]
+});
+
+/* 18 · Handover → PO outcome */
+scene({label:'Outcome',dur:14900,
+ base:function(){setScreen('po','My Queue',top('My Queue / Case',CASE+' · Approved with conditions','<span class="pill ok">decided</span>'),
+  tabs(['Overview','Documents','Inbox','Conditions','Activity'],'Conditions')+
+  '<div class="banner ok" id="outb"><b>Approved with conditions.</b> The committee approved the Mexico remittance launch with Remesas del Norte, provided a corridor-specific due-diligence review of the partner is completed before go-live and payout agents are monitored more closely for the first six months.</div>'+
+  box('Your conditions','<table class="t"><tr><th>Condition</th><th>Owner</th><th>Due</th><th>Status</th></tr><tr><td>Corridor-scope vendor DD review completed and filed</td><td>You</td><td>before go-live</td><td><span class="pill warn">open</span></td></tr><tr><td>Enhanced payout-agent monitoring live</td><td>FCRM Ops</td><td>go-live</td><td><span class="pill">scheduled</span></td></tr><tr><td>Quarterly sample review of agent KYC files</td><td>You</td><td>6 months</td><td><span class="pill">scheduled</span></td></tr></table>','condbox')+
+  '<small style="color:var(--ink-3)">You see the decision, the reasons in business terms and your conditions. Scores, bands, control ratings and policy clauses are not part of this view.</small>');
+  state('decision core → oversight core','—','rules as code',false);
+  handover('Handover','Back to the product owner','Priya is notified: a decision has been made on her case. In the old process this took 15 to 20 business days.','Priya Nair · Product Owner',1900);
+  cap('<b>18 · Plain words back to the business.</b> Priya gets the decision and the reasons in her terms, plus her conditions.');},
+ actions:[[2600,function(){note('#outb','No scores for the business','Priya reads the decision in plain language. Scores, bands and ratings are not hidden behind a lock; the server simply never sends them to her role. Why: the business must not tune its case to a number.','below');}],
+  [3200,function(){log('core','core','Outcome delivered to PO');log('guard','guard','Visibility rule: PO response contains no score, band, rating or clause','Not hidden fields. They are not returned at all.');}],
+  [5200,function(){clearNotes();note('#condbox','Followed up, not forgotten','Each condition has an owner, a date and a status. Reminders go out before the due date. "Approved with conditions" finally means something.','below');log('core','core','Condition tracker started · 3 items · reminders 14 days before due');}],
+  [7200,function(){log('core','core','Case closed for assessment · no analyst, including the signer, can re-run or edit it');log('audit','audit','Records #51–#53 written · chain verified end to end ✓');bump(3,0);monNote('Backend: closed means closed','Nobody, not even the analyst who signed it, can re-run or edit this assessment now. If something must change, a new case is opened. Why: a decision already delivered must never quietly change underneath.');cap('<b>18 · Closed means closed.</b> The assessment can no longer be changed by anyone. Conditions are tracked until done. The audit chain is verified end to end.');}],[11300,function(){switchTo('sw-an',0,'Six months on: Rahul, on the Assurance screen, answering an examiner.');}]]
+});
+
+/* 19 · Handover → Examiner */
+scene({label:'Examiner',dur:15000,
+ base:function(){setScreen('an','Assurance',top('Assurance','Examiner view','<span class="pill ok">chain verified</span>'),
+  tabs(['Ask','Cases','Overrides','Watchlist','Agent quality'],'Ask')+
+  '<div class="qa" id="qabox"><label class="l">Ask about any case. Answers come only from the audit chain.</label><div class="field" id="qq"></div><div class="a hidden" id="ans">The composite residual was first computed at 9.8, Band 2, which would have closed under delegated authority [#18]. The Critic flagged the vendor due-diligence rating of 7.6 as above the precedent average of 4.9, with evidence limited to a 2023 domestic-scope audit [#21, #22]. Analyst R. Iyer overrode the rating to 4.5 with the reason "audit predates the corridor arrangement" [#31]. The engine recomputed to 11.5, Band 3, which routes to committee under routing rules v4 [#31]. The band change was flagged and acknowledged [#33]. The committee approved with conditions by 2 to 1 [#49].</div><div class="refs hidden" id="refs"><span class="ref">#18 scoring</span><span class="ref">#21 critic</span><span class="ref">#22 critic</span><span class="ref">#31 override</span><span class="ref">#33 boundary ack</span><span class="ref">#49 outcome</span><span class="ref">routing v4</span><span class="ref">scoring model v3</span></div></div>'+
+  '<div class="grid g2">'+box('Versions in force for '+CASE,'<table class="t"><tr><td>Scoring model</td><td class="n">v3</td></tr><tr><td>Policy corpus</td><td class="n">v14</td></tr><tr><td>Control inventory</td><td class="n">v9</td></tr><tr><td>Jurisdiction list</td><td class="n">2026-06</td></tr><tr><td>Agent prompts</td><td class="n">2026-09-28</td></tr></table>','vers')+
+  box('Oversight, this week','<table class="t"><tr><td>Override rate · Assessment agent</td><td class="n">18%</td></tr><tr><td>Citation faithfulness · Research</td><td class="n">99.1%</td></tr><tr><td>Extraction accuracy · Intake</td><td class="n">96.4%</td></tr><tr class="hl"><td>FATF list 2026-10 published</td><td><span class="pill warn">2 open cases re-flagged</span></td></tr></table>','ovs')+'</div>');
+  state('oversight core','examiner','tool permits · fixed output shape',true);
+  handover('Six months later','An examiner asks a question','A regulator is reviewing the bank. Rahul opens the Assurance screen to answer: why did this case go to committee?','Rahul Iyer · FCRM Analyst',2000);
+  cap('<b>19 · Months later.</b> An examiner asks why this case went to committee. In the old world this meant days of digging through email.');},
+ actions:[[2800,function(){cursorTo('#qq');}],[3500,function(){click('#qq');}],[4000,function(){typeInto('#qq','Why was '+CASE+' routed to committee instead of closed by the analyst?');}],
+  [7400,function(){log('Examiner','','Query received · reading audit chain only','Permitted tool: audit_log (read)');}],
+  [8400,function(){log('Examiner','','Retrieved 9 records for '+CASE+' · hash chain verified ✓','',true);bump(0,1600);}],
+  [9800,function(){show('#ans');show('#refs');log('guard','guard','Grounding rule: every sentence cites a record · nothing outside the chain ✓');bump(1,0);}],
+  [10400,function(){note('#qabox','Answered in seconds, with receipts','Every sentence points to a numbered record in the audit chain. The Examiner agent is not allowed to use anything else, and it refuses to answer if the records do not contain the answer.','below');}],
+  [11800,function(){monNote('Backend: the same core keeps watch','A new FATF country list arrived; the system re-checked open cases and flagged two. Every week, all six agents are re-tested against 80 reference cases before any change to their instructions goes live.');log('core','core','Watchlist v2026-10 detected → Research re-run on 2 open cases with affected geographies');log('eval','eval','Weekly eval: 6 agents · 80 golden cases · 0 regressions');}],
+  [13000,function(){note('#ovs','Quality is measured, not assumed','How often analysts overrule each agent, how accurate its citations are, how well it reads documents. If a number drifts, the agent’s instructions are fixed and re-tested.','below');cap('<b>19 · Traceable and measured.</b> The answer cites six records. The same core re-checks open cases when watchlists change and grades the agents every week.');}]]
+});
+
+/* 20 · Recap */
+scene({label:'Recap',dur:10000,
+ base:function(){setScreen(null,null,top('','What you just saw'),
+  '<div class="grid g3">'+box('The screens','A normal enterprise workbench: sign-in, dashboard, queue, case tabs, modals. Three roles, each seeing only what its job needs. The AI works inside the screens people already understand, not in a chat window.')+
+  box('The backend','Four harness cores (plain software) ran the flow and paused at every human gate. Six AI agents did the reading, searching, proposing, checking and drafting. Tools were read-only. The scoring engine was never bypassed.')+
+  box('The proof','53 hash-linked audit records. Every AI claim with a source. Every override with a reason. Versions pinned. An examiner question answered from the log in seconds.')+'</div>'+
+  '<div class="grid g3">'+box('Slow → about 2 days','Documents first, gap-only questions, agents working in parallel, two clocks.')+box('Inconsistent → checked','A Critic compares each case with its closest precedents and the eight rules before sign-off.')+box('Untraceable → answerable','Evidence ledger plus tamper-evident chain plus an Examiner agent that only cites records.')+'</div>');
+  state('—','—','—',false);
+  cap('<b>20 · Recap.</b> Same process the bank runs today, in a tool analysts already recognise, with a harness and an agent team doing the heavy lifting underneath. Press Play to run it again.');},
+ actions:[[1500,function(){log('core','core','Walkthrough complete · '+CASE+' · 53 audit records · 19.6k tokens across 6 agents');}]]
+});
+
+/* ---------- player ---------- */
+var tl=$('tl');
+S.forEach(function(s,k){var b=document.createElement('button');b.type='button';b.innerHTML='<i></i><span>'+(k+1)+' · '+s.label+'</span>';b.addEventListener('click',function(){go(k,true);});tl.appendChild(b);});
+
+function clearTimers(){timers.forEach(clearTimeout);timers=[];}
+function runFrom(from){
+  clearTimers();var s=S[cur];
+  s.actions.forEach(function(a){if(a[0]>=from){timers.push(setTimeout(function(){a[1]();},(a[0]-from)/speed));}});
+  if(playing){timers.push(setTimeout(function(){if(cur<S.length-1){go(cur+1,false);}else{playing=false;$('play').textContent='Replay';}},Math.max(0,s.dur-from)/speed));}
+}
+function go(k,reset){
+  clearTimers();cur=k;var s=S[k];
+  if(reset){$('mlog').innerHTML='';$('cur').style.transform='translate(-100px,-100px)';}
+  s.base();
+  $('cnt').textContent=(k+1)+' / '+S.length;
+  Array.prototype.forEach.call(tl.children,function(b,i){b.className=i<k?'done':i===k?'on':'';});
+  $('prev').disabled=k===0;$('next').textContent=k===S.length-1?'Restart':'Next';
+  t0=Date.now();elapsed=0;
+  requestAnimationFrame(function(){runFrom(0);});
+}
+$('prev').addEventListener('click',function(){if(cur>0)go(cur-1,true);});
+$('next').addEventListener('click',function(){go(cur===S.length-1?0:cur+1,cur===S.length-1);});
+$('play').addEventListener('click',function(){
+  if(playing){playing=false;elapsed+=Date.now()-t0;clearTimers();$('play').textContent='Play';return;}
+  if($('play').textContent==='Replay'){cur=0;elapsed=0;playing=true;$('play').textContent='Pause';go(0,true);return;}
+  playing=true;$('play').textContent='Pause';t0=Date.now();runFrom(elapsed);
+});
+$('speed').addEventListener('click',function(){speed=speed===1?1.5:speed===1.5?2:1;$('speed').textContent=speed+'×';if(playing){elapsed+=Date.now()-t0;t0=Date.now();runFrom(elapsed);}});
+document.addEventListener('keydown',function(e){if(e.key==='ArrowRight')$('next').click();if(e.key==='ArrowLeft')$('prev').click();if(e.key===' '){e.preventDefault();$('play').click();}});
+go(0,true);
+})();
+</script>
+</body></html>

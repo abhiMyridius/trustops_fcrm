@@ -1,0 +1,157 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Risk Assessment Workbench · Decision log</title></head><body>
+<title>Workbench Decision Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one living register. Filter chips by area and rubric; dense table; change log at the end. Fixed light theme. */
+:root{color-scheme:light;
+  --bg:#F2F4F3; --surface:#FFFFFF; --surface-2:#E7ECEA; --ink:#0C2226; --ink-2:#2B5358; --ink-3:#5C7F84; --border:#D3DDDB;
+  --moss:#194247; --accent:#09A78D;
+  --ok:#0b6b5a; --ok-bg:#DDF3EE; --open:#7a5a10; --open-bg:#FBF1D9; --changed:#1f4a7a; --changed-bg:#E3EBF5; --dropped:#9a3524; --dropped-bg:#F7E3DE;
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif; --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:13.5px;line-height:1.4}
+.wrap{max-width:1320px;margin:0 auto;padding-inline:20px;padding-block:24px 48px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(26px,3vw,38px);margin:0;line-height:1.05;color:var(--moss)}
+h1 span{color:var(--accent)}
+.sub{color:var(--ink-2);margin:4px 0 0;max-width:80ch}
+.meta{font-family:var(--f-mono);font-size:12px;color:var(--ink-3)}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 14px;min-width:120px}
+.stat b{display:block;font-family:var(--f-display);font-size:24px;line-height:1;color:var(--moss)}
+.stat span{font-size:12px;color:var(--ink-3)}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 14px;align-items:center}
+.filters span.l{font-size:12px;color:var(--ink-3);margin-right:4px}
+.filters button{font:500 12.5px var(--f-body);padding:4px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink-2);cursor:pointer}
+.filters button.on{background:var(--moss);border-color:var(--moss);color:#fff}
+.filters button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.scroll{overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:980px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+th{background:var(--surface-2);font-size:11.5px;font-weight:600;color:var(--ink-2);position:sticky;top:0;z-index:1}
+tbody tr:last-child td{border-bottom:none}
+td.id{font-family:var(--f-mono);font-size:12px;white-space:nowrap;color:var(--ink-3)}
+td.d{font-weight:600;min-width:170px}
+td.area{white-space:nowrap}
+.chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;margin:1px 2px 1px 0}
+.decided{background:var(--ok-bg);color:var(--ok)}.open{background:var(--open-bg);color:var(--open)}.changed{background:var(--changed-bg);color:var(--changed)}.dropped{background:var(--dropped-bg);color:var(--dropped)}
+.r{background:var(--surface-2);color:var(--ink-2);font-weight:600}
+tr.hide{display:none}
+h2{font-family:var(--f-display);font-weight:700;font-size:20px;margin:24px 0 8px;color:var(--moss)}
+.rub{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.rub div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12.5px}
+.rub b{display:block;font-family:var(--f-display);font-size:15px;color:var(--moss)}
+.rub small{color:var(--ink-3)}
+.log{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px}
+.log div{padding:6px 0;border-bottom:1px solid var(--border);display:flex;gap:12px}
+.log div:last-child{border-bottom:none}
+.log .dt{font-family:var(--f-mono);font-size:12px;color:var(--ink-3);white-space:nowrap}
+.note{border-left:3px solid var(--accent);background:#F0F7F5;padding:8px 12px;border-radius:0 8px 8px 0;margin:12px 0;font-size:13px}
+@media(max-width:700px){table{min-width:900px}}
+</style>
+
+<div class="wrap">
+<header>
+  <div><h1>Decision log <span>· Risk Assessment Workbench</span></h1>
+  <p class="sub">Each decision in one line: why, what it gives us, which judging criterion it serves. <b>AEO components are cloned into our own repositories and changed there; the running AEO platform is never called or imported.</b></p></div>
+  <div class="meta">v1.2</div>
+</header>
+
+<div class="stats" id="stats"></div>
+
+<div class="filters" id="fArea"><span class="l">Area</span></div>
+<div class="filters" id="fRub"><span class="l">Rubric</span></div>
+<div class="filters" id="fStat"><span class="l">Status</span></div>
+
+<div class="scroll"><table id="tbl">
+  <thead><tr><th>ID</th><th>Area</th><th>Decision</th><th>Why</th><th>What it gives us</th><th>Rubric</th><th>Status</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table></div>
+
+<h2>Rubric coverage</h2>
+<div class="rub" id="rubgrid"></div>
+
+<h2>Change log</h2>
+<div class="log" id="changes"></div>
+
+<div class="note">Rows are decisions, not tasks. A row changes status to <b>changed</b> when a later decision replaces it (old row kept, new row linked). <b>Open</b> rows need a team call.</div>
+</div>
+
+<script>
+(function(){
+var R={H:'AI harness 30%',S:'SDLC 20%',G:'Governance 15%',E:'Evals 10%',C:'Context 10%',P:'Production 5%',T:'Tokens 5%',J:'Judgement 5%'};
+var D=[
+// id, area, decision, why, benefit, rubric, status, date
+['D-01','Product','Keep the BA\u2019s flow, screens and 8 rules','Design already validated; redesign costs days','Complete product, no scope churn','S,G','decided','30 Sep'],
+['D-02','Product','Four outcomes incl. Deferred and Approved with conditions; conditions tracked','Brief names four; OCC expects follow-up','Brief gap closed; conditions become real work items','S,C','decided','30 Sep'],
+['D-03','Product','AI configuration belongs to the analyst, not the PO','Business must not tune its own gate','Removes a governance contradiction','G','decided','30 Sep'],
+['D-04','Product','Agents live inside normal enterprise screens, not a chat window','Analysts work in queues and case files','Audit stays visible; matches how the bank works','H,G','decided','30 Sep'],
+['D-05','Product','Use case bounded to AML/CFT and sanctions risk of changes at a US bank; FFIEC four domains; six change types; four outcomes','Exactly the brief; FFIEC is the published decomposition; small enough to seed real policy and controls','Agents reason only over a defined corpus; nothing invented','C,S','decided','1 Oct'],
+['D-06','Product','Policy corpus = public sources (FFIEC, OFAC, FinCEN proposal, OCC 2017-43, FATF) as cited extracts + four synthetic internal standards','Clause-level texts the research agent can quote verbatim, with versions','Grounded citations; honest gaps','C,G','decided','1 Oct'],
+['D-10','Harness','Orchestrator (Caseflow) is our own code; no workflow framework','Flow is small; a framework hides what the panel will probe','Whole flow readable in one file; original work','H,J,P','decided','1 Oct'],
+['D-11','Harness','Four cores as modules of one orchestrator; agents as queue jobs','Stages share case state; agents are stateless and bursty','One state table; scale workers, not stages','H,P','decided','1 Oct'],
+['D-12','Harness','Human gate per item; reason required on override; no accept-all','Accept-all records consent, not review','Every AI output has a named human decision','G','decided','30 Sep'],
+['D-13','Harness','Model fallback chains and per-case token budgets','Models fail; cost is judged','Graceful degradation; cost per case known','H,T','decided','1 Oct'],
+['D-14','Harness','No Temporal','New runtime to learn; event store covers the demo','Less infra; exit path stays open','P','decided','1 Oct'],
+['D-16','Harness','Completeness check at the start of analyst review: the narrative agent lists missing, stale or contradictory items and drafts questions; the analyst asks in one round before reviewing','A gap found halfway through a recommendation wastes the review; asking first saves time','Fewer stalled reviews; the clarification round starts earlier','S,G,H','decided','1 Oct'],
+['D-20','Agents','Pydantic AI 2.0 runs one agent call; never orchestrates','GA Jun 2026, typed outputs, OTel built in, model-agnostic','Production-stable SDK; swappable per agent','H,P','decided','1 Oct'],
+['D-21','Agents','Nine agents, each a folder with spec, schema, tools, tier, evals','Small prompts, specific evals, clear ownership','Adding an agent is a folder and a registry line','H','decided','1 Oct'],
+['D-22','Agents','Critic agent reviews every case before the analyst','Targets inconsistent assessments','Second opinion at near-zero human cost','G,E','decided','30 Sep'],
+['D-23','Agents','Examiner agent answers only from the audit chain','Targets unreconstructable reasoning','Audit trail becomes answerable in seconds','G,C','decided','30 Sep'],
+['D-24','Agents','Four registries (agents, tools, skills, prompts) with lock tests','High modularity; changes are deliberate diffs','No silent drift; panel reads four files','H,S','decided','1 Oct'],
+['D-25','Agents','Model tiers per agent in config (model string + fallback string)','Cheap where possible; judged on token efficiency','Cost control without redeploy','T,H','decided','1 Oct'],
+['D-26','Agents','Direct vendor keys through Pydantic AI providers; no LiteLLM proxy, no OpenRouter','Pydantic AI already gives one interface, FallbackModel and usage; a gateway adds a deployable with no new capability','Fewer moving parts; no third party in the model path','H,P,T','decided','1 Oct'],
+['D-27','Memory','Four memory kinds: working (job payload), short-term (case_runs + ledger in Mongo), long-term (precedents, overrides, corpus versions), learning (evals → prompt versions)','Memory in a regulated flow must be explicit, versioned and readable back','Institutional memory the bank lacks today; nothing implicit','H,G,C','decided','1 Oct'],
+['D-28','Memory','Redis (X7) as cache and bus only: token and permit cache, SSE fan-out, rate limits, eval LLM cache; optional in MVP','Already present via identity clone; needed only from two S1 replicas','Fast and scalable without touching the record','P','decided','1 Oct'],
+['D-29','Memory','No Mem0-style agent memory in the decision path','Implicit learned facts break no-source-no-claim and nothing-retroactive','Proposals rest only on documents, records and versions','G,J','decided','1 Oct'],
+['D-30','Guardrails','Seven-guard suite in one package, same order every call','Easy to explain and maintain','One test file per guard; one sentence for the panel','G,H','decided','1 Oct'],
+['D-31','Guardrails','OPA (cloned) for API authz and agent\u2192tool permits','Default-deny engine already exists; one engine for people and agents','Declarative, testable permits','G,P','decided','1 Oct'],
+['D-32','Guardrails','No source, no claim: unsourced output rejected before a human sees it','Fabricated citations are worse than none','Every proposal grounded','G,C','decided','30 Sep'],
+['D-33','Guardrails','The 8 rules as pure functions run before every state change','UI-only rules can be bypassed','Rules hold everywhere','G,J','decided','1 Oct'],
+['D-40','Scoring','Deterministic scoring in its own service; agents only propose inputs','Repeatable, explainable scores','No model ever sets a rating or band','J,G','decided','30 Sep'],
+['D-41','Scoring','Round to one decimal before band lookup; boundary flag at 0.5; planned controls not scored','Avoid silent routing errors and false comfort','Honest, stable scores','J','decided','30 Sep'],
+['D-50','Data','MongoDB 8, our own instance, one database per service (FARM stack)','Team standard; versioned nested records are documents; AEO Mongo repository and job-claim pattern reused unchanged','FastAPI · React · MongoDB end to end; insert-only user enforces the audit chain','P,H','changed','1 Oct'],
+['D-51','Data','S3 Vectors for the three indexes, using the cloned evoq_context backend as is','Already built and tested; no new backend to write','Zero vector-store code; AWS credentials needed from day one','H,C','decided','1 Oct'],
+['D-56','Stack','FARM stack strictly: FastAPI · React · MongoDB · Python 3.13 · uv · Pydantic 2.x','Team standard; matches AEO templates; one toolchain','No stack debate; reuse maximised','P,S','decided','1 Oct'],
+['D-52','Data','Clone evoq_ingestion and evoq_context into our repos (never call AEO)','Tested extractors and retrieval; days saved','Page:line sources and clause retrieval inherited','C,S','decided','1 Oct'],
+['D-53','Data','Hash-chained append-only audit with a verify endpoint','Examiners must trust the record','Tamper-evident trail','G,P','decided','30 Sep'],
+['D-54','Data','Every reference table versioned; cases pin their versions','Rule changes must not rewrite past decisions','Nothing retroactive','G,J','decided','30 Sep'],
+['D-55','Data','MinIO as the object store; the S3 API is the contract','Self-hosted, S3-compatible, runs in Compose; AWS S3 later by config','No cloud account for the demo; one code path for files','P','decided','1 Oct'],
+['D-60','Services','Five HTTP services: case, scoring, policy, audit, decision','Each has a boundary the panel will probe','Clear ownership; no shared tables','P,H','decided','1 Oct'],
+['D-61','Services','Clone evoqidentityservice for tokens and roles','Working identity with Entra route','No new auth code','P','decided','1 Oct'],
+['D-62','Services','PO API responses contain no score fields at all','Hiding on screen is not hiding','Visibility enforced server-side','G','decided','30 Sep'],
+['D-63','Services','Reuse the BA\u2019s React code; swap only the service layer','Validated UI; designed seam','Days saved; no UI regression','S','decided','30 Sep'],
+['D-64','Repos','One repo per service, worker and package; umbrella submission repo with submodules during development, vendored copies at the deadline','Microservice ownership; judges open one self-contained tree','Independent deploys; N repos possible; histories linked','P,S','decided','1 Oct'],
+['D-70','Evals','Golden set per agent from the 80 synthetic cases; results committed; gate on prompt change','Judged on knowing it is good and on feedback loops','Regressions visible in the repo','E,S','decided','1 Oct'],
+['D-71','Evals','Analyst override rate per agent as the live quality signal','Production truth beats offline sets','Real use feeds prompt fixes','E,H','decided','30 Sep'],
+['D-72','Evals','Reuse evoq_evals adapters and pattern (cloned)','Judge adapters exist; upgrade-safe layout','Less eval plumbing','E','decided','1 Oct'],
+['D-80','Observability','OpenTelemetry to Logfire; one trace per case','Services and SDK already emit OTel','Token and failure evidence for free','T,P','decided','1 Oct'],
+['D-90','Deploy','Docker Compose, one command; local quality gate (ruff, mypy, pytest, Semgrep, pre-commit); no CI, no Trivy','Scope decision; SAST evidence still needed','Repeatable deploy and quality proof','P,S','decided','1 Oct'],
+['D-90a','Deploy','One Dockerfile per repo; one root docker-compose.yaml in the umbrella repo; compose.dev.yaml per repo for solo runs','Each service builds and ships alone; the demo still starts with one command','Independent deploys without losing the single entry point','P,S','decided','1 Oct'],
+['D-91','Deploy','Commit small and daily; prompts and eval results are code','Commit history is scored','Shows how the team worked','S','decided','30 Sep'],
+['D-95','Docs','Final document set: Build Plan · Blueprint · Decision Log · Walkthrough · Prototype Teardown · Flow Map; Scope, Agent Stack and standalone Architecture retired as superseded','One place per topic; no duplicate diagrams to keep in sync','Judges and team read six pages, not nine','S','decided','1 Oct'],
+['D-92','Scope','Out: mobile layout, notification settings, Temporal, GitHub Actions, Trivy, OCR, multi-language','Time; no rubric weight lost','Focus on the 70 points in harness, evals, governance, context','S','decided','1 Oct']
+];
+var CH=[
+['30 Sep','v0.1 · Product and governance decisions from the BA review (D-01..04, D-12, D-22, D-23, D-32, D-40..42, D-54, D-55, D-62, D-63, D-72, D-92)'],
+['1 Oct','v0.2 · Scope fixed per team call; AEO reuse check; seven-guard suite; registries; evals and deploy decisions'],
+['1 Oct','v0.3 · Changed: database to PostgreSQL independent of AEO (D-50, D-51 open); orchestrator is original code (D-10); SDK research recorded (D-20); stack-to-services mapping added to the build plan']
+];
+var areas=[],rubs=Object.keys(R),stats={decided:0,open:0,changed:0,dropped:0};
+D.forEach(function(d){if(areas.indexOf(d[1])<0)areas.push(d[1]);stats[d[6]]=(stats[d[6]]||0)+1;});
+var rows=document.getElementById('rows');
+D.forEach(function(d){var tr=document.createElement('tr');tr.dataset.area=d[1];tr.dataset.rub=d[5];tr.dataset.stat=d[6];
+ tr.innerHTML='<td class="id">'+d[0]+'</td><td class="area">'+d[1]+'</td><td class="d">'+d[2]+'</td><td>'+d[3]+'</td><td>'+d[4]+'</td><td>'+d[5].split(',').map(function(k){return '<span class="chip r">'+R[k]+'</span>';}).join('')+'</td><td><span class="chip '+d[6]+'">'+d[6]+'</span></td>';rows.appendChild(tr);});
+var st=document.getElementById('stats');st.innerHTML='<div class="stat"><b>'+D.length+'</b><span>decisions</span></div><div class="stat"><b>'+stats.decided+'</b><span>decided</span></div><div class="stat"><b>'+stats.open+'</b><span>open</span></div><div class="stat"><b>'+areas.length+'</b><span>areas</span></div>';
+var f={area:null,rub:null,stat:null};
+function mk(id,key,list,label){var c=document.getElementById(id);var all=document.createElement('button');all.textContent='All';all.className='on';all.addEventListener('click',function(){f[key]=null;apply();});c.appendChild(all);list.forEach(function(v){var b=document.createElement('button');b.textContent=label?label(v):v;b.dataset.v=v;b.addEventListener('click',function(){f[key]=v;apply();});c.appendChild(b);});}
+mk('fArea','area',areas);mk('fRub','rub',rubs,function(k){return R[k];});mk('fStat','stat',['decided','open','changed','dropped']);
+function apply(){Array.prototype.forEach.call(rows.children,function(tr){var ok=(!f.area||tr.dataset.area===f.area)&&(!f.rub||tr.dataset.rub.split(',').indexOf(f.rub)>=0)&&(!f.stat||tr.dataset.stat===f.stat);tr.className=ok?'':'hide';});
+ [['fArea','area'],['fRub','rub'],['fStat','stat']].forEach(function(p){Array.prototype.forEach.call(document.getElementById(p[0]).querySelectorAll('button'),function(b){b.className=((!f[p[1]]&&b.textContent==='All')||b.dataset.v===f[p[1]])?'on':'';});});}
+var rg=document.getElementById('rubgrid');rubs.forEach(function(k){var n=D.filter(function(d){return d[5].split(',').indexOf(k)>=0;}).length;var dv=document.createElement('div');dv.innerHTML='<b>'+R[k]+'</b>'+n+' decisions<br><small>'+({H:'architecture, orchestration, context, data foundation, instruction design, AI/people split',S:'AI in all six stages, connected flow',G:'review gates and the risk each controls',E:'what we measure, how, and the feedback loop',C:'research, domain knowledge, context kept across the flow',P:'scale, security, standards, reliability',T:'models used, where tokens go, what we optimised',J:'deterministic vs probabilistic, where plain logic won'})[k]+'</small>';rg.appendChild(dv);});
+var cl=document.getElementById('changes');CH.forEach(function(c){var d=document.createElement('div');d.innerHTML='<span>'+c[1]+'</span>';cl.appendChild(d);});
+})();
+</script>
+</body></html>

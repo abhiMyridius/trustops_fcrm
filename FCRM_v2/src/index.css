@@ -1,0 +1,282 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Myridius Design System - token layer
+   Source: Myridius Design System (Standalone).html
+   Light theme only.
+   ============================================================ */
+:root {
+  /* Brand */
+  --color-carbon-moss: #194247;
+  --color-carbon-moss-hover: #14363b;
+  --color-carbon-moss-deep: #133338;
+  --color-quantum-leaf: #52e081;
+  --color-quantum-leaf-tint-1: #94dea5;
+  --color-quantum-leaf-tint-2: #cbebbd;
+  --color-quantum-leaf-tint-3: #e3f6db;
+  --color-teal: #09a78d;
+  --color-digital-pavo: #337077;
+
+  /* Surface */
+  --color-canvas: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-secondary: #ededec;
+  --color-surface-tertiary: #f0efed;
+
+  /* Text */
+  --color-text-primary: #0c2226;
+  --color-text-secondary: #285055;
+  --color-text-muted: #52787d;
+  --color-text-faint: #9caaab;
+  --color-text-on-dark: #ffffff;
+  --color-text-on-dark-muted: #c7d5d5;
+
+  /* Borders */
+  --color-border: #dde3e2;
+  --color-border-strong: #c3d2d3;
+  --color-border-subtle: #e1e6e4;
+  --color-border-hairline: #e5e8e6;
+
+  /* Semantic */
+  --color-success: #09a78d;
+  --color-warning: #b98a1e;
+  --color-danger: #8a3324;
+  --color-danger-bg: #f9ece9;
+  --color-info: #337077;
+
+  /* Ink numbered scale 1 (Cloud White) -> 10 (Carbon Moss) */
+  --ink-1: #ffffff;
+  --ink-2: #f6f3f0;
+  --ink-3: #ededec;
+  --ink-4: #e3e6e4;
+  --ink-5: #d6dbd9;
+  --ink-6: #c3cdcb;
+  --ink-7: #9fb0ae;
+  --ink-8: #6e8386;
+  --ink-9: #345257;
+  --ink-10: #0c2226;
+
+  /* Verdant numbered scale */
+  --verdant-1: #f4fbf1;
+  --verdant-2: #e3f6db;
+  --verdant-3: #cbebbd;
+  --verdant-4: #b3e6ae;
+  --verdant-5: #94dea5;
+  --verdant-6: #6fd79b;
+  --verdant-7: #52e081;
+  --verdant-8: #2fae86;
+  --verdant-9: #09a78d;
+  --verdant-10: #163439;
+
+  /* Chart-only extras */
+  --chart-neural-beam: #e5fd84;
+  --chart-deep-1: #285c62;
+  --chart-deep-2: #163439;
+
+  /* Typography */
+  --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Radius scale */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 999px;
+
+  /* Elevation (Materials) */
+  --shadow-sm: 0 1px 2px rgba(12, 34, 38, 0.08);
+  --shadow-md: 0 4px 10px rgba(12, 34, 38, 0.1);
+  --shadow-lg: 0 10px 24px rgba(12, 34, 38, 0.14);
+  --shadow-xl: 0 20px 48px rgba(12, 34, 38, 0.18);
+
+  /* Materials */
+  --material-flat-bg: var(--color-surface);
+  --material-flat-border: var(--ink-6);
+  --material-flat-radius: var(--radius-md);
+
+  --material-raised-bg: var(--color-surface);
+  --material-raised-border: var(--ink-6);
+  --material-raised-radius: var(--radius-lg);
+  --material-raised-shadow: var(--shadow-md);
+
+  --material-elevated-bg: var(--color-surface);
+  --material-elevated-radius: var(--radius-xl);
+  --material-elevated-shadow: var(--shadow-xl);
+
+  --material-scrim-bg: rgba(12, 34, 38, 0.45);
+
+  /* Layout */
+  --container-max: 1280px;
+  --grid-gutter: 24px;
+
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-carbon-moss: var(--color-carbon-moss);
+  --color-carbon-moss-hover: var(--color-carbon-moss-hover);
+  --color-carbon-moss-deep: var(--color-carbon-moss-deep);
+  --color-quantum-leaf: var(--color-quantum-leaf);
+  --color-quantum-leaf-tint-1: var(--color-quantum-leaf-tint-1);
+  --color-quantum-leaf-tint-2: var(--color-quantum-leaf-tint-2);
+  --color-quantum-leaf-tint-3: var(--color-quantum-leaf-tint-3);
+  --color-teal: var(--color-teal);
+  --color-digital-pavo: var(--color-digital-pavo);
+
+  --color-canvas: var(--color-canvas);
+  --color-surface: var(--color-surface);
+  --color-surface-secondary: var(--color-surface-secondary);
+  --color-surface-tertiary: var(--color-surface-tertiary);
+
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-faint: var(--color-text-faint);
+
+  --color-border: var(--color-border);
+  --color-border-strong: var(--color-border-strong);
+  --color-border-subtle: var(--color-border-subtle);
+  --color-border-hairline: var(--color-border-hairline);
+
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-danger: var(--color-danger);
+  --color-info: var(--color-info);
+
+  --font-sans: var(--font-sans);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-full: var(--radius-full);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: var(--color-carbon-moss);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--color-carbon-moss-hover);
+  text-decoration: underline;
+}
+
+::selection {
+  background: var(--color-quantum-leaf-tint-2);
+}
+
+/* Scrollbars - quiet, not default-chrome */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--ink-6);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-canvas);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-7);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes dotPulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.75);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+@keyframes stripes {
+  to {
+    background-position: 28px 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--ink-3) 25%, var(--ink-4) 37%, var(--ink-3) 63%);
+  background-size: 800px 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

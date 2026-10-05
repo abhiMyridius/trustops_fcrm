@@ -1,0 +1,643 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Risk Assessment Workbench · Build plan</title></head><body>
+<title>Workbench Build Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: spec sheet in numbered sections. Dense keyword cells, phase chips, reuse chips. Fixed light theme. */
+:root{color-scheme:light;
+  --bg:#F2F4F3; --surface:#FFFFFF; --surface-2:#E7ECEA; --ink:#0C2226; --ink-2:#2B5358; --ink-3:#5C7F84; --border:#D3DDDB;
+  --moss:#194247; --accent:#09A78D;
+  --in:#09A78D; --in-bg:#DDF3EE; --later:#B98A1E; --later-bg:#FBF1D9; --out:#9a3524; --out-bg:#F7E3DE; --reuse:#2B5358; --reuse-bg:#E3EBF5; --new:#5C4A9A; --new-bg:#ECE7F7;
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif; --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.4}
+.wrap{max-width:1200px;margin:0 auto;padding-inline:20px;padding-block:24px 48px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(26px,3vw,38px);margin:0;line-height:1.05;color:var(--moss)}
+h1 span{color:var(--accent)}
+.sub{color:var(--ink-2);margin:4px 0 0;max-width:72ch}
+.legend{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:inline-block;padding:1px 9px;border-radius:999px;font-size:11.5px;font-weight:700;white-space:nowrap}
+.in{background:var(--in-bg);color:#0b6b5a}.later{background:var(--later-bg);color:#7a5a10}.out{background:var(--out-bg);color:var(--out)}.reuse{background:var(--reuse-bg);color:#1f4a7a}.new{background:var(--new-bg);color:var(--new)}
+nav.toc{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--border);margin:0 -20px 18px;padding:0 20px;overflow-x:auto}
+nav.toc ul{display:flex;gap:2px;list-style:none;margin:0;padding:0;white-space:nowrap}
+nav.toc a{display:inline-block;padding:9px 10px;font-size:13px;color:var(--ink-2);text-decoration:none;border-bottom:2px solid transparent}
+nav.toc a:hover{color:var(--ink);border-bottom-color:var(--accent)}
+section.page{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:18px;scroll-margin-top:48px}
+section.page>h2{font-family:var(--f-display);font-weight:700;font-size:22px;margin:0 0 4px;color:var(--moss)}
+section.page>h2 small{font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;color:var(--accent);margin-right:10px;vertical-align:middle}
+.lede{color:var(--ink-2);margin:0 0 12px;max-width:80ch}
+h3{font-family:var(--f-display);font-weight:600;font-size:17px;margin:16px 0 8px;color:var(--moss)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+th{background:var(--surface-2);font-size:12px;font-weight:600;color:var(--ink-2)}
+tbody tr:last-child td{border-bottom:none}
+td:first-child{font-weight:600}
+.scroll{overflow-x:auto;border:1px solid var(--border);border-radius:8px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.box{border:1px solid var(--border);border-radius:8px;padding:12px 14px;background:#FAFBFA;min-width:0}
+.box h4{margin:0 0 6px;font-family:var(--f-display);font-size:16px;color:var(--moss)}
+.box ul{margin:0;padding-left:16px}
+.box li{margin:3px 0}
+.kw{font-family:var(--f-mono);font-size:12.5px;background:var(--surface-2);padding:0 5px;border-radius:4px;white-space:nowrap}
+.tree{font-family:var(--f-mono);font-size:12.5px;line-height:1.65;white-space:pre;overflow-x:auto}
+.diagram{overflow-x:auto;border:1px solid var(--border);border-radius:8px;padding:10px;background:#FAFBFA}
+.diagram pre.mmd{margin:0;background:transparent;text-align:center}
+.cap{font-size:12.5px;color:var(--ink-3);margin:4px 0 0}
+.note{border-left:3px solid var(--accent);background:#F0F7F5;padding:8px 12px;border-radius:0 8px 8px 0;margin-top:12px;font-size:13.5px}
+pre.calc{background:var(--moss);color:#E1E6E4;border-radius:8px;padding:12px 14px;font-family:var(--f-mono);font-size:12.5px;line-height:1.6;overflow-x:auto;margin:0}
+pre.calc .hl{color:#52E081}pre.calc .dim{color:#8AAEB2}
+.mmd .edgeLabel,.mmd .edgeLabel foreignObject div{color:#0C2226!important;background:transparent!important;font-size:12px!important}
+.mmd .edgeLabel p,.mmd .edgeLabel span.edgeLabel{color:#0C2226!important;background:#FBF1D9!important;padding:0 3px;border-radius:3px;margin:0}
+.mmd .edgeLabel rect{fill:#FBF1D9!important}
+@media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr}}
+pre.mmd{white-space:normal;font-family:inherit;margin:0;background:transparent;text-align:center}
+pre.mmd:not([data-processed]){white-space:pre;font-family:var(--f-mono);font-size:11px;color:var(--ink-3);text-align:left}
+</style>
+
+<div class="wrap">
+<header>
+  <div><h1>Build plan <span>· Risk Assessment Workbench</span></h1><p class="sub">Scope is decided below. Original orchestrator, FARM stack (FastAPI · React · MongoDB), cloned AEO engines where they fit, Pydantic AI talking directly to model vendors. Python 3.13 managed with uv; Pydantic 2.x everywhere. Every decision is logged in the Decision Log. Keywords, not prose.</p></div>
+  <div class="legend"><span class="chip in">In scope</span><span class="chip later">Later</span><span class="chip out">Out</span><span class="chip reuse">Reuse from AEO</span><span class="chip new">New</span></div>
+</header>
+
+<nav class="toc"><ul>
+  <li><a href="#scope">1 Scope</a></li><li><a href="#usecase">1b Use case</a></li><li><a href="#reuse">2 Reuse check</a></li><li><a href="#arch">3 Services</a></li><li><a href="#map">3b Stack ↔ services</a></li><li><a href="#agents">4 Agent platform</a></li><li><a href="#memory">4b Memory</a></li><li><a href="#guard">5 Guardrail suite</a></li><li><a href="#scoring">6 Scoring</a></li><li><a href="#data">7 Data</a></li><li><a href="#evals">8 Evals</a></li><li><a href="#ops">9 Observability · Auth · Deploy</a></li><li><a href="#repo">10 Repos</a></li><li><a href="#decide">11 Decisions</a></li>
+</ul></nav>
+
+<!-- 1 SCOPE -->
+<section class="page" id="scope">
+  <h2><small>01</small>Scope, decided</h2>
+  <p class="lede">What we build for the submission. Almost everything from the earlier three phases is in; the few exclusions are listed.</p>
+  <div class="scroll"><table>
+    <thead><tr><th style="width:13%">Area</th><th style="width:62%">In scope</th><th>Out</th></tr></thead>
+    <tbody>
+      <tr><td>Screens</td><td><span class="chip in">all</span> PO: Dashboard · New case · Case detail (Overview · Documents · Inbox · Conditions · Activity) · Templates · Integrations (SharePoint via AEO ingestion). Analyst: Dashboard · Queue · Workbench (8 tabs) · Assurance (Ask · Overrides · Watchlist · Agent quality) · Config (Categories &amp; Fields · Classification · Scoring · Controls · Policy corpus · Routing · Jurisdictions · Agents). Committee: Queue · Case (Pack · Inbox · Vote)</td><td><span class="chip out">mobile layout</span> <span class="chip out">notification settings</span></td></tr>
+      <tr><td>Agents</td><td><span class="chip in">all</span> Intake · Research · Assessment · Critic · Narrative · Examiner · Screening (fast lane) · Watchlist re-flag · Policy-gap suggester</td><td>multi-language documents</td></tr>
+      <tr><td>Harness</td><td><span class="chip in">MVP + Phase 2</span> <b>original orchestrator</b> (our code, no framework) · job workers (RabbitMQ) · human gates (incl. completeness check before review) · evidence ledger · hash-chained audit · retries · model fallback chains · per-case token budget · agent, tool, skill and prompt registries</td><td><span class="chip out">Temporal</span></td></tr>
+      <tr><td>Scoring</td><td><span class="chip in">all</span> BA engine ported · versioned scoring models · re-score with reason · boundary flag · tests from worked example · see section 6</td><td>—</td></tr>
+      <tr><td>Data</td><td><span class="chip in">all</span> MongoDB 8 (FARM stack; our own instance, not AEO’s) · one database per service · S3 Vectors (AWS) for clause, precedent and control indexes via the cloned evoq_context backend · MinIO (S3-compatible) for files locally · versioned reference collections · 80 synthetic cases seeded · policy ingestion via <span class="kw">evoq_ingestion</span></td><td>OCR of scanned PDFs</td></tr>
+      <tr><td>Guardrails</td><td><span class="chip in">all</span> 7-guard suite (section 5) · OPA for API authz and agent tool permits · output policy checks · rate limits · red-team eval set</td><td>—</td></tr>
+      <tr><td>Evals</td><td><span class="chip in">all</span> golden sets per agent · faithfulness · F1 · accuracy · override rate · LLM-as-judge for narrative · eval gate on prompt change (pre-commit / make check) · drift report · human review sampling</td><td>—</td></tr>
+      <tr><td>Observability</td><td><span class="chip in">MVP</span> OpenTelemetry (platform scaffold) → Logfire · one trace per case · spans per agent step · tokens, cost, latency · override-rate dashboard</td><td><span class="chip later">alerts · SLOs · SIEM</span></td></tr>
+      <tr><td>Auth</td><td><span class="chip in">MVP</span> <span class="kw">evoqidentityservice</span> tokens · 3 roles · OPA route rules · server strips restricted fields for PO</td><td><span class="chip later">enterprise SSO rollout</span></td></tr>
+      <tr><td>Deploy</td><td><span class="chip in">MVP</span> Dockerfile per repo · one root docker-compose.yaml in the umbrella repo · <span class="kw">make check</span>: ruff · ruff format · mypy · pytest · compose-check · Semgrep local · pre-commit</td><td><span class="chip out">GitHub Actions</span> <span class="chip out">Trivy</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- 1b USE-CASE SCOPE -->
+<section class="page" id="usecase">
+  <h2><small>01b</small>Use-case scope · what the workbench covers in this build</h2>
+  <p class="lede">Financial-crime risk assessment of <b>changes</b> at a US bank, before go-live. Not fraud, not credit, not transaction-monitoring operations. Below is exactly which domains, policies and data the agents are allowed to reason over.</p>
+  <div class="grid3">
+    <div class="box"><h4>In scope · the assessment itself</h4><ul>
+      <li><b>Six change types</b> (triggers): new product · new feature · process change · vendor / third-party onboarding · new geography · new customer segment</li>
+      <li><b>Four risk domains</b> (FFIEC BSA/AML Manual): customer or entity · product and service · geography · delivery channel and third party</li>
+      <li><b>Risk types inside those domains:</b> money laundering · terrorist financing · sanctions exposure · third-party (vendor and agent) AML risk</li>
+      <li><b>Four outcomes:</b> approve · approve with conditions · defer · reject</li>
+      <li><b>Jurisdiction:</b> US-regulated bank; US federal supervisory framework; FATF lists for country risk</li></ul></div>
+    <div class="box"><h4>Out of scope · named so nobody asks</h4><ul>
+      <li>Fraud risk, credit risk, operational or market risk</li>
+      <li>Running sanctions screening or transaction monitoring (we assess whether those <i>controls</i> exist and how strong they are)</li>
+      <li>SAR / STR filing, case investigations, customer-level KYC decisions</li>
+      <li>Non-US regimes (EU AMLD, UK MLRs) beyond FATF country lists</li>
+      <li>Model-risk validation of the bank’s own ML models</li></ul></div>
+    <div class="box"><h4>Why this boundary</h4><ul>
+      <li>It is exactly the brief: "assess the financial crime risk a change introduces before it goes live"</li>
+      <li>FFIEC’s four domains are the published decomposition the brief demands</li>
+      <li>Small enough to seed a real policy corpus and a real control inventory in days</li>
+      <li>Wide enough that one demo case touches three of four domains</li></ul></div>
+  </div>
+
+  <h3>Policy corpus · what the research agent may quote</h3>
+  <div class="scroll"><table>
+    <thead><tr><th style="width:30%">Source</th><th style="width:42%">Sections loaded</th><th>Used for</th></tr></thead>
+    <tbody>
+      <tr><td><b>FFIEC BSA/AML Examination Manual</b> (public)</td><td>BSA/AML Risk Assessment · Customer Due Diligence · Third-Party Payment Processors · Electronic Banking · Funds Transfers · Nonbank Financial Institutions / MSBs · Foreign Correspondent Accounts (summary)</td><td>Risk domains, inherent-risk factors, expected controls</td></tr>
+      <tr><td><b>OFAC sanctions programme requirements</b> (public, summarised)</td><td>Screening obligations · list types (SDN, sectoral) · 50% rule</td><td>Sanctions screening control expectations</td></tr>
+      <tr><td><b>FinCEN AML/CFT program rule</b> (proposed Apr 2026, summarised)</td><td>Risk assessment process · update on new products, markets, customer types</td><td>The "why" for assessing changes at all</td></tr>
+      <tr><td><b>OCC Bulletin 2017-43</b> (public, summarised)</td><td>New, modified or expanded products: due diligence · approval · post-launch monitoring</td><td>Conditions and follow-up after approval</td></tr>
+      <tr><td><b>FATF</b> (public)</td><td>High-risk and increased-monitoring jurisdiction lists, June 2026 (+ Oct 2026 fixture)</td><td>Geography risk, watchlist re-flag</td></tr>
+      <tr><td><b>Internal FCRM Policy 4.2</b> (synthetic)</td><td>High-Risk Corridor Jurisdictions: screening at onboarding, EDD where destination is High</td><td>Geography controls</td></tr>
+      <tr><td><b>Internal Third-Party AML Standard 7.1</b> (synthetic)</td><td>Payout agents: independent corridor-scope assessment, agent KYC standard, contract AML clauses</td><td>Vendor and agent controls</td></tr>
+      <tr><td><b>Internal Product Risk Standard 2.3</b> (synthetic)</td><td>Product sign-off, transaction limits and velocity rules, disclosure</td><td>Product and service controls</td></tr>
+      <tr><td><b>Internal Customer Onboarding Standard 1.8</b> (synthetic)</td><td>KYC/CDD, PEP screening, beneficial ownership, periodic refresh, segment attestations</td><td>Customer and entity controls</td></tr>
+    </tbody>
+  </table></div>
+  <p class="cap">Public sources are loaded as summaries and section extracts with citations to the public document; internal standards are synthetic documents we author so the corpus has clause-level texts the agent can quote. Every clause carries a corpus version.</p>
+
+  <h3>Reference data · what the assessment agent may rate</h3>
+  <div class="grid3">
+    <div class="box"><h4>Control inventory · 24 controls</h4><ul><li>Geography: jurisdiction screening · corridor EDD · sanctions list screening (OFAC/UN/EU) · local licensing confirmation</li><li>Third party: vendor due diligence · payout-agent monitoring · contract AML clauses · agent KYC sampling</li><li>Product: transaction limits and velocity · product sign-off · monitoring rule coverage · disclosure and consent · fee transparency</li><li>Customer: KYC/CDD · EDD for high-risk · PEP screening · periodic refresh · beneficial ownership · adverse media · segment attestation</li><li>Each with weight, evidence artefact and test date</li></ul></div>
+    <div class="box"><h4>Scoring model v3</h4><ul><li>Likelihood and impact definitions 1–5 per domain</li><li>Retention floor 40%</li><li>Bands 1–4 · routing: 1–2 analyst, 3–4 committee</li><li>Boundary flag 0.5</li><li>Domain weights normalised across in-scope domains</li></ul></div>
+    <div class="box"><h4>Field set v6 · 18 required fields max</h4><ul><li>6 always-required: change owner · description · go-live date · customer segment · volumes · partner / vendor identity (when a third party is involved)</li><li>Per-type extras: corridor countries · payout channels · licence numbers · data handled · process owner</li></ul></div>
+  </div>
+
+  <h3>Demo story arc · one case, every gate</h3>
+  <div class="scroll"><table>
+    <thead><tr><th style="width:5%">Act</th><th style="width:30%">Beat</th><th>What it proves</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Payments wants consumer remittances US → Mexico through payout partner Remesas del Norte (vendor + geography + product)</td><td>One change, three domains in scope</td></tr>
+      <tr><td>2</td><td>Documents first; the intake agent finds 15 values with sources; a new fact (cash pickup) appears at intake</td><td>Slow → fast; honest handling of surprises</td></tr>
+      <tr><td>3</td><td>Research quotes four clauses and declares a gap (cash-pickup agents); assessment proposes ratings; score 9.8, Band 2, boundary flag</td><td>Policy retrieved not generated; scoring is arithmetic</td></tr>
+      <tr><td>4</td><td>The critic flags vendor DD 7.6 vs precedent 4.9 on a stale, domestic-only audit</td><td>Consistency across analysts</td></tr>
+      <tr><td>5</td><td>Analyst overrides to 4.5 with reason; 11.5, Band 3, committee; record #31 hash-chained</td><td>Human disagrees, consequences handled, trail intact</td></tr>
+      <tr><td>6</td><td>Completeness check at the top of the review: the narrative agent lists gaps and drafts questions; the analyst asks in one round before reviewing further; owner answers; planned review recorded, not scored</td><td>Ask early, save the review; two clocks; planned is not done</td></tr>
+      <tr><td>7</td><td>Hidden votes: 2 approve with conditions, 1 defer; three tracked conditions</td><td>Nothing auto-approved; conditions real</td></tr>
+      <tr><td>8</td><td>Six months later the examiner agent answers "why committee?" from the log; a new FATF list re-flags two open cases</td><td>Traceable; oversight continues</td></tr>
+    </tbody>
+  </table></div>
+  <p class="cap">Supporting synthetic cases for the demo queue: KYC vendor renewal (fast lane, Band 1) · card controls in app (Band 2, awaiting business) · crypto custody pilot (Band 4, committee).</p>
+</section>
+
+<!-- 2 REUSE -->
+<section class="page" id="reuse">
+  <h2><small>02</small>Reuse check against the AEO folder</h2>
+  <p class="lede">Checked the code directly. Rule: AEO code is <b>cloned into our own repositories and changed there</b>. We never import from or call the running AEO services. Both engines are built to be portable (no host imports, AST-enforced by their own tests).</p>
+  <div class="scroll"><table>
+    <thead><tr><th style="width:17%">AEO component</th><th style="width:28%">What it is</th><th style="width:26%">We use it for</th><th>Compatibility · changes</th></tr></thead>
+    <tbody>
+      <tr><td><span class="chip reuse">evoq_ingestion</span><br><span class="kw">aeoingestionjob/evoq_ingestion</span></td><td>Portable extraction engine. PDF · DOCX · XLSX · PPTX · CSV · text → <span class="kw">DocumentModel</span> → canonical Markdown with <span class="kw">--- Page N ---</span> markers. Hard limits, lower_snake failure codes, 85% test coverage</td><td>Intake agent's <span class="kw">document_reader</span> tool. Policy corpus ingestion (FFIEC, internal standards). Clarification attachments</td><td><b>Direct.</b> Clone package. Drop <span class="kw">sources/jira,confluence</span>. Add line offsets per page for <span class="kw">page:line</span> source refs. Keep its tests</td></tr>
+      <tr><td><span class="chip reuse">evoq_context</span><br><span class="kw">aeocontextjob/evoq_context</span></td><td>Chunking (heading · paragraph · page · table segmenters, hierarchy enrichers) · LiteLLM embeddings · <span class="kw">VectorStore</span> protocol with S3 Vectors backend + in-memory for tests · retrieval <span class="kw">search()</span> · snapshots</td><td>Policy clause index. Precedent (closed cases) index. Control inventory search. Your S3 Vectors preference is already implemented here</td><td><b>Direct.</b> Clone package; its S3 Vectors backend is used as is. Add clause-level segmenter and metadata filters (corpus version, jurisdiction, trigger type). Embeddings via its existing LiteLLM SDK client (Bedrock Titan v2)</td></tr>
+      <tr><td><span class="chip reuse">OPA sidecar</span><br><span class="kw">aeo-opaserver-dcsetup</span></td><td>Default-deny Rego. Rules by service · method · path · role in <span class="kw">permissions.json</span>. k8s manifests included</td><td>API authz for 3 roles. <b>Extended:</b> agent → tool permits (<span class="kw">input.agent, input.tool</span>) so one policy engine covers people and agents</td><td><b>Direct for API.</b> Add FCRM roles and route rules. New package <span class="kw">tools.rego</span> + <span class="kw">tool_permits.json</span>. Called from the harness before every tool call</td></tr>
+      <tr><td><span class="chip reuse">evoqidentityservice</span></td><td>Token issue and <span class="kw">/core/validate</span>. MSAL (Entra) routes. Every service validates by calling it</td><td>Auth for all three roles. Same interceptor pattern (<span class="kw">interceptors/apisecurity.py</span>)</td><td><b>Direct.</b> Add roles <span class="kw">fcrm_po · fcrm_analyst · fcrm_committee</span>. Seed 3 demo users</td></tr>
+      <tr><td><span class="chip reuse">GenericService template</span></td><td>FastAPI · routes → services → repository · <span class="kw">lifespan</span> · pydantic-settings · OTel tracer + structured logs · masterdata seed on startup</td><td>Every new HTTP service below</td><td><b>Direct.</b> Fork per service; the Mongo repository driver stays. Move to <span class="kw">uv</span> + <span class="kw">pyproject.toml</span>, Python 3.13, Pydantic 2.x. Fix the <span class="kw">print()</span> in the interceptor → logger</td></tr>
+      <tr><td><span class="chip reuse">Generic Job Worker</span></td><td>FastStream/RabbitMQ consumer · <span class="kw">jobs/registry.py</span> maps action → job class · MongoDB tracks job state with atomic claims</td><td>Agent workers. The registry pattern becomes our agent registry</td><td><b>Direct.</b> Same consumer shape, registry and Mongo atomic-claim job state. Engine = our <span class="kw">fcrm_agents</span> package, host-import-free like the others</td></tr>
+      <tr><td><span class="chip reuse">evoq_evals</span><br><span class="kw">mcps/evoq_aidlc_mcp/evoq_evals</span></td><td>Read-only eval sidecar: anti-corruption <span class="kw">reader</span> → <span class="kw">EvalView</span>, metrics (trust · integrity · code), DeepEval and Ragas judge adapters, report</td><td>Pattern and adapters for <span class="kw">/evals</span>. Faithfulness and judge metrics</td><td><b>Pattern + adapters.</b> Metrics are AIDLC-specific; write FCRM metrics on the same base class</td></tr>
+      <tr><td><span class="chip reuse">OTel scaffold</span><br><span class="kw">apptracer · applogs</span></td><td>OTLP span/log/metric exporters via env endpoints; observer adapters keep engines free of OTel</td><td>Point OTLP endpoints at Logfire. Same observer protocol for agent events</td><td><b>Direct.</b> Logfire accepts OTLP; no code change beyond env</td></tr>
+      <tr><td><span class="chip reuse">contracts/</span></td><td>Canonical Document, Index Contract v2, context bundle, golden fixtures</td><td>Our tools consume the same canonical Markdown and index contract</td><td><b>Consume as is.</b> Add an FCRM proposal schema alongside</td></tr>
+      <tr><td><span class="chip out">aeoservice · configservice</span></td><td>AEO project/team domain, integration-config encryption</td><td>Not needed. Borrow <span class="kw">drivers/encryption.py</span> only if we store vendor credentials</td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><b>Consequence:</b> we reuse code and patterns, not the platform’s running services or data. Engines, templates (including the Mongo repository driver), OPA, identity and the OTel wiring are cloned. Data lives in our own MongoDB instance. Agents call model vendors directly through Pydantic AI; the cloned engines keep their own embedding client. Our new code is the FCRM domain, the agents, the original orchestrator and the guardrail suite.</div>
+</section>
+
+<!-- 3 SERVICES -->
+<section class="page" id="arch">
+  <h2><small>03</small>Services · event-driven microservices with an orchestrated agent harness</h2>
+  <p class="lede">Component IDs match the Architecture page. FARM stack: FastAPI services, React front end, MongoDB. Each service owns one scope, one Mongo database, one API. Services talk HTTP for reads and RabbitMQ events for work. No service reads another’s database.</p>
+  <div class="diagram">
+<pre class="mmd">
+flowchart LR
+  W["W1 · fcrm-web<br/>React · BA screens"]
+  GW["G1 · nginx gateway<br/>/api/fcrm/*"]
+  subgraph HTTP["HTTP services · GenericService template"]
+    direction TB
+    C["S1 · case-service<br/>cases · versions · fields · documents<br/>clarifications · conditions · SSE events"]
+    S["S2 · scoring-service<br/>scoring engine · bands · routing<br/>scoring model versions"]
+    P["S3 · policy-service<br/>policy corpus · controls · jurisdictions<br/>search API over evoq_context"]
+    A["S4 · audit-service<br/>evidence ledger · hash chain<br/>verify · examiner read API"]
+    D["S5 · decision-service<br/>packs · votes · outcomes"]
+  end
+  subgraph WORK["Workers · Generic Job Worker template"]
+    direction TB
+    O["H1 · orchestrator (Caseflow)<br/>original · state machine per case<br/>gates · retries · budgets"]
+    AG["H2 · agent-worker ×N<br/>agent registry · tools · skills"]
+    IN["H3 · ingestion-worker<br/>evoq_ingestion clone"]
+    CX["H4 · context-worker<br/>evoq_context clone"]
+  end
+  subgraph PLAT["Platform · reused"]
+    direction TB
+    ID["X1 · identity (clone)"]
+    OPA["X2 · OPA sidecar<br/>authz + tool permits"]
+    MQ[("X3 · RabbitMQ")]
+    DB[("D1 · MongoDB 8<br/>database per service")]
+    S3[("D2 · MinIO files<br/>+ S3 Vectors indexes")]
+    RD[("X7 · Redis<br/>cache · SSE fan-out")]
+    LF["X5 · Logfire via OTLP"]
+    LLM["X4 · model vendors<br/>Anthropic · OpenAI · Bedrock<br/>direct via Pydantic AI"]
+  end
+  W --> GW --> C
+  GW --> S
+  GW --> P
+  GW --> A
+  GW --> D
+  C -. cache · pub/sub .-> RD
+  C <--> MQ <--> O
+  O <--> MQ
+  MQ <--> AG
+  MQ <--> IN
+  MQ <--> CX
+  AG --> P
+  AG --> S
+  AG --> A
+  AG --> LLM
+  AG -. permit? .-> OPA
+  C -. token .-> ID
+  CX --> S3
+  P --> S3
+  HTTP --> DB
+  WORK -.-> LF
+  HTTP -.-> LF
+  classDef r fill:#E3EBF5,stroke:#1f4a7a,color:#0C2226
+  classDef n fill:#DDF3EE,stroke:#09A78D,color:#0C2226
+  class ID,OPA,MQ,DB,S3,LF,LLM,IN,CX r
+  class C,S,P,A,D,O,AG,W,GW n
+</pre>
+  </div>
+  <p class="cap">Blue = reused from AEO (code and sidecars, not data). Green = new. Nine new deployables plus the platform. For the demo they all run from one root <span class="kw">docker-compose.yaml</span> in the umbrella repo; each image is built from its own repo’s Dockerfile.</p>
+
+  <h3>Scope and boundary per service</h3>
+  <div class="scroll"><table>
+    <thead><tr><th style="width:18%">Service</th><th style="width:34%">Owns</th><th style="width:24%">Exposes</th><th>Never does</th></tr></thead>
+    <tbody>
+      <tr><td>S1 case-service</td><td>Case lifecycle, submission versions, field values, documents (object-store refs), clarification threads, conditions, SSE event stream to the UI</td><td>REST + SSE · publishes <span class="kw">case.submitted</span>, <span class="kw">case.answered</span></td><td>Score anything. Call a model</td></tr>
+      <tr><td>S2 scoring-service</td><td>Deterministic engine, band table, routing rules, scoring model versions</td><td><span class="kw">POST /score</span> (pure, idempotent) · <span class="kw">GET /models/{v}</span></td><td>Store case data. Call a model</td></tr>
+      <tr><td>S3 policy-service</td><td>Policy corpus versions, controls inventory, jurisdiction list (FATF), search over S3 Vectors</td><td><span class="kw">/policy/search · /controls · /jurisdictions</span></td><td>Decide applicability. That is the agent plus human</td></tr>
+      <tr><td>S4 audit-service</td><td>Evidence ledger (proposals), append-only audit records with <span class="kw">prev_hash</span>, verify endpoint, examiner read API</td><td><span class="kw">POST /records</span> (append only) · <span class="kw">GET /verify/{case}</span></td><td>Update or delete. There is no such endpoint</td></tr>
+      <tr><td>S5 decision-service</td><td>Pack assembly from locked numbers, votes (hidden until N), tally, outcome, condition activation</td><td><span class="kw">/packs · /votes · /outcome</span></td><td>Reveal a vote early. Call a model</td></tr>
+      <tr><td>H1 orchestrator (Caseflow)</td><td><b>Original code.</b> One state machine per case: intake → assess → critic → completeness check → review → decide → oversight. Steps are idempotent handlers; state is event-sourced in the <span class="kw">case_runs</span> collection; outbox collection → RabbitMQ; gates, retries, fallback, token budget</td><td>Consumes case events · publishes <span class="kw">agent.run</span> jobs · waits on <span class="kw">gate.decided</span></td><td>Reason. It is plain code</td></tr>
+      <tr><td>H2 agent-worker</td><td>Runs one agent job: load prompt, check permits, call tools, validate output, write proposals</td><td>Consumes <span class="kw">agent.run</span> · publishes <span class="kw">agent.done</span></td><td>Write to case or audit directly. Only via service APIs</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- 3b MAPPING -->
+<section class="page" id="map">
+  <h2><small>03b</small>How the stack diagram maps to the services</h2>
+  <p class="lede">The stack view (experience · harness cores · agents · tools · data) is the <b>logical</b> picture. The services are the <b>deployment</b> picture. One layer is not one service; here is the exact link and why.</p>
+  <div class="scroll"><table>
+    <thead><tr><th style="width:17%">Stack layer</th><th style="width:30%">Lives in</th><th>Reasoning</th></tr></thead>
+    <tbody>
+      <tr><td>1 · Experience</td><td><span class="kw">fcrm-web</span> + nginx + the SSE stream from <span class="kw">case-service</span></td><td>Screens are one deployable. Live updates come from the service that owns case state, so the UI never talks to agents directly</td></tr>
+      <tr><td>2 · Harness cores</td><td><span class="kw">fcrm-orchestrator</span>: four modules <span class="kw">intake_core · assessment_core · decision_core · oversight_core</span>, plus <span class="kw">gate_manager</span>. Evidence ledger and audit chain live in <span class="kw">audit-service</span>. Guardrails are a package used by orchestrator and agent worker</td><td><b>The harness is the orchestrator plus the guardrail and audit pieces it depends on; it is not "the services".</b> Cores are stages of one case workflow, so they share one process and one state table. Ledger and chain are a separate service because they must be append-only and readable by the Examiner without going through workflow code</td></tr>
+      <tr><td>3 · Agent team</td><td><span class="kw">fcrm-agent-worker</span> × N, loading the agent registry</td><td>Agents are stateless workers behind a queue. Scale workers, not the orchestrator. One worker image runs any agent, so adding an agent is a folder, not a deployment</td></tr>
+      <tr><td>4 · Tools</td><td><span class="kw">fcrm_tools</span> package; each tool is a thin read-only client to <span class="kw">policy · scoring · case · audit</span> services</td><td>Tools are the only way agents touch data. Backing them with service APIs means the same visibility and audit rules apply to agents as to people</td></tr>
+      <tr><td>5 · Governed data</td><td>MongoDB, one database per service; S3 Vectors indexes owned by <span class="kw">policy-service</span>; MinIO for files</td><td>One database engine, many databases: documents match our versioned, nested records; boundaries stay clear. No cross-database reads; services call each other’s APIs</td></tr>
+      <tr><td>Guardrails rail</td><td><span class="kw">fcrm_guardrails</span> package + OPA sidecar</td><td>A package so every caller runs the same seven guards; OPA so permit decisions are declarative and testable outside Python</td></tr>
+      <tr><td>Trust rail</td><td>Evidence ledger (audit-service) · <span class="kw">/evals</span> + eval runner · OTel → Logfire</td><td>Three different lifecycles: ledger is runtime data, evals are development-time, traces are operations. Kept separate so each can change alone</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Why services at all, and why these five</h3>
+  <div class="grid3">
+    <div class="box"><h4>Why split</h4><ul><li>Hackathon asks for production readiness and clear human/AI boundaries; a service boundary is the clearest boundary there is</li><li>Audit must be append-only and independently verifiable: own service, own database, no update path</li><li>Scoring must be pure and testable in isolation: own service, no database inside the function</li></ul></div>
+    <div class="box"><h4>Why not more</h4><ul><li>Agents are not services; they are jobs. One worker image, many agent folders</li><li>Guardrails are not a service; a network hop before every tool call adds latency and a failure point. A package plus OPA is enough</li><li>Nine days: each extra service is a template fork, env block and compose entry</li></ul></div>
+    <div class="box"><h4>Why not fewer</h4><ul><li>Merging audit into case-service would let workflow code update records. The chain must be out of reach</li><li>Merging scoring into case-service blurs "AI proposes, code computes", the single most-probed point</li><li>Decision (votes) has its own visibility rule (hidden until all cast); isolating it keeps that rule in one place</li></ul></div>
+  </div>
+</section>
+
+<!-- 4 AGENT PLATFORM -->
+<section class="page" id="agents">
+  <h2><small>04</small>Agent platform · registries, tools, skills, prompts</h2>
+  <p class="lede">High modularity: every agent, tool, skill and prompt is a registered, versioned unit with one owner folder. Common utilities exist per scope, never one giant shared module.</p>
+
+  <div class="grid2">
+    <div class="box"><h4>Agentic SDK · researched Oct 2026</h4>
+      <div class="scroll" style="margin:6px 0 8px"><table>
+        <thead><tr><th>SDK</th><th>Status</th><th>Fit</th></tr></thead>
+        <tbody>
+          <tr><td>Pydantic AI</td><td>2.0 GA, Jun 2026 · Python</td><td><b>Pick.</b> Typed outputs (our Proposal schema), OTel native, model-agnostic, human-approval for tools, small surface. Beta modules avoided</td></tr>
+          <tr><td>Microsoft Agent Framework</td><td>1.0 GA, Apr 2026 · .NET, Python</td><td>Runner-up. Strong human-in-the-loop and OTel; leans Azure for deployment; several parts still preview</td></tr>
+          <tr><td>Google ADK</td><td>2.0 GA, May 2026 · Py, TS, Go</td><td>Solid, but production path leans Google Cloud; 1.x → 2.0 breaking changes</td></tr>
+          <tr><td>OpenAI Agents SDK</td><td>since Mar 2025</td><td>OpenAI-centric tracing and models; no built-in state persistence</td></tr>
+          <tr><td>Claude Agent SDK</td><td>renamed 2026</td><td>Locked to Claude models; billing changes in flux</td></tr>
+          <tr><td>LangGraph</td><td>mature</td><td>Good graphs, but we are building our own orchestrator and its tracing is LangSmith-first</td></tr>
+        </tbody>
+      </table></div>
+      <ul>
+        <li><b>Rule:</b> the SDK runs <i>one agent call</i> (prompt, tools, typed output, retries). It never orchestrates. Our orchestrator owns the flow</li>
+        <li><b>Model access:</b> Pydantic AI’s own providers, direct to the vendor with our keys: <span class="kw">anthropic:*</span> · <span class="kw">openai:*</span> · <span class="kw">bedrock:*</span>. No LiteLLM proxy, no OpenRouter. <span class="kw">FallbackModel</span> gives the fallback chain; usage per run goes to Logfire</li>
+        <li><b>Versions:</b> Python 3.13 · uv for every package and service · Pydantic 2.x (and Pydantic AI 2.x) throughout</li>
+        <li><b>Exit path:</b> agents are folders (prompt, schema, tools, evals). Swapping SDK touches one adapter file per agent, nothing else</li>
+      </ul></div>
+    <div class="box"><h4>Registries · one pattern, four kinds</h4>
+      <ul>
+        <li><b>Agent registry</b> <span class="kw">fcrm_agents/registry.py</span> · name → AgentSpec (prompt id, schema, tool allow-list, model tier, eval set, owner)</li>
+        <li><b>Tool registry</b> <span class="kw">fcrm_tools/registry.py</span> · name → ToolSpec (signature, read-only flag, backing service, timeout, cost class)</li>
+        <li><b>Skill catalogue</b> <span class="kw">fcrm_skills/</span> · reusable instruction packs an agent can load: <span class="kw">cite_verbatim</span> · <span class="kw">declare_gap</span> · <span class="kw">compare_precedent</span> · <span class="kw">draft_for_business_reader</span> · <span class="kw">batch_questions</span></li>
+        <li><b>Prompt library</b> <span class="kw">fcrm_prompts/</span> · Markdown with front-matter (id, version, model tier, variables, eval set) · rendered with Jinja · version pinned on every proposal</li>
+        <li>Same shape as AEO's <span class="kw">jobs/registry.py</span>: a dict, a spec dataclass, a <span class="kw">register()</span> decorator, a test that locks the list (like <span class="kw">expected_tools.txt</span> in the MCP)</li>
+        <li><b>Orchestrator (Caseflow) is original:</b> ~600 lines. <span class="kw">CaseState</span> enum · <span class="kw">Step</span> protocol (idempotent, typed input/output) · <span class="kw">Gate</span> (waits for a human event) · <span class="kw">Budget</span> · event store + outbox. No workflow framework, so the panel can read the whole flow in one file</li>
+      </ul></div>
+  </div>
+
+  <h3>Agents · the registered set</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Agent</th><th>Tier</th><th>Tools allowed (read-only)</th><th>Skills loaded</th><th>Output schema</th><th>Gate</th></tr></thead>
+    <tbody>
+      <tr><td>screening</td><td>cheap</td><td>field_rules · precedent_search</td><td>declare_gap</td><td>ScreeningProposal (fast_lane: bool, reasons)</td><td>analyst confirms fast lane</td></tr>
+      <tr><td>intake</td><td>cheap</td><td>document_reader · precedent_search · jurisdiction_list · field_rules</td><td>cite_verbatim · declare_gap</td><td>ExtractionProposal[] · CategoryProposal[] · GapQuestion[]</td><td>PO confirms each</td></tr>
+      <tr><td>research</td><td>strong</td><td>policy_search · precedent_search · jurisdiction_list</td><td>cite_verbatim · declare_gap · compare_precedent</td><td>ClauseProposal[] · PrecedentMatch[]</td><td>analyst accepts each clause</td></tr>
+      <tr><td>assessment</td><td>strong</td><td>control_inventory · evidence_store · scoring_engine</td><td>cite_verbatim · compare_precedent</td><td>FactorProposal (L, I, justification) · ControlProposal[]</td><td>analyst confirms each rating</td></tr>
+      <tr><td>critic</td><td>strong + judge</td><td>evidence_ledger · precedent_search · rules_check</td><td>compare_precedent</td><td>CriticFinding[] (type, severity, record refs)</td><td>analyst explains or adjusts</td></tr>
+      <tr><td>narrative</td><td>mid</td><td>case_record · evidence_ledger</td><td>draft_for_business_reader · batch_questions</td><td>CompletenessReport (missing · stale · contradictory) · Question[] · Narrative · Condition[] · BusinessSummary</td><td>analyst decides whether to ask first; edits and locks</td></tr>
+      <tr><td>examiner</td><td>mid</td><td>audit_log</td><td>cite_verbatim · declare_gap</td><td>ExaminerAnswer (sentences each with record ids)</td><td>none · read-only</td></tr>
+      <tr><td>watchlist</td><td>cheap</td><td>jurisdiction_list · case_search</td><td>—</td><td>ReflagProposal[]</td><td>analyst acknowledges</td></tr>
+      <tr><td>policy_gap</td><td>mid</td><td>policy_search · case_search</td><td>declare_gap</td><td>GapSuggestion[]</td><td>policy owner reviews</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Tools suite · each backed by a service, each read-only</h3>
+  <div class="grid3">
+    <div class="box"><h4>Documents and data</h4><ul><li><span class="kw">document_reader</span> → evoq_ingestion (page:line refs)</li><li><span class="kw">case_record</span> → case-service</li><li><span class="kw">case_search</span> → case-service</li><li><span class="kw">field_rules</span> → policy-service (field set version)</li></ul></div>
+    <div class="box"><h4>Knowledge</h4><ul><li><span class="kw">policy_search</span> → policy-service → evoq_context / S3 Vectors</li><li><span class="kw">precedent_search</span> → policy-service (closed-case index)</li><li><span class="kw">control_inventory</span> · <span class="kw">evidence_store</span></li><li><span class="kw">jurisdiction_list</span> (FATF, versioned)</li></ul></div>
+    <div class="box"><h4>Deterministic</h4><ul><li><span class="kw">scoring_engine</span> → scoring-service (pure)</li><li><span class="kw">rules_check</span> → the 8 rules as functions</li><li><span class="kw">evidence_ledger</span> · <span class="kw">audit_log</span> → audit-service (read)</li></ul></div>
+  </div>
+
+  <h3>Common utilities · per scope, not global</h3>
+  <div class="tree">fcrm_common/            shared by all new code · tiny · typed · no business logic
+  ids.py  time.py  hashing.py  errors.py  pagination.py
+fcrm_agents/common/     prompt rendering · output validation · retry · token accounting
+fcrm_tools/common/      service clients · timeouts · read-only enforcement
+fcrm_services_common/   GenericService fork: auth interceptor · otel · mongo repo base · settings
+fcrm_web/src/shared/    UI kit from the BA (Button · Card · Tabs · Modal …) · SSE client</div>
+</section>
+
+<!-- 4b MEMORY -->
+<section class="page" id="memory">
+  <h2><small>04b</small>Memory · what the system remembers, where, and why</h2>
+  <p class="lede">Four kinds of memory. Three already exist in the design as durable MongoDB records. Redis is a cache, not a memory. Agent-memory products (Mem0 and similar) are kept out of the decision path.</p>
+  <div class="scroll"><table>
+    <thead><tr><th style="width:16%">Kind</th><th style="width:26%">Holds</th><th style="width:22%">Lives in</th><th>Why there, and what it must never be</th></tr></thead>
+    <tbody>
+      <tr><td><b>Working memory</b><br><small>one agent call</small></td><td>Only the fields, clauses, precedents and rules that agent needs for this step; the prompt plus tool results</td><td>Job payload built by H1; token budget per tier (Guard 3); discarded after the call</td><td>Small, explicit context beats a long chat history. Never a rolling conversation: every call is reconstructable from its payload</td></tr>
+      <tr><td><b>Short-term memory</b><br><small>one case run</small></td><td>Every step, proposal, guard result, gate decision, retry, version in force</td><td><span class="kw">fcrm_harness.case_runs</span> (event store) + <span class="kw">fcrm_audit.proposals</span></td><td>It is the audit trail, so it must be durable, ordered and versioned. Not Redis, not in-process state. Survives restarts; replays a case</td></tr>
+      <tr><td><b>Long-term memory</b><br><small>across cases</small></td><td>Closed cases with ratings and outcomes (precedents), override history, policy corpus versions, control evidence, jurisdiction lists</td><td><span class="kw">fcrm_policy.precedent_index</span> + S3 Vectors · <span class="kw">fcrm_audit</span> · <span class="kw">fcrm_policy</span></td><td>This is the institutional memory the brief says the bank lacks ("depends on what the analyst remembers"). Queried by <span class="kw">precedent_search</span>, the critic and the examiner. Versioned so it never changes a past decision</td></tr>
+      <tr><td><b>Learning memory</b><br><small>how agents improve</small></td><td>What analysts keep overriding, eval scores per prompt version</td><td>Override rate from <span class="kw">fcrm_audit</span> → eval rows in <span class="kw">X6</span> → new <span class="kw">P4</span> prompt version</td><td>Learning goes through a test and a versioned prompt, never an implicit store that silently changes behaviour. A regulator can see exactly when and why an agent changed</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Redis · a cache and a bus, not a memory</h3>
+  <div class="grid3">
+    <div class="box"><h4>Use it for</h4><ul>
+      <li>Token-validation cache in front of X1 (60 s TTL)</li>
+      <li>OPA decision cache for route and tool permits (short TTL, keyed by role · route or agent · tool)</li>
+      <li>SSE fan-out: pub/sub so any S1 replica can push a case event to the browser connected to another replica</li>
+      <li>Rate limits and idempotency keys for tool calls and uploads</li>
+      <li>Model-response cache for eval re-runs and demo rehearsals (Pydantic AI cached model wrapper; off in the production path)</li></ul></div>
+    <div class="box"><h4>Never for</h4><ul>
+      <li>Case state, proposals, gates or audit records</li>
+      <li>Anything the examiner might need to read back</li>
+      <li>Agent "memory" between cases</li></ul></div>
+    <div class="box"><h4>Required?</h4><ul>
+      <li><b>MVP:</b> optional. One replica of each service; Mongo covers everything. The AEO identity clone already brings Redis, so it is present at zero cost</li>
+      <li><b>From two replicas of S1:</b> required for SSE fan-out</li>
+      <li>Component ID <span class="kw">X7 Redis</span>, platform layer</li></ul></div>
+  </div>
+
+  <h3>Agent-memory products (Mem0, Zep, Letta and similar)</h3>
+  <div class="grid2">
+    <div class="box"><h4>Why not in the decision path</h4><ul>
+      <li>They learn facts across sessions into a store the agent reads implicitly. That breaks <b>no source, no claim</b>: a proposal would rest on something with no document, version or record behind it</li>
+      <li>Nothing is retroactive here. An implicit memory changes behaviour without a prompt version, an eval run or a record, so two identical cases a week apart could be assessed differently with no visible reason</li>
+      <li>Our long-term memory is already explicit and queryable: precedents, overrides, corpus versions. The critic uses it with citations</li></ul></div>
+    <div class="box"><h4>Where one could help later</h4><ul>
+      <li>Analyst working preferences for the UI (which tab first, how questions are phrased), never as an input to proposals</li>
+      <li>Session summaries for the Examiner’s long conversations, as long as every answer still cites records</li>
+      <li>Decision: <b>out of scope for this build</b>; revisit only with an explicit "memory as a cited source" design</li></ul></div>
+  </div>
+</section>
+
+<!-- 5 GUARDRAILS -->
+<section class="page" id="guard">
+  <h2><small>05</small>Guardrail suite · seven guards, one package</h2>
+  <p class="lede">Easy to explain: every agent call passes through the same seven guards in the same order. Easy to maintain: one package <span class="kw">fcrm_guardrails/</span>, one module per guard, one test file per guard, one config file for thresholds.</p>
+  <div class="diagram">
+<pre class="mmd">
+flowchart LR
+  I["1 Input<br/>injection scan · PII mask"] --> P["2 Permit<br/>OPA: may this agent<br/>call this tool?"]
+  P --> B["3 Budget<br/>tokens · time · retries"]
+  B --> AG(("Agent"))
+  AG --> O["4 Output shape<br/>schema · source required"]
+  O --> R["5 Rules as code<br/>8 BA rules"]
+  R --> C["6 Critic<br/>second model checks"]
+  C --> H["7 Human gate<br/>per item · reason"]
+  H --> L[("Audit")]
+  classDef g fill:#F7E3DE,stroke:#9a3524,color:#0C2226
+  class I,P,B,O,R,C,H g
+</pre>
+  </div>
+  <div class="scroll"><table>
+    <thead><tr><th style="width:4%">#</th><th style="width:14%">Guard</th><th style="width:30%">What it checks</th><th style="width:22%">How</th><th style="width:14%">On fail</th><th>Tested by</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Input</td><td>Uploaded text for hidden instructions; personal data before any model sees it</td><td>Pattern list + small classifier · <span class="kw">presidio</span> masking · runs after evoq_ingestion extraction</td><td>Quarantine file, flag to analyst</td><td>Red-team fixtures (50 injection samples) · PII fixtures</td></tr>
+      <tr><td>2</td><td>Permit</td><td>Agent X may call tool Y, read-only, within scope (case id, role)</td><td>OPA query <span class="kw">data.tools.allow</span> with <span class="kw">{agent, tool, case, role}</span> · same sidecar as API authz</td><td>Tool call refused, logged</td><td>Rego unit tests (<span class="kw">opa test</span>) · registry lock test</td></tr>
+      <tr><td>3</td><td>Budget</td><td>Tokens per agent run and per case; wall time; retry count; fallback chain order</td><td>Config per agent tier · counters in MongoDB · Pydantic AI usage</td><td>Fallback model, then hand to human</td><td>Unit tests with fake usage</td></tr>
+      <tr><td>4</td><td>Output shape</td><td>Response fits the Pydantic schema; every claim has <span class="kw">source_ref</span> + quote; confidence in range</td><td>Pydantic validation · quote must exist in the referenced source text</td><td>Retry once with error shown, then human</td><td>Schema tests · quote-grounding tests</td></tr>
+      <tr><td>5</td><td>Rules as code</td><td>No agent wrote a score · no bulk accept · PO view has no restricted fields · analyst never edited submission · closed case untouched · override has reason · planned control not scored · policy quoted not generated</td><td>Eight pure functions in <span class="kw">fcrm_guardrails/rules/</span> · run before every state change</td><td>State change refused</td><td>One test per rule · property tests</td></tr>
+      <tr><td>6</td><td>Critic</td><td>Sources real, precedent deviation, rules kept, evidence recency</td><td>Separate agent, separate prompt, judge-tier model</td><td>Findings shown; analyst must respond</td><td>Eval set with planted errors</td></tr>
+      <tr><td>7</td><td>Human gate</td><td>A person accepted or overrode each item; reason present on override; band change acknowledged</td><td>Orchestrator waits on <span class="kw">gate.decided</span> events</td><td>Case cannot advance</td><td>State machine tests</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><b>One sentence for the panel:</b> "Seven guards, same order every time; three are plain code, one is a policy engine, one is a second model, one is a person, and all of it is tested."</div>
+</section>
+
+<!-- 6 SCORING -->
+<section class="page" id="scoring">
+  <h2><small>06</small>Scoring · explained</h2>
+  <p class="lede">The BA's engine, ported to its own service. Plain arithmetic. The AI proposes inputs; the engine computes; humans confirm inputs, never outputs.</p>
+  <div class="grid2">
+    <div>
+      <h3 style="margin-top:0">Inputs (who sets them)</h3>
+      <div class="scroll"><table>
+        <tbody>
+          <tr><td>Likelihood 1–5</td><td>Assessment agent proposes with written reason → analyst confirms or overrides</td></tr>
+          <tr><td>Impact 1–5</td><td>Same. Informed by volume and customer exposure</td></tr>
+          <tr><td>Control effectiveness 0–10</td><td>Per control, proposed from inventory + evidence date → analyst confirms. Stale evidence flagged. Planned controls excluded</td></tr>
+          <tr><td>Control weight</td><td>From inventory. Sums to 1.00 per risk area. Config, not AI</td></tr>
+          <tr><td>Risk-area weight</td><td>Config. Normalised across areas in scope for the case</td></tr>
+        </tbody>
+      </table></div>
+      <h3>Chain</h3>
+<pre class="calc"><span class="dim">// per risk area in scope (of 4: customer · product · geography · channel/3rd party)</span>
+Inherent  = Likelihood × Impact                 <span class="dim">// 1..25</span>
+CE        = weighted mean of control ratings
+Retention = 1 − (0.6 × CE ÷ 10)                 <span class="dim">// 1.00 .. 0.40  (40% floor)</span>
+Residual  = Inherent × Retention
+
+<span class="dim">// across areas</span>
+<span class="hl">Composite = Σ Residual × normalised area weight</span>
+Band      = lookup(Composite)   <span class="dim">// 1: 0–5 · 2: 5.1–10 · 3: 10.1–17 · 4: 17.1–25</span>
+Route     = bands 1–2 analyst closes · bands 3–4 committee</pre>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Worked example (the demo case)</h3>
+<pre class="calc">Channel/3rd party  L4 I5 → 20 · CE 7.6 → ret 0.54 → 10.9 · w 0.45
+Geography          L4 I4 → 16 · CE 6.0 → ret 0.64 → 10.2 · w 0.30
+Product            L3 I4 → 12 · CE 6.5 → ret 0.61 →  7.3 · w 0.25
+Composite = 4.91 + 3.06 + 1.83 = <span class="hl">9.8 → Band 2</span>  (0.3 from Band 3: boundary flag)
+
+Analyst overrides vendor DD 7.6 → 4.5 (stale, domestic-only audit)
+Channel CE 7.6 → 4.5 · ret 0.73 · residual 14.6
+Composite = 6.57 + 3.06 + 1.83 = <span class="hl">11.5 → Band 3 → committee</span></pre>
+      <h3>Design rules in the service</h3>
+      <div class="box"><ul>
+        <li><b>Pure and idempotent.</b> Same inputs, same output. No database read inside the function</li>
+        <li><b>Versioned.</b> Floor, band edges, weights live in a <span class="kw">ScoringModelVersion</span> document. A case pins the version it ran under. Changing config affects new cases only; re-score needs a reason and writes a record</li>
+        <li><b>Boundary flag.</b> Within 0.5 of a band edge → analyst must acknowledge. Measured to the start of the neighbouring band</li>
+        <li><b>Rounding.</b> Composite rounded to one decimal before band lookup, so nothing falls between 10.0 and 10.1</li>
+        <li><b>Tests.</b> Worked example as fixtures · every band edge · floor at CE=10 · planned control ignored · property test: more control never raises residual</li>
+        <li><b>Full phase.</b> Model-governance record per version (owner, approval, validation date), in the spirit of SR 26-2</li>
+      </ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- 7 DATA -->
+<section class="page" id="data">
+  <h2><small>07</small>Data · MongoDB, FARM stack</h2>
+  <p class="lede">One engine, one database per service, no cross-database reads. MongoDB because our records are versioned nested documents and the AEO templates already speak it. Vectors live in S3 Vectors, as the cloned context engine already does.</p>
+  <div class="grid3">
+    <div class="box"><h4>Databases (one per service)</h4><ul>
+      <li><b>fcrm_case</b> · cases · submission_versions · field_values · documents · clarification_threads · conditions</li>
+      <li><b>fcrm_scoring</b> · scoring_model_versions · routing_rules</li>
+      <li><b>fcrm_policy</b> · corpus_versions · clauses (text + embedding) · controls · jurisdiction_list_versions · field_set_versions · precedent_index</li>
+      <li><b>fcrm_audit</b> · proposals (evidence ledger) · audit_records (seq per case, <span class="kw">prev_hash</span>) · insert-only database user, no update/delete privilege · schema validation on the collection</li>
+      <li><b>fcrm_decision</b> · packs · votes · outcomes</li>
+      <li><b>fcrm_harness</b> · case_runs (event-sourced) · agent_jobs (atomic claims, as in AEO) · gates · budgets · outbox</li></ul></div>
+    <div class="box"><h4>Vectors and files</h4><ul>
+      <li><b>S3 Vectors</b> (AWS) · three indexes: clauses · precedent_cases · controls · written by H4 through the cloned evoq_context backend, queried by S3</li>
+      <li>Metadata filters: corpus_version · jurisdiction · trigger_type · risk_area · closed_date · text match via Mongo text index, rank fusion in S3</li>
+      <li>Embeddings: Bedrock Titan v2 via evoq_context’s existing client; in-memory store for tests</li>
+      <li><b>Object store</b> · MinIO (S3-compatible) locally · uploads, canonical Markdown, generated packs · AWS S3 later by config</li></ul></div>
+    <div class="box"><h4>Synthetic data and versions</h4><ul>
+      <li>Seed the BA’s 80 cases + 2 hand-written twins with the template’s masterdata loader on startup</li>
+      <li>Policy corpus: FFIEC sections + 3 internal standards as Markdown via evoq_ingestion, chunked by clause</li>
+      <li>FATF list June 2026 as <span class="kw">jurisdiction_list v2026-06</span>; v2026-10 fixture for the re-flag demo</li>
+      <li>Every reference collection versioned; a case stores <span class="kw">{scoring_v, corpus_v, controls_v, fieldset_v, prompts_v}</span></li>
+      <li>Audit never deleted; files follow case retention; nightly <span class="kw">mongodump</span></li></ul></div>
+  </div>
+  <div class="note"><b>Why MongoDB:</b> FARM is the team standard; the GenericService repository and job-worker claim pattern are reused unchanged; versioned nested records (submission versions, proposals with evidence) are documents; vectors live in S3 Vectors next to the files. Append-only on the audit database is enforced with an insert-only user plus collection schema validation.</div>
+</section>
+
+<!-- 8 EVALS -->
+<section class="page" id="evals">
+  <h2><small>08</small>Evals · how we know it is good</h2>
+  <div class="grid2">
+    <div class="box"><h4>Per-agent eval sets · <span class="kw">/evals/&lt;agent&gt;/</span></h4><ul>
+      <li><b>intake</b> · 80 cases × fields → extraction accuracy, category F1, gap-question precision</li>
+      <li><b>research</b> · clause relevance (labelled), citation faithfulness (quote exists in source), gap honesty (no clause → says so)</li>
+      <li><b>assessment</b> · L/I within ±1 of labelled, control match recall, stale-evidence detection</li>
+      <li><b>critic</b> · planted-error set: unsourced claim, inflated rating, rule breach → detection rate</li>
+      <li><b>narrative</b> · LLM-as-judge (DeepEval adapter from evoq_evals): grounded, no restricted terms in PO summary, conditions map to weak controls</li>
+      <li><b>examiner</b> · every sentence cites a record; refusal when log lacks the answer</li>
+      <li><b>guardrails</b> · red-team injection set, PII set, rule tests</li></ul></div>
+    <div class="box"><h4>Runner, gate, feedback</h4><ul>
+      <li>Runner: <span class="kw">pydantic-evals</span> + pytest, DeepEval/Ragas via the evoq_evals adapters · <span class="kw">make evals</span></li>
+      <li>Results committed as JSON + HTML report per run · trend file</li>
+      <li>Gate: a prompt or model-tier change must pass its agent's set at or above the last score (pre-commit hook + <span class="kw">make check</span>)</li>
+      <li>Live signal: analyst override rate per agent (from audit) feeds a weekly review; large shifts open a prompt fix</li>
+      <li>Human sampling: 5% of closed cases re-read by a second analyst; disagreements become eval rows</li>
+      <li>Drift report: weekly rerun of all sets, diff against last</li></ul></div>
+  </div>
+</section>
+
+<!-- 9 OPS -->
+<section class="page" id="ops">
+  <h2><small>09</small>Observability · Auth · Deploy</h2>
+  <div class="grid3">
+    <div class="box"><h4>Observability · MVP</h4><ul>
+      <li>Keep AEO's OTel scaffold; set <span class="kw">OTLP_*_EXPORTER_ENDPOINT</span> to Logfire</li>
+      <li>Pydantic AI spans (model, tokens, tool calls) appear automatically</li>
+      <li>One trace per case run; spans per agent step; attributes: case_id, agent, prompt_v, model, tokens, cost</li>
+      <li>Dashboards: tokens and cost per case and per agent · override rate per agent · gate wait times · eval scores</li>
+      <li>Engines stay OTel-free; host adapters bridge events (platform rule)</li></ul></div>
+    <div class="box"><h4>Auth · MVP</h4><ul>
+      <li><span class="kw">evoqidentityservice</span> issues tokens; every service validates via <span class="kw">/core/validate</span> (existing interceptor)</li>
+      <li>Roles <span class="kw">fcrm_po · fcrm_analyst · fcrm_committee</span> in identity; OPA <span class="kw">permissions.json</span> rules per route</li>
+      <li>Visibility: case-service response models per role; PO models have no score fields at all; tested</li>
+      <li>Demo users seeded; MSAL/Entra route already there for later SSO</li></ul></div>
+    <div class="box"><h4>Deploy · MVP</h4><ul>
+      <li><b>One Dockerfile per repo</b> (every service, worker and the web app) at <span class="kw">dockerfiles/Dockerfile</span>, the AEO layout. Python images: <span class="kw">uv</span> multi-stage build from <span class="kw">uv.lock</span>, Python 3.13 slim, non-root user, healthcheck</li>
+      <li><b>One <span class="kw">docker-compose.yaml</span> at the root of the umbrella repo</b> builds every image from its submodule path and starts infra (MongoDB, RabbitMQ, Redis, MinIO, OPA, nginx; S3 Vectors and model vendors are reached with credentials from <span class="kw">.env</span>) plus all FCRM services and workers</li>
+      <li>nginx route <span class="kw">/api/fcrm/*</span> · compose joins the AEO network only if identity is shared; otherwise self-contained</li>
+      <li>Each repo also carries a small <span class="kw">compose.dev.yaml</span> to run just that service against the shared infra, for day-to-day work</li>
+      <li>Local quality gate: <span class="kw">make check</span> = ruff · ruff format · mypy strict on engines · pytest ≥ 85% · compose-check · Semgrep · pre-commit hooks</li>
+      <li><span class="kw">make up</span> · <span class="kw">make seed</span> · <span class="kw">make demo</span> (runs the worked example end to end)</li>
+      <li>Secrets via env and Docker secrets; none in code</li></ul></div>
+  </div>
+</section>
+
+<!-- 10 REPO -->
+<section class="page" id="repo">
+  <h2><small>10</small>Repositories · one per service, worker and package</h2>
+  <p class="lede">Microservices need independent repos: own tests, own version, own deploy. The judges still open one repository, so an umbrella repo pulls every repo in as a submodule and carries the required top-level folders. Add repos at any time.</p>
+  <div class="grid2">
+    <div class="tree">fcrm-submission/              umbrella · what the judges open
+  docker-compose.yaml         THE compose file: infra + every service and worker, built from submodules
+  Makefile                    up · seed · demo · check (fans out to each repo)
+  README.md                   setup · walkthrough · decision log link
+  /docs/requirements          spec · research · sources
+  /docs/architecture          plan · diagrams · ADRs · decision log
+  /docs/governance            7 guards · 8 rules · gate rationale
+  /ai                         copies of prompts · agent specs · skills · tiers
+  /evals                      → fcrm-evals (submodule)
+  /tests                      cross-repo e2e (Playwright) · contract tests
+  /ops                        → fcrm-platform (submodule) · token report
+  /src/*                      every repo below as a submodule
+
+fcrm-web                      W1  React · service layer swapped · dockerfiles/Dockerfile
+                                  (every repo below has its own dockerfiles/Dockerfile and compose.dev.yaml)
+fcrm-case-service             S1  } GenericService clones
+fcrm-scoring-service          S2  } FastAPI + Mongo repo
+fcrm-policy-service           S3  } own database · own tests
+fcrm-audit-service            S4  }
+fcrm-decision-service         S5  }
+fcrm-orchestrator             H1  Caseflow · original
+fcrm-agent-worker             H2  job glue · Pydantic AI adapter
+fcrm-ingestion-worker         H3  clone of evoq_ingestion
+fcrm-context-worker           H4  clone of evoq_context + MongoVectorStore
+fcrm-agents · fcrm-tools · fcrm-skills · fcrm-prompts · fcrm-guardrails · fcrm-contracts   P1–P6 libraries
+fcrm-identity                 X1  clone of evoqidentityservice
+fcrm-platform                 nginx conf · OPA (clone) · Mongo init scripts · Logfire config · shared compose fragments
+fcrm-evals                    X6  datasets · runner · reports</div>
+    <div class="box"><h4>Rules every repo follows</h4><ul>
+      <li>src/ layout; tests mirror src; unit vs integration split; fixtures only in conftest</li>
+      <li>Python 3.13 · <span class="kw">uv</span> (pyproject.toml + uv.lock, <span class="kw">uv sync</span>, <span class="kw">uv run</span>) · Pydantic 2.x · PEP 8 · 88 cols · type hints · docstrings on public API · f-strings · logging not print</li>
+      <li>Specific exceptions with context; never silent pass; validate every external input with Pydantic</li>
+      <li>No secrets in code; pydantic-settings from env; versions locked in uv.lock; dev dependency group separate</li>
+      <li>Libraries P1–P6 are host-import-free (AST test) and published as versioned wheels; services pin versions</li>
+      <li>Registry lock files; adding an agent, tool, skill, prompt or rule is a reviewed diff</li>
+      <li><span class="kw">make check</span> in every repo: ruff · ruff format · mypy · pytest ≥85% · Semgrep · compose-check; pre-commit hooks</li>
+      <li>Every repo builds alone: its own <span class="kw">dockerfiles/Dockerfile</span>, its own <span class="kw">compose.dev.yaml</span>; the root compose only references them</li>
+      <li>Commit small and daily in every repo; the umbrella bumps submodule pointers daily so its history shows progress too</li></ul>
+      <h4 style="margin-top:12px">Cloning rule</h4><ul>
+        <li><b>AEO code is cloned into our repos and changed there.</b> We never import from or call the running AEO services</li>
+        <li>Each clone keeps a <span class="kw">UPSTREAM.md</span>: source path, commit, what changed</li>
+        <li>Clones keep their original test suites so inherited coverage counts</li></ul>
+      <h4 style="margin-top:12px">Workstreams</h4><ul>
+        <li>Web · Services · Harness · Agents and packages · Data and evals · Docs and governance</li></ul></div>
+  </div>
+  <div class="note"><b>Submission · decided:</b> develop with submodules; before the deadline <span class="kw">make vendor</span> replaces each submodule with a plain copy so the umbrella is one self-contained tree. Each service repo’s history stays public and is linked from the README.</div>
+</section>
+
+<!-- 11 DECISIONS -->
+<section class="page" id="decide">
+  <h2><small>11</small>Decisions to confirm</h2>
+  <div class="grid3">
+    <div class="box"><h4>Model access · decided</h4>Direct vendor keys through Pydantic AI providers. No LiteLLM proxy, no OpenRouter: Pydantic AI already gives one interface, fallback and usage. LiteLLM survives only as the SDK inside the cloned evoq_context for embeddings.</div>
+    <div class="box"><h4>Five HTTP services or three</h4>Five is the clean boundary set (case · scoring · policy · audit · decision). Three (case+decision, scoring+policy, audit) saves two forks. Recommend five; see 3b for why fewer blurs the lines the panel will probe.</div>
+    <div class="box"><h4>Vector store · decided</h4>S3 Vectors, as already built in evoq_context. Needs AWS credentials from day one; the in-memory store covers tests. MinIO still holds files locally.</div>
+    <div class="box"><h4>OPA for tool permits</h4>Extending the sidecar to agent→tool decisions is the strongest governance story (one policy engine for people and agents). Fallback: a Python allow-list in the tool registry. Recommend OPA.</div>
+    <div class="box"><h4>Config screens</h4>In scope per your decision. They are the three heaviest BA screens (Categories, Classification, Control inventory). Build them last; seed files cover the demo if time runs out.</div>
+    <div class="box"><h4>Semgrep without CI</h4>GitHub Actions and Trivy are out. Semgrep runs locally in <span class="kw">make check</span> and pre-commit so SAST evidence still exists in the repo (mentors named it).</div>
+  </div>
+</section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js"></script>
+<script>
+(function(){
+  if(!window.mermaid){document.querySelectorAll('pre.mmd').forEach(function(p){p.style.whiteSpace='pre-wrap';});return;}
+  mermaid.initialize({startOnLoad:false,securityLevel:'loose',theme:'base',
+    flowchart:{htmlLabels:true,curve:'basis',padding:12},sequence:{useMaxWidth:true,mirrorActors:false},gantt:{useMaxWidth:true},
+    themeVariables:{fontFamily:'IBM Plex Sans, system-ui, sans-serif',fontSize:'14px',
+      primaryColor:'#FFFFFF',primaryBorderColor:'#557a7f',primaryTextColor:'#0C2226',textColor:'#0C2226',
+      secondaryColor:'#E9EDEB',secondaryBorderColor:'#9CAAAB',secondaryTextColor:'#0C2226',
+      tertiaryColor:'#F7F8F3',tertiaryBorderColor:'#C3D2D3',tertiaryTextColor:'#0C2226',
+      lineColor:'#557a7f',mainBkg:'#FFFFFF',nodeBorder:'#557a7f',nodeTextColor:'#0C2226',
+      clusterBkg:'#F7F8F3',clusterBorder:'#C3D2D3',titleColor:'#0C2226',
+      edgeLabelBackground:'#FBF1D9',
+      actorBkg:'#DDF3EE',actorBorder:'#09A78D',actorTextColor:'#0C2226',actorLineColor:'#9CAAAB',signalColor:'#0C2226',signalTextColor:'#0C2226',
+      labelBoxBkgColor:'#F7F8F3',labelBoxBorderColor:'#C3D2D3',labelTextColor:'#0C2226',loopTextColor:'#0C2226',
+      noteBkgColor:'#FBF1D9',noteBorderColor:'#D9B85A',noteTextColor:'#0C2226',activationBkgColor:'#E9EDEB',activationBorderColor:'#557a7f',sequenceNumberColor:'#FFFFFF',
+      taskBkgColor:'#09A78D',taskBorderColor:'#066e5d',taskTextColor:'#FFFFFF',taskTextLightColor:'#FFFFFF',taskTextDarkColor:'#0C2226',taskTextOutsideColor:'#0C2226',
+      activeTaskBkgColor:'#194247',activeTaskBorderColor:'#0C2226',sectionBkgColor:'#E9EDEB',sectionBkgColor2:'#F2F4F3',altSectionBkgColor:'#FFFFFF',gridColor:'#C3D2D3',todayLineColor:'#8A3324',
+      labelColor:'#0C2226',stateBkg:'#FFFFFF',stateLabelColor:'#0C2226',transitionColor:'#557a7f',transitionLabelColor:'#0C2226',compositeBackground:'#F7F8F3',altBackground:'#F7F8F3',specialStateColor:'#194247'}});
+  mermaid.run({nodes:document.querySelectorAll('pre.mmd')}).then(function(){document.dispatchEvent(new Event('mmd-ready'));}).catch(function(e){console.error('mermaid',e);});
+})();
+</script>
+</body></html>
