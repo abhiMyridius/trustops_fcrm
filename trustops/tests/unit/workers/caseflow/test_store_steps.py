@@ -6,6 +6,7 @@ for the context stored on every transition row.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import bson
@@ -20,6 +21,7 @@ from fcrm_caseflow.store import (
     context_from_document,
     context_to_document,
     new_case_run_document,
+    pins_from_case_event_data,
     recorded_transition_from_document,
     run_event_document,
     step_done_document,
@@ -37,6 +39,19 @@ async def _created(run_store: CaseRunStore) -> None:
     await run_store.create(
         new_case_run_document(run_id=RUN_ID, case_id=CASE_ID, pins=DEFAULT_PINS)
     )
+
+
+class TestPinsFromCaseCreated:
+    def test_the_pins_the_event_carries_are_used(self) -> None:
+        pins = DEFAULT_PINS.model_copy(update={"jurisdictions_v": "v2026-06"})
+        assert pins_from_case_event_data({"pins": pins.model_dump(mode="json")}) == pins
+
+    def test_missing_pins_fall_back_to_the_placeholder_loudly(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level(logging.WARNING, logger="fcrm_caseflow.store"):
+            assert pins_from_case_event_data({}) == DEFAULT_PINS
+        assert any("DEFAULT_PINS" in r.getMessage() for r in caplog.records)
 
 
 class TestNewRunFields:

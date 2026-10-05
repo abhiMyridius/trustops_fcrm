@@ -35,3 +35,6 @@ class CaseflowSettings(BaseServiceSettings):
     (S1/S2/S3/S4/S5), so the bound keeps the load on those services modest;
     steps of one case are serialised regardless
     (:class:`~fcrm_caseflow.steps.StepRunner`)."""
+    step_timeout_s: float = 120.0
+    """Deadline for one step handler; past it the step fails and is retried
+    rather than holding its case's lock for ever."""

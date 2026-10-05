@@ -139,6 +139,39 @@ class TestStepEnqueuedWithTheTransition:
             assert all(s is session for s in collection.sessions)
         assert all(s is session for s in case_runs_collection.sessions)
 
+    async def test_opening_a_run_can_start_a_step_too(
+        self,
+        engine_factory: EngineFactory,
+        run_store: CaseRunStore,
+        session: FakeSession,
+        outbox_collection: FakeCollection,
+    ) -> None:
+        """``case.created`` opens the run without a transition, but
+        ``Trigger.CASE_CREATED`` in the step map still enqueues ``intake.open``
+        (field set, ``workflow.started``) in the same transaction.
+        """
+        engine = engine_factory({Trigger.CASE_CREATED: StepKind.INTAKE_OPEN})
+        created = Envelope(
+            event_id=new_id("evt"),
+            type="case.created",
+            case_id=CASE_ID,
+            occurred_at=utcnow(),
+            payload={"actor": "u-pnair", "data": {"title": "Remittances"}},
+        )
+
+        await engine.handle(created, session)
+
+        run = await run_store.get_by_case_id(CASE_ID)
+        assert run is not None
+        [step] = _steps(outbox_collection)
+        assert step.step is StepKind.INTAKE_OPEN
+        assert step.step_id == deterministic_id(
+            "step", run.snapshot.run_id, "intake.open", created.event_id
+        )
+        assert step.args["payload"]["data"] == {"title": "Remittances"}
+        assert run.pending_steps == (step.step_id,)
+        assert run.state is CaseState.INTAKE
+
     async def test_an_unmapped_trigger_enqueues_nothing(
         self,
         engine: CaseflowEngine,

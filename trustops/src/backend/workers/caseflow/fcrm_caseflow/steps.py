@@ -43,7 +43,7 @@ from dataclasses import dataclass, field
 from typing import Any, ClassVar, Final, Optional, Protocol
 
 import httpx
-from fcrm_common.errors import FcrmError, NotFoundError
+from fcrm_common.errors import FcrmError, NotFoundError, UpstreamTimeoutError
 from fcrm_common.ids import deterministic_id
 from fcrm_common.logging import bound_context
 from fcrm_contracts.api.audit import AuditRecord, RecordAppend
@@ -60,6 +60,10 @@ logger = logging.getLogger(__name__)
 #: What a step can legitimately fail with: an upstream said no or did not
 #: answer, or Mongo did. Anything else is a bug and propagates uncaught.
 STEP_ERRORS: Final = (FcrmError, httpx.TimeoutException, PyMongoError)
+
+#: Overall deadline for one handler call. Generous (a step may make several
+#: HTTP calls and append a dozen audit records) but finite.
+DEFAULT_STEP_TIMEOUT_S: Final = 120.0
 
 
 class UnknownStepKindError(FcrmError):
@@ -334,6 +338,7 @@ class StepRunner:
         registry: The handlers.
         completer: The engine's ``complete_step``.
         audit: Handed to every handler through :class:`StepDeps`.
+        timeout_s: The deadline for one handler call, in seconds.
     """
 
     def __init__(
@@ -342,12 +347,15 @@ class StepRunner:
         registry: StepRegistry,
         completer: StepCompleter,
         audit: AuditClient,
+        *,
+        timeout_s: float = DEFAULT_STEP_TIMEOUT_S,
     ) -> None:
         """Wire the runner's collaborators; it holds no other state."""
         self._runs = runs
         self._registry = registry
         self._completer = completer
         self._audit = audit
+        self._timeout_s = timeout_s
         self._locks = _CaseLocks()
 
     async def run(self, step: HarnessStep) -> None:
@@ -364,6 +372,8 @@ class StepRunner:
             UnknownStepKindError: no handler is registered for ``step.step``.
             fcrm_common.errors.FcrmError: the handler (or the engine) failed
                 on an upstream or business error.
+            fcrm_common.errors.UpstreamTimeoutError: the handler ran past the
+                runner's deadline.
             httpx.TimeoutException: a handler's own HTTP call timed out.
             pymongo.errors.PyMongoError: Mongo failed.
             Every one is logged with its context and re-raised for the
@@ -387,7 +397,7 @@ class StepRunner:
                 logger.info("step already done; skipping")
                 return
             handler = self._registry.get(step.step)
-            result = await handler(step, StepDeps(run=run, audit=self._audit))
+            result = await self._call_handler(handler, step, run)
             await self._completer.complete_step(
                 step.run_id, step.step_id, result, step=step.step
             )
@@ -399,3 +409,22 @@ class StepRunner:
             )
             raise
         logger.info("step done")
+
+    async def _call_handler(
+        self, handler: StepHandler, step: HarnessStep, run: CaseRun
+    ) -> StepResult:
+        """Run ``handler`` under the step's overall deadline. A handler's own
+        calls have their own timeouts; this is the backstop that keeps one
+        hung step from holding the case lock (and so every later step of the
+        case) for ever.
+        """
+        try:
+            async with asyncio.timeout(self._timeout_s) as deadline:
+                return await handler(step, StepDeps(run=run, audit=self._audit))
+        except TimeoutError as exc:
+            if not deadline.expired():
+                raise  # the handler's own timeout, not this deadline
+            raise UpstreamTimeoutError(
+                f"step {step.step.value} ran longer than {self._timeout_s:g}s",
+                step=step.step.value,
+            ) from exc

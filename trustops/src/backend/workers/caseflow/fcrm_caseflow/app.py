@@ -189,7 +189,9 @@ def build_unit(
         step_map=wired_steps,
         transact=mongo_transact(mongo),
     )
-    step_runner = StepRunner(runs_store, registry, engine, audit)
+    step_runner = StepRunner(
+        runs_store, registry, engine, audit, timeout_s=settings.step_timeout_s
+    )
 
     case_events_consumer = CaseEventsConsumer(
         consumed, publisher, engine=engine, client=mongo

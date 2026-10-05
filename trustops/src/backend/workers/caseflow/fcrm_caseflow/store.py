@@ -29,6 +29,7 @@ contract exactly as small as the existing 19 tests already prove it to be.
 from __future__ import annotations
 
 import dataclasses
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -46,6 +47,8 @@ from fcrm_caseflow.eventstore import RecordedTransition
 from fcrm_caseflow.states import RunFlags, RunSnapshot
 from fcrm_caseflow.transitions import TransitionContext
 from fcrm_caseflow.triggers import Trigger
+
+logger = logging.getLogger(__name__)
 
 CASE_RUNS_COLLECTION: Final = "case_runs"
 RUN_EVENTS_COLLECTION: Final = "run_events"
@@ -75,14 +78,17 @@ DEFAULT_PINS: Final = PinnedVersions(
 
 
 def pins_from_case_event_data(data: dict[str, Any]) -> PinnedVersions:
-    """``case.created``'s payload is ``fcrm_contracts.events.payloads
-    .CaseEvent``, whose free-form ``data`` dict may carry a ``pins`` key
-    once a real version-registry lane exists; absent that, fall back to
-    :data:`DEFAULT_PINS`.
+    """``case.created``'s ``data`` carries the case's ``pins``
+    (:class:`fcrm_contracts.events.payloads.CaseCreatedData`: the versions
+    active when S1 created it). A producer that omits them gets
+    :data:`DEFAULT_PINS`, a placeholder that does not match the seed's active
+    versions, so a job built from it can ask a tool for a version that is not
+    there: the fallback is logged as a warning, never silent.
     """
     raw = data.get("pins")
     if isinstance(raw, dict):
         return PinnedVersions.model_validate(raw)
+    logger.warning("case.created carried no pins; using the DEFAULT_PINS placeholder")
     return DEFAULT_PINS
 
 

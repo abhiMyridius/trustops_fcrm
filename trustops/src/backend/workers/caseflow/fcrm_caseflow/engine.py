@@ -257,6 +257,16 @@ class CaseflowEngine:
             trace_id=envelope.trace_id,
         )
         run = await self._runs.create(document, session=session)
+        # Opening a run is not a state transition, but it can still start a
+        # step (``intake.open``: field set, ``workflow.started``).
+        await self._enqueue_step_for(
+            run,
+            Trigger.CASE_CREATED,
+            envelope.event_id,
+            envelope.event_id,
+            envelope.payload,
+            session,
+        )
         await self._write_audit_raw(
             case_id=run.snapshot.case_id,
             trigger_value="case.created",
@@ -605,9 +615,7 @@ class CaseflowEngine:
         kind = self._step_map.get(trigger)
         if kind is None:
             return run
-        trigger_id = (
-            message_id if message_id is not None else (f"{origin}/{trigger.value}")
-        )
+        trigger_id = f"{origin}/{trigger.value}" if message_id is None else message_id
         args = {"trigger": trigger.value, "message_id": message_id, "payload": payload}
         return await self._enqueue_step(run, kind, trigger_id, args, session)
 

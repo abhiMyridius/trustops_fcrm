@@ -19,7 +19,9 @@ import httpx
 import pytest
 from conftest import FakeSession, RecordingAudit
 from fcrm_caseflow.engine import CaseflowEngine
+from fcrm_caseflow.settings import CaseflowSettings
 from fcrm_caseflow.steps import (
+    DEFAULT_STEP_TIMEOUT_S,
     STEP_ERRORS,
     StepDeps,
     StepRegistry,
@@ -28,7 +30,12 @@ from fcrm_caseflow.steps import (
     UnknownStepKindError,
 )
 from fcrm_caseflow.store import DEFAULT_PINS, CaseRunStore, new_case_run_document
-from fcrm_common.errors import FcrmError, NotFoundError, UpstreamUnavailableError
+from fcrm_common.errors import (
+    FcrmError,
+    NotFoundError,
+    UpstreamTimeoutError,
+    UpstreamUnavailableError,
+)
 from fcrm_common.ids import deterministic_id
 from fcrm_common.logging import get_context
 from fcrm_contracts.enums import StepKind
@@ -311,6 +318,56 @@ class TestStepRunner:
         ):
             await runner.run(_step())
         assert not [r for r in caplog.records if "step failed" in r.getMessage()]
+
+
+class TestHandlerDeadline:
+    async def test_a_hung_handler_fails_the_step_and_frees_the_case_lock(
+        self, run_store: CaseRunStore, recording_audit: RecordingAudit
+    ) -> None:
+        await _create_run(run_store)
+        completer = StubCompleter()
+
+        async def handler(step: HarnessStep, deps: StepDeps) -> StepResult:
+            if step.step_id == "step_hung":
+                await asyncio.sleep(30)
+            return StepResult()
+
+        runner = StepRunner(
+            run_store,
+            StepRegistry({StepKind.INTAKE_PUBLISH: handler}),
+            completer,
+            recording_audit,
+            timeout_s=0.05,
+        )
+
+        with pytest.raises(UpstreamTimeoutError, match=r"intake\.publish.*0\.05s"):
+            await runner.run(_step("step_hung"))
+        assert completer.calls == []
+        await asyncio.wait_for(runner.run(_step("step_next")), timeout=1)
+        assert [c[1] for c in completer.calls] == ["step_next"]
+
+    async def test_a_timeout_inside_the_handler_is_not_mistaken_for_the_deadline(
+        self, run_store: CaseRunStore, recording_audit: RecordingAudit
+    ) -> None:
+        await _create_run(run_store)
+
+        async def handler(step: HarnessStep, deps: StepDeps) -> StepResult:
+            raise TimeoutError("an inner wait ran out")
+
+        runner = StepRunner(
+            run_store,
+            StepRegistry({StepKind.INTAKE_PUBLISH: handler}),
+            StubCompleter(),
+            recording_audit,
+            timeout_s=30,
+        )
+        with pytest.raises(TimeoutError, match="inner wait") as raised:
+            await runner.run(_step())
+        assert not isinstance(raised.value, FcrmError)
+
+    def test_the_default_deadline_is_finite_and_a_setting(self) -> None:
+        assert 0 < DEFAULT_STEP_TIMEOUT_S <= 300
+        assert CaseflowSettings().step_timeout_s == DEFAULT_STEP_TIMEOUT_S
 
 
 class TestPerCaseSerialisation:
