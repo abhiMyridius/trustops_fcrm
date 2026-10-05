@@ -24,9 +24,11 @@ from fcrm_common.outbox import Outbox
 from fcrm_common.service import ServiceDeps, standalone_deps
 from fcrm_common.tracing import init_otel
 
+from fcrm_case.activity_log import MongoActivityLog
 from fcrm_case.fieldset_provider import active_field_set, active_pinned_versions
 from fcrm_case.settings import CaseSettings
 from fcrm_case.store import MongoCaseStore, build_cases_repository, ensure_case_indexes
+from fcrm_case.views_store import MongoViewStore
 
 logger = logging.getLogger(__name__)
 
@@ -55,10 +57,15 @@ async def register(
     cases_repo = build_cases_repository(db)
     counters = db["case_counters"]
     outbox = Outbox(db["outbox"])
+    activity = MongoActivityLog(deps.mongo, db["cases"], db["activity"])
+    views = MongoViewStore(deps.mongo, db, outbox)
     await ensure_case_indexes(cases_repo)
     await outbox.ensure_indexes()
+    await views.ensure_indexes()
+    await activity.ensure_indexes()
 
-    app.state.store = MongoCaseStore(deps.mongo, cases_repo, counters, outbox)
+    app.state.store = MongoCaseStore(deps.mongo, cases_repo, counters, outbox, activity)
+    app.state.views = views
     app.state.settings = settings
 
     probe: ReadinessProbe = app.state.probe

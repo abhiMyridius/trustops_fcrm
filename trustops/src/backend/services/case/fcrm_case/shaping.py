@@ -12,13 +12,23 @@ down (CLAUDE.md's "the PO never sees scores" rule is enforced by
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from fcrm_contracts.api.case_analyst import (
     CaseDetailAnalyst,
     CaseListItemAnalyst,
     SubmissionVersion,
     SubmissionVersionDiff,
 )
-from fcrm_contracts.api.case_internal import CaseDetailInternal
+from fcrm_contracts.api.case_internal import (
+    CaseDetailInternal,
+    CaseRecordInternal,
+    DocumentInternal,
+    FieldValueInternal,
+    ItemDecisionInternal,
+    OwnerRef,
+    ReviewItemInternal,
+)
 from fcrm_contracts.api.case_po import (
     CaseDetailPO,
     CaseListItemPO,
@@ -29,6 +39,12 @@ from fcrm_contracts.api.case_po import (
 from fcrm_case.domain.completion import compute_completion
 from fcrm_case.domain.diffing import diff_submission_versions
 from fcrm_case.domain.record import CaseRecord
+from fcrm_case.domain.views import (
+    DocumentRow,
+    FieldOrigin,
+    FieldValueRow,
+    ReviewItemRow,
+)
 
 
 def completion_state(record: CaseRecord) -> CompletionState:
@@ -189,4 +205,149 @@ def to_case_list_item_analyst(record: CaseRecord) -> CaseListItemAnalyst:
         created_at=record.created_at,
         submitted_at=record.submitted_at,
         open_clarification_count=0,
+    )
+
+
+#: The ``how`` of a legacy embedded field (``CaseRecord.fields``) as an origin.
+_LEGACY_ORIGINS: dict[str, FieldOrigin] = {
+    "extracted": "extracted",
+    "reused": "reused",
+    "answered": "answered",
+    "owner_corrected": "owner_declared",
+}
+
+
+def to_document_internal(row: DocumentRow) -> DocumentInternal:
+    """A stored document as H1 and the document-reading tool see it."""
+    return DocumentInternal(
+        doc_id=row.doc_id,
+        case_id=row.case_id,
+        name=row.name,
+        status=row.status,
+        bucket=row.bucket,
+        key=row.key,
+        size_bytes=row.size_bytes,
+        content_type=row.content_type,
+        uploaded_at=row.uploaded_at,
+        raised_in_round=row.raised_in_round,
+        canonical_key=row.canonical_key,
+        anchored_key=row.anchored_key,
+        pages=row.pages,
+        guard1=row.guard1,
+    )
+
+
+def to_review_item_internal(row: ReviewItemRow) -> ReviewItemInternal:
+    """A stored review item as H1 reads it back."""
+    decided = (
+        ItemDecisionInternal(
+            value=row.decided.value,
+            reason=row.decided.reason,
+            by=row.decided.by,
+            at=row.decided.at,
+        )
+        if row.decided is not None
+        else None
+    )
+    return ReviewItemInternal(
+        item_id=row.item_id,
+        kind=row.kind,
+        status=row.status,
+        proposal_id=row.proposal_id,
+        gate_id=row.gate_id,
+        subject=row.subject,
+        proposed=row.proposed,
+        source_refs=row.source_refs,
+        input_fields=row.input_fields,
+        supersedes=row.supersedes,
+        run_id=row.run_id,
+        decided=decided,
+    )
+
+
+def _field_internal(row: FieldValueRow) -> FieldValueInternal:
+    """A stored field value: the original (what it held before a person
+    changed it) is the oldest history entry.
+    """
+    return FieldValueInternal(
+        field_id=row.field_id,
+        label=row.label,
+        value=row.value,
+        origin=row.origin,
+        source=row.source.as_doc_ref() if row.source is not None else None,
+        original_value=row.history[0].value if row.history else None,
+    )
+
+
+def _legacy_field_internal(record: CaseRecord, field_id: str) -> FieldValueInternal:
+    """A value written through the legacy ``PUT /cases/{id}/fields/{id}`` route
+    (embedded in the case document) as an internal field.
+    """
+    stored = record.fields[field_id]
+    return FieldValueInternal(
+        field_id=field_id,
+        label=stored.label,
+        value=stored.value,
+        origin=_LEGACY_ORIGINS.get(stored.how, "owner_declared"),
+    )
+
+
+def _internal_fields(
+    record: CaseRecord, rows: Sequence[FieldValueRow]
+) -> list[FieldValueInternal]:
+    """Every required field in the case's pinned order (a stored value, a legacy
+    embedded one, or an ``open`` placeholder), then any stored value for a field
+    that is not (yet) required, by id.
+    """
+    stored = {row.field_id: row for row in rows}
+    fields: list[FieldValueInternal] = []
+    for definition in record.required_fields:
+        row = stored.pop(definition.field_id, None)
+        if row is not None:
+            fields.append(_field_internal(row))
+        elif definition.field_id in record.filled_field_ids:
+            fields.append(_legacy_field_internal(record, definition.field_id))
+        else:
+            fields.append(
+                FieldValueInternal(
+                    field_id=definition.field_id,
+                    label=definition.label,
+                    origin="open",
+                )
+            )
+    fields.extend(_field_internal(stored[field_id]) for field_id in sorted(stored))
+    return fields
+
+
+def to_case_record_internal(
+    record: CaseRecord,
+    field_rows: Sequence[FieldValueRow],
+    documents: Sequence[DocumentRow],
+) -> CaseRecordInternal:
+    """The case as H1's steps and H2's ``case_record`` tool read it: identity,
+    pins, every field with its origin, the documents. No score: the score has
+    its own route.
+    """
+    return CaseRecordInternal(
+        case_id=record.case_id,
+        title=record.title,
+        unit=record.unit,
+        owner=OwnerRef(id=record.owner, name=record.owner_name or record.owner),
+        analyst=(
+            OwnerRef(
+                id=record.analyst_id, name=record.analyst_name or record.analyst_id
+            )
+            if record.analyst_id is not None
+            else None
+        ),
+        state=record.state,
+        run_id=record.run_id,
+        change_types=list(record.change_types),
+        domains=list(record.domains),
+        pins=record.pinned_versions,
+        fieldset_v=record.fieldset_v,
+        required_field_ids=[f.field_id for f in record.required_fields],
+        fields=_internal_fields(record, field_rows),
+        documents=[to_document_internal(d) for d in documents],
+        submission_version=record.current_submission_v,
     )

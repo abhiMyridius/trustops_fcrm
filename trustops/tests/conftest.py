@@ -38,8 +38,11 @@ os.environ.setdefault("LITELLM_MODE", "PRODUCTION")
 if TYPE_CHECKING:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+    from fcrm_case.domain.record import CaseRecord
     from fcrm_case.store import InMemoryCaseStore
+    from fcrm_case.views_store import InMemoryViewStore
     from fcrm_common.authz import OPAClient
+    from fcrm_contracts.api.case_internal import UiEventIn
     from fcrm_contracts.common import Principal
     from fcrm_contracts.enums import CaseState, Role
     from fcrm_contracts.events.envelope import Envelope
@@ -562,6 +565,82 @@ def synthetic_corpus_clauses(
         "fcrm_context_worker.seedload.generated_clauses", lambda: clauses
     )
     return clauses
+
+
+# ── S1 foundation: records, events, the view store and the internal API ─────
+@pytest.fixture
+def make_case_record() -> Callable[..., CaseRecord]:
+    """``make_case_record(case_id="FCRM-2026-0151", **overrides)``: a stored
+    case at ``intake`` owned by Priya Nair, with the active field set's
+    always-required fields and no change types, as the demo case is seeded.
+    """
+    from datetime import UTC, datetime
+
+    from fcrm_case.domain.fieldset import resolve_required_fields
+    from fcrm_case.domain.record import CaseRecord
+    from fcrm_case.fieldset_provider import active_field_set, active_pinned_versions
+
+    def _make(case_id: str = "FCRM-2026-0151", **overrides: Any) -> CaseRecord:
+        field_set = active_field_set()
+        fields: dict[str, Any] = {
+            "case_id": case_id,
+            "title": "Consumer remittances US to Mexico",
+            "unit": "Payments",
+            "owner": "u-pnair",
+            "owner_name": "Priya Nair",
+            "created_by": "u-pnair",
+            "change_types": [],
+            "fieldset_v": field_set.version,
+            "completion_threshold": field_set.completion_threshold,
+            "pinned_versions": active_pinned_versions(),
+            "required_fields": resolve_required_fields([], field_set),
+            "created_at": datetime(2026, 10, 1, 9, tzinfo=UTC),
+        }
+        return CaseRecord(**{**fields, **overrides})
+
+    return _make
+
+
+@pytest.fixture
+def stored_case(
+    case_store: InMemoryCaseStore, make_case_record: Callable[..., CaseRecord]
+) -> CaseRecord:
+    """The demo case, stored in the in-memory case store at ``intake``."""
+    record = make_case_record()
+    case_store._cases[record.case_id] = record
+    return record
+
+
+@pytest.fixture
+def make_event() -> Callable[..., UiEventIn]:
+    """``make_event(type=..., visibility=..., summary=..., detail=None)``: an
+    event as H1 would post it (actor ``svc:caseflow``).
+    """
+    from fcrm_contracts.api.case_internal import UiActor, UiEventIn
+
+    def _make(
+        type: str = "document.extracted",
+        visibility: str = "po",
+        summary: str = "Documents read",
+        detail: Optional[dict[str, Any]] = None,
+    ) -> UiEventIn:
+        return UiEventIn(
+            type=type,
+            visibility=visibility,  # type: ignore[arg-type]
+            summary=summary,
+            detail=detail or {},
+            actor=UiActor(id="svc:caseflow", role="fcrm_service", component="caseflow"),
+        )
+
+    return _make
+
+
+@pytest.fixture
+def view_store() -> InMemoryViewStore:
+    """S1's in-memory view store (field values, documents, review items)."""
+    from fcrm_case.views_store import InMemoryViewStore
+
+    return InMemoryViewStore()
 
 
 # ── the outbox relay's fakes (the relay and its runner, no database or broker) ─

@@ -320,3 +320,92 @@ class AnalystLoadResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     loads: list[AnalystLoad]
+
+
+# ── V1 responses (added by lane I2-A1: the request models above were fixed first,
+# these are what S1 answers with; additive, nothing above changed) ────────────
+
+
+class ItemDecisionInternal(BaseModel):
+    """Who decided a review item, and what they decided."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: Optional[dict[str, Any]] = None
+    reason: Optional[str] = None
+    by: str
+    at: datetime
+
+
+class ReviewItemInternal(BaseModel):
+    """``GET /internal/cases/{case_id}/items``: one stored review item. Carries
+    the proposal's provenance and the decision, if any; never the PO shape.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    item_id: str
+    kind: ItemKind
+    status: ItemStatus
+    proposal_id: Optional[str] = None
+    gate_id: Optional[str] = None
+    subject: dict[str, Any] = Field(default_factory=dict)
+    proposed: dict[str, Any] = Field(default_factory=dict)
+    source_refs: list[dict[str, Any]] = Field(default_factory=list)
+    input_fields: list[str] = Field(default_factory=list)
+    supersedes: Optional[str] = None
+    run_id: Optional[str] = None
+    decided: Optional[ItemDecisionInternal] = None
+
+
+class IntakePushResult(BaseModel):
+    """``PUT /internal/cases/{case_id}/intake`` answers with what it did.
+    ``values_kept`` counts values left alone because a person already set that
+    field.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    run_id: str
+    values_written: int
+    values_kept: int
+    categories: int
+    gaps: int
+
+
+class StateResult(BaseModel):
+    """``PATCH /internal/cases/{case_id}/state``: the stage now held, and
+    whether this call changed it (a replay of the same patch does not).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    stage: CaseState
+    run_id: Optional[str] = None
+    stage_changed: bool
+
+
+class AssignResult(BaseModel):
+    """``POST /internal/cases/{case_id}/assign``: who is assigned, and whether
+    this call changed it.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    analyst_id: str
+    analyst_name: str
+    changed: bool
+
+
+class UiEventResult(BaseModel):
+    """``POST /internal/cases/{case_id}/events``: the sequence number the event
+    was stored at (the ``id`` of its stream frame).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    seq: int
