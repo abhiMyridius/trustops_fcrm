@@ -294,7 +294,11 @@ class TestClosedCasesRejectWrites:
             f"/cases/{case_id}/submit", json={"owner_reviewed_corrections": True}
         )
         assert write.status_code == title.status_code == submit.status_code == 409
-        assert write.json()["type"].endswith("/conflict")
+        # A closed case says so by name (rule 5); a case in committee is a plain
+        # conflict.
+        code = "case_closed" if state is CaseState.CLOSED else "conflict"
+        for response in (write, title, submit):
+            assert response.json()["type"].endswith(f"/{code}")
         assert store._cases[case_id].fields == {}  # nothing was written
 
 

@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from fastapi.testclient import TestClient
     from fcrm_case.directory import AnalystLoadService, StaticIdentityDirectory
     from fcrm_case.domain.record import CaseRecord
+    from fcrm_case.outcome_store import InMemoryOutcomeStore
     from fcrm_case.sse import EventHub
     from fcrm_case.store import InMemoryCaseStore
     from fcrm_case.views_store import InMemoryViewStore
@@ -737,6 +738,7 @@ class CaseService:
     hub: EventHub
     directory: StaticIdentityDirectory
     loads: AnalystLoadService
+    outcomes: InMemoryOutcomeStore
 
 
 @pytest.fixture
@@ -752,6 +754,7 @@ def case_service(
     from fastapi.testclient import TestClient
     from fcrm_case.directory import AnalystLoadService, StaticIdentityDirectory
     from fcrm_case.main import create_app
+    from fcrm_case.outcome_store import InMemoryOutcomeStore
     from fcrm_case.settings import CaseSettings
     from fcrm_common.auth import current_user
     from fcrm_contracts.api.identity import RosterUser
@@ -764,9 +767,15 @@ def case_service(
         ]
     )
     loads = AnalystLoadService(case_store, directory)
+    outcomes = InMemoryOutcomeStore(
+        case_store.activity,
+        lambda case_id: case_store._cases.get(case_id),
+        lambda record: case_store._cases.__setitem__(record.case_id, record),
+    )
     app = create_app()
     app.state.store = case_store
     app.state.views = view_store
+    app.state.outcomes = outcomes
     app.state.hub = event_hub
     app.state.directory = directory
     app.state.loads = loads
@@ -779,6 +788,7 @@ def case_service(
         hub=event_hub,
         directory=directory,
         loads=loads,
+        outcomes=outcomes,
     )
 
 

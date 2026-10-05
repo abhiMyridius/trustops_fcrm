@@ -66,6 +66,7 @@ from fcrm_case.domain.record import (
     SubmissionVersionRecord,
 )
 from fcrm_case.domain.submit_checks import evaluate_submit_checks
+from fcrm_case.errors import ensure_open
 from fcrm_case.fieldset_provider import active_field_set, active_pinned_versions
 from fcrm_case.settings import CaseSettings
 from fcrm_case.shaping import (
@@ -251,6 +252,7 @@ async def update_title(
     """Rename a case the caller owns."""
     record = await _get_or_404(store, case_id)
     _require_po_owner(principal, record)
+    ensure_open(record)
     updated = await store.update_title(case_id, body.title)
     if updated is None:
         raise ConflictError(f"case {case_id} is closed for further writes")
@@ -276,6 +278,7 @@ async def write_field_value(
     """
     record = await _get_or_404(store, case_id)
     _require_po_owner(principal, record)
+    ensure_open(record)
     required = {f.field_id: f.label for f in record.required_fields}
     if field_id not in required:
         raise ValidationError(f"{field_id} is not a required field for {case_id}")
@@ -309,6 +312,7 @@ async def submit_case(
     """
     record = await _get_or_404(store, case_id)
     _require_po_owner(principal, record)
+    ensure_open(record)
     if not record.open_for_writes:
         raise ConflictError(f"case {case_id} is already submitted or closed")
     completion = compute_completion(record.required_fields, record.filled_field_ids)

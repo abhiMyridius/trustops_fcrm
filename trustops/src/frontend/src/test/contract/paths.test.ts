@@ -19,7 +19,7 @@ import { handlerTemplatesOutsideEndpoints, servedRoutes, webRoutes } from './rou
 
 /** Web routes the backend does not serve yet (66 of 83 on 5 Oct, after the identity alignment). */
 const PENDING_ROUTES: readonly string[] = [
-  // S1 case: PO and analyst case routes, queues, dashboards, integrations, re-flags, harness (46)
+  // S1 case: PO and analyst case routes, queues, dashboards, integrations, re-flags, harness (44)
   'POST /api/fcrm/cases/{id}/acknowledge',
   'GET /api/fcrm/cases/{id}/activity',
   'GET /api/fcrm/cases/{id}/assessment',
@@ -28,9 +28,7 @@ const PENDING_ROUTES: readonly string[] = [
   'POST /api/fcrm/cases/{id}/clarifications',
   'POST /api/fcrm/cases/{id}/clarifications/{id}/answer',
   'POST /api/fcrm/cases/{id}/clarifications/{id}/resolve',
-  'POST /api/fcrm/cases/{id}/close',
   'POST /api/fcrm/cases/{id}/completeness',
-  'GET /api/fcrm/cases/{id}/conditions',
   'POST /api/fcrm/cases/{id}/conditions/{id}/evidence',
   'POST /api/fcrm/cases/{id}/controls/planned',
   'POST /api/fcrm/cases/{id}/discard',

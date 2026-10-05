@@ -46,6 +46,7 @@ internal_case_routes := {
 	["PUT", "/internal/cases/{case_id}/items"],
 	["PUT", "/internal/cases/{case_id}/intake"],
 	["PATCH", "/internal/cases/{case_id}/state"],
+	["PUT", "/internal/cases/{case_id}/outcome"],
 	["POST", "/internal/cases/{case_id}/assign"],
 	["POST", "/internal/cases/{case_id}/events"],
 	["GET", "/internal/documents/{doc_id}"],
@@ -65,6 +66,40 @@ test_no_person_role_may_call_an_internal_case_route if {
 			not authz.allow with input as req(role, "case", r[0], r[1])
 		}
 	}
+}
+
+# The delegated close and the condition tracker (R1; fcrm_case.routes_analyst_close):
+# the analyst only. The service account never decides a human gate (Guard 7), and
+# the PO and the committee reach none of them (the PO's own conditions are read
+# through a separate rule).
+analyst_close_routes := {
+	["POST", "/cases/{case_id}/close"],
+	["GET", "/cases/{case_id}/conditions"],
+	["PATCH", "/conditions/{condition_id}"],
+}
+
+test_analyst_may_close_a_case_and_track_its_conditions if {
+	every r in analyst_close_routes {
+		authz.allow with input as req("fcrm_analyst", "case", r[0], r[1])
+	}
+}
+
+test_po_and_committee_may_not_close_or_update_a_condition if {
+	every role in {"fcrm_po", "fcrm_committee", "fcrm_observer"} {
+		not authz.allow with input as req(role, "case", "POST", "/cases/{case_id}/close")
+		not authz.allow with input as req(role, "case", "PATCH", "/conditions/{condition_id}")
+	}
+}
+
+test_committee_and_observer_may_not_read_the_conditions_tracker if {
+	every role in {"fcrm_committee", "fcrm_observer"} {
+		not authz.allow with input as req(role, "case", "GET", "/cases/{case_id}/conditions")
+	}
+}
+
+test_the_service_account_never_closes_a_case_or_changes_a_condition if {
+	not authz.allow with input as req("fcrm_service", "case", "POST", "/cases/{case_id}/close")
+	not authz.allow with input as req("fcrm_service", "case", "PATCH", "/conditions/{condition_id}")
 }
 
 test_the_case_stream_serves_every_person_role_and_the_service if {

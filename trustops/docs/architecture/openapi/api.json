@@ -961,6 +961,61 @@
         "title": "ClarificationThreadPO",
         "type": "object"
       },
+      "CloseCaseRequest": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/close``: the analyst's delegated close.\n\n``plain_summary`` is what the PO reads, so it must be in business words;\nthe route refuses one that names a score, band or rating.",
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/Outcome"
+          },
+          "plain_summary": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Plain Summary",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "reason",
+          "plain_summary"
+        ],
+        "title": "CloseCaseRequest",
+        "type": "object"
+      },
+      "CloseRequested": {
+        "additionalProperties": false,
+        "description": "What the close route answers (202): the request was recorded and sent to\nH1. The case is closed when the outcome comes back, not before.",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/Outcome"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "requested": {
+            "default": true,
+            "title": "Requested",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "case_id",
+          "outcome"
+        ],
+        "title": "CloseRequested",
+        "type": "object"
+      },
       "CommitteeQueueItem": {
         "additionalProperties": false,
         "description": "A released pack in the member's queue with their own vote status.",
@@ -1149,6 +1204,74 @@
         "title": "CompletionState",
         "type": "object"
       },
+      "ConditionAnalyst": {
+        "additionalProperties": false,
+        "description": "``ConditionAnalyst`` in ``analyst.ts``.",
+        "properties": {
+          "due": {
+            "title": "Due",
+            "type": "string"
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          },
+          "from": {
+            "title": "From",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "scheduled",
+              "evidence_submitted",
+              "closed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "owner",
+          "due",
+          "status",
+          "from"
+        ],
+        "title": "ConditionAnalyst",
+        "type": "object"
+      },
       "ConditionPO": {
         "additionalProperties": false,
         "properties": {
@@ -1181,6 +1304,54 @@
           "status"
         ],
         "title": "ConditionPO",
+        "type": "object"
+      },
+      "ConditionPatch": {
+        "additionalProperties": false,
+        "description": "``PATCH /conditions/{id}``: the analyst updates a condition's status\nand/or records a note on the evidence they reviewed. A status change needs\na ``reason`` of at least :data:`STATUS_REASON_MIN_CHARS` characters.",
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "open",
+                  "scheduled",
+                  "evidence_submitted",
+                  "closed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "ConditionPatch",
         "type": "object"
       },
       "ControlInput": {
@@ -3158,6 +3329,45 @@
           "items"
         ],
         "title": "Page[CommitteeThread]",
+        "type": "object"
+      },
+      "Page_ConditionAnalyst_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ConditionAnalyst"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[ConditionAnalyst]",
         "type": "object"
       },
       "Page_ControlVersionOut_": {
@@ -6036,6 +6246,112 @@
         ]
       }
     },
+    "/api/fcrm/cases/{case_id}/close": {
+      "post": {
+        "description": "Ask for a delegated close (R1, Band 1-2).\n\nRefused unless the case is open, the analyst holds it, its latest score\nroutes to the analyst (Band 1-2) and its recommendation is locked; a summary\nthat names a score, band or rating is refused too, because the owner reads\nit. Asking twice with the same content is a no-op; a different second\nrequest is a 409.\n\nRaises:\n    NotFoundError: No such case.\n    ForbiddenError: The caller is not the case's analyst.\n    fcrm_case.errors.CaseClosedError: The case is closed.\n    RuleViolationError: R1: no score yet, or the band routes to committee.\n    GateRequiredError: The recommendation is not locked.\n    ValidationError: The plain summary names a restricted term.",
+        "operationId": "S1_close_case_cases__case_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseCaseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloseRequested"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Close Case",
+        "tags": [
+          "case"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/conditions": {
+      "get": {
+        "description": "The case's conditions, soonest due first (one query on ``{case_id}``).",
+        "operationId": "S1_list_conditions_cases__case_id__conditions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ConditionAnalyst_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Conditions",
+        "tags": [
+          "case"
+        ]
+      }
+    },
     "/api/fcrm/cases/{case_id}/fields/{field_id}": {
       "put": {
         "description": "Write one field's value and return the recomputed completion state\n(``fcrm_case.domain.completion.compute_completion``, never\nreimplemented here).\n\nPO only, and only on a case they own: rule 4 (\"the analyst never edits\nthe submission\", design A §2.1.2 \"``field_values`` writes accept only\n``fcrm_po``\") refuses every other role, the service role included --\nagents propose values, the PO confirms or corrects them.",
@@ -6410,6 +6726,64 @@
           }
         ],
         "summary": "Diff Submission Version Pair",
+        "tags": [
+          "case"
+        ]
+      }
+    },
+    "/api/fcrm/conditions/{condition_id}": {
+      "patch": {
+        "description": "Move a condition's status (reason of at least 20 characters) and/or record\na note on the evidence the analyst reviewed.\n\nRaises:\n    NotFoundError: No such condition (or its case).\n    ForbiddenError: The caller is not the case's analyst.\n    fcrm_case.errors.ConditionClosedError: Closing is terminal.\n    fcrm_case.errors.ConditionMoveError: Not a move an analyst may make.",
+        "operationId": "S1_patch_condition_conditions__condition_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "condition_id",
+            "required": true,
+            "schema": {
+              "title": "Condition Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConditionPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConditionAnalyst"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Patch Condition",
         "tags": [
           "case"
         ]

@@ -15,6 +15,7 @@ from fastapi import Request
 from fcrm_common.errors import UpstreamUnavailableError
 
 from fcrm_case.directory import AnalystLoadService, IdentityDirectory
+from fcrm_case.outcome_store import OutcomeStore
 from fcrm_case.settings import CaseSettings
 from fcrm_case.sse import ActivityWriter, EventHub
 from fcrm_case.store import CaseStore
@@ -70,6 +71,12 @@ def get_loads(request: Request) -> AnalystLoadService:
     """The R5 load read (roster plus one aggregation, cached)."""
     loads: AnalystLoadService = _wired(request, "loads")
     return loads
+
+
+def get_outcomes(request: Request) -> OutcomeStore:
+    """The outcome, close-request and condition store."""
+    outcomes: OutcomeStore = _wired(request, "outcomes")
+    return outcomes
 
 
 def get_writer(request: Request) -> ActivityWriter:

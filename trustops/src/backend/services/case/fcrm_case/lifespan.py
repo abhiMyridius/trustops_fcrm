@@ -46,6 +46,7 @@ from fcrm_case.directory import (
     UnconfiguredIdentityDirectory,
 )
 from fcrm_case.fieldset_provider import active_field_set, active_pinned_versions
+from fcrm_case.outcome_store import MongoOutcomeStore
 from fcrm_case.seeding import seed_case_service
 from fcrm_case.settings import CaseSettings
 from fcrm_case.sse import EventHub
@@ -134,10 +135,14 @@ async def register(
     outbox = Outbox(db["outbox"])
     activity = MongoActivityLog(deps.mongo, db["cases"], db["activity"])
     views = MongoViewStore(deps.mongo, db, outbox)
+    outcomes = MongoOutcomeStore(
+        deps.mongo, db, cases_repo, views.repos.conditions, outbox, activity
+    )
     await ensure_case_indexes(cases_repo)
     await outbox.ensure_indexes()
     await views.ensure_indexes()
     await activity.ensure_indexes()
+    await outcomes.ensure_indexes()
     if settings.seed_on_empty:
         await seed_case_service(
             SeedReader(settings.seed_path), cases_repo, views.repos, counters
@@ -147,6 +152,7 @@ async def register(
     directory, closable = _build_directory(settings)
     app.state.store = store
     app.state.views = views
+    app.state.outcomes = outcomes
     app.state.hub = EventHub(settings.sse_queue_size)
     app.state.directory = directory
     app.state.loads = AnalystLoadService(store, directory)

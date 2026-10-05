@@ -201,6 +201,17 @@
         "effect": "allow"
       },
       {
+        "id": "case-get-cases-id-conditions-analyst",
+        "description": "Analyst reads the case's conditions (ConditionAnalyst shape)",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/conditions",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
         "id": "case-post-cases-id-conditions-cnd_id-evidence-po",
         "description": "PO submits condition evidence",
         "service": "case",
@@ -1454,6 +1465,17 @@
         "service": "case",
         "method": "POST",
         "path": "/cases/{id}/close",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-patch-conditions-cnd_id",
+        "description": "Guard 7: a condition's status is changed by an analyst with a reason, never by the service account",
+        "service": "case",
+        "method": "PATCH",
+        "path": "/conditions/{cnd_id}",
         "roles": [
           "fcrm_service"
         ],

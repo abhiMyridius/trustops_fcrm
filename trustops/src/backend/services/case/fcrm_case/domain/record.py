@@ -115,6 +115,8 @@ class CaseRecord(BaseModel):
     documents: list[DocumentRecord] = []
     submission_versions: list[SubmissionVersionRecord] = []
     outcome_summary: Optional[str] = None
+    # The ``outcomes`` row that closed the case (its id is the case id).
+    outcome_ref: Optional[str] = None
     created_at: datetime
     submitted_at: Optional[datetime] = None
     decided_at: Optional[datetime] = None
