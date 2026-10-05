@@ -17,13 +17,18 @@ This file describes the state on 5 October 2026. If a step stops matching what y
 | Code checks: lint, format, types, unit tests, OPA policy tests | ✅ `make check` |
 | Integration tests against a real MongoDB | ✅ `make test-int` |
 | Web unit tests and type check | ✅ `npm test`, `npm run typecheck` |
-| Full stack: identity, S1–S5, H1, H2, gateway, web, infra, observability | ✅ boots, 19 containers healthy |
-| Login and access policy on every service | ✅ checked live through the gateway |
+| Backend stack: identity, S1–S5, H1, H2, gateway, web image, infra, observability | ✅ boots, 19 containers healthy |
+| Login and access policy on every service, checked with `curl` through the gateway | ✅ |
+| Web app on its own, against the in-browser mock backend (MSW) | ✅ every screen for all three personas |
+| Web app against the live backend | ⏳ login fails (field-name mismatch); after that about a third of the screens have a backend route. See [Where the backend and the frontend stand](#where-the-backend-and-the-frontend-stand) |
 | H3 ingestion and H4 context workers as containers | ⏳ built and tested, but no start entry point yet; run them at scale 0 |
-| Driving case FCRM-2026-0151 end to end through the live stack | ⏳ the services do not yet pass events to each other |
-| `make demo`, `make seed-verify`, `make verify`, `make e2e` | ⏳ placeholders that print "pending" |
+| Driving case FCRM-2026-0151 end to end through the live stack | ⏳ the services do not yet pass events to each other, and S1 holds no seeded cases |
+| Offline model replays (`FCRM_LLM_MODE=replay`) | ⏳ the setting is not read yet; agents always call Bedrock |
+| `make demo`, `make seed-verify`, `make verify`, `make e2e`, `make evals` | ⏳ placeholders that print "pending" |
 
 The demo figures (9.8 → 10.4, a 2–1 committee vote, 67 audit records) are currently proved by the unit and integration tests, not by a live run.
+
+**In one sentence:** the backend and the frontend each run on their own, but they do not yet talk to each other. Section 5 shows how to run each, and the last section lists exactly where the seam is.
 
 ## 0. Prerequisites
 
@@ -56,7 +61,7 @@ Every seeded demo user shares one password, `demo-password-2026`. To choose your
 
 | Section | What to do |
 |---|---|
-| **1. Live AI on Amazon Bedrock** | Optional. Leave it empty and the agents run on recorded replays: no cost, no cloud. To go live, fill in `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (`AWS_DEFAULT_REGION` is already `us-east-1`; uncomment `AWS_SESSION_TOKEN` only for SSO or temporary keys) and set `FCRM_LLM_MODE=live`. These are the standard boto3 and AWS CLI names. The agents call Bedrock through Pydantic AI's Bedrock provider, and the vector store calls S3 Vectors through aioboto3 |
+| **1. Live AI on Amazon Bedrock** | Needed for any agent run. Fill in `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (`AWS_DEFAULT_REGION` is already `us-east-1`; uncomment `AWS_SESSION_TOKEN` only for SSO or temporary keys) and set `FCRM_LLM_MODE=live`. These are the standard boto3 and AWS CLI names. The agents call Bedrock through Pydantic AI's Bedrock provider, and the vector store calls S3 Vectors through aioboto3. **Replay mode is not wired yet:** `FCRM_LLM_MODE=replay` is accepted but ignored, so without AWS keys every agent job fails at the Bedrock call. The services, login and the web app still work without keys; only agent runs need them |
 | **2. Host ports** | Optional. Change a port only if `up` reports `port is already allocated`: uncomment that line and choose a free port |
 | **3. Generated** | Leave as is. These are local passwords. The databases are created with them on the first start, so changing them later needs `make down-v`, which deletes local data |
 
@@ -156,16 +161,50 @@ Logs for one service: `make logs svc=case`. Leave `svc` empty to follow every se
 | Jaeger (traces) | http://localhost:16686 | none |
 | Prometheus | http://localhost:9090 | none |
 
-## 5. Look at the web app
+## 5. Run the web app
 
-The full click-through is not wired to the live services yet. Run the web app against its built-in seed data instead:
+There are three ways to see the UI. Pick by what you want to look at.
+
+| Way | URL | Backend | Use it for |
+|---|---|---|---|
+| **A. Mock, dev server** (default) | http://localhost:5173 | MSW in the browser, fed by the P7 seed | Every screen, every persona, the full 0151 click-through. Needs no Docker |
+| **B. Live, packaged** | http://localhost:8080 | The real services through the gateway | Checking what the backend really serves. This is what `make up` gives you |
+| **C. Live, dev server** | http://localhost:5173 | The real services, proxied by Vite to :8080 | Working on the FE against the real BE with hot reload |
+
+The badge at the top of every page tells you which backend you are on: "Mock backend (MSW)" or "Live".
+
+### A. Mock mode (what you get by default)
 
 ```bash
 cd src/web
+npm ci                           # first time only
 npm run dev                      # http://localhost:5173
 ```
 
-The URL prefix chooses the persona: `/` is the product owner, `/analyst` the FCRM analyst, `/committee` the risk committee.
+`VITE_API_MODE` defaults to `msw`, so with no `.env.local` in `src/web` this is what runs. The login page shows a picker of seeded users and collects no password. The URL prefix chooses the persona: `/` is the product owner, `/analyst` the FCRM analyst, `/committee` the risk committee.
+
+### B. Live mode, packaged (the web image behind the gateway)
+
+```bash
+make up          # or the scale-0 command from step 3
+open http://localhost:8080
+```
+
+The web image is built with `VITE_API_MODE=live`, so every request goes to the real services. **Today the login form posts `username` while the identity service expects `email`, so sign-in returns 422.** That is the first item on the seam list below. Until it is fixed, test the live backend with the `curl` checks in step 4.
+
+### C. Live mode on the dev server
+
+Start the backend (step 3), then point the dev server at it:
+
+```bash
+cd src/web
+printf 'VITE_API_MODE=live\nVITE_DEMO_USERS=false\n' > .env.local
+npm run dev                      # Vite proxies /api/* to http://localhost:8080
+```
+
+`VITE_DEMO_USERS=false` matters: the demo picker calls `GET /api/fcrm/auth/demo-users`, which the identity service does not serve, and posts an empty password, which it rejects. With the picker off you get the username/password form. Log in with a seed id and the demo password (`riyer` / `demo-password-2026`). Delete `.env.local` to go back to mock mode. `.env.local` is ignored by git.
+
+If Vite says `Port 5173 is already in use`, an earlier `npm run dev` is still running, often from before a folder move. Stop it with `kill $(lsof -tnP -iTCP:5173 -sTCP:LISTEN)` and start again. The dev server uses `strictPort`, so it never picks another port.
 
 ## 6. Stop
 
@@ -173,6 +212,32 @@ The URL prefix chooses the persona: `/` is the product owner, `/analyst` the FCR
 make down        # stop the stack and keep its data
 make down-v      # stop the stack and delete every local volume
 ```
+
+## Where the backend and the frontend stand
+
+The frontend was built against the MSW mock contract, which is the full design: 78 endpoints. The backend serves 33 routes today. Both sides are real code with tests, but they were built in parallel and the join has not been made. This table is what the live app will and will not find, screen by screen, as of 5 October 2026.
+
+| Web area | What the web calls | What the backend serves | Live today? |
+|---|---|---|---|
+| Login | `POST auth/login` with `{username, password}`, `GET auth/demo-users`, `auth/me`, `auth/refresh`, `auth/logout` | `POST auth/login` with `{email, password}` (extra fields rejected), `auth/me`, `auth/refresh`, `auth/logout`. No `demo-users` | ❌ 422 until the field name matches. Everything after that depends on this one fix |
+| PO: my queue, case list, create case | `GET dashboard`, `GET/POST cases`, `GET cases/{id}` | `GET/POST cases`, `GET cases/{id}`, `GET cases/{id}/stream`. No `dashboard` | Partial. S1 holds **no seeded cases**, so the list is empty until a case is created in the UI |
+| PO: intake fields, review, submit | `PUT cases/{id}/intake/values/{field}`, `intake/categories`, `review`, `validate`, `submit` | `PUT cases/{id}/fields/{field}`, `PUT cases/{id}/title`, `POST cases/{id}/submit`, `GET versions`, `versions/diff` | Partial. Submit and title match; the field-write path differs; review and validate are missing |
+| PO: documents, inbox, clarifications, conditions, outcome, activity, integrations | 10 routes | None | ❌ |
+| Analyst: queue, workbench, screening, completeness, policy, risk, items, acknowledge, gaps, recommendation, lock and unlock, handoff, close, harness, reflags | 25 routes under `cases/{id}/…`, `queue`, `dashboard/analyst`, `reflags` | None. The gateway sends them to S1, which 404s | ❌ The whole analyst workbench |
+| Scoring | `GET scoring/models/{v}`, `scoring/routing-rules/{v}`, `POST scoring/simulate` | `GET models/active`, `models/{v}`, `routing/active`, `POST score` | Partial. The model read works; routing and simulate have different paths |
+| Policy search and config | `POST policy/search`, `policy/config/*` | `POST policy/search` only | Partial. Search works (4 clauses indexed, not 197); config screens are missing |
+| Audit | `GET audit/records`, `verify/{case}`, `examiner/ask`, `overrides`, `agent-quality`, `versions/{case}` | `GET records/{case}`, `verify/{case}`, `POST records` (service role only) | Partial. Verify works; the records list and the three analytics views differ or are missing |
+| Committee: queue, packs, votes, threads, outcome | `committee/queue`, `packs`, `cases/{id}/packs[/latest]`, `packs/{id}/release`, `packs/{id}/votes`, `packs/{id}/threads`, `threads/{id}/answer`, `cases/{id}/outcome` | `POST packs`, `GET packs/{id}`, `packs/{id}/votes`, `packs/{id}/outcome`, `POST packs/{id}/questions`, `questions/{id}/answers`, `release-checks` | Partial. Build pack, read pack, vote and read votes work; the queue, per-case lookups and thread paths differ |
+| Live updates | `GET cases/{id}/stream` as an `EventSource` | `GET cases/{id}/stream`, bearer token required | ❌ `EventSource` cannot send the header; the app falls back to polling silently |
+
+Behind the HTTP seam there is a second gap inside the backend: S5 writes votes but publishes no event, S1 never updates a case's state, and the H3/H4 workers have no process. So even with every route matched, a case would not yet move from intake to a decision. The order of work to close the gap is:
+
+1. Align the login payload (one field name) so the live UI can sign in.
+2. Seed S1 with the 80 cases so the PO and analyst queues are not empty.
+3. Add the analyst workbench routes to S1, or a thin read model over H1's `case_runs`, since those 25 routes are the bulk of the missing surface.
+4. Make S5 publish its events and S1 consume state changes, so the case actually moves.
+5. Rename the handful of mismatched paths (field writes, routing rules, audit records, committee queue) on whichever side is cheaper.
+6. Give H3 and H4 a `__main__` so documents can be ingested, and wire replay mode so the stack runs without AWS keys.
 
 ## Troubleshooting
 
@@ -186,3 +251,9 @@ make down-v      # stop the stack and delete every local volume
 | `audit` keeps restarting with `ChainVerifyFailedError` | The audit records in the Mongo volume were written under an older hash format (D-29). Run `make down-v`, then start again, to reseed |
 | `identity` fails at start, asking for `DEMO_USERS_PASSWORD_HASH` | `.env` predates D-25. Move it aside and run `make env` again |
 | Every API call returns `503` | OPA is not reachable, and the services fail closed by design. Check with `make ps` and `make logs svc=opa` |
+| The page shows "Mock backend (MSW)" when you expected the live stack | You are on the dev server with no `src/web/.env.local`, so `VITE_API_MODE` defaulted to `msw`. See step 5 C. Also check `make ps`: if the services are down, live mode would only show errors |
+| `Port 5173 is already in use` | A previous `npm run dev` is still running (it survives a folder move). `kill $(lsof -tnP -iTCP:5173 -sTCP:LISTEN)` and start again |
+| Live login returns `422` | The web posts `username`, the identity service wants `email`. First item in the seam table above |
+| Live login page hangs on the demo picker | `GET auth/demo-users` does not exist on the backend. Set `VITE_DEMO_USERS=false` in `src/web/.env.local` |
+| Live PO queue is empty | S1 has no seeded cases yet (`make seed` is pending). Create a case from the UI, or use mock mode to see the 80 seed cases |
+| Agent jobs fail with a Bedrock or credentials error | Replay mode is not wired; agents always call Bedrock. Fill in the AWS keys in `.env` |
