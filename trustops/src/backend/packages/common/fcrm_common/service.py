@@ -16,6 +16,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Optional
 
+from faststream.rabbit import RabbitBroker
 from pymongo import AsyncMongoClient
 
 from fcrm_common.auth import TokenVerifier
@@ -42,6 +43,10 @@ class ServiceDeps:
         lease_holder: This process's identity (``new_id("relay")``) for the
             leadership leases of the relays it hosts, one value shared by every
             service of the process. Empty when there is no publisher.
+        broker: The process's already-started ``RabbitBroker``, for a service
+            that consumes events (S1 mirrors S5's and H1's onto the case
+            stream). ``None`` when the host has no broker: the service then
+            runs without consuming and says so in its log.
     """
 
     mongo: AsyncMongoClient[Document]
@@ -49,6 +54,7 @@ class ServiceDeps:
     opa: OPAClient
     publisher: Optional[Publisher] = None
     lease_holder: str = ""
+    broker: Optional[RabbitBroker] = None
 
 
 @asynccontextmanager

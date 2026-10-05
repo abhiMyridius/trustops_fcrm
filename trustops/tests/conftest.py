@@ -837,6 +837,57 @@ class FakeOutboxCollection:
                     doc[key] = doc.get(key, 0) + value
 
 
+class FakeConsumedCollection:
+    """The ``consumed_messages`` collection as ``fcrm_common.events.Consumer``
+    uses it without a transaction: ``find_one`` and ``insert_one`` by
+    ``(message_id, consumer)``, a duplicate raising ``DuplicateKeyError``.
+    """
+
+    def __init__(self) -> None:
+        self.docs: list[dict[str, Any]] = []
+
+    async def find_one(
+        self, query: dict[str, Any], projection: Any = None
+    ) -> Optional[dict[str, Any]]:
+        for doc in self.docs:
+            if all(doc.get(k) == v for k, v in query.items()):
+                return doc
+        return None
+
+    async def insert_one(self, doc: dict[str, Any], session: Any = None) -> None:
+        from pymongo.errors import DuplicateKeyError
+
+        if await self.find_one(
+            {"message_id": doc["message_id"], "consumer": doc["consumer"]}
+        ):
+            raise DuplicateKeyError("duplicate message")
+        self.docs.append(dict(doc))
+
+
+class TopicRecorder:
+    """A ``Publisher`` that keeps ``(exchange, routing_key, body)``, so a test
+    can see where a failed message went (the retry or the dead-letter exchange).
+    """
+
+    def __init__(self) -> None:
+        self.published: list[tuple[str, str, bytes]] = []
+
+    async def publish(
+        self, exchange: str, routing_key: str, body: bytes, headers: dict[str, Any]
+    ) -> None:
+        self.published.append((exchange, routing_key, body))
+
+
+@pytest.fixture
+def case_consumed() -> FakeConsumedCollection:
+    return FakeConsumedCollection()
+
+
+@pytest.fixture
+def topic_recorder() -> TopicRecorder:
+    return TopicRecorder()
+
+
 class FakeRelayLease:
     """A leadership lease that is held (the only replica) or not (a standby)."""
 

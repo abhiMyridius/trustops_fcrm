@@ -62,14 +62,43 @@ TEST_MOUNTS = tuple(
 )
 
 
+class FakeSubscriber:
+    """One subscription a service registered on the fake broker after it started
+    (``wire_consumer``'s ``broker.subscriber(...)(handler)``): it records that it
+    was started and stopped.
+    """
+
+    def __init__(self, queue: object) -> None:
+        self.queue = queue
+        self.started = False
+
+    def __call__(self, handler: object) -> object:
+        return handler
+
+    async def start(self) -> None:
+        self.started = True
+
+    async def stop(self) -> None:
+        self.started = False
+
+
 class FakeBroker:
     """Stands in for the process's one ``RabbitBroker`` (no RabbitMQ runs in
-    these tests): it records what the services' relays publish through it.
+    these tests): it records what the services' relays publish through it and
+    the subscriptions the services' consumers register on it.
     """
 
     def __init__(self) -> None:
         self.started = False
         self.published: list[tuple[bytes, dict[str, object]]] = []
+        self.subscribers: list[FakeSubscriber] = []
+
+    def subscriber(
+        self, queue: object, *args: object, **kwargs: object
+    ) -> FakeSubscriber:
+        sub = FakeSubscriber(queue)
+        self.subscribers.append(sub)
+        return sub
 
     async def start(self) -> None:
         self.started = True
@@ -216,6 +245,23 @@ def test_s1_relays_its_outbox_through_the_composites_broker(
         ready = client.get("/api/fcrm/readyz")
         assert ready.json()["checks"]["outbox"]["ok"] is True
     assert fake_broker.started is False
+
+
+def test_s1_consumes_its_queue_through_the_composites_broker(
+    clean_dbs: None,
+    composite_env: None,
+    fake_broker: FakeBroker,
+    composite_client: Callable[[], AbstractContextManager[TestClient]],
+) -> None:
+    """S1 registers its subscriptions on the broker the composite already
+    started, starts each, and stops them when the process stops.
+    """
+    with composite_client():
+        queues = {getattr(sub.queue, "name", None) for sub in fake_broker.subscribers}
+        assert queues == {"case-service.events"}
+        assert len(fake_broker.subscribers) == 4  # one per key ops bound
+        assert all(sub.started for sub in fake_broker.subscribers)
+    assert not any(sub.started for sub in fake_broker.subscribers)
 
 
 def test_s5_relays_its_outbox_through_the_composites_broker(

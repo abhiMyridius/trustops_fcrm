@@ -39,6 +39,7 @@ from fcrm_common.tracing import init_otel
 from pymongo.asynchronous.collection import AsyncCollection
 
 from fcrm_case.activity_log import MongoActivityLog
+from fcrm_case.consumer import start_consumer
 from fcrm_case.directory import (
     AnalystLoadService,
     HttpIdentityDirectory,
@@ -165,6 +166,13 @@ async def register(
         if closable is not None:
             stack.push_async_callback(closable.aclose)
         start_relay(stack, probe, outbox, db["leases"], deps)
+        await start_consumer(
+            stack,
+            deps,
+            consumed=db["consumed_messages"],
+            activity=activity,
+            hub=app.state.hub,
+        )
         yield
 
 
