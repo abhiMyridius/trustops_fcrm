@@ -80,15 +80,6 @@ const PENDING_ROUTES: readonly string[] = [
   'POST /api/fcrm/audit/examiner/ask',
   'GET /api/fcrm/audit/overrides',
   'GET /api/fcrm/audit/versions/{id}',
-  // S5 decision (8)
-  'GET /api/fcrm/decision/cases/{id}/outcome',
-  'ANY /api/fcrm/decision/cases/{id}/packs',
-  'GET /api/fcrm/decision/cases/{id}/packs/latest',
-  'GET /api/fcrm/decision/committee/queue',
-  'POST /api/fcrm/decision/packs/{id}/release',
-  'GET /api/fcrm/decision/packs/{id}/threads',
-  'POST /api/fcrm/decision/packs/{id}/threads',
-  'POST /api/fcrm/decision/threads/{id}/answer',
 ];
 
 const WEB = webRoutes();

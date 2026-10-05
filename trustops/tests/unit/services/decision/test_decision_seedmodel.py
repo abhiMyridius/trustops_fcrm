@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from fcrm_contracts.api.decision import PackContent
 from fcrm_contracts.enums import Outcome, Role, VoteOption
 from fcrm_contracts.voting import tally_votes
 from fcrm_decision.packs import content_hash
@@ -17,12 +18,13 @@ from fcrm_decision.seedmodel import (
     DELEGATED_PACK_PREFIX,
     RATIONALES,
     SeedDecisionError,
+    SeedReference,
     SeedRows,
     build_seed_rows,
     committee_ballot,
     pack_id_for,
 )
-from fcrm_decision.store import InMemoryDecisionStore
+from fcrm_decision.store_memory import InMemoryDecisionStore
 from fcrm_seed.loader import cases, closed_cases, demo_case, load_raw, platform_outcome
 
 COMMITTEE = [u["id"] for u in load_raw()["users"]["committee"]]
@@ -31,7 +33,7 @@ MIN_RATIONALE_CHARS = 20
 
 
 def _rows() -> SeedRows:
-    return build_seed_rows(cases(), COMMITTEE)
+    return build_seed_rows(cases(), COMMITTEE, SeedReference.from_seed(load_raw()))
 
 
 def _closed_committee() -> list[dict[str, Any]]:
@@ -73,6 +75,13 @@ def test_each_outcome_is_the_cases_recorded_outcome_and_never_a_no_majority() ->
         assert outcome.outcome == Outcome(platform_outcome(case["outcome"]))
         assert outcome.no_majority is False
         assert outcome.round == 1
+
+
+def test_every_outcome_is_dated_the_day_the_case_was_decided() -> None:
+    decided = {c["id"]: c["decided"] for c in closed_cases()}
+    for row in _rows().outcomes:
+        assert row.decided_at is not None
+        assert row.decided_at.date().isoformat() == decided[row.outcome.case_id]
 
 
 def test_delegated_outcomes_have_no_pack_only_a_sentinel() -> None:
@@ -128,7 +137,7 @@ def test_each_ballot_tallies_to_the_cases_outcome() -> None:
 
 def test_ballots_are_a_mix_of_unanimous_and_two_to_one() -> None:
     rows = _rows()
-    shapes = Counter()
+    shapes: Counter[tuple[int, ...]] = Counter()
     for case in _closed_committee():
         pack_id = pack_id_for(case["id"])
         options = Counter(v.option for v in rows.votes if v.pack_id == pack_id)
@@ -173,10 +182,25 @@ def test_the_snapshot_is_the_seed_score_with_four_passing_checks() -> None:
         snapshot = pack.content
         assert snapshot["score"]["composite"] == score["composite"]
         assert snapshot["score"]["band"] == score["band"]
-        assert snapshot["score"]["areas"].keys() == score["areas"].keys()
+        assert [a["domain"] for a in snapshot["score"]["areas"]] == list(score["areas"])
         assert all(snapshot["checks"].values())
         assert pack.checks.all_passed
         assert pack.released_at is not None
+
+
+def test_every_seeded_snapshot_is_a_valid_pack_body_with_names_and_labels() -> None:
+    by_case = {c["id"]: c for c in cases()}
+    names = {p["id"]: p["name"] for g in load_raw()["users"].values() for p in g}
+    for pack in _rows().packs:
+        content = PackContent.model_validate(pack.content)
+        case = by_case[pack.case_id]
+        assert content.title == case["title"]
+        assert content.analyst_name == names[case["analyst"]]
+        assert content.owner_name == names[case["owner"]]
+        assert content.score.band_label in {"Low", "Moderate", "Elevated", "High"}
+        assert content.change_types == case["change_types"]
+        assert content.pins.scoring == "v3"
+        assert pack.content_hash == content_hash(pack.content)
 
 
 def test_committee_stage_packs_are_released_and_open_for_voting() -> None:
@@ -184,13 +208,15 @@ def test_committee_stage_packs_are_released_and_open_for_voting() -> None:
         assert pack.open_for_voting is True
         assert pack.current_round == 1
         assert pack.ballot_version == 0
-        assert pack.superseded_by is None
+        assert pack.superseded is False
+        assert pack.released_to == COMMITTEE
 
 
 def test_decided_packs_are_closed() -> None:
     for pack in (p for p in _rows().packs if p.decided):
         assert pack.open_for_voting is False
         assert pack.ballot_version == 3
+        assert pack.status == "decided"
 
 
 # ----------------------------------------------------------------- the store
@@ -205,9 +231,9 @@ async def test_loading_fills_the_in_memory_store() -> None:
         assert pack.decided is True
         outcome = await store.get_outcome(pack.pack_id)
         assert outcome is not None
-        assert outcome.outcome == Outcome(platform_outcome(case["outcome"]))
-        assert await store.get_outcome_mode(pack.pack_id) == "committee"
-        assert len(await store.votes_for_round(pack.pack_id, 1)) == 3
+        assert outcome.outcome.outcome == Outcome(platform_outcome(case["outcome"]))
+        assert outcome.mode == "committee"
+        assert len(await store.round_votes(pack.pack_id, 1)) == 3
 
 
 async def test_a_second_load_inserts_nothing() -> None:
@@ -220,27 +246,23 @@ async def test_a_second_load_inserts_nothing() -> None:
 async def test_delegated_outcomes_read_back_with_their_mode() -> None:
     store = await _seeded_store()
     case = _closed_delegated()[0]
-    pack_id = f"{DELEGATED_PACK_PREFIX}{case['id']}"
-    outcome = await store.get_outcome(pack_id)
+    outcome = await store.case_outcome(case["id"])
     assert outcome is not None
-    assert outcome.case_id == case["id"]
-    assert await store.get_outcome_mode(pack_id) == "delegated"
+    assert outcome.mode == "delegated"
+    assert outcome.outcome.pack_id == f"{DELEGATED_PACK_PREFIX}{case['id']}"
     assert await store.latest_pack(case["id"]) is None
 
 
-async def test_a_live_outcome_defaults_to_committee_mode() -> None:
+async def test_an_unknown_pack_has_no_outcome() -> None:
     store = InMemoryDecisionStore()
-    assert await store.get_outcome_mode("pack_unknown") is None
+    assert await store.get_outcome("pack_unknown") is None
 
 
 # ---------------------------------------------------------------- the routes
 @pytest.fixture
 async def seeded_client(decision_client: TestClient) -> TestClient:
     app: FastAPI = decision_client.app  # type: ignore[assignment]
-    store = InMemoryDecisionStore()
-    rows = _rows()
-    await store.seed_if_empty(rows.packs, rows.votes, rows.outcomes)
-    app.state.store = store
+    app.state.store = await _seeded_store()
     return decision_client
 
 
@@ -249,24 +271,30 @@ async def test_a_decided_seeded_pack_reveals_its_votes_and_tally(
 ) -> None:
     case = _closed_committee()[0]
     act_as(Role.ANALYST, case["analyst"])
+
     response = seeded_client.get(f"/packs/{pack_id_for(case['id'])}/votes")
+
     assert response.status_code == 200
     body = response.json()
-    assert {v["member_id"] for v in body["votes"]} == set(COMMITTEE)
+    assert body["revealed"] is True
+    assert body["cast_count"] == 3
     assert sum(body["tally"].values()) == 3
-    assert max(body["tally"], key=body["tally"].get) == platform_outcome(
-        case["outcome"]
-    )
+    assert body["outcome"] == platform_outcome(case["outcome"])
+    assert [m["name"] for m in body["members"]] == [
+        "Ana Mendes",
+        "Joseph Okafor",
+        "Lin Chen",
+    ]
+    assert all(m["choice"] is not None for m in body["members"])
 
 
 async def test_a_decided_seeded_pack_refuses_further_votes(
     seeded_client: TestClient, cast_vote: Callable[..., Any]
 ) -> None:
     case = _closed_committee()[0]
-    response = cast_vote(
-        pack_id_for(case["id"]), COMMITTEE[0], "approve", rationale="x" * 30
-    )
-    assert response.status_code in (409, 422)
+    response = cast_vote(pack_id_for(case["id"]), COMMITTEE[0], "approve")
+    assert response.status_code == 409
+    assert response.json()["type"].endswith("/pack_decided")
 
 
 async def test_a_committee_stage_pack_is_live_and_collects_hidden_votes(
@@ -274,30 +302,42 @@ async def test_a_committee_stage_pack_is_live_and_collects_hidden_votes(
 ) -> None:
     pack_id = pack_id_for(COMMITTEE_STAGE_CASES[0])
     first = cast_vote(pack_id, COMMITTEE[0], "approve_with_conditions")
-    assert first.status_code == 200, first.text
-    assert first.json() == {
-        "pack_id": pack_id,
-        "round": 1,
-        "votes_cast": 1,
-        "quorum": 3,
-    }
+    assert first.status_code == 201, first.text
+    assert first.json()["round"] == 1
+    assert first.json()["cast_n_of_3"] == 1
 
 
-async def test_the_seeded_pack_serves_its_frozen_hash(
+async def test_the_seeded_pack_serves_its_frozen_hash_and_names(
     seeded_client: TestClient, act_as: Callable[[Role, str], None]
 ) -> None:
     act_as(Role.ANALYST, "u-riyer")
     pack_id = pack_id_for(COMMITTEE_STAGE_CASES[0])
+
     body = seeded_client.get(f"/packs/{pack_id}").json()
+
     seeded = next(p for p in _rows().packs if p.pack_id == pack_id)
     assert body["content_hash"] == content_hash(seeded.content)
     assert body["released_at"] is not None
-    assert body["checks"] == {
-        "numbers_locked": True,
-        "conditions_drafted": True,
-        "all_review_items_decided": True,
-        "boundary_and_band_acknowledged": True,
-    }
+    assert body["status"] == "released"
+    assert body["analyst_name"] == "Rahul Iyer"
+    assert body["score"]["band_label"] in {"Elevated", "High"}
+
+
+async def test_the_committee_queue_lists_the_two_open_and_the_eleven_decided(
+    seeded_client: TestClient, act_as: Callable[[Role, str], None]
+) -> None:
+    act_as(Role.COMMITTEE, COMMITTEE[0])
+
+    items = seeded_client.get("/committee/queue").json()["items"]
+
+    assert len(items) == 13
+    open_ = [i for i in items if i["status"] == "open"]
+    decided = [i for i in items if i["status"] == "decided"]
+    assert sorted(i["case_id"] for i in open_) == COMMITTEE_STAGE_CASES
+    assert len(decided) == 11
+    assert all(i["your_vote"] == "not_voted" and i["cast_count"] == 0 for i in open_)
+    assert all(i["your_vote"] == "voted" and i["cast_count"] == 3 for i in decided)
+    assert all(i["outcome_label"] for i in decided)
 
 
 # ------------------------------------------------------------------- guards

@@ -47,20 +47,22 @@ if TYPE_CHECKING:
     from fcrm_case.views_store import InMemoryViewStore
     from fcrm_common.authz import OPAClient
     from fcrm_contracts.api.case_internal import UiEventIn
+    from fcrm_contracts.api.identity import RosterUser
     from fcrm_contracts.common import Principal
     from fcrm_contracts.enums import CaseState, Role
     from fcrm_contracts.events.envelope import Envelope
+    from fcrm_decision.store_memory import InMemoryDecisionStore
     from fcrm_policy.search.service import SearchService
 
 #: The four release checks all true -- what a pack snapshot's ``checks``
-#: carries once H1 has locked the numbers, drafted conditions, decided
-#: every review item and the analyst has acknowledged boundary/band change
-#: (``fcrm_decision.routes._checks_from_snapshot``).
+#: carries once H1 has locked the recommendation, every review item is decided,
+#: the analyst has acknowledged boundary/band change and a business summary is
+#: present (``fcrm_contracts.api.decision.ReleaseChecks``, the web's keys).
 PASSING_RELEASE_CHECKS: dict[str, bool] = {
-    "numbers_locked": True,
-    "conditions_drafted": True,
-    "all_review_items_decided": True,
+    "locked": True,
+    "all_items_reviewed": True,
     "boundary_and_band_acknowledged": True,
+    "business_summary_present": True,
 }
 
 #: The ``sub`` an H1 service token carries (``fcrm_common.auth.
@@ -342,43 +344,76 @@ def fill_and_submit(
 
 
 @pytest.fixture
+def committee_roster() -> list[RosterUser]:
+    """The demo's three committee members as X1's roster lists them (ids and
+    names straight from the seed's ``users.committee``).
+    """
+    from fcrm_contracts.api.identity import RosterUser
+    from fcrm_contracts.enums import Role
+
+    return [
+        RosterUser(id=user["id"], name=user["name"], roles=[Role.COMMITTEE])
+        for user in load_raw()["users"]["committee"]
+    ]
+
+
+@pytest.fixture
+def decision_store() -> InMemoryDecisionStore:
+    """S5's in-memory store (what ``app.state.store`` holds); its ``events``
+    list is the committed outbox.
+    """
+    from fcrm_decision.store_memory import InMemoryDecisionStore
+
+    return InMemoryDecisionStore()
+
+
+@pytest.fixture
 def decision_client(
     wire_test_auth: Callable[[FastAPI], FastAPI],
     act_as: Callable[[Role, str], None],
+    decision_store: InMemoryDecisionStore,
+    committee_roster: list[RosterUser],
 ) -> TestClient:
     """The real S5 app (``fcrm_decision.main.create_app``) over the
-    in-memory pack/vote store, authenticating as whoever :func:`act_as`
-    last set. Starts as H1 (the service account, the only caller allowed
-    to ``POST /packs``); :func:`cast_vote` switches to the voting member,
-    since S5 binds ``member_id`` to the caller's own ``sub`` (D-23).
+    in-memory store and a static committee directory, authenticating as
+    whoever :func:`act_as` last set. Starts as H1 (the service account, the
+    only caller allowed to build a pack); :func:`cast_vote` switches to the
+    voting member, since S5 binds the voter to the caller's own ``sub`` (D-23).
     """
     from fastapi.testclient import TestClient
     from fcrm_contracts.enums import Role
+    from fcrm_decision.directory import StaticCommitteeDirectory
     from fcrm_decision.main import create_app
-    from fcrm_decision.store import InMemoryDecisionStore
 
     app = wire_test_auth(create_app())
-    app.state.store = InMemoryDecisionStore()
+    app.state.store = decision_store
+    app.state.directory = StaticCommitteeDirectory(committee_roster)
     act_as(Role.SERVICE, SERVICE_SUB)
     return TestClient(app)
 
 
 @pytest.fixture
-def release_snapshot() -> Callable[..., dict[str, Any]]:
-    """``release_snapshot(case_id, checks=None, **content)`` is a pack
-    snapshot as H1 would freeze it: ``case_id``, a ``checks`` block (all
-    four release checks true unless ``checks`` overrides some) and whatever
-    other ``content`` the caller wants frozen into the pack.
+def release_snapshot(demo: dict[str, Any]) -> Callable[..., dict[str, Any]]:
+    """``release_snapshot(case_id=None, checks=None, **content)`` is a pack
+    snapshot as H1 would freeze it: the demo's own locked score (10.4, Band 3)
+    in the shape ``fcrm_contracts.api.decision.PackContent`` requires, a
+    ``checks`` block (all four true unless ``checks`` overrides some) and
+    whatever ``content`` keys the caller wants to replace.
     """
+    from fcrm_decision.seedmodel import SeedReference, pack_snapshot
+
+    reference = SeedReference.from_seed(load_raw())
 
     def _snapshot(
-        case_id: str, checks: Optional[dict[str, bool]] = None, **content: Any
+        case_id: Optional[str] = None,
+        checks: Optional[dict[str, bool]] = None,
+        **content: Any,
     ) -> dict[str, Any]:
-        return {
-            "case_id": case_id,
-            "checks": {**PASSING_RELEASE_CHECKS, **(checks or {})},
-            **content,
-        }
+        case = {**demo, "id": case_id or demo["id"], "score": demo["score_after"]}
+        snapshot = pack_snapshot(case, reference)
+        del snapshot["seeded"]
+        snapshot["checks"] = {**PASSING_RELEASE_CHECKS, **(checks or {})}
+        return {**snapshot, **content}
 
     return _snapshot
 
@@ -390,8 +425,9 @@ def build_pack(
     act_as: Callable[[Role, str], None],
 ) -> Callable[..., dict[str, Any]]:
     """``build_pack(case_id, checks=None, **content)`` POSTs
-    ``release_snapshot(...)`` to ``/packs`` as H1 (the service account)
-    and returns the ``Pack`` body; asserts HTTP 200.
+    ``release_snapshot(...)`` to ``/packs`` as H1 (the service account) and
+    returns the ``PackView`` body; asserts the pack was built (201) or the live
+    identical one returned (200). Building never releases.
     """
     from fcrm_contracts.enums import Role
 
@@ -403,7 +439,7 @@ def build_pack(
         response = decision_client.post(
             "/packs", json={"case_id": case_id, "snapshot": snapshot}
         )
-        assert response.status_code == 200, response.text
+        assert response.status_code in (200, 201), response.text
         pack: dict[str, Any] = response.json()
         return pack
 
@@ -411,14 +447,47 @@ def build_pack(
 
 
 @pytest.fixture
+def release_pack(
+    decision_client: TestClient, act_as: Callable[[Role, str], None]
+) -> Callable[[str], dict[str, Any]]:
+    """``release_pack(pack_id)`` releases the pack as the demo analyst and
+    returns the ``PackView`` body; asserts HTTP 200.
+    """
+    from fcrm_contracts.enums import Role
+
+    def _release(pack_id: str) -> dict[str, Any]:
+        act_as(Role.ANALYST, ANALYST_SUB)
+        response = decision_client.post(f"/packs/{pack_id}/release")
+        assert response.status_code == 200, response.text
+        pack: dict[str, Any] = response.json()
+        return pack
+
+    return _release
+
+
+@pytest.fixture
+def released_pack(
+    build_pack: Callable[..., dict[str, Any]],
+    release_pack: Callable[[str], dict[str, Any]],
+) -> Callable[..., dict[str, Any]]:
+    """``released_pack(case_id, **content)``: a pack built by H1 and released by
+    the analyst, ready for the committee to vote on.
+    """
+
+    def _released(case_id: str, **content: Any) -> dict[str, Any]:
+        return release_pack(build_pack(case_id, **content)["pack_id"])
+
+    return _released
+
+
+@pytest.fixture
 def cast_vote(
     decision_client: TestClient, act_as: Callable[[Role, str], None]
 ) -> Callable[..., Any]:
-    """``cast_vote(pack_id, member_id, option, round_=1, rationale=...)``
-    POSTs one vote *as that member* (a committee token whose ``sub`` is
-    ``member_id``) and returns the raw response (callers assert the
-    status). The caller stays that member afterwards, so a following
-    ``GET`` reads the pack as a committee member would.
+    """``cast_vote(pack_id, member_id, option, rationale=...)`` POSTs one vote
+    *as that member* (a committee token whose ``sub`` is ``member_id``) and
+    returns the raw response (callers assert the status). The caller stays that
+    member afterwards, so a following ``GET`` reads the pack as they would.
     """
     from fcrm_contracts.enums import Role
 
@@ -426,19 +495,11 @@ def cast_vote(
         pack_id: str,
         member_id: str,
         option: str,
-        round_: int = 1,
         rationale: str = "Reasoned position recorded for the audit trail.",
     ) -> Any:
         act_as(Role.COMMITTEE, member_id)
         return decision_client.post(
-            f"/packs/{pack_id}/votes",
-            json={
-                "pack_id": pack_id,
-                "member_id": member_id,
-                "round": round_,
-                "option": option,
-                "rationale": rationale,
-            },
+            f"/packs/{pack_id}/votes", json={"vote": option, "rationale": rationale}
         )
 
     return _cast
@@ -954,3 +1015,94 @@ async def live_case(
     finally:
         await verifier.aclose()
         await opa.aclose()
+
+
+@dataclass
+class LiveDecision:
+    """S5's real lifespan (``register``) running on a throw-away database of a
+    real replica set, with a recording publisher in place of the broker.
+    ``http`` calls the app in-process as whoever the ``x-test-sub`` and
+    ``x-test-role`` headers name (:meth:`headers`), so concurrent requests can
+    be different members; ``store`` is the real ``MongoDecisionStore``.
+    """
+
+    app: FastAPI
+    db: Any
+    publisher: RecordingPublisher
+    http: Any
+
+    @property
+    def store(self) -> Any:
+        """The ``MongoDecisionStore`` the lifespan wired."""
+        return self.app.state.store
+
+    @staticmethod
+    def headers(role: Role, sub: str) -> dict[str, str]:
+        """The headers that make a request this caller."""
+        return {"x-test-sub": sub, "x-test-role": role.value}
+
+
+@pytest.fixture
+async def live_decision(
+    live_db: Any,
+    recording_publisher: RecordingPublisher,
+    committee_roster: list[RosterUser],
+    allow_all_opa: OPAClient,
+) -> AsyncIterator[LiveDecision]:
+    """The S5 lifespan on a real Mongo: indexes ensured, the seed loaded
+    (``SEED_ON_EMPTY``), the outbox relay running under the decision lease with
+    ``recording_publisher``, the committee roster fixed to the seed's three. The
+    caller is read from test headers and OPA is the allow-all stub (the route
+    roles still run for real).
+    """
+    import httpx
+    from fastapi import Request
+    from fcrm_common.auth import TokenVerifier, current_user
+    from fcrm_common.authz import install_authz
+    from fcrm_common.errors import UnauthorizedError
+    from fcrm_common.service import ServiceDeps
+    from fcrm_contracts.common import Principal
+    from fcrm_contracts.enums import Role
+    from fcrm_decision.directory import StaticCommitteeDirectory
+    from fcrm_decision.lifespan import register
+    from fcrm_decision.main import create_app
+    from fcrm_decision.settings import DecisionSettings
+
+    def header_principal(request: Request) -> Principal:
+        sub = request.headers.get("x-test-sub")
+        role = request.headers.get("x-test-role")
+        if not sub or not role:
+            raise UnauthorizedError("Bearer token required.")
+        return Principal(sub=sub, roles=[Role(role)], name=sub, typ="access")
+
+    # FastAPI resolves a dependency's annotations from the function's module
+    # globals; ``Request`` is imported here, not there, so say what it is.
+    header_principal.__annotations__ = {"request": Request, "return": Principal}
+
+    secret = "x" * 32
+    settings = DecisionSettings(
+        mongodb_db=live_db.name,
+        seed_on_empty=True,
+        service_token_secret=secret,
+        env="test",
+    )
+    verifier = TokenVerifier(service_secret=secret)
+    deps = ServiceDeps(
+        mongo=live_db.client,
+        token_verifier=verifier,
+        opa=allow_all_opa,
+        publisher=recording_publisher,
+        lease_holder="relay_test",
+    )
+    app = create_app(standalone=False)
+    try:
+        async with register(app, settings, deps):
+            app.state.directory = StaticCommitteeDirectory(committee_roster)
+            app.dependency_overrides[current_user] = header_principal
+            install_authz(app.state, allow_all_opa)
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://decision.test"
+            ) as http:
+                yield LiveDecision(app, live_db, recording_publisher, http)
+    finally:
+        await verifier.aclose()

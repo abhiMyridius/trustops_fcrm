@@ -1,6 +1,8 @@
-"""The four release checks before a pack may go to committee (design A
-§2.5's ``ReleaseChecks``, "proposed enumeration" mirroring S1's four
-submit checks in BUILD-PLAN §4)."""
+"""The four release checks before a pack may go to committee (design A §2.5),
+under the keys the web's handoff checklist uses (ADR-30): the recommendation is
+``locked``, ``all_items_reviewed``, the boundary flag and any band change are
+acknowledged (R3), and a ``business_summary_present``.
+"""
 
 from __future__ import annotations
 
@@ -9,18 +11,17 @@ from fcrm_contracts.api.decision import ReleaseChecks
 
 def evaluate_release_checks(
     *,
-    numbers_locked: bool,
-    conditions_drafted: bool,
-    all_review_items_decided: bool,
+    locked: bool,
+    all_items_reviewed: bool,
     boundary_and_band_acknowledged: bool,
+    business_summary_present: bool,
 ) -> ReleaseChecks:
-    """A pack is releasable only when every one of the four checks is
-    true; ``ReleaseChecks.all_passed`` is what ``POST /packs`` gates on
-    before a pack reaches the committee queue.
+    """The four checks as a :class:`ReleaseChecks`; ``all_passed`` is what the
+    release route gates on before a pack reaches the committee queue.
     """
     return ReleaseChecks(
-        numbers_locked=numbers_locked,
-        conditions_drafted=conditions_drafted,
-        all_review_items_decided=all_review_items_decided,
+        locked=locked,
+        all_items_reviewed=all_items_reviewed,
         boundary_and_band_acknowledged=boundary_and_band_acknowledged,
+        business_summary_present=business_summary_present,
     )

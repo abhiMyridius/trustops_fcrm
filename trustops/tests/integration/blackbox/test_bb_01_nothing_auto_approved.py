@@ -3,38 +3,33 @@ line ~306's one-line summary calls this "no auto decision"; the fuller,
 concrete check is ``docs/architecture/design/C-web-tests-ops-sdlc.md``
 section 3.1(f)'s table: "Drive a case to a released pack; wait 60 s;
 ``outcome`` is null; cast 3 votes; outcome equals the majority; with a
-1-1-1 split outcome is ``deferred``, never approve/reject").
+1-1-1 split the round is ``no_majority`` and a re-vote opens, never
+approve/reject and never ``deferred``" -- ADR-08, ADR-31).
 
-Status today: the "drive a case to a released pack and wait 60 s"
-half needs H1 (caseflow) and S5 (decision) HTTP routes, neither of which
-exists yet -- not provable without a composed stack (see
-``test_bb_not_yet_testable.py``). The half that *is* provable today, with
-real code, is the pure arithmetic: ``fcrm_contracts.voting.tally_votes``
-(via ``fcrm_decision.outcomes.tally_round``) must never manufacture an
-outcome out of anything other than two matching votes, exhaustively, not
-just for the one hypothetical case the package's own unit tests already
-cover (``tests/unit/services/decision/test_packs_and_outcomes.py`` has
-one property-shaped example; this file is the full 64-combination sweep).
+Two halves, both provable now that S5 has real routes:
 
-One correction to the design doc's wording while writing this: a 1-1-1
-split does not actually produce ``Outcome.DEFER`` in the code as it
-stands today -- ``tally_round`` returns ``outcome=None, no_majority=True``,
-and "deferred" would have to be *H1's* decision about what to do with a
-``no_majority`` tally (re-request a round, per routing rule R6), not a
-value ``fcrm_decision`` itself ever returns. H1's own mapping from
-``no_majority`` to a case state is not built yet (pure state machine
-only, no HTTP), so this file tests what the code actually does rather
-than asserting the design doc's "is ``deferred``" phrasing as if it were
-already implemented.
+- the **HTTP half**, through the real S5 app over its in-memory store: a
+  released pack with no votes has no outcome (nothing decides it, however long
+  it waits); three votes decide it as the majority; a 1-1-1 split decides
+  nothing and opens round two.
+- the **arithmetic half**: ``fcrm_contracts.voting.tally`` (via
+  ``fcrm_decision.outcomes.tally_round``) must never manufacture an outcome out
+  of anything other than two matching votes, exhaustively over all 64
+  three-vote combinations. The one refinement (proposed): a 2-1 inside the
+  approve family (``approve`` and ``approve_with_conditions`` only) resolves to
+  ``approve_with_conditions``, so conditions are never dropped; it never merges
+  across a defer or a reject.
 """
 
 from __future__ import annotations
 
-from itertools import product
+from collections.abc import Callable
+from itertools import combinations, permutations, product
 from typing import Any
 
 import pytest
-from fcrm_contracts.enums import Outcome
+from fastapi.testclient import TestClient
+from fcrm_contracts.enums import Outcome, Role
 from fcrm_decision.outcomes import tally_round
 
 pytestmark = pytest.mark.integration
@@ -45,17 +40,82 @@ VOTE_OPTIONS = [
     "defer",
     "reject",
 ]
+APPROVE_FAMILY = {"approve", "approve_with_conditions"}
+SEATS = ("u-jokafor", "u-amendes", "u-lchen")
+CASE = "FCRM-2026-0151"
+
+
+# ── the HTTP half ────────────────────────────────────────────────────────
+
+
+def test_a_released_pack_with_no_votes_has_no_outcome_however_long_it_waits(
+    decision_client: TestClient,
+    act_as: Callable[[Role, str], None],
+    released_pack: Callable[..., dict[str, Any]],
+) -> None:
+    pack_id = released_pack(CASE)["pack_id"]
+
+    act_as(Role.ANALYST, "u-riyer")
+    assert decision_client.get(f"/packs/{pack_id}/outcome").status_code == 409
+    assert decision_client.get(f"/cases/{CASE}/outcome").status_code == 404
+    pack = decision_client.get(f"/packs/{pack_id}").json()
+    assert pack["status"] == "released"  # not decided, not approved, not rejected
+
+
+def test_three_votes_decide_the_majority_and_nothing_else(
+    decision_client: TestClient,
+    act_as: Callable[[Role, str], None],
+    released_pack: Callable[..., dict[str, Any]],
+    cast_vote: Callable[..., Any],
+    demo: dict[str, Any],
+) -> None:
+    pack_id = released_pack(CASE)["pack_id"]
+    for member, option in zip(
+        SEATS,
+        ("approve_with_conditions", "approve_with_conditions", "defer"),
+        strict=True,
+    ):
+        assert cast_vote(pack_id, member, option).status_code == 201
+
+    act_as(Role.ANALYST, "u-riyer")
+    decided = decision_client.get(f"/packs/{pack_id}/outcome").json()
+    assert decided["outcome"] == demo["outcome"]
+    assert decided["no_majority"] is False
+
+
+@pytest.mark.parametrize("split", list(combinations(VOTE_OPTIONS, 3)))
+def test_a_three_way_split_decides_nothing_and_opens_round_two(
+    decision_client: TestClient,
+    act_as: Callable[[Role, str], None],
+    released_pack: Callable[..., dict[str, Any]],
+    cast_vote: Callable[..., Any],
+    split: tuple[str, str, str],
+) -> None:
+    pack_id = released_pack(CASE)["pack_id"]
+    for member, option in zip(SEATS, split, strict=True):
+        assert cast_vote(pack_id, member, option).status_code == 201
+
+    act_as(Role.ANALYST, "u-riyer")
+    verdict = decision_client.get(f"/packs/{pack_id}/outcome").json()
+    assert verdict["outcome"] is None  # never approve, reject or deferred
+    assert verdict["no_majority"] is True
+    assert decision_client.get(f"/cases/{CASE}/outcome").status_code == 404
+    votes = decision_client.get(f"/packs/{pack_id}/votes").json()
+    assert votes["round"] == 2
+    assert votes["cast_count"] == 0
+
+
+# ── the arithmetic half ──────────────────────────────────────────────────
 
 
 @pytest.mark.parametrize("votes", list(product(VOTE_OPTIONS, repeat=3)))
 def test_an_outcome_is_only_ever_produced_when_two_of_three_votes_agree(
     votes: tuple[str, str, str],
 ) -> None:
-    """Exhaustive sweep of all 4**3 = 64 three-vote combinations: the
-    tally must never report an ``outcome`` unless at least two of the
-    three cast votes are identical, and whenever it does, that outcome is
-    exactly the majority option -- there is no path through this function
-    that invents a result nobody voted for.
+    """Exhaustive sweep of all 4**3 = 64 three-vote combinations: the tally
+    must never report an ``outcome`` unless at least two of the three cast
+    votes are identical, and whenever it does, that outcome is the majority
+    option (or, inside the approve family, ``approve_with_conditions``).
     """
     result = tally_round(list(votes), round_number=1)
     counts = {option: votes.count(option) for option in set(votes)}
@@ -66,23 +126,23 @@ def test_an_outcome_is_only_ever_produced_when_two_of_three_votes_agree(
         assert result.no_majority is True
         assert result.next_round == 2
     else:
-        assert result.outcome == Outcome(majority)
+        expected = (
+            "approve_with_conditions" if set(votes) == APPROVE_FAMILY else majority
+        )
+        assert result.outcome == Outcome(expected)
         assert result.no_majority is False
         assert result.next_round is None
 
 
-def test_every_three_way_split_is_no_majority_never_approve_or_reject() -> None:
-    """The specific scenario the docs call out by name: a 1-1-1 split
-    (three distinct votes) must never auto-resolve to any of the four
-    outcomes -- checked over every ordering of every 3-distinct-value
-    combination drawn from the four vote options, not just one example.
+def test_every_three_way_split_is_no_majority_never_an_outcome() -> None:
+    """The specific scenario the docs call out by name (ADR-31): a 1-1-1
+    split (three distinct votes) must never resolve to any of the four
+    outcomes, whichever order the votes arrive in.
     """
-    from itertools import combinations, permutations
-
     splits = [
         perm for combo in combinations(VOTE_OPTIONS, 3) for perm in permutations(combo)
     ]
-    assert len(splits) == 24  # C(4,3) * 3! orderings, sanity-checking the sweep itself
+    assert len(splits) == 24  # C(4,3) * 3! orderings, sanity-checking the sweep
 
     for votes in splits:
         result = tally_round(list(votes), round_number=1)

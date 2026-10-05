@@ -1,10 +1,10 @@
 """Turning three cast votes into an outcome, or a no-majority re-vote.
 
-This module is the thin, pure wiring between ``fcrm_contracts.voting.
-tally_votes`` and the decision-service's own vote-round bookkeeping — it
-owns nothing about *storage* (one vote per member per round, votes hidden
-until all are cast) since that needs a database's atomicity to be real;
-it owns the part that is pure arithmetic once the three votes exist.
+This is the thin, pure wiring between :func:`fcrm_contracts.voting.tally`
+and a round number. It owns nothing about *storage* (one vote per member per
+round, votes hidden until all are cast): that needs a database's atomicity to
+be real and lives in :mod:`fcrm_decision.commands_vote`. What is left here is
+arithmetic on a multiset of three options.
 """
 
 from __future__ import annotations
@@ -12,11 +12,13 @@ from __future__ import annotations
 from typing import Optional
 
 from fcrm_contracts.enums import Outcome
-from fcrm_contracts.voting import tally_votes
+from fcrm_contracts.voting import tally
 from pydantic import BaseModel, ConfigDict
 
 
 class TallyResult(BaseModel):
+    """A tally with the round it belongs to."""
+
     model_config = ConfigDict(extra="forbid")
 
     outcome: Optional[Outcome]
@@ -27,14 +29,14 @@ class TallyResult(BaseModel):
 
 def tally_round(votes: list[str], round_number: int) -> TallyResult:
     """``votes`` must be exactly the three cast options for this round, in
-    any order — the tally does not care who cast which, only the
-    multiset of options (member identity and hidden/revealed state are
-    the caller's concern).
+    any order: the tally does not care who cast which, only the multiset of
+    options (member identity and hidden/revealed state are the caller's
+    concern). Anything else is no majority (ADR-31: never a default outcome).
     """
-    outcome_str, no_majority = tally_votes(votes)
+    result = tally(votes)
     return TallyResult(
-        outcome=Outcome(outcome_str) if outcome_str else None,
-        no_majority=no_majority,
+        outcome=result.outcome,
+        no_majority=result.no_majority,
         round=round_number,
-        next_round=(round_number + 1) if no_majority else None,
+        next_round=(round_number + 1) if result.no_majority else None,
     )

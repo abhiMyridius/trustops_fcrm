@@ -43,6 +43,7 @@ from fcrm_contracts.events.payloads import (
     JurisdictionListPublished,
     OutcomeSetPayload,
     PackReleased,
+    PackSuperseded,
     VoteCastPayload,
     VoteNoMajority,
     VoteRerequested,
@@ -278,8 +279,15 @@ EXAMPLES: dict[type[BaseModel], dict[str, Any]] = {
         "pack_id": "pack_1",
         "version": 1,
         "released_to": ["u-mendes", "u-okafor", "u-chen"],
+        "released_to_names": ["Ana Mendes", "Joseph Okafor", "Lin Chen"],
         "content_hash": "b" * 64,
         "release_checks_passed": True,
+    },
+    PackSuperseded: {
+        "pack_id": "pack_1",
+        "version": 1,
+        "reason": "committee question changed the channel control rating",
+        "voided_votes": 2,
     },
     VoteCastPayload: {
         "pack_id": "pack_1",
