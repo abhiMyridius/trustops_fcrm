@@ -249,6 +249,29 @@ def _gate(gate_type: GateType, key: str, event: Envelope) -> tuple[GateEmission,
     return GateEmission(gate_type.value, key, event), f"{gate_type.value}:{key}"
 
 
+def _was_proposed(row: Optional[FieldValueRow]) -> bool:
+    """Whether the intake agent proposed this field's value: H1 opens a
+    ``po_confirm_value`` gate for each proposed value and for nothing else, so a
+    decision on any other field (one the owner answered, reused or typed) has no
+    gate to decide. The oldest history entry is the original the value replaced.
+    """
+    if row is None:
+        return False
+    return row.origin == "extracted" or any(
+        h.origin == "extracted" for h in row.history
+    )
+
+
+def _answered_value(gap: ReviewItemRow, row: Optional[FieldValueRow]) -> Optional[str]:
+    """What an answered question currently holds: its field's value, or, for a
+    question with no field, the answer recorded on the item itself.
+    """
+    if row is not None and row.value is not None:
+        return row.value
+    recorded = (gap.decided.value or {}).get("value") if gap.decided else None
+    return str(recorded) if recorded is not None else None
+
+
 def _filled_ids(rows: Sequence[FieldValueRow]) -> set[str]:
     return {r.field_id for r in rows if r.value is not None and r.value.strip()}
 
@@ -476,6 +499,17 @@ class PoService:
             sharepoint_connected=status != "not_connected",
         )
 
+    async def check_upload(self, principal: Principal, case_id: str) -> None:
+        """Refuse an upload by someone who may not make it, before its body is
+        read (a stranger cannot make the service buffer fifty megabytes).
+
+        Raises:
+            ForbiddenError: The caller does not own the case.
+            fcrm_case.po_errors.CaseClosedError: The case is decided or closed.
+            fcrm_case.po_errors.AlreadySubmittedError: The case was submitted.
+        """
+        ensure_open(await self._record(case_id, principal, write=True))
+
     async def upload(
         self, principal: Principal, case_id: str, files: Sequence[IncomingFile]
     ) -> DocumentsViewPO:
@@ -648,11 +682,16 @@ class PoService:
             raise ValidationError(f"{field_id} is not a field of case {case_id}.")
         row = next((r for r in data.rows if r.field_id == field_id), None)
         current = row.value if row is not None else None
+        proposed = _was_proposed(row)
         command: Optional[PoCommand]
         if body.decision == "confirm":
-            command = self._confirm_value(record, principal, definition, current)
+            command = self._confirm_value(
+                record, principal, definition, current, proposed=proposed
+            )
         else:
-            command = self._correct_value(record, principal, definition, current, body)
+            command = self._correct_value(
+                record, principal, definition, current, body, proposed=proposed
+            )
         if command is not None:
             self._publish(await self._po.commit(command))
         return await self.review(principal, case_id)
@@ -663,12 +702,16 @@ class PoService:
         principal: Principal,
         definition: FieldDef,
         current: Optional[str],
-    ) -> PoCommand:
+        *,
+        proposed: bool,
+    ) -> Optional[PoCommand]:
         if current is None or not current.strip():
             raise ValidationError(
                 f"{definition.field_id} has no value to confirm.",
                 errors=[{"loc": "body.decision", "msg": "no value to confirm"}],
             )
+        if not proposed:
+            return None  # the owner's own value: no assistant proposal to confirm
         event = _gate_event(
             record,
             principal.sub,
@@ -703,6 +746,8 @@ class PoService:
         definition: FieldDef,
         current: Optional[str],
         body: ValueDecisionBody,
+        *,
+        proposed: bool,
     ) -> Optional[PoCommand]:
         value = clean(body.value)
         if not value:
@@ -719,21 +764,23 @@ class PoService:
             else DEFAULT_CORRECTION_REASON
         )
         field_id = definition.field_id
-        event = _gate_event(
-            record,
-            principal.sub,
-            utcnow(),
-            gate_type=GateType.PO_CONFIRM_VALUE,
-            key=field_id,
-            decision="correct",
-            subject_kind="field",
-            item_kind=ItemKind.VALUE,
-            reason=reason,
-            before={"value": current},
-            after={"value": value},
-            value=value,
-        )
-        emission, _ = _gate(GateType.PO_CONFIRM_VALUE, field_id, event)
+        gates: list[GateEmission] = []
+        if proposed:
+            event = _gate_event(
+                record,
+                principal.sub,
+                utcnow(),
+                gate_type=GateType.PO_CONFIRM_VALUE,
+                key=field_id,
+                decision="correct",
+                subject_kind="field",
+                item_kind=ItemKind.VALUE,
+                reason=reason,
+                before={"value": current},
+                after={"value": value},
+                value=value,
+            )
+            gates.append(_gate(GateType.PO_CONFIRM_VALUE, field_id, event)[0])
         was = current if current else "no value"
         summary = _po_safe(
             f"You corrected {field_id} {definition.label}: {was} → {value} "
@@ -752,7 +799,7 @@ class PoService:
                     FieldSource(label="owner declared"),
                 )
             ],
-            gates=[emission],
+            gates=gates,
             activity=[
                 _activity(
                     principal.sub,
@@ -888,11 +935,8 @@ class PoService:
                 )
             reject_reserved_terms(value, "Your answer", loc="body.answers")
             field_id = str(gap.subject.get("field_id") or answer.field_id or "")
-            current = held.get(field_id)
-            if (
-                gap.status != ItemStatus.PROPOSED
-                and current is not None
-                and current.value == value
+            if gap.status != ItemStatus.PROPOSED and value == _answered_value(
+                gap, held.get(field_id)
             ):
                 continue
             if field_id:
@@ -914,18 +958,23 @@ class PoService:
                     DecisionRow(value={"value": value}, by=principal.sub, at=now),
                 )
             )
-            event = _gate_event(
-                record,
-                principal.sub,
-                now,
-                gate_type=GateType.PO_ANSWER_GAPS,
-                key=answer.question_id,
-                decision="answer",
-                subject_kind="gap",
-                item_kind=ItemKind.GAP,
-                value=value,
-            )
-            gates.append(_gate(GateType.PO_ANSWER_GAPS, answer.question_id, event)[0])
+            if gap.subject.get("blocking") is True:
+                # H1 opens a gate for a blocking question only; an optional
+                # one is shown and answered, with nothing to decide.
+                event = _gate_event(
+                    record,
+                    principal.sub,
+                    now,
+                    gate_type=GateType.PO_ANSWER_GAPS,
+                    key=answer.question_id,
+                    decision="answer",
+                    subject_kind="gap",
+                    item_kind=ItemKind.GAP,
+                    value=value,
+                )
+                gates.append(
+                    _gate(GateType.PO_ANSWER_GAPS, answer.question_id, event)[0]
+                )
         if not items:
             return self._intake_dto(record, data)
         count = len(items)

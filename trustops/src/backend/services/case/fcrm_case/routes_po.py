@@ -226,6 +226,7 @@ async def upload_documents(
     (JSON ``{"demo_files": [...]}``). Each file is checked, stored and announced
     to Caseflow in one transaction.
     """
+    await service.check_upload(principal, case_id)
     kind = request.headers.get("content-type", "").split(";")[0].strip().lower()
     if kind == "multipart/form-data":
         files = await _multipart_files(request, settings)

@@ -14,11 +14,13 @@ from __future__ import annotations
 import asyncio
 import hashlib
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from fcrm_contracts.enums import CaseState, Role
+from fcrm_case.domain.views import ReviewItemRow
+from fcrm_contracts.enums import CaseState, ItemKind, ItemStatus, Role
 from fcrm_guardrails.rules.r3_po_no_restricted import check
 
 if TYPE_CHECKING:
@@ -28,6 +30,7 @@ CASE = "FCRM-2026-0151"
 PO = "u-pnair"
 PRECEDENT = "FCRM-2026-0118"
 RUN = "run_routes"
+NOW = datetime(2026, 10, 1, 9, tzinfo=UTC)
 FIXTURES = Path(__file__).resolve().parents[4] / "evals/fixtures/documents"
 BUSINESS_CASE = "business_case_remittance_MX.pdf"
 CONTRACT = "payout_partner_contract.pdf"
@@ -497,6 +500,31 @@ class TestDocuments:
         assert view["assistant"]["state"] == "done"
         assert "None of your files could be read" in view["assistant"]["line"]
 
+    def test_a_stranger_is_refused_before_the_upload_body_is_read(
+        self,
+        scene: CaseService,
+        act_as: Callable[..., None],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A non-owner (and an owner of a closed case) must not make the service
+        buffer fifty megabytes only to be refused afterwards.
+        """
+
+        async def never(*args: Any, **kwargs: Any) -> Any:
+            raise AssertionError("the body was read")
+
+        monkeypatch.setattr("fcrm_case.routes_po._multipart_files", never)
+        act_as(Role.PO, "u-tgold")
+        response = upload(scene, [(BUSINESS_CASE, pdf_bytes(), "application/pdf")])
+        assert response.status_code == 403
+        act_as(Role.PO, PO)
+        scene.store.records[CASE] = scene.store.records[CASE].model_copy(
+            update={"state": CaseState.CLOSED}
+        )
+        closed = upload(scene, [(BUSINESS_CASE, pdf_bytes(), "application/pdf")])
+        assert closed.status_code == 409
+        assert scene.objects.objects == {}
+
     def test_reads_are_the_owner_s_writes_are_the_owner_s_alone(
         self, scene: CaseService, act_as: Callable[..., None]
     ) -> None:
@@ -814,6 +842,35 @@ class TestCorrectingValues:
             ready.views.field_values[f"{CASE}:F01"].origin == "extracted"
         )  # untouched
 
+    def test_a_value_the_owner_supplied_has_no_gate_to_decide(
+        self, ready: CaseService
+    ) -> None:
+        """H1 opens ``po_confirm_value`` for each value the assistant proposed
+        and for nothing else. Correcting a value the owner reused is a data
+        change (original kept, activity row) with no gate event, and confirming
+        it is a no-op: a ``gate.decided`` for an unopened gate would be a Guard 7
+        error in H1.
+        """
+        ready.client.post(
+            f"/cases/{CASE}/intake/categories/new_product", json={"decision": "confirm"}
+        )
+        ready.client.post(
+            f"/cases/{CASE}/intake/reuse",
+            json={"from_case_id": PRECEDENT, "field_ids": ["F31"]},
+        )
+        gates_before = len(events(ready, "gate.decided"))
+        corrected = ready.client.post(
+            self.url("F31"), json={"decision": "correct", "value": "$1,500 per day"}
+        )
+        assert corrected.status_code == 200, corrected.text
+        row = next(r for r in corrected.json()["rows"] if r["field_id"] == "F31")
+        assert (row["value"], row["origin"]) == ("$1,500 per day", "owner_declared")
+        assert row["original"]["value"].startswith("$2,999")
+        confirmed = ready.client.post(self.url("F31"), json={"decision": "confirm"})
+        assert confirmed.status_code == 200, confirmed.text
+        assert len(events(ready, "gate.decided")) == gates_before
+        assert any(e.type == "owner.corrected" for e in ready.store.activity.entries)
+
     def test_there_is_nothing_to_confirm_on_an_open_field(
         self, ready: CaseService
     ) -> None:
@@ -970,6 +1027,64 @@ class TestAnswers:
         assert next(g for g in body["gaps"] if g["id"] == "q_F10")["value"] == "better"
         assert len(events(ready, "gate.decided")) == 1
         assert len(ready.views.field_values[f"{CASE}:F10"].history) == 1
+
+    def test_an_optional_question_is_answered_without_a_gate_event(
+        self, ready: CaseService
+    ) -> None:
+        """H1 opens a gate for a blocking question only: an answer to an optional
+        one fills the field and records the decision, and sends nothing to decide.
+        """
+        ready.views.items["itm_optional"] = ReviewItemRow(
+            item_id="itm_optional",
+            case_id=CASE,
+            kind=ItemKind.GAP,
+            status=ItemStatus.PROPOSED,
+            subject={
+                "question_id": "q_F22",
+                "field_id": "F22",
+                "label": "Local licensing status",
+                "text": "Is the corridor licensed locally?",
+                "blocking": False,
+            },
+            created_at=NOW,
+        )
+        body = ready.client.post(self.url(), json=self.answers("F22")).json()
+        gap = next(g for g in body["gaps"] if g["id"] == "q_F22")
+        assert (gap["answered"], gap["blocking"], gap["value"]) == (
+            True,
+            False,
+            "answer F22",
+        )
+        assert events(ready, "gate.decided") == []
+        assert ready.views.field_values[f"{CASE}:F22"].origin == "answered"
+
+    def test_a_question_with_no_field_keeps_its_answer_on_the_item(
+        self, ready: CaseService
+    ) -> None:
+        ready.views.items["itm_free"] = ReviewItemRow(
+            item_id="itm_free",
+            case_id=CASE,
+            kind=ItemKind.GAP,
+            status=ItemStatus.PROPOSED,
+            subject={
+                "question_id": "q_free",
+                "label": "Anything else?",
+                "text": "Anything else we should know?",
+                "blocking": False,
+            },
+            created_at=NOW,
+        )
+        answer = {"answers": [{"question_id": "q_free", "value": "Nothing more"}]}
+        first = ready.client.post(self.url(), json=answer).json()
+        gap = next(g for g in first["gaps"] if g["id"] == "q_free")
+        assert (gap["answered"], gap["value"], gap["field_id"]) == (
+            True,
+            "Nothing more",
+            "q_free",
+        )
+        ready.client.post(self.url(), json=answer)  # a replay
+        rows = [e for e in ready.store.activity.entries if e.type == "owner.answered"]
+        assert len(rows) == 1
 
     def test_a_new_fact_is_accepted_never_blocking(self, ready: CaseService) -> None:
         answer = {
