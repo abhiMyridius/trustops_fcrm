@@ -109,12 +109,19 @@ class Route(StrEnum):
 
 
 class ItemKind(StrEnum):
-    """What a review_item (Gate A, review_item gate) carries."""
+    """What an S1 ``review_item`` carries. ``clause``, ``factor``, ``control``
+    and ``critic_finding`` sit behind Gate A (the analyst's ``review_item``
+    gates); ``category``, ``value`` and ``gap`` are the intake items the PO
+    decides (``po_confirm_category``, ``po_confirm_value``, ``po_answer_gaps``).
+    """
 
     CLAUSE = "clause"
     FACTOR = "factor"
     CONTROL = "control"
     CRITIC_FINDING = "critic_finding"
+    CATEGORY = "category"
+    VALUE = "value"
+    GAP = "gap"
 
 
 class ItemStatus(StrEnum):
