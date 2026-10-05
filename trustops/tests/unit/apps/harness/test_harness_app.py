@@ -102,10 +102,12 @@ def test_build_app_wires_every_queue_onto_one_broker(tmp_path: Path):
     assert set(by_queue) == {
         "caseflow.events",
         "caseflow.agent-results",
+        "caseflow.steps",
         "agent-worker.run",
     }
     assert by_queue["caseflow.events"].channel.prefetch_count == 16
     assert by_queue["caseflow.agent-results"].channel.prefetch_count == 16
+    assert by_queue["caseflow.steps"].channel.prefetch_count == 4
     assert by_queue["agent-worker.run"].channel.prefetch_count == 4
 
 

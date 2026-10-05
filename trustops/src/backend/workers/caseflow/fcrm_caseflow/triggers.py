@@ -38,10 +38,17 @@ class Trigger(StrEnum):
     CASE_ANSWERED = "case.answered"
     AGENT_DONE_RERUN_BOTH = "agent.done.rerun.research_and_assessment"
 
+    # H3's result for an ``ingest.run`` H1 published. Both are self-loops:
+    # the run stays in INTAKE (first submission) or CLARIFICATION (a document
+    # added with an answer); the work is the step they enqueue.
+    INGEST_DONE = "ingest.done"
+    INGEST_FAILED = "ingest.failed"
+
     GATE_DECIDED_REVIEW_ITEM = "gate.decided.review_item"
     CASE_RETAGGED = "case.retagged"
     CASE_RERUN_REQUESTED = "case.rerun_requested"
     CASE_GAP_RECORDED = "case.gap_recorded"
+    CASE_CONTROL_PLANNED = "case.control_planned"
     ALL_ITEMS_DECIDED = "internal.all_items_decided"
 
     AGENT_DONE_NARRATIVE_RECOMMENDATION = "agent.done.narrative.recommendation"

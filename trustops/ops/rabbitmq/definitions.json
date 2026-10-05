@@ -271,6 +271,38 @@
       }
     },
     {
+      "name": "caseflow.steps",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "caseflow.steps"
+      }
+    },
+    {
+      "name": "caseflow.steps.retry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-message-ttl": 30000,
+        "x-dead-letter-exchange": "",
+        "x-dead-letter-routing-key": "caseflow.steps"
+      }
+    },
+    {
+      "name": "caseflow.steps.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum"
+      }
+    },
+    {
       "name": "ingestion-worker.run",
       "vhost": "/",
       "durable": true,
@@ -518,6 +550,30 @@
       "destination": "caseflow.agent-results.dlq",
       "destination_type": "queue",
       "routing_key": "caseflow.agent-results",
+      "arguments": {}
+    },
+    {
+      "source": "case.events",
+      "vhost": "/",
+      "destination": "caseflow.steps",
+      "destination_type": "queue",
+      "routing_key": "harness.step",
+      "arguments": {}
+    },
+    {
+      "source": "retry",
+      "vhost": "/",
+      "destination": "caseflow.steps.retry",
+      "destination_type": "queue",
+      "routing_key": "caseflow.steps",
+      "arguments": {}
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "caseflow.steps.dlq",
+      "destination_type": "queue",
+      "routing_key": "caseflow.steps",
       "arguments": {}
     },
     {

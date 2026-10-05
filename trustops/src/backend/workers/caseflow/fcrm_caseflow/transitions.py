@@ -109,6 +109,20 @@ _INTAKE = [
     ),
     Transition(
         S.INTAKE,
+        Trigger.INGEST_DONE,
+        S.INTAKE,
+        "H3 extracted one document: record its Guard 1 result; dispatch "
+        "the intake agent once every stored document is extracted",
+    ),
+    Transition(
+        S.INTAKE,
+        Trigger.INGEST_FAILED,
+        S.INTAKE,
+        "H3 could not extract a document (or Guard 1 quarantined it): "
+        "record why; no agent ever reads a quarantined document",
+    ),
+    Transition(
+        S.INTAKE,
         Trigger.AGENT_DONE_INTAKE,
         S.INTAKE,
         "write proposals to S4; push items to S1; resolve field set "
@@ -240,6 +254,20 @@ _CLARIFICATION = [
     ),
     Transition(
         S.CLARIFICATION,
+        Trigger.INGEST_DONE,
+        S.CLARIFICATION,
+        "H3 extracted a document the owner added with an answer: record "
+        "its Guard 1 result; the re-run waits for it",
+    ),
+    Transition(
+        S.CLARIFICATION,
+        Trigger.INGEST_FAILED,
+        S.CLARIFICATION,
+        "H3 could not extract an added document (or Guard 1 quarantined "
+        "it): record why and flag the analyst",
+    ),
+    Transition(
+        S.CLARIFICATION,
         Trigger.AGENT_DONE_RERUN_BOTH,
         S.REVIEW,
         "new proposals supersede the ones whose inputs changed; "
@@ -277,6 +305,13 @@ _REVIEW = [
         Trigger.CASE_GAP_RECORDED,
         S.REVIEW,
         "record gap.recorded; dispatch policy_gap as a non-blocking oversight job",
+    ),
+    Transition(
+        S.REVIEW,
+        Trigger.CASE_CONTROL_PLANNED,
+        S.REVIEW,
+        "record control.planned; a planned control is shown to the "
+        "analyst and never scored",
     ),
     Transition(
         S.REVIEW,

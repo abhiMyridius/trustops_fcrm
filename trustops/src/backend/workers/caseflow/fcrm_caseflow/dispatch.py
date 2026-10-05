@@ -25,6 +25,7 @@ of this table automatically rather than needing its own entry.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Final, Optional
 
@@ -154,17 +155,14 @@ _GATE_OPEN_UNCONDITIONAL: Final[dict[Trigger, GateType]] = {
     Trigger.AGENT_DONE_NARRATIVE_COMPLETENESS: GateType.COMPLETENESS,
     Trigger.AGENT_FAILED_AFTER_RETRY: GateType.HANDOFF,
     Trigger.CASE_LOCKED: GateType.PACK_RELEASE,
-    # One po_confirm_category gate per AGENT_DONE_INTAKE, and one
-    # review_item gate per AGENT_DONE_ASSESS_BOTH: a documented
-    # simplification of "open PO gates"/per-item review gates (design A
-    # §3.1, §3.2) until a real S1 items integration exists to fan these out
-    # one per proposed change type / clause / rating / control / critic
-    # finding — see module/package docstrings. ``all_items_decided``
-    # (:mod:`fcrm_caseflow.engine`'s gate-derived context refresh) reads
-    # "all decided" off this same single gate's open count, so the
-    # simplification is consistent end to end, not just at open time.
-    Trigger.AGENT_DONE_INTAKE: GateType.PO_CONFIRM_CATEGORY,
-    Trigger.AGENT_DONE_ASSESS_BOTH: GateType.REVIEW_ITEM,
+    # No entry for AGENT_DONE_INTAKE / AGENT_DONE_ASSESS_BOTH: the old
+    # one-combined-gate stand-ins (one po_confirm_category gate, one
+    # review_item gate) are gone (ADR-28). The ``intake.publish`` and
+    # ``assess.publish`` steps open one gate per proposed change type and per
+    # clause / rating / control / critic finding, from their step result
+    # (``StepResult.gates_to_open``), once S1 holds the items. Until a
+    # handler is registered for those steps (``audit_map.STEP_FOR``) the two
+    # triggers open no gate at all.
 }
 
 
@@ -185,11 +183,17 @@ def gate_to_open(trigger: Trigger, ctx: TransitionContext) -> Optional[GateType]
 
 
 def build_job_envelope(
-    dispatch: AgentDispatch, run: CaseRun, *, attempt: int = 1
+    dispatch: AgentDispatch,
+    run: CaseRun,
+    *,
+    attempt: int = 1,
+    refs: Optional[Mapping[str, Any]] = None,
 ) -> Envelope:
     """One ``agent.run`` envelope for ``dispatch`` against ``run``'s
     pinned versions (design A §3.1's "open run ... pins from active
-    versions").
+    versions"). ``refs`` become ``JobPayload.refs``: the context-pack inputs
+    H2 cannot derive from the job itself (:class:`fcrm_agents.context_pack
+    .BuildRequest` fields such as ``domains`` or ``submission_version``).
     """
     payload = JobPayload(
         job_id=new_id("job"),
@@ -202,6 +206,7 @@ def build_job_envelope(
         scope=dispatch.scope,
         changed_fields=list(dispatch.changed_fields),
         pins=run.pins,
+        refs=dict(refs or {}),
     )
     return build_envelope(
         "agent.run",

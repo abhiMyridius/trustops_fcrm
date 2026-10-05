@@ -34,29 +34,25 @@ general pattern here, not a one-off fix for ``agent.failed``:
   mapping is the correct, not merely convenient, resolution — adding a
   payload field or a second catalogue entry would encode a distinction
   that cannot actually occur.
-- **Same-shaped gaps found, not fixed (other packages, out of this
-  lane's scope — disclosed, not patched):**
-  - ``Trigger.PACK_RELEASED`` ("pack.released") has no catalogue entry
-    (closest is "pack.approved"); ``ops/rabbitmq/definitions.json``'s real
-    ``case-service.events`` binding already uses the literal routing key
-    "pack.released", so the wire format this consumer must accept already
-    assumes the trigger's spelling, not the catalogue's. S5 (the producer)
-    does not exist yet.
-  - ``Trigger.CASE_GAP_RECORDED`` ("case.gap_recorded") vs. the
-    catalogue's "gap.recorded" (the record this package itself writes
-    *after* handling the former — not the same event).
-  - ``Trigger.COMMITTEE_QUESTION_ASKED``/``COMMITTEE_ANSWERED_NO_CHANGE``/
-    ``COMMITTEE_ANSWERED_CHANGED`` vs. the catalogue's bare
-    "committee.question"/"committee.answer".
-  - ``Trigger.VOTE_TALLIED`` ("vote.tallied") vs. the catalogue's
-    "vote.revealed".
-  None of these block this lane (S5 publishes all of them and does not
-  exist yet; this consumer accepts the trigger's own literal wire value,
-  which works today because :func:`fcrm_common.events.decode_envelope`
-  never checks ``EVENT_TYPES` on receipt — only
-  :func:`fcrm_common.events.check_event_type` does, and that only runs on
-  *publish*). Whoever builds S5 should reconcile the catalogue with what
-  these triggers actually expect on the wire.
+- **Wire names versus trigger names (reconciled by ADR-28).** The
+  catalogue now carries the spellings S5 and S1 publish: ``pack.released``,
+  ``vote.tallied``, ``committee.question_asked``, ``committee.answered``,
+  ``case.clarification_sent``, ``case.control_planned``. Two of them are
+  *bare* events whose trigger depends on the payload, which this module
+  resolves: ``committee.answered`` by ``numbers_changed`` (R6: changed
+  numbers send the case back to review) and ``outcome.set`` by ``mode``
+  (only ``delegated`` moves the run; a committee outcome already moved it
+  on ``vote.tallied``). The older spellings (``committee.question``,
+  ``vote.revealed``) are still accepted defensively. ``case.gap_recorded``
+  is the trigger for the S1 event of that name and is not the
+  ``gap.recorded`` *record* this package writes after handling it.
+- **Guard keys come from the wire, derived facts do not.** A guard fact a
+  producer owns (``four_submit_checks_passed``, ``release_checks_passed``,
+  ``vote_outcome``, ``band``, ...; :data:`WIRE_CONTEXT_FIELDS`) is read from
+  a top-level payload key. A fact H1 derives from its own gates collection
+  (:data:`H1_DERIVED_CONTEXT_FIELDS`: ``acks_done``, ``all_items_decided``,
+  ``gaps_open``, ...) is never accepted from a payload: no event may assert
+  that every acknowledgement is done.
 - **Guard 7 and the missing ``Principal``.** ``gate.decided``'s payload
   (:class:`fcrm_contracts.common.GateDecision`) carries only
   ``decided_by: str`` — no roles, no token type. Design A §3.2 says H1
@@ -95,6 +91,9 @@ _LITERAL_TRIGGERS: Final[dict[str, Trigger]] = {
     Trigger.CASE_RETAGGED.value: Trigger.CASE_RETAGGED,
     Trigger.CASE_RERUN_REQUESTED.value: Trigger.CASE_RERUN_REQUESTED,
     Trigger.CASE_GAP_RECORDED.value: Trigger.CASE_GAP_RECORDED,
+    Trigger.CASE_CONTROL_PLANNED.value: Trigger.CASE_CONTROL_PLANNED,
+    Trigger.INGEST_DONE.value: Trigger.INGEST_DONE,
+    Trigger.INGEST_FAILED.value: Trigger.INGEST_FAILED,
     Trigger.CASE_LOCKED.value: Trigger.CASE_LOCKED,
     Trigger.CASE_UNLOCKED.value: Trigger.CASE_UNLOCKED,
     Trigger.CASE_CLOSE_REQUESTED.value: Trigger.CASE_CLOSE_REQUESTED,
@@ -183,26 +182,92 @@ _GATE_DECIDED_INFORMATIONAL_ONLY: Final[frozenset[GateType]] = frozenset(
     }
 )
 
-#: Fields :class:`~fcrm_caseflow.transitions.TransitionContext` declares
-#: that this layer is willing to take verbatim from an event payload (see
-#: module docstring: upstream business cores that are not yet built — S1's
-#: items/submit-checks, S2's scoring, S5's votes — are expected to publish
-#: these directly on the relevant event once they exist; until then they
-#: default exactly as the pure dataclass already defaults).
-_CONTEXT_PAYLOAD_FIELDS: Final[frozenset[str]] = frozenset(
-    f.name for f in dataclasses.fields(TransitionContext) if f.name != "flags"
+#: :class:`~fcrm_caseflow.transitions.TransitionContext` fields a producer
+#: owns and puts at the **top level** of its event payload. A missing key
+#: silently takes the dataclass default, so every payload that must drive a
+#: guard declares its key as a field in :mod:`fcrm_contracts.events.payloads`
+#: and ``tests/unit/workers/caseflow/test_payload_context_keys.py`` fails if
+#: one is not declared anywhere. Which model declares which key:
+#:
+#: - ``four_submit_checks_passed``: ``CaseSubmitted``
+#: - ``release_checks_passed``: ``PackReleased``
+#: - ``vote_outcome``: ``VoteTallied``
+#: - ``rerun_reason``: ``CaseRerunRequested``
+#: - ``unlock_reason``: ``CaseUnlocked``, ``CommitteeAnswered``
+#: - ``committee_numbers_changed``: ``CommitteeAnswered``
+#: - ``band``: ``CaseCloseRequested``
+#: - ``fast_lane_proposed``: ``AgentDone`` (a copy of the screening proposal)
+#: - ``rating_or_control_changed``, ``band_changed``, ``boundary_flagged``:
+#:   ``GateDecided``
+WIRE_CONTEXT_FIELDS: Final[frozenset[str]] = frozenset(
+    {
+        "four_submit_checks_passed",
+        "fast_lane_proposed",
+        "rating_or_control_changed",
+        "band_changed",
+        "boundary_flagged",
+        "release_checks_passed",
+        "rerun_reason",
+        "unlock_reason",
+        "committee_numbers_changed",
+        "vote_outcome",
+        "band",
+    }
 )
+
+#: Context fields H1 derives itself and never takes from a payload: the open
+#: gate counts (:meth:`fcrm_caseflow.engine.CaseflowEngine._refresh_gate_
+#: derived_ctx`) and the fast-lane decision (read off the gate's own
+#: ``decision`` string). ``all_po_gates_decided`` is reserved: no guard reads
+#: it today. A payload carrying one of these is ignored, so no event can
+#: assert, say, that every acknowledgement is done.
+H1_DERIVED_CONTEXT_FIELDS: Final[frozenset[str]] = frozenset(
+    {
+        "all_po_gates_decided",
+        "fast_lane_confirmed",
+        "gaps_open",
+        "all_items_decided",
+        "acks_done",
+    }
+)
+
+_CONTEXT_PAYLOAD_FIELDS: Final[frozenset[str]] = WIRE_CONTEXT_FIELDS
 
 
 def context_from_payload(payload: dict[str, Any]) -> TransitionContext:
-    """Pick out whichever :class:`TransitionContext` fields ``payload``
-    happens to carry (by name), leaving every other field at the pure
-    dataclass's own default. ``flags`` is deliberately never sourced this
-    way — it always comes from the persisted run snapshot
-    (:mod:`fcrm_caseflow.engine`), never from a wire payload.
+    """Pick out whichever producer-owned :class:`TransitionContext` fields
+    (:data:`WIRE_CONTEXT_FIELDS`) ``payload`` carries (by name), leaving every
+    other field at the pure dataclass's own default. A key whose value is
+    ``None`` counts as absent (a model that declares an optional guard key
+    dumps ``None``, which must not overwrite a default). ``flags`` and the
+    :data:`H1_DERIVED_CONTEXT_FIELDS` are never sourced this way: ``flags``
+    comes from the persisted run snapshot (:mod:`fcrm_caseflow.engine`),
+    the rest from H1's own gates.
     """
-    overrides = {k: v for k, v in payload.items() if k in _CONTEXT_PAYLOAD_FIELDS}
+    overrides = {
+        k: v
+        for k, v in payload.items()
+        if k in _CONTEXT_PAYLOAD_FIELDS and v is not None
+    }
     return TransitionContext(**overrides)
+
+
+def _strict_flag(payload: dict[str, Any], *keys: str) -> bool:
+    """The first of ``keys`` present in ``payload``, as a real boolean.
+
+    ``bool("false")`` is ``True``, which would unlock a locked case on a
+    stringly-typed flag, so anything but a JSON boolean is refused.
+
+    Raises:
+        ValueError: a present value is not a boolean.
+    """
+    for key in keys:
+        if key in payload and payload[key] is not None:
+            value = payload[key]
+            if not isinstance(value, bool):
+                raise ValueError(f"{key} must be a boolean, got {value!r}")
+            return value
+    return False
 
 
 @dataclass(frozen=True)
@@ -231,11 +296,53 @@ def resolve_simple(envelope: Envelope) -> Optional[SimpleResolution]:
         return SimpleResolution(
             trigger=Trigger.AGENT_FAILED_AFTER_RETRY, context=TransitionContext()
         )
+    if envelope.type == "committee.answered":
+        return _resolve_committee_answered(envelope.payload)
+    if envelope.type == "outcome.set":
+        return _resolve_outcome_set(envelope.payload)
     trigger = _LITERAL_TRIGGERS.get(envelope.type)
     if trigger is None:
         return None
+    context = context_from_payload(envelope.payload)
+    if trigger is Trigger.VOTE_TALLIED and context.vote_outcome is None:
+        # design A §4.3 names the tally's key ``outcome``; the guard context
+        # reads ``vote_outcome``. Accept either spelling from a producer.
+        context = dataclasses.replace(
+            context, vote_outcome=envelope.payload.get("outcome")
+        )
+    return SimpleResolution(trigger=trigger, context=context)
+
+
+def _resolve_committee_answered(payload: dict[str, Any]) -> SimpleResolution:
+    """Bare ``committee.answered``: ``numbers_changed`` (or its mirror
+    ``committee_numbers_changed``) picks between the two triggers. R6: changed
+    numbers unlock the recommendation (back to REVIEW); unchanged numbers only
+    attach the answer to the pack as an addendum.
+
+    Raises:
+        ValueError: the flag is present but not a boolean.
+    """
+    changed = _strict_flag(payload, "numbers_changed", "committee_numbers_changed")
+    trigger = (
+        Trigger.COMMITTEE_ANSWERED_CHANGED
+        if changed
+        else Trigger.COMMITTEE_ANSWERED_NO_CHANGE
+    )
+    context = dataclasses.replace(
+        context_from_payload(payload), committee_numbers_changed=changed
+    )
+    return SimpleResolution(trigger=trigger, context=context)
+
+
+def _resolve_outcome_set(payload: dict[str, Any]) -> Optional[SimpleResolution]:
+    """Bare ``outcome.set``: only ``mode == "delegated"`` moves the run
+    (R1: the analyst's delegated close). A committee outcome already moved it
+    on ``vote.tallied``, so any other mode is informational (``None``).
+    """
+    if payload.get("mode") != "delegated":
+        return None
     return SimpleResolution(
-        trigger=trigger, context=context_from_payload(envelope.payload)
+        trigger=Trigger.OUTCOME_SET_DELEGATED, context=context_from_payload(payload)
     )
 
 

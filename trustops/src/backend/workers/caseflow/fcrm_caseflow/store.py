@@ -28,11 +28,13 @@ contract exactly as small as the existing 19 tests already prove it to be.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import dataclasses
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Final, Optional
 
-from fcrm_common.mongo import Document
+from fcrm_common.mongo import Document, to_bson
 from fcrm_common.time import utcnow
 from fcrm_contracts.enums import CaseState
 from fcrm_contracts.versions import PinnedVersions
@@ -47,6 +49,11 @@ from fcrm_caseflow.triggers import Trigger
 
 CASE_RUNS_COLLECTION: Final = "case_runs"
 RUN_EVENTS_COLLECTION: Final = "run_events"
+
+#: ``run_events.kind`` of the row :meth:`CaseRunStore.record_step_done` writes
+#: when a harness step finishes. Replay folds only ``transition`` rows.
+TRANSITION_KIND: Final = "transition"
+STEP_DONE_KIND: Final = "step_done"
 
 #: Placeholder pins until a real version-registry lane exists to resolve
 #: "active versions" at ``case.created`` time (design A §3.1's "open run
@@ -132,6 +139,21 @@ class CaseRun:
     (``CASE_CLOSE_REQUESTED``'s R1/R2 split) still has it even when the
     triggering event itself did not carry one.
     """
+    pending_steps: tuple[str, ...] = ()
+    """``step_id`` of every ``harness.step`` enqueued for this run and not yet
+    completed (ADR-28). While any is pending the engine does not chain
+    internal triggers: the step's result (gates opened, agents dispatched) is
+    part of the state those triggers' guards read.
+    """
+    refs: dict[str, Any] = field(default_factory=dict)
+    """References steps leave for later steps (ids of S1 views, the pack id,
+    the last score snapshot id...), merged key by key by
+    :meth:`CaseRunStore.merge_refs`. References only, never case data.
+    """
+    counters: dict[str, int] = field(default_factory=dict)
+    """Running totals (``agents_run``, ``tokens_used``...) bumped atomically by
+    :meth:`CaseRunStore.bump_counters`.
+    """
 
     @property
     def state(self) -> CaseState:
@@ -162,6 +184,9 @@ def new_case_run_document(
         "pending_agents": [],
         "dispatched_in_state": [],
         "band": None,
+        "pending_steps": [],
+        "refs": {},
+        "counters": {},
     }
 
 
@@ -196,7 +221,33 @@ def case_run_from_document(doc: Document) -> CaseRun:
         pending_agents=tuple(doc.get("pending_agents") or ()),
         dispatched_in_state=tuple(doc.get("dispatched_in_state") or ()),
         band=doc.get("band"),
+        pending_steps=tuple(doc.get("pending_steps") or ()),
+        refs=dict(doc.get("refs") or {}),
+        counters={str(k): int(v) for k, v in (doc.get("counters") or {}).items()},
     )
+
+
+def context_to_document(context: TransitionContext) -> dict[str, Any]:
+    """``context`` as a BSON-safe dict: every field by name, with ``flags``
+    (a pydantic model) dumped to plain data. ``context.__dict__`` holds the
+    ``RunFlags`` object itself, which PyMongo cannot encode, so the first
+    real transition against a real MongoDB would have failed on insert.
+    """
+    document = {f.name: getattr(context, f.name) for f in dataclasses.fields(context)}
+    document["flags"] = context.flags.model_dump(mode="json")
+    return document
+
+
+def context_from_document(document: Mapping[str, Any]) -> TransitionContext:
+    """The inverse of :func:`context_to_document`. Unknown keys (a field a
+    later version dropped) are ignored rather than crashing a replay.
+    """
+    known = {f.name for f in dataclasses.fields(TransitionContext)}
+    data = {k: v for k, v in document.items() if k in known and k != "flags"}
+    flags = document.get("flags")
+    if flags is not None:
+        data["flags"] = RunFlags.model_validate(flags)
+    return TransitionContext(**data)
 
 
 def run_event_document(
@@ -229,7 +280,7 @@ def run_event_document(
         "action": action,
         "data": {
             "trigger": trigger.value,
-            "context": context.__dict__,
+            "context": context_to_document(context),
         },
     }
 
@@ -242,8 +293,40 @@ def recorded_transition_from_document(doc: Document) -> RecordedTransition:
     data = doc["data"]
     return RecordedTransition(
         trigger=Trigger(data["trigger"]),
-        context=TransitionContext(**data["context"]),
+        context=context_from_document(data["context"]),
     )
+
+
+def step_done_document(
+    *, run_id: str, seq: int, state: CaseState, step_id: str, step: str
+) -> Document:
+    """The ``run_events`` row that marks one harness step finished. It takes
+    the next ``seq`` like a transition does but is not one: ``state_from``
+    equals ``state_to`` and replay skips ``kind == "step_done"``.
+    """
+    return {
+        "run_id": run_id,
+        "seq": seq,
+        "at": utcnow(),
+        "kind": STEP_DONE_KIND,
+        "state_from": state.value,
+        "state_to": state.value,
+        "message_id": None,
+        "action": f"step {step} done",
+        "data": {"step_id": step_id, "step": step},
+    }
+
+
+def _check_key(key: str) -> str:
+    """A ``refs``/``counters`` key that is safe inside a ``$set``/``$inc`` path.
+
+    Raises:
+        ValueError: ``key`` is empty, holds ``.`` (a nested path) or starts
+            with ``$`` (an operator).
+    """
+    if not key or "." in key or key.startswith("$"):
+        raise ValueError(f"unusable refs/counters key {key!r}")
+    return key
 
 
 class CaseRunStore:
@@ -264,17 +347,47 @@ class CaseRunStore:
         self._run_events = run_events
 
     async def ensure_indexes(self) -> list[str]:
-        """``run_events``' unique ``{run_id, seq}`` (design A §3.5)."""
-        names = await self._run_events.create_indexes(
+        """Every index the queries below use.
+
+        ``run_events``: unique ``{run_id, seq}`` (design A §3.5), and a
+        partial unique ``{run_id, kind, data.step_id}`` over ``step_done`` rows
+        (the step-finished lookup, and a database-level guarantee that a step
+        is recorded done at most once). ``case_runs``: ``{case_id, closed_at,
+        opened_at}`` for :meth:`get_by_case_id`, which every consumed event
+        calls.
+        """
+        events = await self._run_events.create_indexes(
             [
                 IndexModel(
                     [("run_id", ASCENDING), ("seq", ASCENDING)],
                     unique=True,
                     name="run_id_seq_unique",
+                ),
+                IndexModel(
+                    [
+                        ("run_id", ASCENDING),
+                        ("kind", ASCENDING),
+                        ("data.step_id", ASCENDING),
+                    ],
+                    unique=True,
+                    partialFilterExpression={"kind": STEP_DONE_KIND},
+                    name="step_done_unique",
+                ),
+            ]
+        )
+        runs = await self._case_runs.create_indexes(
+            [
+                IndexModel(
+                    [
+                        ("case_id", ASCENDING),
+                        ("closed_at", ASCENDING),
+                        ("opened_at", ASCENDING),
+                    ],
+                    name="case_id_open",
                 )
             ]
         )
-        return list(names)
+        return [*events, *runs]
 
     async def get(
         self, run_id: str, *, session: Optional[AsyncClientSession] = None
@@ -315,7 +428,7 @@ class CaseRunStore:
         action: str,
         message_id: Optional[str],
         context: TransitionContext,
-        kind: str = "transition",
+        kind: str = TRANSITION_KIND,
         session: AsyncClientSession,
     ) -> CaseRun:
         """Persist one applied transition: bump ``version``, move ``state``
@@ -379,6 +492,9 @@ class CaseRunStore:
             pending_agents=run.pending_agents,
             dispatched_in_state=dispatched_in_state,
             band=run.band,
+            pending_steps=run.pending_steps,
+            refs=run.refs,
+            counters=run.counters,
         )
 
     async def set_band(
@@ -420,15 +536,132 @@ class CaseRunStore:
         )
         return list((doc or {}).get("pending_agents") or [])
 
+    # -- harness steps (ADR-28) ----------------------------------------
+
+    async def add_pending_step(
+        self, run_id: str, step_id: str, *, session: AsyncClientSession
+    ) -> None:
+        """Mark ``step_id`` as enqueued and not yet complete (atomic
+        ``$addToSet``: adding the same id twice is a no-op).
+        """
+        await self._case_runs.update_one(
+            {"_id": run_id}, {"$addToSet": {"pending_steps": step_id}}, session=session
+        )
+
+    async def remove_pending_step(
+        self, run_id: str, step_id: str, *, session: AsyncClientSession
+    ) -> list[str]:
+        """Drop ``step_id`` from the pending set (atomic ``$pull``) and return
+        the ids still pending; ``[]`` means the run may chain again.
+        """
+        doc = await self._case_runs.find_one_and_update(
+            {"_id": run_id},
+            {"$pull": {"pending_steps": step_id}},
+            projection={"pending_steps": 1},
+            session=session,
+            return_document=ReturnDocument.AFTER,
+        )
+        return list((doc or {}).get("pending_steps") or [])
+
+    async def has_step_done(
+        self,
+        run_id: str,
+        step_id: str,
+        *,
+        session: Optional[AsyncClientSession] = None,
+    ) -> bool:
+        """Whether a ``step_done`` row exists for ``step_id`` (indexed by
+        ``step_done_unique``; reads only ``_id``).
+        """
+        found = await self._run_events.find_one(
+            {"run_id": run_id, "kind": STEP_DONE_KIND, "data.step_id": step_id},
+            projection={"_id": 1},
+            session=session,
+        )
+        return found is not None
+
+    async def record_step_done(
+        self, run: CaseRun, step_id: str, step: str, *, session: AsyncClientSession
+    ) -> CaseRun:
+        """Append the ``step_done`` row for ``step_id`` and bump ``version``,
+        like a transition does for its row. The unique ``{run_id, seq}`` index
+        makes a concurrent writer fail rather than reuse the ``seq``.
+        """
+        seq = run.snapshot.version
+        await self._run_events.insert_one(
+            step_done_document(
+                run_id=run.snapshot.run_id,
+                seq=seq,
+                state=run.state,
+                step_id=step_id,
+                step=step,
+            ),
+            session=session,
+        )
+        now = utcnow()
+        await self._case_runs.update_one(
+            {"_id": run.snapshot.run_id},
+            {"$set": {"updated_at": now}, "$inc": {"version": 1}},
+            session=session,
+        )
+        return dataclasses.replace(
+            run,
+            snapshot=run.snapshot.model_copy(update={"version": seq + 1}),
+            updated_at=now,
+        )
+
+    async def merge_refs(
+        self,
+        run_id: str,
+        patch: Mapping[str, Any],
+        *,
+        session: AsyncClientSession,
+    ) -> None:
+        """Set each ``patch`` key under ``refs`` (atomic ``$set`` of
+        ``refs.<key>``); keys not in ``patch`` are untouched.
+
+        Raises:
+            ValueError: a key is empty, holds ``.`` or starts with ``$``.
+        """
+        if not patch:
+            return
+        fields = {f"refs.{_check_key(k)}": to_bson(v) for k, v in patch.items()}
+        await self._case_runs.update_one(
+            {"_id": run_id}, {"$set": fields}, session=session
+        )
+
+    async def bump_counters(
+        self,
+        run_id: str,
+        deltas: Mapping[str, int],
+        *,
+        session: AsyncClientSession,
+    ) -> None:
+        """Add each delta to ``counters.<key>`` (atomic ``$inc``, so two
+        steps bumping ``tokens_used`` never lose an update).
+
+        Raises:
+            ValueError: a key is empty, holds ``.`` or starts with ``$``.
+        """
+        if not deltas:
+            return
+        increments = {f"counters.{_check_key(k)}": int(v) for k, v in deltas.items()}
+        await self._case_runs.update_one(
+            {"_id": run_id}, {"$inc": increments}, session=session
+        )
+
     async def load_recorded_transitions(
         self, run_id: str, *, session: Optional[AsyncClientSession] = None
     ) -> list[RecordedTransition]:
-        """Every ``run_events`` row for ``run_id``, in ``seq`` order, as
+        """Every transition row for ``run_id``, in ``seq`` order, as
         :class:`~fcrm_caseflow.eventstore.RecordedTransition` — feed this
         straight to :func:`fcrm_caseflow.eventstore.rebuild` to prove a
-        real run replays to its stored snapshot.
+        real run replays to its stored snapshot. ``step_done`` rows share the
+        collection and the ``seq`` counter but are not transitions.
         """
         cursor = self._run_events.find(
-            {"run_id": run_id}, sort=[("seq", ASCENDING)], session=session
+            {"run_id": run_id, "kind": TRANSITION_KIND},
+            sort=[("seq", ASCENDING)],
+            session=session,
         )
         return [recorded_transition_from_document(doc) async for doc in cursor]
