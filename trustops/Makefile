@@ -204,10 +204,12 @@ web-check: ## web typecheck and vitest; skipped, loudly, when node_modules is mi
 
 gate: check ## push / task-done gate: check plus the parts other lanes have wired
 	@if [ -d tests/integration ]; then $(MAKE) --no-print-directory test-int; else echo "gate: no tests/integration yet (skipped)"; fi
-	@echo "gate: pending pieces, not yet run: contracts (oasdiff, event schemas), evals-gate, semgrep"
+	$(UV_RUN) python -m fcrm_evals build --check
+	$(UV_RUN) python -m fcrm_evals selfcheck --out "$$(mktemp -d)"
+	@echo "gate: pending pieces, not yet run: contracts (oasdiff, event schemas), semgrep; evals-gate needs a live run (make evals)"
 
 # ── integration, e2e, resilience, evals ──────────────────────────────────
-.PHONY: test-int test-integration e2e resilience evals evals-gate nightly
+.PHONY: test-int test-integration e2e resilience evals evals-full evals-gate nightly
 test-int: ## integration tests (testcontainers; needs Docker)
 	@if [ -d tests/integration ]; then $(UV_RUN) pytest -m integration tests/integration; else $(call pending,the first tests/integration suite from the service lanes); fi
 
@@ -219,11 +221,21 @@ e2e: ## 21 live scenes + BB-01…BB-14 against the live test stack (project trus
 resilience: ## kill/restart drills (agent-worker, RabbitMQ, Mongo, identity, DLQ replay, budget)
 	@$(call pending,tests/resilience (tests lane))
 
-evals: ## per-agent eval run; writes evals/results/<date>/
-	@$(call pending,the evals lane (X6 runner))
+# The X6 evals (src/backend/packages/evals; evals/README.md). `evals` calls Bedrock
+# with the AWS credentials in the shell's environment (about USD 4 and 10 minutes);
+# EVALS_ARGS passes more options, e.g. EVALS_ARGS="--publish --baseline" or
+# EVALS_ARGS="--judge fake" (offline stand-in judge, labelled as such).
+EVALS := $(UV_RUN) python -m fcrm_evals
 
-evals-gate: ## eval promotion gate for one agent: make evals-gate AGENT=research
-	@$(call pending,the evals lane (X6 promotion gate))
+evals: ## live agent evals on Bedrock over a sampled slice (5 rows per agent, seed 7, concurrency 3); AGENT=<a> for one; writes evals/results/<date>/ and dashboard.html
+	$(EVALS) run --producer live --sample 5 --seed 7 --judge bedrock --concurrency 3 $(if $(AGENT),--agent $(AGENT)) $(EVALS_ARGS)
+
+evals-full: ## live agent evals over every row of every dataset (slow, several times the cost of `make evals`)
+	$(EVALS) run --producer live --sample 0 --judge bedrock --concurrency 3 $(if $(AGENT),--agent $(AGENT)) $(EVALS_ARGS)
+
+evals-gate: ## eval promotion gate for one agent on the newest run: make evals-gate AGENT=research
+	@[ -n "$(AGENT)" ] || { echo "usage: make evals-gate AGENT=<agent>, e.g. AGENT=research" >&2; exit 2; }
+	$(EVALS) gate --agent $(AGENT)
 
 nightly: ## gate · test-int · e2e · resilience · evals · token-report → ops/reports/nightly/<date>.md
 	@$(call pending,e2e/resilience/evals lanes and ops/scripts/nightly.sh)

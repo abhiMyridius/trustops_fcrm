@@ -18,12 +18,14 @@ import json
 import logging
 from collections.abc import Iterable, Sequence
 from pathlib import Path
+from typing import Optional
 
 from fcrm_contracts.enums import AgentName
 from fcrm_guardrails.output_shape import AGENT_OUTPUT_TYPES
 from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny
 
 from fcrm_evals.rows import ReferenceItem
+from fcrm_evals.usage import RowRun, RowStatus
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +35,23 @@ class UnknownOutputTypeError(ValueError):
 
 
 class AgentOutput(BaseModel):
-    """What one agent call produced for one row."""
+    """What one agent call produced for one row.
+
+    ``status`` is ``ok`` for every offline producer. A live run that the
+    guards blocked, or that failed outright, yields ``items == []`` with
+    ``status`` ``blocked`` or ``failed`` and its :class:`RowRun` (reason,
+    tokens, guard trail): the metrics then score an empty output, which is
+    what the agent produced, never a stand-in.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     row_id: str
     producer: str
     items: list[SerializeAsAny[BaseModel]] = Field(default_factory=list)
+    status: RowStatus = RowStatus.OK
+    reason: Optional[str] = None
+    run: Optional[RowRun] = None
 
     def of_type[T: BaseModel](self, kind: type[T]) -> list[T]:
         """The items that are exactly ``kind`` (subclasses are not the
@@ -78,11 +90,16 @@ def dump_outputs(outputs: Sequence[AgentOutput], path: Path) -> None:
     """Write ``outputs`` as JSON Lines (the recorded-output format)."""
     lines = []
     for output in outputs:
-        record = {
+        record: dict[str, object] = {
             "row_id": output.row_id,
             "producer": output.producer,
             "items": [encode_item(i).model_dump(mode="json") for i in output.items],
         }
+        if output.status is not RowStatus.OK:
+            record["status"] = output.status.value
+            record["reason"] = output.reason
+        if output.run is not None:
+            record["run"] = output.run.model_dump(mode="json")
         lines.append(json.dumps(record, sort_keys=True, ensure_ascii=False))
     path.write_text("".join(f"{line}\n" for line in lines), encoding="utf-8")
 
@@ -97,11 +114,15 @@ def load_outputs(agent: AgentName, path: Path) -> list[AgentOutput]:
                 continue
             record = json.loads(line)
             items = [ReferenceItem.model_validate(i) for i in record["items"]]
+            run = record.get("run")
             outputs.append(
                 AgentOutput(
                     row_id=record["row_id"],
                     producer=record["producer"],
                     items=decode_items(agent, items),
+                    status=RowStatus(record.get("status", RowStatus.OK.value)),
+                    reason=record.get("reason"),
+                    run=RowRun.model_validate(run) if run is not None else None,
                 )
             )
     return outputs

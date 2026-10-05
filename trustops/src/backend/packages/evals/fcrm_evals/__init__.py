@@ -17,3 +17,11 @@ figures in ``seed.json["evals"]`` remain the generator's seeded targets.
 """
 
 from __future__ import annotations
+
+import os
+
+# DeepEval loads the nearest ``.env`` (the developer's secrets and stale
+# settings) into the process the moment it is imported, from any module that
+# imports it. Setting this here, before any ``fcrm_evals`` submodule can import
+# DeepEval, covers every entry point (D-31 was the same leak through litellm).
+os.environ.setdefault("DEEPEVAL_DISABLE_DOTENV", "1")

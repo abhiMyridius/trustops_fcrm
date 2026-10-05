@@ -1,0 +1,519 @@
+{
+ "run_id": "2026-10-05T17-31Z-4c715bb",
+ "timestamp": "2026-10-05T17:31:37.794035Z",
+ "git_sha": "4c715bb",
+ "producer": "live",
+ "judge": "bedrock",
+ "judge_votes": 3,
+ "instructions": "raw",
+ "token_budget_factor": 1.0,
+ "sample_n": 5,
+ "seed": 7,
+ "concurrency": 3,
+ "models": [
+  "Haiku 4.5",
+  "Nova Lite",
+  "Opus 5.5",
+  "Sonnet 5.5"
+ ],
+ "judge_models": [
+  "Opus 5.5"
+ ],
+ "gates_pass": 1,
+ "gates_total": 9,
+ "usage": {
+  "calls": 112,
+  "retries": 13,
+  "blocked_rows": 34,
+  "failed_rows": 0,
+  "input_tokens": 523730,
+  "output_tokens": 84804,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 1.96047,
+  "latency_p50_s": 53.949,
+  "latency_max_s": 106.499,
+  "models": [
+   "Haiku 4.5",
+   "Nova Lite",
+   "Opus 5.5",
+   "Sonnet 5.5"
+  ]
+ },
+ "judge_usage": {
+  "calls": 54,
+  "retries": 0,
+  "blocked_rows": 0,
+  "failed_rows": 0,
+  "input_tokens": 78752,
+  "output_tokens": 43429,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 1.183588,
+  "latency_p50_s": 18.09010249999119,
+  "latency_max_s": 131.23162287502782,
+  "models": [
+   "Opus 5.5"
+  ]
+ },
+ "cost_usd_total": 3.144058,
+ "tokens_total": 730715,
+ "price_status": "placeholder_confirm_before_go_live",
+ "baseline_run_id": null,
+ "agents": [
+  {
+   "agent": "screening",
+   "tier": "cheap",
+   "dataset": "screening/fast-lane-100",
+   "n": 5,
+   "of": 100,
+   "primary_metric": "fast_lane_precision",
+   "score": null,
+   "threshold": 0.9,
+   "status": "FAIL",
+   "measured": false,
+   "metrics_pass": 0,
+   "metrics_total": 1,
+   "tokens": 34269,
+   "cost_usd": 0.048941,
+   "judge_cost_usd": 0.0,
+   "latency_p50_s": 8.678,
+   "blocked_rows": 5,
+   "failed_rows": 0,
+   "completed": 0,
+   "reasons": [
+    "fast_lane_precision was not measured on the candidate",
+    "completed 0/5 rows (0%); a gate needs at least 80%, because a blocked or failed row has no output to measure"
+   ],
+   "others": [
+    {
+     "name": "fast_lane_recall",
+     "score": 0.0,
+     "threshold": 0.9,
+     "passed": false
+    },
+    {
+     "name": "citation_validity",
+     "score": null,
+     "threshold": 0.95,
+     "passed": null
+    }
+   ]
+  },
+  {
+   "agent": "intake",
+   "tier": "cheap",
+   "dataset": "intake/extraction-80",
+   "n": 5,
+   "of": 80,
+   "primary_metric": "field_extraction_accuracy",
+   "score": 0.0,
+   "threshold": 0.9,
+   "status": "FAIL",
+   "measured": true,
+   "metrics_pass": 0,
+   "metrics_total": 2,
+   "tokens": 44384,
+   "cost_usd": 0.055924,
+   "judge_cost_usd": 0.0,
+   "latency_p50_s": 5.197,
+   "blocked_rows": 5,
+   "failed_rows": 0,
+   "completed": 0,
+   "reasons": [
+    "field_extraction_accuracy 0.000 is below its threshold 0.90",
+    "completed 0/5 rows (0%); a gate needs at least 80%, because a blocked or failed row has no output to measure"
+   ],
+   "others": [
+    {
+     "name": "source_span_accuracy",
+     "score": null,
+     "threshold": 0.9,
+     "passed": null
+    },
+    {
+     "name": "category_f1",
+     "score": 0.0,
+     "threshold": 0.9,
+     "passed": false
+    },
+    {
+     "name": "gap_question_precision",
+     "score": null,
+     "threshold": 0.9,
+     "passed": null
+    },
+    {
+     "name": "citation_validity",
+     "score": null,
+     "threshold": 0.95,
+     "passed": null
+    }
+   ]
+  },
+  {
+   "agent": "research",
+   "tier": "strong",
+   "dataset": "research/clauses-42",
+   "n": 5,
+   "of": 42,
+   "primary_metric": "clause_recall",
+   "score": 0.0,
+   "threshold": 0.85,
+   "status": "FAIL",
+   "measured": true,
+   "metrics_pass": 0,
+   "metrics_total": 2,
+   "tokens": 120072,
+   "cost_usd": 0.369824,
+   "judge_cost_usd": 0.0,
+   "latency_p50_s": 27.892,
+   "blocked_rows": 5,
+   "failed_rows": 0,
+   "completed": 0,
+   "reasons": [
+    "clause_recall 0.000 is below its threshold 0.85",
+    "completed 0/5 rows (0%); a gate needs at least 80%, because a blocked or failed row has no output to measure"
+   ],
+   "others": [
+    {
+     "name": "clause_precision",
+     "score": null,
+     "threshold": 0.7,
+     "passed": null
+    },
+    {
+     "name": "precedent_top1",
+     "score": 0.0,
+     "threshold": 0.9,
+     "passed": false
+    },
+    {
+     "name": "citation_validity",
+     "score": null,
+     "threshold": 0.95,
+     "passed": null
+    }
+   ]
+  },
+  {
+   "agent": "assessment",
+   "tier": "strong",
+   "dataset": "assessment/ratings-80",
+   "n": 5,
+   "of": 80,
+   "primary_metric": "li_within_one",
+   "score": 0.0,
+   "threshold": 0.85,
+   "status": "FAIL",
+   "measured": true,
+   "metrics_pass": 1,
+   "metrics_total": 4,
+   "tokens": 131443,
+   "cost_usd": 0.585046,
+   "judge_cost_usd": 0.0,
+   "latency_p50_s": 46.375,
+   "blocked_rows": 4,
+   "failed_rows": 0,
+   "completed": 1,
+   "reasons": [
+    "li_within_one 0.000 is below its threshold 0.85",
+    "completed 1/5 rows (20%); a gate needs at least 80%, because a blocked or failed row has no output to measure"
+   ],
+   "others": [
+    {
+     "name": "control_match_precision",
+     "score": 0.0,
+     "threshold": 0.9,
+     "passed": false
+    },
+    {
+     "name": "control_match_recall",
+     "score": 0.0,
+     "threshold": 0.9,
+     "passed": false
+    },
+    {
+     "name": "evidence_date_exact",
+     "score": null,
+     "threshold": 0.95,
+     "passed": null
+    },
+    {
+     "name": "citation_validity",
+     "score": 1.0,
+     "threshold": 0.95,
+     "passed": true
+    }
+   ]
+  },
+  {
+   "agent": "critic",
+   "tier": "judge",
+   "dataset": "critic/planted-61",
+   "n": 5,
+   "of": 61,
+   "primary_metric": "planted_error_detection",
+   "score": 0.0,
+   "threshold": 0.85,
+   "status": "FAIL",
+   "measured": true,
+   "metrics_pass": 0,
+   "metrics_total": 1,
+   "tokens": 115688,
+   "cost_usd": 0.543248,
+   "judge_cost_usd": 0.0,
+   "latency_p50_s": 53.949,
+   "blocked_rows": 5,
+   "failed_rows": 0,
+   "completed": 0,
+   "reasons": [
+    "planted_error_detection 0.000 is below its threshold 0.85",
+    "completed 0/5 rows (0%); a gate needs at least 80%, because a blocked or failed row has no output to measure"
+   ],
+   "others": [
+    {
+     "name": "critic_finding_groundedness",
+     "score": null,
+     "threshold": 1.0,
+     "passed": null
+    },
+    {
+     "name": "citation_validity",
+     "score": null,
+     "threshold": 0.95,
+     "passed": null
+    },
+    {
+     "name": "faithfulness",
+     "score": null,
+     "threshold": 0.9,
+     "passed": null
+    },
+    {
+     "name": "answer_relevancy",
+     "score": null,
+     "threshold": 0.8,
+     "passed": null
+    },
+    {
+     "name": "hallucination_free",
+     "score": null,
+     "threshold": 0.9,
+     "passed": null
+    }
+   ]
+  },
+  {
+   "agent": "narrative",
+   "tier": "mid",
+   "dataset": "narrative/recommendation-66",
+   "n": 5,
+   "of": 66,
+   "primary_metric": "number_grounding",
+   "score": 1.0,
+   "threshold": 1.0,
+   "status": "FAIL",
+   "measured": true,
+   "metrics_pass": 4,
+   "metrics_total": 5,
+   "tokens": 97849,
+   "cost_usd": 0.191189,
+   "judge_cost_usd": 0.09026,
+   "latency_p50_s": 20.285,
+   "blocked_rows": 4,
+   "failed_rows": 0,
+   "completed": 1,
+   "reasons": [
+    "completed 1/5 rows (20%); a gate needs at least 80%, because a blocked or failed row has no output to measure"
+   ],
+   "others": [
+    {
+     "name": "narrative_restricted_terms",
+     "score": 1.0,
+     "threshold": 1.0,
+     "passed": true
+    },
+    {
+     "name": "conditions_traceable",
+     "score": null,
+     "threshold": 1.0,
+     "passed": null
+    },
+    {
+     "name": "citation_validity",
+     "score": null,
+     "threshold": 0.95,
+     "passed": null
+    },
+    {
+     "name": "narrative_faithfulness",
+     "score": null,
+     "threshold": 0.9,
+     "passed": null
+    },
+    {
+     "name": "faithfulness",
+     "score": 1.0,
+     "threshold": 0.9,
+     "passed": true
+    },
+    {
+     "name": "answer_relevancy",
+     "score": 1.0,
+     "threshold": 0.8,
+     "passed": true
+    },
+    {
+     "name": "hallucination_free",
+     "score": 0.75,
+     "threshold": 0.9,
+     "passed": false
+    }
+   ]
+  },
+  {
+   "agent": "examiner",
+   "tier": "mid",
+   "dataset": "examiner/questions-5",
+   "n": 5,
+   "of": 5,
+   "primary_metric": "examiner_grounding",
+   "score": 1.0,
+   "threshold": 1.0,
+   "status": "PASS",
+   "measured": true,
+   "metrics_pass": 4,
+   "metrics_total": 6,
+   "tokens": 148011,
+   "cost_usd": 0.118606,
+   "judge_cost_usd": 1.093328,
+   "latency_p50_s": 10.642,
+   "blocked_rows": 0,
+   "failed_rows": 0,
+   "completed": 5,
+   "reasons": [],
+   "others": [
+    {
+     "name": "must_cite_coverage",
+     "score": 0.8888888888888888,
+     "threshold": 0.9,
+     "passed": false
+    },
+    {
+     "name": "refusal_rate",
+     "score": 0.0,
+     "threshold": 0.95,
+     "passed": false
+    },
+    {
+     "name": "faithfulness",
+     "score": 1.0,
+     "threshold": 0.9,
+     "passed": true
+    },
+    {
+     "name": "answer_relevancy",
+     "score": 1.0,
+     "threshold": 0.8,
+     "passed": true
+    },
+    {
+     "name": "hallucination_free",
+     "score": 1.0,
+     "threshold": 0.9,
+     "passed": true
+    }
+   ]
+  },
+  {
+   "agent": "watchlist",
+   "tier": "cheap",
+   "dataset": "watchlist/reflag-29",
+   "n": 5,
+   "of": 29,
+   "primary_metric": "reflag_recall",
+   "score": 0.0,
+   "threshold": 1.0,
+   "status": "FAIL",
+   "measured": true,
+   "metrics_pass": 0,
+   "metrics_total": 1,
+   "tokens": 34177,
+   "cost_usd": 0.032432,
+   "judge_cost_usd": 0.0,
+   "latency_p50_s": 7.901,
+   "blocked_rows": 5,
+   "failed_rows": 0,
+   "completed": 0,
+   "reasons": [
+    "reflag_recall 0.000 is below its threshold 1.00",
+    "completed 0/5 rows (0%); a gate needs at least 80%, because a blocked or failed row has no output to measure"
+   ],
+   "others": [
+    {
+     "name": "reflag_precision",
+     "score": null,
+     "threshold": 1.0,
+     "passed": null
+    },
+    {
+     "name": "citation_validity",
+     "score": null,
+     "threshold": 0.95,
+     "passed": null
+    }
+   ]
+  },
+  {
+   "agent": "policy_gap",
+   "tier": "mid",
+   "dataset": "policy_gap/suggestions-1",
+   "n": 1,
+   "of": 1,
+   "primary_metric": "gap_targets_recorded_gap",
+   "score": null,
+   "threshold": 1.0,
+   "status": "FAIL",
+   "measured": false,
+   "metrics_pass": 0,
+   "metrics_total": 0,
+   "tokens": 4822,
+   "cost_usd": 0.01526,
+   "judge_cost_usd": 0.0,
+   "latency_p50_s": 7.24,
+   "blocked_rows": 1,
+   "failed_rows": 0,
+   "completed": 0,
+   "reasons": [
+    "gap_targets_recorded_gap was not measured on the candidate",
+    "completed 0/1 rows (0%); a gate needs at least 80%, because a blocked or failed row has no output to measure"
+   ],
+   "others": [
+    {
+     "name": "suggestion_novelty",
+     "score": null,
+     "threshold": 1.0,
+     "passed": null
+    },
+    {
+     "name": "citation_validity",
+     "score": null,
+     "threshold": 0.95,
+     "passed": null
+    }
+   ]
+  }
+ ],
+ "files": {
+  "screening": "screening.live.json",
+  "intake": "intake.live.json",
+  "research": "research.live.json",
+  "assessment": "assessment.live.json",
+  "critic": "critic.live.json",
+  "narrative": "narrative.live.json",
+  "examiner": "examiner.live.json",
+  "watchlist": "watchlist.live.json",
+  "policy_gap": "policy_gap.live.json"
+ }
+}

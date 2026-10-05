@@ -49,6 +49,16 @@ conflicts = [
     { package = "fcrm-context-worker", extra = "s3vectors" },
     { package = "fcrm-harness" },
   ],
+  # fcrm-evals runs the agents live, so it depends on fcrm-agents and
+  # fcrm-agent-worker for the same reason fcrm-harness does.
+  [
+    { package = "fcrm-context-worker", extra = "s3vectors" },
+    { package = "fcrm-evals" },
+  ],
+  [
+    { package = "fcrm-context-worker", extra = "s3vectors" },
+    { package = "fcrm-evals", extra = "live" },
+  ],
 ]
 
 [dependency-groups]
@@ -63,6 +73,9 @@ dev = [
   "httpx>=0.28",
   "respx>=0.22",
   "testcontainers[mongodb,rabbitmq]>=4.9",
+  # The LLM judge's DeepEval + aiobotocore (fcrm_evals.judge): in the dev group
+  # so make check runs the judge tests; images use --no-dev and never have it.
+  "fcrm-evals[live]",
 ]
 
 [project]

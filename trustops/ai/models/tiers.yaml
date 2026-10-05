@@ -96,30 +96,38 @@ per_case_budget_tokens: 120000
 #    plus the prompt's "output exactly one object" line (or PromptedOutput)
 #    and let Guard 4 reject a missing output.
 #  - thinking: neither model can switch thinking off; it is adaptive.
+#  - label: the name a report may print for the model. Committed result files
+#    live under /evals, where no model id may appear (ADR-04), so the evals
+#    report every model by this label (fcrm_evals.usage.PriceTable.label).
 models:
   us.anthropic.claude-haiku-4-5-20251001-v1:0:
     family: anthropic
+    label: "Haiku 4.5"
     temperature: 0
     forced_tool_choice: allowed
     thinking: off_by_default
   us.anthropic.claude-sonnet-5-5:
     family: anthropic
+    label: "Sonnet 5.5"
     temperature: omit
     forced_tool_choice: rejected
     thinking: adaptive_always
   us.anthropic.claude-opus-5-5:
     family: anthropic
+    label: "Opus 5.5"
     temperature: omit
     forced_tool_choice: rejected
     thinking: adaptive_always
     effort_default: medium
   us.amazon.nova-lite-v1:0:
     family: amazon
+    label: "Nova Lite"
     temperature: 0
     forced_tool_choice: unverified
     thinking: none
   us.amazon.nova-pro-v1:0:
     family: amazon
+    label: "Nova Pro"
     temperature: 0
     forced_tool_choice: unverified
     thinking: none

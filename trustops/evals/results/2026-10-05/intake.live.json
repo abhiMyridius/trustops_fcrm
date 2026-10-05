@@ -1,0 +1,441 @@
+{
+ "agent": "intake",
+ "dataset": "intake/extraction-80",
+ "dataset_sha256": "1d53e364cfa7e767d744fee749473e2463ef506e4cfb39b64a00da9823df5277",
+ "producer": "live",
+ "n": 5,
+ "primary_metric": "field_extraction_accuracy",
+ "metrics": {
+  "field_extraction_accuracy": 0.0,
+  "category_f1": 0.0
+ },
+ "summaries": [
+  {
+   "name": "field_extraction_accuracy",
+   "kind": "deterministic",
+   "score": 0.0,
+   "numerator": 0.0,
+   "denominator": 9.0,
+   "rows_scored": 1,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": true,
+   "description": "normalised exact value match per expected field",
+   "flags": [
+    "F01: 'missing'",
+    "F02: 'missing'",
+    "F03: 'missing'",
+    "F04: 'missing'",
+    "F05: 'missing'",
+    "F06: 'missing'",
+    "F20: 'missing'",
+    "F23: 'missing'",
+    "F12: 'missing'"
+   ]
+  },
+  {
+   "name": "source_span_accuracy",
+   "kind": "deterministic",
+   "score": null,
+   "numerator": 0.0,
+   "denominator": 0.0,
+   "rows_scored": 0,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": null,
+   "primary": false,
+   "description": "same doc/page, overlapping lines",
+   "flags": []
+  },
+  {
+   "name": "category_f1",
+   "kind": "deterministic",
+   "score": 0.0,
+   "numerator": 0.0,
+   "denominator": 10.0,
+   "rows_scored": 5,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": false,
+   "description": "micro-F1 over change types",
+   "flags": [
+    "fn ['new_geography', 'new_product', 'vendor_onboarding']",
+    "fn ['new_feature', 'process_change']",
+    "fn ['new_geography', 'vendor_onboarding']",
+    "fn ['new_geography', 'vendor_onboarding']",
+    "fn ['new_geography']"
+   ]
+  },
+  {
+   "name": "gap_question_precision",
+   "kind": "deterministic",
+   "score": null,
+   "numerator": 0.0,
+   "denominator": 0.0,
+   "rows_scored": 0,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": null,
+   "primary": false,
+   "description": "gap questions about really-absent fields",
+   "flags": []
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": null,
+   "numerator": 0.0,
+   "denominator": 0.0,
+   "rows_scored": 0,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": null,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "FCRM-2026-0151",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "field_extraction_accuracy": 0.0,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "field_extraction_accuracy: F01: 'missing'",
+    "field_extraction_accuracy: F02: 'missing'",
+    "field_extraction_accuracy: F03: 'missing'",
+    "field_extraction_accuracy: F04: 'missing'",
+    "field_extraction_accuracy: F05: 'missing'",
+    "field_extraction_accuracy: F06: 'missing'",
+    "field_extraction_accuracy: F20: 'missing'",
+    "field_extraction_accuracy: F23: 'missing'",
+    "field_extraction_accuracy: F12: 'missing'",
+    "category_f1: fn ['new_geography', 'new_product', 'vendor_onboarding']"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0151",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "budget",
+    "reason": "attempt 1: usage limit exceeded (Exceeded the total_tokens_limit of 6000 (total_tokens=11076). Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits)",
+    "attempts": 1,
+    "calls": 2,
+    "input_tokens": 9177,
+    "output_tokens": 1899,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.018672,
+    "latency_s": 12.293,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": null,
+    "verified_attempt1": null,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "blocked",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0080",
+   "case_id": "FCRM-2026-0080",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_feature', 'process_change']"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0080",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "budget",
+    "reason": "attempt 1: usage limit exceeded (Exceeded the total_tokens_limit of 6000 (total_tokens=8442). Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits)",
+    "attempts": 1,
+    "calls": 2,
+    "input_tokens": 8072,
+    "output_tokens": 370,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.009922,
+    "latency_s": 7.123,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": null,
+    "verified_attempt1": null,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "blocked",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0097",
+   "case_id": "FCRM-2026-0097",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_geography', 'vendor_onboarding']"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0097",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "budget",
+    "reason": "attempt 1: usage limit exceeded (Exceeded the total_tokens_limit of 6000 (total_tokens=8208). Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits)",
+    "attempts": 1,
+    "calls": 2,
+    "input_tokens": 8086,
+    "output_tokens": 122,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.008696,
+    "latency_s": 4.952,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": null,
+    "verified_attempt1": null,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "blocked",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0109",
+   "case_id": "FCRM-2026-0109",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_geography', 'vendor_onboarding']"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0109",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "budget",
+    "reason": "attempt 1: usage limit exceeded (Exceeded the total_tokens_limit of 6000 (total_tokens=8228). Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits)",
+    "attempts": 1,
+    "calls": 2,
+    "input_tokens": 8088,
+    "output_tokens": 140,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.008788,
+    "latency_s": 5.197,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": null,
+    "verified_attempt1": null,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "blocked",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0144",
+   "case_id": "FCRM-2026-0144",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_geography']"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0144",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "budget",
+    "reason": "attempt 1: usage limit exceeded (Exceeded the total_tokens_limit of 6000 (total_tokens=8430). Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits)",
+    "attempts": 1,
+    "calls": 2,
+    "input_tokens": 8076,
+    "output_tokens": 354,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.009846,
+    "latency_s": 4.755,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": null,
+    "verified_attempt1": null,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "blocked",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  }
+ ],
+ "timestamp": "2026-10-05T17:31:37.794035Z",
+ "usage": {
+  "calls": 10,
+  "retries": 0,
+  "blocked_rows": 5,
+  "failed_rows": 0,
+  "input_tokens": 41499,
+  "output_tokens": 2885,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.055924,
+  "latency_p50_s": 5.197,
+  "latency_max_s": 12.293,
+  "models": [
+   "Haiku 4.5"
+  ]
+ },
+ "judge_usage": null,
+ "sampled": {
+  "n": 5,
+  "of": 80,
+  "seed": 7,
+  "strategy": "demo+uniform",
+  "row_ids": [
+   "FCRM-2026-0151",
+   "FCRM-2026-0080",
+   "FCRM-2026-0097",
+   "FCRM-2026-0109",
+   "FCRM-2026-0144"
+  ],
+  "demo_row_ids": [
+   "FCRM-2026-0151"
+  ]
+ },
+ "judge": "bedrock"
+}

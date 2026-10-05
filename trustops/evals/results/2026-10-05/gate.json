@@ -1,0 +1,129 @@
+{
+ "gates": {
+  "assessment": {
+   "agent": "assessment",
+   "baseline": null,
+   "candidate": 0.0,
+   "deltas": {},
+   "primary": "li_within_one",
+   "reasons": [
+    "li_within_one 0.000 is below its threshold 0.85",
+    "completed 1/5 rows (20%); a gate needs at least 80%, because a blocked or failed row has no output to measure"
+   ],
+   "status": "FAIL",
+   "threshold": 0.85,
+   "tolerance": 0.0
+  },
+  "critic": {
+   "agent": "critic",
+   "baseline": null,
+   "candidate": 0.0,
+   "deltas": {},
+   "primary": "planted_error_detection",
+   "reasons": [
+    "planted_error_detection 0.000 is below its threshold 0.85",
+    "completed 0/5 rows (0%); a gate needs at least 80%, because a blocked or failed row has no output to measure"
+   ],
+   "status": "FAIL",
+   "threshold": 0.85,
+   "tolerance": 0.0
+  },
+  "examiner": {
+   "agent": "examiner",
+   "baseline": null,
+   "candidate": 1.0,
+   "deltas": {},
+   "primary": "examiner_grounding",
+   "reasons": [],
+   "status": "PASS",
+   "threshold": 1.0,
+   "tolerance": 0.0
+  },
+  "intake": {
+   "agent": "intake",
+   "baseline": null,
+   "candidate": 0.0,
+   "deltas": {},
+   "primary": "field_extraction_accuracy",
+   "reasons": [
+    "field_extraction_accuracy 0.000 is below its threshold 0.90",
+    "completed 0/5 rows (0%); a gate needs at least 80%, because a blocked or failed row has no output to measure"
+   ],
+   "status": "FAIL",
+   "threshold": 0.9,
+   "tolerance": 0.0
+  },
+  "narrative": {
+   "agent": "narrative",
+   "baseline": null,
+   "candidate": 1.0,
+   "deltas": {},
+   "primary": "number_grounding",
+   "reasons": [
+    "completed 1/5 rows (20%); a gate needs at least 80%, because a blocked or failed row has no output to measure"
+   ],
+   "status": "FAIL",
+   "threshold": 1.0,
+   "tolerance": 0.0
+  },
+  "policy_gap": {
+   "agent": "policy_gap",
+   "baseline": null,
+   "candidate": null,
+   "deltas": {},
+   "primary": "gap_targets_recorded_gap",
+   "reasons": [
+    "gap_targets_recorded_gap was not measured on the candidate",
+    "completed 0/1 rows (0%); a gate needs at least 80%, because a blocked or failed row has no output to measure"
+   ],
+   "status": "FAIL",
+   "threshold": 1.0,
+   "tolerance": 0.0
+  },
+  "research": {
+   "agent": "research",
+   "baseline": null,
+   "candidate": 0.0,
+   "deltas": {},
+   "primary": "clause_recall",
+   "reasons": [
+    "clause_recall 0.000 is below its threshold 0.85",
+    "completed 0/5 rows (0%); a gate needs at least 80%, because a blocked or failed row has no output to measure"
+   ],
+   "status": "FAIL",
+   "threshold": 0.85,
+   "tolerance": 0.0
+  },
+  "screening": {
+   "agent": "screening",
+   "baseline": null,
+   "candidate": null,
+   "deltas": {},
+   "primary": "fast_lane_precision",
+   "reasons": [
+    "fast_lane_precision was not measured on the candidate",
+    "completed 0/5 rows (0%); a gate needs at least 80%, because a blocked or failed row has no output to measure"
+   ],
+   "status": "FAIL",
+   "threshold": 0.9,
+   "tolerance": 0.0
+  },
+  "watchlist": {
+   "agent": "watchlist",
+   "baseline": null,
+   "candidate": 0.0,
+   "deltas": {},
+   "primary": "reflag_recall",
+   "reasons": [
+    "reflag_recall 0.000 is below its threshold 1.00",
+    "completed 0/5 rows (0%); a gate needs at least 80%, because a blocked or failed row has no output to measure"
+   ],
+   "status": "FAIL",
+   "threshold": 1.0,
+   "tolerance": 0.0
+  }
+ },
+ "gates_pass": 1,
+ "gates_total": 9,
+ "run_id": "2026-10-05T17-31Z-4c715bb"
+}

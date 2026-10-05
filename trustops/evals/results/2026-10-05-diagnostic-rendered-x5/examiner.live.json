@@ -1,0 +1,402 @@
+{
+ "agent": "examiner",
+ "dataset": "examiner/questions-5",
+ "dataset_sha256": "25a32519731c9a9de9ac327fdcb0ce5b1094523035be9d7a896e0bdeb70cb18c",
+ "producer": "live",
+ "n": 5,
+ "primary_metric": "examiner_grounding",
+ "metrics": {
+  "examiner_grounding": 1.0,
+  "must_cite_coverage": 0.8888888888888888,
+  "refusal_rate": 1.0
+ },
+ "summaries": [
+  {
+   "name": "examiner_grounding",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 20.0,
+   "denominator": 20.0,
+   "rows_scored": 3,
+   "threshold": 1.0,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": true,
+   "description": "sentences whose record refs all resolve",
+   "flags": []
+  },
+  {
+   "name": "must_cite_coverage",
+   "kind": "deterministic",
+   "score": 0.8888888888888888,
+   "numerator": 8.0,
+   "denominator": 9.0,
+   "rows_scored": 3,
+   "threshold": 0.9,
+   "threshold_source": "proposed",
+   "passed": false,
+   "primary": false,
+   "description": "required record types cited",
+   "flags": [
+    "no vote.revealed"
+   ]
+  },
+  {
+   "name": "refusal_rate",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 2.0,
+   "denominator": 2.0,
+   "rows_scored": 2,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "unanswerable questions refused",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "FCRM-2026-0151~q1",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "examiner_grounding": 1.0,
+    "must_cite_coverage": 0.75,
+    "refusal_rate": null
+   },
+   "flags": [
+    "must_cite_coverage: no vote.revealed"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0151~q1",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 2,
+    "input_tokens": 12061,
+    "output_tokens": 1117,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.035292,
+    "latency_s": 9.699,
+    "models": [
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0151~q2",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "examiner_grounding": 1.0,
+    "must_cite_coverage": 1.0,
+    "refusal_rate": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0151~q2",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 2,
+    "input_tokens": 11791,
+    "output_tokens": 792,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.031502,
+    "latency_s": 8.473,
+    "models": [
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0151~q3",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "examiner_grounding": 1.0,
+    "must_cite_coverage": 1.0,
+    "refusal_rate": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0151~q3",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 5593,
+    "output_tokens": 1527,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.026456,
+    "latency_s": 12.286,
+    "models": [
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0151~q4",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "examiner_grounding": null,
+    "must_cite_coverage": null,
+    "refusal_rate": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0151~q4",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 5593,
+    "output_tokens": 521,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.016396,
+    "latency_s": 7.524,
+    "models": [
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0151~q5",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "examiner_grounding": null,
+    "must_cite_coverage": null,
+    "refusal_rate": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0151~q5",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 5591,
+    "output_tokens": 465,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.015832,
+    "latency_s": 5.54,
+    "models": [
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  }
+ ],
+ "timestamp": "2026-10-05T17:46:55.136667Z",
+ "usage": {
+  "calls": 7,
+  "retries": 0,
+  "blocked_rows": 0,
+  "failed_rows": 0,
+  "input_tokens": 40629,
+  "output_tokens": 4422,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.125478,
+  "latency_p50_s": 8.473,
+  "latency_max_s": 12.286,
+  "models": [
+   "Sonnet 5.5"
+  ]
+ },
+ "judge_usage": null,
+ "sampled": {
+  "n": 5,
+  "of": 5,
+  "seed": 7,
+  "strategy": "all",
+  "row_ids": [
+   "FCRM-2026-0151~q1",
+   "FCRM-2026-0151~q2",
+   "FCRM-2026-0151~q3",
+   "FCRM-2026-0151~q4",
+   "FCRM-2026-0151~q5"
+  ],
+  "demo_row_ids": [
+   "FCRM-2026-0151~q1",
+   "FCRM-2026-0151~q2",
+   "FCRM-2026-0151~q3",
+   "FCRM-2026-0151~q4",
+   "FCRM-2026-0151~q5"
+  ]
+ },
+ "judge": "fake"
+}

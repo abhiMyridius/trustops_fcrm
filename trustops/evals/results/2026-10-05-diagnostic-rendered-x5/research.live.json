@@ -1,0 +1,482 @@
+{
+ "agent": "research",
+ "dataset": "research/clauses-42",
+ "dataset_sha256": "61ab8d0ffe346e2366afbd0439b04088fbde1522ffe7a0f8e72bf485fd4405b9",
+ "producer": "live",
+ "n": 5,
+ "primary_metric": "clause_recall",
+ "metrics": {
+  "clause_recall": 0.0,
+  "precedent_top1": 0.0
+ },
+ "summaries": [
+  {
+   "name": "clause_recall",
+   "kind": "deterministic",
+   "score": 0.0,
+   "numerator": 0.0,
+   "denominator": 14.0,
+   "rows_scored": 5,
+   "threshold": 0.85,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": true,
+   "description": "expected clause ids proposed / expected",
+   "flags": [
+    "missed FFIEC-TPPP-04",
+    "missed FCRM42-3.1",
+    "missed TP71-2.3",
+    "missed OFAC-1.2",
+    "missed FFIEC-TPPP-04",
+    "missed TP71-2.3",
+    "missed FFIEC-TPPP-04",
+    "missed FCRM42-3.1",
+    "missed TP71-2.3",
+    "missed OFAC-1.2",
+    "missed FFIEC-TPPP-04",
+    "missed TP71-2.3",
+    "missed FFIEC-TPPP-04",
+    "missed TP71-2.3"
+   ]
+  },
+  {
+   "name": "clause_precision",
+   "kind": "deterministic",
+   "score": null,
+   "numerator": 0.0,
+   "denominator": 0.0,
+   "rows_scored": 0,
+   "threshold": 0.7,
+   "threshold_source": "design_b",
+   "passed": null,
+   "primary": false,
+   "description": "proposed clause ids expected / proposed",
+   "flags": []
+  },
+  {
+   "name": "precedent_top1",
+   "kind": "deterministic",
+   "score": 0.0,
+   "numerator": 0.0,
+   "denominator": 1.0,
+   "rows_scored": 1,
+   "threshold": 0.9,
+   "threshold_source": "proposed",
+   "passed": false,
+   "primary": false,
+   "description": "top precedent is the labelled one",
+   "flags": [
+    "top None"
+   ]
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": null,
+   "numerator": 0.0,
+   "denominator": 0.0,
+   "rows_scored": 0,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": null,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "FCRM-2026-0151",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "clause_recall": 0.0,
+    "clause_precision": null,
+    "precedent_top1": 0.0,
+    "citation_validity": null
+   },
+   "flags": [
+    "clause_recall: missed FFIEC-TPPP-04",
+    "clause_recall: missed FCRM42-3.1",
+    "clause_recall: missed TP71-2.3",
+    "clause_recall: missed OFAC-1.2",
+    "precedent_top1: top None"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0151",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "output_shape",
+    "reason": "attempt 2: model call failed: Exceeded maximum output retries (0)",
+    "attempts": 2,
+    "calls": 7,
+    "input_tokens": 95518,
+    "output_tokens": 7208,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.41247,
+    "latency_s": 148.449,
+    "models": [
+     "Opus 5.5",
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 4,
+    "verified_attempt1": 4,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[7]: precedent_resolves failed (unresolved case:FCRM-2026-0122); fix it from the sources shown or drop any item you cannot source",
+     "outputs[9]: precedent_resolves failed (unresolved case:FCRM-2026-0099); fix it from the sources shown or drop any item you cannot source",
+     "outputs[10]: source_resolves failed (unresolved source list:FATF@v2026-06); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0088",
+   "case_id": "FCRM-2026-0088",
+   "metrics": {
+    "clause_recall": 0.0,
+    "clause_precision": null,
+    "precedent_top1": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "clause_recall: missed FFIEC-TPPP-04",
+    "clause_recall: missed TP71-2.3"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0088",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "output_shape",
+    "reason": "research attempt 2 failed: 5 item(s) invalid after retry",
+    "attempts": 2,
+    "calls": 6,
+    "input_tokens": 77172,
+    "output_tokens": 6039,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.31921,
+    "latency_s": 107.775,
+    "models": [
+     "Opus 5.5",
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 2,
+    "verified_attempt1": 2,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[4]: precedent_resolves failed (unresolved case:FCRM-2026-0122); fix it from the sources shown or drop any item you cannot source",
+     "outputs[5]: precedent_resolves failed (unresolved case:FCRM-2026-0118); fix it from the sources shown or drop any item you cannot source",
+     "outputs[6]: precedent_resolves failed (unresolved case:FCRM-2026-0123); fix it from the sources shown or drop any item you cannot source",
+     "outputs[7]: precedent_resolves failed (unresolved case:FCRM-2026-0091); fix it from the sources shown or drop any item you cannot source",
+     "outputs[8]: source_resolves failed (unresolved source list:FATF@v2026-06); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0109",
+   "case_id": "FCRM-2026-0109",
+   "metrics": {
+    "clause_recall": 0.0,
+    "clause_precision": null,
+    "precedent_top1": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "clause_recall: missed FFIEC-TPPP-04",
+    "clause_recall: missed FCRM42-3.1",
+    "clause_recall: missed TP71-2.3",
+    "clause_recall: missed OFAC-1.2"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0109",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "output_shape",
+    "reason": "research attempt 2 failed: 5 item(s) invalid after retry",
+    "attempts": 2,
+    "calls": 6,
+    "input_tokens": 76102,
+    "output_tokens": 6323,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.313792,
+    "latency_s": 76.031,
+    "models": [
+     "Opus 5.5",
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 3,
+    "verified_attempt1": 3,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[4]: precedent_resolves failed (unresolved case:FCRM-2026-0091); fix it from the sources shown or drop any item you cannot source",
+     "outputs[5]: precedent_resolves failed (unresolved case:FCRM-2026-0129); fix it from the sources shown or drop any item you cannot source",
+     "outputs[6]: precedent_resolves failed (unresolved case:FCRM-2026-0101); fix it from the sources shown or drop any item you cannot source",
+     "outputs[7]: precedent_resolves failed (unresolved case:FCRM-2026-0118); fix it from the sources shown or drop any item you cannot source",
+     "outputs[8]: source_resolves failed (unresolved source list:FATF@v2026-06); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0122",
+   "case_id": "FCRM-2026-0122",
+   "metrics": {
+    "clause_recall": 0.0,
+    "clause_precision": null,
+    "precedent_top1": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "clause_recall: missed FFIEC-TPPP-04",
+    "clause_recall: missed TP71-2.3"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0122",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "output_shape",
+    "reason": "attempt 2: model call failed: Exceeded maximum output retries (0)",
+    "attempts": 2,
+    "calls": 8,
+    "input_tokens": 111347,
+    "output_tokens": 8526,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.45866,
+    "latency_s": 116.481,
+    "models": [
+     "Opus 5.5",
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 4,
+    "verified_attempt1": 4,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[5]: precedent_resolves failed (unresolved case:FCRM-2026-0088); fix it from the sources shown or drop any item you cannot source",
+     "outputs[6]: precedent_resolves failed (unresolved case:FCRM-2026-0118); fix it from the sources shown or drop any item you cannot source",
+     "outputs[7]: precedent_resolves failed (unresolved case:FCRM-2026-0099); fix it from the sources shown or drop any item you cannot source",
+     "outputs[8]: precedent_resolves failed (unresolved case:FCRM-2026-0101); fix it from the sources shown or drop any item you cannot source",
+     "outputs[10]: source_resolves failed (unresolved source list:FATF@v2026-06); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0140",
+   "case_id": "FCRM-2026-0140",
+   "metrics": {
+    "clause_recall": 0.0,
+    "clause_precision": null,
+    "precedent_top1": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "clause_recall: missed FFIEC-TPPP-04",
+    "clause_recall: missed TP71-2.3"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0140",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "output_shape",
+    "reason": "research attempt 2 failed: 4 item(s) invalid after retry",
+    "attempts": 2,
+    "calls": 6,
+    "input_tokens": 81191,
+    "output_tokens": 5287,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.32825,
+    "latency_s": 74.985,
+    "models": [
+     "Opus 5.5",
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[1]: precedent_resolves failed (unresolved case:FCRM-2026-0094); fix it from the sources shown or drop any item you cannot source",
+     "outputs[2]: precedent_resolves failed (unresolved case:FCRM-2026-0088); fix it from the sources shown or drop any item you cannot source",
+     "outputs[3]: precedent_resolves failed (unresolved case:FCRM-2026-0123); fix it from the sources shown or drop any item you cannot source",
+     "outputs[4]: precedent_resolves failed (unresolved case:FCRM-2026-0091); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  }
+ ],
+ "timestamp": "2026-10-05T17:46:55.136667Z",
+ "usage": {
+  "calls": 33,
+  "retries": 5,
+  "blocked_rows": 5,
+  "failed_rows": 0,
+  "input_tokens": 441330,
+  "output_tokens": 33383,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 1.832382,
+  "latency_p50_s": 107.775,
+  "latency_max_s": 148.449,
+  "models": [
+   "Opus 5.5",
+   "Sonnet 5.5"
+  ]
+ },
+ "judge_usage": null,
+ "sampled": {
+  "n": 5,
+  "of": 42,
+  "seed": 7,
+  "strategy": "demo+uniform",
+  "row_ids": [
+   "FCRM-2026-0151",
+   "FCRM-2026-0088",
+   "FCRM-2026-0109",
+   "FCRM-2026-0122",
+   "FCRM-2026-0140"
+  ],
+  "demo_row_ids": [
+   "FCRM-2026-0151"
+  ]
+ },
+ "judge": "fake"
+}

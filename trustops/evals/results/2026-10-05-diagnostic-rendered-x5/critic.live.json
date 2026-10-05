@@ -1,0 +1,437 @@
+{
+ "agent": "critic",
+ "dataset": "critic/planted-61",
+ "dataset_sha256": "ff4c05dcb5ccad0c496dfea2bd726a4f1ca4645b302da4bd842571f9e92259c5",
+ "producer": "live",
+ "n": 5,
+ "primary_metric": "planted_error_detection",
+ "metrics": {
+  "planted_error_detection": 0.0
+ },
+ "summaries": [
+  {
+   "name": "planted_error_detection",
+   "kind": "deterministic",
+   "score": 0.0,
+   "numerator": 0.0,
+   "denominator": 6.0,
+   "rows_scored": 5,
+   "threshold": 0.85,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": true,
+   "description": "expected findings matched by type and control",
+   "flags": [
+    "missed precedent_deviation on CTL-T01",
+    "missed evidence_recency on CTL-T01",
+    "missed precedent_deviation on CTL-G02",
+    "missed evidence_recency on CTL-G03",
+    "missed rule_violation on CTL-G04",
+    "missed evidence_recency on CTL-P06"
+   ]
+  },
+  {
+   "name": "critic_finding_groundedness",
+   "kind": "deterministic",
+   "score": null,
+   "numerator": 0.0,
+   "denominator": 0.0,
+   "rows_scored": 0,
+   "threshold": 1.0,
+   "threshold_source": "proposed",
+   "passed": null,
+   "primary": false,
+   "description": "findings whose record refs resolve in the chain",
+   "flags": []
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": null,
+   "numerator": 0.0,
+   "denominator": 0.0,
+   "rows_scored": 0,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": null,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "FCRM-2026-0151",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "planted_error_detection": 0.0,
+    "critic_finding_groundedness": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "planted_error_detection: missed precedent_deviation on CTL-T01",
+    "planted_error_detection: missed evidence_recency on CTL-T01"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0151",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "output_shape",
+    "reason": "attempt 2: model call failed: Exceeded maximum output retries (0)",
+    "attempts": 2,
+    "calls": 5,
+    "input_tokens": 38600,
+    "output_tokens": 5425,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.190052,
+    "latency_s": 135.342,
+    "models": [
+     "Opus 5.5",
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 7,
+    "verified_attempt1": 7,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0]: records_resolve failed (uncited or unknown record); fix it from the sources shown or drop any item you cannot source",
+     "outputs[1]: records_resolve failed (uncited or unknown record); fix it from the sources shown or drop any item you cannot source",
+     "outputs[2]: records_resolve failed (uncited or unknown record); fix it from the sources shown or drop any item you cannot source",
+     "outputs[3]: records_resolve failed (uncited or unknown record); fix it from the sources shown or drop any item you cannot source",
+     "outputs[4]: records_resolve failed (uncited or unknown record); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0075~precedent_deviation",
+   "case_id": "FCRM-2026-0075",
+   "metrics": {
+    "planted_error_detection": 0.0,
+    "critic_finding_groundedness": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "planted_error_detection: missed precedent_deviation on CTL-G02"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0075~precedent_deviation",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "output_shape",
+    "reason": "critic attempt 2 failed: 2 item(s) invalid after retry",
+    "attempts": 2,
+    "calls": 5,
+    "input_tokens": 36561,
+    "output_tokens": 3523,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.15048,
+    "latency_s": 62.028,
+    "models": [
+     "Opus 5.5",
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0]: source_resolves failed (unresolved source control:CTL-G02@9); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0]: records_resolve failed (uncited or unknown record); fix it from the sources shown or drop any item you cannot source",
+     "outputs[1]: source_resolves failed (unresolved source control:CTL-T01@9); fix it from the sources shown or drop any item you cannot source",
+     "outputs[1]: records_resolve failed (uncited or unknown record); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0079~evidence_recency",
+   "case_id": "FCRM-2026-0079",
+   "metrics": {
+    "planted_error_detection": 0.0,
+    "critic_finding_groundedness": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "planted_error_detection: missed evidence_recency on CTL-G03"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0079~evidence_recency",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "output_shape",
+    "reason": "critic attempt 2 failed: 1 item(s) invalid after retry",
+    "attempts": 2,
+    "calls": 3,
+    "input_tokens": 19571,
+    "output_tokens": 2028,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.095556,
+    "latency_s": 37.354,
+    "models": [
+     "Opus 5.5",
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 1,
+    "verified_attempt1": 1,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0]: source_resolves failed (unresolved source control:CTL-G03@9); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0]: records_resolve failed (uncited or unknown record); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0085~rule_violation",
+   "case_id": "FCRM-2026-0085",
+   "metrics": {
+    "planted_error_detection": 0.0,
+    "critic_finding_groundedness": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "planted_error_detection: missed rule_violation on CTL-G04"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0085~rule_violation",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "output_shape",
+    "reason": "critic attempt 2 failed: 2 item(s) invalid after retry",
+    "attempts": 2,
+    "calls": 3,
+    "input_tokens": 20446,
+    "output_tokens": 2612,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.108144,
+    "latency_s": 32.579,
+    "models": [
+     "Opus 5.5",
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 1,
+    "verified_attempt1": 1,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0]: source_resolves failed (unresolved source control:CTL-G04@9); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0]: records_resolve failed (uncited or unknown record); fix it from the sources shown or drop any item you cannot source",
+     "outputs[1]: source_resolves failed (unresolved source control:CTL-T01@9); fix it from the sources shown or drop any item you cannot source",
+     "outputs[1]: records_resolve failed (uncited or unknown record); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0089~evidence_recency",
+   "case_id": "FCRM-2026-0089",
+   "metrics": {
+    "planted_error_detection": 0.0,
+    "critic_finding_groundedness": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "planted_error_detection: missed evidence_recency on CTL-P06"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0089~evidence_recency",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "output_shape",
+    "reason": "critic attempt 2 failed: 1 item(s) invalid after retry",
+    "attempts": 2,
+    "calls": 3,
+    "input_tokens": 19566,
+    "output_tokens": 1780,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.093018,
+    "latency_s": 39.823,
+    "models": [
+     "Opus 5.5",
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 1,
+    "verified_attempt1": 1,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0]: records_resolve failed (uncited or unknown record); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  }
+ ],
+ "timestamp": "2026-10-05T17:46:55.136667Z",
+ "usage": {
+  "calls": 19,
+  "retries": 5,
+  "blocked_rows": 5,
+  "failed_rows": 0,
+  "input_tokens": 134744,
+  "output_tokens": 15368,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.63725,
+  "latency_p50_s": 39.823,
+  "latency_max_s": 135.342,
+  "models": [
+   "Opus 5.5",
+   "Sonnet 5.5"
+  ]
+ },
+ "judge_usage": null,
+ "sampled": {
+  "n": 5,
+  "of": 61,
+  "seed": 7,
+  "strategy": "demo+stratified",
+  "row_ids": [
+   "FCRM-2026-0151",
+   "FCRM-2026-0075~precedent_deviation",
+   "FCRM-2026-0079~evidence_recency",
+   "FCRM-2026-0085~rule_violation",
+   "FCRM-2026-0089~evidence_recency"
+  ],
+  "demo_row_ids": [
+   "FCRM-2026-0151"
+  ]
+ },
+ "judge": "fake"
+}

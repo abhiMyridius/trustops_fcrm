@@ -12,7 +12,7 @@
 # History of set versions is append-only: add a row, never edit one, so any
 # pinned prompts_v can be resolved to exact files.
 
-set_version: "2026-10-03.1"
+set_version: "2026-10-05"
 
 current:
   screening.system: 1
@@ -34,6 +34,7 @@ current:
   watchlist.user: 1
   policy_gap.system: 1
   policy_gap.user: 1
+  narrative.judge: 1
 
 # prompt id -> file, relative to ai/prompts (the loader also derives this
 # from <agent>/<id>.v<N>.md; listed here so the mapping is reviewable)
@@ -57,10 +58,16 @@ files:
   watchlist.user: watchlist/watchlist.user.v{N}.md
   policy_gap.system: policy_gap/policy_gap.system.v{N}.md
   policy_gap.user: policy_gap/policy_gap.user.v{N}.md
+  narrative.judge: narrative/narrative.judge.v{N}.md
 
 history:
   - set_version: "2026-10-03.1"
     date: 2026-10-03
     reason: first real prompt set (v1 of every prompt id); replaces the BA prototype's scripted prompts, which the seed records as prompts_v 2026-09-28
     pointers: {all: 1}
+    eval_run: null
+  - set_version: "2026-10-05"
+    date: 2026-10-05
+    reason: adds the rubric judge prompt narrative.judge v1 behind the narrative_faithfulness eval metric (fcrm_evals.judge); it runs on the judge tier and is used by evals only, so no agent prompt moved
+    pointers: {narrative.judge: 1}
     eval_run: null

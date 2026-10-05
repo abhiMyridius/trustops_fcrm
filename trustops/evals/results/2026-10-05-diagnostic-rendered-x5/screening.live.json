@@ -1,0 +1,435 @@
+{
+ "agent": "screening",
+ "dataset": "screening/fast-lane-100",
+ "dataset_sha256": "0d6e57ee922128e830a0c456edbbe6eedd684877eac0c6d7ef963cf9c2403e36",
+ "producer": "live",
+ "n": 5,
+ "primary_metric": "fast_lane_precision",
+ "metrics": {
+  "fast_lane_recall": 0.0
+ },
+ "summaries": [
+  {
+   "name": "fast_lane_precision",
+   "kind": "deterministic",
+   "score": null,
+   "numerator": 0.0,
+   "denominator": 0.0,
+   "rows_scored": 0,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": null,
+   "primary": true,
+   "description": "TP/(TP+FP) vs the R4 predicate",
+   "flags": []
+  },
+  {
+   "name": "fast_lane_recall",
+   "kind": "deterministic",
+   "score": 0.0,
+   "numerator": 0.0,
+   "denominator": 2.0,
+   "rows_scored": 2,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": false,
+   "description": "TP/(TP+FN) vs the R4 predicate",
+   "flags": [
+    "FCRM-2026-0089~vol-4.2M: missed",
+    "FCRM-2026-0106~vol-4.2M: missed"
+   ]
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": null,
+   "numerator": 0.0,
+   "denominator": 0.0,
+   "rows_scored": 0,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": null,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "FCRM-2026-0092",
+   "case_id": "FCRM-2026-0092",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0092",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "budget",
+    "reason": "attempt 2: usage limit exceeded (The next request would exceed the request_limit of 2. Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits)",
+    "attempts": 2,
+    "calls": 4,
+    "input_tokens": 16781,
+    "output_tokens": 791,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.013053,
+    "latency_s": 12.65,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "budget",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[0]: source_resolves failed (unresolved source doc:F02:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[1]: source_resolves failed (unresolved source doc:F02:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[2]: source_resolves failed (unresolved source doc:change_types:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[3]: source_resolves failed (unresolved source doc:F04:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[4]: source_resolves failed (unresolved source doc:F02:p1); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0132",
+   "case_id": "FCRM-2026-0132",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0132",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "budget",
+    "reason": "attempt 2: usage limit exceeded (The next request would exceed the request_limit of 2. Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits)",
+    "attempts": 2,
+    "calls": 4,
+    "input_tokens": 16836,
+    "output_tokens": 828,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.013274,
+    "latency_s": 11.349,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "budget",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[0]: source_resolves failed (unresolved source doc:case_metadata:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[1]: source_resolves failed (unresolved source doc:case_metadata:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[2]: source_resolves failed (unresolved source doc:case_metadata:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[3]: source_resolves failed (unresolved source doc:case_metadata:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[4]: source_resolves failed (unresolved source doc:case_metadata:p1); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0151",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0151",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "budget",
+    "reason": "attempt 2: usage limit exceeded (The next request would exceed the request_limit of 2. Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits)",
+    "attempts": 2,
+    "calls": 4,
+    "input_tokens": 17162,
+    "output_tokens": 848,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.013576,
+    "latency_s": 12.636,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "budget",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[0]: source_resolves failed (unresolved source doc:case_submission:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[1]: source_resolves failed (unresolved source doc:case_submission:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[2]: source_resolves failed (unresolved source doc:case_submission:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[3]: source_resolves failed (unresolved source doc:case_submission:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[4]: source_resolves failed (unresolved source doc:case_submission:p1); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0089~vol-4.2M",
+   "case_id": "FCRM-2026-0089",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": 0.0,
+    "citation_validity": null
+   },
+   "flags": [
+    "fast_lane_recall: FCRM-2026-0089~vol-4.2M: missed"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0089~vol-4.2M",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "budget",
+    "reason": "attempt 2: usage limit exceeded (The next request would exceed the request_limit of 2. Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits)",
+    "attempts": 2,
+    "calls": 4,
+    "input_tokens": 16530,
+    "output_tokens": 779,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.012879,
+    "latency_s": 10.768,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "budget",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[0]: source_resolves failed (unresolved source doc:F02:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[1]: source_resolves failed (unresolved source doc:F02:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[2]: source_resolves failed (unresolved source doc:F02:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[3]: source_resolves failed (unresolved source doc:F02:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[4]: source_resolves failed (unresolved source doc:F02:p1); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0106~vol-4.2M",
+   "case_id": "FCRM-2026-0106",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": 0.0,
+    "citation_validity": null
+   },
+   "flags": [
+    "fast_lane_recall: FCRM-2026-0106~vol-4.2M: missed"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0106~vol-4.2M",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "budget",
+    "reason": "attempt 2: usage limit exceeded (The next request would exceed the request_limit of 2. Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits)",
+    "attempts": 2,
+    "calls": 4,
+    "input_tokens": 16532,
+    "output_tokens": 779,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.012938,
+    "latency_s": 11.276,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "budget",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[0]: source_resolves failed (unresolved source doc:F02:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[1]: source_resolves failed (unresolved source doc:F02:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[2]: source_resolves failed (unresolved source doc:F02:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[3]: source_resolves failed (unresolved source doc:F02:p1); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[4]: source_resolves failed (unresolved source doc:F02:p1); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  }
+ ],
+ "timestamp": "2026-10-05T17:46:55.136667Z",
+ "usage": {
+  "calls": 20,
+  "retries": 5,
+  "blocked_rows": 5,
+  "failed_rows": 0,
+  "input_tokens": 83841,
+  "output_tokens": 4025,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.06572,
+  "latency_p50_s": 11.349,
+  "latency_max_s": 12.65,
+  "models": [
+   "Haiku 4.5",
+   "Nova Lite"
+  ]
+ },
+ "judge_usage": null,
+ "sampled": {
+  "n": 5,
+  "of": 100,
+  "seed": 7,
+  "strategy": "demo+stratified",
+  "row_ids": [
+   "FCRM-2026-0092",
+   "FCRM-2026-0132",
+   "FCRM-2026-0151",
+   "FCRM-2026-0089~vol-4.2M",
+   "FCRM-2026-0106~vol-4.2M"
+  ],
+  "demo_row_ids": [
+   "FCRM-2026-0151"
+  ]
+ },
+ "judge": "fake"
+}

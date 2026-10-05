@@ -195,10 +195,15 @@ def check_prompts(report: Report, agents: dict[str, dict[str, Any]]) -> None:
         )
         agent = meta.get("agent")
         report.check(agent in agents, f"{path.name}: unknown agent {agent}")
+        # An eval judge prompt (`<agent>.judge`) grades that agent's output, so
+        # it runs on the judge tier, never on the tier of the agent it grades.
+        expected_tier = (
+            "judge" if str(meta.get("id", "")).endswith(".judge") else tiers.get(agent)
+        )
         report.check(
-            meta.get("model_tier") == tiers.get(agent),
+            meta.get("model_tier") == expected_tier,
             f"{path.name}: model_tier {meta.get('model_tier')} "
-            f"!= agent tier {tiers.get(agent)}",
+            f"!= expected tier {expected_tier}",
         )
         report.check(
             path.parent.name == agent, f"{path.name}: not under prompts/{agent}/"

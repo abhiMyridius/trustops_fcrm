@@ -38,6 +38,8 @@ from fcrm_evals.metrics.base import (
 )
 from fcrm_evals.outputs import AgentOutput
 from fcrm_evals.rows import EvalRow
+from fcrm_evals.sampling import SampleInfo
+from fcrm_evals.usage import RowRun, RunUsage
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +79,7 @@ class CaseResult(BaseModel):
     case_id: str
     metrics: dict[str, Optional[float]]
     flags: list[str] = Field(default_factory=list)
+    run: Optional[RowRun] = None
 
 
 class EvalResult(BaseModel):
@@ -94,6 +97,10 @@ class EvalResult(BaseModel):
     summaries: list[MetricSummary]
     per_case: list[CaseResult]
     timestamp: datetime
+    usage: Optional[RunUsage] = None
+    judge_usage: Optional[RunUsage] = None
+    sampled: Optional[SampleInfo] = None
+    judge: Optional[str] = None
 
     def summary(self, name: str) -> Optional[MetricSummary]:
         """The summary of metric ``name``, if it was run."""
@@ -149,6 +156,36 @@ def _summary(
     )
 
 
+async def _score_row(
+    row: EvalRow,
+    output: AgentOutput,
+    metric_fns: Sequence[MetricSpec],
+    context: EvalContext,
+) -> tuple[CaseResult, list[Optional[Observation]]]:
+    """Every metric on one row, in suite order."""
+    observations = list(
+        await asyncio.gather(*(_observe(s, row, output, context) for s in metric_fns))
+    )
+    flags = [
+        f"{spec.name}: {flag}"
+        for spec, observation in zip(metric_fns, observations, strict=True)
+        if observation is not None
+        for flag in observation.flags
+    ]
+    scores = {
+        spec.name: None if observation is None else observation.score
+        for spec, observation in zip(metric_fns, observations, strict=True)
+    }
+    case = CaseResult(
+        row_id=row.row_id,
+        case_id=row.case_id,
+        metrics=scores,
+        flags=flags,
+        run=output.run,
+    )
+    return case, observations
+
+
 async def arun(
     agent: AgentName,
     dataset_path: Path,
@@ -158,52 +195,75 @@ async def arun(
     primary_metric: Optional[str] = None,
     context: Optional[EvalContext] = None,
     timestamp: Optional[datetime] = None,
+    rows: Optional[Sequence[EvalRow]] = None,
+    concurrency: int = 1,
+    semaphore: Optional[asyncio.Semaphore] = None,
+    usage: Optional[RunUsage] = None,
+    judge_usage: Optional[RunUsage] = None,
+    sampled: Optional[SampleInfo] = None,
+    judge: Optional[str] = None,
 ) -> EvalResult:
-    """Score ``actual_outputs`` (one per dataset row, in row order; a bare
-    proposal model is wrapped as that row's single item) with
-    ``metric_fns``.
+    """Score ``actual_outputs`` (one per row, in row order; a bare proposal
+    model is wrapped as that row's single item) with ``metric_fns``.
+
+    ``rows`` scores a slice of the dataset (a sampled run) instead of every
+    row; ``dataset_path`` still names the file the rows came from, and its
+    hash is recorded. ``concurrency`` bounds how many rows are scored at
+    once (the judge metrics make network calls); ``semaphore`` is one
+    shared with other callers and replaces it. Rows come back in row order
+    whatever the bound.
 
     Raises:
         OutputMismatchError: outputs and rows do not align by ``row_id``.
         ValueError: the dataset holds rows of another agent.
     """
-    rows = load_rows(dataset_path)
-    if any(row.agent is not agent for row in rows):
+    scored_rows = list(rows) if rows is not None else load_rows(dataset_path)
+    if any(row.agent is not agent for row in scored_rows):
         msg = f"{dataset_path} holds rows that are not {agent.value} rows"
         raise ValueError(msg)
-    outputs = _align(rows, actual_outputs)
+    outputs = _align(scored_rows, actual_outputs)
     ctx = context or EvalContext()
-    table: dict[str, list[Optional[Observation]]] = {s.name: [] for s in metric_fns}
-    per_case: list[CaseResult] = []
-    for row, output in zip(rows, outputs, strict=True):
-        scores: dict[str, Optional[float]] = {}
-        flags: list[str] = []
-        for spec in metric_fns:
-            observation = await _observe(spec, row, output, ctx)
-            table[spec.name].append(observation)
-            scores[spec.name] = None if observation is None else observation.score
-            if observation is not None:
-                flags.extend(f"{spec.name}: {f}" for f in observation.flags)
-        per_case.append(
-            CaseResult(
-                row_id=row.row_id, case_id=row.case_id, metrics=scores, flags=flags
-            )
-        )
+    bound = semaphore or asyncio.Semaphore(max(1, concurrency))
+
+    async def bounded(
+        row: EvalRow, output: AgentOutput
+    ) -> tuple[CaseResult, list[Optional[Observation]]]:
+        async with bound:
+            return await _score_row(row, output, metric_fns, ctx)
+
+    scored = await asyncio.gather(
+        *(bounded(r, o) for r, o in zip(scored_rows, outputs, strict=True))
+    )
+    per_case = [case for case, _ in scored]
+    table: dict[str, list[Optional[Observation]]] = {
+        spec.name: [observations[i] for _, observations in scored]
+        for i, spec in enumerate(metric_fns)
+    }
     summaries = [
         _summary(s, table[s.name], s.name == primary_metric) for s in metric_fns
     ]
     producers = sorted({o.producer for o in outputs})
+    if rows is None:
+        dataset_rows = len(scored_rows)
+    elif sampled is not None:
+        dataset_rows = sampled.of
+    else:
+        dataset_rows = len(load_rows(dataset_path))
     result = EvalResult(
         agent=agent,
-        dataset=dataset_name(agent, len(rows)),
+        dataset=dataset_name(agent, dataset_rows),
         dataset_sha256=file_sha256(dataset_path),
         producer=",".join(producers) or "none",
-        n=len(rows),
+        n=len(scored_rows),
         primary_metric=primary_metric,
         metrics={s.name: s.score for s in summaries if s.score is not None},
         summaries=summaries,
         per_case=per_case,
         timestamp=timestamp or datetime.now(UTC),
+        usage=usage,
+        judge_usage=judge_usage,
+        sampled=sampled,
+        judge=judge,
     )
     logger.info(
         "%s on %s: %s",

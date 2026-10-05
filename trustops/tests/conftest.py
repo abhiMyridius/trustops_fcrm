@@ -36,6 +36,10 @@ from fcrm_seed.loader import (
 # sets it too at runtime (``fcrm_context_worker/__init__.py``); this covers
 # tests that import the engine directly.
 os.environ.setdefault("LITELLM_MODE", "PRODUCTION")
+# The same for DeepEval (the evals package's LLM judge): importing it loads
+# the nearest ``.env`` unless this is set, and a stale FCRM_LLM_MODE there broke
+# the agent-worker tests that need a clean environment.
+os.environ.setdefault("DEEPEVAL_DISABLE_DOTENV", "1")
 
 if TYPE_CHECKING:
     from fastapi import FastAPI

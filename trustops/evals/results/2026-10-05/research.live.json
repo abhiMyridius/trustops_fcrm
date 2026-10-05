@@ -1,0 +1,424 @@
+{
+ "agent": "research",
+ "dataset": "research/clauses-42",
+ "dataset_sha256": "61ab8d0ffe346e2366afbd0439b04088fbde1522ffe7a0f8e72bf485fd4405b9",
+ "producer": "live",
+ "n": 5,
+ "primary_metric": "clause_recall",
+ "metrics": {
+  "clause_recall": 0.0,
+  "precedent_top1": 0.0
+ },
+ "summaries": [
+  {
+   "name": "clause_recall",
+   "kind": "deterministic",
+   "score": 0.0,
+   "numerator": 0.0,
+   "denominator": 14.0,
+   "rows_scored": 5,
+   "threshold": 0.85,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": true,
+   "description": "expected clause ids proposed / expected",
+   "flags": [
+    "missed FFIEC-TPPP-04",
+    "missed FCRM42-3.1",
+    "missed TP71-2.3",
+    "missed OFAC-1.2",
+    "missed FFIEC-TPPP-04",
+    "missed TP71-2.3",
+    "missed FFIEC-TPPP-04",
+    "missed FCRM42-3.1",
+    "missed TP71-2.3",
+    "missed OFAC-1.2",
+    "missed FFIEC-TPPP-04",
+    "missed TP71-2.3",
+    "missed FFIEC-TPPP-04",
+    "missed TP71-2.3"
+   ]
+  },
+  {
+   "name": "clause_precision",
+   "kind": "deterministic",
+   "score": null,
+   "numerator": 0.0,
+   "denominator": 0.0,
+   "rows_scored": 0,
+   "threshold": 0.7,
+   "threshold_source": "design_b",
+   "passed": null,
+   "primary": false,
+   "description": "proposed clause ids expected / proposed",
+   "flags": []
+  },
+  {
+   "name": "precedent_top1",
+   "kind": "deterministic",
+   "score": 0.0,
+   "numerator": 0.0,
+   "denominator": 1.0,
+   "rows_scored": 1,
+   "threshold": 0.9,
+   "threshold_source": "proposed",
+   "passed": false,
+   "primary": false,
+   "description": "top precedent is the labelled one",
+   "flags": [
+    "top None"
+   ]
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": null,
+   "numerator": 0.0,
+   "denominator": 0.0,
+   "rows_scored": 0,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": null,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "FCRM-2026-0151",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "clause_recall": 0.0,
+    "clause_precision": null,
+    "precedent_top1": 0.0,
+    "citation_validity": null
+   },
+   "flags": [
+    "clause_recall: missed FFIEC-TPPP-04",
+    "clause_recall: missed FCRM42-3.1",
+    "clause_recall: missed TP71-2.3",
+    "clause_recall: missed OFAC-1.2",
+    "precedent_top1: top None"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0151",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "budget",
+    "reason": "attempt 1: usage limit exceeded (Exceeded the total_tokens_limit of 20000 (total_tokens=26212). Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits)",
+    "attempts": 1,
+    "calls": 3,
+    "input_tokens": 22432,
+    "output_tokens": 3780,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.082664,
+    "latency_s": 27.892,
+    "models": [
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": null,
+    "verified_attempt1": null,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "blocked",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0088",
+   "case_id": "FCRM-2026-0088",
+   "metrics": {
+    "clause_recall": 0.0,
+    "clause_precision": null,
+    "precedent_top1": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "clause_recall: missed FFIEC-TPPP-04",
+    "clause_recall: missed TP71-2.3"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0088",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "budget",
+    "reason": "attempt 1: usage limit exceeded (Exceeded the total_tokens_limit of 20000 (total_tokens=22272). Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits)",
+    "attempts": 1,
+    "calls": 3,
+    "input_tokens": 19231,
+    "output_tokens": 3041,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.068872,
+    "latency_s": 24.71,
+    "models": [
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": null,
+    "verified_attempt1": null,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "blocked",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0109",
+   "case_id": "FCRM-2026-0109",
+   "metrics": {
+    "clause_recall": 0.0,
+    "clause_precision": null,
+    "precedent_top1": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "clause_recall: missed FFIEC-TPPP-04",
+    "clause_recall: missed FCRM42-3.1",
+    "clause_recall: missed TP71-2.3",
+    "clause_recall: missed OFAC-1.2"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0109",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "budget",
+    "reason": "attempt 1: usage limit exceeded (Exceeded the total_tokens_limit of 20000 (total_tokens=22146). Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits)",
+    "attempts": 1,
+    "calls": 3,
+    "input_tokens": 19240,
+    "output_tokens": 2906,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.06754,
+    "latency_s": 28.308,
+    "models": [
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": null,
+    "verified_attempt1": null,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "blocked",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0122",
+   "case_id": "FCRM-2026-0122",
+   "metrics": {
+    "clause_recall": 0.0,
+    "clause_precision": null,
+    "precedent_top1": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "clause_recall: missed FFIEC-TPPP-04",
+    "clause_recall: missed TP71-2.3"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0122",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "budget",
+    "reason": "attempt 1: usage limit exceeded (Exceeded the total_tokens_limit of 20000 (total_tokens=24672). Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits)",
+    "attempts": 1,
+    "calls": 3,
+    "input_tokens": 20745,
+    "output_tokens": 3927,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.08076,
+    "latency_s": 28.335,
+    "models": [
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": null,
+    "verified_attempt1": null,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "blocked",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0140",
+   "case_id": "FCRM-2026-0140",
+   "metrics": {
+    "clause_recall": 0.0,
+    "clause_precision": null,
+    "precedent_top1": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "clause_recall: missed FFIEC-TPPP-04",
+    "clause_recall: missed TP71-2.3"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0140",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "budget",
+    "reason": "attempt 1: usage limit exceeded (Exceeded the total_tokens_limit of 20000 (total_tokens=24770). Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits)",
+    "attempts": 1,
+    "calls": 3,
+    "input_tokens": 22214,
+    "output_tokens": 2556,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.069988,
+    "latency_s": 21.17,
+    "models": [
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": null,
+    "verified_attempt1": null,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "blocked",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  }
+ ],
+ "timestamp": "2026-10-05T17:31:37.794035Z",
+ "usage": {
+  "calls": 15,
+  "retries": 0,
+  "blocked_rows": 5,
+  "failed_rows": 0,
+  "input_tokens": 103862,
+  "output_tokens": 16210,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.369824,
+  "latency_p50_s": 27.892,
+  "latency_max_s": 28.335,
+  "models": [
+   "Sonnet 5.5"
+  ]
+ },
+ "judge_usage": null,
+ "sampled": {
+  "n": 5,
+  "of": 42,
+  "seed": 7,
+  "strategy": "demo+uniform",
+  "row_ids": [
+   "FCRM-2026-0151",
+   "FCRM-2026-0088",
+   "FCRM-2026-0109",
+   "FCRM-2026-0122",
+   "FCRM-2026-0140"
+  ],
+  "demo_row_ids": [
+   "FCRM-2026-0151"
+  ]
+ },
+ "judge": "bedrock"
+}
