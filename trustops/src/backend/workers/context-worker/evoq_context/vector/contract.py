@@ -90,8 +90,17 @@ CHUNK_TYPES: tuple[str, ...] = (
     "confluence",
 )
 
-#: TrustOps adds ``policy`` (corpus clauses seeded/indexed by H4, design A §6.4).
-SOURCE_TYPES: tuple[str, ...] = ("confluence", "jira", "file", "policy")
+#: TrustOps adds ``policy`` (corpus clauses seeded/indexed by H4, design A §6.4)
+#: and the other two indexes' record kinds: ``precedent`` (a closed case) and
+#: ``control`` (a control-inventory entry).
+SOURCE_TYPES: tuple[str, ...] = (
+    "confluence",
+    "jira",
+    "file",
+    "policy",
+    "precedent",
+    "control",
+)
 
 #: ``chunk_level`` values (v2.1): parents are stored-only, children are embedded.
 CHUNK_LEVEL_PARENT = 0
@@ -149,6 +158,13 @@ FILTERABLE_KEYS: frozenset[str] = frozenset(
         # ...plus two stored-only identifiers the clause index writes:
         "clause_id",
         "index_kind",
+        # ...and the identifiers and facets of the other two indexes
+        # (precedent_cases, controls; design A §6.3):
+        "case_id",
+        "control_id",
+        "controls_version",
+        "outcome",
+        "band",
     }
 )
 

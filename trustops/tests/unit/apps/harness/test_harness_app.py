@@ -1,4 +1,4 @@
-"""fcrm_harness: one broker, one Mongo client and one health app host H1, H2 and H3."""
+"""fcrm_harness: one broker, one Mongo client and one health app host H1 to H4."""
 
 from __future__ import annotations
 
@@ -39,6 +39,12 @@ ENV_NAMES = (
     "CASEFLOW_PREFETCH",
     "AGENT_PREFETCH",
     "INGESTION_PREFETCH",
+    "CONTEXT_PREFETCH",
+    "CONTEXT_BUILD_TIMEOUT_SECONDS",
+    "VECTOR_BACKEND",
+    "EMBEDDING_PROVIDER",
+    "EMBEDDING_MODEL",
+    "EMBEDDING_DIMENSION",
     "UPLOADS_PER_FILE_TIMEOUT_SECONDS",
     "PDF_ENGINE",
     "S3_ENDPOINT_URL",
@@ -129,6 +135,7 @@ def test_the_harness_database_is_shared_by_every_unit(tmp_path: Path):
     assert settings.caseflow_settings().mongodb_db == "fcrm_harness"
     assert settings.agent_worker_settings().mongodb_db == "fcrm_harness"
     assert settings.ingestion_settings().mongodb_db == "fcrm_harness"
+    assert settings.context_settings().mongodb_db == "fcrm_harness"
 
 
 def test_h1_gets_the_peer_urls_and_the_canonical_bucket_it_names_in_ingest_runs(
@@ -168,6 +175,31 @@ def test_the_ingestion_prefetch_defaults_to_two(tmp_path: Path):
     assert _settings(tmp_path).ingestion_prefetch == 2
 
 
+def test_h4_settings_are_derived_with_s3_the_object_store_and_its_own_knobs(
+    tmp_path: Path,
+):
+    settings = _settings(
+        tmp_path,
+        context_prefetch=2,
+        context_build_timeout_seconds=90,
+        s3_endpoint_url="http://minio:9000",
+        s3_bucket_vectors="vectors-eu",
+    )
+
+    context = settings.context_settings()
+
+    assert context.context_prefetch == 2
+    assert context.context_build_timeout_seconds == 90
+    assert context.policy_service_url == "http://localhost:8000/api/fcrm/policy"
+    assert context.s3_endpoint_url == "http://minio:9000"
+    assert context.s3_bucket_vectors == "vectors-eu"
+    assert context.service_token_secret is not None
+
+
+def test_the_context_prefetch_defaults_to_four(tmp_path: Path):
+    assert _settings(tmp_path).context_prefetch == 4
+
+
 def test_a_missing_service_url_fails_fast_naming_it():
     with pytest.raises(MissingSettingsError) as info:
         HarnessSettings.load(
@@ -190,12 +222,14 @@ def test_build_app_wires_every_queue_onto_one_broker(tmp_path: Path):
         "caseflow.steps",
         "agent-worker.run",
         "ingestion-worker.run",
+        "context-worker.run",
     }
     assert by_queue["caseflow.events"].channel.prefetch_count == 16
     assert by_queue["caseflow.agent-results"].channel.prefetch_count == 16
     assert by_queue["caseflow.steps"].channel.prefetch_count == 4
     assert by_queue["agent-worker.run"].channel.prefetch_count == 4
     assert by_queue["ingestion-worker.run"].channel.prefetch_count == 2
+    assert by_queue["context-worker.run"].channel.prefetch_count == 4
 
 
 def test_the_units_contribute_their_startup_shutdown_hooks_and_checks(
@@ -208,7 +242,7 @@ def test_the_units_contribute_their_startup_shutdown_hooks_and_checks(
         publisher=FastStreamPublisher(RabbitBroker("amqp://guest:guest@localhost/")),
     )
     by_id = {unit.component_id: unit for unit in units}
-    assert list(by_id) == ["H1", "H2", "H3"]
+    assert list(by_id) == ["H1", "H2", "H3", "H4"]
     # H1: index creation then the outbox relay; its relay stops and it closes
     # its audit, S1 and S3 clients.
     assert len(by_id["H1"].after_startup) == 2
@@ -224,6 +258,12 @@ def test_the_units_contribute_their_startup_shutdown_hooks_and_checks(
     assert by_id["H3"].on_shutdown == ()
     [uploads] = by_id["H3"].checks
     assert (uploads.name, uploads.critical) == ("uploads_bucket", False)
+    # H4: the consumed-message index at startup; it closes its S3 client and
+    # probes the vectors bucket without making readiness depend on it.
+    assert len(by_id["H4"].after_startup) == 1
+    assert len(by_id["H4"].on_shutdown) == 1
+    [vectors] = by_id["H4"].checks
+    assert (vectors.name, vectors.critical) == ("vectors_bucket", False)
 
 
 def test_build_app_raises_a_clear_error_when_the_ai_root_has_no_tiers_file(

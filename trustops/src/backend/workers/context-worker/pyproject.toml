@@ -23,7 +23,13 @@ requires-python = ">=3.13"
 # which does not pin boto3 and does not conflict with pydantic-ai-slim.
 dependencies = [
   "fcrm-contracts",
+  "fcrm-common",
   "fcrm-seed",
+  # The host (fcrm_context_worker.app): the broker and the server the unit runs
+  # on, and the YAML reader for the embedding model in ai/models/tiers.yaml.
+  "faststream[rabbit]==0.6.7",
+  "uvicorn[standard]>=0.34",
+  "pyyaml>=6.0",
   "tiktoken>=0.7",
   "markdownify>=0.13",
   "beautifulsoup4>=4.12",
@@ -33,7 +39,9 @@ dependencies = [
 
 [project.optional-dependencies]
 s3vectors = ["aioboto3>=15.5"]
-# FastStream consumer wiring (index.build -> index.built) lands with fcrm_common.
+# The index.build consumer (fcrm_context_worker.consumer) wraps the builder
+# (fcrm_context_worker.builder); build_unit() hands it to the harness as a
+# WorkerUnit.
 
 [project.scripts]
 evoq-context = "evoq_context.cli:main"
@@ -48,6 +56,7 @@ dev = [
   "hypothesis>=6.123",
   "mypy>=1.14",
   "jsonschema>=4.20",
+  "types-pyyaml>=6.0",
   "fcrm-policy-service",
 ]
 

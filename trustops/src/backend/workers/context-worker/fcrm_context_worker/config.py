@@ -11,11 +11,18 @@ Variables (names only; values come from the environment):
 * ``VECTOR_BACKEND`` — ``memory`` (default; offline, zero AWS) or
   ``s3vectors`` (ADR-12's switch, the same name across the system).
 * ``EMBEDDING_PROVIDER`` — defaults to ``dummy`` (deterministic offline
-  vectors) under ``memory`` and ``bedrock`` under ``s3vectors``.
+  vectors) under ``memory`` and ``bedrock`` under ``s3vectors``. Under
+  ``bedrock`` the model id and dimension come from ``ai/models/tiers.yaml``
+  (``embeddings.model`` and ``embeddings.dims``, found under ``PROMPTS_DIR``,
+  default ``ai``) unless ``EMBEDDING_MODEL`` / ``EMBEDDING_DIMENSION`` say
+  otherwise: model ids live in that one file, and H4 and S3 read the same one,
+  so the vectors one writes are the vectors the other queries. A missing file
+  is an error, never a silent fall back to some other model.
 * ``CONTEXT_SYNTHESIS_ENABLED`` — ``false`` by default: the AEO
   analysis/synthesis chat calls never run in TrustOps builds.
 * ``S3_VECTORS_BUCKET``, ``S3_VECTORS_INDEX_PREFIX``, ``AWS_REGION``,
-  ``EMBEDDING_DIMENSION``, ``CONTEXT_PROJECTS_ROOT``.
+  ``EMBEDDING_MODEL``, ``EMBEDDING_DIMENSION``, ``PROMPTS_DIR``,
+  ``CONTEXT_PROJECTS_ROOT``.
 """
 
 from __future__ import annotations
@@ -24,8 +31,9 @@ import logging
 import os
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
+import yaml
 from evoq_context.core.config import ContextConfig
 
 logger = logging.getLogger(__name__)
@@ -38,6 +46,38 @@ _TRUE = frozenset({"1", "true", "yes", "on"})
 
 class VectorBackendError(ValueError):
     """``VECTOR_BACKEND`` names a backend H4 does not support."""
+
+
+class EmbeddingConfigError(ValueError):
+    """The embedding model cannot be determined: ``EMBEDDING_PROVIDER=bedrock``
+    with no ``EMBEDDING_MODEL`` and no readable ``ai/models/tiers.yaml``.
+    """
+
+
+def embeddings_from_tiers(ai_root: Path) -> tuple[str, int]:
+    """``(model id, dimension)`` of the embedding model, from
+    ``<ai_root>/models/tiers.yaml`` (the one file that names a model id).
+
+    Raises:
+        EmbeddingConfigError: The file is missing, is not valid YAML, or has no
+            ``embeddings.model`` and ``embeddings.dims``.
+    """
+    path = ai_root / "models" / "tiers.yaml"
+    try:
+        document: Any = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        raise EmbeddingConfigError(
+            f"cannot read the embedding model from {path} "
+            "(set PROMPTS_DIR to the ai/ root, or EMBEDDING_MODEL)"
+        ) from exc
+    embeddings = document.get("embeddings") if isinstance(document, dict) else None
+    model = embeddings.get("model") if isinstance(embeddings, dict) else None
+    dims = embeddings.get("dims") if isinstance(embeddings, dict) else None
+    if not isinstance(model, str) or not model or not isinstance(dims, int):
+        raise EmbeddingConfigError(
+            f"{path} has no embeddings.model and embeddings.dims"
+        )
+    return model, dims
 
 
 def _flag(env: Mapping[str, str], name: str, default: bool) -> bool:
@@ -68,18 +108,28 @@ def context_config_from_env(
     source = os.environ if env is None else env
     backend = vector_backend(source)
     default_provider = "dummy" if backend == "memory" else "bedrock"
+    provider = source.get("EMBEDDING_PROVIDER", default_provider)
     root = projects_root or Path(
         source.get("CONTEXT_PROJECTS_ROOT", "/tmp/fcrm-context")
     )
+    model = source.get("EMBEDDING_MODEL", "").strip()
+    dimension = int(source.get("EMBEDDING_DIMENSION", "0") or 0)
+    if provider == "bedrock" and not model:
+        model, tier_dimension = embeddings_from_tiers(
+            Path(source.get("PROMPTS_DIR", "ai"))
+        )
+        dimension = dimension or tier_dimension
+    overrides: dict[str, Any] = {"embedding_model": model} if model else {}
     config = ContextConfig(
         projects_root=root,
         vector_backend=backend,
         s3v_bucket=source.get("S3_VECTORS_BUCKET", ""),
         s3v_region=source.get("AWS_REGION", "us-east-1"),
         s3v_index_prefix=source.get("S3_VECTORS_INDEX_PREFIX", "fcrm"),
-        embedding_provider=source.get("EMBEDDING_PROVIDER", default_provider),
-        embedding_dimension=int(source.get("EMBEDDING_DIMENSION", "1024")),
+        embedding_provider=provider,
+        embedding_dimension=dimension or 1024,
         synthesis_enabled=synthesis_enabled(source),
+        **overrides,
     )
     logger.info(
         "context config: backend=%s embedding_provider=%s synthesis_enabled=%s",

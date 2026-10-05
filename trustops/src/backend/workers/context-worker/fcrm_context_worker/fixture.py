@@ -20,7 +20,7 @@ import json
 import logging
 import re
 from collections.abc import Mapping
-from typing import Any, Final, Protocol
+from typing import Any, Final, Protocol, runtime_checkable
 
 from evoq_context.core.errors import MetadataContractViolation
 from evoq_context.vector.contract import validate_metadata
@@ -39,6 +39,7 @@ class FixtureError(ValueError):
     """
 
 
+@runtime_checkable
 class FixtureSource(Protocol):
     """A store that can dump itself as a fixture (the ``memory`` backend)."""
 

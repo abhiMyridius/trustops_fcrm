@@ -15,6 +15,7 @@ from typing import Any, ClassVar, Literal, Optional
 from fcrm_agent_worker.settings import AgentWorkerSettings
 from fcrm_caseflow.settings import CaseflowSettings
 from fcrm_common.settings import BaseServiceSettings, S3Settings
+from fcrm_context_worker.settings import ContextSettings
 from fcrm_ingestion_worker.settings import IngestionSettings
 from pydantic import Field
 
@@ -34,6 +35,9 @@ class HarnessSettings(BaseServiceSettings, S3Settings):
             call, so this replaces the second replica the stack used to run.
         ingestion_prefetch: How many documents H3 extracts at once (design
             A §4.1: 2).
+        context_prefetch: How many index builds H4 runs at once
+            (``CONTEXT_PREFETCH``, design A §4.1: 4).
+        context_build_timeout_seconds: H4's deadline for one index build.
         uploads_per_file_timeout_seconds: H3's deadline for one document.
         pdf_engine: H3's PDF engine (``pdfplumber`` or ``pypdf``).
         pdf_min_chars_per_page: H3's scanned-page threshold (the engine's
@@ -71,6 +75,8 @@ class HarnessSettings(BaseServiceSettings, S3Settings):
     caseflow_prefetch: int = 16
     agent_prefetch: int = 4
     ingestion_prefetch: int = Field(default=2, ge=1)
+    context_prefetch: int = Field(default=4, ge=1)
+    context_build_timeout_seconds: float = Field(default=300.0, gt=0)
     uploads_per_file_timeout_seconds: float = Field(default=120.0, gt=0)
     pdf_engine: Literal["pdfplumber", "pypdf"] = "pdfplumber"
     pdf_min_chars_per_page: Optional[int] = Field(default=None, ge=0)
@@ -121,6 +127,18 @@ class HarnessSettings(BaseServiceSettings, S3Settings):
             pdf_min_chars_per_page=self.pdf_min_chars_per_page,
             guard1_allowlist_file=self.guard1_allowlist_file,
             prefetch=self.ingestion_prefetch,
+        )
+        settings.fail_fast()
+        return settings
+
+    def context_settings(self) -> ContextSettings:
+        """H4's settings derived from this one, validated like ``load()``."""
+        settings = ContextSettings(
+            **self._shared(),
+            **self._s3(),
+            policy_service_url=self.policy_service_url,
+            context_build_timeout_seconds=self.context_build_timeout_seconds,
+            context_prefetch=self.context_prefetch,
         )
         settings.fail_fast()
         return settings

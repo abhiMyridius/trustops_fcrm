@@ -8,9 +8,14 @@ The thin, TrustOps-owned layer over the cloned ``evoq_context`` engine:
   (a checked duplicate of ``fcrm_policy.search.filters``);
 * :mod:`fcrm_context_worker.segmenter` — the clause segmenter;
 * :mod:`fcrm_context_worker.seedload` — seeds the index from ``fcrm_seed``;
-* :mod:`fcrm_context_worker.search` — filtered clause search.
-
-The ``index.build`` FastStream consumer lands with ``fcrm_common``.
+* :mod:`fcrm_context_worker.search` — filtered clause search;
+* :mod:`fcrm_context_worker.consumer` — the ``index.build`` consumer (H4 proper):
+  :mod:`~fcrm_context_worker.sources` reads S3's rows,
+  :mod:`~fcrm_context_worker.indexes` makes the vector records,
+  :mod:`~fcrm_context_worker.builder` embeds and stores them,
+  :mod:`~fcrm_context_worker.fixture` is the file S3 loads, and
+  :mod:`~fcrm_context_worker.app` is the :class:`~fcrm_common.worker.WorkerUnit`
+  the ``fcrm_harness`` process hosts.
 """
 
 from __future__ import annotations
