@@ -5,23 +5,10 @@ Same shape as ``fcrm_scoring.store.ConfigStore``: a small ``Protocol`` so
 implementation for tests and a Mongo-backed one the real app wires at
 startup (``lifespan.py``).
 
-Every state-changing method is a single conditional update against
-``OPEN_FOR_WRITES_STATES``/``submitted_at`` (``fcrm_case.domain.record.
-CaseRecord.open_for_writes``), so the "closed or already-submitted cases
-reject further writes" rule is enforced atomically here -- not just by a
-route-layer check that a concurrent request could race past -- and a
-method returns ``None`` (never raises) when the predicate did not match,
-so ``routes.py`` alone decides whether that means 404 or 409.
-
-:meth:`CaseStore.create` and :meth:`CaseStore.submit` also take the
-``Envelope`` for ``case.created``/``case.submitted`` (design A §3.1,
-``fcrm_contracts.events.catalogue``): the Mongo store writes the case
-document and the outbox row in one transaction
-(:func:`fcrm_common.mongo.with_transaction`), so an event is never
-recorded for a write that did not happen, or vice versa. ``PUT .../fields/
-{field_id}`` and the title update have no catalogued event of their own
-(only ``case.created``, ``case.submitted`` and a handful of later-lifecycle
-types are in ``EVENT_TYPES`` today) and stay single-document updates.
+The product owner's writes (create, upload, decide, submit, discard) are not
+here: they go through :mod:`fcrm_case.po_store`, which applies a whole PO action,
+and its outbox event, in one transaction. This store holds the reads every role
+shares and H1's state and assignment writes.
 
 H1's two writes to a case, :meth:`CaseStore.apply_state` and
 :meth:`CaseStore.assign_analyst`, are different: they are not gated on
@@ -51,25 +38,13 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from fcrm_case.activity_log import ActivityLog, InMemoryActivityLog, MongoActivityLog
 from fcrm_case.domain.activity import ActivityEntry
-from fcrm_case.domain.record import (
-    OPEN_FOR_WRITES_STATES,
-    CaseRecord,
-    FieldValueRecord,
-    SubmissionVersionRecord,
-)
+from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.stage import (
     apply_changes,
     assigned_event,
     stage_changed_event,
     state_changes,
 )
-
-# The Mongo spelling of ``CaseRecord.open_for_writes``, derived from the
-# same ``OPEN_FOR_WRITES_STATES`` set so the two can never drift apart.
-_OPEN_FILTER: dict[str, Any] = {
-    "state": {"$in": sorted(state.value for state in OPEN_FOR_WRITES_STATES)},
-    "submitted_at": None,
-}
 
 
 @dataclass(frozen=True)
@@ -99,10 +74,6 @@ class CaseStore(Protocol):
         """A fresh ``FCRM-<year>-NNNN`` id from this year's counter."""
         ...
 
-    async def create(self, record: CaseRecord, event: Envelope) -> CaseRecord:
-        """Insert ``record`` and enqueue ``event`` atomically."""
-        ...
-
     async def get(
         self, case_id: str, *, with_versions: bool = True
     ) -> Optional[CaseRecord]:
@@ -127,31 +98,6 @@ class CaseStore(Protocol):
     ) -> Page[CaseRecord]:
         """A page of cases, oldest id first, filtered by whichever of
         ``owner``/``analyst_id``/``state`` is given.
-        """
-        ...
-
-    async def update_title(self, case_id: str, title: str) -> Optional[CaseRecord]:
-        """Set ``title``; ``None`` if the case does not exist or is not
-        open for writes.
-        """
-        ...
-
-    async def write_field(
-        self, case_id: str, field: FieldValueRecord
-    ) -> Optional[CaseRecord]:
-        """Set ``fields[field.field_id]``; ``None`` if the case does not
-        exist or is not open for writes.
-        """
-        ...
-
-    async def submit(
-        self, case_id: str, version: SubmissionVersionRecord, event: Envelope
-    ) -> Optional[CaseRecord]:
-        """Append ``version``, stamp ``submitted_at`` and enqueue ``event``
-        atomically; ``None`` if the case does not exist or was already
-        submitted/closed (submission is one-shot: the same conditional
-        update that blocks a field write after submission also blocks a
-        second submit).
         """
         ...
 
@@ -195,6 +141,13 @@ class InMemoryCaseStore:
         self.events: list[Envelope] = []
         self.activity = InMemoryActivityLog(self._bump_activity_seq)
 
+    @property
+    def records(self) -> dict[str, CaseRecord]:
+        """The stored cases by id: what the in-memory PO store twin reads and
+        writes through (the Mongo store has no such back door).
+        """
+        return self._cases
+
     def _bump_activity_seq(self, case_id: str) -> Optional[int]:
         """The next ``activity_seq`` of ``case_id`` (``None`` if no such case)."""
         record = self._cases.get(case_id)
@@ -207,11 +160,6 @@ class InMemoryCaseStore:
     async def next_case_id(self, year: int) -> str:
         self._counters[year] = self._counters.get(year, 0) + 1
         return mint_case_id(year, self._counters[year])
-
-    async def create(self, record: CaseRecord, event: Envelope) -> CaseRecord:
-        self._cases[record.case_id] = record
-        self.events.append(event)
-        return record
 
     async def get(
         self, case_id: str, *, with_versions: bool = True
@@ -257,44 +205,6 @@ class InMemoryCaseStore:
         has_more = start + limit < len(matching)
         next_cursor = encode_cursor(page[-1].case_id) if has_more and page else None
         return Page(items=page, next_cursor=next_cursor, total=len(matching))
-
-    async def update_title(self, case_id: str, title: str) -> Optional[CaseRecord]:
-        record = self._cases.get(case_id)
-        if record is None or not record.open_for_writes:
-            return None
-        updated = record.model_copy(update={"title": title})
-        self._cases[case_id] = updated
-        return updated
-
-    async def write_field(
-        self, case_id: str, field: FieldValueRecord
-    ) -> Optional[CaseRecord]:
-        record = self._cases.get(case_id)
-        if record is None or not record.open_for_writes:
-            return None
-        fields = dict(record.fields)
-        fields[field.field_id] = field
-        updated = record.model_copy(update={"fields": fields})
-        self._cases[case_id] = updated
-        return updated
-
-    async def submit(
-        self, case_id: str, version: SubmissionVersionRecord, event: Envelope
-    ) -> Optional[CaseRecord]:
-        record = self._cases.get(case_id)
-        if record is None or not record.open_for_writes:
-            return None
-        versions = [*record.submission_versions, version]
-        updated = record.model_copy(
-            update={
-                "submission_versions": versions,
-                "submitted_at": version.created_at,
-                "current_submission_v": version.version,
-            }
-        )
-        self._cases[case_id] = updated
-        self.events.append(event)
-        return updated
 
     async def apply_state(
         self, case_id: str, patch: StatePatch, actor: UiActor
@@ -372,14 +282,6 @@ class MongoCaseStore:
         assert doc is not None
         return mint_case_id(year, int(doc["seq"]))
 
-    async def create(self, record: CaseRecord, event: Envelope) -> CaseRecord:
-        async def _do(session: AsyncClientSession) -> CaseRecord:
-            await self._cases.insert_one(record, session=session)
-            await self._outbox.enqueue(session, event)
-            return record
-
-        return await with_transaction(self._client, _do)
-
     async def get(
         self, case_id: str, *, with_versions: bool = True
     ) -> Optional[CaseRecord]:
@@ -414,40 +316,6 @@ class MongoCaseStore:
         return await self._cases.find_paginated(
             filter_, limit=limit, cursor=cursor, with_total=True
         )
-
-    async def update_title(self, case_id: str, title: str) -> Optional[CaseRecord]:
-        return await self._cases.find_one_and_update(
-            {"case_id": case_id, **_OPEN_FILTER}, {"title": title}
-        )
-
-    async def write_field(
-        self, case_id: str, field: FieldValueRecord
-    ) -> Optional[CaseRecord]:
-        return await self._cases.find_one_and_update(
-            {"case_id": case_id, **_OPEN_FILTER},
-            {f"fields.{field.field_id}": field.model_dump(mode="python")},
-        )
-
-    async def submit(
-        self, case_id: str, version: SubmissionVersionRecord, event: Envelope
-    ) -> Optional[CaseRecord]:
-        async def _do(session: AsyncClientSession) -> Optional[CaseRecord]:
-            updated = await self._cases.find_one_and_update(
-                {"case_id": case_id, **_OPEN_FILTER},
-                {
-                    "$push": {"submission_versions": version.model_dump(mode="python")},
-                    "$set": {
-                        "submitted_at": version.created_at,
-                        "current_submission_v": version.version,
-                    },
-                },
-                session=session,
-            )
-            if updated is not None:
-                await self._outbox.enqueue(session, event)
-            return updated
-
-        return await with_transaction(self._client, _do)
 
     async def apply_state(
         self, case_id: str, patch: StatePatch, actor: UiActor

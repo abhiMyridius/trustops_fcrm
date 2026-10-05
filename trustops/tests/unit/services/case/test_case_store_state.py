@@ -11,11 +11,9 @@ from collections.abc import Callable
 import pytest
 from fcrm_case.domain.record import CaseRecord, SubmissionVersionRecord
 from fcrm_case.store import InMemoryCaseStore
-from fcrm_common.events import build_envelope
 from fcrm_common.time import utcnow
 from fcrm_contracts.api.case_internal import StatePatch, UiActor, UiEventIn
 from fcrm_contracts.enums import CaseState
-from fcrm_contracts.events.envelope import Envelope
 
 ACTOR = UiActor(id="svc:caseflow", role="fcrm_service", component="caseflow")
 CASE = "FCRM-2026-0151"
@@ -183,7 +181,9 @@ async def test_exists_and_the_lean_get(
     version = SubmissionVersionRecord(
         version=1, created_at=utcnow(), created_by="u-pnair", field_values={}
     )
-    await case_store.submit(CASE, version, _submitted_event())
+    case_store.records[CASE] = stored_case.model_copy(
+        update={"submission_versions": [version], "current_submission_v": 1}
+    )
     full = await case_store.get(CASE)
     lean = await case_store.get(CASE, with_versions=False)
     assert full is not None
@@ -191,10 +191,6 @@ async def test_exists_and_the_lean_get(
     assert len(full.submission_versions) == 1
     assert lean.submission_versions == []
     assert full.current_submission_v == 1
-
-
-def _submitted_event() -> Envelope:
-    return build_envelope("case.submitted", {"case_id": CASE}, case_id=CASE)
 
 
 @pytest.mark.parametrize("missing", ["FCRM-2026-9999"])

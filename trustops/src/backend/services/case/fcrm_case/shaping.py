@@ -1,13 +1,11 @@
 """Maps the stored :class:`~fcrm_case.domain.record.CaseRecord` onto the
-three role-shaped wire contracts (``fcrm_contracts.api.case_po``/
-``case_analyst``/``case_internal``).
+analyst and internal wire contracts (``fcrm_contracts.api.case_analyst`` and
+``case_internal``).
 
-This is the one place that split happens. ``CaseDetailPO`` has no field a
-bug here could even assign a score into -- :func:`to_case_detail_po`
-builds it field by field from data that was never score-shaped to begin
-with, rather than building the analyst shape first and trying to strip it
-down (CLAUDE.md's "the PO never sees scores" rule is enforced by
-``CaseDetailPO``'s own schema, not by this function's care).
+The product owner's shapes are not here: they are built field by field from
+stored rows in :mod:`fcrm_case.po_views`, so the PO never passes through a shape
+that has a slot for a score. What remains is what the analyst lane replaces with
+the workbench, and H1's record.
 """
 
 from __future__ import annotations
@@ -29,12 +27,7 @@ from fcrm_contracts.api.case_internal import (
     OwnerRef,
     ReviewItemInternal,
 )
-from fcrm_contracts.api.case_po import (
-    CaseDetailPO,
-    CaseListItemPO,
-    CompletionState,
-    FieldValuePO,
-)
+from fcrm_contracts.api.case_shared import CompletionState, FieldValuePO
 
 from fcrm_case.domain.completion import compute_completion
 from fcrm_case.domain.diffing import diff_submission_versions
@@ -111,33 +104,6 @@ def _submission_versions(record: CaseRecord) -> list[SubmissionVersion]:
     return result
 
 
-def to_case_detail_po(record: CaseRecord) -> CaseDetailPO:
-    """The PO-visible case detail. No field here can carry a score, band or
-    rating -- ``CaseDetailPO`` has none (see the module docstring).
-    """
-    completion = completion_state(record)
-    return CaseDetailPO(
-        case_id=record.case_id,
-        title=record.title,
-        state=record.state,
-        unit=record.unit,
-        owner=record.owner,
-        change_types=record.change_types,
-        completion_pct=completion.pct,
-        threshold_pct=completion.threshold_pct,
-        required_field_count=completion.required_count,
-        required_fields_filled=completion.filled_count,
-        fields=_fields_po(record),
-        documents=[],
-        clarifications=[],
-        conditions=[],
-        outcome_summary=record.outcome_summary,
-        created_at=record.created_at,
-        submitted_at=record.submitted_at,
-        decided_at=record.decided_at,
-    )
-
-
 def to_case_detail_analyst(record: CaseRecord) -> CaseDetailAnalyst:
     """The analyst/committee-visible case detail: every PO field, plus the
     assignment and (once wired to S2/H1's own stores) the score and review
@@ -178,19 +144,6 @@ def to_case_detail_internal(record: CaseRecord) -> CaseDetailInternal:
         **analyst.model_dump(),
         fieldset_v=record.fieldset_v,
         pinned_versions=record.pinned_versions,
-    )
-
-
-def to_case_list_item_po(record: CaseRecord) -> CaseListItemPO:
-    """The PO's case list row."""
-    return CaseListItemPO(
-        case_id=record.case_id,
-        title=record.title,
-        state=record.state,
-        change_types=record.change_types,
-        created_at=record.created_at,
-        submitted_at=record.submitted_at,
-        open_clarification_count=0,
     )
 
 

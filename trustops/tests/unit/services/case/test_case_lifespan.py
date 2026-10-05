@@ -141,3 +141,71 @@ async def test_without_a_publisher_s1_runs_unrelayed_and_says_so(
     status, body = await probe.run()
     assert status == 200
     assert "outbox" not in body["checks"]
+
+
+# ── the object store the uploads go to ──────────────────────────────────────
+
+
+class PingedStore:
+    """An object store whose bucket answers (or does not)."""
+
+    def __init__(self, up: bool) -> None:
+        self.up = up
+        self.pinged: list[str] = []
+
+    async def ping(self, bucket: str) -> None:
+        self.pinged.append(bucket)
+        if not self.up:
+            raise ConnectionError("down")
+
+
+async def test_the_uploads_bucket_check_is_not_critical() -> None:
+    """A MinIO outage fails an upload, not the whole service: the check reports
+    ``degraded`` (still 200), never ``fail``.
+    """
+    store = PingedStore(up=False)
+    probe = ReadinessProbe()
+    probe.add(case_lifespan._uploads_check(store, "uploads"))  # type: ignore[arg-type]
+    status, body = await probe.run()
+    assert (status, body["status"]) == (200, "degraded")
+    assert body["checks"]["uploads_bucket"]["ok"] is False
+    assert store.pinged == ["uploads"]
+    store.up = True
+    assert (await probe.run())[1]["status"] == "ok"
+
+
+def test_demo_documents_are_read_from_a_named_directory(tmp_path: Any) -> None:
+    from fcrm_case.po_documents import DirectoryFixtures
+    from fcrm_case.settings import CaseSettings
+
+    settings = CaseSettings(demo_documents_dir=str(tmp_path))
+    fixtures = case_lifespan._build_fixtures(settings, object())  # type: ignore[arg-type]
+    assert isinstance(fixtures, DirectoryFixtures)
+
+
+def test_without_a_directory_they_come_from_the_staged_prefix() -> None:
+    from fcrm_case.po_documents import ObjectFixtures
+    from fcrm_case.settings import CaseSettings
+
+    fixtures = case_lifespan._build_fixtures(CaseSettings(), object())  # type: ignore[arg-type]
+    assert isinstance(fixtures, ObjectFixtures)
+
+
+def test_a_directory_that_does_not_exist_falls_back_and_says_so(
+    caplog: pytest.LogCaptureFixture, tmp_path: Any
+) -> None:
+    from fcrm_case.po_documents import ObjectFixtures
+    from fcrm_case.settings import CaseSettings
+
+    settings = CaseSettings(demo_documents_dir=str(tmp_path / "missing"))
+    with caplog.at_level(logging.WARNING, logger="fcrm_case.lifespan"):
+        fixtures = case_lifespan._build_fixtures(settings, object())  # type: ignore[arg-type]
+    assert isinstance(fixtures, ObjectFixtures)
+    assert "DEMO_DOCUMENTS_DIR is not a directory" in caplog.text
+
+
+def test_the_case_settings_require_the_object_store_variables() -> None:
+    from fcrm_case.settings import CaseSettings
+    from fcrm_common.settings import S3Settings
+
+    assert set(S3Settings.s3_required_settings) <= set(CaseSettings.required_settings)

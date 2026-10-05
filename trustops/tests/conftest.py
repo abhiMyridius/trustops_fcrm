@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from fastapi.testclient import TestClient
     from fcrm_case.directory import AnalystLoadService, StaticIdentityDirectory
     from fcrm_case.domain.record import CaseRecord
+    from fcrm_case.po_store import InMemoryPoStore
     from fcrm_case.sse import EventHub
     from fcrm_case.store import InMemoryCaseStore
     from fcrm_case.views_store import InMemoryViewStore
@@ -249,22 +250,13 @@ def case_store() -> InMemoryCaseStore:
 
 
 @pytest.fixture
-def case_client(
-    case_store: InMemoryCaseStore, acting_principal: dict[str, Principal]
-) -> TestClient:
-    """The real S1 app (``fcrm_case.main.create_app``: routes, error
-    handlers, health) over the in-memory store. Not entered as a context
-    manager, so the Mongo-connecting lifespan never runs; the caller is
-    whoever :func:`act_as` last set.
+def case_client(case_service: CaseService) -> TestClient:
+    """The real S1 app (PO, stream and internal routes, health, error handlers)
+    over the in-memory stores of :func:`case_service`. Not entered as a context
+    manager, so the Mongo-connecting lifespan never runs; the caller is whoever
+    :func:`act_as` last set.
     """
-    from fastapi.testclient import TestClient
-    from fcrm_case.main import create_app
-    from fcrm_common.auth import current_user
-
-    app = create_app()
-    app.state.store = case_store
-    app.dependency_overrides[current_user] = lambda: acting_principal["principal"]
-    return TestClient(app)
+    return case_service.client
 
 
 @pytest.fixture
@@ -288,27 +280,19 @@ def set_case_state(case_store: InMemoryCaseStore) -> Callable[..., None]:
 
 @pytest.fixture
 def create_case(
-    case_client: TestClient, act_as: Callable[[Role, str], None], demo: dict[str, Any]
+    case_client: TestClient, act_as: Callable[[Role, str], None]
 ) -> Callable[[str], str]:
-    """``create_case(po_sub)`` creates a demo-shaped draft case (FCRM-2026-
-    0151's title, unit and change types) as that PO over HTTP and returns
-    the new case id. Leaves the caller set to that PO.
+    """``create_case(po_sub)`` raises a draft case as that PO over HTTP (the web's
+    ``POST /cases``: the id is minted, the versions pinned) and returns the new
+    case id. Leaves the caller set to that PO.
     """
     from fcrm_contracts.enums import Role
 
     def _create(po_sub: str) -> str:
         act_as(Role.PO, po_sub)
-        response = case_client.post(
-            "/cases",
-            json={
-                "title": demo["title"],
-                "unit": demo["unit"],
-                "owner": po_sub,
-                "change_types": demo["change_types"],
-            },
-        )
+        response = case_client.post("/cases", json={})
         assert response.status_code == 201, response.text
-        case_id: str = response.json()["case_id"]
+        case_id: str = response.json()["id"]
         return case_id
 
     return _create
@@ -316,25 +300,50 @@ def create_case(
 
 @pytest.fixture
 def fill_and_submit(
-    case_client: TestClient, act_as: Callable[[Role, str], None]
+    case_client: TestClient,
+    act_as: Callable[[Role, str], None],
+    run_h1_intake: Callable[[str], None],
+    demo: dict[str, Any],
 ) -> Callable[[str, str], None]:
-    """``fill_and_submit(case_id, po_sub)`` answers every required field as
-    the owning PO and submits, all over HTTP; asserts submission v1 landed.
+    """``fill_and_submit(case_id, po_sub)`` takes a draft through scenes 3-7 as
+    the owning PO over HTTP (H1's own writes simulated by
+    :func:`run_h1_intake`): uploads the demo documents, confirms the three
+    change types, reuses the precedent's values, answers the questions and
+    submits; asserts submission v1 landed.
     """
     from fcrm_contracts.enums import Role
 
     def _fill_and_submit(case_id: str, po_sub: str) -> None:
         act_as(Role.PO, po_sub)
-        detail = case_client.get(f"/cases/{case_id}").json()
-        for field in detail["fields"]:
-            written = case_client.put(
-                f"/cases/{case_id}/fields/{field['field_id']}",
-                json={"value": f"answer for {field['field_id']}"},
-            )
-            assert written.status_code == 200, written.text
-        submitted = case_client.post(
-            f"/cases/{case_id}/submit", json={"owner_reviewed_corrections": True}
+        uploaded = case_client.post(
+            f"/cases/{case_id}/documents", json={"demo_files": []}
         )
+        assert uploaded.status_code == 201, uploaded.text
+        run_h1_intake(case_id)
+        act_as(Role.PO, po_sub)
+        for change_type in demo["change_types"]:
+            decided = case_client.post(
+                f"/cases/{case_id}/intake/categories/{change_type}",
+                json={"decision": "confirm"},
+            )
+            assert decided.status_code == 200, decided.text
+        reused = case_client.post(
+            f"/cases/{case_id}/intake/reuse",
+            json={
+                "from_case_id": demo["precedent"]["id"],
+                "field_ids": ["F31", "F33", "F34"],
+            },
+        )
+        assert reused.status_code == 200, reused.text
+        answers = [
+            {"question_id": f"q_{f}", "field_id": f, "value": f"answer for {f}"}
+            for f in ("F10", "F32", "F21")
+        ]
+        answered = case_client.post(
+            f"/cases/{case_id}/intake/answers", json={"answers": answers}
+        )
+        assert answered.status_code == 200, answered.text
+        submitted = case_client.post(f"/cases/{case_id}/submit", json={})
         assert submitted.status_code == 200, submitted.text
         assert submitted.json()["submission_version"] == 1
 
@@ -663,6 +672,37 @@ def view_store() -> InMemoryViewStore:
     return InMemoryViewStore()
 
 
+#: The three committed demo PDFs (business case, partner contract, scope letter).
+DEMO_DOCUMENTS_DIR = Path(__file__).resolve().parents[1] / "evals/fixtures/documents"
+
+
+class FakeObjectStore:
+    """An in-memory stand-in for :class:`fcrm_common.objectstore.ObjectStore`:
+    ``put_bytes`` and ``get_bytes`` over a dict, and ``fail_puts`` to make the
+    next stores fail the way an unreachable MinIO does.
+    """
+
+    def __init__(self) -> None:
+        self.objects: dict[tuple[str, str], tuple[bytes, str]] = {}
+        self.fail_puts = False
+
+    async def put_bytes(
+        self, bucket: str, key: str, data: bytes, content_type: str
+    ) -> None:
+        from fcrm_common.errors import UpstreamUnavailableError
+
+        if self.fail_puts:
+            raise UpstreamUnavailableError("The object store is down.", dependency="s3")
+        self.objects[(bucket, key)] = (data, content_type)
+
+    async def get_bytes(self, bucket: str, key: str) -> bytes:
+        from fcrm_common.errors import NotFoundError
+
+        if (bucket, key) not in self.objects:
+            raise NotFoundError(f"no object {bucket}/{key}")
+        return self.objects[(bucket, key)][0]
+
+
 @dataclass
 class CaseService:
     """The real S1 app over in-memory stores, with its parts exposed so a test
@@ -676,6 +716,8 @@ class CaseService:
     hub: EventHub
     directory: StaticIdentityDirectory
     loads: AnalystLoadService
+    po: InMemoryPoStore
+    objects: FakeObjectStore
 
 
 @pytest.fixture
@@ -684,15 +726,24 @@ def case_service(
     view_store: InMemoryViewStore,
     event_hub: EventHub,
     acting_principal: dict[str, Principal],
+    allow_all_opa: OPAClient,
 ) -> CaseService:
-    """The S1 app (public and internal routes) wired with in-memory stores, an
-    in-process hub, a fixed analyst roster and a fake caller (``act_as``).
+    """The S1 app (PO, stream and internal routes) wired with in-memory stores, an
+    in-process hub, an in-memory object store holding no uploads yet, the demo
+    PDFs read from ``evals/fixtures/documents``, a fixed analyst roster, an
+    allow-all OPA stub (the policy itself is tested by ``opa test``) and a fake
+    caller (``act_as``).
     """
     from fastapi.testclient import TestClient
     from fcrm_case.directory import AnalystLoadService, StaticIdentityDirectory
+    from fcrm_case.fieldset_provider import active_type_domains, field_set_for
     from fcrm_case.main import create_app
+    from fcrm_case.po_documents import DirectoryFixtures
+    from fcrm_case.po_store import InMemoryPoStore
+    from fcrm_case.po_uploads import DocumentIntake
     from fcrm_case.settings import CaseSettings
     from fcrm_common.auth import current_user
+    from fcrm_common.authz import install_authz
     from fcrm_contracts.api.identity import RosterUser
     from fcrm_contracts.enums import Role
 
@@ -709,7 +760,21 @@ def case_service(
     app.state.hub = event_hub
     app.state.directory = directory
     app.state.loads = loads
-    app.state.settings = CaseSettings(sse_heartbeat_s=0.01, sse_max_lifetime_s=0.05)
+    settings = CaseSettings(sse_heartbeat_s=0.01, sse_max_lifetime_s=0.05)
+    app.state.settings = settings
+    po = InMemoryPoStore(
+        case_store,
+        view_store,
+        field_sets=field_set_for,
+        type_domains=active_type_domains(),
+    )
+    objects = FakeObjectStore()
+    app.state.po_store = po
+    app.state.objects = objects
+    app.state.intake = DocumentIntake(
+        objects, DirectoryFixtures(DEMO_DOCUMENTS_DIR), settings
+    )
+    install_authz(app.state, allow_all_opa)
     app.dependency_overrides[current_user] = lambda: acting_principal["principal"]
     return CaseService(
         client=TestClient(app),
@@ -718,7 +783,233 @@ def case_service(
         hub=event_hub,
         directory=directory,
         loads=loads,
+        po=po,
+        objects=objects,
     )
+
+
+@pytest.fixture
+def seeded_service(case_service: CaseService) -> CaseService:
+    """:func:`case_service` holding the real seed's S1 slice, as the startup seed
+    loads it into Mongo: the 80 cases (the demo case at ``intake`` with nothing
+    else), the precedent's field values, the review items and the open
+    conditions, with the case-id counter at 151.
+    """
+    from fcrm_case.domain.views import field_value_id
+    from fcrm_case.seedmodel import (
+        build_case_seed,
+        field_set_from_seed,
+        pinned_versions_from_seed,
+    )
+
+    raw = load_raw()
+    rows = build_case_seed(
+        raw,
+        field_set_from_seed(raw["field_set"]),
+        pinned_versions_from_seed(raw["demo"]["versions"]),
+    )
+    for record in rows.cases:
+        case_service.store.records[record.case_id] = record
+    for value in rows.field_values:
+        key = field_value_id(value.case_id, value.field_id)
+        case_service.views.field_values[key] = value
+    for item in rows.review_items:
+        case_service.views.items[item.item_id] = item
+    case_service.po.conditions.extend(rows.conditions)
+    case_service.store._counters[rows.counter_year] = rows.counter_seq
+    return case_service
+
+
+#: The questions the intake agent asks the demo case's owner (scene 6).
+DEMO_GAP_QUESTIONS: dict[str, str] = {
+    "F10": "What is Remesas del Norte's licence number with the Mexican regulator?",
+    "F32": "How many transactions per month do you expect once the corridor is live?",
+    "F21": "Which payout channels will recipients use in Mexico?",
+}
+#: Where the demo's extracted values sit: (document index, page, line).
+DEMO_SPANS: dict[str, tuple[int, int, int]] = {
+    "F01": (0, 1, 4),
+    "F02": (0, 1, 3),
+    "F03": (0, 1, 9),
+    "F04": (0, 2, 8),
+    "F05": (0, 6, 17),
+    "F20": (0, 4, 12),
+    "F06": (1, 1, 5),
+    "F23": (1, 3, 13),
+    "F12": (1, 7, 3),
+}
+
+
+def demo_intake_push(
+    demo: dict[str, Any], doc_ids: list[str], run_id: str, precedent_values: list[dict]
+) -> dict[str, Any]:
+    """What H1's ``intake.publish`` step sends S1 for the demo case: the nine
+    extracted values (each with page and line), the three proposed change types,
+    the three blocking questions, the precedent and one fact flag. Plain data
+    from the seed.
+    """
+    from fcrm_case.fieldset_provider import active_field_set
+
+    field_set = active_field_set()
+    labels = {f["id"]: f["label"] for f in field_set.always_required}
+    for fields in field_set.per_type.values():
+        labels.update({f["id"]: f["label"] for f in fields})
+    values = []
+    for field in demo["fields"]:
+        if field["how"] != "extracted":
+            continue
+        index, page, line = DEMO_SPANS[field["id"]]
+        values.append(
+            {
+                "field_id": field["id"],
+                "label": labels[field["id"]],
+                "value": field["value"],
+                "source": {
+                    "kind": "doc",
+                    "doc_id": doc_ids[index],
+                    "page": page,
+                    "line_start": line,
+                    "line_end": line,
+                },
+                "quote": field["value"],
+                "confidence": 0.92,
+                "candidates": field.get("candidates", 1),
+            }
+        )
+    span = {
+        "kind": "doc",
+        "doc_id": doc_ids[0],
+        "page": 1,
+        "line_start": 3,
+        "line_end": 3,
+    }
+    categories = [
+        {
+            "change_type": change_type,
+            "label": label,
+            "source": span,
+            "quote": label,
+            "confidence": 0.9,
+            "gate_id": f"gate_{change_type}",
+        }
+        for change_type, label in (
+            ("vendor_onboarding", "Vendor onboarding"),
+            ("new_geography", "New geography"),
+            ("new_product", "New product"),
+        )
+    ]
+    gaps = [
+        {
+            "question_id": f"q_{field_id}",
+            "field_id": field_id,
+            "label": labels[field_id],
+            "text": text,
+            "blocking": True,
+            "gate_id": f"gate_gap_{field_id}",
+        }
+        for field_id, text in DEMO_GAP_QUESTIONS.items()
+    ]
+    precedent_fields = [
+        {
+            "field_id": v["id"],
+            "label": v["label"],
+            "value": v["value"],
+            "reusable": True,
+            "reason": None,
+        }
+        for v in precedent_values
+    ] + [
+        {
+            "field_id": field_id,
+            "label": labels[field_id],
+            "value": "",
+            "reusable": False,
+            "reason": "Different partner, do not reuse",
+        }
+        for field_id in ("F06", "F10")
+    ]
+    return {
+        "run_id": run_id,
+        "candidates_found": demo["candidates_found"],
+        "required_fields": demo["required_fields"],
+        "values": values,
+        "categories": categories,
+        "gaps": gaps,
+        "precedent": {
+            "case_id": demo["precedent"]["id"],
+            "title": "Payout partner onboarding (Guatemala corridor)",
+            "unit": "Payments",
+            "closed_month": "Jun 2026",
+            "similarity": demo["precedent"]["similarity"],
+            "fields": precedent_fields,
+        },
+        "flags": [{"field_id": "F21", "text": "cash pickup", "kind": "new_fact"}],
+    }
+
+
+@pytest.fixture
+def run_h1_intake(
+    case_service: CaseService,
+    acting_principal: dict[str, Principal],
+    demo: dict[str, Any],
+    all_seed_cases: list[dict[str, Any]],
+) -> Callable[..., None]:
+    """``run_h1_intake(case_id, run_id="run_1")`` plays what H1 does between the
+    owner's upload and the first confirmation, through S1's own internal routes
+    as the service account: open the run (``PATCH state``), record what H3 read
+    (``PATCH documents/{id}``) and publish the intake agents' proposals
+    (``PUT intake``). The caller's identity is restored afterwards.
+    """
+    from fcrm_contracts.common import Principal
+    from fcrm_contracts.enums import Role
+
+    precedent = next(c for c in all_seed_cases if c["id"] == demo["precedent"]["id"])
+
+    def _run(case_id: str, run_id: str = "run_1") -> None:
+        previous = acting_principal.get("principal")
+        acting_principal["principal"] = Principal(
+            sub=SERVICE_SUB, roles=[Role.SERVICE], name=SERVICE_SUB, typ="service"
+        )
+        client = case_service.client
+        try:
+            state = client.patch(
+                f"/internal/cases/{case_id}/state",
+                json={"stage": "intake", "run_id": run_id},
+            )
+            assert state.status_code == 200, state.text
+            ordered = sorted(
+                (
+                    d
+                    for d in case_service.views.documents.values()
+                    if d.case_id == case_id
+                ),
+                key=lambda d: (d.name != "business_case_remittance_MX.pdf", d.name),
+            )
+            for doc in ordered:
+                patched = client.patch(
+                    f"/internal/documents/{doc.doc_id}",
+                    json={
+                        "status": "extracted",
+                        "pages": 14,
+                        "canonical_key": f"{case_id}/{doc.doc_id}.md",
+                        "anchored_key": f"{case_id}/{doc.doc_id}.anchored.md",
+                        "guard1": {"status": "masked", "pii_total": 3},
+                    },
+                )
+                assert patched.status_code == 200, patched.text
+            push = demo_intake_push(
+                demo,
+                [d.doc_id for d in ordered],
+                run_id,
+                precedent["field_values"],
+            )
+            pushed = client.put(f"/internal/cases/{case_id}/intake", json=push)
+            assert pushed.status_code == 200, pushed.text
+        finally:
+            if previous is not None:
+                acting_principal["principal"] = previous
+
+    return _run
 
 
 # ── the outbox relay's fakes (the relay and its runner, no database or broker) ─
@@ -899,10 +1190,13 @@ async def live_case(
     live_db: Any,
     recording_publisher: RecordingPublisher,
     bearer_for: Callable[..., dict[str, str]],
+    allow_all_opa: OPAClient,
 ) -> AsyncIterator[LiveCase]:
     """The S1 lifespan on a real Mongo: indexes ensured, the seed loaded
     (``SEED_ON_EMPTY``), the outbox relay running under the case lease with
-    ``recording_publisher``, the analyst roster fixed to the seed's three.
+    ``recording_publisher``, the analyst roster fixed to the seed's three. OPA is
+    the allow-all stub, installed after startup as ``live_client`` does (no OPA
+    sidecar runs in these tests; the policy is tested by ``opa test``).
     """
     import httpx
     from fcrm_case.directory import AnalystLoadService, StaticIdentityDirectory
@@ -910,7 +1204,7 @@ async def live_case(
     from fcrm_case.main import create_app
     from fcrm_case.settings import CaseSettings
     from fcrm_common.auth import TokenVerifier
-    from fcrm_common.authz import OPAClient
+    from fcrm_common.authz import OPAClient, install_authz
     from fcrm_common.service import ServiceDeps
     from fcrm_contracts.api.identity import RosterUser
     from fcrm_contracts.enums import Role
@@ -945,6 +1239,7 @@ async def live_case(
             )
             app.state.directory = directory
             app.state.loads = AnalystLoadService(app.state.store, directory)
+            install_authz(app.state, allow_all_opa)
             async with httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=app),
                 base_url="http://case.test",
@@ -954,3 +1249,106 @@ async def live_case(
     finally:
         await verifier.aclose()
         await opa.aclose()
+
+
+@dataclass
+class LivePo:
+    """:class:`LiveCase` called as whoever ``act_as`` last set (the PO, or H1's
+    service account for the internal routes), with an in-memory object store in
+    place of MinIO and the demo PDFs read from ``evals/fixtures/documents``.
+    Everything else (Mongo, transactions, the outbox, the relay, the seed) is
+    real.
+    """
+
+    case: LiveCase
+    client: Any
+    objects: FakeObjectStore
+
+
+@pytest.fixture
+async def live_po(
+    live_case: LiveCase,
+    acting_principal: dict[str, Principal],
+    allow_all_opa: OPAClient,
+) -> AsyncIterator[LivePo]:
+    """The S1 lifespan on a real Mongo, driven over HTTP as the caller
+    ``act_as`` sets (bearer verification is replaced by the usual
+    ``current_user`` override; roles, ownership and OPA-shaped checks run for
+    real, OPA itself is the allow-all stub).
+    """
+    import httpx
+    from fcrm_case.po_documents import DirectoryFixtures
+    from fcrm_case.po_uploads import DocumentIntake
+    from fcrm_common.auth import current_user
+    from fcrm_common.authz import install_authz
+
+    app = live_case.app
+    app.dependency_overrides[current_user] = lambda: acting_principal["principal"]
+    install_authz(app.state, allow_all_opa)
+    objects = FakeObjectStore()
+    app.state.objects = objects
+    app.state.intake = DocumentIntake(
+        objects, DirectoryFixtures(DEMO_DOCUMENTS_DIR), app.state.settings
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://case.test"
+    ) as client:
+        yield LivePo(live_case, client, objects)
+
+
+@pytest.fixture
+def live_h1_intake(
+    live_po: LivePo,
+    acting_principal: dict[str, Principal],
+    demo: dict[str, Any],
+    all_seed_cases: list[dict[str, Any]],
+) -> Callable[..., Any]:
+    """The async twin of :func:`run_h1_intake` for a real Mongo: ``await
+    live_h1_intake(case_id, run_id="run_1")`` opens the run, records what H3 read
+    and publishes the intake agents' proposals through S1's internal routes as
+    the service account, then restores the caller.
+    """
+    from fcrm_contracts.common import Principal
+    from fcrm_contracts.enums import Role
+
+    precedent = next(c for c in all_seed_cases if c["id"] == demo["precedent"]["id"])
+
+    async def _run(case_id: str, run_id: str = "run_1") -> None:
+        previous = acting_principal.get("principal")
+        acting_principal["principal"] = Principal(
+            sub=SERVICE_SUB, roles=[Role.SERVICE], name=SERVICE_SUB, typ="service"
+        )
+        client = live_po.client
+        try:
+            state = await client.patch(
+                f"/internal/cases/{case_id}/state",
+                json={"stage": "intake", "run_id": run_id},
+            )
+            assert state.status_code == 200, state.text
+            docs = await live_po.case.views.list_documents(case_id)
+            ordered = sorted(
+                docs,
+                key=lambda d: (d.name != "business_case_remittance_MX.pdf", d.name),
+            )
+            for doc in ordered:
+                patched = await client.patch(
+                    f"/internal/documents/{doc.doc_id}",
+                    json={
+                        "status": "extracted",
+                        "pages": 14,
+                        "canonical_key": f"{case_id}/{doc.doc_id}.md",
+                        "anchored_key": f"{case_id}/{doc.doc_id}.anchored.md",
+                        "guard1": {"status": "masked", "pii_total": 3},
+                    },
+                )
+                assert patched.status_code == 200, patched.text
+            push = demo_intake_push(
+                demo, [d.doc_id for d in ordered], run_id, precedent["field_values"]
+            )
+            pushed = await client.put(f"/internal/cases/{case_id}/intake", json=push)
+            assert pushed.status_code == 200, pushed.text
+        finally:
+            if previous is not None:
+                acting_principal["principal"] = previous
+
+    return _run

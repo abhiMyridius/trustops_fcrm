@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from fcrm_contracts.api.case_po import (
+from fcrm_contracts.api.case_shared import (
     ClarificationThreadPO,
     CompletionState,
     ConditionPO,

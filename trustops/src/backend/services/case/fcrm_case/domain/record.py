@@ -119,6 +119,10 @@ class CaseRecord(BaseModel):
     submitted_at: Optional[datetime] = None
     decided_at: Optional[datetime] = None
     closed_at: Optional[datetime] = None
+    # A draft its owner discarded (with a reason): the case id stays reserved,
+    # the case disappears from every list and reads as missing to its owner.
+    discarded_at: Optional[datetime] = None
+    discard_reason: Optional[str] = None
     current_submission_v: Optional[int] = None
     # Highest ``activity.seq`` allocated for this case; bumped in the same
     # write that inserts the activity row, so seqs are gap-free per case.
@@ -147,4 +151,8 @@ class CaseRecord(BaseModel):
         closed for voting or already submitted rejects further writes"
         rule, checked in one place rather than at each route.
         """
-        return self.state in OPEN_FOR_WRITES_STATES and self.submitted_at is None
+        return (
+            self.state in OPEN_FOR_WRITES_STATES
+            and self.submitted_at is None
+            and self.discarded_at is None
+        )

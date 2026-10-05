@@ -3,7 +3,7 @@ module-level ``app`` uvicorn serves is mounted under ``APP_ROOT_PATH``
 (D-13/D-14; ``fcrm_scoring.main`` is the reference). No Mongo: the lifespan
 is not entered here, so these only prove routing and that every case route
 refuses an unauthenticated caller. Lifespan-under-mount (the D-14 regression)
-is covered against real Mongo in ``test_case_mongo_live.py``.
+is covered against real Mongo in ``tests/integration/live_mongo``.
 """
 
 from __future__ import annotations
@@ -39,14 +39,24 @@ def test_create_asgi_app_without_a_root_path_is_the_bare_app(
 @pytest.mark.parametrize(
     ("method", "path"),
     [
+        ("get", "/dashboard"),
         ("get", "/cases"),
         ("post", "/cases"),
         ("get", "/cases/FCRM-2026-0001"),
-        ("put", "/cases/FCRM-2026-0001/title"),
-        ("put", "/cases/FCRM-2026-0001/fields/F01"),
+        ("get", "/cases/FCRM-2026-0001/documents"),
+        ("post", "/cases/FCRM-2026-0001/documents"),
+        ("get", "/cases/FCRM-2026-0001/intake"),
+        ("post", "/cases/FCRM-2026-0001/intake/categories/new_product"),
+        ("post", "/cases/FCRM-2026-0001/intake/values/F03"),
+        ("post", "/cases/FCRM-2026-0001/intake/reuse"),
+        ("post", "/cases/FCRM-2026-0001/intake/answers"),
+        ("get", "/cases/FCRM-2026-0001/review"),
+        ("post", "/cases/FCRM-2026-0001/validate"),
         ("post", "/cases/FCRM-2026-0001/submit"),
-        ("get", "/cases/FCRM-2026-0001/versions"),
-        ("get", "/cases/FCRM-2026-0001/versions/diff?from_version=1&to_version=2"),
+        ("post", "/cases/FCRM-2026-0001/discard"),
+        ("get", "/cases/FCRM-2026-0001/activity"),
+        ("get", "/integrations"),
+        ("post", "/integrations/sharepoint/connect"),
         ("get", "/cases/FCRM-2026-0001/stream"),
         ("get", "/internal/cases/FCRM-2026-0001/record"),
         ("get", "/internal/cases/FCRM-2026-0001/items"),

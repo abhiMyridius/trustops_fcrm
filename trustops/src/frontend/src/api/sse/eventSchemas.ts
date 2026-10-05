@@ -34,6 +34,10 @@ export const invalidationMap: Record<string, string[]> = {
   'document.extracted': ['documents', 'intake'],
   'intake.proposed': ['intake', 'review'],
   'intake.proposals_ready': ['intake', 'review'],
+  // The required field set was resolved (the header, the completion ring and both intake tabs change),
+  // and an analyst took the case (the header names them): the whole case subtree.
+  'fieldset.resolved': ['', 'activity'],
+  'case.assigned': ['', 'activity'],
   'gate.opened': GATE_KEYS,
   'gate.decided': GATE_KEYS,
   'score.computed': SCORE_KEYS,

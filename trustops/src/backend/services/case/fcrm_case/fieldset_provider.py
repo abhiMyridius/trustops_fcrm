@@ -18,7 +18,9 @@ this package changes (``fcrm_case.domain`` only ever sees a
 from __future__ import annotations
 
 from functools import lru_cache
+from types import MappingProxyType
 
+from fcrm_common.errors import UpstreamUnavailableError
 from fcrm_contracts.versions import PinnedVersions
 from fcrm_seed.loader import load_raw
 
@@ -34,6 +36,24 @@ def active_field_set() -> FieldSetData:
     return field_set_from_seed(load_raw()["field_set"])
 
 
+def field_set_for(version: int) -> FieldSetData:
+    """The field set of ``version``: a case resolves its fields against the
+    version it pinned, never whatever is current. Only the seed's set is loaded
+    today, so any other version is a deployment fault, not a client error.
+
+    Raises:
+        fcrm_common.errors.UpstreamUnavailableError: ``version`` is not the loaded
+            field set's.
+    """
+    current = active_field_set()
+    if current.version != version:
+        raise UpstreamUnavailableError(
+            f"Field set v{version} is not available (v{current.version} is loaded).",
+            dependency="field_set",
+        )
+    return current
+
+
 @lru_cache(maxsize=1)
 def active_pinned_versions() -> PinnedVersions:
     """The versions a newly created case pins (``seed.json["demo"]
@@ -42,3 +62,14 @@ def active_pinned_versions() -> PinnedVersions:
     figures every other seeded case and the walkthrough already pin.
     """
     return pinned_versions_from_seed(load_raw()["demo"]["versions"])
+
+
+@lru_cache(maxsize=1)
+def active_type_domains() -> MappingProxyType[str, tuple[str, ...]]:
+    """Which risk domains each change type brings into scope
+    (``seed.json["type_domains"]``: a vendor onboarding is a channel change, a
+    new geography a geography change...), read-only and cached per process.
+    The union over a case's confirmed types is its ``domains``.
+    """
+    raw = load_raw()["type_domains"]
+    return MappingProxyType({str(k): tuple(str(d) for d in v) for k, v in raw.items()})

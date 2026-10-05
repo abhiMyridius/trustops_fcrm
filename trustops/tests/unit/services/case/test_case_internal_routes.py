@@ -211,22 +211,6 @@ def test_the_record_carries_values_with_origins_documents_and_originals(
     assert record.documents[0].pages == 14
 
 
-def test_a_value_written_through_the_legacy_field_route_is_visible_to_h1(
-    service: CaseService, act_as: Callable[[Role, str], None]
-) -> None:
-    act_as(Role.PO, "u-pnair")
-    written = service.client.put(
-        f"/cases/{CASE}/fields/F01", json={"value": "Priya Nair"}
-    )
-    assert written.status_code == 200
-    act_as(Role.SERVICE, SERVICE_SUB)
-    record = CaseRecordInternal.model_validate(
-        service.client.get(f"/internal/cases/{CASE}/record").json()
-    )
-    field = next(f for f in record.fields if f.field_id == "F01")
-    assert (field.value, field.origin) == ("Priya Nair", "owner_declared")
-
-
 def test_the_record_of_an_unknown_case_is_404(service: CaseService) -> None:
     assert (
         service.client.get("/internal/cases/FCRM-2026-9999/record").status_code == 404
@@ -726,7 +710,7 @@ def test_assigning_drops_the_load_cache_so_the_next_triage_sees_the_new_count(
     assert {x.analyst_id: x.open_case_count for x in after.loads}["u-mshah"] == 1
 
 
-# ── what the public create route now publishes ──────────────────────────────
+# ── what the public create route publishes ─────────────────────────────────
 
 
 def test_case_created_carries_the_pins_and_validates_as_the_typed_payload(
@@ -734,21 +718,16 @@ def test_case_created_carries_the_pins_and_validates_as_the_typed_payload(
 ) -> None:
     act_as(Role.PO, "u-pnair")
     created = service.client.post(
-        "/cases",
-        json={
-            "title": "Another case",
-            "unit": "Payments",
-            "owner": "u-pnair",
-            "change_types": ["vendor_onboarding"],
-        },
+        "/cases", json={"title": "Another case", "unit": "Payments"}
     )
     assert created.status_code == 201
     event = service.store.events[-1]
     assert event.type == "case.created"
     payload = CaseCreated.model_validate(event.payload)
+    assert payload.actor == "u-pnair"
     assert payload.data.pins is not None
     assert (payload.data.pins.scoring_v, payload.data.pins.fieldset_v) == (3, 6)
     assert payload.data.unit == "Payments"
-    record = service.store._cases[created.json()["case_id"]]
+    record = service.store.records[created.json()["id"]]
     assert record.owner_name == "u-pnair"
     assert payload.data.pins == record.pinned_versions

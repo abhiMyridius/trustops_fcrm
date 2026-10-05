@@ -7,7 +7,9 @@ dependencies = [
   "fcrm-contracts",
   "fcrm-seed",
   "fcrm-common",
+  "fcrm-guardrails",
   "fastapi>=0.115",
+  "python-multipart>=0.0.20",
   "uvicorn[standard]>=0.34",
 ]
 

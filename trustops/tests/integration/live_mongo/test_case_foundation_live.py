@@ -256,7 +256,9 @@ async def test_a_created_case_reaches_the_bus_path_and_the_relay_marks_it_publis
         {"case_id": record.case_id, "actor": "u-pnair", "data": {"title": "New case"}},
         case_id=record.case_id,
     )
-    await live_case.store.create(record, created)
+    await live_case.app.state.po_store.create_case(
+        record, created, event("case.created")
+    )
 
     async def published() -> bool:
         row = await db["outbox"].find_one({"event_id": created.event_id})
@@ -279,8 +281,11 @@ async def test_a_failed_write_enqueues_no_event(
     record = make_case_record(DEMO)  # already seeded: the insert fails
     created = build_envelope("case.created", {"case_id": DEMO}, case_id=DEMO)
     with pytest.raises(DuplicateKeyError):
-        await live_case.store.create(record, created)
+        await live_case.app.state.po_store.create_case(
+            record, created, event("case.created")
+        )
     assert await db["outbox"].count_documents({"event_id": created.event_id}) == 0
+    assert await db["activity"].count_documents({"case_id": DEMO}) == 0
 
 
 # ── the view store ──────────────────────────────────────────────────────────

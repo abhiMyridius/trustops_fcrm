@@ -389,6 +389,130 @@ test_po_denied_on_every_s2_to_s5_route if {
 	}
 }
 
+# ── the PO surface (fcrm_case.routes_po): every route it serves ─────────────
+# The set is what routes_po.py registers, with the route templates FastAPI
+# reports. A route added there without a rule here (or the other way round)
+# fails test_every_po_route_has_an_allow_rule_for_the_po.
+
+po_routes := {
+	["GET", "/dashboard"],
+	["GET", "/cases"],
+	["POST", "/cases"],
+	["GET", "/cases/{case_id}"],
+	["GET", "/cases/{case_id}/documents"],
+	["POST", "/cases/{case_id}/documents"],
+	["GET", "/cases/{case_id}/intake"],
+	["POST", "/cases/{case_id}/intake/categories/{change_type}"],
+	["POST", "/cases/{case_id}/intake/values/{field_id}"],
+	["POST", "/cases/{case_id}/intake/reuse"],
+	["POST", "/cases/{case_id}/intake/answers"],
+	["GET", "/cases/{case_id}/review"],
+	["POST", "/cases/{case_id}/validate"],
+	["POST", "/cases/{case_id}/submit"],
+	["POST", "/cases/{case_id}/discard"],
+	["GET", "/cases/{case_id}/activity"],
+	["GET", "/integrations"],
+	["POST", "/integrations/{integration_id}/{action}"],
+}
+
+po_write_routes := {r | some r in po_routes; r[0] == "POST"}
+
+# Staff may read a case's documents and its activity feed (their own shapes);
+# every other PO read is the owner's alone.
+shared_po_reads := {
+	["GET", "/cases/{case_id}/documents"],
+	["GET", "/cases/{case_id}/activity"],
+}
+
+test_every_po_route_has_an_allow_rule_for_the_po if {
+	every r in po_routes {
+		authz.allow with input as req("fcrm_po", "case", r[0], r[1])
+	}
+}
+
+test_no_other_person_role_may_call_a_po_write_route if {
+	every role in {"fcrm_analyst", "fcrm_committee", "fcrm_observer"} {
+		every r in po_write_routes {
+			not authz.allow with input as req(role, "case", r[0], r[1])
+		}
+	}
+}
+
+test_the_service_account_never_makes_a_po_decision if {
+	# It inherits the PO role for reads, so the deny rules are what stop it.
+	every r in po_write_routes {
+		not authz.allow with input as req("fcrm_service", "case", r[0], r[1])
+	}
+}
+
+po_only_reads := {r |
+	some r in po_routes
+	r[0] == "GET"
+	not r in shared_po_reads
+}
+
+test_po_reads_are_the_owners_alone_except_documents_and_activity if {
+	every role in {"fcrm_analyst", "fcrm_committee", "fcrm_observer"} {
+		every r in po_only_reads {
+			not authz.allow with input as req(role, "case", r[0], r[1])
+		}
+	}
+}
+
+test_staff_reads_of_documents_and_activity if {
+	authz.allow with input as req("fcrm_analyst", "case", "GET", "/cases/{case_id}/documents")
+	authz.allow with input as req("fcrm_analyst", "case", "GET", "/cases/{case_id}/activity")
+	not authz.allow with input as req("fcrm_committee", "case", "GET", "/cases/{case_id}/activity")
+	not authz.allow with input as req("fcrm_observer", "case", "GET", "/cases/{case_id}/documents")
+}
+
+test_the_observer_is_read_only_on_the_case_service if {
+	# The stream and the monitor, nothing else; never a write.
+	authz.allow with input as req("fcrm_observer", "case", "GET", "/cases/{case_id}/stream")
+	every r in po_routes {
+		not authz.allow with input as req("fcrm_observer", "case", r[0], r[1])
+	}
+}
+
+test_po_denied_every_analyst_route if {
+	every r in {
+		["GET", "/queue"],
+		["GET", "/cases/search"],
+		["GET", "/cases/{case_id}/workbench"],
+		["GET", "/cases/{case_id}/submissions"],
+		["GET", "/cases/{case_id}/submissions/diff"],
+		["GET", "/cases/{case_id}/items"],
+		["GET", "/cases/{case_id}/score"],
+		["GET", "/cases/{case_id}/recommendation"],
+		["POST", "/cases/{case_id}/change-types"],
+		["POST", "/cases/{case_id}/screening"],
+		["POST", "/cases/{case_id}/completeness"],
+		["POST", "/cases/{case_id}/clarifications"],
+		["POST", "/cases/{case_id}/acknowledge"],
+		["POST", "/cases/{case_id}/controls/planned"],
+		["POST", "/cases/{case_id}/gaps"],
+		["POST", "/cases/{case_id}/runs"],
+		["POST", "/cases/{case_id}/recommendation/lock"],
+		["POST", "/cases/{case_id}/recommendation/unlock"],
+		["POST", "/cases/{case_id}/close"],
+		["POST", "/cases/{case_id}/items/{item_id}"],
+		["PUT", "/cases/{case_id}/recommendation"],
+		["GET", "/conditions"],
+		["PATCH", "/conditions/{cnd_id}"],
+		["GET", "/reflags"],
+		["POST", "/reflags/{reflag_id}/acknowledge"],
+	} {
+		not authz.allow with input as req("fcrm_po", "case", r[0], r[1])
+	}
+}
+
+test_the_old_po_routes_are_gone_from_the_policy if {
+	# PUT fields / PUT title / GET versions were the pre-web shapes; nothing
+	# authorises them for anyone.
+	not authz.allow with input as req("fcrm_po", "case", "PUT", "/cases/{case_id}/fields/{field_id}")
+	not authz.allow with input as req("fcrm_po", "case", "PUT", "/cases/{case_id}/title")
+}
+
 # ── response shape ─────────────────────────────────────────────────────────
 
 test_response_reports_matched_rule if {

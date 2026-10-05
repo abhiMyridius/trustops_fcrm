@@ -1,6 +1,7 @@
-"""``fcrm_case.store.InMemoryCaseStore``: the conditional-update contract
-every write method shares (closed/already-submitted cases reject writes),
-and pagination.
+"""``fcrm_case.store.InMemoryCaseStore``: reads, pagination and the case-id
+counter. (The product owner's writes are ``fcrm_case.po_store``'s, tested in
+``test_po_store.py``; H1's state and assignment writes in
+``test_case_store_state.py``.)
 """
 
 from __future__ import annotations
@@ -9,15 +10,9 @@ from datetime import UTC, datetime
 
 import pytest
 from fcrm_case.domain.fieldset import FieldDef
-from fcrm_case.domain.record import (
-    CaseRecord,
-    FieldValueRecord,
-    SubmissionVersionRecord,
-)
+from fcrm_case.domain.record import CaseRecord, FieldValueRecord
 from fcrm_case.store import InMemoryCaseStore
-from fcrm_common.events import build_envelope
-from fcrm_contracts.enums import CaseState, ChangeType
-from fcrm_contracts.events.payloads import CaseEvent
+from fcrm_contracts.enums import ChangeType
 from fcrm_contracts.versions import PinnedVersions
 
 NOW = datetime(2026, 1, 12, tzinfo=UTC)
@@ -50,27 +45,21 @@ def _record(case_id: str, **overrides: object) -> CaseRecord:
     return CaseRecord(**base)  # type: ignore[arg-type]
 
 
-def _event(case_id: str, event_type: str) -> object:
-    return build_envelope(
-        event_type,
-        CaseEvent(case_id=case_id, actor="u-priya").model_dump(mode="json"),
-        case_id=case_id,
-    )
-
-
 @pytest.fixture
 def store() -> InMemoryCaseStore:
     return InMemoryCaseStore()
 
 
+def put(store: InMemoryCaseStore, record: CaseRecord) -> None:
+    store.records[record.case_id] = record
+
+
 @pytest.mark.asyncio
-async def test_create_then_get_round_trips_the_record(store: InMemoryCaseStore) -> None:
-    record = _record("FCRM-2026-0200")
-    await store.create(record, _event("FCRM-2026-0200", "case.created"))
+async def test_get_round_trips_a_stored_record(store: InMemoryCaseStore) -> None:
+    put(store, _record("FCRM-2026-0200"))
     fetched = await store.get("FCRM-2026-0200")
     assert fetched is not None
     assert fetched.case_id == "FCRM-2026-0200"
-    assert store.events[0].type == "case.created"
 
 
 @pytest.mark.asyncio
@@ -79,72 +68,10 @@ async def test_get_of_an_unknown_case_is_none(store: InMemoryCaseStore) -> None:
 
 
 @pytest.mark.asyncio
-async def test_write_field_recomputes_against_the_latest_state(
-    store: InMemoryCaseStore,
-) -> None:
-    await store.create(
-        _record("FCRM-2026-0201"), _event("FCRM-2026-0201", "case.created")
-    )
-    field = FieldValueRecord(field_id="F01", label="x", value="hello", filled_at=NOW)
-    updated = await store.write_field("FCRM-2026-0201", field)
-    assert updated is not None
-    assert updated.fields["F01"].value == "hello"
-
-
-@pytest.mark.asyncio
-async def test_write_field_on_a_closed_case_returns_none(
-    store: InMemoryCaseStore,
-) -> None:
-    await store.create(
-        _record("FCRM-2026-0202", state=CaseState.CLOSED),
-        _event("FCRM-2026-0202", "case.created"),
-    )
-    field = FieldValueRecord(field_id="F01", label="x", value="hello", filled_at=NOW)
-    assert await store.write_field("FCRM-2026-0202", field) is None
-
-
-@pytest.mark.asyncio
-async def test_write_field_on_an_already_submitted_case_returns_none(
-    store: InMemoryCaseStore,
-) -> None:
-    await store.create(
-        _record("FCRM-2026-0203", submitted_at=NOW),
-        _event("FCRM-2026-0203", "case.created"),
-    )
-    field = FieldValueRecord(field_id="F01", label="x", value="hello", filled_at=NOW)
-    assert await store.write_field("FCRM-2026-0203", field) is None
-
-
-@pytest.mark.asyncio
-async def test_submit_is_one_shot(store: InMemoryCaseStore) -> None:
-    await store.create(
-        _record("FCRM-2026-0204"), _event("FCRM-2026-0204", "case.created")
-    )
-    version = SubmissionVersionRecord(
-        version=1, created_at=NOW, created_by="u-priya", field_values={"F01": "hello"}
-    )
-    first = await store.submit(
-        "FCRM-2026-0204", version, _event("FCRM-2026-0204", "case.submitted")
-    )
-    assert first is not None
-    assert first.submitted_at == NOW
-
-    second_version = SubmissionVersionRecord(
-        version=2, created_at=NOW, created_by="u-priya", field_values={"F01": "again"}
-    )
-    second = await store.submit(
-        "FCRM-2026-0204", second_version, _event("FCRM-2026-0204", "case.submitted")
-    )
-    assert second is None  # already submitted -- rejected, not overwritten
-
-
-@pytest.mark.asyncio
 async def test_list_filters_by_owner_and_paginates(store: InMemoryCaseStore) -> None:
     for i in range(3):
-        case_id = f"FCRM-2026-030{i}"
-        await store.create(
-            _record(case_id, owner="u-priya" if i < 2 else "u-other"),
-            _event(case_id, "case.created"),
+        put(
+            store, _record(f"FCRM-2026-030{i}", owner="u-priya" if i < 2 else "u-other")
         )
     page = await store.list(owner="u-priya", limit=1)
     assert len(page.items) == 1
@@ -174,15 +101,14 @@ async def test_list_rejects_a_non_positive_limit_instead_of_slicing(
     """``limit=-1`` used to slice ``[0:-1]`` and silently drop the last row;
     the store now refuses it the way ``Repository.find_paginated`` does."""
     for i in range(3):
-        case_id = f"FCRM-2026-040{i}"
-        await store.create(_record(case_id), _event(case_id, "case.created"))
+        put(store, _record(f"FCRM-2026-040{i}"))
     with pytest.raises(ValueError, match="limit"):
         await store.list(limit=-1)
     with pytest.raises(ValueError, match="limit"):
         await store.list(limit=0)
 
 
-@pytest.mark.parametrize("blank", ["", "   ", "\n\t ", " "])
+@pytest.mark.parametrize("blank", ["", "   ", "\n\t ", " "])
 def test_a_whitespace_only_value_is_not_a_filled_field(blank: str) -> None:
     record = _record(
         "FCRM-2026-0500",

@@ -168,6 +168,50 @@
         "effect": "allow"
       },
       {
+        "id": "case-post-cases-id-validate-po",
+        "description": "PO dry-runs the four submit checks",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/validate",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-discard-po",
+        "description": "PO discards an unsubmitted draft (with a reason)",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/discard",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-integrations-po",
+        "description": "PO lists own integrations",
+        "service": "case",
+        "method": "GET",
+        "path": "/integrations",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-integrations-id-action-po",
+        "description": "PO connects or disconnects an integration",
+        "service": "case",
+        "method": "POST",
+        "path": "/integrations/{id}/{action}",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
         "id": "case-get-cases-id-inbox-po",
         "description": "PO clarification inbox",
         "service": "case",
@@ -1356,6 +1400,61 @@
         "service": "case",
         "method": "POST",
         "path": "/cases/{id}/submit",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases",
+        "description": "Guard 7: human decisions are made by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-documents",
+        "description": "Guard 7: human decisions are made by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/documents",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-validate",
+        "description": "Guard 7: human decisions are made by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/validate",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-discard",
+        "description": "Guard 7: human decisions are made by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/discard",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-integrations-id-action",
+        "description": "Guard 7: human decisions are made by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/integrations/{id}/{action}",
         "roles": [
           "fcrm_service"
         ],

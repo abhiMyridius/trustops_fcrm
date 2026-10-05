@@ -1,5 +1,5 @@
-"""Startup and shutdown: Mongo, the case/view/outbox indexes, the seed, the
-outbox relay, auth and the readiness probe.
+"""Startup and shutdown: Mongo, the case/view/PO/outbox indexes, the seed, the
+object store the uploads go to, the outbox relay, auth and the readiness probe.
 
 Unlike S2 there is no golden-number self-test to run (S1 has no scoring
 model to reproduce); the one startup check worth making is that the
@@ -23,6 +23,7 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fcrm_common.auth import install_auth
@@ -32,6 +33,7 @@ from fcrm_common.http import ServiceClient
 from fcrm_common.ids import new_id
 from fcrm_common.logging import configure_logging
 from fcrm_common.mongo import Document, MongoLease
+from fcrm_common.objectstore import ObjectStore
 from fcrm_common.outbox import Outbox, OutboxRelay, RelayRunner
 from fcrm_common.seedload import SeedReader
 from fcrm_common.service import ServiceDeps, standalone_deps
@@ -45,7 +47,15 @@ from fcrm_case.directory import (
     IdentityDirectory,
     UnconfiguredIdentityDirectory,
 )
-from fcrm_case.fieldset_provider import active_field_set, active_pinned_versions
+from fcrm_case.fieldset_provider import (
+    active_field_set,
+    active_pinned_versions,
+    active_type_domains,
+    field_set_for,
+)
+from fcrm_case.po_documents import DemoFixtures, DirectoryFixtures, ObjectFixtures
+from fcrm_case.po_store import MongoPoStore
+from fcrm_case.po_uploads import DocumentIntake
 from fcrm_case.seeding import seed_case_service
 from fcrm_case.settings import CaseSettings
 from fcrm_case.sse import EventHub
@@ -81,6 +91,35 @@ def _build_directory(
     )
     http = HttpIdentityDirectory(client)
     return http, http
+
+
+def _build_fixtures(settings: CaseSettings, objects: ObjectStore) -> DemoFixtures:
+    """Where ``{"demo_files": [...]}`` reads the committed demo documents from:
+    ``DEMO_DOCUMENTS_DIR`` when it names a directory, else the uploads bucket's
+    ``_fixtures/`` prefix that ``make seed`` fills.
+    """
+    directory = settings.demo_documents_dir
+    if directory:
+        path = Path(directory)
+        if path.is_dir():
+            return DirectoryFixtures(path)
+        logger.warning(
+            "DEMO_DOCUMENTS_DIR is not a directory; reading demo documents from "
+            "the object store",
+            extra={"directory": directory},
+        )
+    return ObjectFixtures(objects, settings.s3_bucket_uploads)
+
+
+def _uploads_check(objects: ObjectStore, bucket: str) -> ReadinessCheck:
+    """The uploads bucket answers a ``HEAD``. Not critical: the case service
+    still reads and decides without it; only an upload fails.
+    """
+
+    async def ping() -> None:
+        await objects.ping(bucket)
+
+    return ReadinessCheck("uploads_bucket", ping, critical=False)
 
 
 def start_relay(
@@ -144,9 +183,26 @@ async def register(
         )
 
     store = MongoCaseStore(deps.mongo, cases_repo, counters, outbox, activity)
+    po_store = MongoPoStore(
+        deps.mongo,
+        db,
+        cases_repo,
+        views.repos,
+        outbox,
+        activity,
+        field_sets=field_set_for,
+        type_domains=active_type_domains(),
+    )
+    await po_store.ensure_indexes()
+    objects = ObjectStore.from_settings(settings)
     directory, closable = _build_directory(settings)
     app.state.store = store
     app.state.views = views
+    app.state.po_store = po_store
+    app.state.objects = objects
+    app.state.intake = DocumentIntake(
+        objects, _build_fixtures(settings, objects), settings
+    )
     app.state.hub = EventHub(settings.sse_queue_size)
     app.state.directory = directory
     app.state.loads = AnalystLoadService(store, directory)
@@ -154,6 +210,7 @@ async def register(
 
     probe: ReadinessProbe = app.state.probe
     probe.add(mongo_check(deps.mongo))
+    probe.add(_uploads_check(objects, settings.s3_bucket_uploads))
 
     async with AsyncExitStack() as stack:
         if closable is not None:

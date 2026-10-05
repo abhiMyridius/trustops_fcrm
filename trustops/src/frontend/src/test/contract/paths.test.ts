@@ -17,11 +17,10 @@
 import { describe, expect, it } from 'vitest';
 import { handlerTemplatesOutsideEndpoints, servedRoutes, webRoutes } from './routes';
 
-/** Web routes the backend does not serve yet (66 of 83 on 5 Oct, after the identity alignment). */
+/** Web routes the backend does not serve yet (51 of 83 after the PO surface landed; 65 on 5 Oct). */
 const PENDING_ROUTES: readonly string[] = [
-  // S1 case: PO and analyst case routes, queues, dashboards, integrations, re-flags, harness (46)
+  // S1 case: PO and analyst case routes, queues, dashboards, integrations, re-flags, harness (32)
   'POST /api/fcrm/cases/{id}/acknowledge',
-  'GET /api/fcrm/cases/{id}/activity',
   'GET /api/fcrm/cases/{id}/assessment',
   'POST /api/fcrm/cases/{id}/change-types',
   'GET /api/fcrm/cases/{id}/clarifications',
@@ -33,18 +32,10 @@ const PENDING_ROUTES: readonly string[] = [
   'GET /api/fcrm/cases/{id}/conditions',
   'POST /api/fcrm/cases/{id}/conditions/{id}/evidence',
   'POST /api/fcrm/cases/{id}/controls/planned',
-  'POST /api/fcrm/cases/{id}/discard',
-  'GET /api/fcrm/cases/{id}/documents',
-  'POST /api/fcrm/cases/{id}/documents',
   'POST /api/fcrm/cases/{id}/gaps',
   'GET /api/fcrm/cases/{id}/handoff',
   'GET /api/fcrm/cases/{id}/harness',
   'GET /api/fcrm/cases/{id}/inbox',
-  'GET /api/fcrm/cases/{id}/intake',
-  'POST /api/fcrm/cases/{id}/intake/answers',
-  'POST /api/fcrm/cases/{id}/intake/categories/{id}',
-  'POST /api/fcrm/cases/{id}/intake/reuse',
-  'POST /api/fcrm/cases/{id}/intake/values/{id}',
   'POST /api/fcrm/cases/{id}/items/{id}',
   'GET /api/fcrm/cases/{id}/outcome',
   'GET /api/fcrm/cases/{id}/policy',
@@ -52,17 +43,12 @@ const PENDING_ROUTES: readonly string[] = [
   'PUT /api/fcrm/cases/{id}/recommendation',
   'POST /api/fcrm/cases/{id}/recommendation/lock',
   'POST /api/fcrm/cases/{id}/recommendation/unlock',
-  'GET /api/fcrm/cases/{id}/review',
   'GET /api/fcrm/cases/{id}/risk',
   'POST /api/fcrm/cases/{id}/screening',
   'GET /api/fcrm/cases/{id}/submissions',
   'GET /api/fcrm/cases/{id}/submissions/diff',
-  'POST /api/fcrm/cases/{id}/validate',
   'GET /api/fcrm/cases/{id}/workbench',
-  'GET /api/fcrm/dashboard',
   'GET /api/fcrm/dashboard/analyst',
-  'GET /api/fcrm/integrations',
-  'POST /api/fcrm/integrations/{id}/{id}',
   'GET /api/fcrm/queue',
   'GET /api/fcrm/reflags',
   'POST /api/fcrm/reflags/{id}/acknowledge',

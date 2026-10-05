@@ -6,8 +6,12 @@ One MongoDB database per service (no service reads another's database directly â
 
 | Collection | Shape | Notes |
 |---|---|---|
-| `cases` | `CaseDetailPO` (PO projection) / `CaseWorkbenchSummary` (analyst projection) | One case document; role-shaped responses come from which fields the HTTP layer selects, not from two different stored documents |
-| `submission_versions` | `SubmissionVersion` | Append-only per case; `SubmissionVersionDiff` is computed between two versions, not stored redundantly |
+| `cases` | `fcrm_case.domain.record.CaseRecord` | One case document; every role's response is built from stored rows by its own module (`fcrm_case.po_views` for the owner), never by stripping a shared shape. A discarded draft carries `discarded_at` and reads as missing |
+| `field_values` | `FieldValueRow` | One row per case field (`_id = case:field`); `origin`, `source` (document span, case or question) and `history[]`, which keeps the extracted original when the owner corrects it |
+| `documents` | `DocumentRow` | Uploaded files (MinIO `uploads/{case}/{doc}/{name}`) and what H3 made of them; inserted with their `case.document_stored` outbox row in one transaction |
+| `submission_versions` | `SubmissionVersionRow` | Frozen per case, unique `{case_id, version}`; written once, never updated. `SubmissionVersionDiff` is computed between two versions, not stored redundantly |
+| `po_decisions` | `PoDecisionRow` | The ledger of owner gate decisions: a deterministic `_id` per gate, so the first decision emits `gate.decided` and a later change to the same data does not |
+| `integrations` | `IntegrationRow` | One owner's choice per integration (`{user_id}`); no row means the catalogue default |
 | `review_items` | `ReviewItem` | One per clause/factor/control/critic-finding proposal; `kind` discriminates (`ItemKind`) |
 | `threads` | `ClarificationThreadPO` | One clarification round per document; `round_open` flag on the run mirrors whether a thread is still awaiting an answer |
 | `conditions` | `ConditionPO` | Activated on `outcome.set`; 14-day-before-due reminders are computed from `due`, not stored as separate reminder documents |

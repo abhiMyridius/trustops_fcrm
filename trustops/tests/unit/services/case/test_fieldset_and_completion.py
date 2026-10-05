@@ -109,17 +109,32 @@ def test_completion_with_zero_required_fields_is_vacuously_complete() -> None:
 
 
 class TestSubmitChecks:
+    @staticmethod
+    def run(completion, *, pending=(), confirmed=3, conflicts=()):
+        return evaluate_submit_checks(
+            completion,
+            0.8,
+            always_required_total=6,
+            pending_types=pending,
+            confirmed_types=confirmed,
+            conflicts=conflicts,
+        )
+
     def test_all_four_pass_at_the_demo_s_83_percent(self, demo_required_fields) -> None:
         completion = compute_completion(
             demo_required_fields, TestCompletionAtEachDemoStage.FILLED_AT_SUBMIT
         )
-        checks = evaluate_submit_checks(
-            completion,
-            completion_threshold=0.8,
-            no_open_blocking_gaps=True,
-            owner_reviewed_corrections=True,
-        )
-        assert checks.all_passed is True
+        checks = self.run(completion)
+        assert [c.id for c in checks.checks] == [
+            "completion",
+            "always_required",
+            "types_confirmed",
+            "no_conflicts",
+        ]
+        assert checks.all_ok is True
+        assert checks.can_submit is True
+        assert checks.checks[0].detail == "83% ≥ 80%"
+        assert checks.checks[1].detail == "6 of 6"
 
     def test_below_threshold_fails_the_completion_check_only(
         self, demo_required_fields
@@ -127,15 +142,11 @@ class TestSubmitChecks:
         completion = compute_completion(
             demo_required_fields, TestCompletionAtEachDemoStage.FILLED_AFTER_EXTRACTION
         )
-        checks = evaluate_submit_checks(
-            completion,
-            completion_threshold=0.8,
-            no_open_blocking_gaps=True,
-            owner_reviewed_corrections=True,
-        )
-        assert checks.completion_at_least_threshold is False
-        assert checks.all_always_required_filled is True
-        assert checks.all_passed is False
+        checks = self.run(completion)
+        assert [c.id for c in checks.blocking_failures] == ["completion"]
+        assert checks.can_submit is False
+        assert checks.checks[0].detail == "50%: 6 more field(s) needed to reach 80%"
+        assert checks.checks[1].ok is True
 
     def test_a_missing_always_required_field_fails_even_above_threshold(self) -> None:
         """A case could clear 80% overall while still missing one
@@ -151,28 +162,49 @@ class TestSubmitChecks:
             f"F{i}" for i in range(18) if i != 2
         }  # miss F2, an always-required field
         completion = compute_completion(fields, filled)
-
-        checks = evaluate_submit_checks(
-            completion,
-            completion_threshold=0.8,
-            no_open_blocking_gaps=True,
-            owner_reviewed_corrections=True,
-        )
+        checks = self.run(completion)
         assert completion.pct == pytest.approx(17 / 18)
-        assert checks.completion_at_least_threshold is True
-        assert checks.all_always_required_filled is False
-        assert checks.all_passed is False
+        assert checks.checks[0].ok is True
+        assert [c.id for c in checks.blocking_failures] == ["always_required"]
+        assert checks.checks[1].detail == "5 of 6"
 
-    def test_an_open_blocking_gap_fails_regardless_of_completion(
-        self, demo_required_fields
-    ) -> None:
+    def test_a_change_type_still_to_confirm_blocks(self, demo_required_fields) -> None:
         completion = compute_completion(
             demo_required_fields, TestCompletionAtEachDemoStage.FILLED_AT_SUBMIT
         )
-        checks = evaluate_submit_checks(
-            completion,
-            completion_threshold=0.8,
-            no_open_blocking_gaps=False,
-            owner_reviewed_corrections=True,
+        checks = self.run(completion, pending=["new_product"], confirmed=2)
+        assert [c.id for c in checks.blocking_failures] == ["types_confirmed"]
+        assert checks.checks[2].detail == "1 still to confirm"
+
+    def test_no_confirmed_type_blocks(self, demo_required_fields) -> None:
+        completion = compute_completion(
+            demo_required_fields, TestCompletionAtEachDemoStage.FILLED_AT_SUBMIT
         )
-        assert checks.all_passed is False
+        checks = self.run(completion, confirmed=0)
+        assert checks.checks[2].detail == "No change type confirmed yet"
+        assert checks.can_submit is False
+
+    def test_a_conflict_is_a_notice_never_a_block(self, demo_required_fields) -> None:
+        completion = compute_completion(
+            demo_required_fields, TestCompletionAtEachDemoStage.FILLED_AT_SUBMIT
+        )
+        checks = self.run(completion, conflicts=["F05 has 2 candidates"])
+        notice = checks.checks[3]
+        assert (notice.ok, notice.blocking) == (True, False)
+        assert notice.detail == (
+            "1 inconsistency flagged for the analyst (F05 has 2 candidates), "
+            "not blocking"
+        )
+        assert checks.can_submit is True
+
+    def test_a_percentage_just_below_the_threshold_is_never_shown_as_met(self) -> None:
+        from fcrm_case.domain.fieldset import FieldDef
+
+        fields = [
+            FieldDef(field_id=f"F{i}", label="x", always_required=False)
+            for i in range(200)
+        ]
+        completion = compute_completion(fields, {f"F{i}" for i in range(159)})
+        check = self.run(completion).checks[0]
+        assert check.ok is False
+        assert check.detail.startswith("79%:")
