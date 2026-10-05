@@ -11,19 +11,15 @@ a score (see ``shaping.py``'s module docstring and
 worst return the wrong *shape* to the wrong caller -- never leak a
 restricted field through the PO shape itself.
 
-``GET /cases/{case_id}/stream`` is a disclosed stub: it polls this
-service's own store (``fcrm_case.sse.case_update_stream``) rather than
-consuming H1's real caseflow events over RabbitMQ. No outbox consumer or
-Caseflow tap exists in this service; wiring one is future work, not done
-here to avoid adding a broker dependency to a unit that otherwise needs
-none (see the task report for the full rationale).
+``GET /cases/{case_id}/stream`` is the real event stream (``fcrm_case.sse``):
+persisted, replayable activity pushed to an in-process hub, filtered by role.
 """
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Optional, Union
+from typing import Annotated, Optional, Union
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 from fcrm_common.auth import require_roles
 from fcrm_common.errors import (
     ConflictError,
@@ -52,10 +48,12 @@ from fcrm_contracts.api.case_po import (
 )
 from fcrm_contracts.common import Page, Principal
 from fcrm_contracts.enums import CaseState, Role
-from fcrm_contracts.events.payloads import CaseEvent
+from fcrm_contracts.events.payloads import CaseCreated, CaseCreatedData, CaseEvent
 from fcrm_contracts.tools.submission_diff import SubmissionDiffOutput
 from starlette.responses import StreamingResponse
 
+from fcrm_case.deps import get_hub, get_settings, get_store
+from fcrm_case.domain.activity import audience_of
 from fcrm_case.domain.completion import compute_completion
 from fcrm_case.domain.diffing import (
     SubmissionVersionNotFoundError,
@@ -78,7 +76,7 @@ from fcrm_case.shaping import (
     to_case_list_item_analyst,
     to_case_list_item_po,
 )
-from fcrm_case.sse import case_update_stream
+from fcrm_case.sse import EventHub, StreamParams, case_event_stream
 from fcrm_case.store import CaseStore
 
 router = APIRouter(tags=["case"])
@@ -92,20 +90,8 @@ CaseDetail = Union[CaseDetailPO, CaseDetailAnalyst, CaseDetailInternal]
 
 _CASE_READ_ROLES = (Role.PO, Role.ANALYST, Role.COMMITTEE, Role.SERVICE)
 _CASE_REVIEW_ROLES = (Role.ANALYST, Role.COMMITTEE, Role.SERVICE)
-
-
-def get_store(request: Request) -> CaseStore:
-    """The store ``lifespan.py`` wired onto ``app.state`` at startup (or an
-    ``InMemoryCaseStore`` a test wired instead).
-    """
-    store: CaseStore = request.app.state.store
-    return store
-
-
-def get_settings(request: Request) -> CaseSettings:
-    """The settings ``lifespan.py``/a test fixture wired onto ``app.state``."""
-    settings: CaseSettings = request.app.state.settings
-    return settings
+#: Who may open a case's event stream: the PO (own cases) and the staff roles.
+_STREAM_ROLES = (Role.PO, Role.ANALYST, Role.COMMITTEE, Role.OBSERVER, Role.SERVICE)
 
 
 def _shape_for(principal: Principal) -> str:
@@ -169,6 +155,7 @@ async def create_case(
         unit=body.unit,
         owner=body.owner,
         created_by=principal.sub,
+        owner_name=principal.name,
         change_types=body.change_types,
         fieldset_v=field_set.version,
         completion_threshold=field_set.completion_threshold,
@@ -178,13 +165,15 @@ async def create_case(
     )
     event = build_envelope(
         "case.created",
-        CaseEvent(
+        CaseCreated(
             case_id=case_id,
             actor=principal.sub,
-            data={
-                "title": body.title,
-                "change_types": [ct.value for ct in body.change_types],
-            },
+            data=CaseCreatedData(
+                title=body.title,
+                unit=body.unit,
+                change_types=body.change_types,
+                pins=record.pinned_versions,
+            ),
         ).model_dump(mode="json"),
         case_id=case_id,
     )
@@ -402,41 +391,65 @@ async def diff_submission_version_pair(
     return SubmissionDiffOutput(changed_fields=changed)
 
 
+def _resume_point(header: Optional[str], query: Optional[str]) -> Optional[int]:
+    """The ``seq`` the client last saw: the ``Last-Event-ID`` header (what a
+    browser sends when it reconnects on its own) or ``?last_event_id=`` (what
+    the web client sets when it reopens). The header wins.
+
+    Raises:
+        ValidationError: The value is not a non-negative integer.
+    """
+    raw = header if header else query
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValidationError("Last-Event-ID must be a stream sequence number") from exc
+    if value < 0:
+        raise ValidationError("Last-Event-ID must not be negative")
+    return value
+
+
 @router.get("/cases/{case_id}/stream")
 async def stream_case(
     case_id: str,
     request: Request,
-    principal: Annotated[Principal, Depends(require_roles(*_CASE_READ_ROLES))],
+    principal: Annotated[Principal, Depends(require_roles(*_STREAM_ROLES))],
     store: Annotated[CaseStore, Depends(get_store)],
+    hub: Annotated[EventHub, Depends(get_hub)],
     settings: Annotated[CaseSettings, Depends(get_settings)],
+    last_event_id: Annotated[Optional[str], Header()] = None,
+    last_event_id_query: Annotated[Optional[str], Query(alias="last_event_id")] = None,
 ) -> StreamingResponse:
-    """A live-update SSE stream for one case (module docstring: this polls
-    this service's own store; no caseflow/outbox tap is wired yet).
+    """The case's live event stream (``fcrm_case.sse``): unnamed frames
+    ``id: <seq>`` / ``data: {type, caseId, seq, at, payload}``.
+
+    ``Last-Event-ID`` (or ``?last_event_id=``) replays everything after that
+    ``seq`` from the activity log; without one the stream starts at the case's
+    current head. A PO must own the case (another PO's case is a 404) and is
+    shown ``po``/``all`` entries only, never score, harness or audit events;
+    analysts, committee members, observers and the service account are shown
+    the analyst feed too.
     """
-    record = await _get_or_404(store, case_id)
-    shape = _shape_for(principal)
-    if shape == "po":
+    record = await store.get(case_id, with_versions=False)
+    if record is None:
+        raise NotFoundError(f"no such case {case_id}")
+    audience = audience_of(principal)
+    if audience == "po":
         _require_po_owner(principal, record)
-
-    async def fetch_snapshot() -> Optional[dict[str, Any]]:
-        current = await store.get(case_id)
-        if current is None:
-            return None
-        completion = completion_state(current)
-        return {
-            "case_id": current.case_id,
-            "state": current.state.value,
-            "completion_pct": completion.pct,
-            "submitted_at": current.submitted_at.isoformat()
-            if current.submitted_at
-            else None,
-        }
-
-    max_ticks = max(1, int(settings.sse_max_lifetime_s / settings.sse_heartbeat_s))
+    resume = _resume_point(last_event_id, last_event_id_query)
+    head = record.activity_seq
+    params = StreamParams(
+        case_id=case_id,
+        audience=audience,
+        # A client cannot be ahead of the case (a re-seeded database): clamp.
+        start_seq=head if resume is None else min(resume, head),
+        heartbeat_s=settings.sse_heartbeat_s,
+        max_lifetime_s=settings.sse_max_lifetime_s,
+    )
     return StreamingResponse(
-        case_update_stream(
-            request, fetch_snapshot, settings.sse_heartbeat_s, max_ticks
-        ),
+        case_event_stream(request, hub, store.activity, params),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

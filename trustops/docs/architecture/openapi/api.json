@@ -1256,12 +1256,15 @@
         "type": "object"
       },
       "ItemKind": {
-        "description": "What a review_item (Gate A, review_item gate) carries.",
+        "description": "What an S1 ``review_item`` carries. ``clause``, ``factor``, ``control``\nand ``critic_finding`` sit behind Gate A (the analyst's ``review_item``\ngates); ``category``, ``value`` and ``gap`` are the intake items the PO\ndecides (``po_confirm_category``, ``po_confirm_value``, ``po_answer_gaps``).",
         "enum": [
           "clause",
           "factor",
           "control",
-          "critic_finding"
+          "critic_finding",
+          "category",
+          "value",
+          "gap"
         ],
         "title": "ItemKind",
         "type": "string"
@@ -3550,7 +3553,7 @@
     },
     "/api/fcrm/cases/{case_id}/stream": {
       "get": {
-        "description": "A live-update SSE stream for one case (module docstring: this polls\nthis service's own store; no caseflow/outbox tap is wired yet).",
+        "description": "The case's live event stream (``fcrm_case.sse``): unnamed frames\n``id: <seq>`` / ``data: {type, caseId, seq, at, payload}``.\n\n``Last-Event-ID`` (or ``?last_event_id=``) replays everything after that\n``seq`` from the activity log; without one the stream starts at the case's\ncurrent head. A PO must own the case (another PO's case is a 404) and is\nshown ``po``/``all`` entries only, never score, harness or audit events;\nanalysts, committee members, observers and the service account are shown\nthe analyst feed too.",
         "operationId": "S1_stream_case_cases__case_id__stream_get",
         "parameters": [
           {
@@ -3560,6 +3563,38 @@
             "schema": {
               "title": "Case Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "last_event_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Event Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "last-event-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last-Event-Id"
             }
           }
         ],

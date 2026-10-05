@@ -38,6 +38,47 @@ test_service_can_call_internal_routes if {
 	authz.allow with input as req("fcrm_service", "case", "PATCH", "/internal/cases/{id}/state")
 }
 
+# S1's internal routes (design A section 8.2: /internal/* is service-only). The set is
+# what fcrm_case.routes_internal serves; the gateway also 404s any /internal/ path.
+internal_case_routes := {
+	["GET", "/internal/cases/{case_id}/record"],
+	["GET", "/internal/cases/{case_id}/items"],
+	["PUT", "/internal/cases/{case_id}/items"],
+	["PUT", "/internal/cases/{case_id}/intake"],
+	["PATCH", "/internal/cases/{case_id}/state"],
+	["POST", "/internal/cases/{case_id}/assign"],
+	["POST", "/internal/cases/{case_id}/events"],
+	["GET", "/internal/documents/{doc_id}"],
+	["PATCH", "/internal/documents/{doc_id}"],
+	["GET", "/internal/analysts/load"],
+}
+
+test_service_may_call_every_internal_case_route if {
+	every r in internal_case_routes {
+		authz.allow with input as req("fcrm_service", "case", r[0], r[1])
+	}
+}
+
+test_no_person_role_may_call_an_internal_case_route if {
+	every role in {"fcrm_po", "fcrm_analyst", "fcrm_committee", "fcrm_observer"} {
+		every r in internal_case_routes {
+			not authz.allow with input as req(role, "case", r[0], r[1])
+		}
+	}
+}
+
+test_the_case_stream_serves_every_person_role_and_the_service if {
+	every role in {"fcrm_po", "fcrm_analyst", "fcrm_committee", "fcrm_observer", "fcrm_service"} {
+		authz.allow with input as req(role, "case", "GET", "/cases/{case_id}/stream")
+	}
+}
+
+test_the_stream_is_read_only if {
+	every role in {"fcrm_po", "fcrm_analyst", "fcrm_committee", "fcrm_observer"} {
+		not authz.allow with input as req(role, "case", "POST", "/cases/{case_id}/stream")
+	}
+}
+
 test_service_requests_the_score_of_record if {
 	authz.allow with input as req("fcrm_service", "scoring", "POST", "/score")
 }

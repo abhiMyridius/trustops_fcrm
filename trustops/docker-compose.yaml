@@ -91,6 +91,7 @@ x-service-urls: &service-urls
   POLICY_SERVICE_URL: http://api:8000/api/fcrm/policy
   AUDIT_SERVICE_URL: http://api:8000/api/fcrm/audit
   DECISION_SERVICE_URL: http://api:8000/api/fcrm/decision
+  IDENTITY_SERVICE_URL: http://api:8000/api/fcrm/auth
 
 x-service: &service
   restart: unless-stopped

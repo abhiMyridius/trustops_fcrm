@@ -13,8 +13,10 @@ from here instead of adding another nested one, per the standard.
 from __future__ import annotations
 
 import os
-from collections.abc import Callable, Iterator
+import uuid
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import AbstractContextManager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -38,7 +40,9 @@ os.environ.setdefault("LITELLM_MODE", "PRODUCTION")
 if TYPE_CHECKING:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+    from fcrm_case.directory import AnalystLoadService, StaticIdentityDirectory
     from fcrm_case.domain.record import CaseRecord
+    from fcrm_case.sse import EventHub
     from fcrm_case.store import InMemoryCaseStore
     from fcrm_case.views_store import InMemoryViewStore
     from fcrm_common.authz import OPAClient
@@ -568,6 +572,14 @@ def synthetic_corpus_clauses(
 
 
 # ── S1 foundation: records, events, the view store and the internal API ─────
+#: The analysts the fake identity roster holds (the seed's three, by id).
+ROSTER_ANALYSTS: tuple[tuple[str, str], ...] = (
+    ("u-riyer", "Rahul Iyer"),
+    ("u-mshah", "Meera Shah"),
+    ("u-dbrooks", "Daniel Brooks"),
+)
+
+
 @pytest.fixture
 def make_case_record() -> Callable[..., CaseRecord]:
     """``make_case_record(case_id="FCRM-2026-0151", **overrides)``: a stored
@@ -636,11 +648,77 @@ def make_event() -> Callable[..., UiEventIn]:
 
 
 @pytest.fixture
+def event_hub() -> EventHub:
+    """A fresh in-process stream hub."""
+    from fcrm_case.sse import EventHub
+
+    return EventHub()
+
+
+@pytest.fixture
 def view_store() -> InMemoryViewStore:
     """S1's in-memory view store (field values, documents, review items)."""
     from fcrm_case.views_store import InMemoryViewStore
 
     return InMemoryViewStore()
+
+
+@dataclass
+class CaseService:
+    """The real S1 app over in-memory stores, with its parts exposed so a test
+    can arrange and inspect state: ``client`` drives HTTP as whoever
+    ``act_as`` last set.
+    """
+
+    client: TestClient
+    store: InMemoryCaseStore
+    views: InMemoryViewStore
+    hub: EventHub
+    directory: StaticIdentityDirectory
+    loads: AnalystLoadService
+
+
+@pytest.fixture
+def case_service(
+    case_store: InMemoryCaseStore,
+    view_store: InMemoryViewStore,
+    event_hub: EventHub,
+    acting_principal: dict[str, Principal],
+) -> CaseService:
+    """The S1 app (public and internal routes) wired with in-memory stores, an
+    in-process hub, a fixed analyst roster and a fake caller (``act_as``).
+    """
+    from fastapi.testclient import TestClient
+    from fcrm_case.directory import AnalystLoadService, StaticIdentityDirectory
+    from fcrm_case.main import create_app
+    from fcrm_case.settings import CaseSettings
+    from fcrm_common.auth import current_user
+    from fcrm_contracts.api.identity import RosterUser
+    from fcrm_contracts.enums import Role
+
+    directory = StaticIdentityDirectory(
+        [
+            RosterUser(id=uid, name=name, roles=[Role.ANALYST], unit=None)
+            for uid, name in ROSTER_ANALYSTS
+        ]
+    )
+    loads = AnalystLoadService(case_store, directory)
+    app = create_app()
+    app.state.store = case_store
+    app.state.views = view_store
+    app.state.hub = event_hub
+    app.state.directory = directory
+    app.state.loads = loads
+    app.state.settings = CaseSettings(sse_heartbeat_s=0.01, sse_max_lifetime_s=0.05)
+    app.dependency_overrides[current_user] = lambda: acting_principal["principal"]
+    return CaseService(
+        client=TestClient(app),
+        store=case_store,
+        views=view_store,
+        hub=event_hub,
+        directory=directory,
+        loads=loads,
+    )
 
 
 # ── the outbox relay's fakes (the relay and its runner, no database or broker) ─
@@ -765,3 +843,114 @@ def queue_events(
         ]
 
     return _queue
+
+
+# ── a real MongoDB replica set (opt-in, like tests/integration/live_mongo) ─────
+@pytest.fixture
+async def live_db() -> AsyncIterator[Any]:
+    """A throw-away database on the replica set ``FCRM_TEST_MONGO_URI`` names
+    (``mongodb://127.0.0.1:27417/?replicaSet=rs0``); the test is skipped when
+    the variable is unset. Dropped afterwards, so it is safe against a Mongo
+    other work is using. The client is tz-aware, as ``fcrm_common.mongo`` makes
+    every service's.
+    """
+    uri = os.environ.get("FCRM_TEST_MONGO_URI", "")
+    if not uri:
+        pytest.skip("FCRM_TEST_MONGO_URI not set")
+    from pymongo import AsyncMongoClient
+
+    client: AsyncMongoClient[Any] = AsyncMongoClient(
+        uri, tz_aware=True, uuidRepresentation="standard"
+    )
+    name = f"fcrm_case_live_{uuid.uuid4().hex[:10]}"
+    try:
+        yield client[name]
+    finally:
+        await client.drop_database(name)
+        await client.close()
+
+
+@dataclass
+class LiveCase:
+    """S1's real lifespan (``register``) running on a throw-away database of a
+    real replica set, with a recording publisher in place of the broker.
+    ``http`` calls the app in-process (same event loop as the Mongo client) as
+    H1's service account.
+    """
+
+    app: FastAPI
+    db: Any
+    publisher: RecordingPublisher
+    http: Any
+
+    @property
+    def store(self) -> Any:
+        """The ``MongoCaseStore`` the lifespan wired."""
+        return self.app.state.store
+
+    @property
+    def views(self) -> Any:
+        """The ``MongoViewStore`` the lifespan wired."""
+        return self.app.state.views
+
+
+@pytest.fixture
+async def live_case(
+    live_db: Any,
+    recording_publisher: RecordingPublisher,
+    bearer_for: Callable[..., dict[str, str]],
+) -> AsyncIterator[LiveCase]:
+    """The S1 lifespan on a real Mongo: indexes ensured, the seed loaded
+    (``SEED_ON_EMPTY``), the outbox relay running under the case lease with
+    ``recording_publisher``, the analyst roster fixed to the seed's three.
+    """
+    import httpx
+    from fcrm_case.directory import AnalystLoadService, StaticIdentityDirectory
+    from fcrm_case.lifespan import register
+    from fcrm_case.main import create_app
+    from fcrm_case.settings import CaseSettings
+    from fcrm_common.auth import TokenVerifier
+    from fcrm_common.authz import OPAClient
+    from fcrm_common.service import ServiceDeps
+    from fcrm_contracts.api.identity import RosterUser
+    from fcrm_contracts.enums import Role
+
+    secret = "x" * 32
+    settings = CaseSettings(
+        mongodb_db=live_db.name,
+        seed_on_empty=True,
+        service_token_secret=secret,
+        env="test",
+        identity_service_url="http://identity.invalid/api/fcrm/auth",
+        sse_heartbeat_s=0.02,
+        sse_max_lifetime_s=0.3,
+    )
+    verifier = TokenVerifier(service_secret=secret)
+    opa = OPAClient("http://opa.invalid")
+    deps = ServiceDeps(
+        mongo=live_db.client,
+        token_verifier=verifier,
+        opa=opa,
+        publisher=recording_publisher,
+        lease_holder="relay_test",
+    )
+    app = create_app(standalone=False)
+    try:
+        async with register(app, settings, deps):
+            directory = StaticIdentityDirectory(
+                [
+                    RosterUser(id=uid, name=name, roles=[Role.ANALYST])
+                    for uid, name in ROSTER_ANALYSTS
+                ]
+            )
+            app.state.directory = directory
+            app.state.loads = AnalystLoadService(app.state.store, directory)
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app),
+                base_url="http://case.test",
+                headers=bearer_for(secret, "caseflow"),
+            ) as http:
+                yield LiveCase(app, live_db, recording_publisher, http)
+    finally:
+        await verifier.aclose()
+        await opa.aclose()

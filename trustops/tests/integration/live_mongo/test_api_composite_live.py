@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
+import time
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
@@ -39,8 +40,10 @@ from fcrm_api.registry import MOUNTS
 from fcrm_audit.lifespan import InsertOnlyRoleViolatedError
 from fcrm_common import mongo
 from fcrm_common.authz import OPAClient, install_authz
+from fcrm_common.events import build_envelope
 from fcrm_common.health import ReadinessCheck
 from fcrm_common.mongo import Document
+from fcrm_contracts.events.envelope import Envelope
 from pymongo import AsyncMongoClient
 
 URI = os.environ.get("FCRM_TEST_MONGO_URI", "")
@@ -177,6 +180,42 @@ def test_all_six_services_start_and_the_aggregate_readiness_lists_them(
         assert set(ready.json()["checks"]) == {m.component_id for m in MOUNTS} | {
             "rabbitmq"
         }
+
+
+def test_s1_relays_its_outbox_through_the_composites_broker(
+    clean_dbs: None,
+    composite_env: None,
+    fake_broker: FakeBroker,
+    composite_client: Callable[[], AbstractContextManager[TestClient]],
+    make_case_record: Callable[..., object],
+) -> None:
+    with composite_client() as client:
+        assert fake_broker.started is True
+        store = client.app.state.mounted["S1"].state.store  # type: ignore[attr-defined]
+        record = make_case_record("FCRM-2026-0300", title="Relay check")
+        created: Envelope = build_envelope(
+            "case.created",
+            {"case_id": "FCRM-2026-0300", "actor": "u-pnair", "data": {}},
+            case_id="FCRM-2026-0300",
+        )
+        # The store belongs to the app's event loop: call it on the same one.
+        client.portal.call(store.create, record, created)  # type: ignore[union-attr]
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and not any(
+            Envelope.model_validate_json(body).event_id == created.event_id
+            for body, _kwargs in fake_broker.published
+        ):
+            time.sleep(0.05)
+        sent = [
+            (body, kwargs)
+            for body, kwargs in fake_broker.published
+            if Envelope.model_validate_json(body).event_id == created.event_id
+        ]
+        assert len(sent) == 1
+        assert sent[0][1]["routing_key"] == "case.created"
+        ready = client.get("/api/fcrm/readyz")
+        assert ready.json()["checks"]["outbox"]["ok"] is True
+    assert fake_broker.started is False
 
 
 def test_real_requests_reach_each_mounted_service_through_the_shared_clients(
