@@ -24,11 +24,33 @@ function ensureIndex(database, collection, keys, options) {
 // One record per (case, seq): optimistic seq allocation retries on duplicate.
 ensureIndex("fcrm_audit", "audit_records", { case_id: 1, seq: 1 }, { unique: true });
 ensureIndex("fcrm_audit", "audit_records", { case_id: 1, type: 1 });
-ensureIndex("fcrm_audit", "proposals", { case_id: 1, agent: 1, kind: 1 });
-ensureIndex("fcrm_audit", "proposals", { run_id: 1 });
+// Proposals (the evidence ledger, GET /proposals?case_id=&run_id=&agent=&kind=):
+// seq is one monotonic number per case, so {case_id, seq} is unique (a lost
+// allocation race raises a duplicate key and S4 retries) and also serves the
+// seq-ordered page and the "highest seq" read; the compound index serves the
+// filtered reads; {case_id, supersedes} serves the superseded_by lookup and is
+// sparse because most proposals supersede nothing.
+ensureIndex("fcrm_audit", "proposals", { case_id: 1, seq: 1 }, { unique: true });
+ensureIndex("fcrm_audit", "proposals", { case_id: 1, run_id: 1, agent: 1, kind: 1 });
+ensureIndex("fcrm_audit", "proposals", { case_id: 1, supersedes: 1 }, { sparse: true });
 ensureIndex("fcrm_audit", "verify_runs", { case_id: 1, at: -1 });
-// Idempotency-Key replay window: 24 h (design A §2).
+// Idempotency-Key replay window: 24 h (design A §2). _id is the key itself, so
+// uniqueness is the collection's built-in _id index; the row is inserted once,
+// with its result, in the same transaction as the record or proposal it made.
 ensureIndex("fcrm_audit", "idempotency_keys", { at: 1 }, { expireAfterSeconds: 86400 });
+
+// Indexes this script used to create on proposals and that no query uses now.
+// Dropped if present so an existing volume does not keep paying for them on
+// every insert; a missing index is not an error.
+function dropIndexIfExists(database, collection, name) {
+  const target = db.getSiblingDB(database).getCollection(collection);
+  if (target.getIndexes().some((index) => index.name === name)) {
+    target.dropIndex(name);
+    print(`04-indexes: dropped ${database}.${collection} ${name}`);
+  }
+}
+dropIndexIfExists("fcrm_audit", "proposals", "case_id_1_agent_1_kind_1");
+dropIndexIfExists("fcrm_audit", "proposals", "run_id_1");
 
 // ── fcrm_harness (H1 caseflow, H2 agent-worker) ───────────────────────────
 // Replayable event store: one event per (run, seq).

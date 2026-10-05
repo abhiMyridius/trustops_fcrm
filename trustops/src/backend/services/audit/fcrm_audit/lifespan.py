@@ -28,10 +28,10 @@ records are the live demo's own output (design A §11.3), never seeded.
 
 S4 never calls ``ensure_indexes``, unlike S2: ``fcrm_audit_writer`` holds
 no ``createIndex`` privilege at all (``02-users.js``'s own comment), so
-every index on ``audit_records`` -- including the ``{case_id, seq}``
-uniqueness that turns a concurrent append race into a 409 instead of a
-silent corruption -- is created once, by the root user, in
-``ops/mongo/init/04-indexes.js``, never by this service.
+every index on ``audit_records``, ``proposals`` and ``idempotency_keys`` --
+including the ``{case_id, seq}`` uniqueness that turns a concurrent append
+race into a retry instead of a silent corruption -- is created once, by the
+root user, in ``ops/mongo/init/04-indexes.js``, never by this service.
 """
 
 from __future__ import annotations
@@ -181,7 +181,12 @@ async def register(
         ]
         await load_if_empty(records_repo, chain_docs)
 
-    store = MongoAuditStore(records_repo, deps.mongo)
+    store = MongoAuditStore(
+        records_repo,
+        deps.mongo,
+        proposals=db["proposals"],
+        idempotency_keys=db["idempotency_keys"],
+    )
     app.state.store = store
 
     # main.py built ReadinessProbe() before this ran, so the health router

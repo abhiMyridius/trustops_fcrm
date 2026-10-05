@@ -36,6 +36,7 @@ Skipped entirely if ``mongod``/``mongosh`` are not on this machine.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import contextlib
 import os
@@ -44,7 +45,7 @@ import shutil
 import socket
 import subprocess
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import AbstractContextManager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -54,10 +55,21 @@ import pymongo
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from fcrm_audit.chain import GENESIS_HASH
 from fcrm_audit.lifespan import InsertOnlyRoleViolatedError, lifespan
 from fcrm_audit.routes import router
-from fcrm_common.errors import install_error_handlers
+from fcrm_audit.store import MongoAuditStore
+from fcrm_common.errors import ConflictError, install_error_handlers
+from fcrm_common.errors import ValidationError as FcrmValidationError
 from fcrm_common.health import ReadinessProbe, build_health_router
+from fcrm_common.mongo import Repository
+from fcrm_contracts.api.audit import (
+    AuditRecord,
+    ChainHead,
+    ProposalAppend,
+    RecordAppend,
+)
+from fcrm_contracts.common import Page
 from fcrm_seed.loader import closed_cases, demo_case
 from pymongo import AsyncMongoClient
 from pymongo.errors import DuplicateKeyError, OperationFailure
@@ -606,3 +618,441 @@ class TestInsertOnlyRoleIsEnforcedByTheDatabase:
 
         with pytest.raises(InsertOnlyRoleViolatedError), TestClient(application):
             pass
+
+
+# ── Part 3: idempotent appends, proposals and indexes against a real server ─
+#
+# The same store behaviour is proven twice: on the sandbox replica set (no
+# auth, indexes created here from ``REQUIRED_INDEXES``) and, in Part 2's
+# auth-enabled server, under the real insert-only role with the indexes the
+# real ``04-indexes.js`` made. A parity test ties ``REQUIRED_INDEXES`` to that
+# script, so the sandbox run cannot drift from production.
+
+IDEM_CASE = "FCRM-2026-IDEM"
+#: ``(collection, keys, options)`` the idempotency and proposals paths rely on.
+REQUIRED_INDEXES: list[tuple[str, list[tuple[str, int]], dict[str, Any]]] = [
+    ("audit_records", [("case_id", 1), ("seq", 1)], {"unique": True}),
+    ("proposals", [("case_id", 1), ("seq", 1)], {"unique": True}),
+    (
+        "proposals",
+        [("case_id", 1), ("run_id", 1), ("agent", 1), ("kind", 1)],
+        {},
+    ),
+    ("proposals", [("case_id", 1), ("supersedes", 1)], {"sparse": True}),
+    ("idempotency_keys", [("at", 1)], {"expireAfterSeconds": 86400}),
+]
+
+
+def _record(case_id: str = IDEM_CASE, **overrides: Any) -> RecordAppend:
+    values: dict[str, Any] = {
+        "case_id": case_id,
+        "type": "case.created",
+        "actor": "system",
+        "summary": "created",
+        **overrides,
+    }
+    return RecordAppend(**values)
+
+
+def _proposal(case_id: str = IDEM_CASE, **overrides: Any) -> ProposalAppend:
+    values: dict[str, Any] = {
+        "case_id": case_id,
+        "run_id": "run_1",
+        "agent": "research",
+        "kind": "research",
+        "payload": {"clauses": ["TP71-2.3"]},
+        "model": "fake-model",
+        "prompt_v": "research.system@1",
+        "tier": "strong",
+        **overrides,
+    }
+    return ProposalAppend(**values)
+
+
+def _store_over(client: AsyncMongoClient) -> MongoAuditStore:
+    """A store on its own client: two of them stand in for two S4 processes
+    (separate connection pools, separate in-process case locks)."""
+    db = client["fcrm_audit"]
+    return MongoAuditStore(
+        Repository(db["audit_records"], AuditRecord),
+        client,
+        proposals=db["proposals"],
+        idempotency_keys=db["idempotency_keys"],
+    )
+
+
+class _StoreBehaviour:
+    """What the Mongo store must do on any real replica set that has the
+    audit indexes. Subclasses provide ``make_store`` (a fresh store per call)."""
+
+    async def test_a_keyed_append_is_replayed_and_writes_nothing(
+        self, make_store: Callable[[], MongoAuditStore]
+    ) -> None:
+        store = make_store()
+        first = await store.append(_record(), idempotency_key="idem-live-1")
+        again = await store.append(_record(), idempotency_key="idem-live-1")
+        assert (first.replayed, again.replayed) == (False, True)
+        assert again.value == first.value
+        page = await store.records_for_case(IDEM_CASE)
+        assert [r.seq for r in page.items] == [1]
+        assert (await store.verify(IDEM_CASE)).ok is True
+        assert await store.head(IDEM_CASE) == ChainHead(seq=1, hash=first.value.hash)
+
+    async def test_a_key_reused_with_another_body_is_a_conflict(
+        self, make_store: Callable[[], MongoAuditStore]
+    ) -> None:
+        store = make_store()
+        await store.append(_record(), idempotency_key="idem-live-2")
+        with pytest.raises(ConflictError):
+            await store.append(
+                _record(summary="different"), idempotency_key="idem-live-2"
+            )
+        with pytest.raises(ConflictError):
+            await store.append_proposal(_proposal(), idempotency_key="idem-live-2")
+        assert (await store.head(IDEM_CASE)).seq == 1
+
+    async def test_simultaneous_requests_with_one_key_write_one_record(
+        self, make_store: Callable[[], MongoAuditStore]
+    ) -> None:
+        """Six overlapping requests over two stores (two S4 processes): one
+        transaction commits the key and its record, the rest replay it."""
+        stores = [make_store(), make_store()]
+        results = await asyncio.gather(
+            *(
+                stores[n % 2].append(_record(), idempotency_key="idem-live-3")
+                for n in range(6)
+            )
+        )
+        assert sorted(r.replayed for r in results) == [False] + [True] * 5
+        assert len({r.value.hash for r in results}) == 1
+        page = await stores[0].records_for_case(IDEM_CASE)
+        assert [r.seq for r in page.items] == [1]
+
+    async def test_simultaneous_appends_without_keys_get_distinct_seqs(
+        self, make_store: Callable[[], MongoAuditStore]
+    ) -> None:
+        """Eight overlapping appends to one case over two stores: every one is
+        stored once, ``seq`` is 1..8 with no gap and the chain verifies (a lost
+        race retries on the new head instead of failing)."""
+        stores = [make_store(), make_store()]
+        await asyncio.gather(
+            *(stores[n % 2].append(_record(summary=f"record {n}")) for n in range(8))
+        )
+        page = await stores[0].records_for_case(IDEM_CASE)
+        assert sorted(r.seq for r in page.items) == list(range(1, 9))
+        assert (await stores[0].verify(IDEM_CASE)).ok is True
+
+    async def test_proposals_get_a_monotonic_seq_per_case(
+        self, make_store: Callable[[], MongoAuditStore]
+    ) -> None:
+        stores = [make_store(), make_store()]
+        stored = await asyncio.gather(
+            *(
+                stores[n % 2].append_proposal(
+                    _proposal(run_id=f"run_{n % 3}", payload={"n": n})
+                )
+                for n in range(10)
+            )
+        )
+        assert sorted(s.value.seq for s in stored) == list(range(1, 11))
+        listed = await stores[0].proposals(IDEM_CASE, limit=50)
+        assert [p.seq for p in listed.items] == list(range(1, 11))
+        assert await stores[0].proposals("FCRM-2026-OTHER") == Page(
+            items=[], next_cursor=None, total=None
+        )
+
+    async def test_a_keyed_proposal_is_replayed(
+        self, make_store: Callable[[], MongoAuditStore]
+    ) -> None:
+        stores = [make_store(), make_store()]
+        results = await asyncio.gather(
+            *(
+                stores[n % 2].append_proposal(_proposal(), idempotency_key="idem-p")
+                for n in range(4)
+            )
+        )
+        assert sorted(r.replayed for r in results) == [False, True, True, True]
+        assert len({r.value.proposal_id for r in results}) == 1
+        assert len((await stores[0].proposals(IDEM_CASE)).items) == 1
+
+    async def test_proposals_filter_page_and_supersede(
+        self, make_store: Callable[[], MongoAuditStore]
+    ) -> None:
+        store = make_store()
+        first = (await store.append_proposal(_proposal())).value
+        await store.append_proposal(_proposal(agent="intake", kind="extraction"))
+        newer = (
+            await store.append_proposal(_proposal(supersedes=first.proposal_id))
+        ).value
+        everything = (await store.proposals(IDEM_CASE)).items
+        by_id = {p.proposal_id: p for p in everything}
+        assert by_id[first.proposal_id].superseded_by == newer.proposal_id
+        assert by_id[newer.proposal_id].superseded_by is None
+        assert by_id[newer.proposal_id].supersedes == first.proposal_id
+        assert [
+            p.kind for p in (await store.proposals(IDEM_CASE, kind="extraction")).items
+        ] == ["extraction"]
+        page = await store.proposals(IDEM_CASE, limit=2)
+        assert [p.seq for p in page.items] == [1, 2]
+        assert page.next_cursor is not None
+        rest = await store.proposals(IDEM_CASE, limit=2, cursor=page.next_cursor)
+        assert [p.seq for p in rest.items] == [3]
+        assert rest.next_cursor is None
+
+    async def test_superseding_is_validated_inside_the_transaction(
+        self, make_store: Callable[[], MongoAuditStore]
+    ) -> None:
+        store = make_store()
+        first = (await store.append_proposal(_proposal())).value
+        await store.append_proposal(_proposal(supersedes=first.proposal_id))
+        with pytest.raises(ConflictError):
+            await store.append_proposal(_proposal(supersedes=first.proposal_id))
+        with pytest.raises(FcrmValidationError):
+            await store.append_proposal(_proposal(supersedes="prp_missing"))
+        other = (await store.append_proposal(_proposal("FCRM-2026-OTHER"))).value
+        with pytest.raises(FcrmValidationError):
+            await store.append_proposal(_proposal(supersedes=other.proposal_id))
+        assert len((await store.proposals(IDEM_CASE)).items) == 2
+
+    async def test_head_is_the_genesis_for_an_empty_case(
+        self, make_store: Callable[[], MongoAuditStore]
+    ) -> None:
+        store = make_store()
+        assert await store.head("FCRM-2026-EMPTY") == ChainHead(
+            seq=0, hash=GENESIS_HASH
+        )
+        verified = await store.verify("FCRM-2026-EMPTY")
+        assert (verified.ok, verified.record_count) == (True, 0)
+
+
+class TestSandboxStoreBehaviour(_StoreBehaviour):
+    """Part 1's replica set: no auth, so the indexes are created here."""
+
+    pytestmark = sandbox_pytestmark
+
+    @pytest.fixture
+    async def make_store(self) -> AsyncIterator[Callable[[], MongoAuditStore]]:
+        admin: AsyncMongoClient = AsyncMongoClient(URI, tz_aware=True)
+        await admin.drop_database("fcrm_audit")
+        for collection, keys, options in REQUIRED_INDEXES:
+            await admin["fcrm_audit"][collection].create_index(keys, **options)
+        clients: list[AsyncMongoClient] = []
+
+        def _make() -> MongoAuditStore:
+            client: AsyncMongoClient = AsyncMongoClient(URI, tz_aware=True)
+            clients.append(client)
+            return _store_over(client)
+
+        yield _make
+        for client in clients:
+            await client.close()
+        await admin.drop_database("fcrm_audit")
+        await admin.close()
+
+
+class TestRoleStoreBehaviour(_StoreBehaviour):
+    """Part 2's auth-enabled server: every write goes through the real
+    ``fcrm_audit_writer`` credential into collections whose indexes the real
+    ``04-indexes.js`` created."""
+
+    pytestmark = auth_pytestmark
+
+    @pytest.fixture(autouse=True)
+    def _empty_the_audit_collections(self, auth_enabled_mongo: dict[str, str]) -> None:
+        root = pymongo.MongoClient(
+            auth_enabled_mongo["root_admin_uri"], serverSelectionTimeoutMS=5000
+        )
+        for collection in ("audit_records", "proposals", "idempotency_keys"):
+            root["fcrm_audit"][collection].delete_many({})
+        root.close()
+
+    @pytest.fixture
+    async def make_store(
+        self, auth_enabled_mongo: dict[str, str]
+    ) -> AsyncIterator[Callable[[], MongoAuditStore]]:
+        clients: list[AsyncMongoClient] = []
+
+        def _make() -> MongoAuditStore:
+            client: AsyncMongoClient = AsyncMongoClient(
+                auth_enabled_mongo["writer_uri"], tz_aware=True
+            )
+            clients.append(client)
+            return _store_over(client)
+
+        yield _make
+        for client in clients:
+            await client.close()
+
+
+class TestTheAuditIndexesAndTheWriterRole:
+    """What ``02-users.js`` and ``04-indexes.js`` really created."""
+
+    pytestmark = auth_pytestmark
+
+    def test_the_real_indexes_match_what_the_sandbox_tests_assume(
+        self, auth_enabled_mongo: dict[str, str]
+    ) -> None:
+        root = pymongo.MongoClient(
+            auth_enabled_mongo["root_admin_uri"], serverSelectionTimeoutMS=5000
+        )
+        try:
+            for collection, keys, options in REQUIRED_INDEXES:
+                found = [
+                    info
+                    for info in root["fcrm_audit"][collection]
+                    .index_information()
+                    .values()
+                    if list(info["key"]) == keys
+                ]
+                assert found, f"{collection} lacks an index on {keys}"
+                for option, value in options.items():
+                    assert found[0].get(option) == value, (collection, keys, option)
+            legacy = root["fcrm_audit"]["proposals"].index_information()
+            assert "run_id_1" not in legacy
+            assert "case_id_1_agent_1_kind_1" not in legacy
+        finally:
+            root.close()
+
+    @pytest.mark.parametrize("collection", ["proposals", "idempotency_keys"])
+    def test_the_writer_can_insert_and_find_but_not_update_or_delete(
+        self, auth_enabled_mongo: dict[str, str], collection: str
+    ) -> None:
+        writer = pymongo.MongoClient(
+            auth_enabled_mongo["writer_uri"], serverSelectionTimeoutMS=5000
+        )
+        try:
+            target = writer["fcrm_audit"][collection]
+            doc = {"_id": f"role-probe-{collection}", "case_id": "FCRM-2026-ROLE"}
+            if collection == "proposals":
+                doc["seq"] = 1
+            else:
+                doc["at"] = datetime.now(UTC)
+            target.insert_one(doc)
+            assert target.find_one({"_id": doc["_id"]}) is not None
+            with pytest.raises(OperationFailure) as updated:
+                target.update_one({"_id": doc["_id"]}, {"$set": {"case_id": "x"}})
+            assert updated.value.code == 13
+            with pytest.raises(OperationFailure) as deleted:
+                target.delete_one({"_id": doc["_id"]})
+            assert deleted.value.code == 13
+            with pytest.raises(OperationFailure) as indexed:
+                target.create_index([("probe", 1)])
+            assert indexed.value.code == 13
+        finally:
+            root = pymongo.MongoClient(
+                auth_enabled_mongo["root_admin_uri"], serverSelectionTimeoutMS=5000
+            )
+            root["fcrm_audit"][collection].delete_many({"case_id": "FCRM-2026-ROLE"})
+            root.close()
+            writer.close()
+
+    def test_the_duplicate_key_and_seq_indexes_refuse_a_second_row(
+        self, auth_enabled_mongo: dict[str, str]
+    ) -> None:
+        writer = pymongo.MongoClient(
+            auth_enabled_mongo["writer_uri"], serverSelectionTimeoutMS=5000
+        )
+        try:
+            proposals = writer["fcrm_audit"]["proposals"]
+            proposals.insert_one({"_id": "prp_a", "case_id": "FCRM-2026-DUP", "seq": 1})
+            with pytest.raises(DuplicateKeyError):
+                proposals.insert_one(
+                    {"_id": "prp_b", "case_id": "FCRM-2026-DUP", "seq": 1}
+                )
+            keys = writer["fcrm_audit"]["idempotency_keys"]
+            keys.insert_one({"_id": "idem-dup", "at": datetime.now(UTC)})
+            with pytest.raises(DuplicateKeyError):
+                keys.insert_one({"_id": "idem-dup", "at": datetime.now(UTC)})
+        finally:
+            root = pymongo.MongoClient(
+                auth_enabled_mongo["root_admin_uri"], serverSelectionTimeoutMS=5000
+            )
+            root["fcrm_audit"]["proposals"].delete_many({"case_id": "FCRM-2026-DUP"})
+            root["fcrm_audit"]["idempotency_keys"].delete_many({"_id": "idem-dup"})
+            root.close()
+            writer.close()
+
+
+class TestTheRealAppOverTheWriterRole:
+    """The real lifespan, the real routes and the real service token."""
+
+    pytestmark = auth_pytestmark
+
+    def test_post_with_an_idempotency_key_replays_over_http(
+        self,
+        auth_enabled_mongo: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+        live_client: LiveClient,
+    ) -> None:
+        for name, value in (
+            ("MONGODB_URI", auth_enabled_mongo["writer_uri"]),
+            ("MONGODB_DB", "fcrm_audit"),
+            ("SERVICE_TOKEN_SECRET", "x" * 32),
+            ("OPA_URL", "http://localhost:8181"),
+            ("IDENTITY_VALIDATE_URL", "http://localhost:8000/core/validate"),
+            ("ENV", "test"),
+            ("SEED_ON_EMPTY", "false"),
+            ("CHAIN_VERIFY_ON_START", "false"),
+            ("INSERT_ONLY_CHECK_ON_START", "true"),
+        ):
+            monkeypatch.setenv(name, value)
+        root = pymongo.MongoClient(
+            auth_enabled_mongo["root_admin_uri"], serverSelectionTimeoutMS=5000
+        )
+        for collection in ("audit_records", "proposals", "idempotency_keys"):
+            root["fcrm_audit"][collection].delete_many({})
+        root.close()
+
+        application = FastAPI(lifespan=lifespan)
+        install_error_handlers(application)
+        application.state.probe = ReadinessProbe()
+        application.include_router(router)
+        application.include_router(build_health_router(application.state.probe))
+
+        key = {"Idempotency-Key": "idem_http_live_0001"}
+        record = {
+            "case_id": "FCRM-2026-HTTP",
+            "type": "case.created",
+            "actor": "system",
+            "summary": "created",
+        }
+        proposal = {
+            "case_id": "FCRM-2026-HTTP",
+            "run_id": "run_1",
+            "agent": "intake",
+            "kind": "extraction",
+            "payload": {"fields": 3},
+            "model": "fake-model",
+            "prompt_v": "intake.system@1",
+            "tier": "cheap",
+        }
+        with live_client(application) as client:
+            assert client.get("/readyz").json()["checks"]["insert_only"]["ok"] is True
+            first = client.post("/records", json=record, headers=key)
+            again = client.post("/records", json=record, headers=key)
+            assert (first.status_code, again.status_code) == (201, 200)
+            assert again.json() == first.json()
+            changed = client.post(
+                "/records", json={**record, "summary": "other"}, headers=key
+            )
+            assert changed.status_code == 409
+
+            stored = client.post(
+                "/proposals", json=proposal, headers={"Idempotency-Key": "idem_http_p1"}
+            )
+            replay = client.post(
+                "/proposals", json=proposal, headers={"Idempotency-Key": "idem_http_p1"}
+            )
+            assert (stored.status_code, replay.status_code) == (201, 200)
+            assert replay.json() == stored.json()
+            listed = client.get(
+                "/proposals", params={"case_id": "FCRM-2026-HTTP", "agent": "intake"}
+            ).json()
+            assert [p["seq"] for p in listed["items"]] == [1]
+
+            rows = client.get("/records", params={"case_id": "FCRM-2026-HTTP"}).json()
+            assert [r["seq"] for r in rows["items"]] == [1]
+            head = client.get("/head/FCRM-2026-HTTP").json()
+            assert head == {"seq": 1, "hash": first.json()["hash"]}
+            verify = client.get("/verify/FCRM-2026-HTTP").json()
+            assert (verify["ok"], verify["record_count"]) == (True, 1)

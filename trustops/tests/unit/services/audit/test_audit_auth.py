@@ -36,11 +36,26 @@ APPEND_BODY: dict[str, Any] = {
     "data": {},
 }
 
+PROPOSAL_BODY: dict[str, Any] = {
+    "case_id": "FCRM-2026-0151",
+    "run_id": "run_1",
+    "agent": "research",
+    "kind": "research",
+    "payload": {"clauses": []},
+    "model": "fake-model",
+    "prompt_v": "research.system@1",
+    "tier": "strong",
+}
+
 #: Every route S4 serves, as (method, path, json body or None).
 ROUTES: list[tuple[str, str, dict[str, Any] | None]] = [
     ("post", "/records", APPEND_BODY),
+    ("post", "/proposals", PROPOSAL_BODY),
     ("get", "/verify/FCRM-2026-0151", None),
     ("get", "/records/FCRM-2026-0151", None),
+    ("get", "/records?case_id=FCRM-2026-0151", None),
+    ("get", "/proposals?case_id=FCRM-2026-0151", None),
+    ("get", "/head/FCRM-2026-0151", None),
 ]
 
 
@@ -100,13 +115,20 @@ def test_a_po_token_is_403_on_every_route(
 
 
 @pytest.mark.parametrize("role", [Role.ANALYST, Role.COMMITTEE, Role.OBSERVER, Role.PO])
+@pytest.mark.parametrize(
+    ("path", "body"), [("/records", APPEND_BODY), ("/proposals", PROPOSAL_BODY)]
+)
 def test_only_the_service_account_may_append(
-    client: TestClient, act_as: Callable[[Role, str], None], role: Role
+    client: TestClient,
+    act_as: Callable[[Role, str], None],
+    role: Role,
+    path: str,
+    body: dict[str, Any],
 ) -> None:
     act_as(role, "someone")
-    assert client.post("/records", json=APPEND_BODY).status_code == 403
+    assert client.post(path, json=body).status_code == 403
     act_as(Role.SERVICE, "svc:caseflow")
-    assert client.post("/records", json=APPEND_BODY).status_code == 201
+    assert client.post(path, json=body).status_code == 201
 
 
 @pytest.mark.parametrize("role", [Role.ANALYST, Role.COMMITTEE, Role.SERVICE])
@@ -120,6 +142,15 @@ def test_analyst_committee_and_service_read_the_chain(
     page = client.get("/records/FCRM-2026-0151", params={"limit": 5})
     assert page.status_code == 200
     assert len(page.json()["items"]) == 5
+    rows = client.get("/records", params={"case_id": "FCRM-2026-0151", "limit": 5})
+    assert rows.status_code == 200
+    assert len(rows.json()["items"]) == 5
+    assert client.get("/head/FCRM-2026-0151").json()["seq"] == 67
+    assert client.get("/proposals", params={"case_id": "FCRM-2026-0151"}).json() == {
+        "items": [],
+        "next_cursor": None,
+        "total": None,
+    }
 
 
 def test_observer_is_monitor_only_and_does_not_read_the_chain(
@@ -131,6 +162,14 @@ def test_observer_is_monitor_only_and_does_not_read_the_chain(
     act_as(Role.OBSERVER, "u-observer")
     assert client.get("/verify/FCRM-2026-0151").status_code == 403
     assert client.get("/records/FCRM-2026-0151").status_code == 403
+    assert (
+        client.get("/records", params={"case_id": "FCRM-2026-0151"}).status_code == 403
+    )
+    assert (
+        client.get("/proposals", params={"case_id": "FCRM-2026-0151"}).status_code
+        == 403
+    )
+    assert client.get("/head/FCRM-2026-0151").status_code == 403
 
 
 def test_an_opa_deny_is_403_even_for_the_service_account(

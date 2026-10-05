@@ -27,6 +27,11 @@ const AUDIT_ROLE = "fcrmAuditInsertOnly";
 // `proposals` (evidence ledger), `verify_runs` and `idempotency_keys` are
 // also append-only by design (a later proposal version is a new document;
 // idempotency keys expire by TTL, which the server applies, not the user).
+// S4 inserts an Idempotency-Key row in the same transaction as the record or
+// proposal it produced and reads it back to replay, so find + insert on these
+// collections is exactly what its POST /records and POST /proposals need; no
+// update or remove is ever granted, and the live test in
+// tests/unit/services/audit/test_audit_mongo_live.py proves it.
 const AUDIT_APPEND_ONLY = ["audit_records", "proposals", "verify_runs", "idempotency_keys"];
 
 const APP_DATABASES = [
