@@ -1,6 +1,6 @@
 {
   "permissions": {
-    "_comment": "Route authorization for TrustOps (design A \u00a78.2). Default deny; any matching allow grants unless a matching deny exists (deny overrides). 'path' is the FastAPI route template relative to the service's APP_ROOT_PATH. Matcher: exact, '{param}' segments (an exact literal rule for the same service and method wins over a template), and a trailing '/*' for one or more further segments. role_hierarchy is data (fixes the hard-coded AEO map): a role inherits the permissions of every role in its list. Deny rules match the caller's own roles, not inherited ones.",
+    "_comment": "Route authorization for TrustOps (design A §8.2). Default deny; any matching allow grants unless a matching deny exists (deny overrides). 'path' is the FastAPI route template relative to the service's APP_ROOT_PATH. Matcher: exact, '{param}' segments (an exact literal rule for the same service and method wins over a template), and a trailing '/*' for one or more further segments. role_hierarchy is data (fixes the hard-coded AEO map): a role inherits the permissions of every role in its list. Deny rules match the caller's own roles, not inherited ones.",
     "role_hierarchy": {
       "fcrm_po": [
         "fcrm_po"
@@ -1566,6 +1566,28 @@
         "path": "/reflags/{id}/acknowledge",
         "roles": [
           "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-policy-post-jurisdictions-versions-version-activate",
+        "description": "Guard 7: activating a jurisdiction list is the analyst's decision, never the service account's",
+        "service": "policy",
+        "method": "POST",
+        "path": "/jurisdictions/versions/{version}/activate",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-policy-any-internal-analyst",
+        "description": "the H1/H4 internal routes are for the service account alone, whatever the analyst wildcard allows",
+        "service": "policy",
+        "method": "*",
+        "path": "/internal/*",
+        "roles": [
+          "fcrm_analyst"
         ],
         "effect": "deny"
       }

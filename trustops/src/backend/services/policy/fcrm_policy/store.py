@@ -27,16 +27,16 @@ import math
 import re
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from typing import Any, Protocol
+from typing import Any, Final, Protocol
 
 from pymongo import IndexModel
 from pymongo.asynchronous.collection import AsyncCollection
 
 logger = logging.getLogger(__name__)
 
-POLICY_CLAUSES = "policy_clauses"
-PRECEDENT_CASES = "precedent_cases"
-CONTROLS = "controls"
+POLICY_CLAUSES: Final = "policy_clauses"
+PRECEDENT_CASES: Final = "precedent_cases"
+CONTROLS: Final = "controls"
 KNOWN_INDEXES: frozenset[str] = frozenset({POLICY_CLAUSES, PRECEDENT_CASES, CONTROLS})
 
 Document = dict[str, Any]
@@ -56,13 +56,21 @@ _FIELD_MAP: dict[str, dict[str, str]] = {
         "risk_area": "domains",
         "jurisdiction": "geographies",
         "closed_date_before": "closed_date",
+        # ``POST /precedents/search`` filters (a list value matches any member).
+        "trigger_types": "change_types",
+        "risk_areas": "domains",
+        "closed_date_after": "closed_date",
+        "outcome": "outcome",
     },
     CONTROLS: {
         "risk_area": "domain",
     },
 }
+#: Range filters: filter key -> Mongo operator on the mapped field
+#: (``closed_date_before`` is exclusive, ``closed_date_after`` inclusive).
+_RANGE_OPS: dict[str, str] = {"closed_date_before": "$lt", "closed_date_after": "$gte"}
 #: Fields holding a real Mongo array (membership match), vs. a scalar
-#: (equality) or the one range comparison (``closed_date_before``).
+#: (equality) or a range comparison (the two ``closed_date_*`` bounds).
 _ARRAY_FIELDS: frozenset[str] = frozenset(
     {
         "trigger_types",
@@ -78,18 +86,19 @@ _ARRAY_FIELDS: frozenset[str] = frozenset(
 def mongo_filter(index: str, filters: Mapping[str, Any]) -> dict[str, Any]:
     """Translate request ``filters`` into a Mongo query fragment for
     ``index``, pushing every constraint down to the server rather than
-    filtering client-side after the fact.
+    filtering client-side after the fact. A list value matches any of its
+    members (``$in``); the two date bounds merge into one range on one field.
     """
     field_map = _FIELD_MAP.get(index, {})
     query: dict[str, Any] = {}
     for key, value in filters.items():
-        if value is None:
-            continue
         field = field_map.get(key)
-        if field is None:
+        if value is None or field is None:
             continue
-        if key == "closed_date_before":
-            query[field] = {"$lt": value}
+        if key in _RANGE_OPS:
+            query.setdefault(field, {})[_RANGE_OPS[key]] = value
+        elif isinstance(value, list):
+            query[field] = {"$in": value}
         else:
             # Equality on an array field is Mongo's membership match; on a
             # scalar field it is just equality -- the same operator works
@@ -98,26 +107,33 @@ def mongo_filter(index: str, filters: Mapping[str, Any]) -> dict[str, Any]:
     return query
 
 
+def _matches_one(doc: Mapping[str, Any], key: str, field: str, value: Any) -> bool:
+    """One filter against ``doc``: the in-memory twin of one clause of
+    :func:`mongo_filter`.
+    """
+    if key == "closed_date_before":
+        return bool(str(doc.get(field, "")) < value)
+    if key == "closed_date_after":
+        return bool(str(doc.get(field, "")) >= value)
+    held = doc.get(field, [] if field in _ARRAY_FIELDS else None)
+    if isinstance(value, list):
+        members = held if isinstance(held, list) else [held]
+        return any(item in members for item in value)
+    if field in _ARRAY_FIELDS:
+        return bool(value in held)
+    return bool(held == value)
+
+
 def _matches(index: str, doc: Mapping[str, Any], filters: Mapping[str, Any]) -> bool:
     """The in-memory twin of :func:`mongo_filter`: the same field map,
     applied as a Python predicate instead of a query fragment.
     """
     field_map = _FIELD_MAP.get(index, {})
-    for key, value in filters.items():
-        if value is None:
-            continue
-        field = field_map.get(key)
-        if field is None:
-            continue
-        if key == "closed_date_before":
-            if not (str(doc.get(field, "")) < value):
-                return False
-        elif field in _ARRAY_FIELDS:
-            if value not in doc.get(field, []):
-                return False
-        elif doc.get(field) != value:
-            return False
-    return True
+    return all(
+        _matches_one(doc, key, field_map[key], value)
+        for key, value in filters.items()
+        if value is not None and key in field_map
+    )
 
 
 class KeywordCollection(Protocol):
@@ -262,12 +278,20 @@ def build_in_memory_collections(
 
 
 def clause_metadata(doc: Mapping[str, Any]) -> dict[str, Any]:
-    """The ``SearchHit.metadata`` shape for a ``policy_clauses`` hit."""
+    """The ``SearchHit.metadata`` shape for a ``policy_clauses`` hit: the
+    clause's identity and citation (``source_id``, ``ref``, ``page`` and
+    lines), whether its text may be quoted (``quotable``) and what kind of
+    text it is (``provenance_kind``).
+    """
     return {
+        "clause_id": doc.get("clause_id"),
         "source_id": doc.get("source_id"),
         "corpus_version": doc.get("corpus_version"),
         "ref": doc.get("ref"),
         "title": doc.get("title"),
+        "page": doc.get("page"),
+        "line_start": doc.get("line_start"),
+        "line_end": doc.get("line_end"),
         "quotable": bool(doc.get("quotable", True)),
         "provenance_kind": doc.get("provenance_kind"),
         "risk_areas": list(doc.get("risk_areas", [])),

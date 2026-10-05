@@ -1,6 +1,10 @@
-"""S3's HTTP surface: ``POST /search`` (design A §2.3, §6.2) and the read-only
-reference data the agent tools need: jurisdiction lists, field sets and
-control inventories.
+"""S3's HTTP surface: ``POST /search`` (design A §2.3, §6.2), the read-only
+reference data the agent tools need (jurisdiction lists, field sets and control
+inventories) and the activation of a jurisdiction list version. The corpus
+routes (a clause by id, policy and precedent search) are in
+:mod:`fcrm_policy.routes_corpus` and the service-only ``/internal/*`` routes in
+:mod:`fcrm_policy.routes_internal`; both are included in :data:`router` below,
+so one router-wide OPA check covers all of them.
 
 Every hit is the fused output of the real ``reciprocal_rank_fusion`` over
 whatever keyword and (for ``policy_clauses``) vector sources were wired
@@ -18,7 +22,8 @@ them: precedent hits carry a case's band and control ratings.
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+import logging
+from typing import Annotated, Optional, Union
 
 from fastapi import APIRouter, Depends, Query, Request
 from fcrm_common.auth import require_roles
@@ -28,17 +33,30 @@ from fcrm_contracts.api.policy import (
     ControlInventoryOut,
     ControlVersionOut,
     FieldSetOut,
+    JurisdictionActivateOut,
     JurisdictionListOut,
     JurisdictionVersionOut,
+    PolicySearchResultOut,
+    PolicySearchWebRequest,
     ResolvedFieldSetOut,
     SearchRequest,
     SearchResponse,
 )
 from fcrm_contracts.common import Page, Principal
 from fcrm_contracts.enums import Domain, Role
+from pydantic import Discriminator, Tag
 
+from fcrm_policy import routes_corpus, routes_internal
+from fcrm_policy.deps import (
+    REFERENCE_ROLES,
+    SEARCH_ROLES,
+    get_reference_store,
+    get_search_service,
+)
 from fcrm_policy.reference import ReferenceStore, parse_change_types, resolve_fields
 from fcrm_policy.search.service import SearchService
+
+logger = logging.getLogger(__name__)
 
 #: Authenticate, then ask OPA for ``service: policy`` on the matched route
 #: template (401 / 403 / 503 fail-closed, see ``fcrm_common.authz``).
@@ -46,49 +64,60 @@ authorize = opa_dependency("policy")
 
 router = APIRouter(tags=["policy"], dependencies=[Depends(authorize)])
 
-#: Who may search: the analyst, committee members reading a pack's cited
-#: clauses, and the service account (the research/policy_gap agents' tools
-#: run through H2). Never the PO.
-_SEARCH_ROLES = (Role.ANALYST, Role.COMMITTEE, Role.SERVICE)
-#: Who may read the reference data: the same three. The PO's own field-set
-#: view is served by S1, which resolves the field set itself.
-_REFERENCE_ROLES = _SEARCH_ROLES
+#: The two request shapes ``POST /search`` takes: the tools' (``index`` +
+#: ``query``) and the web's policy search (``q`` + ``case_id``). The web's
+#: ``policy.search`` path is ``/api/fcrm/policy/search``, which on this
+#: service's prefix is ``/search``, so one route has to tell them apart; a body
+#: with a ``q`` is the web's, anything else is validated as the tools' shape.
+_TOOL_SHAPE = "tool"
+_WEB_SHAPE = "web"
 
 
-def get_search_service(request: Request) -> SearchService:
-    """The ``SearchService`` the app wired into ``app.state`` at startup
-    (``lifespan.py``) -- a FastAPI dependency so routes stay testable with
-    ``app.state.search`` swapped for an in-memory-backed instance.
+def _search_shape(value: object) -> str:
+    """Which request shape ``value`` (a raw body or an already-built model)
+    is: the web's when it carries ``q`` (or is that model), else the tools'.
     """
-    service: SearchService = request.app.state.search
-    return service
+    if isinstance(value, PolicySearchWebRequest):
+        return _WEB_SHAPE
+    if isinstance(value, dict) and "q" in value:
+        return _WEB_SHAPE
+    return _TOOL_SHAPE
 
 
-@router.post("/search", response_model=SearchResponse)
+SearchBody = Annotated[
+    Union[
+        Annotated[SearchRequest, Tag(_TOOL_SHAPE)],
+        Annotated[PolicySearchWebRequest, Tag(_WEB_SHAPE)],
+    ],
+    Discriminator(_search_shape),
+]
+
+
+@router.post("/search", response_model=Union[SearchResponse, PolicySearchResultOut])
 async def search(
-    body: SearchRequest,
-    _principal: Annotated[Principal, Depends(require_roles(*_SEARCH_ROLES))],
+    body: SearchBody,
+    request: Request,
+    principal: Annotated[Principal, Depends(require_roles(*SEARCH_ROLES))],
     service: SearchService = Depends(get_search_service),
-) -> SearchResponse:
+) -> Union[SearchResponse, PolicySearchResultOut]:
     """Hybrid search over one of the three indexes (``policy_clauses``,
     ``precedent_cases``, ``controls``): rank fusion of a keyword ranking
     (Mongo ``$text``) and, for ``policy_clauses``, H4's semantic ranking,
     with the Index Contract's metadata filters pushed down to both.
+
+    A body of the web's shape (``{q, case_id}``) is the web's policy search
+    and is answered in its shape: clause hits with their verbatim text.
     """
+    if isinstance(body, PolicySearchWebRequest):
+        return await routes_corpus.run_policy_search(
+            body, principal, service, request.app.state.clauses
+        )
     return await service.search(body)
-
-
-def get_reference_store(request: Request) -> ReferenceStore:
-    """The reference-data store the app wired into ``app.state`` at startup
-    (``lifespan.py``); swapped for an in-memory one in unit tests.
-    """
-    store: ReferenceStore = request.app.state.reference
-    return store
 
 
 @router.get("/jurisdictions", response_model=JurisdictionListOut)
 async def get_jurisdictions(
-    _principal: Annotated[Principal, Depends(require_roles(*_REFERENCE_ROLES))],
+    _principal: Annotated[Principal, Depends(require_roles(*REFERENCE_ROLES))],
     version: Optional[str] = None,
     store: ReferenceStore = Depends(get_reference_store),
 ) -> JurisdictionListOut:
@@ -104,7 +133,7 @@ async def get_jurisdictions(
 
 @router.get("/jurisdictions/versions", response_model=Page[JurisdictionVersionOut])
 async def list_jurisdiction_versions(
-    _principal: Annotated[Principal, Depends(require_roles(*_REFERENCE_ROLES))],
+    _principal: Annotated[Principal, Depends(require_roles(*REFERENCE_ROLES))],
     store: ReferenceStore = Depends(get_reference_store),
 ) -> Page[JurisdictionVersionOut]:
     """Every stored jurisdiction list version, the active one flagged."""
@@ -115,7 +144,7 @@ async def list_jurisdiction_versions(
 @router.get("/field-sets/{version}", response_model=FieldSetOut)
 async def get_field_set(
     version: str,
-    _principal: Annotated[Principal, Depends(require_roles(*_REFERENCE_ROLES))],
+    _principal: Annotated[Principal, Depends(require_roles(*REFERENCE_ROLES))],
     store: ReferenceStore = Depends(get_reference_store),
 ) -> FieldSetOut:
     """One field-set version (``v6`` or ``6``; ``latest`` is the active one)."""
@@ -128,7 +157,7 @@ async def get_field_set(
 @router.get("/field-sets/{version}/resolve", response_model=ResolvedFieldSetOut)
 async def resolve_field_set(
     version: str,
-    _principal: Annotated[Principal, Depends(require_roles(*_REFERENCE_ROLES))],
+    _principal: Annotated[Principal, Depends(require_roles(*REFERENCE_ROLES))],
     change_types: Annotated[
         Optional[str], Query(description="Comma-separated change types.")
     ] = None,
@@ -146,7 +175,7 @@ async def resolve_field_set(
 
 @router.get("/controls", response_model=ControlInventoryOut)
 async def get_controls(
-    _principal: Annotated[Principal, Depends(require_roles(*_REFERENCE_ROLES))],
+    _principal: Annotated[Principal, Depends(require_roles(*REFERENCE_ROLES))],
     version: Optional[str] = None,
     domain: Optional[Domain] = None,
     store: ReferenceStore = Depends(get_reference_store),
@@ -164,9 +193,44 @@ async def get_controls(
 
 @router.get("/controls/versions", response_model=Page[ControlVersionOut])
 async def list_control_versions(
-    _principal: Annotated[Principal, Depends(require_roles(*_REFERENCE_ROLES))],
+    _principal: Annotated[Principal, Depends(require_roles(*REFERENCE_ROLES))],
     store: ReferenceStore = Depends(get_reference_store),
 ) -> Page[ControlVersionOut]:
     """Every stored control-inventory version, the active one flagged."""
     items = await store.control_versions()
     return Page(items=items, next_cursor=None, total=len(items))
+
+
+@router.post(
+    "/jurisdictions/versions/{version}/activate",
+    response_model=JurisdictionActivateOut,
+)
+async def activate_jurisdiction_version(
+    version: str,
+    principal: Annotated[Principal, Depends(require_roles(Role.ANALYST))],
+    store: ReferenceStore = Depends(get_reference_store),
+) -> JurisdictionActivateOut:
+    """Make a stored jurisdiction list the active one (the analyst only: the
+    service account never decides this). The previous list is deactivated and
+    ``jurisdiction.list_published`` is announced in the same transaction, which
+    is what starts the watchlist run. ``version`` is a version id
+    (``v2026-10-fixture``) or ``fixture``; activating the list that is already
+    active is a no-op that announces nothing.
+    """
+    activated = await store.activate_jurisdiction(version)
+    if activated is None:
+        raise NotFoundError(f"No jurisdiction list {version!r}.")
+    logger.info(
+        "jurisdiction list activated",
+        extra={
+            "actor": principal.sub,
+            "list_version": activated.version,
+            "previous": activated.previous_version,
+            "already_active": activated.already_active,
+        },
+    )
+    return activated
+
+
+router.include_router(routes_corpus.router)
+router.include_router(routes_internal.router)

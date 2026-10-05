@@ -12,6 +12,7 @@ from fcrm_common.broker import (
     passive_exchange,
     passive_queue,
     wire_consumer,
+    wire_consumer_running,
 )
 
 AMQP = "amqp://guest:guest@localhost:5672/"
@@ -102,3 +103,58 @@ async def test_a_delivery_reaches_consumer_process_with_its_body_and_headers():
     body, headers = consumer.deliveries[0]
     assert body == b'{"hello": "world"}'
     assert headers["attempt"] == 1
+
+
+class _Subscriber:
+    """A FastStream subscriber as far as ``wire_consumer_running`` sees one."""
+
+    def __init__(self, queue: object = None) -> None:
+        self.queue = queue
+        self.starts = 0
+
+    async def start(self) -> None:
+        self.starts += 1
+
+
+class _StartedBroker:
+    """A broker that has already started, with one subscriber it started."""
+
+    def __init__(self) -> None:
+        self.earlier = _Subscriber()
+        self.earlier.starts = 1
+        self.subscribers: list[_Subscriber] = [self.earlier]
+
+    def subscriber(self, queue: object, *args: object, **kwargs: object) -> object:
+        self.subscribers.append(_Subscriber(queue))
+        return lambda handler: handler
+
+
+async def test_wire_consumer_running_starts_only_the_subscribers_it_added():
+    broker = _StartedBroker()
+
+    added = await wire_consumer_running(
+        broker,  # type: ignore[arg-type]
+        _RecordingConsumer(),  # type: ignore[arg-type]
+        exchange="case.events",
+        routing_keys=["index.*"],
+    )
+
+    assert len(added) == 1
+    assert added[0].starts == 1
+    assert added[0].queue.name == "q.test"
+    assert broker.earlier.starts == 1  # never restarted
+    assert broker.subscribers == [broker.earlier, added[0]]
+
+
+async def test_wire_consumer_running_starts_one_subscriber_per_routing_key():
+    broker = _StartedBroker()
+
+    added = await wire_consumer_running(
+        broker,  # type: ignore[arg-type]
+        _RecordingConsumer(),  # type: ignore[arg-type]
+        exchange="case.events",
+        routing_keys=["index.built", "index.failed"],
+    )
+
+    assert [s.starts for s in added] == [1, 1]
+    assert {s.queue.routing_key for s in added} == {"index.built", "index.failed"}

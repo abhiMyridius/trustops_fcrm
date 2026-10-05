@@ -42,6 +42,12 @@ Only the engine was cloned. The AEO host (`app.py`, `jobs/runner.py` with its al
 - `vector/embedder.py`: the KR metadata pass-through also carries the six new keys.
 - Fixture `index_contract_v2.schema.json` (now owned by this repo): the new properties, `policy` source type, `clause_units` strategy. `NON_FILTERABLE_KEYS` unchanged (10-key cap).
 
+### Precedent and control record kinds (I3-C, design A §6.3)
+- `vector/contract.py`: `SOURCE_TYPES += "precedent", "control"`; `FILTERABLE_KEYS += case_id, control_id, controls_version, outcome, band` (the identifiers and facets of the `precedent_cases` and `controls` indexes; `closed_date`, `trigger_type`, `risk_area` and `jurisdiction` already existed). `NON_FILTERABLE_KEYS` unchanged.
+- `vector/embedder.py`: the KR metadata pass-through also carries the five new keys.
+- Fixture `index_contract_v2.schema.json`: the two source types and the five properties.
+- A test that used `band` as its example of an unknown filter key now uses `severity`.
+
 ### Filters on search (design A §7.2 step 4)
 - `retrieval/context_engine.py`: `filters` parameter on `get_deep_context`, `get_context` and `search`; `scoped_filters()` validates keys and merges with the project scope (the project always wins, so filters cannot widen a search to another project); `search`/`get_context` raise `MetadataContractViolation` for a bad key before any I/O. Filter syntax is the memory store's (`{key: value}`, `$eq/$in/$gte/$lte`, `$and/$or`), which S3 Vectors' `query_vectors` filter accepts as is, so `S3VectorsStore.query` needed no translation.
 - `cli.py`: `search --filter KEY=VALUE` (repeatable).
@@ -59,8 +65,11 @@ Only the engine was cloned. The AEO host (`app.py`, `jobs/runner.py` with its al
 - `fcrm_context_worker/config.py` (`VECTOR_BACKEND` default `memory`, `EMBEDDING_PROVIDER` default `dummy` under memory / `bedrock` under s3vectors, `CONTEXT_SYNTHESIS_ENABLED` default false), `filters.py` (duplicate of `fcrm_policy.search.filters` + `to_vector_filter`), `segmenter.py` (clause segmenter), `seedload.py` (seed clauses → `clause_units` vectors), `search.py` (`search_clauses` with push-down filters + `matches_filters` re-check).
 - Tests: `evoq_context/test_trustops_additions.py`; `fcrm_context_worker/{test_search_filters.py,test_segmenter.py,test_context_config.py}`.
 
+### The index.build host (I3-C, design A §7.2 step 8)
+`fcrm_context_worker/{settings,topology,sources,indexes,builder,fixture,consumer,app,__main__}.py`: queue `context-worker.run` bound to `index.build`; the consumer reads S3's `GET /internal/clauses`, `GET /internal/precedents` and `GET /controls` as the service account, builds the three indexes' records (`indexes.py`), embeds them and upserts them into a fresh store per build (`builder.py`), stores the `memory` backend's fixture at `{index}/{version}.json` in the vectors bucket (`fixture.py`) and publishes `index.built` / `index.failed` (`consumer.py`); it is a `WorkerUnit` in `fcrm_harness` (`CONTEXT_PREFETCH`, default 4). No synthesis runs on a build, pinned by a test with a failing chat model. `EMBEDDING_PROVIDER=bedrock` reads the model id and dimension from `ai/models/tiers.yaml` under `PROMPTS_DIR` (`config.embeddings_from_tiers`), the same way S3 does; the default stays the deterministic `dummy` provider.
+
 ### Not done in this pass (tracked)
-- Three named indexes (`index_name` split from `project`, §7.2 step 5), S3 Vectors hardening (§7.2 step 7: cached `ensure_index`, `expand_parents` via `get_vectors`, configurable `top_k`, `ensure_bucket`, throttling retries, `live_aws` test) and the `index.build` host job (§7.2 step 8).
+- A separate S3 Vectors index per kind (`index_name` split from `project`, §7.2 step 5): under `s3vectors` the three builds share one index (keys cannot collide: their `doc_id` types differ), and a `full` build upserts instead of deleting by manifest, so a row S3 has since deleted would linger. Under `memory` every build is a fresh store and the fixture is exactly the index at that version. S3 Vectors hardening (§7.2 step 7: cached `ensure_index`, `expand_parents` via `get_vectors`, configurable `top_k`, `ensure_bucket`, throttling retries, `live_aws` test) and the `vector_manifest.json` per index/version (§7.2 step 8) are not done either.
 - The clause segmenter is a TrustOps module, not yet registered as an engine `SEGMENTERS` strategy (`clause_units` exists in the contract and is what seedload writes).
 - List-valued filter keys (`risk_area`, `trigger_type`) are stored comma-joined per the contract, so an equality filter matches only the exact joined string on both backends. Storing them as string arrays (S3 Vectors supports array membership) is the follow-up.
 - Upstream defaults still name chat/embedding model ids in `core/config.py` (`analysis_model`, `synthesis_model`, `embedding_model`); the repo rule puts model ids only in `ai/models/tiers.yaml`. The chat ids are dead with synthesis off; the host should pass the embedding id from `tiers.yaml`.

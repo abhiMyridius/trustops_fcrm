@@ -92,6 +92,12 @@ _KR_METADATA_KEYS = (
     "closed_date",
     "clause_id",
     "index_kind",
+    # ...and the precedent and control indexes' keys (design A §6.3).
+    "case_id",
+    "control_id",
+    "controls_version",
+    "outcome",
+    "band",
 )
 
 

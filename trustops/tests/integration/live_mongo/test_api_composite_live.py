@@ -63,14 +63,37 @@ TEST_MOUNTS = tuple(
 )
 
 
+class FakeSubscriber:
+    """One subscriber a service added to the broker after it started."""
+
+    def __init__(self, queue: object) -> None:
+        self.queue = queue
+        self.running = False
+
+    async def start(self) -> None:
+        self.running = True
+
+    async def stop(self) -> None:
+        self.running = False
+
+
 class FakeBroker:
     """Stands in for the process's one ``RabbitBroker`` (no RabbitMQ runs in
-    these tests): it records what the services' relays publish through it.
+    these tests): it records what the services' relays publish through it and
+    which subscribers the services add to it (S3's ``index.*`` consumer).
     """
 
     def __init__(self) -> None:
         self.started = False
         self.published: list[tuple[bytes, dict[str, object]]] = []
+        self.subscribers: list[FakeSubscriber] = []
+
+    def subscriber(self, queue: object, *args: object, **kwargs: object) -> object:
+        """``RabbitBroker.subscriber``: returns the decorator that registers
+        the handler (kept as is; nothing is delivered in these tests).
+        """
+        self.subscribers.append(FakeSubscriber(queue))
+        return lambda handler: handler
 
     async def start(self) -> None:
         self.started = True
@@ -259,6 +282,53 @@ def test_s5_relays_its_outbox_through_the_composites_broker(
         assert sent[0]["routing_key"] == "outcome.set"
         ready = client.get("/api/fcrm/decision/readyz")
         assert ready.json()["checks"]["outbox"]["ok"] is True
+
+
+def test_s3_adds_its_index_consumer_to_the_composites_started_broker(
+    clean_dbs: None,
+    composite_env: None,
+    fake_broker: FakeBroker,
+    composite_client: Callable[[], AbstractContextManager[TestClient]],
+) -> None:
+    with composite_client():
+        [subscriber] = fake_broker.subscribers
+        assert subscriber.running is True
+        assert getattr(subscriber.queue, "name", None) == "policy-service.events"
+    assert subscriber.running is False
+
+
+def test_the_webs_policy_search_path_is_answered_in_the_webs_shape(
+    clean_dbs: None,
+    composite_env: None,
+    composite_client: Callable[[], AbstractContextManager[TestClient]],
+) -> None:
+    """The web's ``policy.search`` is ``/api/fcrm/policy/search`` with
+    ``{q, case_id}``: on S3's prefix that is ``/search``, which also answers the
+    tools' shape. Through the real composite, over a real Mongo.
+    """
+    with composite_client() as client:
+        web = client.post(
+            "/api/fcrm/policy/search",
+            json={"q": "cash pickup agent", "case_id": "FCRM-2026-0151"},
+        )
+        tool = client.post(
+            "/api/fcrm/policy/search",
+            json={"index": "policy_clauses", "query": "cash pickup agent", "top_k": 3},
+        )
+        clause = client.get("/api/fcrm/policy/clauses/FCRM42-3.1")
+
+    assert web.status_code == 200, web.text
+    body = web.json()
+    assert body["query"] == "cash pickup agent"
+    assert body["corpus_version"] == "v14"
+    assert body["results"]
+    assert {"clause_id", "quote", "ref", "source_ref", "similarity"} <= set(
+        body["results"][0]
+    )
+    assert tool.status_code == 200, tool.text
+    assert len(tool.json()["hits"]) == 3
+    assert clause.status_code == 200
+    assert clause.json()["source_ref"]["corpus_v"] == 14
 
 
 def test_real_requests_reach_each_mounted_service_through_the_shared_clients(

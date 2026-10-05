@@ -279,17 +279,21 @@ services:
       # S3 policy
       RRF_K: "60"
       SEARCH_TOP_K_MAX: "30"
+      # The ai/ root: EMBEDDING_PROVIDER=bedrock reads the embedding model from
+      # ai/models/tiers.yaml, the same file H4 reads (model ids live only there).
+      PROMPTS_DIR: /app/ai
       # S5 decision
       COMMITTEE_QUORUM: "3"
     expose:
       - "8000"
     volumes:
       - ./jwt_keys:/keys:ro          # `make keys` writes jwt.pem / jwt.pub.pem
+      - ./ai:/app/ai:ro              # tiers.yaml: the embedding model S3 queries with
     healthcheck:
       <<: *health-timing
       test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/readyz', timeout=4).status == 200 else 1)"]
 
-  # ── harness: H1 caseflow + H2 agent-worker (H3/H4 join as their entry points land)
+  # ── harness: H1 caseflow + H2 agent-worker + H3 ingestion + H4 context
   # One process (python -m fcrm_harness, ADR-26) on the same image as api: one
   # broker, one Mongo client (fcrm_harness) and one health endpoint on 9100.
   # H2 runs AGENT_PREFETCH jobs at once instead of the two replicas it used to.
@@ -309,7 +313,7 @@ services:
       minio:
         condition: service_healthy
     environment:
-      <<: [*app-env, *service-urls, *s3-env, *aws-env]
+      <<: [*app-env, *service-urls, *s3-env, *aws-env, *vector-env]
       OTEL_SERVICE_NAME: fcrm-harness
       OTEL_RESOURCE_ATTRIBUTES: component.id=harness,service.namespace=trustops
       MONGODB_DB: fcrm_harness

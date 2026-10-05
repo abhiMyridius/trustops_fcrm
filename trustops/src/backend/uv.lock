@@ -1308,11 +1308,15 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "botocore", version = "1.40.61", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-19-fcrm-context-worker-s3vectors'" },
     { name = "botocore", version = "1.43.108", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "faststream", extra = ["rabbit"] },
+    { name = "fcrm-common" },
     { name = "fcrm-contracts" },
     { name = "fcrm-seed" },
     { name = "litellm" },
     { name = "markdownify" },
+    { name = "pyyaml" },
     { name = "tiktoken" },
+    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.optional-dependencies]
@@ -1328,6 +1332,7 @@ dev = [
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "types-pyyaml" },
 ]
 
 [package.metadata]
@@ -1335,11 +1340,15 @@ requires-dist = [
     { name = "aioboto3", marker = "extra == 's3vectors'", specifier = ">=15.5" },
     { name = "beautifulsoup4", specifier = ">=4.12" },
     { name = "botocore", specifier = ">=1.40" },
+    { name = "faststream", extras = ["rabbit"], specifier = "==0.6.7" },
+    { name = "fcrm-common", editable = "packages/common" },
     { name = "fcrm-contracts", editable = "packages/contracts" },
     { name = "fcrm-seed", editable = "packages/seed" },
     { name = "litellm", specifier = ">=1.40" },
     { name = "markdownify", specifier = ">=0.13" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "tiktoken", specifier = ">=0.7" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.34" },
 ]
 provides-extras = ["s3vectors"]
 
@@ -1351,6 +1360,7 @@ dev = [
     { name = "mypy", specifier = ">=1.14" },
     { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-asyncio", specifier = ">=0.25" },
+    { name = "types-pyyaml", specifier = ">=6.0" },
 ]
 
 [[package]]
@@ -1499,6 +1509,7 @@ dependencies = [
     { name = "fcrm-agent-worker", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
     { name = "fcrm-caseflow", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
     { name = "fcrm-common", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "fcrm-context-worker", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
     { name = "fcrm-contracts", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
     { name = "fcrm-ingestion-worker", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
     { name = "uvicorn", extra = ["standard"], marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
@@ -1516,6 +1527,7 @@ requires-dist = [
     { name = "fcrm-agent-worker", editable = "workers/agent-worker" },
     { name = "fcrm-caseflow", editable = "workers/caseflow" },
     { name = "fcrm-common", editable = "packages/common" },
+    { name = "fcrm-context-worker", editable = "workers/context-worker" },
     { name = "fcrm-contracts", editable = "packages/contracts" },
     { name = "fcrm-ingestion-worker", editable = "workers/ingestion-worker" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.34" },

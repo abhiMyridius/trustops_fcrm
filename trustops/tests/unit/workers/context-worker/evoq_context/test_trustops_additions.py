@@ -157,6 +157,47 @@ def test_validate_metadata_accepts_fcrm_keys() -> None:
     validate_metadata(_clause_meta())
 
 
+def test_validate_metadata_accepts_the_precedent_and_control_record_kinds() -> None:
+    precedent_id = "precedent:FCRM20260072"
+    precedent_hash = content_hash_of(b"precedent text")
+    validate_metadata(
+        _clause_meta(
+            doc_id=precedent_id,
+            source_type="precedent",
+            source_id="FCRM-2026-0072",
+            content_hash=precedent_hash,
+            chunk_key=vector_key(precedent_id, precedent_hash, 0),
+            type="plain_text",
+            index_kind="precedent",
+            case_id="FCRM-2026-0072",
+            outcome="approved",
+            band=2,
+        )
+    )
+    control_id = "control:CTLT01"
+    control_hash = content_hash_of(b"control text")
+    validate_metadata(
+        _clause_meta(
+            doc_id=control_id,
+            source_type="control",
+            source_id="CTL-T01",
+            content_hash=control_hash,
+            chunk_key=vector_key(control_id, control_hash, 0),
+            type="plain_text",
+            index_kind="control",
+            control_id="CTL-T01",
+            controls_version="v9",
+        )
+    )
+
+
+def test_the_new_identifier_keys_are_filterable() -> None:
+    validate_filter_keys(
+        {"$and": [{"case_id": "FCRM-2026-0072"}, {"controls_version": "v9"}]}
+    )
+    validate_filter_keys({"control_id": "CTL-T01", "outcome": "approved", "band": 2})
+
+
 def test_validate_metadata_rejects_unknown_key() -> None:
     with pytest.raises(MetadataContractViolation, match="risk_level"):
         validate_metadata(_clause_meta(risk_level="high"))
@@ -217,4 +258,4 @@ async def test_search_rejects_unknown_filter_key_before_embedding(
     store = InMemoryVectorStore(dummy_config, "fcrm")
     llm = LLMClient.from_config(dummy_config)
     with pytest.raises(MetadataContractViolation):
-        await search("fcrm", "q", dummy_config, llm, store, filters={"band": "3"})
+        await search("fcrm", "q", dummy_config, llm, store, filters={"severity": "3"})

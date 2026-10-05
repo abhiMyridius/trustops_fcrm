@@ -1,9 +1,9 @@
 """HTTP-backed agent tools: what H2 runs in the composed stack.
 
 :func:`build_http_registry` returns a :class:`~fcrm_tools.base.ToolRegistry` of
-the tools whose backing service exists, each implementing the same
-:class:`~fcrm_tools.base.Tool` protocol and output models as its seed-backed
-twin in :mod:`fcrm_tools.seed_backed`, so no caller changes:
+all thirteen tools, each implementing the same :class:`~fcrm_tools.base.Tool`
+protocol and output models as its seed-backed twin in
+:mod:`fcrm_tools.seed_backed`, so no caller changes:
 
 ====================  ==========================================================
 Tool                  Backed by
@@ -14,31 +14,32 @@ Tool                  Backed by
                       ``p.N l.M: text``); the anchored text is the only source
                       of quotes
 ``case_record``       S1 ``GET /internal/cases/{id}/record`` (``CaseRecordInternal``)
+``case_search``       S1 ``GET /internal/cases/search`` (assumed shape, see
+                      :mod:`fcrm_tools.http_case_tools`)
 ``field_rules``       S3 ``GET /field-sets/{v}/resolve`` (pinned-version check
                       only; S3 does the resolving)
-``jurisdiction_list`` S3 ``GET /jurisdictions?version=``
+``policy_search``     S3 ``POST /search`` on ``policy_clauses`` (verbatim clause
+                      text, citation on every hit; pinned corpus version)
 ``precedent_search``  S3 ``POST /search`` on ``precedent_cases`` (hit metadata
                       adapted to what the context-pack builders read)
+``control_inventory`` S3 ``GET /controls?version=&domain=`` (pinned version)
+``evidence_store``    S1 ``GET /internal/cases/{id}/evidence`` (assumed shape)
+                      and S3's control catalogue
+``jurisdiction_list`` S3 ``GET /jurisdictions?version=``
 ``rules_check``       in-process, the real eight rules (no service, no seed)
+``evidence_ledger``   S4 ``GET /proposals`` (paged, bounded)
+``audit_log``         S4 ``GET /records/{case_id}`` (paged, bounded)
+``submission_diff``   S1 ``GET /cases/{id}/versions/diff``
 ====================  ==========================================================
 
-Not wired yet: ``policy_search``, ``control_inventory``, ``evidence_store``,
-``evidence_ledger``, ``audit_log``, ``submission_diff`` and ``case_search``.
-Asking this registry for one raises :class:`~fcrm_tools.errors.ToolNotWiredError`
-(it never falls back to the seed registry). There is no ``scoring_engine``
-tool at all: agents never score (ADR-07).
-
-Failure mapping (so a caller never sees a bare ``httpx``/``botocore``/JSON
-error):
-
-* peer 404 -> :class:`~fcrm_tools.errors.UnknownEntityError`;
-* peer 400/422 -> :class:`~fcrm_tools.errors.ToolInputError`;
-* a peer that answers with something that is not the expected shape ->
-  :class:`~fcrm_common.errors.UpstreamUnavailableError`;
-* timeouts and connection failures -> ``UpstreamTimeoutError`` /
-  ``UpstreamUnavailableError`` from :class:`~fcrm_common.http.ServiceClient`
-  (2 s connect, 10 s read, two retries for GETs), which H2 treats as
-  transient (the job is redelivered), unlike a ``ToolError`` (terminal).
+There is no ``scoring_engine`` tool at all: agents never score (ADR-07). The
+tools live in :mod:`fcrm_tools.http_policy_tools` (S3),
+:mod:`fcrm_tools.http_case_tools` (S1, S3) and :mod:`fcrm_tools.http_audit_tools`
+(S4); the first six here are the original set (documents, the case record, the
+field set, jurisdictions, precedents, the rules). Every tool runs behind the
+same timeouts, retries and error mapping (:mod:`fcrm_tools.http_common`): a peer
+that cannot answer is an error the model sees as a tool failure, and no tool
+ever falls back to the seed registry.
 
 Known limit: ``DocumentReaderInput`` carries only a ``doc_id``, so the tool
 cannot check that the document belongs to the job's case; ids are unguessable
@@ -48,21 +49,16 @@ ULIDs and only reach the model through its own pack. Adding an optional
 
 from __future__ import annotations
 
-import json
 import logging
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from typing import Any, Final, Optional
-from urllib.parse import quote
 
 import httpx
 from fcrm_common.cache import InMemoryTTLCache, TTLCache, cache_get, cache_set
-from fcrm_common.errors import (
-    NotFoundError,
-    UpstreamUnavailableError,
-)
+from fcrm_common.errors import NotFoundError
 from fcrm_common.errors import ValidationError as FcrmValidationError
-from fcrm_common.http import ServiceClient, Timeouts
+from fcrm_common.http import ServiceClient
 from fcrm_common.objectstore import ObjectStore
 from fcrm_contracts.api.case_internal import (
     CaseRecordInternal,
@@ -90,8 +86,6 @@ from fcrm_contracts.tools.policy_search import (
     PrecedentSearchInput,
     PrecedentSearchOutput,
 )
-from pydantic import BaseModel
-from pydantic import ValidationError as PydanticValidationError
 
 from fcrm_tools.base import TOOL_NAMES, BaseTool, Tool, ToolRegistry
 from fcrm_tools.errors import (
@@ -102,27 +96,34 @@ from fcrm_tools.errors import (
     UnknownEntityError,
     UnknownToolError,
 )
+from fcrm_tools.http_audit_tools import HttpAuditLogTool, HttpEvidenceLedgerTool
+from fcrm_tools.http_case_tools import (
+    HttpCaseSearchTool,
+    HttpEvidenceStoreTool,
+    HttpSubmissionDiffTool,
+)
+from fcrm_tools.http_common import (
+    ALIAS_TTL_S,
+    AUDIT_PEER,
+    CASE_PEER,
+    FIELD_SET_TTL_S,
+    POLICY_PEER,
+    TOOL_RETRIES,
+    TOOL_TIMEOUTS,
+    check_top_k,
+    fetch_model,
+    segment,
+)
+from fcrm_tools.http_policy_tools import HttpControlInventoryTool, HttpPolicySearchTool
 from fcrm_tools.markdown import parse_pages, render_pages
-from fcrm_tools.seed_backed import MAX_TOP_K, RulesCheckTool
+from fcrm_tools.seed_backed import RulesCheckTool
 from fcrm_tools.seed_data import PRECEDENT_INDEX
 
 logger = logging.getLogger(__name__)
 
-CASE_PEER: Final = "case"
-POLICY_PEER: Final = "policy"
-AUDIT_PEER: Final = "audit"
-TOOL_TIMEOUTS: Final = Timeouts(connect=2.0, read=10.0)
-"""Per-request limits for every tool call (design B §1.3: ``timeout_s``)."""
-TOOL_RETRIES: Final = 2
-"""Extra attempts for an idempotent GET on connection failure or 502-504."""
-
 DEFAULT_CANONICAL_BUCKET: Final = "canonical"
 MAX_ANCHORED_BYTES: Final = 8 * 1024 * 1024
 """Largest anchored document the tool will read into memory."""
-FIELD_SET_TTL_S: Final = 300
-"""A pinned field-set or jurisdiction version never changes once published."""
-ALIAS_TTL_S: Final = 30
-"""``latest``/``current``/``fixture`` can move when a new list is activated."""
 _VERSION_ALIASES: Final = frozenset({"latest", "current", "active", "fixture"})
 
 WIRED_TOOLS: Final[tuple[str, ...]] = (
@@ -132,12 +133,16 @@ WIRED_TOOLS: Final[tuple[str, ...]] = (
     "jurisdiction_list",
     "precedent_search",
     "rules_check",
+    "policy_search",
+    "control_inventory",
+    "evidence_store",
+    "evidence_ledger",
+    "audit_log",
+    "submission_diff",
+    "case_search",
 )
-"""Tools this module backs, in registration order."""
-NOT_WIRED_TOOLS: Final[tuple[str, ...]] = tuple(
-    name for name in TOOL_NAMES if name not in WIRED_TOOLS
-)
-"""The remaining tools: next iteration's work, refused with a clear error."""
+"""Tools this module backs, in registration order: all thirteen. A registry
+built without one of them (a test's subset) still says *why* it is missing."""
 
 
 @dataclass(frozen=True)
@@ -221,94 +226,6 @@ class HttpToolRegistry(ToolRegistry):
             raise
 
 
-async def fetch_model[M: BaseModel](
-    client: ServiceClient,
-    path: str,
-    model: type[M],
-    *,
-    tool: str,
-    what: str,
-    method: str = "GET",
-    params: Optional[dict[str, Any]] = None,
-    body: Optional[dict[str, Any]] = None,
-) -> M:
-    """Call a peer and validate its answer as ``model``.
-
-    Args:
-        client: The peer's client.
-        path: Path relative to the peer's base URL.
-        model: The expected response model.
-        tool: The calling tool's name, for logs.
-        what: What was asked for, for error messages (``"document 'doc_1'"``).
-        method: ``GET`` (retried) or ``POST``.
-        params: Query parameters.
-        body: JSON request body.
-
-    Raises:
-        UnknownEntityError: The peer answered 404.
-        ToolInputError: The peer answered 400 or 422.
-        UpstreamUnavailableError: The peer answered something that is not
-            JSON or not ``model``; or the client could not reach it.
-        UpstreamTimeoutError: The peer did not answer in time.
-        fcrm_common.errors.FcrmError: Any other error status, unchanged
-            (403 for refused service credentials, 409, 5xx).
-    """
-    try:
-        payload = await client.request_json(method, path, params=params, json=body)
-    except NotFoundError as exc:
-        logger.info(
-            "tool lookup found nothing",
-            extra={"tool": tool, "dependency": client.dependency},
-        )
-        raise UnknownEntityError(f"{what} does not exist") from exc
-    except FcrmValidationError as exc:
-        logger.info(
-            "tool request refused by peer",
-            extra={"tool": tool, "dependency": client.dependency},
-        )
-        raise ToolInputError(f"{what}: {exc.detail}") from exc
-    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-        logger.error(
-            "peer answered with a body that is not JSON",
-            extra={"tool": tool, "dependency": client.dependency},
-        )
-        raise UpstreamUnavailableError(
-            f"{client.dependency} returned a body that is not JSON.",
-            dependency=client.dependency,
-        ) from exc
-    return validated(model, payload, tool=tool, dependency=client.dependency)
-
-
-def validated[M: BaseModel](
-    model: type[M], payload: Any, *, tool: str, dependency: str
-) -> M:
-    """``payload`` as ``model``, or :class:`UpstreamUnavailableError` (the peer
-    answered, but not with the contract it publishes).
-    """
-    try:
-        return model.model_validate(payload)
-    except PydanticValidationError as exc:
-        logger.error(
-            "peer answered with an unexpected shape",
-            extra={"tool": tool, "dependency": dependency, "errors": exc.error_count()},
-        )
-        raise UpstreamUnavailableError(
-            f"{dependency} returned an invalid {model.__name__}.",
-            dependency=dependency,
-        ) from exc
-
-
-def _segment(value: str) -> str:
-    """``value`` as one URL path segment (nothing in it can add a segment)."""
-    return quote(value, safe="")
-
-
-def _check_top_k(top_k: int) -> None:
-    if not 1 <= top_k <= MAX_TOP_K:
-        msg = f"top_k must be 1..{MAX_TOP_K}, got {top_k}"
-        raise ToolInputError(msg)
-
-
 # ---- document_reader ----------------------------------------------------
 
 
@@ -370,7 +287,7 @@ class HttpDocumentReaderTool(BaseTool[DocumentReaderInput, DocumentReaderOutput]
         """
         meta = await fetch_model(
             self._case,
-            f"/internal/documents/{_segment(request.doc_id)}",
+            f"/internal/documents/{segment(request.doc_id)}",
             DocumentInternal,
             tool=self.name,
             what=f"document {request.doc_id!r}",
@@ -449,7 +366,7 @@ class HttpCaseRecordTool(BaseTool[CaseRecordInput, CaseRecordOutput]):
         wanted = request.submission_version
         record = await fetch_model(
             self._case,
-            f"/internal/cases/{_segment(request.case_id)}/record",
+            f"/internal/cases/{segment(request.case_id)}/record",
             CaseRecordInternal,
             tool=self.name,
             what=f"case {request.case_id!r}",
@@ -503,7 +420,7 @@ class HttpFieldRulesTool(BaseTool[FieldRulesInput, FieldRulesOutput]):
         else:
             resolved = await fetch_model(
                 self._policy,
-                f"/field-sets/{_segment(pinned)}/resolve",
+                f"/field-sets/{segment(pinned)}/resolve",
                 ResolvedFieldSetOut,
                 tool=self.name,
                 what=f"field set {pinned}",
@@ -614,7 +531,7 @@ class HttpPrecedentSearchTool(BaseTool[PrecedentSearchInput, PrecedentSearchOutp
         if request.index != PRECEDENT_INDEX:
             msg = f"precedent_search reads {PRECEDENT_INDEX!r}, not {request.index!r}"
             raise ToolInputError(msg)
-        _check_top_k(request.top_k)
+        check_top_k(request.top_k)
         response = await fetch_model(
             self._policy,
             "/search",
@@ -644,15 +561,17 @@ def build_http_registry(
     *,
     canonical_bucket: str = DEFAULT_CANONICAL_BUCKET,
 ) -> ToolRegistry:
-    """The registry of HTTP-backed tools (see the module docstring for which
-    exist and which raise :class:`ToolNotWiredError`).
+    """The registry of the thirteen HTTP-backed tools (see the module
+    docstring for what backs each). There is no ``scoring_engine``: agents never
+    score (ADR-07).
 
     Args:
         clients: The peer clients; the caller owns them and closes them
             (:meth:`ToolClients.aclose`) on shutdown.
         object_store: Where H3's anchored Markdown lives.
-        cache: A small TTL cache for the field set and jurisdiction list
-            (``fcrm_common.cache``); a private in-memory one when ``None``.
+        cache: A small TTL cache for the reads of a pinned version (the field
+            set, a control inventory, a corpus search) and of a jurisdiction
+            list (``fcrm_common.cache``); a private in-memory one when ``None``.
         canonical_bucket: The bucket H3 writes anchored text to.
     """
     ttl_cache = cache if cache is not None else InMemoryTTLCache(max_entries=256)
@@ -666,10 +585,14 @@ def build_http_registry(
             HttpJurisdictionListTool(clients.policy, ttl_cache),
             HttpPrecedentSearchTool(clients.policy),
             RulesCheckTool(),
+            HttpPolicySearchTool(clients.policy, ttl_cache),
+            HttpControlInventoryTool(clients.policy, ttl_cache),
+            HttpEvidenceStoreTool(clients.case, clients.policy, ttl_cache),
+            HttpEvidenceLedgerTool(clients.audit),
+            HttpAuditLogTool(clients.audit),
+            HttpSubmissionDiffTool(clients.case),
+            HttpCaseSearchTool(clients.case),
         ]
     )
-    logger.debug(
-        "http tool registry built",
-        extra={"tools": registry.names(), "not_wired": NOT_WIRED_TOOLS},
-    )
+    logger.debug("http tool registry built", extra={"tools": registry.names()})
     return registry

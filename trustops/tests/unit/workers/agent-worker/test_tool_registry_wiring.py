@@ -19,9 +19,9 @@ from fcrm_common.http import ServiceClient
 from fcrm_common.mongo import get_client
 from fcrm_common.settings import MissingSettingsError
 from fcrm_tools import (
+    TOOL_NAMES,
     HttpToolRegistry,
     ToolClients,
-    ToolNotWiredError,
     ToolRegistry,
     build_http_registry,
 )
@@ -97,8 +97,8 @@ def test_the_default_registry_is_the_http_backed_one(
     registry = consumers[0].kwargs["registry"]
     assert isinstance(registry, HttpToolRegistry)
     assert registry.names() == WIRED_TOOLS
-    with pytest.raises(ToolNotWiredError):
-        registry.get("policy_search")
+    assert set(registry.names()) == set(TOOL_NAMES)
+    assert registry.get("policy_search").name == "policy_search"
 
 
 def test_the_tool_clients_and_the_object_store_come_from_the_settings(

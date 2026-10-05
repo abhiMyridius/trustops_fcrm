@@ -24,8 +24,8 @@ rather than two independent parses.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
+from collections.abc import Mapping, Sequence
+from typing import Any, Optional
 
 from fcrm_context_worker.seedload import seed_clauses, seed_corpus_version
 
@@ -90,44 +90,81 @@ def _control_ratings(case: Mapping[str, Any]) -> dict[str, float]:
     }
 
 
+def precedent_search_text(
+    title: str,
+    unit: str,
+    change_types: Sequence[str],
+    domains: Sequence[str],
+    geographies: Sequence[str],
+) -> str:
+    """What a precedent's keyword ranking is built on: its title and unit, its
+    change types in words, its domains and geographies.
+    """
+    return " ".join(
+        w
+        for w in (
+            title,
+            unit,
+            " ".join(t.replace("_", " ") for t in change_types),
+            " ".join(domains),
+            " ".join(geographies),
+        )
+        if w
+    )
+
+
+def precedent_document(
+    *,
+    case_id: str,
+    title: str,
+    unit: str,
+    change_types: Sequence[str],
+    domains: Sequence[str],
+    geographies: Sequence[str],
+    closed_date: str,
+    outcome: Optional[str],
+    band: Optional[int],
+    control_ratings: Mapping[str, float],
+) -> dict[str, Any]:
+    """One precedent document, in the shape the seed loads and the closed-case
+    feedback loop writes, so both rank and filter alike.
+    """
+    return {
+        "_id": case_id,
+        "result_id": case_id,
+        "case_id": case_id,
+        "title": title,
+        "change_types": list(change_types),
+        "domains": list(domains),
+        "geographies": list(geographies),
+        "closed_date": closed_date,
+        "outcome": outcome,
+        "band": band,
+        "control_ratings": dict(control_ratings),
+        "search_text": precedent_search_text(
+            title, unit, change_types, domains, geographies
+        ),
+    }
+
+
 def precedent_documents(raw: Mapping[str, Any]) -> list[dict[str, Any]]:
     """One document per closed seed case (65 of the 80; design A §6.1)."""
-    docs: list[dict[str, Any]] = []
-    for case in raw["cases"]:
-        if case.get("stage") != "closed":
-            continue
-        title = str(case["title"])
-        change_types = list(case.get("change_types", []))
-        domains = list(case.get("domains", []))
-        geographies = list(case.get("geographies", []))
-        search_text = " ".join(
-            w
-            for w in (
-                title,
-                str(case.get("unit", "")),
-                " ".join(t.replace("_", " ") for t in change_types),
-                " ".join(domains),
-                " ".join(geographies),
-            )
-            if w
+    return [
+        precedent_document(
+            case_id=case["id"],
+            title=str(case["title"]),
+            unit=str(case.get("unit", "")),
+            change_types=case.get("change_types", []),
+            domains=case.get("domains", []),
+            geographies=case.get("geographies", []),
+            closed_date=case.get("decided") or "",
+            outcome=case.get("outcome"),
+            band=(case.get("score") or {}).get("band"),
+            control_ratings=_control_ratings(case),
         )
-        docs.append(
-            {
-                "_id": case["id"],
-                "result_id": case["id"],
-                "case_id": case["id"],
-                "title": title,
-                "change_types": change_types,
-                "domains": domains,
-                "geographies": geographies,
-                "closed_date": case.get("decided") or "",
-                "outcome": case.get("outcome"),
-                "band": (case.get("score") or {}).get("band"),
-                "control_ratings": _control_ratings(case),
-                "search_text": search_text,
-            }
-        )
-    return docs
+        for case in raw["cases"]
+        if case.get("stage") == "closed"
+    ]
 
 
 def control_documents(raw: Mapping[str, Any]) -> list[dict[str, Any]]:

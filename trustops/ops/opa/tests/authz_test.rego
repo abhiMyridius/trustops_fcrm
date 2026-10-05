@@ -230,6 +230,7 @@ test_scoring_matrix if {
 	authz.allow with input as req("fcrm_service", "scoring", "POST", "/score")
 	not authz.allow with input as req("fcrm_committee", "scoring", "POST", "/score")
 	not authz.allow with input as req("fcrm_po", "scoring", "POST", "/score")
+
 	# models and routing: analyst, committee, service; never PO
 	authz.allow with input as req("fcrm_committee", "scoring", "GET", "/models/active")
 	authz.allow with input as req("fcrm_committee", "scoring", "GET", "/models/{version}")
@@ -255,6 +256,7 @@ test_audit_matrix if {
 	not authz.allow with input as req("fcrm_analyst", "audit", "POST", "/records")
 	not authz.allow with input as req("fcrm_committee", "audit", "POST", "/records")
 	not authz.allow with input as req("fcrm_po", "audit", "POST", "/records")
+
 	# reads: analyst, committee, service; never PO (record summaries carry score text)
 	authz.allow with input as req("fcrm_analyst", "audit", "GET", "/verify/{case_id}")
 	authz.allow with input as req("fcrm_committee", "audit", "GET", "/verify/{case_id}")
@@ -274,6 +276,7 @@ test_audit_proposals_head_and_rows_matrix if {
 	not authz.allow with input as req("fcrm_committee", "audit", "POST", "/proposals")
 	not authz.allow with input as req("fcrm_po", "audit", "POST", "/proposals")
 	not authz.allow with input as req("fcrm_observer", "audit", "POST", "/proposals")
+
 	# reads: analyst, committee, service; never PO or observer. GET /records is
 	# the web's audit/records (row shape), GET /head/{case_id} the chain head.
 	every role in ["fcrm_analyst", "fcrm_committee", "fcrm_service"] {
@@ -313,6 +316,7 @@ test_policy_reference_data_matrix if {
 	] {
 		not authz.allow with input as req("fcrm_observer", "policy", "GET", route)
 	}
+
 	# the PO reads only the field labels of a resolved field set
 	authz.allow with input as req("fcrm_po", "policy", "GET", "/field-sets/{version}/resolve")
 	every route in [
@@ -324,11 +328,60 @@ test_policy_reference_data_matrix if {
 	] {
 		not authz.allow with input as req("fcrm_po", "policy", "GET", route)
 	}
+
 	# nobody but the analyst (who owns configuration, D-03) may publish a version
 	authz.allow with input as req("fcrm_analyst", "policy", "POST", "/jurisdictions/versions")
 	not authz.allow with input as req("fcrm_committee", "policy", "POST", "/jurisdictions/versions")
 	not authz.allow with input as req("fcrm_committee", "policy", "POST", "/controls/versions")
 	not authz.allow with input as req("fcrm_po", "policy", "POST", "/controls/versions")
+}
+
+test_policy_corpus_routes_matrix if {
+	# the web's policy search and the precedent search: the analyst and the
+	# service account (the agent tools); precedent hits carry a case's band and
+	# ratings, so never the committee, the PO or the observer
+	every route in ["/policy/search", "/precedents/search"] {
+		authz.allow with input as req("fcrm_analyst", "policy", "POST", route)
+		authz.allow with input as req("fcrm_service", "policy", "POST", route)
+		not authz.allow with input as req("fcrm_committee", "policy", "POST", route)
+		not authz.allow with input as req("fcrm_po", "policy", "POST", route)
+		not authz.allow with input as req("fcrm_observer", "policy", "POST", route)
+	}
+
+	# a clause by id: committee members read the clauses a pack cites
+	every role in ["fcrm_analyst", "fcrm_committee", "fcrm_service"] {
+		authz.allow with input as req(role, "policy", "GET", "/clauses/{clause_id}")
+	}
+	every role in ["fcrm_po", "fcrm_observer"] {
+		not authz.allow with input as req(role, "policy", "GET", "/clauses/{clause_id}")
+	}
+}
+
+test_policy_internal_routes_are_the_service_accounts_alone if {
+	every r in [
+		["GET", "/internal/clauses"],
+		["GET", "/internal/precedents"],
+		["POST", "/internal/precedents"],
+	] {
+		authz.allow with input as req("fcrm_service", "policy", r[0], r[1])
+
+		# the analyst wildcard would let a person through; the deny rule stops it
+		every role in ["fcrm_analyst", "fcrm_committee", "fcrm_po", "fcrm_observer"] {
+			not authz.allow with input as req(role, "policy", r[0], r[1])
+		}
+	}
+}
+
+test_only_the_analyst_activates_a_jurisdiction_list if {
+	route := "/jurisdictions/versions/{version}/activate"
+	authz.allow with input as req("fcrm_analyst", "policy", "POST", route)
+
+	# Guard 7: the service account inherits the analyst's rules, so an explicit
+	# deny is what keeps it from deciding this
+	not authz.allow with input as req("fcrm_service", "policy", "POST", route)
+	not authz.allow with input as req("fcrm_committee", "policy", "POST", route)
+	not authz.allow with input as req("fcrm_po", "policy", "POST", route)
+	not authz.allow with input as req("fcrm_observer", "policy", "POST", route)
 }
 
 # Every S5 route against every role. The set is what fcrm_decision.routes_*
@@ -440,6 +493,11 @@ test_po_denied_on_every_s2_to_s5_route if {
 		["policy", "GET", "/jurisdictions"],
 		["policy", "GET", "/controls"],
 		["policy", "GET", "/field-sets/{version}"],
+		["policy", "POST", "/policy/search"],
+		["policy", "POST", "/precedents/search"],
+		["policy", "GET", "/clauses/{clause_id}"],
+		["policy", "GET", "/internal/clauses"],
+		["policy", "POST", "/jurisdictions/versions/{version}/activate"],
 		["decision", "GET", "/committee/queue"],
 		["decision", "GET", "/cases/{case_id}/packs/latest"],
 		["decision", "GET", "/cases/{case_id}/outcome"],

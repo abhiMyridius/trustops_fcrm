@@ -6,9 +6,10 @@
 - :mod:`fcrm_tools.seed_backed`: every tool backed by ``fcrm_seed`` so the
   pipeline runs with no live service; :mod:`fcrm_tools.seed_data` documents
   each deterministic synthesis where the seed lacks an artefact.
-- :mod:`fcrm_tools.http_backed`: the tools whose backing service exists
-  (S1 documents and case record, S3 field sets, jurisdictions and precedents),
-  built by :func:`build_http_registry`; the rest raise ``ToolNotWiredError``.
+- :mod:`fcrm_tools.http_backed`: all thirteen tools over HTTP (S1, S3, S4 and
+  the object store; the policy, case and audit tools are in
+  ``http_policy_tools``, ``http_case_tools`` and ``http_audit_tools``), built by
+  :func:`build_http_registry`. There is no scoring tool (ADR-07).
 
 Design B §1.3 (tool specs), §3.5 (pinning and retrieval caching), §4.3
 (permits); BUILD-PLAN §3.4.
