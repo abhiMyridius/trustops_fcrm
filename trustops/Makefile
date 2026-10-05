@@ -148,8 +148,11 @@ logs: ## follow logs: make logs svc=api (all services when svc is empty)
 gen-seed: ## regenerate seed.json and assert it is byte-stable (P7, ADR-16)
 	cd src/backend/packages/seed && $(UV) run --project ../.. --package fcrm-seed python -m fcrm_seed.gen_seed
 
-seed: ## force-reload the seed into every fcrm_* database (refuses ENV=prod)
-	@$(call pending,the per-service fcrm_seed loader wiring in S1–S5 and X1 (design A §11.3))
+seed: ## force-reload the seed into every fcrm_* database and stage the demo PDFs (refuses ENV=prod)
+	$(PYTHON) ops/scripts/seed_reset.py --all --compose "$(COMPOSE)"
+	$(COMPOSE) restart api harness
+	@$(WAIT) --timeout 300 --compose "$(COMPOSE)" $(APPS)
+	$(PYTHON) ops/scripts/seed_reset.py --stage-fixtures --compose "$(COMPOSE)"
 
 seed-verify: ## recompute all 80 seed cases through POST /score and diff
 	@$(call pending,the S2 scoring service route + ops/scripts/seed_verify.py (offline today: make test-unit runs the 80-case golden test))
@@ -157,8 +160,8 @@ seed-verify: ## recompute all 80 seed cases through POST /score and diff
 demo: ## drive FCRM-2026-0151 end to end and assert the goldens (9.8 → 10.4, 2–1, 67 records)
 	@$(call pending,S1–S5 + H1/H2 and ops/scripts/demo.py (integration lane))
 
-demo-reset: ## put case 0151 back to intake, keep the other 79 cases
-	@$(call pending,the seed loaders in S1/S4/S5/H1)
+demo-reset: ## delete case 0151's documents and uploads so the demo can run again, keep the other cases (refuses ENV=prod)
+	$(PYTHON) ops/scripts/seed_reset.py --demo-case --compose "$(COMPOSE)"
 
 verify: ## verify one case's audit chain: make verify case=FCRM-2026-0118
 	@$(call pending,the S4 audit service GET /verify/{case_id})
