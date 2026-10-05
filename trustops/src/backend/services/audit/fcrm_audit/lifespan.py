@@ -1,13 +1,13 @@
-"""Startup and shutdown: Mongo, seed-on-empty of the demo chain, and two
-startup self-tests, mirroring ``fcrm_scoring.lifespan``'s shape.
+"""Startup and shutdown: Mongo, seed-on-empty of the closed cases' trails, and
+two startup self-tests, mirroring ``fcrm_scoring.lifespan``'s shape.
 
-1. ``chain_verify`` -- the seeded demo case's chain must actually pass
-   :func:`fcrm_audit.chain.verify_chain`, the same check
-   ``tests/unit/services/audit/test_chain.py::
-   test_the_demo_case_s_67_record_audit_trail_verifies_end_to_end`` runs,
-   against whatever is actually stored in *this* environment's Mongo --
-   catching a bad seed load or a hashing-format drift before the service
-   answers any request, not after.
+1. ``chain_verify`` -- a seeded closed case's chain (FCRM-2026-0118, the demo's
+   closest precedent) must actually pass :func:`fcrm_audit.chain.verify_chain`,
+   the same check ``tests/unit/services/audit/test_chain.py`` runs, against
+   whatever is actually stored in *this* environment's Mongo -- catching a bad
+   seed load or a hashing-format drift before the service answers any request,
+   not after. The demo case FCRM-2026-0151 cannot be the probe: it has no
+   records until the demo produces them live.
 
 2. ``insert_only`` -- the connected Mongo credential must be rejected
    (``OperationFailure`` code 13, Unauthorized) when it attempts an
@@ -21,12 +21,10 @@ startup self-tests, mirroring ``fcrm_scoring.lifespan``'s shape.
    query is evaluated, so a filter matching zero documents is rejected
    (or would succeed) exactly the same as one matching something real.
 
-Seeding the demo chain here is a disclosed, interim deviation from
-``fcrm_audit/seedmodel.py``'s own docstring and ``docs/governance/
-audit-chain.md`` (both say the demo's 67 records must be the *live*
-output of running the demo through the API, never seeded) -- recorded as
-``docs/governance/defect-trail.md`` D-18, kept only until H1 exists to
-produce them live.
+Seeding: with ``SEED_ON_EMPTY`` and an empty ``audit_records``, one bulk insert
+loads a nine-record trail for each of the 65 closed seed cases
+(:func:`fcrm_audit.seedmodel.build_closed_case_chains`). The demo case's 67
+records are the live demo's own output (design A §11.3), never seeded.
 
 S4 never calls ``ensure_indexes``, unlike S2: ``fcrm_audit_writer`` holds
 no ``createIndex`` privilege at all (``02-users.js``'s own comment), so
@@ -39,7 +37,7 @@ silent corruption -- is created once, by the root user, in
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -58,7 +56,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from fcrm_audit.seedmodel import build_demo_chain
+from fcrm_audit.seedmodel import build_closed_case_chains
 from fcrm_audit.settings import AuditSettings
 from fcrm_audit.store import MongoAuditStore
 
@@ -71,7 +69,7 @@ _INSERT_ONLY_PROBE_FILTER = {"case_id": "__fcrm_audit_insert_only_probe__"}
 
 
 class ChainVerifyFailedError(UpstreamUnavailableError):
-    """The seeded demo case's audit chain does not verify. Treated as an
+    """The self-test case's seeded audit chain does not verify. Treated as an
     upstream-unavailable 503 at ``/readyz``: the service is up but its
     stored chain cannot be trusted.
     """
@@ -138,13 +136,22 @@ async def _insert_only_self_test(collection: AsyncCollection[Any]) -> None:
     )
 
 
+def chain_self_test_case_id(demo: Mapping[str, Any]) -> str:
+    """The case whose stored chain the startup self-test verifies: the demo's
+    closest precedent (a closed case with a seeded trail), never the demo case
+    itself, which has no records until the demo produces them live.
+    """
+    case_id: str = demo["precedent"]["id"]
+    return case_id
+
+
 @asynccontextmanager
 async def register(
     app: FastAPI, settings: AuditSettings, deps: ServiceDeps
 ) -> AsyncIterator[None]:
-    """Wire S4 onto ``app`` from injected dependencies: seed the demo
-    case's chain on an empty collection, run both startup self-tests, then
-    set auth/authz, the readiness checks and the store on ``app.state``.
+    """Wire S4 onto ``app`` from injected dependencies: seed the closed cases'
+    trails on an empty collection, run both startup self-tests, then set
+    auth/authz, the readiness checks and the store on ``app.state``.
 
     ``deps.mongo`` must be the insert-only audit-writer client: the
     insert-only self-test proves that the connected credential cannot
@@ -165,12 +172,12 @@ async def register(
     # docstring: fcrm_audit_writer cannot create indexes.
 
     reader = SeedReader(settings.seed_path)
-    demo = reader.demo_case()
-    demo_case_id: str = demo["id"]
+    self_test_case_id = chain_self_test_case_id(reader.demo_case())
 
     if settings.seed_on_empty:
         chain_docs = [
-            records_repo.to_document(record) for record in build_demo_chain(demo)
+            records_repo.to_document(record)
+            for record in build_closed_case_chains(reader.cases())
         ]
         await load_if_empty(records_repo, chain_docs)
 
@@ -184,10 +191,10 @@ async def register(
     probe.add(mongo_check(deps.mongo))
 
     if settings.chain_verify_on_start:
-        await _chain_verify_self_test(store, demo_case_id)
+        await _chain_verify_self_test(store, self_test_case_id)
 
         async def _chain_check() -> None:
-            await _chain_verify_self_test(store, demo_case_id)
+            await _chain_verify_self_test(store, self_test_case_id)
 
         probe.add(ReadinessCheck("chain_verify", _chain_check, critical=True))
 
