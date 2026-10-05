@@ -1,82 +1,89 @@
 /* Reset, focus, motion and print rules. Tokens come from tokens.css; no hex literals here. */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
+/* The reset sits in Tailwind's base layer. Unlayered rules beat every layered
+   rule, so outside a layer `button { color: inherit; font: inherit }` silently
+   overrode the text-* and font-* utilities on every button (dark-on-dark text
+   on primary buttons), and `ul { padding: 0 }` / `svg { display: block }` beat
+   p-* and inline utilities. */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
 
-html,
-body,
-#root {
-  height: 100%;
-}
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
 
-html {
-  font-size: 14px;
-  line-height: 1.5;
-  -webkit-text-size-adjust: 100%;
-}
+  html {
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
 
-body {
-  margin: 0;
-  background: var(--color-canvas);
-  color: var(--color-text-primary);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+  body {
+    margin: 0;
+    background: var(--color-canvas);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-h1,
-h2,
-h3,
-h4,
-p,
-ul,
-ol,
-dl,
-dd,
-figure {
-  margin: 0;
-}
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  ul,
+  ol,
+  dl,
+  dd,
+  figure {
+    margin: 0;
+  }
 
-ul,
-ol {
-  padding: 0;
-  list-style: none;
-}
+  ul,
+  ol {
+    padding: 0;
+    list-style: none;
+  }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
-  color: inherit;
-}
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
 
-img,
-svg {
-  display: block;
-  max-width: 100%;
-}
+  img,
+  svg {
+    display: block;
+    max-width: 100%;
+  }
 
-a {
-  color: var(--color-carbon-moss);
-  text-decoration: none;
-}
-a:hover {
-  color: var(--color-carbon-moss-hover);
-  text-decoration: underline;
-}
+  a {
+    color: var(--color-carbon-moss);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--color-carbon-moss-hover);
+    text-decoration: underline;
+  }
 
-::selection {
-  background: var(--color-quantum-leaf-tint-2);
-}
+  ::selection {
+    background: var(--color-quantum-leaf-tint-2);
+  }
 
-/* Numbers line up in tables and score boxes. */
-.tabular,
-table td,
-table th {
-  font-variant-numeric: tabular-nums;
+  /* Numbers line up in tables and score boxes. */
+  .tabular,
+  table td,
+  table th {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 /* One visible focus ring for every interactive element (WCAG 2.4.7). */
