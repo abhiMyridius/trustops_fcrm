@@ -26,6 +26,9 @@ const PO_PATHS = [
   paths.audit.verify(DEMO),
 ];
 
+/** The PO routes that return a list; each answers a Page (the web unwraps it with apiList). */
+const PO_LIST_PATHS = [paths.cases.list, paths.cases.conditions(DEMO), paths.cases.activity(DEMO), paths.cases.integrations];
+
 describe('BB-02 · the PO never receives score, band, rating, clause, vote or harness data', () => {
   for (const scenario of ['fresh', 'submitted', 'released', 'closed'] as const) {
     it(`walks every PO endpoint in scenario "${scenario}"`, async () => {
@@ -36,10 +39,27 @@ describe('BB-02 · the PO never receives score, band, rating, clause, vote or ha
         expect(res.status, p).toBe(200);
         const json: unknown = await res.json();
         expect(restrictedKeys(json), p).toEqual([]);
-        expect(JSON.stringify(json), p).not.toMatch(/"band"|"composite"|"residual"|9\.8|10\.4/);
+        // Timestamps are cut first: a clock reading such as "…:10.430Z" is not the 10.4 composite.
+        const text = JSON.stringify(json).replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/g, '');
+        expect(text, p).not.toMatch(/"band"|"composite"|"residual"|9\.8|10\.4/);
       }
     });
   }
+
+  it('answers every PO list route with Page{items,next_cursor,total} and no restricted key inside the items', async () => {
+    resetMockState('closed');
+    const token = await tokenFor(USERS.priya);
+    for (const p of PO_LIST_PATHS) {
+      const res = await call(token, p);
+      expect(res.status, p).toBe(200);
+      const json = (await res.json()) as { items?: unknown; next_cursor?: unknown; total?: unknown };
+      expect(Object.keys(json).sort(), p).toEqual(['items', 'next_cursor', 'total']);
+      expect(Array.isArray(json.items), p).toBe(true);
+      expect(json.next_cursor, p).toBeNull();
+      expect(json.total, p).toBe((json.items as unknown[]).length);
+      expect(restrictedKeys(json.items), p).toEqual([]);
+    }
+  });
 
   it('answers 403 to the PO on the harness snapshot, the workbench and the committee queue', async () => {
     const token = await tokenFor(USERS.priya);

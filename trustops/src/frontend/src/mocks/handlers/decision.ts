@@ -4,7 +4,7 @@ import { API_PREFIX, paths } from '@/api/endpoints';
 import type { Outcome } from '@/api/types/common';
 import * as A from '../actions';
 import { getDB, persist, sceneTime } from '../db';
-import { body, guarded, notFound, problem } from '../http';
+import { body, guarded, notFound, page, problem } from '../http';
 import { seed } from '../seed';
 import { COMMITTEE_NAMES } from '../users';
 import { isDemo, seedCase } from '../views/common';
@@ -14,7 +14,7 @@ const OUTCOMES: Outcome[] = ['approve', 'approve_with_conditions', 'defer', 'rej
 
 export const decisionHandlers = [
   http.get(paths.decision.committeeQueue, ({ request }) =>
-    guarded(request, ['fcrm_committee'], ({ user }) => HttpResponse.json(committeeQueue(user.name))),
+    guarded(request, ['fcrm_committee'], ({ user }) => page(committeeQueue(user.name))),
   ),
   http.post(paths.decision.buildPack, ({ request }) =>
     guarded(request, ['fcrm_analyst'], async () => {
@@ -76,7 +76,7 @@ export const decisionHandlers = [
       const caseId = caseIdForPack(String(params.packId));
       if (!caseId) return notFound();
       if (role === 'fcrm_committee' && !canCommitteeSee(caseId)) return notFound();
-      return HttpResponse.json(threads(caseId));
+      return page(threads(caseId));
     }),
   ),
   http.post(`${API_PREFIX}/decision/packs/:packId/threads`, ({ request, params }) =>

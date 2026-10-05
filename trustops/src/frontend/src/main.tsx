@@ -1,7 +1,8 @@
 /**
- * Entry: QueryClientProvider · ToastProvider · AuthProvider · RouterProvider. In VITE_API_MODE=msw
- * (the default until the services exist) the MSW worker is started first and serves every
- * /api/fcrm route from the P7 seed; in live mode the mock code is never loaded.
+ * Entry: QueryClientProvider · ToastProvider · AuthProvider · RouterProvider. The app talks to the
+ * gateway (live) unless a dev run sets VITE_API_MODE=msw (`npm run dev:msw`): then the MSW worker is
+ * started first and serves every /api/fcrm route from the P7 seed. Anything but an explicit `msw`
+ * is live, so a production build can never load the mock code.
  */
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -10,11 +11,9 @@ import { AppProviders, makeQueryClient } from '@/app/providers';
 import { createAppRouter } from '@/app/router';
 import '@/design/index.css';
 
-const apiMode = (import.meta.env.VITE_API_MODE as string | undefined) ?? 'msw';
-
 async function start(): Promise<void> {
-  if (apiMode === 'msw') {
-    // Dynamic import keeps the mock backend and the seed out of the live bundle.
+  if (import.meta.env.VITE_API_MODE === 'msw') {
+    // Dynamic import behind a build-time constant keeps the mock backend and the seed out of the live bundle.
     const { startMockBackend } = await import('./mocks/browser');
     await startMockBackend();
   }

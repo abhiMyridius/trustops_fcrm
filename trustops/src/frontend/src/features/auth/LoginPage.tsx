@@ -1,6 +1,7 @@
 /**
  * 2.1 Login. "Sign in with corporate SSO" opens the seeded-user picker in demo mode (C-05,
- * VITE_DEMO_USERS=true); otherwise a username/password form posts to auth/login. In MSW mode a
+ * VITE_DEMO_USERS=true) when identity serves one; where it does not (404/403: not a local
+ * environment) or in non-demo mode, a username/password form posts to auth/login. In MSW mode a
  * scenario switch picks the demo's starting scene (mock-only control, never shown against live).
  */
 import { useState } from 'react';
@@ -21,7 +22,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useDocumentTitle } from '@/lib/a11y';
 
 const demoMode = (import.meta.env.VITE_DEMO_USERS ?? 'true') === 'true';
-const mswMode = (import.meta.env.VITE_API_MODE ?? 'msw') === 'msw';
+const mswMode = import.meta.env.VITE_API_MODE === 'msw';
 
 interface Scenario {
   key: string;
@@ -75,6 +76,9 @@ export function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const users = useDemoUsers(demoMode && ssoOpen);
+  // No picker when identity refused it (null) or could not be asked: fall back to the password form.
+  const showPicker = demoMode && users.data != null;
+  const showForm = !demoMode || users.data === null || users.isError;
 
   async function signIn(u: string, p?: string) {
     setBusy(u);
@@ -118,10 +122,9 @@ export function LoginPage() {
             Sign in with corporate SSO
           </Button>
 
-          {ssoOpen && demoMode && (
+          {ssoOpen && showPicker && (
             <div className="flex flex-col gap-4" aria-live="polite">
               <p className="text-[13px] text-text-muted">Demo directory: choose a seeded person. No password is collected in demo mode.</p>
-              {users.isPending && <p className="text-sm text-text-muted">Loading the directory…</p>}
               {users.data?.map((g) => (
                 <fieldset key={g.role} className="m-0 flex flex-col gap-1.5 border-0 p-0">
                   <legend className="mb-1 text-[12px] font-semibold uppercase tracking-wide text-text-muted">{g.label}</legend>
@@ -150,7 +153,9 @@ export function LoginPage() {
             </div>
           )}
 
-          {ssoOpen && !demoMode && (
+          {ssoOpen && demoMode && users.isPending && <p className="text-sm text-text-muted">Loading the directory…</p>}
+
+          {ssoOpen && showForm && (
             <form
               className="flex flex-col gap-3"
               onSubmit={(e) => {
@@ -158,6 +163,7 @@ export function LoginPage() {
                 void signIn(username, password);
               }}
             >
+              {users.isError && <p className="text-[13px] text-text-muted">The demo directory is unavailable. Sign in with your username and password.</p>}
               <Input label="Username" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required />
               <Input label="Password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
               <Button type="submit" variant="primary" icon={<KeyRound aria-hidden size={16} />} loading={busy !== null}>

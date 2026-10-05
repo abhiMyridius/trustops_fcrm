@@ -6,6 +6,7 @@
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { EyeOff, Flag } from 'lucide-react';
 import { useAssessment, useCompleteness } from '@/api/queries/analystQueries';
+import { useStreamStatus } from '@/api/sse/useCaseStream';
 import { userMessage } from '@/api/errors';
 import type { ScoreBox, WorkbenchHeader } from '@/api/types/analyst';
 import { ScoreBadge } from '@/components/domain/ScoreBadge';
@@ -56,7 +57,9 @@ export function SummaryTab() {
   const { id = '' } = useParams();
   const w = useOutletContext<WorkbenchHeader>();
   useDocumentTitle('Summary', id);
-  const q = useAssessment(id);
+  // The case stream (opened by the workbench frame) refreshes this page; poll only when it is not live.
+  const stream = useStreamStatus(id);
+  const q = useAssessment(id, { poll: stream !== 'live' });
   const decide = useCompleteness(id);
   const toast = useToast();
   const navigate = useNavigate();

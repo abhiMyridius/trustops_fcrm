@@ -14,22 +14,65 @@ export const streamEventSchema = z.object({
 
 export type StreamEvent = z.infer<typeof streamEventSchema>;
 
-/** Event type -> the case sub-keys it invalidates. Unknown types invalidate nothing. */
+const GATE_KEYS = ['', 'assessment', 'policy', 'risk', 'intake', 'review', 'handoff'];
+const SCORE_KEYS = ['assessment', 'risk'];
+const AGENT_KEYS = ['assessment', 'policy', 'risk', 'recommendation'];
+const OUTCOME_KEYS = ['outcome', 'conditions', 'activity'];
+const CLARIFICATION_KEYS = ['inbox', 'clarifications'];
+
+/**
+ * Event type -> the case sub-keys it invalidates (`''` is the whole case subtree). Names follow the
+ * backend event catalogue; the few older names below the line are kept until the stream vocabulary is
+ * frozen. Unknown types invalidate nothing.
+ */
 export const invalidationMap: Record<string, string[]> = {
+  'case.created': ['', 'activity'],
   'case.updated': ['', 'activity'],
+  'case.state_changed': ['', 'activity'],
+  'case.clarification_sent': CLARIFICATION_KEYS,
+  'document.ingested': ['documents', 'intake'],
+  'document.extracted': ['documents', 'intake'],
+  'intake.proposed': ['intake', 'review'],
+  'intake.proposals_ready': ['intake', 'review'],
+  'gate.opened': GATE_KEYS,
+  'gate.decided': GATE_KEYS,
+  'score.computed': SCORE_KEYS,
+  'score.recomputed': SCORE_KEYS,
+  'agent.done': AGENT_KEYS,
+  'agent.failed': AGENT_KEYS,
+  'pack.released': ['handoff'],
+  'vote.cast': ['handoff'],
+  'vote.tallied': ['handoff'],
+  'outcome.set': OUTCOME_KEYS,
+  'outcome.delivered': OUTCOME_KEYS,
+  'condition.updated': ['conditions'],
+  // Older names, no longer emitted by the backend catalogue.
   'case.stage_changed': ['', 'activity'],
   'document.updated': ['documents'],
   'intake.progress': ['documents', 'intake'],
-  'intake.proposals_ready': ['intake', 'review'],
   'proposal.ready': ['assessment', 'policy', 'risk'],
-  'score.computed': ['assessment', 'risk'],
-  'thread.updated': ['inbox', 'clarifications'],
-  'clarification.sent': ['inbox', 'clarifications'],
   'pack.updated': ['handoff'],
-  'vote.cast': ['handoff'],
-  'outcome.delivered': ['outcome', 'conditions', 'activity'],
-  'condition.updated': ['conditions'],
 };
+
+/** Whole families of event types (`clarification.*`, `thread.*`) that refresh the inbox screens. */
+const PREFIX_RULES: ReadonlyArray<readonly [string, string[]]> = [
+  ['clarification.', CLARIFICATION_KEYS],
+  ['thread.', CLARIFICATION_KEYS],
+];
+
+/** `harness.*`, `agent.*` and `guard.*` events also refresh the harness monitor snapshot. */
+const HARNESS_PREFIXES = ['harness.', 'agent.', 'guard.'];
+
+/** The query keys one event invalidates for a case: its map entries, its family rules, the harness key. */
+export function invalidationKeys(type: string, caseId: string): Array<readonly string[]> {
+  const subs = new Set<string>(invalidationMap[type] ?? []);
+  for (const [prefix, extra] of PREFIX_RULES) {
+    if (type.startsWith(prefix)) extra.forEach((sub) => subs.add(sub));
+  }
+  const keys: Array<readonly string[]> = [...subs].map((sub) => (sub ? ['case', caseId, sub] : ['case', caseId]));
+  if (HARNESS_PREFIXES.some((prefix) => type.startsWith(prefix))) keys.push(['harness', caseId]);
+  return keys;
+}
 
 export function parseStreamEvent(raw: string): StreamEvent | null {
   try {

@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { CloudUpload, FileText, Loader2, Sparkles } from 'lucide-react';
 import { useDocuments, useUploadDocuments } from '@/api/queries/caseQueries';
+import { useStreamStatus } from '@/api/sse/useCaseStream';
 import { userMessage } from '@/api/errors';
 import { CompletionRing } from '@/components/domain/CompletionRing';
 import { Badge } from '@/components/ui/Badge';
@@ -25,7 +26,9 @@ const MAX_BYTES = 25 * 1024 * 1024;
 export function DocumentsTab() {
   const { id = '' } = useParams();
   useDocumentTitle('Documents', id);
-  const q = useDocuments(id);
+  // The case stream (opened by the case frame) refreshes this page; poll only when it is not live.
+  const stream = useStreamStatus(id);
+  const q = useDocuments(id, { poll: stream !== 'live' });
   const upload = useUploadDocuments(id);
   const toast = useToast();
   const input = useRef<HTMLInputElement>(null);

@@ -8,6 +8,7 @@ import { Link, Outlet, useParams } from 'react-router-dom';
 import { Activity, ExternalLink, ShieldCheck } from 'lucide-react';
 import { useAcknowledge, useWorkbench } from '@/api/queries/analystQueries';
 import { useHarness } from '@/api/queries/harnessQueries';
+import { useCaseStream, useStreamStatus } from '@/api/sse/useCaseStream';
 import { userMessage } from '@/api/errors';
 import { StageTracker } from '@/components/domain/StageTracker';
 import { TwoClocks } from '@/components/domain/TwoClocks';
@@ -23,7 +24,8 @@ import { useToast } from '@/components/ui/Toast';
 import { CHANGE_TYPE_LABEL } from '@/lib/format';
 
 function HarnessDrawer({ caseId, open, onClose }: { caseId: string; open: boolean; onClose: () => void }) {
-  const h = useHarness(caseId, { poll: open });
+  const stream = useStreamStatus(caseId);
+  const h = useHarness(caseId, { poll: open && stream !== 'live' });
   return (
     <Drawer open={open} onClose={onClose} title="Harness · live agent state" width="sm">
       {h.isError && <p className="text-sm text-text-muted">No harness run is recorded for this case.</p>}
@@ -56,6 +58,8 @@ function HarnessDrawer({ caseId, open, onClose }: { caseId: string; open: boolea
 
 export function WorkbenchLayout() {
   const { id = '' } = useParams();
+  // One shared stream per case for every tab; its events invalidate the case's queries.
+  useCaseStream(id);
   const q = useWorkbench(id);
   const ack = useAcknowledge(id);
   const toast = useToast();

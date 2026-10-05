@@ -1,13 +1,13 @@
 /** Committee queries (S5). Votes have staleTime 0 (design C §1.5 rule 6). */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../client';
+import { api, apiList } from '../client';
 import { paths } from '../endpoints';
 import { keys } from '../keys';
 import type { Outcome } from '../types/common';
 import type { CommitteeQueueItem, CommitteeThread, PackView, VotesView } from '../types/committee';
 
 export function useCommitteeQueue() {
-  return useQuery({ queryKey: keys.committeeQueue, queryFn: () => api<CommitteeQueueItem[]>(paths.decision.committeeQueue) });
+  return useQuery({ queryKey: keys.committeeQueue, queryFn: () => apiList<CommitteeQueueItem>(paths.decision.committeeQueue) });
 }
 
 /** Committee and analyst read the pack by case; the server answers with the latest released version. */
@@ -27,7 +27,7 @@ export function useVotes(packId: string | undefined) {
 export function useCommitteeThreads(packId: string | undefined) {
   return useQuery({
     queryKey: keys.packSection(packId ?? '-', 'threads'),
-    queryFn: () => api<CommitteeThread[]>(paths.decision.threads(packId ?? '')),
+    queryFn: () => apiList<CommitteeThread>(paths.decision.threads(packId ?? '')),
     enabled: Boolean(packId),
   });
 }

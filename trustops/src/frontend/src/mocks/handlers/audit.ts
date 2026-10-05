@@ -1,7 +1,7 @@
 /** S4 audit stand-in. The PO receives only {ok, count, verified_at} from verify (design A §2.4). */
 import { HttpResponse, http } from 'msw';
 import { API_PREFIX, paths } from '@/api/endpoints';
-import { body, guarded, problem } from '../http';
+import { body, guarded, page, problem } from '../http';
 import { seed } from '../seed';
 import { agentQuality, examiner, overrides, records, verify, versionsFor } from '../views/audit';
 import { canCommitteeSee } from '../views/committee';
@@ -11,7 +11,7 @@ export const auditHandlers = [
     guarded(request, ['fcrm_analyst', 'fcrm_committee'], ({ role }) => {
       const caseId = new URL(request.url).searchParams.get('case_id') ?? '';
       if (role === 'fcrm_committee' && !canCommitteeSee(caseId)) return problem(404, 'Not found', 'This case is not in your view.');
-      return HttpResponse.json(records(caseId));
+      return page(records(caseId));
     }),
   ),
   http.get(`${API_PREFIX}/audit/verify/:caseId`, ({ request, params }) =>
@@ -28,12 +28,12 @@ export const auditHandlers = [
     }),
   ),
   http.get(paths.audit.overrides, ({ request }) =>
-    guarded(request, ['fcrm_analyst'], () => HttpResponse.json(overrides(new URL(request.url).searchParams.get('agent') ?? undefined))),
+    guarded(request, ['fcrm_analyst'], () => page(overrides(new URL(request.url).searchParams.get('agent') ?? undefined))),
   ),
   http.get(paths.audit.agentQuality, ({ request }) =>
     guarded(request, ['fcrm_analyst'], () => HttpResponse.json(agentQuality(new URL(request.url).searchParams.get('week') ?? ''))),
   ),
   http.get(`${API_PREFIX}/audit/versions/:caseId`, ({ request, params }) =>
-    guarded(request, ['fcrm_analyst'], () => HttpResponse.json(versionsFor(String(params.caseId)))),
+    guarded(request, ['fcrm_analyst'], () => page(versionsFor(String(params.caseId)))),
   ),
 ];

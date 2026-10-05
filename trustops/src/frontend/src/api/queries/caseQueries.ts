@@ -1,6 +1,6 @@
 /** PO-side queries and mutations (S1 product-owner routes). Return types are PO DTOs only. */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../client';
+import { api, apiList } from '../client';
 import { paths } from '../endpoints';
 import { keys } from '../keys';
 import type {
@@ -25,7 +25,7 @@ export function usePODashboard() {
 export function useMyCases(filters: { stage?: string; needs_response?: string }) {
   return useQuery({
     queryKey: keys.cases('mine', filters as Record<string, string>),
-    queryFn: () => api<CasePOListItem[]>(paths.cases.list, { query: filters }),
+    queryFn: () => apiList<CasePOListItem>(paths.cases.list, { query: filters }),
   });
 }
 
@@ -33,12 +33,15 @@ export function useCasePO(id: string) {
   return useQuery({ queryKey: keys.case(id), queryFn: () => api<CasePO>(paths.cases.one(id)) });
 }
 
-/** Live-ish sections poll while an AI step is running so the progress line moves (MSW has no SSE). */
-export function useDocuments(id: string) {
+/**
+ * While an AI step is reading, the progress line polls, but only when `poll` is true: the caller passes
+ * `useStreamStatus(id) !== 'live'`, so a live case stream (which invalidates this key) replaces polling.
+ */
+export function useDocuments(id: string, opts: { poll: boolean }) {
   return useQuery({
     queryKey: keys.caseSection(id, 'documents'),
     queryFn: () => api<DocumentsViewPO>(paths.cases.documents(id)),
-    refetchInterval: (q) => (q.state.data?.assistant.state === 'reading' ? 1000 : false),
+    refetchInterval: (q) => (opts.poll && q.state.data?.assistant.state === 'reading' ? 1000 : false),
   });
 }
 
@@ -55,7 +58,7 @@ export function useInboxPO(id: string) {
 }
 
 export function useConditionsPO(id: string) {
-  return useQuery({ queryKey: keys.caseSection(id, 'conditions'), queryFn: () => api<ConditionPO[]>(paths.cases.conditions(id)) });
+  return useQuery({ queryKey: keys.caseSection(id, 'conditions'), queryFn: () => apiList<ConditionPO>(paths.cases.conditions(id)) });
 }
 
 export function useOutcomePO(id: string) {
@@ -63,11 +66,11 @@ export function useOutcomePO(id: string) {
 }
 
 export function useActivityPO(id: string) {
-  return useQuery({ queryKey: keys.caseSection(id, 'activity'), queryFn: () => api<ActivityEventPO[]>(paths.cases.activity(id)) });
+  return useQuery({ queryKey: keys.caseSection(id, 'activity'), queryFn: () => apiList<ActivityEventPO>(paths.cases.activity(id)) });
 }
 
 export function useIntegrations() {
-  return useQuery({ queryKey: keys.integrations, queryFn: () => api<Integration[]>(paths.cases.integrations) });
+  return useQuery({ queryKey: keys.integrations, queryFn: () => apiList<Integration>(paths.cases.integrations) });
 }
 
 /** Every case mutation invalidates the whole case subtree and the dashboards (rule: invalidate, don't patch). */

@@ -3,7 +3,7 @@ import { HttpResponse, http } from 'msw';
 import { API_PREFIX, paths } from '@/api/endpoints';
 import * as A from '../actions';
 import { getDB, persist } from '../db';
-import { body, guarded, notFound, problem } from '../http';
+import { body, guarded, notFound, page, problem } from '../http';
 import { seed } from '../seed';
 import { nameOf } from '../users';
 import * as AV from '../views/analyst';
@@ -23,6 +23,7 @@ function ownedBy(caseId: string, userId: string): boolean {
 }
 
 const ok = <T,>(v: T | null) => (v === null ? notFound() : HttpResponse.json(v));
+const okPage = <T,>(v: T[] | null) => (v === null ? notFound() : page(v));
 
 export const caseHandlers = [
   // ------------------------------------------------------------ dashboards and lists
@@ -33,7 +34,7 @@ export const caseHandlers = [
   http.get(paths.cases.list, ({ request }) =>
     guarded(request, ['fcrm_po'], ({ user }) => {
       const url = new URL(request.url);
-      return HttpResponse.json(
+      return page(
         PO.poCaseList(user.id, { stage: url.searchParams.get('stage') ?? undefined, needs_response: url.searchParams.get('needs_response') ?? undefined }),
       );
     }),
@@ -61,7 +62,7 @@ export const caseHandlers = [
   http.get(paths.cases.queue, ({ request }) =>
     guarded(request, ['fcrm_analyst'], ({ user }) => {
       const url = new URL(request.url);
-      return HttpResponse.json(
+      return page(
         AV.queue(user.id, {
           scope: url.searchParams.get('scope') ?? 'mine',
           stage: url.searchParams.get('stage') ?? undefined,
@@ -225,20 +226,20 @@ export const caseHandlers = [
   http.get(`${P}/conditions`, ({ request, params }) =>
     guarded(request, ['fcrm_po', 'fcrm_analyst'], ({ user, role }) => {
       const caseId = id(params);
-      if (role === 'fcrm_po') return ownedBy(caseId, user.id) ? ok(PO.poConditions(caseId, user.name)) : notFound();
-      return ok(AV.conditionsAnalyst(caseId));
+      if (role === 'fcrm_po') return ownedBy(caseId, user.id) ? okPage(PO.poConditions(caseId, user.name)) : notFound();
+      return okPage(AV.conditionsAnalyst(caseId));
     }),
   ),
   http.get(`${P}/activity`, ({ request, params }) =>
     guarded(request, ['fcrm_po', 'fcrm_analyst'], ({ user, role }) => {
       const caseId = id(params);
-      if (role === 'fcrm_po') return ownedBy(caseId, user.id) ? ok(PO.poActivity(caseId)) : notFound();
-      return ok(AV.activityAnalyst(caseId));
+      if (role === 'fcrm_po') return ownedBy(caseId, user.id) ? okPage(PO.poActivity(caseId)) : notFound();
+      return okPage(AV.activityAnalyst(caseId));
     }),
   ),
 
   // ------------------------------------------------------------ integrations
-  http.get(paths.cases.integrations, ({ request }) => guarded(request, ['fcrm_po'], () => HttpResponse.json(PO.integrations()))),
+  http.get(paths.cases.integrations, ({ request }) => guarded(request, ['fcrm_po'], () => page(PO.integrations()))),
   http.post(`${API_PREFIX}/integrations/:iid/:action`, ({ request, params }) =>
     guarded(request, ['fcrm_po'], async () => {
       const iid = String(params.iid);
@@ -261,7 +262,7 @@ export const caseHandlers = [
   // ------------------------------------------------------------ analyst workbench
   http.get(`${P}/workbench`, ({ request, params }) => guarded(request, ['fcrm_analyst'], () => ok(AV.workbench(id(params))))),
   http.get(`${P}/assessment`, ({ request, params }) => guarded(request, ['fcrm_analyst'], () => ok(AV.assessment(id(params))))),
-  http.get(`${P}/submissions`, ({ request, params }) => guarded(request, ['fcrm_analyst'], () => ok(AV.submissions(id(params))))),
+  http.get(`${P}/submissions`, ({ request, params }) => guarded(request, ['fcrm_analyst'], () => okPage(AV.submissions(id(params))))),
   http.get(`${P}/submissions/diff`, ({ request, params }) =>
     guarded(request, ['fcrm_analyst'], () => {
       const url = new URL(request.url);
@@ -403,7 +404,7 @@ export const caseHandlers = [
   ),
 
   // ------------------------------------------------------------ watchlist re-flags (O4–O5)
-  http.get(paths.cases.reflags, ({ request }) => guarded(request, ['fcrm_analyst'], () => HttpResponse.json(AV.reflags()))),
+  http.get(paths.cases.reflags, ({ request }) => guarded(request, ['fcrm_analyst'], () => page(AV.reflags()))),
   http.post(`${API_PREFIX}/reflags/:rid/acknowledge`, ({ request, params }) =>
     guarded(request, ['fcrm_analyst'], async () => {
       const rid = String(params.rid);

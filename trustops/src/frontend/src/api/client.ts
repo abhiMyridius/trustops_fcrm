@@ -3,6 +3,8 @@
  * `X-Trace-Id` (one id per page load, design C §1.3), sends cookies so the refresh cookie travels,
  * and on a 401 refreshes once (deduplicated) and retries. When openapi-fetch clients are generated
  * (`make api-gen`) they wrap this same middleware; the call sites in api/queries do not change.
+ * List routes answer Page{items,next_cursor,total}; `apiList` unwraps the items (the web's route
+ * names are the contract, and the backend pages every list).
  */
 import { ApiError } from './errors';
 import { paths } from './endpoints';
@@ -30,6 +32,11 @@ export function setAccessToken(token: string | null): void {
 
 export function hasAccessToken(): boolean {
   return accessToken !== null;
+}
+
+/** The current in-memory access token, for the one caller that cannot set a header: EventSource. */
+export function getAccessToken(): string | null {
+  return accessToken;
 }
 
 export function setSessionLostHandler(handler: (() => void) | null): void {
@@ -123,4 +130,14 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
   if (res.status === 204) return undefined as T;
   const text = await res.text();
   return (text ? JSON.parse(text) : undefined) as T;
+}
+
+/** A list route's rows: `body.items` of a Page{items,next_cursor,total}, or a bare array as is. */
+export async function apiList<T>(path: string, opts: RequestOptions = {}): Promise<T[]> {
+  const body = await api<unknown>(path, opts);
+  if (Array.isArray(body)) return body as T[];
+  if (body && typeof body === 'object' && Array.isArray((body as { items?: unknown }).items)) {
+    return (body as { items: T[] }).items;
+  }
+  throw new Error(`Expected a list from ${path}`);
 }

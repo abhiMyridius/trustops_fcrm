@@ -1,6 +1,6 @@
 /** Analyst queries and gate mutations. Gate decisions go one item per call (rule 2: no bulk accept). */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../client';
+import { api, apiList } from '../client';
 import { paths } from '../endpoints';
 import { keys } from '../keys';
 import type {
@@ -29,7 +29,7 @@ export function useAnalystDashboard() {
 export function useQueue(filters: { scope: 'mine' | 'all'; stage?: string; band?: string }) {
   return useQuery({
     queryKey: keys.cases(`queue-${filters.scope}`, { stage: filters.stage ?? '', band: filters.band ?? '' }),
-    queryFn: () => api<QueueItem[]>(paths.cases.queue, { query: filters }),
+    queryFn: () => apiList<QueueItem>(paths.cases.queue, { query: filters }),
   });
 }
 
@@ -37,16 +37,17 @@ export function useWorkbench(id: string) {
   return useQuery({ queryKey: keys.case(id), queryFn: () => api<WorkbenchHeader>(paths.cases.workbench(id)), staleTime: 0 });
 }
 
-export function useAssessment(id: string) {
+/** Polls while the assessment core is still running, but only when `poll` is true (the case stream is not live). */
+export function useAssessment(id: string, opts: { poll: boolean }) {
   return useQuery({
     queryKey: keys.caseSection(id, 'assessment'),
     queryFn: () => api<AssessmentSummary>(paths.cases.assessment(id)),
-    refetchInterval: (q) => (q.state.data && !q.state.data.ready ? 1500 : false),
+    refetchInterval: (q) => (opts.poll && q.state.data && !q.state.data.ready ? 1500 : false),
   });
 }
 
 export function useSubmissions(id: string) {
-  return useQuery({ queryKey: keys.caseSection(id, 'submissions'), queryFn: () => api<SubmissionVersion[]>(paths.cases.submissions(id)) });
+  return useQuery({ queryKey: keys.caseSection(id, 'submissions'), queryFn: () => apiList<SubmissionVersion>(paths.cases.submissions(id)) });
 }
 
 export function useSubmissionDiff(id: string, from: number, to: number, enabled: boolean) {
@@ -78,11 +79,11 @@ export function useHandoff(id: string) {
 }
 
 export function useConditionsAnalyst(id: string) {
-  return useQuery({ queryKey: keys.caseSection(id, 'conditions'), queryFn: () => api<ConditionAnalyst[]>(paths.cases.conditions(id)) });
+  return useQuery({ queryKey: keys.caseSection(id, 'conditions'), queryFn: () => apiList<ConditionAnalyst>(paths.cases.conditions(id)) });
 }
 
 export function useActivityAnalyst(id: string) {
-  return useQuery({ queryKey: keys.caseSection(id, 'activity'), queryFn: () => api<ActivityAnalyst[]>(paths.cases.analystActivity(id)) });
+  return useQuery({ queryKey: keys.caseSection(id, 'activity'), queryFn: () => apiList<ActivityAnalyst>(paths.cases.analystActivity(id)) });
 }
 
 function useCaseMutation<TVars, TResult>(id: string, fn: (vars: TVars) => Promise<TResult>) {

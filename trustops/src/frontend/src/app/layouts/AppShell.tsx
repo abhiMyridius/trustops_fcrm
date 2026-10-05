@@ -53,8 +53,6 @@ const NAV: Record<Role, NavItem[]> = {
   fcrm_observer: [{ to: `/monitor/${DEMO_CASE_ID}`, label: 'Harness monitor', icon: Activity }],
 };
 
-const apiMode = (import.meta.env.VITE_API_MODE as string | undefined) ?? 'msw';
-
 export function AppShell() {
   const { user, role, logout } = useAuth();
   const navigate = useNavigate();
@@ -154,11 +152,6 @@ export function AppShell() {
         <header data-chrome className="no-print sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b border-border bg-surface px-6">
           <div className="flex items-center gap-2">
             <Badge tone="neutral">{ROLE_LABEL[role]}</Badge>
-            {apiMode === 'msw' && (
-              <Badge tone="info" className="hidden sm:inline-flex">
-                Mock backend (MSW) · live updates by polling
-              </Badge>
-            )}
           </div>
           <Dropdown
             label={`Account menu for ${user.name}`}

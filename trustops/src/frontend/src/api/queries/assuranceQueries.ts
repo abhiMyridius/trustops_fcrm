@@ -1,6 +1,6 @@
 /** Assurance (S4 audit + S3 watchlist): examiner, overrides, re-flags, agent quality, chain verify. */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../client';
+import { api, apiList } from '../client';
 import { paths } from '../endpoints';
 import { keys } from '../keys';
 import type { AuditRecord, Reflag, VerifyResult } from '../types/analyst';
@@ -9,7 +9,7 @@ import type { AgentQuality, ExaminerAnswer, OverrideRow, VersionsRow } from '../
 export function useAuditRecords(caseId: string) {
   return useQuery({
     queryKey: keys.audit('records', { caseId }),
-    queryFn: () => api<AuditRecord[]>(paths.audit.records, { query: { case_id: caseId } }),
+    queryFn: () => apiList<AuditRecord>(paths.audit.records, { query: { case_id: caseId } }),
   });
 }
 
@@ -28,13 +28,13 @@ export function useExaminerAsk() {
 }
 
 export function useVersions(caseId: string) {
-  return useQuery({ queryKey: keys.audit('versions', { caseId }), queryFn: () => api<VersionsRow[]>(paths.audit.versions(caseId)) });
+  return useQuery({ queryKey: keys.audit('versions', { caseId }), queryFn: () => apiList<VersionsRow>(paths.audit.versions(caseId)) });
 }
 
 export function useOverrides(filters: { agent?: string }) {
   return useQuery({
     queryKey: keys.audit('overrides', { agent: filters.agent ?? '' }),
-    queryFn: () => api<OverrideRow[]>(paths.audit.overrides, { query: filters }),
+    queryFn: () => apiList<OverrideRow>(paths.audit.overrides, { query: filters }),
   });
 }
 
@@ -46,7 +46,7 @@ export function useAgentQuality(week: string) {
 }
 
 export function useReflags() {
-  return useQuery({ queryKey: keys.reflags, queryFn: () => api<Reflag[]>(paths.cases.reflags) });
+  return useQuery({ queryKey: keys.reflags, queryFn: () => apiList<Reflag>(paths.cases.reflags) });
 }
 
 export function useAcknowledgeReflag() {

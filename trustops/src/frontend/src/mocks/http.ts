@@ -53,6 +53,14 @@ export function guarded(request: Request, roles: Role[] | 'any', fn: Handler): P
   })();
 }
 
+/**
+ * The body every list route answers with, as the real services do (Page{items,next_cursor,total});
+ * the web unwraps it with `apiList`. The mock never paginates, so there is no next cursor.
+ */
+export function page<T>(items: T[]) {
+  return HttpResponse.json({ items, next_cursor: null, total: items.length });
+}
+
 export function notFound() {
   return problem(404, 'Not found', 'This case is not in your view.');
 }

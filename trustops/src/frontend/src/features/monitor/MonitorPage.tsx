@@ -1,13 +1,14 @@
 /**
  * 2.27 / §1.10 Harness monitor: header (case, trace id, status, current core), four counters, the
  * seven-guard strip, and a scrolling log (ring buffer of 200 lines) with filters, pause and copy.
- * Snapshot from GET cases/{id}/harness; under MSW it polls (no SSE). The PO gets 403 (ADR-19).
+ * Snapshot from GET cases/{id}/harness, refreshed by the case stream and polled only while the
+ * stream is not live. The PO gets 403 (ADR-19).
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { Copy, ExternalLink, Pause, Play } from 'lucide-react';
 import { useHarness } from '@/api/queries/harnessQueries';
-import { useCaseStream } from '@/api/sse/useCaseStream';
+import { useCaseStream, type StreamStatus } from '@/api/sse/useCaseStream';
 import type { HarnessLine } from '@/api/types/harness';
 import { Badge, StatusDot } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -20,6 +21,8 @@ import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
 import { useDocumentTitle } from '@/lib/a11y';
 import { formatInt } from '@/lib/format';
+
+const STREAM_LABEL: Record<StreamStatus, string> = { live: 'live stream', reconnecting: 'reconnecting', polling: 'polling' };
 
 function prefersReducedMotion(): boolean {
   return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -41,7 +44,7 @@ export function MonitorPage() {
   useDocumentTitle('Harness monitor', caseId);
   const stream = useCaseStream(caseId);
   const [paused, setPaused] = useState(false);
-  const q = useHarness(caseId, { poll: !paused });
+  const q = useHarness(caseId, { poll: !paused && stream !== 'live' });
   const toast = useToast();
   const [who, setWho] = useState('');
   const [guard, setGuard] = useState('');
@@ -91,7 +94,7 @@ export function MonitorPage() {
             />
           </span>
           <Badge tone="info">{h.core}</Badge>
-          <Badge tone="neutral">{stream === 'live' ? 'live stream' : 'polling (mock backend)'}</Badge>
+          <Badge tone="neutral">{STREAM_LABEL[stream]}</Badge>
           <a href={h.jaeger_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[13px] font-semibold text-quantum-leaf">
             Jaeger <ExternalLink aria-hidden size={12} />
           </a>
