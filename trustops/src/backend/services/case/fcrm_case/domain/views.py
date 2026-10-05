@@ -179,6 +179,11 @@ class ScoreSnapshotRow(BaseModel):
     """``score_snapshots``: a score of record as S2 returned it and H1 pushed
     it (``_id = snapshot_id``). Analyst-only; the PO shapes have nowhere to
     carry it.
+
+    A seeded row has only the first block of fields. A row H1 pushed
+    (``PUT /internal/cases/{id}/score``) also carries the run, the pinned
+    scoring version, the request S2 was given and its response verbatim, and,
+    on a re-score, what the score was before.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -191,8 +196,16 @@ class ScoreSnapshotRow(BaseModel):
     band: int
     route: str
     boundary_flag: bool
-    boundary_distance: float
+    boundary_distance: Optional[float] = None
     domains: dict[str, dict[str, float]] = Field(default_factory=dict)
+    run_id: Optional[str] = None
+    scoring_v: Optional[int] = None
+    previous_composite: Optional[float] = None
+    previous_band: Optional[int] = None
+    band_changed: bool = False
+    gate_id: Optional[str] = None
+    request: Optional[dict[str, Any]] = None
+    response: Optional[dict[str, Any]] = None
 
 
 class ConditionRow(BaseModel):

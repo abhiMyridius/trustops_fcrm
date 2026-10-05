@@ -40,8 +40,10 @@ os.environ.setdefault("LITELLM_MODE", "PRODUCTION")
 if TYPE_CHECKING:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+    from fcrm_case.assessment_store import InMemoryAssessmentStore
     from fcrm_case.directory import AnalystLoadService, StaticIdentityDirectory
     from fcrm_case.domain.record import CaseRecord
+    from fcrm_case.domain.views import ReviewItemRow
     from fcrm_case.sse import EventHub
     from fcrm_case.store import InMemoryCaseStore
     from fcrm_case.views_store import InMemoryViewStore
@@ -954,3 +956,201 @@ async def live_case(
     finally:
         await verifier.aclose()
         await opa.aclose()
+
+
+# ── S1 assessment views and the score request (lane I3-A) ───────────────────────
+@pytest.fixture
+def assessment_store() -> InMemoryAssessmentStore:
+    """S1's in-memory assessment store (screening, score history, critic,
+    completeness, recommendation draft, handoff, idempotency keys).
+    """
+    from fcrm_case.assessment_store import InMemoryAssessmentStore
+
+    return InMemoryAssessmentStore()
+
+
+@pytest.fixture
+def assessment_service(
+    case_service: CaseService,
+    assessment_store: InMemoryAssessmentStore,
+    act_as: Callable[[Role, str], None],
+    stored_case: CaseRecord,
+) -> CaseService:
+    """The S1 app with the assessment store wired and the demo case stored,
+    called as H1's service account (``svc:caseflow``).
+    """
+    from fcrm_contracts.enums import Role
+
+    case_service.client.app.state.assessment = assessment_store  # type: ignore[attr-defined]
+    act_as(Role.SERVICE, SERVICE_SUB)
+    return case_service
+
+
+@pytest.fixture
+def make_review_item() -> Callable[..., ReviewItemRow]:
+    """``make_review_item(kind, subject, proposed, status=..., decided=...)``: a
+    stored review item of the demo case, its id derived from the kind and the
+    subject (so two calls for one subject are the same item).
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from fcrm_case.domain.views import DecisionRow, ReviewItemRow
+    from fcrm_common.ids import deterministic_id
+    from fcrm_contracts.enums import ItemKind, ItemStatus
+
+    counter = {"n": 0}
+
+    def _make(
+        kind: ItemKind,
+        subject: dict[str, Any],
+        proposed: dict[str, Any],
+        *,
+        status: ItemStatus = ItemStatus.PROPOSED,
+        decided_value: Optional[dict[str, Any]] = None,
+        reason: Optional[str] = None,
+        supersedes: Optional[str] = None,
+        revision: str = "",
+        case_id: str = "FCRM-2026-0151",
+    ) -> ReviewItemRow:
+        counter["n"] += 1
+        item_id = deterministic_id(
+            "itm",
+            case_id,
+            kind.value,
+            *sorted(str(v) for v in subject.values()),
+            revision,
+        )
+        decided = (
+            DecisionRow(
+                value=decided_value,
+                reason=reason,
+                by="u-riyer",
+                at=datetime(2026, 10, 5, 12, tzinfo=UTC),
+            )
+            if decided_value is not None or status is not ItemStatus.PROPOSED
+            else None
+        )
+        return ReviewItemRow(
+            item_id=item_id,
+            case_id=case_id,
+            kind=kind,
+            status=status,
+            gate_id=f"gate_{counter['n']}",
+            subject=subject,
+            proposed=proposed,
+            supersedes=supersedes,
+            run_id="run_1",
+            decided=decided,
+            created_at=datetime(2026, 10, 5, 9, tzinfo=UTC)
+            + timedelta(seconds=counter["n"]),
+        )
+
+    return _make
+
+
+@pytest.fixture
+def demo_review_items(
+    demo: dict[str, Any],
+    catalogue_weights: dict[str, float],
+    make_review_item: Callable[..., ReviewItemRow],
+) -> list[ReviewItemRow]:
+    """The demo case's assessment as review items: one factor item per in-scope
+    domain and one scored control item per control, exactly the seed's
+    ``score_before`` inputs (9.8, Band 2). The planned corridor-review control
+    (CTL-T01, no rating) is the extra last item and is never scored.
+    """
+    from fcrm_contracts.enums import ItemKind
+
+    rows: list[ReviewItemRow] = []
+    for domain, area in demo["score_before"]["areas"].items():
+        rows.append(
+            make_review_item(
+                ItemKind.FACTOR,
+                {"domain": domain},
+                {
+                    "likelihood": area["L"],
+                    "impact": area["I"],
+                    "justification": f"{domain} factors",
+                    "quote": "q",
+                    "confidence": 0.9,
+                },
+            )
+        )
+        for control in area["controls"]:
+            rows.append(
+                make_review_item(
+                    ItemKind.CONTROL,
+                    {
+                        "control_id": control["id"],
+                        "domain": domain,
+                        "planned": False,
+                        "catalogue_weight": catalogue_weights[control["id"]],
+                        "controls_v": 9,
+                    },
+                    {
+                        "rating": control["rating"],
+                        "rationale": "rated",
+                        "evidence_artifact": control["evidence"],
+                        "evidence_date": control["evidence_date"],
+                        "quote": "q",
+                        "confidence": 0.8,
+                    },
+                )
+            )
+    rows.append(
+        make_review_item(
+            ItemKind.CONTROL,
+            {
+                "control_id": "CTL-T01",
+                "domain": "channel",
+                "planned": True,
+                "catalogue_weight": catalogue_weights["CTL-T01"],
+                "controls_v": 9,
+            },
+            {
+                "rating": None,
+                "rationale": "corridor review scheduled for Nov 2026",
+                "evidence_artifact": "vendor_DD_scope_letter_2026.pdf",
+                "evidence_date": "",
+                "quote": "q",
+                "confidence": 0.8,
+            },
+        )
+    )
+    return rows
+
+
+@pytest.fixture
+def make_score_push(
+    seeded_scoring_model: dict[str, Any],
+) -> Callable[..., Any]:
+    """``make_score_push(rows, purpose="proposed", previous=None)``: a ``PUT
+    score`` body for the demo case, scored by the real engine over the score
+    request S1 builds from ``rows`` (so the body is exactly what H1 would push).
+    """
+    from fcrm_case.domain.assessment import build_score_view
+    from fcrm_contracts.api.case_internal_assessment import PreviousScore, ScorePush
+    from fcrm_scoring.engine import compute_score
+    from fcrm_scoring.seedmodel import scoring_model_from_seed
+
+    model = scoring_model_from_seed(seeded_scoring_model)
+
+    def _make(
+        rows: list[Any],
+        purpose: str = "proposed",
+        previous: Optional[PreviousScore] = None,
+        run_id: str = "run_1",
+    ) -> ScorePush:
+        view = build_score_view("FCRM-2026-0151", 3, rows)
+        score = compute_score(view.request, model)
+        return ScorePush(
+            run_id=run_id,
+            purpose=purpose,  # type: ignore[arg-type]
+            request=view.request,
+            score=score,
+            previous=previous,
+            boundary=score.boundary_flag,
+            band_changed=previous is not None and previous.band != score.band,
+        )
+
+    return _make

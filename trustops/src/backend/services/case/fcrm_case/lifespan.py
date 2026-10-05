@@ -39,6 +39,7 @@ from fcrm_common.tracing import init_otel
 from pymongo.asynchronous.collection import AsyncCollection
 
 from fcrm_case.activity_log import MongoActivityLog
+from fcrm_case.assessment_store import MongoAssessmentStore
 from fcrm_case.directory import (
     AnalystLoadService,
     HttpIdentityDirectory,
@@ -136,7 +137,9 @@ async def register(
     views = MongoViewStore(deps.mongo, db, outbox)
     await ensure_case_indexes(cases_repo)
     await outbox.ensure_indexes()
+    assessment = MongoAssessmentStore(deps.mongo, db, views.repos.score_snapshots)
     await views.ensure_indexes()
+    await assessment.ensure_indexes()
     await activity.ensure_indexes()
     if settings.seed_on_empty:
         await seed_case_service(
@@ -147,6 +150,7 @@ async def register(
     directory, closable = _build_directory(settings)
     app.state.store = store
     app.state.views = views
+    app.state.assessment = assessment
     app.state.hub = EventHub(settings.sse_queue_size)
     app.state.directory = directory
     app.state.loads = AnalystLoadService(store, directory)

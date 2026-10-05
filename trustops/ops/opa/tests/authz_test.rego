@@ -51,6 +51,14 @@ internal_case_routes := {
 	["GET", "/internal/documents/{doc_id}"],
 	["PATCH", "/internal/documents/{doc_id}"],
 	["GET", "/internal/analysts/load"],
+	["PUT", "/internal/cases/{case_id}/screening"],
+	["PUT", "/internal/cases/{case_id}/score"],
+	["PUT", "/internal/cases/{case_id}/critic"],
+	["PUT", "/internal/cases/{case_id}/completeness"],
+	["PUT", "/internal/cases/{case_id}/recommendation-draft"],
+	["PUT", "/internal/cases/{case_id}/handoff"],
+	["GET", "/internal/cases/{case_id}/score-request"],
+	["GET", "/internal/cases/{case_id}/evidence"],
 }
 
 test_service_may_call_every_internal_case_route if {
