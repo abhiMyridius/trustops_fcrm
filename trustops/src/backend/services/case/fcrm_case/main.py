@@ -22,6 +22,7 @@ from starlette.types import ASGIApp
 from fcrm_case.lifespan import __version__, lifespan
 from fcrm_case.routes import router
 from fcrm_case.routes_internal import router as internal_router
+from fcrm_case.routes_internal_assessment import router as internal_assessment_router
 from fcrm_case.routes_po import router as po_router
 from fcrm_case.sse import EventHub
 
@@ -53,6 +54,7 @@ def create_app(*, standalone: bool = True) -> FastAPI:
     app.include_router(po_router)
     app.include_router(router)
     app.include_router(internal_router)
+    app.include_router(internal_assessment_router)
     app.include_router(build_health_router(app.state.probe))
     return app
 

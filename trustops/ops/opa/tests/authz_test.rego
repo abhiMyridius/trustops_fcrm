@@ -51,6 +51,15 @@ internal_case_routes := {
 	["GET", "/internal/documents/{doc_id}"],
 	["PATCH", "/internal/documents/{doc_id}"],
 	["GET", "/internal/analysts/load"],
+	["PUT", "/internal/cases/{case_id}/screening"],
+	["PUT", "/internal/cases/{case_id}/score"],
+	["PUT", "/internal/cases/{case_id}/critic"],
+	["PUT", "/internal/cases/{case_id}/completeness"],
+	["PUT", "/internal/cases/{case_id}/recommendation-draft"],
+	["PUT", "/internal/cases/{case_id}/handoff"],
+	["GET", "/internal/cases/{case_id}/score-request"],
+	["GET", "/internal/cases/{case_id}/evidence"],
+	["GET", "/internal/cases/{case_id}/recommendation"],
 }
 
 test_service_may_call_every_internal_case_route if {
@@ -240,6 +249,19 @@ test_scoring_matrix if {
 	not authz.allow with input as req("fcrm_po", "scoring", "GET", "/models/active")
 	not authz.allow with input as req("fcrm_po", "scoring", "GET", "/routing/active")
 	not authz.allow with input as req("fcrm_observer", "scoring", "GET", "/models/active")
+}
+
+# POST /simulate is the analyst's preview of a control rating: nobody else asks
+# it. H1 never simulates (it scores of record through POST /score), the
+# committee reads the numbers of a pack and does not try ratings, and the PO
+# never sees a number at all.
+test_simulate_is_analyst_only if {
+	authz.allow with input as req("fcrm_analyst", "scoring", "POST", "/simulate")
+	not authz.allow with input as req("fcrm_service", "scoring", "POST", "/simulate")
+	not authz.allow with input as req("fcrm_committee", "scoring", "POST", "/simulate")
+	not authz.allow with input as req("fcrm_po", "scoring", "POST", "/simulate")
+	not authz.allow with input as req("fcrm_observer", "scoring", "POST", "/simulate")
+	not authz.allow with input as req("fcrm_admin", "scoring", "POST", "/simulate")
 }
 
 test_policy_search_matrix if {
@@ -479,6 +501,7 @@ test_decision_wrong_method_is_denied if {
 test_po_denied_on_every_s2_to_s5_route if {
 	every r in [
 		["scoring", "POST", "/score"],
+		["scoring", "POST", "/simulate"],
 		["scoring", "GET", "/models/active"],
 		["scoring", "GET", "/models/{version}"],
 		["scoring", "GET", "/routing/active"],

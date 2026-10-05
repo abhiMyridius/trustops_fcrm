@@ -276,6 +276,9 @@ services:
       SSE_HEARTBEAT_S: "15"
       # S2 scoring
       SEED_RECOMPUTE_ON_START: ${SEED_RECOMPUTE_ON_START:-true}
+      # POST /simulate reads S1's score-request (same process, called by URL so
+      # S2 holds no case data and the call is authorised like any other).
+      CASE_SERVICE_URL: http://api:8000/api/fcrm
       # S3 policy
       RRF_K: "60"
       SEARCH_TOP_K_MAX: "30"

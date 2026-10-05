@@ -16,11 +16,17 @@ import logging
 from typing import Final, Optional
 
 from fcrm_common.http import ServiceClient
-from fcrm_contracts.api.audit import AuditRecord, RecordAppend
+from fcrm_contracts.api.audit import (
+    AuditRecord,
+    Proposal,
+    ProposalAppend,
+    RecordAppend,
+)
 
 logger = logging.getLogger(__name__)
 
 RECORDS_PATH: Final = "/records"
+PROPOSALS_PATH: Final = "/proposals"
 
 
 class AuditClient:
@@ -57,3 +63,35 @@ class AuditClient:
             extra={"case_id": record.case_id, "type": record.type},
         )
         return AuditRecord.model_validate(body)
+
+    async def append_proposal(
+        self, proposal: ProposalAppend, *, idempotency_key: Optional[str] = None
+    ) -> Proposal:
+        """POST ``proposal`` to S4's evidence ledger (``POST /proposals``).
+
+        The ledger is append-only: a later version of a proposal is a new entry
+        whose ``supersedes`` names the one it replaces. With an
+        ``idempotency_key`` a repeat returns the entry already stored, so a
+        harness step that runs twice writes each proposal once.
+
+        Raises:
+            fcrm_common.errors.ValidationError: ``supersedes`` names no proposal
+                of this case.
+            fcrm_common.errors.ConflictError: ``supersedes`` already has a
+                successor, or the key was used for a different proposal.
+        """
+        body = await self._client.request_json(
+            "POST",
+            PROPOSALS_PATH,
+            json=proposal.model_dump(mode="json"),
+            idempotency_key=idempotency_key,
+        )
+        logger.debug(
+            "proposal appended",
+            extra={
+                "case_id": proposal.case_id,
+                "agent": proposal.agent,
+                "kind": proposal.kind,
+            },
+        )
+        return Proposal.model_validate(body)

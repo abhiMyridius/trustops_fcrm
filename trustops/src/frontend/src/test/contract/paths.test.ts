@@ -54,7 +54,6 @@ const PENDING_ROUTES: readonly string[] = [
   'POST /api/fcrm/reflags/{id}/acknowledge',
   // S2 scoring (2)
   'GET /api/fcrm/scoring/routing-rules/{id}',
-  'POST /api/fcrm/scoring/simulate',
   // S3 policy (5)
   'GET /api/fcrm/policy/config/{id}',
   'DELETE /api/fcrm/policy/config/{id}/draft',

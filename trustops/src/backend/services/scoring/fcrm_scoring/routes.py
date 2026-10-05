@@ -1,4 +1,4 @@
-"""S2's HTTP surface: ``POST /score`` and ``GET /models/...``.
+"""S2's HTTP surface: ``POST /score``, ``POST /simulate`` and ``GET /models/...``.
 
 No route here ever accepts a pre-computed score, band or route from the
 caller — every response is the engine's own output. This is rule 1 at the
@@ -15,23 +15,28 @@ never reaches a PO from this service, whatever the gateway does.
 
 from __future__ import annotations
 
-from typing import Annotated
+import logging
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Request
 from fcrm_common.auth import require_roles
 from fcrm_common.authz import opa_dependency
-from fcrm_common.errors import NotFoundError
+from fcrm_common.errors import NotFoundError, UpstreamUnavailableError
 from fcrm_contracts.api.scoring import (
     RoutingRulesVersion,
     ScoreRequest,
     ScoreResponse,
     ScoringModelVersion,
 )
+from fcrm_contracts.api.scoring_simulate import SimulateRequest, SimulateResponse
 from fcrm_contracts.common import Principal
 from fcrm_contracts.enums import Role
 
 from fcrm_scoring.engine import compute_score
+from fcrm_scoring.simulate import CaseInputs, simulate
 from fcrm_scoring.store import ConfigStore
+
+logger = logging.getLogger(__name__)
 
 #: Authenticate, then ask OPA for ``service: scoring`` on the matched route
 #: template. 401 without a token, 403 on deny, 503 when OPA is unreachable
@@ -54,6 +59,41 @@ def get_store(request: Request) -> ConfigStore:
     """
     store: ConfigStore = request.app.state.store
     return store
+
+
+def get_case_inputs(request: Request) -> CaseInputs:
+    """Where ``POST /simulate`` reads the case's current inputs; unwired is a
+    503 (fail closed), never a guess.
+
+    Raises:
+        fcrm_common.errors.UpstreamUnavailableError: the app was built without
+            the lifespan having wired the case inputs.
+    """
+    inputs: Optional[CaseInputs] = getattr(request.app.state, "case_inputs", None)
+    if inputs is None:
+        logger.error("simulate called before the case inputs were wired")
+        raise UpstreamUnavailableError(
+            "The preview is not wired to the case service.", dependency="case"
+        )
+    return inputs
+
+
+@router.post("/simulate", response_model=SimulateResponse)
+async def simulate_rating(
+    body: SimulateRequest,
+    _principal: Annotated[Principal, Depends(require_roles(Role.ANALYST))],
+    store: ConfigStore = Depends(get_store),
+    cases: CaseInputs = Depends(get_case_inputs),
+) -> SimulateResponse:
+    """What the case would score with one control at ``value``: both scores of
+    the control's domain and of the composite, each with its band and boundary
+    flag. The analyst's preview before an override; it stores nothing, decides
+    nothing, and is the engine that scores the case of record over S1's current
+    inputs (a planned control is never among them, rule 7).
+    """
+    view = await cases.score_request(body.case_id)
+    model = await _model_for(store, view.request.scoring_v)
+    return simulate(view, body.control_id, body.value, model)
 
 
 @router.post("/score", response_model=ScoreResponse)

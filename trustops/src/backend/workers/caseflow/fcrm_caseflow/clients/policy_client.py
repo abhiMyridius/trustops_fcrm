@@ -14,17 +14,31 @@ import logging
 from dataclasses import dataclass
 from typing import Final, Optional
 
+from fcrm_common.cache import TTLCache, cache_get, cache_set
 from fcrm_common.errors import ValidationError as FcrmValidationError
 from fcrm_common.http import ServiceClient
-from fcrm_contracts.api.policy import SearchHit, SearchRequest, SearchResponse
+from fcrm_contracts.api.policy import (
+    ControlInventoryOut,
+    FieldSetOut,
+    SearchHit,
+    SearchRequest,
+    SearchResponse,
+)
 
-from fcrm_caseflow.clients import CALL_TIMEOUTS, parse_body
+from fcrm_caseflow.clients import CALL_TIMEOUTS, parse_body, path_segment
 
 logger = logging.getLogger(__name__)
 
 DEPENDENCY: Final = "policy"
 SEARCH_PATH: Final = "/search"
 PRECEDENT_INDEX: Final = "precedent_cases"
+CONTROLS_PATH: Final = "/controls"
+FIELD_SET_PATH: Final = "/field-sets/{version}"
+
+#: How long a control inventory or field set is reused. Both are versioned and a
+#: case pins one version, so a stale read is never wrong, only older than it needs
+#: to be; this just keeps a step from asking S3 for the same inventory twice.
+REFERENCE_TTL_S: Final = 300
 
 
 @dataclass(frozen=True)
@@ -65,11 +79,16 @@ class PolicyClient:
     Args:
         client: A :class:`ServiceClient` already pointed at
             ``POLICY_SERVICE_URL``.
+        cache: Where the versioned reference reads (:meth:`controls`,
+            :meth:`field_set`) are kept; ``None`` reads S3 every time.
     """
 
-    def __init__(self, client: ServiceClient) -> None:
+    def __init__(
+        self, client: ServiceClient, *, cache: Optional[TTLCache] = None
+    ) -> None:
         """Wrap ``client``; it is shared with nothing else."""
         self._client = client
+        self._cache = cache
 
     async def top_precedent(self, query: str) -> Optional[PrecedentHit]:
         """The single closest closed case for ``query``, or ``None`` when S3
@@ -101,3 +120,48 @@ class PolicyClient:
             similarity=similarity_of(hit),
             closed_date=str(closed) if closed else None,
         )
+
+    async def controls(self, version: str) -> ControlInventoryOut:
+        """``GET /controls?version=``: the control inventory a case is pinned
+        to (names and catalogue weights). Cached: the version is immutable.
+
+        Raises:
+            fcrm_common.errors.NotFoundError: S3 has no such version.
+        """
+        key = f"policy:controls:{version}"
+        cached = await cache_get(self._cache, key)
+        if cached is not None:
+            return ControlInventoryOut.model_validate_json(cached)
+        body = await self._client.request_json(
+            "GET",
+            CONTROLS_PATH,
+            params={"version": version},
+            timeout=CALL_TIMEOUTS,
+        )
+        inventory = parse_body(
+            ControlInventoryOut, body, dependency=DEPENDENCY, route=CONTROLS_PATH
+        )
+        await cache_set(self._cache, key, inventory.model_dump_json(), REFERENCE_TTL_S)
+        return inventory
+
+    async def field_set(self, version: str) -> FieldSetOut:
+        """``GET /field-sets/{version}``: the always-required fields and each
+        change type's own, at the version a case is pinned to. Cached.
+
+        Raises:
+            fcrm_common.errors.NotFoundError: S3 has no such version.
+        """
+        key = f"policy:field_set:{version}"
+        cached = await cache_get(self._cache, key)
+        if cached is not None:
+            return FieldSetOut.model_validate_json(cached)
+        body = await self._client.request_json(
+            "GET",
+            FIELD_SET_PATH.format(version=path_segment(version)),
+            timeout=CALL_TIMEOUTS,
+        )
+        field_set = parse_body(
+            FieldSetOut, body, dependency=DEPENDENCY, route=FIELD_SET_PATH
+        )
+        await cache_set(self._cache, key, field_set.model_dump_json(), REFERENCE_TTL_S)
+        return field_set

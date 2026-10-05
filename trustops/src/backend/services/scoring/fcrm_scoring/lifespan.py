@@ -42,6 +42,7 @@ from fcrm_scoring.seedmodel import (
     scoring_model_from_seed,
 )
 from fcrm_scoring.settings import ScoringSettings
+from fcrm_scoring.simulate import case_inputs_for
 from fcrm_scoring.store import MongoConfigStore
 
 logger = logging.getLogger(__name__)
@@ -177,7 +178,20 @@ async def register(
 
         probe.add(ReadinessCheck("recompute", _recompute_check, critical=True))
 
-    yield
+    # The one outbound call S2 makes (``POST /simulate`` reads S1's score
+    # request); one pooled client for the process, closed with the app. Not
+    # a readiness check: S1 being down must not take ``/score`` out.
+    case_inputs, case_client = case_inputs_for(
+        settings.case_service_url,
+        caller=settings.app_name,
+        secret=settings.service_token_secret,
+    )
+    app.state.case_inputs = case_inputs
+    try:
+        yield
+    finally:
+        if case_client is not None:
+            await case_client.aclose()
 
 
 @asynccontextmanager

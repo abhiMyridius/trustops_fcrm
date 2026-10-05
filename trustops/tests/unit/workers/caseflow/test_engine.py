@@ -521,13 +521,19 @@ class TestFullDemoLifecycle:
         assert after_rerun.snapshot.flags.round_open is False
 
         # The vendor due-diligence override (demo: band 2 -> 3, boundary
-        # flag stays on — the real band/boundary numbers come from a
-        # re-score call to S2, out of this lane's scope; band_changed/
-        # boundary_flagged are instead read straight off whatever this
-        # event's own payload says, per fcrm_caseflow.engine's documented
-        # convention): deciding the one review_item gate (this package's
-        # own simplification of the real per-item fan-out — see
-        # dispatch.py) opens the ack gate (R3).
+        # flag stays on). Whether it crossed a band edge is S2's answer, which
+        # only the ``review.item`` step has, so the engine opens no ack gate
+        # from the decision's payload (``band_changed`` there is ignored); the
+        # step opens it, and here the test stands in for that step.
+        await gate_store.open(
+            gate_document(
+                gate_id=new_id("gate"),
+                case_id=CASE_ID,
+                run_id=run_id,
+                gate_type=GateType.ACK,
+                required_role=Role.ANALYST,
+            )
+        )
         review_item_gate = next(
             d
             for d in gate_store._collection.docs  # type: ignore[attr-defined]
@@ -552,7 +558,9 @@ class TestFullDemoLifecycle:
             ),
             session,
         )
-        assert await gate_store.count_open(CASE_ID, GateType.ACK) == 1
+        assert await gate_store.count_open(CASE_ID, GateType.ACK) == 1, (
+            "the engine opened no second ack gate from the payload's band_changed"
+        )
         mid_review = await run_store.get(run_id)
         assert mid_review is not None
         assert mid_review.state is CaseState.REVIEW, (

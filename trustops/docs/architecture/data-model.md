@@ -17,6 +17,34 @@ One MongoDB database per service (no service reads another's database directly â
 | `conditions` | `ConditionPO` | Activated on `outcome.set`; 14-day-before-due reminders are computed from `due`, not stored as separate reminder documents |
 | `counters` | â€” | `mint_case_id`'s per-year sequence (`FCRM-2026-NNNN`) |
 
+### S1's assessment views (lane I3-A)
+
+Written only by H1 through the service-only routes below, read by the analyst routes (the next lane) and by H1 itself. Every one is analyst-only: S1's PO shapes have no field to carry them, and the routes answer 403 to any person role. Stored shapes are `fcrm_case.domain.assessment` (views) and `fcrm_case.domain.views` (`ReviewItemRow`, `ScoreSnapshotRow`); the item payloads are the typed models in `fcrm_contracts.api.case_internal_assessment`.
+
+| Collection | `_id` | Written by | Shape and rules |
+|---|---|---|---|
+| `screening_views` | `case_id` | `PUT /internal/cases/{id}/screening` | `{run_id, fast_lane_proposed, reasons[{text, source_ref, quote, confidence}], proposal_id, gate_id, updated_at}`. `gate_id` is the `fast_lane_confirm` gate, `null` when no fast lane was proposed |
+| `score_snapshots` | `snapshot_id` (`snap_` + digest of case and idempotency key) | `PUT .../score` | History, one row per score of record; the latest by `computed_at` is the score the analyst sees. `{case_id, run_id, purpose (proposed\|confirmed), scoring_v, composite, band (1-4), route, boundary_flag, boundary_distance, domains{<domain>: {L, I, inherent, ce, retention, residual, weight, contribution}}, previous_composite, previous_band, band_changed, gate_id, request, response, computed_at}`. `request` is the exact S2 request (every rating that went in; a planned control is never among them) and `response` S2's answer verbatim. Seeded rows carry only the first block of fields |
+| `critic_views` | `case_id` | `PUT .../critic` | `{run_id, findings[{finding_id, gate_id, finding_type, severity, record_refs, text, source_ref, quote, confidence}], counts{total, high, medium, low}, updated_at}`; `finding_id` is the id of the finding's `critic_finding` review item |
+| `completeness_views` | `case_id` | `PUT .../completeness` | `{run_id, report{missing, stale, contradictory, questions_drafted, questions_kept}, questions[{question_id, anchored_to, text, dropped_reason}], gate_id, proposal_id, updated_at}`; `gate_id` is the `completeness` gate (ask or proceed) |
+| `recommendations` | `case_id` | `PUT .../recommendation-draft` (the `draft` fields only) | `{run_id, draft{sections[{key, text, source_ref, quote, confidence}], conditions[Condition], business_summary{text, restricted_term_hits}, score_record_seq, proposal_ids}, draft_seq, draft_at, edits, locked, locked_at, locked_by}`. H1 never writes `edits` or the lock fields: a re-drafted narrative arrives as a new `draft_seq` beside the analyst's edit. The analyst surface writes `edits` as `RecommendationEdits` (`fcrm_contracts.api.case_internal_assessment`): `{sections[{key, text}], conditions?, business_summary?, outcome?, edit_count}`, where an absent field means "not edited: the draft stands"; `GET /internal/cases/{id}/recommendation` returns draft, edits and lock together, and the pack H1 freezes at the lock reads the effective text from it `business_summary.text` is empty when H1 withheld it because the restricted-term scan hit |
+| `handoff_views` | `case_id` | `PUT .../handoff` | `{run_id, pack_id, pack_version, content_hash, checks{<S5 release check>: bool}, audit_head_seq, audit_head_hash, gate_id, updated_at}`; `audit_head_*` is the `recommendation.locked` record the pack was built against, `gate_id` the `pack_release` gate |
+| `idempotency_keys` | `"<case_id>\|<Idempotency-Key>"` | every `PUT` above | `{view, case_id, fingerprint, result, at}`, inserted in the same transaction as the write; 24 h TTL on `at`. The same key and body replays the stored result and writes nothing; another body, or the key on another view, is a 409 |
+
+**Review items of the assessment** (`review_items`, `kind` and the payloads H1 writes through `PUT .../items`; the analyst's decision lands in `decided`):
+
+| `kind` | `subject` | `proposed` | `decided.value` | Gate |
+|---|---|---|---|---|
+| `clause` | `{clause_id, domain, corpus_v}` | `{quote, applicability, confidence}`; `source_refs` = the clause | none (accept = `confirmed`, remove = `removed`) | `review_item`, one per item |
+| `factor` (the analyst's "rating") | `{domain}` | `{likelihood, impact, justification, quote, confidence}` | `{likelihood, impact}` on override or adjust | `review_item` |
+| `control` | `{control_id, domain, planned, name, catalogue_weight, controls_v}` | `{rating, rationale, evidence_artifact, evidence_date, quote, confidence}`; `rating` is `null` exactly when `planned` | `{rating}` on override or adjust | `review_item` |
+| `gap` (research) | `{origin: "research", domain, description, searched_query, searched_indexes, searched_hits}` | `{}` | none | none: a recorded absence is shown, not decided |
+| `critic_finding` | `{finding_type, severity, record_refs, text, confidence, quote}` | `{}` | none (explain = `explained`, adjust = `adjusted`) | `review_item` |
+
+`catalogue_weight` is stamped by H1 from S3's inventory at the case's pinned `controls_v`; an agent never supplies one, and an item without one cannot be scored (S1 answers 409 naming the item, never a zero). An item is **superseded** when a later item names it in `supersedes`: it stays as history and is never read as current. A decided item is never edited: a re-run proposes a new item (`itm_` id with a revision) whose gate H1 opens, and expires the old gate if it was still open.
+
+**The score request** (`GET /internal/cases/{id}/score-request`, `ScoreRequestView`): the single place the S2 request is built from items, shared by H1's scoring, H1's re-scoring after a decision, and S2's simulate. One domain per current, not-removed `factor` item; in it every current, not-removed, not-planned `control` item of that domain at its decided value (override or adjustment) or, while undecided, its proposed one; at the case's pinned `scoring_v`. A planned control is left out and listed in `planned_control_ids`; a control whose domain has no factor item is listed in `unscored_control_ids`; every replaced value is listed in `overrides` with the reason. 409 until the assessment has produced a factor item. `GET .../evidence?control_id=` answers the `evidence_store` tool's shape from the same items (artefact, date, the document a source reference cites).
+
 ## `fcrm_scoring` (S2)
 
 | Collection | Shape | Notes |

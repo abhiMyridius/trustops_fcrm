@@ -52,6 +52,12 @@ class Trigger(StrEnum):
     INGEST_FAILED = "ingest.failed"
 
     GATE_DECIDED_REVIEW_ITEM = "gate.decided.review_item"
+    # The analyst acknowledged a boundary flag or a band change (R3). Like
+    # ``GATE_DECIDED_PO_ACTION`` it is step-only: no transition exists for it and
+    # the run does not move; the engine only starts the step that records the
+    # acknowledgement (``audit_map.STEP_FOR``), after which the internal chain
+    # re-checks whether every item and acknowledgement is now done.
+    GATE_DECIDED_ACK = "gate.decided.ack"
     CASE_RETAGGED = "case.retagged"
     CASE_RERUN_REQUESTED = "case.rerun_requested"
     CASE_GAP_RECORDED = "case.gap_recorded"

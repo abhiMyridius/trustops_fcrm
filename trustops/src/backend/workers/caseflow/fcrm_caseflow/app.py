@@ -26,6 +26,7 @@ from typing import Optional
 from faststream.asgi import AsgiFastStream
 from faststream.rabbit import RabbitBroker
 from fcrm_common.broker import FastStreamPublisher, wire_consumer
+from fcrm_common.cache import InMemoryTTLCache
 from fcrm_common.events import Consumer as EventConsumer
 from fcrm_common.events import Publisher
 from fcrm_common.health import (
@@ -48,7 +49,9 @@ from pymongo import AsyncMongoClient
 from fcrm_caseflow.audit_client import AuditClient
 from fcrm_caseflow.audit_map import STEP_FOR
 from fcrm_caseflow.clients.case_client import CaseClient
+from fcrm_caseflow.clients.decision_client import DecisionClient
 from fcrm_caseflow.clients.policy_client import PolicyClient
+from fcrm_caseflow.clients.scoring_client import ScoringClient
 from fcrm_caseflow.consumers import (
     AgentResultsConsumer,
     CaseEventsConsumer,
@@ -189,6 +192,8 @@ def build_unit(
     audit_http = _service_client(settings, settings.audit_service_url, "audit")
     case_http = _service_client(settings, settings.case_service_url, "case")
     policy_http = _service_client(settings, settings.policy_service_url, "policy")
+    scoring_http = _service_client(settings, settings.scoring_service_url, "scoring")
+    decision_http = _service_client(settings, settings.decision_service_url, "decision")
     db = mongo[db_name]
     consumed = db[CONSUMED_MESSAGES_COLLECTION]
     outbox_collection = db[OUTBOX_COLLECTION]
@@ -216,8 +221,11 @@ def build_unit(
         audit,
         timeout_s=settings.step_timeout_s,
         case=CaseClient(case_http),
-        policy=PolicyClient(policy_http),
+        policy=PolicyClient(policy_http, cache=InMemoryTTLCache()),
         agent_results=results_store,
+        scoring=ScoringClient(scoring_http),
+        decision=DecisionClient(decision_http),
+        gates=gate_store,
     )
 
     case_events_consumer = CaseEventsConsumer(
@@ -279,6 +287,8 @@ def build_unit(
             audit_http.aclose,
             case_http.aclose,
             policy_http.aclose,
+            scoring_http.aclose,
+            decision_http.aclose,
         ),
         checks=(ReadinessCheck("indexes", _indexes_check, critical=True),),
     )

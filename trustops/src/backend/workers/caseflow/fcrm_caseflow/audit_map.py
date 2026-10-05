@@ -49,6 +49,27 @@ STEP_FOR: Final[Mapping[Trigger, StepKind]] = MappingProxyType(
         Trigger.GATE_DECIDED_PO_ACTION: K.INTAKE_PO_ACTION,
         Trigger.CASE_SUBMITTED: K.SUBMIT_RECORD,
         Trigger.TRIAGE_DISPATCH: K.TRIAGE_ASSIGN,
+        # assessment (scenes 8-16)
+        Trigger.AGENT_DONE_SCREENING: K.SCREENING_PUBLISH,
+        Trigger.ASSESS_DISPATCH: K.ASSESS_OPEN,
+        Trigger.AGENT_DONE_ASSESS_BOTH: K.ASSESS_PUBLISH,
+        Trigger.AGENT_DONE_CRITIC: K.CRITIC_PUBLISH,
+        Trigger.AGENT_DONE_NARRATIVE_COMPLETENESS: K.COMPLETENESS_PUBLISH,
+        Trigger.GATE_DECIDED_COMPLETENESS_ASK: K.CLARIFICATION_RECORD,
+        Trigger.GATE_DECIDED_COMPLETENESS_PROCEED: K.STATE_PUSH,
+        Trigger.CASE_ANSWERED: K.RERUN_RECORD,
+        Trigger.AGENT_DONE_RERUN_BOTH: K.RERUN_PUBLISH,
+        Trigger.GATE_DECIDED_REVIEW_ITEM: K.REVIEW_ITEM,
+        Trigger.GATE_DECIDED_ACK: K.REVIEW_ACK,
+        Trigger.CASE_GAP_RECORDED: K.GAP_RECORD,
+        Trigger.CASE_CONTROL_PLANNED: K.CONTROL_PLANNED,
+        Trigger.CASE_RETAGGED: K.RETAG_RECORD,
+        Trigger.CASE_RERUN_REQUESTED: K.RERUN_REQUESTED,
+        Trigger.ALL_ITEMS_DECIDED: K.STATE_PUSH,
+        Trigger.AGENT_DONE_NARRATIVE_RECOMMENDATION: K.NARRATIVE_PUBLISH,
+        Trigger.CASE_LOCKED: K.LOCK_BUILD_PACK,
+        Trigger.PACK_RELEASED: K.PACK_APPROVED,
+        Trigger.CASE_UNLOCKED: K.UNLOCK_SUPERSEDE,
     }
 )
 
@@ -92,14 +113,20 @@ RECORDS_FOR: Final[Mapping[StepKind, tuple[str, ...]]] = MappingProxyType(
         K.COMPLETENESS_PUBLISH: ("completeness.report",),
         # clarification and review (scenes 10-14)
         K.CLARIFICATION_RECORD: ("clarification.sent",),
-        K.RERUN_RECORD: ("agent.rerun",),
+        K.RERUN_RECORD: ("owner.answered", "agent.rerun"),
         K.RERUN_PUBLISH: (
             "proposal.research",
             "proposal.assessment",
             "score.recomputed",
+            "boundary.flagged",
         ),
-        K.REVIEW_ITEM: ("human.override", "score.recomputed", "boundary.flagged"),
-        K.REVIEW_ACK: (),  # S1 wrote the gate.decided record for the ack
+        K.REVIEW_ITEM: (
+            "gate.decided",
+            "human.override",
+            "score.recomputed",
+            "boundary.flagged",
+        ),
+        K.REVIEW_ACK: ("gate.decided",),
         K.GAP_RECORD: ("gap.recorded",),
         K.CONTROL_PLANNED: ("control.planned",),
         K.RETAG_RECORD: ("fieldset.resolved",),

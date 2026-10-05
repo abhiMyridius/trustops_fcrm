@@ -142,6 +142,11 @@ _AGENT_DONE_PAIR: Final[dict[CaseState, tuple[frozenset[AgentName], Trigger]]] =
         frozenset({AgentName.RESEARCH, AgentName.ASSESSMENT}),
         Trigger.AGENT_DONE_RERUN_BOTH,
     ),
+    # A re-run the analyst asks for in REVIEW (or the new domain of a re-tag).
+    CaseState.REVIEW: (
+        frozenset({AgentName.RESEARCH, AgentName.ASSESSMENT}),
+        Trigger.AGENT_DONE_RERUN_BOTH,
+    ),
 }
 
 #: ``gate.decided`` for this ``GateType`` always maps to this trigger,

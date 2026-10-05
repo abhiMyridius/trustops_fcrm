@@ -25,11 +25,24 @@ from fcrm_contracts.api.case_internal import (
     IntakePush,
     ItemsUpsert,
     ItemsUpsertResult,
+    ReviewItemInternal,
     ReviewItemUpsert,
     StatePatch,
     UiEventIn,
 )
+from fcrm_contracts.api.case_internal_assessment import (
+    CompletenessPush,
+    CriticPush,
+    HandoffPush,
+    RecommendationDraftPush,
+    RecommendationInternal,
+    ScorePush,
+    ScoreRequestView,
+    ScreeningPush,
+    ViewWriteResult,
+)
 from fcrm_contracts.enums import ItemKind
+from pydantic import BaseModel
 
 from fcrm_caseflow.clients import CALL_TIMEOUTS, parse_body, path_segment
 
@@ -47,6 +60,14 @@ ASSIGN_PATH: Final = "/internal/cases/{case_id}/assign"
 EVENTS_PATH: Final = "/internal/cases/{case_id}/events"
 DOCUMENT_PATH: Final = "/internal/documents/{doc_id}"
 ANALYST_LOAD_PATH: Final = "/internal/analysts/load"
+SCREENING_PATH: Final = "/internal/cases/{case_id}/screening"
+SCORE_PATH: Final = "/internal/cases/{case_id}/score"
+CRITIC_PATH: Final = "/internal/cases/{case_id}/critic"
+COMPLETENESS_PATH: Final = "/internal/cases/{case_id}/completeness"
+RECOMMENDATION_DRAFT_PATH: Final = "/internal/cases/{case_id}/recommendation-draft"
+HANDOFF_PATH: Final = "/internal/cases/{case_id}/handoff"
+SCORE_REQUEST_PATH: Final = "/internal/cases/{case_id}/score-request"
+RECOMMENDATION_PATH: Final = "/internal/cases/{case_id}/recommendation"
 
 
 def _fill(template: str, **values: str) -> str:
@@ -226,3 +247,146 @@ class CaseClient:
         return parse_body(
             AnalystLoadResponse, body, dependency=DEPENDENCY, route=ANALYST_LOAD_PATH
         )
+
+    # -- the assessment half (lane I3-A; contracts in case_internal_assessment) --
+
+    async def list_items(
+        self, case_id: str, kind: Optional[ItemKind] = None
+    ) -> list[ReviewItemInternal]:
+        """``GET /internal/cases/{case_id}/items[?kind=]``, keeping what S1 knows
+        about each item: its status and the decision on it.
+
+        (:meth:`get_items` reads the write shape and drops those.)
+
+        Raises:
+            fcrm_common.errors.UpstreamUnavailableError: the body is neither
+                ``{"items": [...]}`` nor a bare list.
+        """
+        params = {"kind": kind.value} if kind is not None else None
+        body = await self._client.request_json(
+            "GET",
+            _fill(ITEMS_PATH, case_id=case_id),
+            params=params,
+            timeout=CALL_TIMEOUTS,
+        )
+        rows = body.get("items") if isinstance(body, dict) else body
+        if not isinstance(rows, list):
+            raise UpstreamUnavailableError(
+                f"{DEPENDENCY} answered {ITEMS_PATH} with an unexpected body",
+                dependency=DEPENDENCY,
+            )
+        return [
+            parse_body(ReviewItemInternal, row, dependency=DEPENDENCY, route=ITEMS_PATH)
+            for row in rows
+        ]
+
+    async def get_score_request(self, case_id: str) -> ScoreRequestView:
+        """``GET /internal/cases/{case_id}/score-request``: the S2 request for
+        the case as it stands (planned controls are never in it).
+
+        Raises:
+            fcrm_common.errors.ConflictError: the assessment has produced
+                nothing to score yet.
+        """
+        route = _fill(SCORE_REQUEST_PATH, case_id=case_id)
+        body = await self._client.request_json("GET", route, timeout=CALL_TIMEOUTS)
+        return parse_body(
+            ScoreRequestView, body, dependency=DEPENDENCY, route=SCORE_REQUEST_PATH
+        )
+
+    async def get_recommendation(self, case_id: str) -> RecommendationInternal:
+        """``GET /internal/cases/{case_id}/recommendation``: the agent's draft,
+        the analyst's edits beside it and the lock.
+
+        Raises:
+            fcrm_common.errors.NotFoundError: the narrative has produced no draft.
+        """
+        route = _fill(RECOMMENDATION_PATH, case_id=case_id)
+        body = await self._client.request_json("GET", route, timeout=CALL_TIMEOUTS)
+        return parse_body(
+            RecommendationInternal,
+            body,
+            dependency=DEPENDENCY,
+            route=RECOMMENDATION_PATH,
+        )
+
+    async def _put_view(
+        self,
+        template: str,
+        case_id: str,
+        body: BaseModel,
+        idempotency_key: Optional[str],
+    ) -> ViewWriteResult:
+        """One of the idempotent ``PUT`` view writes below."""
+        answer = await self._client.request_json(
+            "PUT",
+            _fill(template, case_id=case_id),
+            json=_json(body),
+            idempotency_key=idempotency_key,
+            timeout=CALL_TIMEOUTS,
+        )
+        return parse_body(
+            ViewWriteResult, answer, dependency=DEPENDENCY, route=template
+        )
+
+    async def put_screening(
+        self,
+        case_id: str,
+        body: ScreeningPush,
+        *,
+        idempotency_key: Optional[str] = None,
+    ) -> ViewWriteResult:
+        """``PUT /internal/cases/{case_id}/screening``."""
+        return await self._put_view(SCREENING_PATH, case_id, body, idempotency_key)
+
+    async def put_score(
+        self,
+        case_id: str,
+        body: ScorePush,
+        *,
+        idempotency_key: Optional[str] = None,
+    ) -> ViewWriteResult:
+        """``PUT /internal/cases/{case_id}/score``: one score of record."""
+        return await self._put_view(SCORE_PATH, case_id, body, idempotency_key)
+
+    async def put_critic(
+        self,
+        case_id: str,
+        body: CriticPush,
+        *,
+        idempotency_key: Optional[str] = None,
+    ) -> ViewWriteResult:
+        """``PUT /internal/cases/{case_id}/critic``."""
+        return await self._put_view(CRITIC_PATH, case_id, body, idempotency_key)
+
+    async def put_completeness(
+        self,
+        case_id: str,
+        body: CompletenessPush,
+        *,
+        idempotency_key: Optional[str] = None,
+    ) -> ViewWriteResult:
+        """``PUT /internal/cases/{case_id}/completeness``."""
+        return await self._put_view(COMPLETENESS_PATH, case_id, body, idempotency_key)
+
+    async def put_recommendation_draft(
+        self,
+        case_id: str,
+        body: RecommendationDraftPush,
+        *,
+        idempotency_key: Optional[str] = None,
+    ) -> ViewWriteResult:
+        """``PUT /internal/cases/{case_id}/recommendation-draft``."""
+        return await self._put_view(
+            RECOMMENDATION_DRAFT_PATH, case_id, body, idempotency_key
+        )
+
+    async def put_handoff(
+        self,
+        case_id: str,
+        body: HandoffPush,
+        *,
+        idempotency_key: Optional[str] = None,
+    ) -> ViewWriteResult:
+        """``PUT /internal/cases/{case_id}/handoff``."""
+        return await self._put_view(HANDOFF_PATH, case_id, body, idempotency_key)
