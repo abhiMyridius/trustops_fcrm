@@ -108,6 +108,12 @@ from fcrm_caseflow.triggers import Trigger
 
 logger = logging.getLogger(__name__)
 
+#: Events the catch-all ``#`` binding of ``caseflow.events`` delivers to H1 but
+#: that belong to no case run: the context worker's index lifecycle. They are
+#: acknowledged and skipped; raising :class:`OrphanEventError` for them would
+#: send every index build to the retry queue and then the DLQ.
+NON_CASE_EVENT_TYPES = frozenset({"index.build", "index.built", "index.failed"})
+
 _INTERNAL_PREFIX = "internal."
 
 #: The PO's intake gates whose decision moves nothing but is still recorded
@@ -265,6 +271,9 @@ class CaseflowEngine:
                 ".build_app) so every state write commits with its outbox "
                 "row atomically"
             )
+        if envelope.type in NON_CASE_EVENT_TYPES:
+            logger.debug("skipped %s: not a case event", envelope.type)
+            return
         if envelope.type == "case.created":
             await self._open_run(envelope, session)
             return

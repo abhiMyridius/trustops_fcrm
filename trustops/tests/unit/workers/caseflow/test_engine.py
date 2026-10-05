@@ -138,6 +138,17 @@ class TestOpeningARun:
                 _env("case.submitted", {}, case_id="FCRM-2026-9999"), session
             )
 
+    @pytest.mark.parametrize(
+        "event_type", ["index.build", "index.built", "index.failed"]
+    )
+    async def test_the_index_lifecycle_is_skipped_not_orphaned(
+        self, engine: CaseflowEngine, session: FakeSession, event_type: str
+    ) -> None:
+        """H1 is bound to every routing key, so the context worker's events
+        reach it with no case; they must be acknowledged, not retried.
+        """
+        await engine.handle(_env(event_type, {}, case_id=None), session)
+
     async def test_handle_requires_a_transactional_session(
         self, engine: CaseflowEngine
     ) -> None:
