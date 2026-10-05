@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from fcrm_policy.seedmodel import (
     clause_documents,
     control_documents,
@@ -16,6 +17,7 @@ from fcrm_policy.seedmodel import (
 )
 
 
+@pytest.mark.usefixtures("four_clause_corpus")
 def test_clause_documents_covers_the_four_demo_clauses() -> None:
     docs = clause_documents()
     assert len(docs) == 4

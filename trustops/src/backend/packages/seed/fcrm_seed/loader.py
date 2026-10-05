@@ -8,9 +8,18 @@ seed-shape change is caught in one place.
 from __future__ import annotations
 
 import json
+import logging
 from functools import lru_cache
 from importlib import resources
-from typing import Any
+from pathlib import Path
+from typing import Any, Optional
+
+from fcrm_seed.clause_model import ClausesFile
+
+logger = logging.getLogger(__name__)
+
+CLAUSES_FILENAME = "clauses.json"
+CORPUS_DIRNAME = "corpus"
 
 
 @lru_cache(maxsize=1)
@@ -61,3 +70,45 @@ def band_distribution() -> dict[str, int]:
     """The expected count of cases per band across all 80 seed cases."""
     distribution: dict[str, int] = load_raw()["derived"]["band_distribution"]
     return distribution
+
+
+def clauses_path() -> Path:
+    """Where ``clauses.json`` lives: next to ``seed.json`` in this package."""
+    return Path(str(resources.files("fcrm_seed").joinpath(CLAUSES_FILENAME)))
+
+
+def corpus_dir() -> Path:
+    """Where the per-source ``<source_id>.md`` corpus files live."""
+    return Path(str(resources.files("fcrm_seed").joinpath(CORPUS_DIRNAME)))
+
+
+def read_clauses(path: Path) -> Optional[list[dict[str, Any]]]:
+    """The clauses of a ``clauses.json`` file, validated, or ``None`` if the
+    file does not exist.
+
+    Raises:
+        pydantic.ValidationError: The file exists but does not match
+            :class:`fcrm_seed.clause_model.ClausesFile` (a truncated or
+            hand-edited file must fail loudly, never load partially).
+    """
+    if not path.is_file():
+        return None
+    parsed = ClausesFile.model_validate_json(path.read_text(encoding="utf-8"))
+    return [clause.model_dump(mode="json") for clause in parsed.clauses]
+
+
+@lru_cache(maxsize=1)
+def generated_clauses() -> Optional[list[dict[str, Any]]]:
+    """The 197 synthetic-corpus clauses from ``clauses.json``, or ``None``
+    before ``gen_clauses`` has been run and its output committed.
+
+    Callers (S3's clause seeding, H4's vector seeding) fall back to the four
+    clauses ``seed.json`` carries when this is ``None``, so everything keeps
+    working until the live generation lands.
+    """
+    clauses = read_clauses(clauses_path())
+    if clauses is None:
+        logger.info(
+            "no %s next to seed.json: using the 4 seed clauses", CLAUSES_FILENAME
+        )
+    return clauses

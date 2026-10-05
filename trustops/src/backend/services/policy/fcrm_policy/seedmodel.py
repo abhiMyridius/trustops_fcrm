@@ -18,7 +18,8 @@ seed_clauses`, the exact same accessor H4 embeds into the ``policy_clauses``
 vector index, so Mongo's copy of a clause's verbatim ``text`` (what a
 search hit's ``text`` always comes from, never the vector metadata) can
 never drift from what the vector side indexed -- both read the same seed
-accessor rather than two independent parses of ``seed.json``.
+accessor (``clauses.json`` when it exists, else the four seed clauses)
+rather than two independent parses.
 """
 
 from __future__ import annotations
@@ -30,16 +31,22 @@ from fcrm_context_worker.seedload import seed_clauses, seed_corpus_version
 
 
 def clause_documents() -> list[dict[str, Any]]:
-    """One document per demo clause (corpus v14 ships only these four
-    full clause texts today; see ``fcrm_context_worker/UPSTREAM.md``).
+    """One document per corpus clause: the 197 of ``clauses.json`` when it
+    exists (ADR-29), else the four demo clauses ``seed.json`` carries.
 
     ``corpus_version`` is stored as the numeric form (``14``, not the
     seed's own ``"v14"`` label): ``fcrm_contracts.api.policy.
     SearchFilters.corpus_version`` is typed ``Optional[int]``, and this is
     the one place that naming/typing difference is bridged (the same role
     ``fcrm_scoring.seedmodel.scoring_model_from_seed`` plays for
-    ``"v3"`` -> ``3``). The ``_id`` keeps the seed's own label since it is
-    just an opaque key, not a filtered field.
+    ``"v3"`` -> ``3``). The ``_id`` keeps the seed's own label since it
+    is just an opaque key, not a filtered field.
+
+    ``quotable`` and ``provenance_kind`` travel with every clause so a hit can
+    say whether its text may be quoted and what kind of text it is (a seed
+    verbatim text, a synthetic internal standard or a synthetic public
+    stand-in); ``page`` and ``line_start``/``line_end`` locate it in
+    ``corpus/<source_id>.md``.
     """
     version_label = seed_corpus_version()
     version = int(version_label.lstrip("v"))
@@ -57,9 +64,14 @@ def clause_documents() -> list[dict[str, Any]]:
                 "title": title,
                 "text": text,
                 "ref": clause["ref"],
-                "risk_areas": [],
-                "trigger_types": [],
-                "jurisdictions": [],
+                "page": clause.get("page"),
+                "line_start": clause.get("line_start"),
+                "line_end": clause.get("line_end"),
+                "risk_areas": list(clause.get("risk_areas", [])),
+                "trigger_types": list(clause.get("trigger_types", [])),
+                "jurisdictions": list(clause.get("jurisdictions", [])),
+                "quotable": bool(clause.get("quotable", True)),
+                "provenance_kind": clause.get("provenance_kind"),
                 "search_text": f"{title} {text}",
             }
         )

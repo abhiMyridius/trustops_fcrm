@@ -7,13 +7,16 @@ searchable policy content: every clause the seed carries becomes one
 describes. The same code path upserts into S3 Vectors with Bedrock Titan
 embeddings when the two switches say so.
 
-What the seed holds today (corpus ``v14``): the nine source descriptors and
-the four clauses the demo case FCRM-2026-0151 cites, each with its verbatim
-quote and ``ref``. Per-clause ``risk_areas`` / ``trigger_types`` /
-``jurisdictions`` are not in ``seed.json`` yet — they arrive with P7's
-``clauses.json`` (design A §6.1). :func:`clause_records` already maps them
-when a clause dict carries them, and simply omits the keys otherwise rather
-than inventing values.
+What the seed holds (corpus ``v14``): the nine source descriptors and the four
+clauses the demo case FCRM-2026-0151 cites, each with its verbatim quote and
+``ref``. The other 193 clause texts live in P7's ``clauses.json`` (ADR-29,
+generated once by ``fcrm_seed.gen_clauses``, every clause marked synthetic in its
+provenance), which :func:`seed_clauses` uses **when it exists** and otherwise
+falls back to the four seed clauses, so nothing breaks before the live
+generation is committed. Per-clause ``risk_areas`` / ``trigger_types`` /
+``jurisdictions`` come from ``clauses.json``; :func:`clause_records` maps them
+when a clause dict carries them, and omits the keys otherwise rather than
+inventing values.
 """
 
 from __future__ import annotations
@@ -34,7 +37,7 @@ from evoq_context.vector.contract import (
 )
 from evoq_context.vector.factory import create_vector_store
 from evoq_context.vector.interface import VectorChunk, VectorStore
-from fcrm_seed.loader import load_raw
+from fcrm_seed.loader import generated_clauses, load_raw
 
 from fcrm_context_worker.config import FCRM_PROJECT
 
@@ -62,11 +65,18 @@ def seed_corpus_version() -> str:
 
 
 def seed_clauses() -> list[dict[str, Any]]:
-    """The clause dicts ``seed.json`` carries (``demo.clauses``), normalised.
+    """The corpus clauses, normalised: ``clauses.json``'s 197 when it exists,
+    else the four ``seed.json`` carries (``demo.clauses``).
 
-    Each becomes ``{clause_id, source_id, title, text, ref}``; ``text`` is the
-    verbatim quote (Guard 4 compares quotes against it).
+    Each is a dict with ``{clause_id, source_id, title, text, ref}``; ``text`` is
+    the verbatim clause text (Guard 4 compares quotes against it). Clauses from
+    ``clauses.json`` also carry ``page``, ``line_start``, ``line_end``,
+    ``risk_areas``, ``trigger_types``, ``jurisdictions``, ``quotable`` and
+    ``provenance_kind``.
     """
+    generated = generated_clauses()
+    if generated is not None:
+        return [_from_generated(c) for c in generated]
     raw = load_raw()["demo"].get("clauses") or []
     return [
         {
@@ -75,9 +85,32 @@ def seed_clauses() -> list[dict[str, Any]]:
             "title": c["title"],
             "text": c["quote"],
             "ref": c["ref"],
+            "quotable": True,
+            "provenance_kind": "seed_verbatim",
         }
         for c in raw
     ]
+
+
+def _from_generated(clause: Mapping[str, Any]) -> dict[str, Any]:
+    """One ``clauses.json`` clause, flattened to what the indexes read."""
+    keys = (
+        "clause_id",
+        "source_id",
+        "title",
+        "text",
+        "ref",
+        "page",
+        "line_start",
+        "line_end",
+        "risk_areas",
+        "trigger_types",
+        "jurisdictions",
+        "quotable",
+    )
+    flat = {key: clause[key] for key in keys}
+    flat["provenance_kind"] = clause["provenance"]["kind"]
+    return flat
 
 
 def _doc_id(corpus_version: str, clause_id: str) -> str:

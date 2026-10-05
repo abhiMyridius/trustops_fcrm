@@ -46,6 +46,10 @@ from fcrm_seed.loader import load_raw
 
 DEMO_CLAUSE_IDS = {"FFIEC-TPPP-04", "FCRM42-3.1", "TP71-2.3", "OFAC-1.2"}
 
+# These test search mechanics on the four-clause corpus the seed carries; with
+# clauses.json committed (ADR-29) the loaders would see 197, so they are pinned.
+pytestmark = pytest.mark.usefixtures("four_clause_corpus")
+
 
 @pytest.fixture
 async def search_service(tmp_path: Path) -> SearchService:

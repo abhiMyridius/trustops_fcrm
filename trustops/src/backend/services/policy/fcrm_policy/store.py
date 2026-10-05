@@ -268,6 +268,8 @@ def clause_metadata(doc: Mapping[str, Any]) -> dict[str, Any]:
         "corpus_version": doc.get("corpus_version"),
         "ref": doc.get("ref"),
         "title": doc.get("title"),
+        "quotable": bool(doc.get("quotable", True)),
+        "provenance_kind": doc.get("provenance_kind"),
         "risk_areas": list(doc.get("risk_areas", [])),
         "trigger_types": list(doc.get("trigger_types", [])),
         "jurisdictions": list(doc.get("jurisdictions", [])),

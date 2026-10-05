@@ -22,6 +22,10 @@ from fcrm_policy.store import (
 )
 from fcrm_seed.loader import load_raw
 
+# These test search mechanics on the four-clause corpus the seed carries; with
+# clauses.json committed (ADR-29) the loaders would see 197, so they are pinned.
+pytestmark = pytest.mark.usefixtures("four_clause_corpus")
+
 
 def test_mongo_filter_maps_trigger_type_to_change_types_for_precedents() -> None:
     query = mongo_filter(PRECEDENT_CASES, {"trigger_type": "vendor_onboarding"})
@@ -54,7 +58,7 @@ def raw() -> dict[str, Any]:
     return load_raw()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def in_memory(raw: dict[str, Any]) -> dict[str, InMemoryKeywordCollection]:
     return build_in_memory_collections(raw)
 

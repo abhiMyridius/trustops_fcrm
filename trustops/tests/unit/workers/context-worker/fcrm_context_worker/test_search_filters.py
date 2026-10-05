@@ -14,6 +14,10 @@ from fcrm_context_worker.filters import (
 from fcrm_context_worker.search import search_clauses
 from fcrm_policy.search import filters as policy_filters
 
+# These test search mechanics on the four-clause corpus the seed carries; with
+# clauses.json committed (ADR-29) the loaders would see 197, so they are pinned.
+pytestmark = pytest.mark.usefixtures("four_clause_corpus")
+
 SAMPLES: list[tuple[dict[str, object], dict[str, object]]] = [
     ({"source_id": "FFIEC", "corpus_version": "v14"}, {"source_id": "FFIEC"}),
     ({"source_id": "OFAC"}, {"source_id": "FFIEC"}),
