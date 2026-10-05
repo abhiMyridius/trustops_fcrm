@@ -6,7 +6,11 @@ requires-python = ">=3.13"
 dependencies = ["pydantic>=2.9"]
 
 [dependency-groups]
-dev = ["pytest>=8.3", "mypy>=1.14"]
+# `gen` is the generation-time tooling (gen_docs.py renders the demo PDFs). It
+# is its own group so a runtime image never carries reportlab; dev includes it
+# because the unit tests re-run the generator to prove it is deterministic.
+gen = ["reportlab>=4.0"]
+dev = ["pytest>=8.3", "mypy>=1.14", { include-group = "gen" }]
 
 [build-system]
 requires = ["hatchling"]

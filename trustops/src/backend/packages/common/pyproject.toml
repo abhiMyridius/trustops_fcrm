@@ -12,6 +12,8 @@ dependencies = [
   "pymongo>=4.13",
   "httpx>=0.28",
   "fastapi>=0.115",
+  # S3-compatible object store client (fcrm_common.objectstore): MinIO locally, S3 on AWS.
+  "boto3>=1.40",
   # RabbitMQ consumers and publishers shared by the harness and (from the
   # outbox work) the api process; pinned to the version the workers ran on.
   "faststream[rabbit]==0.6.7",

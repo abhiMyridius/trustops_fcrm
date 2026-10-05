@@ -160,6 +160,54 @@ class BaseServiceSettings(BaseSettings):
             raise MissingSettingsError(self.app_name, missing, invalid)
 
 
+class S3Settings(BaseSettings):
+    """The object-store environment contract (compose's ``x-s3-env`` block).
+
+    A second ``BaseSettings`` that a unit composes next to
+    :class:`BaseServiceSettings`::
+
+        class CaseSettings(BaseServiceSettings, S3Settings):
+            required_settings = (
+                *BaseServiceSettings.required_settings,
+                *S3Settings.s3_required_settings,
+            )
+
+    ``S3_ENDPOINT_URL`` is set for MinIO and left empty on AWS, where the
+    SDK finds real S3 and its own credential chain. The bucket names default
+    to the five ``ops/minio/init.sh`` creates, so a unit that runs without
+    them in the environment still talks to the right buckets.
+    """
+
+    model_config = SettingsConfigDict(
+        env_file=None,
+        extra="forbid",
+        case_sensitive=False,
+        validate_default=True,
+    )
+
+    #: Variables a unit that *writes* objects must have. The endpoint and the
+    #: static keys are optional on AWS (role credentials), so they are not
+    #: listed; a unit on MinIO adds ``S3_ACCESS_KEY``/``S3_SECRET_KEY``.
+    s3_required_settings: ClassVar[tuple[str, ...]] = (
+        "S3_REGION",
+        "S3_BUCKET_UPLOADS",
+        "S3_BUCKET_CANONICAL",
+        "S3_BUCKET_PACKS",
+        "S3_BUCKET_VECTORS",
+        "S3_BUCKET_JOBS",
+    )
+
+    s3_endpoint_url: Optional[str] = None
+    s3_region: str = "us-east-1"
+    s3_access_key: Optional[str] = Field(default=None, repr=False)
+    s3_secret_key: Optional[SecretStr] = None
+    s3_bucket_uploads: str = "uploads"
+    s3_bucket_canonical: str = "canonical"
+    s3_bucket_packs: str = "packs"
+    s3_bucket_vectors: str = "vectors"
+    s3_bucket_jobs: str = "jobs"
+
+
 def required_value[T](value: Optional[T], env_name: str, unit: str) -> T:
     """``value`` when it is set; otherwise raise :class:`MissingSettingsError`.
 
