@@ -39,6 +39,12 @@ from fcrm_evals.text import content_words, numbers_in, sentences, strings_in
 logger = logging.getLogger(__name__)
 
 
+class JudgeUnavailableError(RuntimeError):
+    """A judge could not grade an item (a transport error, an unparseable
+    verdict). The metric records the item as *not measured* rather than as a
+    pass or a fail, and says so in its flags."""
+
+
 class Rubric(BaseModel):
     """Weighted criteria and the per-item pass mark."""
 
@@ -206,14 +212,21 @@ def judge_metric_spec(
         del context
         items = output.of_type(item_type)
         judge_ctx = JudgeContext.from_row(row)
-        scores = [await metric.score(item, judge_ctx) for item in items]
+        scores: list[float] = []
+        unavailable: list[str] = []
+        for item in items:
+            try:
+                scores.append(await metric.score(item, judge_ctx))
+            except JudgeUnavailableError as exc:
+                logger.warning("row %s: judge unavailable: %s", row.row_id, exc)
+                unavailable.append(f"judge unavailable: {exc}")
         passed = [s for s in scores if s >= metric.rubric.pass_mark]
         flags = [
             f"judge {s:.2f} < {metric.rubric.pass_mark}"
             for s in scores
             if s not in passed
         ]
-        return ratio(len(passed), len(scores), flags)
+        return ratio(len(passed), len(scores), [*flags, *unavailable])
 
     return MetricSpec(
         name=metric.name,

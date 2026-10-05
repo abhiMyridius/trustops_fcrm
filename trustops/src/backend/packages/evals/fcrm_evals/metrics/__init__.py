@@ -13,6 +13,7 @@ judge metric is reported, not gated.
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Optional
 
@@ -311,10 +312,18 @@ def _deterministic(agent: AgentName) -> tuple[tuple[MetricSpec, ...], str]:
     return table[agent]
 
 
-def suite_for(agent: AgentName, judge: Optional[JudgeFn] = None) -> AgentSuite:
+def suite_for(
+    agent: AgentName,
+    judge: Optional[JudgeFn] = None,
+    *,
+    votes: int = 3,
+    extra: Sequence[MetricSpec] = (),
+) -> AgentSuite:
     """The metric suite of ``agent``. Narrative also gets the
     ``narrative_faithfulness`` judge metric over ``judge`` (default: the
-    offline :class:`FakeJudge`, logged as such)."""
+    offline :class:`FakeJudge`, logged as such) with ``votes`` judge calls per
+    item; ``extra`` metrics (the DeepEval judge metrics of a live run) are
+    appended after the agent's own, and never change its primary."""
     metrics, primary = _deterministic(agent)
     if agent is AgentName.NARRATIVE:
         if judge is None:
@@ -324,9 +333,10 @@ def suite_for(agent: AgentName, judge: Optional[JudgeFn] = None) -> AgentSuite:
             NARRATIVE_FAITHFULNESS,
             judge or FakeJudge(),
             threshold=0.90,
+            k=votes,
         )
         metrics = (*metrics, judge_metric_spec(faithfulness))
-    return AgentSuite(agent=agent, metrics=metrics, primary=primary)
+    return AgentSuite(agent=agent, metrics=(*metrics, *extra), primary=primary)
 
 
 __all__ = ["AgentSuite", "MetricSpec", "suite_for"]

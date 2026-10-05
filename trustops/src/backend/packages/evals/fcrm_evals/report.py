@@ -77,6 +77,50 @@ DETAIL_COLUMNS = (
 )
 
 
+USAGE_COLUMNS = (
+    "Agent",
+    "Rows",
+    "Calls",
+    "Retries",
+    "Blocked",
+    "Failed",
+    "Input tok",
+    "Output tok",
+    "Cost USD (est.)",
+    "p50 s",
+    "max s",
+    "Judge calls",
+    "Judge tok",
+    "Judge USD (est.)",
+)
+
+
+def _seconds(value: Optional[float]) -> str:
+    return NOT_APPLICABLE if value is None else f"{value:.1f}"
+
+
+def _usage_row(result: EvalResult) -> str:
+    u, j = result.usage, result.judge_usage
+    sampled = f"{result.n}/{result.sampled.of}" if result.sampled else str(result.n)
+    cells = [
+        result.agent.value,
+        sampled,
+        str(u.calls) if u else "-",
+        str(u.retries) if u else "-",
+        str(u.blocked_rows) if u else "-",
+        str(u.failed_rows) if u else "-",
+        f"{u.input_tokens:,}" if u else "-",
+        f"{u.output_tokens:,}" if u else "-",
+        f"{u.cost_usd:.4f}" if u else "-",
+        _seconds(u.latency_p50_s) if u else "-",
+        _seconds(u.latency_max_s) if u else "-",
+        str(j.calls) if j else "-",
+        f"{j.total_tokens:,}" if j else "-",
+        f"{j.cost_usd:.4f}" if j else "-",
+    ]
+    return _row(cells)
+
+
 def _agent_row(result: EvalResult) -> str:
     primary = result.summary(result.primary_metric) if result.primary_metric else None
     others = [s for s in result.summaries if s is not primary]
@@ -163,6 +207,14 @@ def render(
         *(_agent_row(r) for r in results),
         "",
     ]
+    if any(r.usage for r in results):
+        lines += [
+            "## Usage (estimated at the list prices in `ai/models/tiers.yaml`)",
+            "",
+            *_header(USAGE_COLUMNS),
+            *(_usage_row(r) for r in results),
+            "",
+        ]
     if gates:
         lines += ["## Promotion gate (design B §6.4)", "", *_gate_rows(gates), ""]
     lines += ["## Metric detail", "", *_detail_rows(results), ""]

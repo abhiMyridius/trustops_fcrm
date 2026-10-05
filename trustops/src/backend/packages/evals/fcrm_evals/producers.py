@@ -19,15 +19,17 @@ An :class:`OutputProducer` turns a row into an :class:`AgentOutput`:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from typing import Protocol, runtime_checkable
+from typing import Optional, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
 from fcrm_evals.degrade import degrade
 from fcrm_evals.outputs import AgentOutput, decode_items
 from fcrm_evals.rows import EvalRow
+from fcrm_evals.usage import RowRun, RowStatus
 
 logger = logging.getLogger(__name__)
 
@@ -108,13 +110,59 @@ class CallableProducer:
         return AgentOutput(row_id=row.row_id, producer=self.name, items=items)
 
 
+async def _produce_isolated(
+    producer: OutputProducer, row: EvalRow, row_timeout_s: Optional[float]
+) -> AgentOutput:
+    """``producer.produce(row)``, with any failure turned into a ``failed``
+    output so one bad row never costs the rest of a live run.
+
+    The broad catch is deliberate and logged: a live row can fail in ways no
+    list of exception types captures (a transport error under the model's own
+    retry, a malformed tool result, a pack that overflows its cap), and the
+    run must score the other rows and *count* this one (``RunUsage.failed_rows``)
+    rather than raise after the tokens are spent.
+    """
+    try:
+        return await asyncio.wait_for(producer.produce(row), timeout=row_timeout_s)
+    except Exception as exc:  # noqa: BLE001 - isolate one row's failure from the run
+        logger.exception("row %s failed under %s", row.row_id, producer.name)
+        reason = f"{type(exc).__name__}: {exc}"[:300]
+        return AgentOutput(
+            row_id=row.row_id,
+            producer=producer.name,
+            status=RowStatus.FAILED,
+            reason=reason,
+            run=RowRun(row_id=row.row_id, status=RowStatus.FAILED, reason=reason),
+        )
+
+
 async def produce_all(
-    producer: OutputProducer, rows: Sequence[EvalRow]
+    producer: OutputProducer,
+    rows: Sequence[EvalRow],
+    *,
+    concurrency: int = 1,
+    row_timeout_s: Optional[float] = None,
+    isolate: bool = False,
+    semaphore: Optional[asyncio.Semaphore] = None,
 ) -> list[AgentOutput]:
-    """One output per row, in row order (sequential: a live producer is
-    rate-limited by the model tier, and order keeps results reproducible)."""
-    outputs = []
-    for row in rows:
-        outputs.append(await producer.produce(row))
+    """One output per row, in row order.
+
+    The default is sequential and fails fast, which is what the offline
+    producers want (order keeps results reproducible). A live producer passes
+    ``isolate=True`` so a failing row becomes a counted ``failed`` output,
+    ``concurrency`` to bound how many Bedrock calls are in flight, and
+    ``row_timeout_s`` to bound one row's whole run. ``semaphore`` is one
+    shared with other callers (a run over nine agents bounds all their
+    rows together); it replaces ``concurrency``.
+    """
+    bound = semaphore or asyncio.Semaphore(max(1, concurrency))
+
+    async def one(row: EvalRow) -> AgentOutput:
+        async with bound:
+            if isolate:
+                return await _produce_isolated(producer, row, row_timeout_s)
+            return await producer.produce(row)
+
+    outputs = list(await asyncio.gather(*(one(row) for row in rows)))
     logger.info("%s produced %d outputs", producer.name, len(outputs))
     return outputs
