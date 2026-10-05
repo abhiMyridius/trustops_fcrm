@@ -50,7 +50,7 @@ endif
 # Every Python import package in the workspace (fcrm_* and the evoq_* clones).
 PY_PACKAGES := $(sort $(foreach d,$(wildcard src/backend/services/*/fcrm_* src/backend/workers/*/fcrm_* src/backend/workers/*/evoq_* src/backend/packages/*/fcrm_* src/backend/apps/*/fcrm_*),$(if $(wildcard $(d)/__init__.py),$(notdir $(d)))))
 MYPY_ARGS   := $(foreach p,$(PY_PACKAGES),-p $(p))
-LINT_PATHS  := src/backend ops/scripts
+LINT_PATHS  := src/backend ops/scripts tests
 
 # Pending-lane helper: prints to stderr and fails (exit 1).
 pending = printf '%s\n' "make $@: not yet wired — pending $(1)" >&2; exit 1
@@ -171,10 +171,10 @@ verify: ## verify one case's audit chain: make verify case=FCRM-2026-0118
 check: lint format-check typecheck opa-check opa-test test-unit compose-check web-check ## commit gate: ruff, format, mypy, OPA, unit tests, env contract, web typecheck and vitest
 	@echo "check: green"
 
-lint: ## ruff over src/backend and ops/scripts
+lint: ## ruff over src/backend, ops/scripts and tests (what the commit hook lints)
 	$(UV_RUN) ruff check $(LINT_PATHS)
 
-format-check: ## ruff format --check over src/backend and ops/scripts
+format-check: ## ruff format --check over src/backend, ops/scripts and tests
 	$(UV_RUN) ruff format --check $(LINT_PATHS)
 
 typecheck: ## mypy over every workspace package (strictness per mypy.ini)
