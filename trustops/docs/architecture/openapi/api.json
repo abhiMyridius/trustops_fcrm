@@ -1256,12 +1256,15 @@
         "type": "object"
       },
       "ItemKind": {
-        "description": "What a review_item (Gate A, review_item gate) carries.",
+        "description": "What an S1 ``review_item`` carries. ``clause``, ``factor``, ``control``\nand ``critic_finding`` sit behind Gate A (the analyst's ``review_item``\ngates); ``category``, ``value`` and ``gap`` are the intake items the PO\ndecides (``po_confirm_category``, ``po_confirm_value``, ``po_answer_gaps``).",
         "enum": [
           "clause",
           "factor",
           "control",
-          "critic_finding"
+          "critic_finding",
+          "category",
+          "value",
+          "gap"
         ],
         "title": "ItemKind",
         "type": "string"

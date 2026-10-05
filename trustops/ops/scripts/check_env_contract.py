@@ -12,6 +12,10 @@ Three assertions, each a real drift bug if it fails:
    + test, + debug) with every profile (obs, cache) enabled and a throwaway
    env file, i.e. the YAML, anchors, overrides and required-variable checks
    are valid.
+4. Every file or folder a service bind-mounts from inside the repository is
+   tracked by git (the generated ``jwt_keys`` folder excepted), so a fresh
+   clone starts the same stack. A new entrypoint script that was created but
+   never ``git add``-ed is exactly what this catches.
 
 No values are read from a real ``.env``: a temporary env file with dummy
 values is generated from ``.env.example`` for the render.
@@ -25,6 +29,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
 logger = logging.getLogger("check_env_contract")
@@ -41,6 +46,9 @@ COMBINATIONS = [
 #: Profiles switched on for the render, so optional services are validated too.
 PROFILES = ("obs", "cache")
 COMPOSE_FILES = sorted({f for combo in COMBINATIONS for f in combo})
+
+#: Mounted folders that are generated on the machine and ignored by git on purpose.
+GENERATED_MOUNTS = frozenset({"jwt_keys"})
 
 INTERPOLATION = re.compile(r"\$\{([A-Z][A-Z0-9_]*)(?::?[-?][^}]*)?\}")
 REQUIRED = re.compile(r"\$\{([A-Z][A-Z0-9_]*):\?")
@@ -89,6 +97,55 @@ def container_env_names(rendered: dict[str, object]) -> set[str]:
     return names
 
 
+def bind_mount_sources(rendered: dict[str, object]) -> set[Path]:
+    """Return the host path of every bind mount in a rendered compose project."""
+    sources: set[Path] = set()
+    services = rendered.get("services", {})
+    assert isinstance(services, dict)
+    for service in services.values():
+        for volume in service.get("volumes") or []:
+            if volume.get("type") == "bind":
+                sources.add(Path(volume["source"]))
+    return sources
+
+
+def git_tracks(relative: Path) -> bool:
+    """Whether git tracks ``relative`` (a file, or a folder holding tracked files)."""
+    result = subprocess.run(  # noqa: S603 - fixed argv, no shell
+        ["git", "ls-files", "--", str(relative)],  # noqa: S607
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    return result.returncode == 0 and bool(result.stdout.strip())
+
+
+def untracked_bind_mounts(
+    sources: Iterable[Path],
+    *,
+    root: Path = ROOT,
+    is_tracked: Callable[[Path], bool] = git_tracks,
+) -> list[str]:
+    """Bind-mount sources inside ``root`` that git does not track.
+
+    Sources outside the repository and the generated folders in
+    :data:`GENERATED_MOUNTS` are not checked.
+    """
+    missing: list[str] = []
+    for source in sorted(sources):
+        try:
+            relative = source.relative_to(root)
+        except ValueError:
+            continue
+        if relative.parts and relative.parts[0] in GENERATED_MOUNTS:
+            continue
+        if not is_tracked(relative):
+            missing.append(str(relative))
+    return missing
+
+
 def main() -> int:
     """Run the three checks; non-zero exit on any drift."""
     logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -116,18 +173,23 @@ def main() -> int:
             )
         )
         env_names: set[str] = set()
+        mounts: set[Path] = set()
         for files in COMBINATIONS:
             try:
-                env_names |= container_env_names(compose_config(files, env_file))
+                rendered = compose_config(files, env_file)
             except (RuntimeError, subprocess.TimeoutExpired) as exc:
                 problems.append(str(exc))
             else:
+                env_names |= container_env_names(rendered)
+                mounts |= bind_mount_sources(rendered)
                 logger.info("compose config ok: %s", " + ".join(files))
 
     for name in sorted(env_names - assigned - documented):
         problems.append(
             f"containers receive {name} but .env.example does not document it"
         )
+    for path in untracked_bind_mounts(mounts):
+        problems.append(f"compose bind-mounts {path} but git does not track it")
 
     for problem in problems:
         logger.error("FAIL %s", problem)
