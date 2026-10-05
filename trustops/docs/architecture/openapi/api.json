@@ -57,6 +57,52 @@
         "title": "AuditRecord",
         "type": "object"
       },
+      "AuditRecordRow": {
+        "additionalProperties": false,
+        "description": "``GET /records?case_id=``: one record in the web's row shape\n(``AuditRecord`` in ``src/frontend/src/api/types/analyst.ts``): ``by`` is\nthe actor, ``what`` the summary, ``at`` the append time.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "prev_hash": {
+            "title": "Prev Hash",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "what": {
+            "title": "What",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seq",
+          "type",
+          "by",
+          "what",
+          "at",
+          "hash",
+          "prev_hash"
+        ],
+        "title": "AuditRecordRow",
+        "type": "object"
+      },
       "Band": {
         "enum": [
           "1",
@@ -695,6 +741,26 @@
         "title": "CaseState",
         "type": "string"
       },
+      "ChainHead": {
+        "additionalProperties": false,
+        "description": "``GET /head/{case_id}``: the case chain's head, which a pack records so\nit can later prove which records it was built from. A case with no records\nhas ``seq=0`` and the genesis hash.",
+        "properties": {
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seq",
+          "hash"
+        ],
+        "title": "ChainHead",
+        "type": "object"
+      },
       "ChangeType": {
         "enum": [
           "new_product",
@@ -957,6 +1023,98 @@
         "title": "ControlInput",
         "type": "object"
       },
+      "ControlInventoryOut": {
+        "additionalProperties": false,
+        "description": "``GET /controls?version=&domain=``: a control inventory version,\noptionally narrowed to one risk domain.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "controls": {
+            "items": {
+              "$ref": "#/components/schemas/ControlOut"
+            },
+            "title": "Controls",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "active",
+          "controls"
+        ],
+        "title": "ControlInventoryOut",
+        "type": "object"
+      },
+      "ControlOut": {
+        "additionalProperties": false,
+        "properties": {
+          "catalogue_weight": {
+            "title": "Catalogue Weight",
+            "type": "number"
+          },
+          "control_id": {
+            "title": "Control Id",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "evidence_artifact": {
+            "title": "Evidence Artifact",
+            "type": "string"
+          },
+          "last_tested": {
+            "title": "Last Tested",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "control_id",
+          "domain",
+          "name",
+          "catalogue_weight",
+          "evidence_artifact",
+          "last_tested"
+        ],
+        "title": "ControlOut",
+        "type": "object"
+      },
+      "ControlVersionOut": {
+        "additionalProperties": false,
+        "description": "``GET /controls/versions``: one stored control-inventory version.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "control_count": {
+            "title": "Control Count",
+            "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "active",
+          "control_count"
+        ],
+        "title": "ControlVersionOut",
+        "type": "object"
+      },
       "CreateCaseRequest": {
         "additionalProperties": false,
         "description": "The PO's initial draft: a title, the owning unit, the owner's user\nid and the change types confirmed so far. ``change_types`` resolves the\nrequired-fields list at creation time (``resolve_required_fields``,\npinned to the active field-set version) -- it is never recomputed\nimplicitly later; a later change goes through ``ConfirmCategoriesRequest``\n(not yet wired to a route in this pass).",
@@ -1190,6 +1348,90 @@
         "title": "DomainResult",
         "type": "object"
       },
+      "FieldDef": {
+        "additionalProperties": false,
+        "properties": {
+          "always_required": {
+            "title": "Always Required",
+            "type": "boolean"
+          },
+          "change_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Type"
+          },
+          "field_id": {
+            "title": "Field Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field_id",
+          "label",
+          "always_required"
+        ],
+        "title": "FieldDef",
+        "type": "object"
+      },
+      "FieldSetOut": {
+        "additionalProperties": false,
+        "description": "``GET /field-sets/{version}``: one stored field-set version.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "always_required": {
+            "items": {
+              "$ref": "#/components/schemas/FieldDef"
+            },
+            "title": "Always Required",
+            "type": "array"
+          },
+          "completion_threshold": {
+            "title": "Completion Threshold",
+            "type": "number"
+          },
+          "max_required": {
+            "title": "Max Required",
+            "type": "integer"
+          },
+          "per_type": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/FieldDef"
+              },
+              "type": "array"
+            },
+            "title": "Per Type",
+            "type": "object"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "active",
+          "max_required",
+          "completion_threshold",
+          "always_required",
+          "per_type"
+        ],
+        "title": "FieldSetOut",
+        "type": "object"
+      },
       "FieldValuePO": {
         "additionalProperties": false,
         "properties": {
@@ -1256,12 +1498,15 @@
         "type": "object"
       },
       "ItemKind": {
-        "description": "What a review_item (Gate A, review_item gate) carries.",
+        "description": "What an S1 ``review_item`` carries. ``clause``, ``factor``, ``control``\nand ``critic_finding`` sit behind Gate A (the analyst's ``review_item``\ngates); ``category``, ``value`` and ``gap`` are the intake items the PO\ndecides (``po_confirm_category``, ``po_confirm_value``, ``po_answer_gaps``).",
         "enum": [
           "clause",
           "factor",
           "control",
-          "critic_finding"
+          "critic_finding",
+          "category",
+          "value",
+          "gap"
         ],
         "title": "ItemKind",
         "type": "string"
@@ -1277,6 +1522,81 @@
         ],
         "title": "ItemStatus",
         "type": "string"
+      },
+      "JurisdictionListOut": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "call_for_action": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Call For Action",
+            "type": "array"
+          },
+          "increased_monitoring": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Increased Monitoring",
+            "type": "array"
+          },
+          "published": {
+            "title": "Published",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "published",
+          "source",
+          "call_for_action",
+          "increased_monitoring",
+          "active"
+        ],
+        "title": "JurisdictionListOut",
+        "type": "object"
+      },
+      "JurisdictionVersionOut": {
+        "additionalProperties": false,
+        "description": "``GET /jurisdictions/versions``: one stored jurisdiction list version.\n``fixture`` marks a synthetic test list (never an FATF publication);\n``active`` is the one list new work is checked against.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "fixture": {
+            "title": "Fixture",
+            "type": "boolean"
+          },
+          "published": {
+            "title": "Published",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "published",
+          "fixture",
+          "active"
+        ],
+        "title": "JurisdictionVersionOut",
+        "type": "object"
       },
       "LoginRequest": {
         "additionalProperties": false,
@@ -1476,6 +1796,45 @@
         "title": "PackBuild",
         "type": "object"
       },
+      "Page_AuditRecordRow_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditRecordRow"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[AuditRecordRow]",
+        "type": "object"
+      },
       "Page_AuditRecord_": {
         "additionalProperties": false,
         "properties": {
@@ -1593,6 +1952,123 @@
         "title": "Page[CaseListItemPO]",
         "type": "object"
       },
+      "Page_ControlVersionOut_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ControlVersionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[ControlVersionOut]",
+        "type": "object"
+      },
+      "Page_JurisdictionVersionOut_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/JurisdictionVersionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[JurisdictionVersionOut]",
+        "type": "object"
+      },
+      "Page_Proposal_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Proposal"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[Proposal]",
+        "type": "object"
+      },
       "PinnedVersions": {
         "additionalProperties": false,
         "description": "Recorded once per case run on ``case_runs`` and echoed on every\n``ScoreRequest`` and the audit record for scoring (ADR-16 / design A §5).",
@@ -1682,6 +2158,213 @@
         "title": "PrincipalOut",
         "type": "object"
       },
+      "Proposal": {
+        "additionalProperties": false,
+        "description": "A stored proposal. ``seq`` is the case's own monotonic ledger number\n(one sequence per case, so it is also monotonic within a run);\n``superseded_by`` is derived on read from the proposal that names this\none in its ``supersedes``.",
+        "properties": {
+          "agent": {
+            "minLength": 1,
+            "title": "Agent",
+            "type": "string"
+          },
+          "case_id": {
+            "minLength": 1,
+            "title": "Case Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "kind": {
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9_.]*$",
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "prompt_v": {
+            "minLength": 1,
+            "title": "Prompt V",
+            "type": "string"
+          },
+          "proposal_id": {
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "run_id": {
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "superseded_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superseded By"
+          },
+          "supersedes": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes"
+          },
+          "tier": {
+            "minLength": 1,
+            "title": "Tier",
+            "type": "string"
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/ProposalTokens"
+          }
+        },
+        "required": [
+          "case_id",
+          "run_id",
+          "agent",
+          "kind",
+          "payload",
+          "model",
+          "prompt_v",
+          "tier",
+          "proposal_id",
+          "seq",
+          "created_at"
+        ],
+        "title": "Proposal",
+        "type": "object"
+      },
+      "ProposalAppend": {
+        "additionalProperties": false,
+        "description": "``POST /proposals``: one validated agent output for the evidence\nledger. ``kind`` is open (``extraction``, ``category``, ``gaps``,\n``screening``, ``research``, ``assessment``, ``critic``, ``narrative``,\n``completeness``, ``examiner``, ``watchlist``, ``reflag`` ...) so a new\nagent needs no contract change; ``supersedes`` names the earlier proposal\nthis one replaces (a later version is a new document: the ledger never\nupdates one).",
+        "properties": {
+          "agent": {
+            "minLength": 1,
+            "title": "Agent",
+            "type": "string"
+          },
+          "case_id": {
+            "minLength": 1,
+            "title": "Case Id",
+            "type": "string"
+          },
+          "kind": {
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9_.]*$",
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "prompt_v": {
+            "minLength": 1,
+            "title": "Prompt V",
+            "type": "string"
+          },
+          "run_id": {
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "supersedes": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes"
+          },
+          "tier": {
+            "minLength": 1,
+            "title": "Tier",
+            "type": "string"
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/ProposalTokens"
+          }
+        },
+        "required": [
+          "case_id",
+          "run_id",
+          "agent",
+          "kind",
+          "payload",
+          "model",
+          "prompt_v",
+          "tier"
+        ],
+        "title": "ProposalAppend",
+        "type": "object"
+      },
+      "ProposalTokens": {
+        "additionalProperties": false,
+        "description": "Token usage of the model call that produced a proposal (the keys of\n``AgentDone.usage``); all zero for a proposal no model call produced.",
+        "properties": {
+          "cache_read_tokens": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Cache Read Tokens",
+            "type": "integer"
+          },
+          "cache_write_tokens": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Cache Write Tokens",
+            "type": "integer"
+          },
+          "input_tokens": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Output Tokens",
+            "type": "integer"
+          }
+        },
+        "title": "ProposalTokens",
+        "type": "object"
+      },
       "RecordAppend": {
         "additionalProperties": false,
         "description": "What the caller submits; ``prev_hash``/``hash``/``seq`` are computed\nby the service, never supplied by the caller.",
@@ -1765,6 +2448,47 @@
           "boundary_and_band_acknowledged"
         ],
         "title": "ReleaseChecks",
+        "type": "object"
+      },
+      "ResolvedFieldSetOut": {
+        "additionalProperties": false,
+        "description": "``GET /field-sets/{version}/resolve?change_types=a,b``: the fields a\ncase with those change types must fill (the always-required set, then each\ntype's own fields in the order the types were given, de-duplicated by\nfield id). Each per-type field carries the change type that adds it.",
+        "properties": {
+          "change_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Change Types",
+            "type": "array"
+          },
+          "completion_threshold": {
+            "title": "Completion Threshold",
+            "type": "number"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/FieldDef"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "max_required": {
+            "title": "Max Required",
+            "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "change_types",
+          "fields",
+          "max_required",
+          "completion_threshold"
+        ],
+        "title": "ResolvedFieldSetOut",
         "type": "object"
       },
       "RevealedVote": {
@@ -2760,10 +3484,339 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/api/fcrm/audit/records": {
+    "/api/fcrm/audit/head/{case_id}": {
+      "get": {
+        "description": "The last ``seq`` and hash of ``case_id``'s chain (``seq=0`` and the\ngenesis hash for a case with no records): what a pack records so it can\nlater show which records it was built from.",
+        "operationId": "S4_chain_head_head__case_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainHead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Chain Head",
+        "tags": [
+          "audit"
+        ]
+      }
+    },
+    "/api/fcrm/audit/proposals": {
+      "get": {
+        "description": "One page of ``case_id``'s proposals in ``seq`` order, optionally for\none run, one agent and one kind.",
+        "operationId": "S4_list_proposals_proposals_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "run_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Run Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "agent",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Agent"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Proposal_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Proposals",
+        "tags": [
+          "audit"
+        ]
+      },
       "post": {
-        "description": "Append one record to ``body.case_id``'s chain. The only write route\nS4 exposes (design A §2.4; ``docs/governance/audit-chain.md``).",
+        "description": "Append one validated agent output to the case's evidence ledger. The\nledger is append-only: a later version of a proposal is a new entry whose\n``supersedes`` names the one it replaces. A repeated ``Idempotency-Key``\nreturns the proposal it already stored with 200.",
+        "operationId": "S4_append_proposal_proposals_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalAppend"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Proposal"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Append Proposal",
+        "tags": [
+          "audit"
+        ]
+      }
+    },
+    "/api/fcrm/audit/records": {
+      "get": {
+        "description": "One page of ``case_id``'s chain in the web's row shape (web path\n``audit/records?case_id=``), in ``seq`` order, oldest first.",
+        "operationId": "S4_list_record_rows_records_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_AuditRecordRow_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Record Rows",
+        "tags": [
+          "audit"
+        ]
+      },
+      "post": {
+        "description": "Append one record to ``body.case_id``'s chain. The only chain write\nroute S4 exposes (design A §2.4; ``docs/governance/audit-chain.md``).\nA repeated ``Idempotency-Key`` returns the record it already wrote with\n200 and appends nothing.",
         "operationId": "S4_append_record_records_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -4271,6 +5324,300 @@
         "summary": "Check Release",
         "tags": [
           "decision"
+        ]
+      }
+    },
+    "/api/fcrm/policy/controls": {
+      "get": {
+        "description": "One control-inventory version (``v9`` or ``9``; the active one when\nomitted), optionally only the controls of one risk ``domain``.",
+        "operationId": "S3_get_controls_controls_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
+            }
+          },
+          {
+            "in": "query",
+            "name": "domain",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Domain"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Domain"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlInventoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Controls",
+        "tags": [
+          "policy"
+        ]
+      }
+    },
+    "/api/fcrm/policy/controls/versions": {
+      "get": {
+        "description": "Every stored control-inventory version, the active one flagged.",
+        "operationId": "S3_list_control_versions_controls_versions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ControlVersionOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Control Versions",
+        "tags": [
+          "policy"
+        ]
+      }
+    },
+    "/api/fcrm/policy/field-sets/{version}": {
+      "get": {
+        "description": "One field-set version (``v6`` or ``6``; ``latest`` is the active one).",
+        "operationId": "S3_get_field_set_field_sets__version__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldSetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Field Set",
+        "tags": [
+          "policy"
+        ]
+      }
+    },
+    "/api/fcrm/policy/field-sets/{version}/resolve": {
+      "get": {
+        "description": "The fields a case with ``change_types`` must fill at this field-set\nversion: always-required first, then each type's own fields in the order\ngiven (the same arithmetic as S1's ``resolve_required_fields``).",
+        "operationId": "S3_resolve_field_set_field_sets__version__resolve_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Comma-separated change types.",
+            "in": "query",
+            "name": "change_types",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated change types.",
+              "title": "Change Types"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolvedFieldSetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Resolve Field Set",
+        "tags": [
+          "policy"
+        ]
+      }
+    },
+    "/api/fcrm/policy/jurisdictions": {
+      "get": {
+        "description": "One jurisdiction list: ``version`` is a version id (``v2026-06``),\n``latest``/``current`` or none for the active list, or ``fixture`` for the\nsynthetic re-flag list.",
+        "operationId": "S3_get_jurisdictions_jurisdictions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JurisdictionListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Jurisdictions",
+        "tags": [
+          "policy"
+        ]
+      }
+    },
+    "/api/fcrm/policy/jurisdictions/versions": {
+      "get": {
+        "description": "Every stored jurisdiction list version, the active one flagged.",
+        "operationId": "S3_list_jurisdiction_versions_jurisdictions_versions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_JurisdictionVersionOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Jurisdiction Versions",
+        "tags": [
+          "policy"
         ]
       }
     },
