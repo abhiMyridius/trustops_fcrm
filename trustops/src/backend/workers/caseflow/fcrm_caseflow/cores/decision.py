@@ -29,7 +29,8 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping, Sequence
-from typing import Any, Final, Optional
+from dataclasses import dataclass
+from typing import Final, Literal, Optional
 
 from fcrm_common.errors import (
     ConflictError,
@@ -62,7 +63,10 @@ from fcrm_guardrails.rules import RulesContext, check_all
 from fcrm_guardrails.rules.r3_po_no_restricted import restricted_terms_in
 from pydantic import ValidationError
 
-from fcrm_caseflow.cores.closing_conditions import activation
+from fcrm_caseflow.cores.closing_conditions import (
+    activated_conditions,
+    outcome_conditions,
+)
 from fcrm_caseflow.cores.intake_records import plural
 from fcrm_caseflow.cores.step_support import payload_of, show
 from fcrm_caseflow.steps import StepDeps, StepHandler, StepResult
@@ -147,30 +151,32 @@ def check_tally(tallied: VoteTallied, step: HarnessStep) -> Outcome:
     return again.outcome
 
 
-def _conditions_for(
-    case_id: str,
-    outcome: Outcome,
-    pack: Optional[PackView],
-    record: CaseRecordInternal,
-) -> tuple[list[OutcomeCondition], list[ActivatedCondition]]:
-    """The conditions an outcome activates: the pack's drafted ones for an
-    approval with conditions, none otherwise. An approval with conditions whose
-    pack drafted none activates none (logged: the committee voted for conditions
-    nobody wrote).
+@dataclass(frozen=True)
+class Decision:
+    """What is being recorded: a committee outcome or a delegated close.
+
+    Attributes:
+        mode: ``committee`` or ``delegated``.
+        outcome: What was decided.
+        decided_by: ``committee``, or the analyst's user id.
+        plain_summary: What the product owner reads (business words).
+        pack_id: The tallied pack (committee mode only).
+        reason: The analyst's reason (delegated mode only).
     """
-    if outcome is not Outcome.APPROVE_WITH_CONDITIONS or pack is None:
-        return [], []
-    drafted = activation(case_id, pack, record, utcnow().date())
-    if not drafted[1]:
-        logger.warning(
-            "approved with conditions but the pack drafted none",
-            extra={"case_id": case_id, "pack_id": pack.pack_id},
-        )
-    return drafted
+
+    mode: Literal["committee", "delegated"]
+    outcome: Outcome
+    decided_by: str
+    plain_summary: str
+    pack_id: Optional[str] = None
+    reason: Optional[str] = None
 
 
-def outcome_record(case_id: str, **fields: Any) -> OutcomeRecord:
-    """An :class:`OutcomeRecord`, or the step's own validation error.
+def outcome_record(
+    case_id: str, decision: Decision, conditions: Sequence[OutcomeCondition]
+) -> OutcomeRecord:
+    """The :class:`OutcomeRecord` S5 is asked to record, or the step's own
+    validation error.
 
     Raises:
         fcrm_common.errors.ValidationError: The fields break the contract (a
@@ -178,7 +184,16 @@ def outcome_record(case_id: str, **fields: Any) -> OutcomeRecord:
             rather than crashing on a bare pydantic error.
     """
     try:
-        return OutcomeRecord(case_id=case_id, **fields)
+        return OutcomeRecord(
+            case_id=case_id,
+            mode=decision.mode,
+            outcome=decision.outcome,
+            pack_id=decision.pack_id,
+            decided_by=decision.decided_by,
+            reason=decision.reason,
+            plain_summary=decision.plain_summary,
+            conditions=list(conditions),
+        )
     except ValidationError as exc:
         raise FcrmValidationError(
             "the outcome to record breaks its contract",
@@ -188,9 +203,9 @@ def outcome_record(case_id: str, **fields: Any) -> OutcomeRecord:
 
 
 def _outcome_put(
-    case_id: str, record: OutcomeRecord, activated: Sequence[ActivatedCondition]
+    case_id: str, decision: Decision, activated: Sequence[ActivatedCondition]
 ) -> OutcomePut:
-    """S1's whole-state body for what S5 was asked to record.
+    """S1's whole-state body for what S5 recorded.
 
     Raises:
         fcrm_common.errors.ValidationError: The body breaks the contract
@@ -199,12 +214,12 @@ def _outcome_put(
     """
     try:
         return OutcomePut(
-            outcome=record.outcome,
-            mode=record.mode,
-            decided_by=record.decided_by or COMMITTEE_DECIDER,
-            pack_id=record.pack_id,
-            reason=record.reason,
-            plain_summary=record.plain_summary,
+            outcome=decision.outcome,
+            mode=decision.mode,
+            decided_by=decision.decided_by,
+            pack_id=decision.pack_id,
+            reason=decision.reason,
+            plain_summary=decision.plain_summary,
             conditions=list(activated),
         )
     except ValidationError as exc:
@@ -215,55 +230,85 @@ def _outcome_put(
         ) from exc
 
 
+def conditions_pack(outcome: Outcome, pack: Optional[PackView]) -> Optional[PackView]:
+    """``pack`` when ``outcome`` activates its drafted conditions (an approval
+    with conditions), else ``None``. An approval with conditions whose pack
+    drafted none is logged: the committee voted for conditions nobody wrote.
+    """
+    if outcome is not Outcome.APPROVE_WITH_CONDITIONS or pack is None:
+        return None
+    if not pack.conditions:
+        logger.warning(
+            "approved with conditions but the pack drafted none",
+            extra={"case_id": pack.case_id, "pack_id": pack.pack_id},
+        )
+    return pack
+
+
 async def record_decision(
     step: HarnessStep,
     deps: StepDeps,
-    record: OutcomeRecord,
-    activated: Sequence[ActivatedCondition],
+    decision: Decision,
+    pack: Optional[PackView],
+    case: CaseRecordInternal,
 ) -> StepResult:
-    """Record ``record`` in S5, then in S1 (which closes the case), then in the
-    audit trail: the common tail of a committee outcome and a delegated close.
+    """Record ``decision`` in S5, then in S1 (which closes the case and
+    activates the conditions the pack drafted), then in the audit trail: the
+    common tail of a committee outcome and a delegated close.
+
     Each part is safe to repeat, so a step that fails between them is retried
-    from the top.
+    from the top. The conditions' due dates count from the date S5 holds for the
+    decision, not from today: S5 stored it when it first recorded the decision,
+    so every attempt sends S1 the same body.
     """
     case_id = step.case_id
-    decision = deps.require_decision_votes()
-    recorded = await decision.record_outcome(
+    drafting = conditions_pack(decision.outcome, pack)
+    record = outcome_record(
+        case_id,
+        decision,
+        outcome_conditions(drafting, case) if drafting is not None else [],
+    )
+    recorded = await deps.require_decision_votes().record_outcome(
         record,
         idempotency_key=deterministic_id("idem", step.step_id, "outcome"),
     )
+    decided_on = (recorded.decided_at or utcnow()).date()
+    activated = (
+        activated_conditions(case_id, drafting, case, decided_on)
+        if drafting is not None
+        else []
+    )
     put = await deps.require_case().put_outcome(
         case_id,
-        _outcome_put(case_id, record, activated),
+        _outcome_put(case_id, decision, activated),
         idempotency_key=deterministic_id("idem", step.step_id, "outcome-case"),
     )
-    label = outcome_label(record.outcome)
-    by = record.decided_by or COMMITTEE_DECIDER
+    label = outcome_label(decision.outcome)
     tail = f" · {plural(len(activated), 'condition')} activated" if activated else ""
-    reason = f" · {record.reason}" if record.mode == "delegated" else ""
+    reason = f" · {decision.reason}" if decision.mode == "delegated" else ""
     await deps.append_record(
         step,
         "outcome.set",
         f"Outcome set: {label}{tail}{reason}",
         {
-            "outcome": record.outcome.value,
-            "mode": record.mode,
-            "pack_id": record.pack_id,
+            "outcome": decision.outcome.value,
+            "mode": decision.mode,
+            "pack_id": decision.pack_id,
             "round": recorded.round,
-            "decided_by": by,
-            "reason": record.reason,
+            "decided_by": decision.decided_by,
+            "reason": decision.reason,
             "conditions": [
                 {"id": c.condition_id, "ref": c.ref, "owner": c.owner_label}
                 for c in activated
             ],
         },
-        actor=by if record.mode == "delegated" else "system",
+        actor=decision.decided_by if decision.mode == "delegated" else "system",
     )
     return StepResult(
         refs_patch={
-            "outcome": record.outcome.value,
-            "outcome_mode": record.mode,
-            "outcome_pack_id": record.pack_id,
+            "outcome": decision.outcome.value,
+            "outcome_mode": decision.mode,
+            "outcome_pack_id": decision.pack_id,
             "conditions_activated": put.conditions_activated,
         }
     )
@@ -465,23 +510,22 @@ async def decide_outcome(step: HarnessStep, deps: StepDeps) -> StepResult:
         actor="system",
     )
     pack = await deps.require_decision_votes().get_pack(tallied.pack_id)
-    record = await deps.require_case().get_record(step.case_id)
-    drafted, activated = _conditions_for(step.case_id, outcome, pack, record)
+    case = await deps.require_case().get_record(step.case_id)
+    drafted = len(pack.conditions) if outcome is Outcome.APPROVE_WITH_CONDITIONS else 0
     return await record_decision(
         step,
         deps,
-        outcome_record(
-            step.case_id,
+        Decision(
             mode="committee",
             outcome=outcome,
             pack_id=tallied.pack_id,
             decided_by=COMMITTEE_DECIDER,
             plain_summary=committee_plain_summary(
-                outcome, pack.business_summary, len(activated)
+                outcome, pack.business_summary, drafted
             ),
-            conditions=drafted,
         ),
-        activated,
+        pack,
+        case,
     )
 
 
@@ -573,24 +617,18 @@ def _guard_delegated(
     return band
 
 
-async def _drafted_conditions(
-    step: HarnessStep, deps: StepDeps, outcome: Outcome
-) -> tuple[list[OutcomeCondition], list[ActivatedCondition]]:
-    """The conditions of a delegated approval with conditions: the case's latest
-    pack drafted them. A case with no pack (404) activates none.
+async def _latest_pack(step: HarnessStep, deps: StepDeps) -> Optional[PackView]:
+    """The case's latest pack (it drafted the conditions of a delegated approval
+    with conditions), or ``None`` when the case has no pack (S5 answers 404).
     """
-    if outcome is not Outcome.APPROVE_WITH_CONDITIONS:
-        return [], []
     try:
-        pack = await deps.require_decision_votes().latest_pack(step.case_id)
+        return await deps.require_decision_votes().latest_pack(step.case_id)
     except NotFoundError:
         logger.warning(
             "no pack to take conditions from",
             extra={"case_id": step.case_id, "step_id": step.step_id},
         )
-        return [], []
-    record = await deps.require_case().get_record(step.case_id)
-    return _conditions_for(step.case_id, outcome, pack, record)
+        return None
 
 
 async def decide_delegated(step: HarnessStep, deps: StepDeps) -> StepResult:
@@ -614,20 +652,21 @@ async def decide_delegated(step: HarnessStep, deps: StepDeps) -> StepResult:
             "a delegated close needs a plain summary for the owner",
             step_id=step.step_id,
         )
-    drafted, activated = await _drafted_conditions(step, deps, request.outcome)
+    wants_conditions = request.outcome is Outcome.APPROVE_WITH_CONDITIONS
+    pack = await _latest_pack(step, deps) if wants_conditions else None
+    case = await deps.require_case().get_record(step.case_id)
     return await record_decision(
         step,
         deps,
-        outcome_record(
-            step.case_id,
+        Decision(
             mode="delegated",
             outcome=request.outcome,
             decided_by=request.actor,
             reason=reason,
             plain_summary=summary,
-            conditions=drafted,
         ),
-        activated,
+        pack,
+        case,
     )
 
 

@@ -123,13 +123,33 @@ def _status_of(condition: PackCondition) -> ActivationStatus:
     return "scheduled" if condition.status == "scheduled" else "open"
 
 
-def activation(
+def outcome_conditions(
+    pack: PackView, record: CaseRecordInternal
+) -> list[OutcomeCondition]:
+    """The conditions ``pack`` drafted, as S5's outcome record carries them (the
+    pack's own label as the id, the owner as a user id where there is one, the
+    due date still in words).
+    """
+    return [
+        OutcomeCondition(
+            id=drafted.id,
+            text=drafted.text,
+            owner_id=owner_id_for(drafted.owner, record),
+            due_label=drafted.due,
+        )
+        for drafted in pack.conditions
+    ]
+
+
+def activated_conditions(
     case_id: str, pack: PackView, record: CaseRecordInternal, decided_on: date
-) -> tuple[list[OutcomeCondition], list[ActivatedCondition]]:
-    """The conditions ``pack`` drafted, as S5's outcome record and S1's
-    activation list. Both carry the pack's own label as the id (S5) or ref (S1);
-    S1's ``condition_id`` is derived from the case and the label, so activating
-    twice yields the same ids.
+) -> list[ActivatedCondition]:
+    """The conditions ``pack`` drafted, as S1 activates them once the decision
+    of ``decided_on`` is recorded. S1's ``condition_id`` is derived from the
+    case and the pack's label, so activating twice yields the same rows; the due
+    dates count from ``decided_on``, which must be the same on every attempt
+    (the decision's own date, from S5), or S1 would see a different body on a
+    retry.
     """
     go_live = go_live_date(
         next(
@@ -137,29 +157,27 @@ def activation(
             None,
         )
     )
-    outcome_side: list[OutcomeCondition] = []
-    case_side: list[ActivatedCondition] = []
-    for drafted in pack.conditions:
-        owner_id = owner_id_for(drafted.owner, record)
-        outcome_side.append(
-            OutcomeCondition(
-                id=drafted.id,
-                text=drafted.text,
-                owner_id=owner_id,
-                due_label=drafted.due,
-            )
+    return [
+        ActivatedCondition(
+            condition_id=deterministic_id("cnd", case_id, drafted.id),
+            ref=drafted.id,
+            text=drafted.text,
+            owner_id=owner_id_for(drafted.owner, record),
+            owner_label=drafted.owner,
+            due_label=drafted.due,
+            due_date=due_date_for(drafted.due, go_live, decided_on),
+            status=_status_of(drafted),
+            origin=drafted.from_,
         )
-        case_side.append(
-            ActivatedCondition(
-                condition_id=deterministic_id("cnd", case_id, drafted.id),
-                ref=drafted.id,
-                text=drafted.text,
-                owner_id=owner_id,
-                owner_label=drafted.owner,
-                due_label=drafted.due,
-                due_date=due_date_for(drafted.due, go_live, decided_on),
-                status=_status_of(drafted),
-                origin=drafted.from_,
-            )
-        )
-    return outcome_side, case_side
+        for drafted in pack.conditions
+    ]
+
+
+def activation(
+    case_id: str, pack: PackView, record: CaseRecordInternal, decided_on: date
+) -> tuple[list[OutcomeCondition], list[ActivatedCondition]]:
+    """Both views of the drafted conditions: S5's and S1's."""
+    return (
+        outcome_conditions(pack, record),
+        activated_conditions(case_id, pack, record, decided_on),
+    )

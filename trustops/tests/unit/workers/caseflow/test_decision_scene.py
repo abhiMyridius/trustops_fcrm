@@ -319,7 +319,7 @@ async def test_the_committee_decides_two_to_one_and_the_case_closes_verified(
     ]
     assert [c["owner_id"] for c in put["conditions"]] == ["u-pnair", None, "u-pnair"]
     assert [c["due_date"] for c in put["conditions"]][:2] == ["2027-02-01"] * 2
-    assert put["conditions"][2]["due_date"] is not None
+    assert put["conditions"][2]["due_date"] == "2027-04-05"  # 6 months from S5's date
     assert [c["status"] for c in put["conditions"]] == [
         "open",
         "scheduled",

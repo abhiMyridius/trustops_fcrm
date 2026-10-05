@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -458,3 +459,24 @@ async def test_the_po_announcement_carries_a_label_and_a_count_and_nothing_else(
         "outcome_label": "Approved with conditions",
         "conditions": 3,
     }
+
+
+async def test_the_due_dates_count_from_the_decision_date_s5_holds_not_from_today(
+    decision_deps_factory: Callable[..., StepDeps],
+    decision_service: FakeDecisionService,
+    closing_case_service: FakeClosingCaseService,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A step retried after midnight must send S1 the same body, or S1 would
+    refuse it as a different outcome for a decided case.
+    """
+    decision_service.tallied = "approve_with_conditions"
+    step_ = step(StepKind.DECIDE_OUTCOME, tallied())
+    first_day = datetime(2026, 10, 5, 23, 59, tzinfo=UTC)
+    monkeypatch.setattr(decision, "utcnow", lambda: first_day)
+    await decision.decide_outcome(step_, decision_deps_factory())
+    monkeypatch.setattr(decision, "utcnow", lambda: first_day + timedelta(days=3))
+    await decision.decide_outcome(step_, decision_deps_factory())  # replays, no 409
+    [put] = closing_case_service.outcome_puts
+    assert put["conditions"][2]["due_date"] == "2027-04-05"
+    assert len(decision_service.outcomes) == 1

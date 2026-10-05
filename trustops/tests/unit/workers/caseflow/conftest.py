@@ -990,6 +990,7 @@ class FakeDecisionService(FakePeer):
         self.committee_pending = False
         self.revote_round = 2
         self.voided_votes = 2
+        self.decided_at = "2026-10-05T14:00:00Z"
         self.outcomes: list[dict[str, Any]] = []
         self.supersedes: list[dict[str, Any]] = []
         self.revotes: list[dict[str, Any]] = []
@@ -1062,6 +1063,7 @@ class FakeDecisionService(FakePeer):
                 "mode": body["mode"],
                 "pack_id": body.get("pack_id"),
                 "round": 1,
+                "decided_at": self.decided_at,
                 "decided_by": body.get("decided_by"),
                 "reason": body.get("reason"),
                 "plain_summary": body.get("plain_summary"),
