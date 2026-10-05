@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-shot initialiser for the `minio-init` container (design A §11.1).
+# Initialiser for the buckets, run by ops/minio/entrypoint.sh inside the `minio` container (design A §11.1).
 #
 # Creates the five buckets and turns on versioning for `packs` (frozen
 # committee packs: an overwrite must never lose the version a vote was cast

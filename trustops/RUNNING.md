@@ -5,7 +5,7 @@ How to set up the repo, run the checks, start the full stack and confirm that it
 Every command runs from the repo root, the folder that holds the `Makefile`. Running `make` from anywhere else fails with `No rule to make target`.
 
 ```bash
-cd ~/Downloads/Hackathon/trustops_fcrm/trustops     # or wherever you cloned it
+cd ~/MacWorkspace/Hackathon/trustops_fcrm/trustops     # or wherever you cloned it
 ```
 
 This file describes the state on 5 October 2026. If a step stops matching what you see, check `git log --oneline` first: every commit says what it adds and what it is still waiting on.
@@ -14,10 +14,7 @@ This file describes the state on 5 October 2026. If a step stops matching what y
 
 The application is two parts. The backend is one Docker stack. The frontend is one Node dev server. Run them in two terminals. Both terminals start at the repo root.
 
-**Before anything: let Docker see the repo.** The repo sits under `~/Downloads`, and macOS blocks Docker from mounting files there until you allow it. Verified on 5 October: a plain `docker run -v` from the repo fails with `mkdir /host_mnt/Users/apahuja/Downloads: operation not permitted`, while the same mount from `/tmp` works. Thirteen services need such mounts, so the backend cannot start at all until one of these is done:
-
-- Open System Settings, then Privacy & Security, then Files and Folders, find Docker and turn on Downloads Folder. If Docker is not listed there, turn on Full Disk Access for Docker instead. Then quit and reopen Docker Desktop.
-- Or move the repo out of Downloads, for example `mv ~/Downloads/Hackathon ~/MacWorkspace/Hackathon`, and reopen it from there.
+**If the repo sits under `~/Downloads`:** macOS blocks Docker from mounting files there until you allow it (`mkdir /host_mnt/Users/<you>/Downloads: operation not permitted`). Either turn on Downloads Folder for Docker under System Settings, Privacy & Security, Files and Folders (or Full Disk Access), then restart Docker Desktop, or keep the repo outside `~/Downloads`, for example under `~/MacWorkspace`.
 
 **Terminal 1: backend**
 
@@ -28,14 +25,11 @@ The application is two parts. The backend is one Docker stack. The frontend is o
 5. Start the stack:
 
    ```bash
-   docker compose -f docker-compose.yaml -f compose.obs.yaml up -d --build \
-     --scale ingestion-worker=0 --scale context-worker=0
+   make up
    ```
 
-   The first build takes a few minutes. Do not use `make up` yet. It waits for two workers that cannot start and times out.
-
-   On this Mac a Homebrew Redis already listens on port 6379, so the first attempt stops with `port 6379 ... address already in use`. Either stop it with `brew services stop redis`, or add the line `REDIS_HOST_PORT=6380` to `.env`, then run the command again.
-6. `make ps` should show 19 containers healthy.
+   The first build takes a few minutes. `make up` runs eight containers: `mongo`, `rabbitmq`, `minio`, `opa`, `api` (identity and S1–S5 in one process), `harness` (H1 caseflow and H2 agent-worker in one process), `gateway` and `web`. Only the gateway publishes a port on your Mac (8080). `make up-obs` adds Jaeger, Prometheus and Grafana, and `make up-debug` also publishes the infrastructure ports (see [What the compose files are](#what-the-compose-files-are)).
+6. `make ps` should show 8 containers healthy.
 7. `curl -s http://localhost:8080/healthz` should answer. The backend is up.
 
 **Terminal 2: frontend**
@@ -57,13 +51,13 @@ The application is two parts. The backend is one Docker stack. The frontend is o
 | Code checks: lint, format, types, unit tests, OPA policy tests | ✅ `make check` |
 | Integration tests against a real MongoDB | ✅ `make test-int` |
 | Web unit tests and type check | ✅ `npm test`, `npm run typecheck` |
-| Backend stack: identity, S1–S5, H1, H2, gateway, web image, infra, observability | ✅ boots, 19 containers healthy, once Docker is allowed to read the repo folder (see the quick start) |
+| Backend stack: `api` (identity, S1–S5), `harness` (H1, H2), gateway, web, infra | ✅ `make up` starts 8 containers, all healthy, from empty volumes |
 | Login and access policy on every service, checked with `curl` through the gateway | ✅ |
 | Web app on its own, against the in-browser mock backend (MSW) | ✅ every screen for all three personas |
 | Web app against the live backend | ⏳ login fails (field-name mismatch); after that about a third of the screens have a backend route. See [Where the backend and the frontend stand](#where-the-backend-and-the-frontend-stand) |
-| H3 ingestion and H4 context workers as containers | ⏳ built and tested, but no start entry point yet; run them at scale 0 |
+| H3 ingestion and H4 context workers | ⏳ built and tested, but no start entry point yet, so they are not part of the harness |
 | Driving case FCRM-2026-0151 end to end through the live stack | ⏳ the services do not yet pass events to each other, and S1 holds no seeded cases |
-| Offline model replays (`FCRM_LLM_MODE=replay`) | ⏳ the setting is not read yet; agents always call Bedrock |
+| Agents on live Bedrock only (no replay mode, ADR-27) | ⏳ needs AWS keys in `.env`; without them every agent run fails at the model call |
 | `make demo`, `make seed-verify`, `make verify`, `make e2e`, `make evals` | ⏳ placeholders that print "pending" |
 
 The demo figures (9.8 → 10.4, a 2–1 committee vote, 67 audit records) are currently proved by the unit and integration tests, not by a live run.
@@ -101,11 +95,11 @@ Every seeded demo user shares one password, `demo-password-2026`. To choose your
 
 | Section | What to do |
 |---|---|
-| **1. Live AI on Amazon Bedrock** | Needed for any agent run. Fill in `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (`AWS_DEFAULT_REGION` is already `us-east-1`; uncomment `AWS_SESSION_TOKEN` only for SSO or temporary keys) and set `FCRM_LLM_MODE=live`. These are the standard boto3 and AWS CLI names. The agents call Bedrock through Pydantic AI's Bedrock provider, and the vector store calls S3 Vectors through aioboto3. **Replay mode is not wired yet:** `FCRM_LLM_MODE=replay` is accepted but ignored, so without AWS keys every agent job fails at the Bedrock call. The services, login and the web app still work without keys; only agent runs need them |
+| **1. Live AI on Amazon Bedrock** | Needed for any agent run. Fill in `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (`AWS_DEFAULT_REGION` is already `us-east-1`; uncomment `AWS_SESSION_TOKEN` only for SSO or temporary keys). These are the standard boto3 and AWS CLI names. The agents call Bedrock through Pydantic AI's Bedrock provider, and the vector store calls S3 Vectors through aioboto3. **There is no replay mode (ADR-27):** without AWS keys every agent job fails at the Bedrock call. The services, login and the web app still work without keys; only agent runs need them |
 | **2. Host ports** | Optional. Change a port only if `up` reports `port is already allocated`: uncomment that line and choose a free port |
 | **3. Generated** | Leave as is. These are local passwords. The databases are created with them on the first start, so changing them later needs `make down-v`, which deletes local data |
 
-**About ports.** A host port is the number on your Mac where you reach a container, for example `http://localhost:8080` for the app. The six API services have no host port at all; you reach them only through the gateway on 8080. The other ports exist for the infrastructure and the dashboards. They clash only when another program on your Mac already uses the same number.
+**About ports.** A host port is the number on your Mac where you reach a container, for example `http://localhost:8080` for the app. By default only the gateway publishes one. The `api` and `harness` containers have no host port at all; you reach the API only through the gateway on 8080. The infrastructure ports (Mongo, RabbitMQ, MinIO, OPA) are published only by `make up-debug`, and the dashboards' ports only by `make up-obs`. A port clashes only when another program on your Mac already uses the same number.
 
 **MinIO** is a small S3-compatible storage server running locally. It holds uploaded documents, the extracted text, frozen committee packs and vector-index data. On AWS the same code uses real S3 instead.
 
@@ -141,27 +135,32 @@ Expected result: every suite is green, with a few skips whose reasons are writte
 
 ## 3. Start the full stack
 
-The H3 ingestion and H4 context workers have no start entry point yet. Left in, they crash-loop and `make up` waits on them until it times out. Start the stack without them:
-
 ```bash
-docker compose -f docker-compose.yaml -f compose.obs.yaml up -d --build \
-  --scale ingestion-worker=0 --scale context-worker=0
-
-make ps          # expect 19 containers healthy; otel-collector has no health check by design
+make up          # 8 containers: mongo rabbitmq minio opa api harness gateway web
+make ps          # expect 8 containers healthy
 ```
 
-The first build takes a few minutes.
+The first build takes a few minutes. Mongo and MinIO initialise themselves on every start (replica set, users and indexes; buckets), so there are no init containers: a container is `healthy` only once it is initialised.
 
-**Port clashes.** If you see `port is already allocated`, another local stack is using the same host ports. Set the matching `*_HOST_PORT` values in `.env`, for example `GATEWAY_HOST_PORT=9080`, and run the command again.
+Other ways to start it:
+
+| Command | Adds |
+|---|---|
+| `make up-obs` | otel-collector, Jaeger (:16686), Prometheus (:9090), Grafana (:3000); the api and harness then export traces and metrics (12 containers) |
+| `make up-cache` | Redis, used for SSE fan-out across api replicas through `REDIS_URL` |
+| `make up-debug` | publishes Mongo (:27017), RabbitMQ (:5672, :15672), MinIO (:9000, :9001), OPA (:8181) and the harness health port (:9100) to your Mac |
+| `make up-dev` | live reload against your source and the Vite dev server (see below) |
+
+**Port clashes.** If you see `port is already allocated`, another local stack is using the same host port. Set the matching `*_HOST_PORT` in `.env`, for example `GATEWAY_HOST_PORT=9080`, and run the command again. By default only the gateway port can clash; `make up-debug` and `make up-cache` publish more.
 
 ### What the compose files are
 
 | File | Purpose |
 |---|---|
-| `docker-compose.yaml` | The base stack, with production-style images |
-| `compose.obs.yaml` | Observability (otel-collector, Jaeger, Prometheus, Grafana). Always included by the Makefile |
-| `compose.dev.yaml` | Live reload against your source: bind mounts, `uvicorn --reload`, the Vite dev server, DEBUG logs. Start with `make up-dev` |
-| `compose.test.yaml` | A deterministic test stack: recorded model replays, in-memory vectors, AWS keys blanked, its own project `trustops-test` |
+| `docker-compose.yaml` | The whole stack. The default profile is the 8 containers; profile `obs` adds the four observability containers and profile `cache` adds Redis |
+| `compose.debug.yaml` | Publishes the infrastructure and harness health ports to your Mac. `make up-debug` |
+| `compose.dev.yaml` | Live reload against your source: bind mounts, `uvicorn --reload`, the Vite dev server, DEBUG logs. `make up-dev` |
+| `compose.test.yaml` | The test stack: in-memory vectors and dummy embeddings for S3, AWS keys blanked for the api, its own project `trustops-test`. Agents still call live Bedrock |
 
 ## 4. Confirm it works
 
@@ -226,7 +225,7 @@ npm run dev                      # http://localhost:5173
 ### B. Live mode, packaged (the web image behind the gateway)
 
 ```bash
-make up          # or the scale-0 command from step 3
+make up
 open http://localhost:8080
 ```
 
@@ -285,16 +284,15 @@ Behind the HTTP seam there is a second gap inside the backend: S5 writes votes b
 |---|---|
 | `make: *** No rule to make target 'bootstrap'` | You are not in the repo root. `cd` into the folder that holds the `Makefile` |
 | `No resource found to remove for project "trustops"` | Harmless: no other TrustOps stack was running |
-| `make up` waits, then times out | `ingestion-worker` and `context-worker` crash-loop (no start entry point yet). Use the scale-0 command in step 3 |
 | `port is already allocated` | Another local stack holds the port. Set the `*_HOST_PORT` values in `.env` |
 | `error while creating mount source path ... mkdir /host_mnt/Users/<you>/Downloads: operation not permitted` | macOS is blocking Docker's access to `~/Downloads`. Grant Docker the Downloads Folder (or Full Disk Access) in System Settings and restart Docker, or move the repo out of Downloads. See the quick start |
 | `audit` keeps restarting with `ChainVerifyFailedError` | The audit records in the Mongo volume were written under an older hash format (D-29). Run `make down-v`, then start again, to reseed |
-| `identity` fails at start, asking for `DEMO_USERS_PASSWORD_HASH` | `.env` predates D-25. Move it aside and run `make env` again |
+| `api` fails at start, asking for `DEMO_USERS_PASSWORD_HASH` | `.env` predates D-25. Move it aside and run `make env` again |
 | Every API call returns `503` | OPA is not reachable, and the services fail closed by design. Check with `make ps` and `make logs svc=opa` |
 | The page shows "Mock backend (MSW)" when you expected the live stack | You are on the dev server with no `src/frontend/.env.local`, so `VITE_API_MODE` defaulted to `msw`. See step 5 C. Also check `make ps`: if the services are down, live mode would only show errors |
 | `Port 5173 is already in use` | A previous `npm run dev` is still running (it survives a folder move). `kill $(lsof -tnP -iTCP:5173 -sTCP:LISTEN)` and start again |
 | Live login returns `422` | The web posts `username`, the identity service wants `email`. First item in the seam table above |
 | Live login page hangs on the demo picker | `GET auth/demo-users` does not exist on the backend. Set `VITE_DEMO_USERS=false` in `src/frontend/.env.local` |
 | Live PO queue is empty | S1 has no seeded cases yet (`make seed` is pending). Create a case from the UI, or use mock mode to see the 80 seed cases |
-| Agent jobs fail with a Bedrock or credentials error | Replay mode is not wired; agents always call Bedrock. Fill in the AWS keys in `.env` |
-| `ports are not available ... 127.0.0.1:6379 ... address already in use` | A Homebrew `redis-server` is running on your Mac. `brew services stop redis`, or add `REDIS_HOST_PORT=6380` to `.env` |
+| Agent jobs fail with a Bedrock or credentials error | Agents call live Bedrock only (ADR-27). Fill in the AWS keys in `.env` |
+| `ports are not available ... 127.0.0.1:6379 ... address already in use` | Only `make up-cache` with `make up-debug` publishes Redis. A Homebrew `redis-server` holds the port: `brew services stop redis`, or set `REDIS_HOST_PORT=6380` in `.env` |

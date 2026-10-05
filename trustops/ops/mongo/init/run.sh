@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# One-shot initialiser for the `mongo-init` container (design A §11.1, §11.2).
+# Initialiser run by ops/mongo/entrypoint.sh inside the `mongo` container (design A §11.1, §11.2).
 #
-# Runs every ops/mongo/init/NN-*.js in lexical order against the `mongo`
-# container as the root user. Every script is idempotent, so `make up` can
-# run this on every start: an existing replica set, user, validator or index
+# Runs every ops/mongo/init/NN-*.js in lexical order against the local mongod
+# as the root user. Every script is idempotent, so it can safely run on
+# every container start: an existing replica set, user, validator or index
 # is left as it is (or brought back to the declared shape).
 #
 # These scripts are deliberately NOT mounted into the mongo container's

@@ -17,7 +17,7 @@ As of this commit: every pure, framework-free piece of business logic is written
 ## Layout (the brief's required shape)
 
 ```
-src/     services (case, scoring, policy, audit, decision, identity) · workers (caseflow, agent-worker, ingestion, context) · packages · web
+src/     backend (apps: api + harness · services: case, scoring, policy, audit, decision, identity · workers: caseflow, agent-worker, ingestion, context · packages) · frontend (React)
 ai/      prompts, agent and tool specs, skills, model tiers, guard config, Claude Code guidance
 docs/    requirements · architecture · governance
 evals/   datasets, metrics, runner, judge, results
@@ -32,7 +32,7 @@ See [`RUNNING.md`](RUNNING.md) for setup, the checks, starting the full stack an
 ```bash
 make bootstrap && make env && make keys
 make check && make test-int
-docker compose -f docker-compose.yaml -f compose.obs.yaml up -d --build --scale ingestion-worker=0 --scale context-worker=0
+make up        # 8 containers: mongo rabbitmq minio opa api harness gateway web (make up-obs adds observability)
 ```
 
 `make demo`, `make seed-verify` and `make e2e` still print "pending". They land with the integration wiring.

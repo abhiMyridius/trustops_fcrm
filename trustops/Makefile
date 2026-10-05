@@ -18,18 +18,22 @@ UV        ?= $(or $(call WHICH,uv),uv)
 UV_RUN    := $(UV) run --project src/backend --all-packages
 PYTHON    ?= python3
 
-COMPOSE_FILES := -f docker-compose.yaml -f compose.obs.yaml
-COMPOSE       := docker compose $(COMPOSE_FILES)
-COMPOSE_DEV   := docker compose $(COMPOSE_FILES) -f compose.dev.yaml
-COMPOSE_TEST  := docker compose -p trustops-test $(COMPOSE_FILES) -f compose.test.yaml
+# One compose file; optional services are profiles (obs, cache) and host ports
+# for the infrastructure live in an overlay (compose.debug.yaml).
+COMPOSE       := docker compose -f docker-compose.yaml
+COMPOSE_OBS   := $(COMPOSE) --profile obs
+COMPOSE_CACHE := $(COMPOSE) --profile cache
+# Every profile on, for the commands that must see optional containers too.
+COMPOSE_ALL   := $(COMPOSE) --profile obs --profile cache
+COMPOSE_DEV   := $(COMPOSE) -f compose.dev.yaml
+COMPOSE_DEBUG := $(COMPOSE) -f compose.debug.yaml
+COMPOSE_TEST  := docker compose -p trustops-test -f docker-compose.yaml -f compose.test.yaml
 
-# Infra that runs without any application code (make up-infra).
-ONESHOTS := mongo-init minio-init
-INFRA    := mongo rabbitmq redis minio opa
-OBS      := otel-collector jaeger prometheus grafana
-SERVICES := api
-WORKERS  := harness
-EDGE     := gateway web
+# The default stack: infrastructure, the two Python processes, the edge.
+INFRA := mongo rabbitmq minio opa
+APPS  := api harness
+EDGE  := gateway web
+OBS   := otel-collector jaeger prometheus grafana
 
 # OPA: a local binary when present (fast), else the pinned image.
 OPA_VERSION := 1.15.2
@@ -96,37 +100,48 @@ pull: ## pull every pinned image the stack uses (build-only services skipped)
 	$(COMPOSE) pull --ignore-buildable --quiet
 
 # ── run ──────────────────────────────────────────────────────────────────
-.PHONY: up-infra up up-dev down down-v reset ps logs
-up-infra: env ## infra + observability only (mongo, rabbitmq, redis, minio, opa, otel, jaeger, prometheus, grafana) — works today
-	$(COMPOSE) up -d $(INFRA) $(ONESHOTS) $(OBS)
-	@$(WAIT) --compose "$(COMPOSE)" $(foreach s,$(ONESHOTS),--oneshot $(s)) $(INFRA) $(OBS) \
-		--url otel-collector=http://$$($(COMPOSE) port otel-collector 13133)/
+.PHONY: up-infra up up-obs up-cache up-debug up-dev down down-v reset ps logs
+up-infra: env ## infrastructure only (mongo, rabbitmq, minio, opa)
+	$(COMPOSE) up -d $(INFRA)
+	@$(WAIT) --compose "$(COMPOSE)" $(INFRA)
 
-up: env keys ## the full stack, 24 containers (needs every lane's Dockerfile)
+up: env keys ## the default stack, 8 containers (mongo rabbitmq minio opa api harness gateway web)
 	@missing=""; for f in src/backend/Dockerfile src/frontend/Dockerfile; do \
 		[ -f "$$f" ] || missing="$$missing $$f"; done; \
-	if [ -n "$$missing" ]; then echo "up: not buildable yet, missing:$$missing" >&2; echo "up: use 'make up-infra' until those lanes land" >&2; exit 1; fi
+	if [ -n "$$missing" ]; then echo "up: not buildable, missing:$$missing" >&2; exit 1; fi
 	$(COMPOSE) up -d --build
-	@$(WAIT) --timeout 600 --compose "$(COMPOSE)" $(foreach s,$(ONESHOTS),--oneshot $(s)) $(INFRA) $(OBS) $(SERVICES) $(WORKERS) $(EDGE) \
-		--url otel-collector=http://$$($(COMPOSE) port otel-collector 13133)/
+	@$(WAIT) --timeout 600 --compose "$(COMPOSE)" $(INFRA) $(APPS) $(EDGE)
 
-up-dev: env keys ## full stack with bind-mounted source, uvicorn --reload and vite dev
+up-obs: env keys ## the default stack plus otel-collector, jaeger, prometheus and grafana (12 containers); services export traces
+	OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318 $(COMPOSE_OBS) up -d --build
+	@$(WAIT) --timeout 600 --compose "$(COMPOSE_OBS)" $(INFRA) $(OBS) $(APPS) $(EDGE) \
+		--url otel-collector=http://$$($(COMPOSE_OBS) port otel-collector 13133)/
+
+up-cache: env keys ## the default stack plus Redis for SSE fan-out (api uses it via REDIS_URL)
+	REDIS_URL=redis://redis:6379/0 $(COMPOSE_CACHE) up -d --build
+	@$(WAIT) --timeout 600 --compose "$(COMPOSE_CACHE)" $(INFRA) redis $(APPS) $(EDGE)
+
+up-debug: env keys ## the default stack with infrastructure and harness health ports published to the host
+	$(COMPOSE_DEBUG) up -d --build
+	@$(WAIT) --timeout 600 --compose "$(COMPOSE_DEBUG)" $(INFRA) $(APPS) $(EDGE)
+
+up-dev: env keys ## default stack with bind-mounted source, uvicorn --reload and vite dev
 	$(COMPOSE_DEV) up -d --build
-	@$(WAIT) --timeout 600 --compose "$(COMPOSE_DEV)" $(foreach s,$(ONESHOTS),--oneshot $(s)) $(INFRA) $(OBS) $(SERVICES) $(WORKERS) $(EDGE)
+	@$(WAIT) --timeout 600 --compose "$(COMPOSE_DEV)" $(INFRA) $(APPS) $(EDGE)
 
-down: ## stop the stack, keep volumes
-	$(COMPOSE) down --remove-orphans
+down: ## stop the stack (every profile), keep volumes
+	$(COMPOSE_ALL) down --remove-orphans
 
-down-v: ## stop the stack and delete its volumes (all local data)
-	$(COMPOSE) down -v --remove-orphans
+down-v: ## stop the stack (every profile) and delete its volumes (all local data)
+	$(COMPOSE_ALL) down -v --remove-orphans
 
 reset: down-v up ## wipe everything and start again
 
 ps: ## container status and health
-	$(COMPOSE) ps -a
+	$(COMPOSE_ALL) ps -a
 
-logs: ## follow logs: make logs svc=case (all services when svc is empty)
-	$(COMPOSE) logs -f --tail=200 $(svc)
+logs: ## follow logs: make logs svc=api (all services when svc is empty)
+	$(COMPOSE_ALL) logs -f --tail=200 $(svc)
 
 # ── seed and demo ────────────────────────────────────────────────────────
 .PHONY: gen-seed seed seed-verify demo demo-reset verify
@@ -187,7 +202,7 @@ test-int: ## integration tests (testcontainers; needs Docker)
 
 test-integration: test-int ## alias of test-int
 
-e2e: ## 21 Playwright scenes + BB-01…BB-14 against the replay-mode test stack (project trustops-test, ports +1000)
+e2e: ## 21 live scenes + BB-01…BB-14 against the live test stack (project trustops-test, ports +1000)
 	@$(call pending,the app containers and tests/e2e; the stack override is ready: $(COMPOSE_TEST))
 
 resilience: ## kill/restart drills (agent-worker, RabbitMQ, Mongo, identity, DLQ replay, budget)
@@ -225,8 +240,8 @@ dlq-replay: ## move every message of <q>.dlq back onto <q>: make dlq-replay q=ag
 		'{"src-protocol":"amqp091","src-uri":"amqp://","src-queue":"$(q).dlq","dest-protocol":"amqp091","dest-uri":"amqp://","dest-queue":"$(q)","ack-mode":"on-confirm","src-delete-after":"queue-length"}'
 	@echo "dlq-replay: shovel dlq-replay-$(q) moves the current backlog of $(q).dlq to $(q), then deletes itself"
 
-token-report: ## tokens and cost per agent, model and case from Prometheus → ops/token-analysis/runtime/
-	$(PYTHON) ops/scripts/token_report.py --prometheus http://$$($(COMPOSE) port prometheus 9090)
+token-report: ## (needs `make up-obs`) tokens and cost per agent, model and case from Prometheus → ops/token-analysis/runtime/
+	$(PYTHON) ops/scripts/token_report.py --prometheus http://$$($(COMPOSE_OBS) port prometheus 9090)
 
 build-usage: ## build-time Claude Code token analysis → ops/token-analysis/build/
 	@$(call pending,ops/scripts/claude_usage.py (SDLC harness lane))
@@ -237,6 +252,6 @@ backup: ## mongodump every fcrm_* database and mirror MinIO into ops/backups/<ts
 restore: ## restore a backup: make restore TS=<timestamp>
 	@$(call pending,ops/scripts/restore.sh (ops-docs lane))
 
-rotate-keys: ## rotate the JWT signing key (make keys FORCE=1) and restart identity
+rotate-keys: ## rotate the JWT signing key (make keys FORCE=1) and restart the api (identity runs inside it)
 	$(MAKE) --no-print-directory keys FORCE=1
-	$(COMPOSE) restart identity
+	$(COMPOSE) restart api

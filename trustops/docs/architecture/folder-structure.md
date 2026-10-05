@@ -1,5 +1,10 @@
 # Folder structure (complete)
 
+> **Current layout (ADR-26, 5 Oct 2026).** The tree below is the original design-time target and is kept for the file-level detail. Two things changed and take precedence:
+>
+> * `src/` is split into `src/backend/` (the uv workspace: `apps/{api,harness}`, `services/*`, `workers/*`, `packages/*`; one `Dockerfile` for both Python processes) and `src/frontend/` (the React app, its own `Dockerfile`). Python import names are unchanged.
+> * The stack is eight containers (`mongo`, `rabbitmq`, `minio`, `opa`, `api`, `harness`, `gateway`, `web`) from one `docker-compose.yaml`; observability is profile `obs`, Redis is profile `cache`, and `compose.debug.yaml` publishes the infrastructure ports. `api` runs X1 and S1–S5 as mounted sub-apps of one process (`fcrm_api`), and `harness` runs H1–H4 on one broker (`fcrm_harness`). Per-service and per-worker Dockerfiles, `compose.obs.yaml` and the init containers no longer exist.
+
 Every folder and module the build produces. Python units follow one template: `pyproject.toml`, `Dockerfile`, `CLAUDE.md`, `requirements.txt` + `requirements-dev.txt` (exported from `uv.lock`), and the import package `fcrm_<name>/` with source only. Tests live under `/tests/unit` and `/tests/integration` at the same relative path (ADR-21). Clones add `UPSTREAM.md`. Tool configuration (`ruff.toml`, `mypy.ini`, `pytest.ini`) sits at the repository root, never inside `src/`.
 
 ```
@@ -9,10 +14,10 @@ trustops/
 ├── CLAUDE.md                          repo guidance for Claude Code
 ├── Makefile                           bootstrap up down logs seed seed-verify demo check gate test test-unit test-int e2e resilience evals
 │                                      contracts api-gen schemas export-requirements dlq dlq-replay verify token-report nightly gen-seed keys
-├── docker-compose.yaml                base stack (22 containers)
+├── docker-compose.yaml                the stack: 8 containers; profile obs (otel-collector, jaeger, prometheus, grafana), profile cache (redis)
 ├── compose.dev.yaml                   bind mounts, vite dev server, hot reload
-├── compose.test.yaml                  FCRM_LLM_MODE=replay, VECTOR_BACKEND=memory, EMBEDDING_PROVIDER=dummy
-├── compose.obs.yaml                   otel-collector, jaeger, prometheus, grafana (on by default in make up)
+├── compose.test.yaml                  VECTOR_BACKEND=memory, EMBEDDING_PROVIDER=dummy for the api; agents stay on live Bedrock (ADR-27)
+├── compose.debug.yaml                 publishes the infrastructure and harness health ports (make up-debug)
 ├── .env.example                       every variable name, no values
 ├── .gitignore  .editorconfig  .pre-commit-config.yaml  ruff.toml  mypy.ini  pytest.ini
 ├── .claude/
@@ -71,7 +76,6 @@ trustops/
 │   ├── metrics/                       __init__.py  citation.py  extraction.py  clauses.py  controls.py  critic.py  grounding.py  restricted_terms.py  judge_metrics.py
 │   ├── runners/                       run.py (pydantic-evals)  gate.py (promotion)  harvest.py (overrides → rows)  report.py
 │   ├── judge/                         bedrock_judge.py  rubrics/*.md
-│   ├── fixtures/replay/<agent>/<case_id>.json      recorded proposals served by FCRM_LLM_MODE=replay
 │   ├── results/<date>/*.json  trend.json  report.html
 │
 ├── tests/                             (ADR-21: the only place tests live)
@@ -98,9 +102,9 @@ trustops/
 ├── ops/
 │   ├── nginx/default.conf             /api/fcrm/* routing, auth_request → identity, static web, SSE passthrough
 │   ├── opa/                           policy/{authz.rego, tools.rego}  data/{permissions.json, tool_permits.json}  tests/{authz_test.rego, tools_test.rego}
-│   ├── mongo/init/                    01-replset.js  02-users.js (fcrm_audit_writer insert-only)  03-schemas.js ($jsonSchema)  04-indexes.js
+│   ├── mongo/{entrypoint.sh,init/}    entrypoint starts mongod then runs init/: 01-replset.js  02-users.js (fcrm_audit_writer insert-only)  03-schemas.js ($jsonSchema)  04-indexes.js
 │   ├── rabbitmq/definitions.json      exchanges case.events agent.jobs ingestion.jobs context.jobs, queues, retry queues, DLX
-│   ├── minio/init.sh                  buckets uploads canonical packs vectors jobs; versioning on packs
+│   ├── minio/{entrypoint.sh,init.sh}  starts minio, then buckets uploads canonical packs vectors jobs; versioning on packs
 │   ├── otel/collector.yaml  prometheus/prometheus.yml
 │   ├── grafana/provisioning/          datasources/  dashboards/{case-throughput.json, agents-tokens-cost.json, guards-overrides.json}
 │   ├── scripts/                       wait_for_ready.py  seed_verify.py  demo.py  dlq_replay.py  token_report.py  claude_usage.py  backup.sh  restore.sh  export_requirements.sh  install_tooling.sh

@@ -8,9 +8,10 @@ Three assertions, each a real drift bug if it fails:
 2. Every variable a container receives (its resolved ``environment:`` keys)
    is documented in ``.env.example`` — either as an assignment or as a
    ``# VAR=`` line in the "set per container by compose" blocks.
-3. ``docker compose config`` renders every file combination (base + obs,
-   + dev, + test) with a throwaway env file, i.e. the YAML, anchors,
-   overrides and required-variable checks are valid.
+3. ``docker compose config`` renders every file combination (base, + dev,
+   + test, + debug) with every profile (obs, cache) enabled and a throwaway
+   env file, i.e. the YAML, anchors, overrides and required-variable checks
+   are valid.
 
 No values are read from a real ``.env``: a temporary env file with dummy
 values is generated from ``.env.example`` for the render.
@@ -30,8 +31,15 @@ logger = logging.getLogger("check_env_contract")
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLE = ROOT / ".env.example"
-BASE = ["docker-compose.yaml", "compose.obs.yaml"]
-COMBINATIONS = [BASE, [*BASE, "compose.dev.yaml"], [*BASE, "compose.test.yaml"]]
+BASE = ["docker-compose.yaml"]
+COMBINATIONS = [
+    BASE,
+    [*BASE, "compose.dev.yaml"],
+    [*BASE, "compose.test.yaml"],
+    [*BASE, "compose.debug.yaml"],
+]
+#: Profiles switched on for the render, so optional services are validated too.
+PROFILES = ("obs", "cache")
 COMPOSE_FILES = sorted({f for combo in COMBINATIONS for f in combo})
 
 INTERPOLATION = re.compile(r"\$\{([A-Z][A-Z0-9_]*)(?::?[-?][^}]*)?\}")
@@ -54,6 +62,8 @@ def interpolated_names(pattern: re.Pattern[str] = INTERPOLATION) -> set[str]:
 def compose_config(files: list[str], env_file: Path) -> dict[str, object]:
     """Render ``docker compose config`` for one file combination as JSON."""
     cmd = ["docker", "compose", "--env-file", str(env_file)]
+    for profile in PROFILES:
+        cmd += ["--profile", profile]
     for name in files:
         cmd += ["-f", str(ROOT / name)]
     cmd += ["config", "--format", "json"]
