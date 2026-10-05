@@ -387,11 +387,30 @@ _VOTE_SECRET_KEYS = frozenset({"vote", "option", "choice", "vote_value", "ration
 
 
 class PackReleased(EventPayload):
+    """``pack.released``: a pack went to the committee. ``released_to`` holds
+    member user ids (like ``vote.rerequested.member_ids``); ``released_to_names``
+    is the same people by display name, for S1's handoff checklist.
+    """
+
     pack_id: str
     version: int
     released_to: list[str] = Field(default_factory=list)
+    released_to_names: list[str] = Field(default_factory=list)
     content_hash: str
     release_checks_passed: bool  # the guard on PACK_RELEASED; required, like above
+
+
+class PackSuperseded(EventPayload):
+    """``pack.superseded`` (S5): the analyst unlocked a pack, so it will never
+    take another vote; the corrected numbers arrive as the next version. Its
+    cast votes were voided (kept, never deleted) and are re-requested by the
+    ``vote.rerequested`` that follows.
+    """
+
+    pack_id: str
+    version: int
+    reason: str
+    voided_votes: int = 0
 
 
 class VoteCastPayload(EventPayload):

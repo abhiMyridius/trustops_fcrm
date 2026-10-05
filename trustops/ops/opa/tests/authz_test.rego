@@ -171,6 +171,9 @@ test_committee_denied_pack_release if {
 test_service_denied_human_gates if {
 	# Guard 7: inherits person roles for reads, but never decides a gate
 	not authz.allow with input as req("fcrm_service", "decision", "POST", "/packs/{pack_id}/votes")
+	not authz.allow with input as req("fcrm_service", "decision", "POST", "/packs/{pack_id}/release")
+	not authz.allow with input as req("fcrm_service", "decision", "POST", "/packs/{pack_id}/threads")
+	not authz.allow with input as req("fcrm_service", "decision", "POST", "/threads/{thread_id}/answer")
 	not authz.allow with input as req("fcrm_service", "case", "POST", "/cases/{id}/items/{item_id}")
 	not authz.allow with input as req("fcrm_service", "case", "POST", "/cases/{id}/submit")
 	not authz.allow with input as req("fcrm_service", "case", "POST", "/cases/{id}/acknowledge")
@@ -328,35 +331,96 @@ test_policy_reference_data_matrix if {
 	not authz.allow with input as req("fcrm_po", "policy", "POST", "/controls/versions")
 }
 
-test_decision_matrix if {
-	# POST /packs: the service account only (H1 freezes the pack)
-	authz.allow with input as req("fcrm_service", "decision", "POST", "/packs")
-	not authz.allow with input as req("fcrm_analyst", "decision", "POST", "/packs")
-	not authz.allow with input as req("fcrm_committee", "decision", "POST", "/packs")
-	not authz.allow with input as req("fcrm_po", "decision", "POST", "/packs")
-	# votes: committee only (Guard 7 denies the service account)
-	authz.allow with input as req("fcrm_committee", "decision", "POST", "/packs/{pack_id}/votes")
-	not authz.allow with input as req("fcrm_analyst", "decision", "POST", "/packs/{pack_id}/votes")
-	not authz.allow with input as req("fcrm_service", "decision", "POST", "/packs/{pack_id}/votes")
-	# questions: committee only; answers: analyst or service
-	authz.allow with input as req("fcrm_committee", "decision", "POST", "/packs/{pack_id}/questions")
-	not authz.allow with input as req("fcrm_analyst", "decision", "POST", "/packs/{pack_id}/questions")
-	not authz.allow with input as req("fcrm_service", "decision", "POST", "/packs/{pack_id}/questions")
-	authz.allow with input as req("fcrm_analyst", "decision", "POST", "/questions/{question_id}/answers")
-	authz.allow with input as req("fcrm_service", "decision", "POST", "/questions/{question_id}/answers")
-	not authz.allow with input as req("fcrm_committee", "decision", "POST", "/questions/{question_id}/answers")
-	# reads: analyst, committee, service; never PO
-	authz.allow with input as req("fcrm_analyst", "decision", "GET", "/packs/{pack_id}/outcome")
-	authz.allow with input as req("fcrm_committee", "decision", "GET", "/packs/{pack_id}/outcome")
-	authz.allow with input as req("fcrm_service", "decision", "GET", "/packs/{pack_id}/outcome")
-	authz.allow with input as req("fcrm_service", "decision", "GET", "/packs/{pack_id}")
-	authz.allow with input as req("fcrm_service", "decision", "GET", "/packs/{pack_id}/votes")
-	not authz.allow with input as req("fcrm_po", "decision", "GET", "/packs/{pack_id}/outcome")
-	# release checks: analyst and service
-	authz.allow with input as req("fcrm_analyst", "decision", "POST", "/release-checks")
-	authz.allow with input as req("fcrm_service", "decision", "POST", "/release-checks")
-	not authz.allow with input as req("fcrm_committee", "decision", "POST", "/release-checks")
-	not authz.allow with input as req("fcrm_po", "decision", "POST", "/release-checks")
+# Every S5 route against every role. The set is what fcrm_decision.routes_*
+# serve; a route added there needs a row here (and a rule in permissions.json).
+decision_roles := {"fcrm_po", "fcrm_analyst", "fcrm_committee", "fcrm_observer", "fcrm_service"}
+
+# [method, route, the roles allowed]
+decision_matrix := [
+	# the service account reads every S5 GET (decision-get-all-service); the route's
+	# own require_roles narrows the queue to a member
+	["GET", "/committee/queue", {"fcrm_committee", "fcrm_service"}],
+	["GET", "/cases/{case_id}/packs/latest", {"fcrm_analyst", "fcrm_committee", "fcrm_service"}],
+	["GET", "/cases/{case_id}/packs", {"fcrm_analyst", "fcrm_committee", "fcrm_service"}],
+	["GET", "/cases/{case_id}/outcome", {"fcrm_analyst", "fcrm_committee", "fcrm_service"}],
+	["GET", "/packs/{pack_id}", {"fcrm_analyst", "fcrm_committee", "fcrm_service"}],
+	["GET", "/packs/{pack_id}/votes", {"fcrm_analyst", "fcrm_committee", "fcrm_service"}],
+	["GET", "/packs/{pack_id}/outcome", {"fcrm_analyst", "fcrm_committee", "fcrm_service"}],
+	["GET", "/packs/{pack_id}/threads", {"fcrm_analyst", "fcrm_committee", "fcrm_service"}],
+	["POST", "/packs", {"fcrm_analyst", "fcrm_service"}],
+	["POST", "/packs/{pack_id}/release", {"fcrm_analyst"}],
+	["POST", "/packs/{pack_id}/votes", {"fcrm_committee"}],
+	["POST", "/packs/{pack_id}/threads", {"fcrm_committee"}],
+	["POST", "/threads/{thread_id}/answer", {"fcrm_analyst"}],
+	["POST", "/packs/{pack_id}/supersede", {"fcrm_service"}],
+	["POST", "/packs/{pack_id}/revote", {"fcrm_service"}],
+	["POST", "/outcomes", {"fcrm_service"}],
+]
+
+test_decision_matrix_admits_exactly_the_listed_roles if {
+	every row in decision_matrix {
+		every role in decision_roles {
+			got := authz.allow with input as req(role, "decision", row[0], row[1])
+			got == (role in row[2])
+		}
+	}
+}
+
+test_decision_po_has_no_s5_access_at_all if {
+	every row in decision_matrix {
+		not authz.allow with input as req("fcrm_po", "decision", row[0], row[1])
+	}
+}
+
+test_decision_observer_has_no_s5_access if {
+	# ADR-19: the observer is scoped to the harness monitor.
+	every row in decision_matrix {
+		not authz.allow with input as req("fcrm_observer", "decision", row[0], row[1])
+	}
+}
+
+test_decision_only_the_service_supersedes_confirms_revotes_and_records_outcomes if {
+	every route in ["/packs/{pack_id}/supersede", "/packs/{pack_id}/revote", "/outcomes"] {
+		authz.allow with input as req("fcrm_service", "decision", "POST", route)
+		every role in {"fcrm_po", "fcrm_analyst", "fcrm_committee", "fcrm_observer"} {
+			not authz.allow with input as req(role, "decision", "POST", route)
+		}
+	}
+}
+
+test_decision_the_service_account_decides_no_human_gate if {
+	# Guard 7: it inherits the person roles for reads and may build, but it
+	# never releases, votes, asks or answers.
+	every route in [
+		"/packs/{pack_id}/release",
+		"/packs/{pack_id}/votes",
+		"/packs/{pack_id}/threads",
+		"/threads/{thread_id}/answer",
+	] {
+		not authz.allow with input as req("fcrm_service", "decision", "POST", route)
+	}
+}
+
+test_decision_the_removed_routes_are_not_authorised if {
+	# Renamed to the web's names (ADR-30): questions/answers are threads/answer,
+	# and the stateless release-check route is gone (release answers 409).
+	every row in [
+		["POST", "/packs/{pack_id}/questions"],
+		["POST", "/questions/{question_id}/answers"],
+		["POST", "/release-checks"],
+		["GET", "/packs/{pack_id}/addenda"],
+	] {
+		every role in {"fcrm_po", "fcrm_analyst", "fcrm_committee", "fcrm_observer"} {
+			not authz.allow with input as req(role, "decision", row[0], row[1])
+		}
+	}
+}
+
+test_decision_wrong_method_is_denied if {
+	not authz.allow with input as req("fcrm_committee", "decision", "PUT", "/packs/{pack_id}/votes")
+	not authz.allow with input as req("fcrm_committee", "decision", "DELETE", "/packs/{pack_id}/threads")
+	not authz.allow with input as req("fcrm_analyst", "decision", "PATCH", "/packs/{pack_id}")
+	not authz.allow with input as req("fcrm_service", "decision", "DELETE", "/outcomes")
 }
 
 test_po_denied_on_every_s2_to_s5_route if {
@@ -376,14 +440,21 @@ test_po_denied_on_every_s2_to_s5_route if {
 		["policy", "GET", "/jurisdictions"],
 		["policy", "GET", "/controls"],
 		["policy", "GET", "/field-sets/{version}"],
-		["decision", "POST", "/release-checks"],
+		["decision", "GET", "/committee/queue"],
+		["decision", "GET", "/cases/{case_id}/packs/latest"],
+		["decision", "GET", "/cases/{case_id}/outcome"],
 		["decision", "POST", "/packs"],
 		["decision", "GET", "/packs/{pack_id}"],
+		["decision", "POST", "/packs/{pack_id}/release"],
 		["decision", "POST", "/packs/{pack_id}/votes"],
 		["decision", "GET", "/packs/{pack_id}/votes"],
 		["decision", "GET", "/packs/{pack_id}/outcome"],
-		["decision", "POST", "/packs/{pack_id}/questions"],
-		["decision", "POST", "/questions/{question_id}/answers"],
+		["decision", "POST", "/packs/{pack_id}/threads"],
+		["decision", "GET", "/packs/{pack_id}/threads"],
+		["decision", "POST", "/threads/{thread_id}/answer"],
+		["decision", "POST", "/packs/{pack_id}/supersede"],
+		["decision", "POST", "/packs/{pack_id}/revote"],
+		["decision", "POST", "/outcomes"],
 	] {
 		not authz.allow with input as req("fcrm_po", r[0], r[1], r[2])
 	}

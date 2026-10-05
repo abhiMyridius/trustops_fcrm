@@ -19,10 +19,9 @@ Honest differences from the table, asserted as they actually are:
   instead. Either way nothing is written, which is what is asserted.
 
 Committee side: once S5 has tallied an outcome its pack takes no further
-vote. Known gap, deliberately not asserted because it would fail today: S5
-does not know the case is closed, so a ``POST /packs`` with *changed* content
-after an outcome mints a new released pack v2 whose votes can produce a
-second, different outcome for the same case.
+vote, and the case takes no second pack: ``POST /packs`` with changed content
+after an outcome is refused (409 ``case_decided``), so there is no pack v2
+whose votes could produce a second, different outcome for the same case.
 """
 
 from __future__ import annotations
@@ -185,19 +184,21 @@ def test_creating_a_new_case_is_unaffected_by_another_case_being_closed(
 
 def test_once_the_committee_has_an_outcome_its_pack_takes_no_further_vote(
     decision_client: TestClient,
-    build_pack: Callable[..., dict[str, Any]],
+    act_as: Callable[[Role, str], None],
+    released_pack: Callable[..., dict[str, Any]],
     cast_vote: Callable[..., Any],
     committee_member_ids: dict[str, str],
     demo: dict[str, Any],
 ) -> None:
-    pack = build_pack(demo["id"])
+    pack = released_pack(demo["id"])
     ids = committee_member_ids
     for member, option in (
         ("Joseph Okafor", "approve_with_conditions"),
         ("Ana Mendes", "approve_with_conditions"),
         ("Lin Chen", "defer"),
     ):
-        assert cast_vote(pack["pack_id"], ids[member], option).status_code == 200
+        assert cast_vote(pack["pack_id"], ids[member], option).status_code == 201
+    act_as(Role.ANALYST, "u-riyer")
     decided = decision_client.get(f"/packs/{pack['pack_id']}/outcome").json()
     assert decided["outcome"] == demo["outcome"]
 
@@ -209,5 +210,34 @@ def test_once_the_committee_has_an_outcome_its_pack_takes_no_further_vote(
     ):
         late = cast_vote(pack["pack_id"], late_member, option)
         assert late.status_code == 409
-        assert late.json()["type"].endswith("/rule_violation")
+        assert late.json()["type"].endswith("/pack_decided")
+    act_as(Role.ANALYST, "u-riyer")
     assert decision_client.get(f"/packs/{pack['pack_id']}/outcome").json() == decided
+
+
+def test_a_new_pack_for_a_case_that_has_an_outcome_is_refused(
+    decision_client: TestClient,
+    act_as: Callable[[Role, str], None],
+    released_pack: Callable[..., dict[str, Any]],
+    cast_vote: Callable[..., Any],
+    release_snapshot: Callable[..., dict[str, Any]],
+    committee_member_ids: dict[str, str],
+    demo: dict[str, Any],
+) -> None:
+    """Closed means closed on S5's side too: after an outcome the case takes no
+    second pack whose votes could produce a second, different outcome.
+    """
+    pack = released_pack(demo["id"])
+    for member, option in zip(
+        committee_member_ids.values(), ("approve", "approve", "defer"), strict=True
+    ):
+        assert cast_vote(pack["pack_id"], member, option).status_code == 201
+
+    act_as(Role.SERVICE, "svc:caseflow")
+    changed = release_snapshot(demo["id"], business_summary="A different pack.")
+    refused = decision_client.post(
+        "/packs", json={"case_id": demo["id"], "snapshot": changed}
+    )
+
+    assert refused.status_code == 409
+    assert refused.json()["type"].endswith("/case_decided")

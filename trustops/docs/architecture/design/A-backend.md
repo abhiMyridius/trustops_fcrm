@@ -282,20 +282,22 @@ Purpose: the frozen pack, hidden votes with mandatory rationale, the tally and o
 
 | Role | Method · path | Request → Response |
 |---|---|---|
-| service (H1) | POST `/packs` | `PackBuild` → `Pack{pack_id, version, content_hash, release_checks[], status: built}` |
-| analyst (assigned) | POST `/packs/{pack_id}/release` | `{}` → `Pack{status: released, released_to[]}`; 409 if any release check failed; outbox `pack.released` |
-| committee | GET `/committee/queue` | `CommitteeQueueItem[]{case_id, title, pack_id, version, released_at, my_vote_status, cast_count, quorum}` |
-| committee, analyst | GET `/packs/{pack_id}` | `PackView` (committee: released packs only; analyst: own cases) — contains score, bands, ratings, clauses, override log, pins, addenda |
-| committee, analyst | GET `/cases/{case_id}/packs` | `PackSummary[]` (both versions kept) |
-| committee | POST `/packs/{pack_id}/votes` | `VoteCast{vote: approve\|approve_with_conditions\|defer\|reject, rationale (≥ 20 chars)}` → `VoteReceipt{vote_id, round, cast_n_of_3}`; 409 `already_voted`; outbox `vote.cast` (no value) and, when the third lands, the tally (2.5.2) |
-| committee, analyst | GET `/packs/{pack_id}/votes` | before tally: `VotesHidden{round, cast_count, quorum, mine?}`; after: `VotesRevealed{round, votes:[{member, vote, rationale, cast_at}], tally, outcome}` |
-| committee | POST `/packs/{pack_id}/threads` | `{text}` → `Thread` (visible to all members and the analyst); outbox `committee.question_asked` |
-| analyst | POST `/threads/{thread_id}/answer` | `{text, numbers_changed: bool, unlock_reason?}` → `Thread{addendum_id}`; `numbers_changed=true` requires `unlock_reason` and triggers the R6 path; outbox `committee.answered` |
-| committee, analyst | GET `/packs/{pack_id}/threads` · `/addenda` | `Thread[]` · `Addendum[]` |
-| service (H1) | POST `/packs/{pack_id}/supersede` | `{reason, new_pack_id}` → marks v1 `superseded`, voids its votes (kept), outbox `vote.rerequested` to every member who had cast |
-| service (H1) | POST `/packs/{pack_id}/revote` | `{reason: no_majority}` → opens round n+1 on the same pack; outbox `vote.rerequested` |
-| service (S1 via H1) | POST `/outcomes` | `OutcomeSet{case_id, mode: delegated\|committee, outcome, reason?, decided_by, pack_id?, conditions[]}` → `Outcome`; outbox `outcome.set` |
-| analyst, committee, service | GET `/cases/{case_id}/outcome` | `Outcome` |
+| service (H1), analyst | POST `/packs` | service: `PackBuild{case_id, snapshot}` (the snapshot is a `PackView` body plus `checks` and `change_types`: `fcrm_contracts.api.decision.PackContent`) → `PackView{status: built}`, 201, or the live pack when the content is identical, 200; building never releases; 422 when the snapshot is not a pack body; 409 `pack_not_superseded` while a different pack is live, `case_decided` once the case has an outcome. Analyst: `{case_id}` only → the latest pack, or 409 `pack_not_built` |
+| analyst | POST `/packs/{pack_id}/release` | `{}` → `PackView{status: released}`; 409 `release_checks_failed` naming the checks (`locked`, `all_items_reviewed`, `boundary_and_band_acknowledged`, `business_summary_present`); the roster comes from X1; outbox `pack.released` |
+| committee | GET `/committee/queue` | `Page[CommitteeQueueItem]{case_id, title, change_types, band, band_label, analyst_name, received, pack_id, pack_version, your_vote, cast_count, quorum, status, outcome_label}`, one aggregation |
+| committee, analyst | GET `/packs/{pack_id}` · `/cases/{case_id}/packs/latest` | `PackView` (committee: released packs only; analyst: any) with the addenda |
+| committee, analyst | GET `/cases/{case_id}/packs` | `Page[PackSummary]` (both versions kept) |
+| committee | POST `/packs/{pack_id}/votes` | `{vote, rationale (>= 20 chars)}` → 201 `VoteReceipt{vote_id, round, cast_n_of_3}`; the voter is the caller and the round is the pack's current one; 409 `already_voted`, `pack_not_released`, `pack_not_open`, `pack_superseded`, `pack_decided`; outbox `vote.cast` (no option) and, when the third lands, the tally (2.5.2) |
+| committee, analyst | GET `/packs/{pack_id}/votes[?round=n]` | `VotesView{round, quorum, cast_count, revealed, members[{name, status, is_you, choice, rationale, cast_at}], mine, tally, outcome, outcome_label}`; until the round is tallied `revealed` is false and every choice but the caller's own is null |
+| committee | POST `/packs/{pack_id}/threads` | `{text}` → 201 `CommitteeThread{id, from, question, at, answer}` (visible to all members and the analyst); outbox `committee.question_asked` |
+| analyst | POST `/threads/{thread_id}/answer` | `{text, numbers_changed, unlock_reason?}` → `CommitteeThread`; `numbers_changed` requires `unlock_reason` of at least 20 characters, closes the pack to votes at once and triggers the R6 path; unchanged: an addendum, the pack's `content_hash` untouched; outbox `committee.answered` |
+| committee, analyst | GET `/packs/{pack_id}/threads` | `Page[CommitteeThread]` |
+| service (H1) | POST `/packs/{pack_id}/supersede` | `{reason}` → `SupersedeResult{voided_votes, rerequested[]}`: marks the pack superseded, voids its votes (kept), outbox `pack.superseded` and, when members had voted, `vote.rerequested` for the next version; idempotent |
+| service (H1) | POST `/packs/{pack_id}/revote` | `{reason: no_majority}` → `RevoteResult{round, member_ids}`: confirms the round S5 opened when it tallied the split; 409 `no_revote_pending` otherwise; writes nothing |
+| service (H1) | POST `/outcomes` | `OutcomeRecord{case_id, mode: delegated\|committee, outcome, pack_id?, decided_by?, reason?, conditions[], plain_summary?}` → `CaseOutcome`; committee: exactly the pack's decisive tally (409 `not_tallied`, `outcome_mismatch`); delegated: a person and a reason, never over an open committee pack; outbox `outcome.set`; idempotent |
+| analyst, committee, service | GET `/cases/{case_id}/outcome` · `/packs/{pack_id}/outcome` | `CaseOutcome` · the latest round's `OutcomeSet` (409 `not_tallied` before a round is tallied) |
+
+Every service `POST` honours `Idempotency-Key` (stored with its case in `idempotency_keys`, 24 h); every refusal is a 409 with its own code as the problem `type`.
 
 #### 2.5.1 Pack (frozen snapshot)
 
@@ -307,7 +309,7 @@ Why H1 assembles and S5 freezes: the pack needs S1 (case view) and S4 (ledger, h
 
 `votes`: `_id (vote_)`, `pack_id, case_id, round, member_id, vote, rationale, cast_at, voided{at, reason}?`; unique `{pack_id, round, member_id}` (DB-level one vote per member per round); vote documents are never updated except `voided`. Quorum = 3 = `len(released_to)`; committee membership for a case = the three `fcrm_committee` users seeded (P7) **(proposed: configurable per unit later)**.
 
-Tally runs inside the transaction that inserts the third non-voided vote of the current round: `counts = Counter(votes)`; **outcome = the option with ≥ 2 identical votes**; otherwise state `no_majority`. On an outcome: `tally` stored, `votes` revealed (`GET /votes` switches shape), `outcome.set` published with `mode: committee`, conditions activated (S1 via H1) if `approve_with_conditions`; the case closes. On `no_majority` (1-1-1): `tally.outcome = null`, state `no_majority`, votes are revealed to the members with rationales (so the discussion is informed — **proposed**), a system thread is opened on the pack (`"No majority: {a}/{b}/{c}. Discuss and re-vote."`), `vote.no_majority` is published, H1 calls `POST /packs/{id}/revote` which opens round 2 and re-requests every member's vote; nothing is auto-deferred, and the case stays in `decide` until a round produces a majority. Re-vote rounds are unbounded but each round is a hash-chained record; the analyst may also unlock (R6) if the discussion shows a number must change, which supersedes the pack and restarts voting on v2 round 1.
+Tally runs inside the transaction that inserts the third non-voided vote of the current round: `counts = Counter(votes)`; **outcome = the option with ≥ 2 identical votes**; otherwise state `no_majority`. On an outcome: `tally` stored, `votes` revealed (`GET /votes` switches shape), `outcome.set` published with `mode: committee`, conditions activated (S1 via H1) if `approve_with_conditions`; the case closes. On `no_majority` (1-1-1, ADR-31): the round's outcome row is kept with `no_majority` set, its votes are revealed to the members with rationales (so the discussion is informed), a system thread is opened on the pack (`"No majority: 1 a / 1 b / 1 c. Discuss and re-vote (ADR-08)."`), `vote.no_majority` and `vote.rerequested` are published, and round 2 opens on the same pack in that same transaction; H1's `POST /packs/{id}/revote` only confirms it; nothing is auto-deferred, and the case stays in `decide` until a round produces a majority. Re-vote rounds are unbounded but each round is a hash-chained record; the analyst may also unlock (R6) if the discussion shows a number must change, which supersedes the pack and restarts voting on v2 round 1.
 
 R6 path on `numbers_changed=true`: S5 stores the addendum, publishes `committee.answered{numbers_changed:true, unlock_reason}` → H1 moves the case `decide → review`, S1 records `case.unlocked`, the analyst corrects and re-locks, H1 builds pack v2, S5 `supersede` v1 (votes voided, kept), release → every cast vote is re-requested. Both packs remain readable.
 
@@ -703,7 +705,7 @@ Files in `ops/opa/`: `policy/authz.rego` (package `authz`), `policy/tools.rego` 
 | scoring | none | all | `GET /models*`, `/bands` | `POST /score`, GET |
 | policy | `GET /field-sets/{v}/resolve` | all | `GET /clauses/*`, `/controls*`, `/jurisdictions*` | `/internal/*`, `POST /policy/search`, `POST /precedents/search`, all GET |
 | audit | `GET /verify/{case}` (own case; S4 checks ownership via S1 record) | `GET /records*`, `/proposals*`, `/verify/*`, `/examiner/*`, `/metrics/*` | `GET /records*`, `/verify/*` (released packs only) | `POST /records`, `POST /proposals`, all GET |
-| decision | none | `GET /packs/{p}`, `/cases/{c}/packs\|outcome`, `/votes` (post-tally), `/threads*`, `POST /packs/{p}/release`, `POST /threads/{t}/answer` | `GET /committee/queue`, `/packs/{p}*`, `POST /packs/{p}/votes`, `POST /packs/{p}/threads` | `POST /packs`, `/supersede`, `/revote`, `/outcomes`, all GET |
+| decision | none | `GET /packs/{p}`, `/packs/{p}/votes\|threads\|outcome`, `/cases/{c}/packs[/latest]\|outcome`, `POST /packs` (the case's latest pack), `POST /packs/{p}/release`, `POST /threads/{t}/answer` | `GET /committee/queue`, the same reads, `POST /packs/{p}/votes`, `POST /packs/{p}/threads` | `POST /packs` (build), `/packs/{p}/supersede`, `/packs/{p}/revote`, `/outcomes`, all GET; denied release, votes, threads and answer (Guard 7). The observer has no S5 access (ADR-19) |
 | identity (`auth`) | `/login`, `/refresh`, `/logout`, `/me`, `/users/me` | + `GET /users` | + `GET /users` | `/internal/service-token`, `GET /users` |
 
 `tools.rego`:

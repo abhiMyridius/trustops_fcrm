@@ -26,9 +26,11 @@ Route inventory at the time of writing -- S1: ``POST/GET /cases``,
 ``GET /cases/{id}``, ``PUT .../title``, ``PUT .../fields/{id}``, ``POST
 .../submit``, ``GET .../versions``, ``.../versions/diff``, ``.../stream``;
 S2: ``/score``, ``/models/*``, ``/routing/active``; S3: ``POST /search``;
-S4: ``POST /records``, ``GET /verify/{id}``, ``GET /records/{id}``; S5:
-``/release-checks``, ``/packs``, ``/packs/{id}``, ``.../votes``,
-``.../outcome``, ``.../questions``, ``/questions/{id}/answers``; H1
+S4: ``POST /records``, ``GET /verify/{id}``, ``GET /records/{id}``; S5 (the
+web's names, ADR-30): ``/committee/queue``, ``/packs``, ``/packs/{id}``,
+``.../release``, ``.../votes``, ``.../threads``, ``/threads/{id}/answer``,
+``.../supersede``, ``.../revote``, ``/outcomes``, ``/cases/{id}/packs[/latest]``,
+``/cases/{id}/outcome``; H1
 (caseflow) is a FastStream worker whose only HTTP is ``/healthz`` and
 ``/readyz``. There is no gates/decide route, no override route, no
 acknowledge route, no recommendation route and no clause-by-id route
@@ -72,10 +74,10 @@ def test_bb_03_overrides_need_reasons() -> None:
         "opaque snapshot by content hash (POST /packs), so there is no "
         "recommendation field that can be PUT. The other halves of BB-06 "
         "(hash stable over 10 reads, v2 with a new hash, v1 retrievable, "
-        "votes re-requested) are real in test_bb_06_pack_frozen.py. Note "
-        "that the only unlock S5 has, POST /questions/{id}/answers with "
-        "numbers_changed=true, accepts an empty text, i.e. an unlock with "
-        "no reason."
+        "votes re-requested) are real in test_bb_06_pack_frozen.py, "
+        "including the unlock: POST /threads/{id}/answer with "
+        "numbers_changed=true needs an unlock_reason of at least 20 "
+        "characters."
     )
 )
 def test_bb_06_put_recommendation_after_lock_is_409() -> None:
@@ -115,13 +117,12 @@ def test_bb_09_po_answer_creates_v2_and_v1_stays_byte_identical() -> None:
 @pytest.mark.skip(
     reason=(
         "BB-13 'release without acknowledgement -> 409 listing boundary and "
-        "band_change; after acknowledge -> 200' needs an acknowledge route "
-        "and a release route that answers 409 with the reasons. None "
-        "exists: S1 and H1 have no acknowledge/gates route, and S5's POST "
-        "/packs answers 200 with released_at null and the "
-        "boundary_and_band_acknowledged check false (it takes the flag from "
-        "the snapshot the caller froze; it lists no 'boundary'/'band_change' "
-        "reasons). S5's side of the gate is real in "
+        "band_change; after acknowledge -> 200' needs an acknowledge route. "
+        "None exists: S1 and H1 have no acknowledge/gates route. S5's "
+        "release route does answer 409 naming the failing check "
+        "(boundary_and_band_acknowledged, one check, not 'boundary' and "
+        "'band_change' separately), taking the flag from the snapshot H1 "
+        "froze. S5's side of the gate is real in "
         "test_bb_13_unacknowledged_pack_not_released.py, and the detection "
         "half (boundary flag and band, through S2's live /score) in "
         "tests/unit/services/scoring/test_routes.py and "

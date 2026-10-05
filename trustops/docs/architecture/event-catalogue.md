@@ -47,7 +47,7 @@ All nine publish to `case.events` (topic) with the event type as routing key, th
 | Type | Publisher | Consumer | Payload model (`fcrm_contracts.events.payloads`) |
 |---|---|---|---|
 | `harness.step` | H1 (outbox, same transaction as the transition that needs HTTP work) | H1, queue `caseflow.steps` (`harness.step`); `caseflow.events` receives and ignores it | `HarnessStep{step_id, step: StepKind, case_id, run_id, args}` |
-| `pack.released` | S5 | H1 (`PACK_RELEASED`, guard `release_checks_passed`), S1 (`case-service.events`) | `PackReleased{pack_id, version, released_to, content_hash, release_checks_passed}` |
+| `pack.released` | S5 | H1 (`PACK_RELEASED`, guard `release_checks_passed`), S1 (`case-service.events`) | `PackReleased{pack_id, version, released_to, released_to_names, content_hash, release_checks_passed}` |
 | `vote.tallied` | S5 | H1 (`VOTE_TALLIED`, key `vote_outcome`) | `VoteTallied{pack_id, round, outcome, vote_outcome, counts, votes}`; a split is `vote.no_majority`, never a tally |
 | `committee.question_asked` | S5 | H1 (`COMMITTEE_QUESTION_ASKED`) | `CommitteeQuestionAsked{pack_id, thread_id, member_id, text}` |
 | `committee.answered` | S5 | H1: `numbers_changed` picks `COMMITTEE_ANSWERED_CHANGED` or `…_NO_CHANGE` | `CommitteeAnswered{pack_id, thread_id, addendum_id, by, numbers_changed, committee_numbers_changed, unlock_reason}` |
@@ -59,6 +59,24 @@ All nine publish to `case.events` (topic) with the event type as routing key, th
 `harness.step` carries agent output in `args.payload` (H1 holds no other copy of the proposals). It is harness data: S1's SSE stream must never forward the `harness.` prefix to a PO.
 
 The other live-wiring payload models, for events already in the catalogue: `CaseCreated`, `CaseDocumentStored`, `CaseSubmitted` (S1→H1, guard `four_submit_checks_passed`), `CaseAnswered`, `CaseRetagged`, `CaseRerunRequested` (guard `rerun_reason`), `CaseGapRecorded`, `CaseLocked`, `CaseUnlocked` (guard `unlock_reason`), `CaseCloseRequested` (`band`), `GateDecided`, `IngestRun`/`IngestDone`/`IngestFailed` (H1↔H3), `IndexBuild`/`IndexBuilt`/`IndexFailed` (S3↔H4), `VoteCastPayload` (never the option), `VoteNoMajority`, `VoteRerequested`, `OutcomeSetPayload` (H1 reacts only to `mode: delegated`). `JobPayload` gains `refs` (the context-pack inputs H1 supplies) and `AgentDone` gains an optional `fast_lane_proposed`.
+
+### What S5 publishes, and when
+
+S5 writes each event to its own `outbox` in the same Mongo transaction as the state change, and a relay (lease `outbox-relay:decision`, the composite's publisher) sends it to `case.events` with the type as routing key; `envelope.case_id` is always set. Models are in `fcrm_contracts.events.payloads`.
+
+| Event | Written by | Payload model | Notes |
+|---|---|---|---|
+| `pack.released` | `POST /packs/{p}/release`, only when all four checks pass | `PackReleased` | `released_to` is the committee roster's user ids, `released_to_names` the same people by name (for S1's handoff) |
+| `vote.cast` | every `POST /packs/{p}/votes` | `VoteCastPayload{pack_id, round, member_id, cast_count, quorum}` | **Never the option or the rationale** (the model refuses them; so does every outbox row until the round is revealed) |
+| `vote.tallied` | the third vote, when two options agree | `VoteTallied{pack_id, round, outcome, vote_outcome, counts, votes[]}` | Reveal and tally together; `votes` is the first place the options leave S5 |
+| `vote.no_majority` | the third vote, on a 1-1-1 split (ADR-31) | `VoteNoMajority{pack_id, round, counts}` | Counts only; never a `vote.tallied`, never an outcome |
+| `vote.rerequested` | the same transaction as `vote.no_majority` (round n+1, `reason: no_majority`); and `POST /packs/{p}/supersede` when members had voted (next version, round 1) | `VoteRerequested` | `member_ids` are the people asked to vote again |
+| `pack.superseded` | `POST /packs/{p}/supersede` | `PackSuperseded{pack_id, version, reason, voided_votes}` | The pack's votes are voided (kept), not deleted |
+| `committee.question_asked` | `POST /packs/{p}/threads` | `CommitteeQuestionAsked` | A member's question |
+| `committee.answered` | `POST /threads/{t}/answer` | `CommitteeAnswered` | `numbers_changed` needs `unlock_reason` (>= 20 characters) and closes the pack to votes at once |
+| `outcome.set` | `POST /outcomes` (`committee` or `delegated`) | `OutcomeSetPayload` | Written once per recorded outcome; a replay announces nothing |
+
+`vote.tallied` and `vote.no_majority` are mutually exclusive for a round. S5 opens the next round itself in the transaction that tallies a split, so `POST /packs/{p}/revote` (H1's re-vote step) only confirms it.
 
 **Guard keys.** H1's `resolve.context_from_payload` reads the guards above from top-level payload keys, so each producing model declares its key at the top level (`tests/unit/workers/caseflow/test_payload_context_keys.py` fails if one is missing).
 

@@ -721,6 +721,112 @@
         "title": "CaseListItemPO",
         "type": "object"
       },
+      "CaseOutcome": {
+        "additionalProperties": false,
+        "description": "``GET /cases/{case_id}/outcome``: what was decided and how.",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/OutcomeCondition"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decided_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "committee",
+              "delegated"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/Outcome"
+          },
+          "pack_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Id"
+          },
+          "plain_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plain Summary"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "recorded": {
+            "title": "Recorded",
+            "type": "boolean"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "case_id",
+          "outcome",
+          "label",
+          "mode",
+          "round",
+          "recorded"
+        ],
+        "title": "CaseOutcome",
+        "type": "object"
+      },
       "CaseState": {
         "description": "Caseflow's state machine (design A §3.1). Sub-states are run-snapshot\nflags (fast_lane, round_open, locked, pack_version, vote_round), not\nenum values.",
         "enum": [
@@ -855,62 +961,149 @@
         "title": "ClarificationThreadPO",
         "type": "object"
       },
-      "CommitteeAnswer": {
+      "CommitteeQueueItem": {
         "additionalProperties": false,
+        "description": "A released pack in the member's queue with their own vote status.",
         "properties": {
-          "answered_by": {
-            "title": "Answered By",
+          "analyst_name": {
+            "title": "Analyst Name",
             "type": "string"
           },
-          "numbers_changed": {
-            "title": "Numbers Changed",
-            "type": "boolean"
+          "band": {
+            "enum": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "title": "Band",
+            "type": "integer"
+          },
+          "band_label": {
+            "title": "Band Label",
+            "type": "string"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "cast_count": {
+            "title": "Cast Count",
+            "type": "integer"
+          },
+          "change_types": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeType"
+            },
+            "title": "Change Types",
+            "type": "array"
+          },
+          "outcome_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Label"
           },
           "pack_id": {
             "title": "Pack Id",
             "type": "string"
           },
-          "question_id": {
-            "title": "Question Id",
+          "pack_version": {
+            "title": "Pack Version",
+            "type": "integer"
+          },
+          "quorum": {
+            "title": "Quorum",
+            "type": "integer"
+          },
+          "received": {
+            "format": "date-time",
+            "title": "Received",
             "type": "string"
           },
-          "text": {
-            "title": "Text",
+          "status": {
+            "enum": [
+              "open",
+              "decided"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "your_vote": {
+            "enum": [
+              "not_voted",
+              "voted"
+            ],
+            "title": "Your Vote",
             "type": "string"
           }
         },
         "required": [
+          "case_id",
+          "title",
+          "change_types",
+          "band",
+          "band_label",
+          "analyst_name",
+          "received",
           "pack_id",
-          "question_id",
-          "answered_by",
-          "text",
-          "numbers_changed"
+          "pack_version",
+          "your_vote",
+          "cast_count",
+          "quorum",
+          "status"
         ],
-        "title": "CommitteeAnswer",
+        "title": "CommitteeQueueItem",
         "type": "object"
       },
-      "CommitteeQuestion": {
+      "CommitteeThread": {
         "additionalProperties": false,
+        "description": "A question thread, visible to every member and the analyst.",
         "properties": {
-          "asked_by": {
-            "title": "Asked By",
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ThreadAnswer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
             "type": "string"
           },
-          "pack_id": {
-            "title": "Pack Id",
+          "from": {
+            "title": "From",
             "type": "string"
           },
-          "text": {
-            "title": "Text",
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
             "type": "string"
           }
         },
         "required": [
-          "pack_id",
-          "asked_by",
-          "text"
+          "id",
+          "from",
+          "question",
+          "at"
         ],
-        "title": "CommitteeQuestion",
+        "title": "CommitteeThread",
         "type": "object"
       },
       "CompletionState": {
@@ -1670,6 +1863,30 @@
         "title": "LoginResponse",
         "type": "object"
       },
+      "MyVote": {
+        "additionalProperties": false,
+        "properties": {
+          "cast_at": {
+            "format": "date-time",
+            "title": "Cast At",
+            "type": "string"
+          },
+          "choice": {
+            "$ref": "#/components/schemas/Outcome"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "choice",
+          "rationale",
+          "cast_at"
+        ],
+        "title": "MyVote",
+        "type": "object"
+      },
       "Outcome": {
         "description": "Four outcomes required by the brief; no fifth value, ever (rule: nothing\nis approved or rejected automatically).",
         "enum": [
@@ -1681,8 +1898,129 @@
         "title": "Outcome",
         "type": "string"
       },
+      "OutcomeCondition": {
+        "additionalProperties": false,
+        "properties": {
+          "due_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Label"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "OutcomeCondition",
+        "type": "object"
+      },
+      "OutcomeRecord": {
+        "additionalProperties": false,
+        "description": "``POST /outcomes`` (service). ``committee`` records what a tallied pack\ndecided (``pack_id`` required, the outcome must be the tallied one);\n``delegated`` records an analyst's close under R1 (no pack, a reason).",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/OutcomeCondition"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "decided_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By"
+          },
+          "mode": {
+            "enum": [
+              "committee",
+              "delegated"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/Outcome"
+          },
+          "pack_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Id"
+          },
+          "plain_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plain Summary"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "case_id",
+          "mode",
+          "outcome"
+        ],
+        "title": "OutcomeRecord",
+        "type": "object"
+      },
       "OutcomeSet": {
         "additionalProperties": false,
+        "description": "One round's tally result, as S5 stores it. ``outcome`` is ``None`` when\nthe round ended with no majority (ADR-31); nothing is decided then.",
         "properties": {
           "case_id": {
             "title": "Case Id",
@@ -1720,23 +2058,799 @@
         "title": "OutcomeSet",
         "type": "object"
       },
-      "Pack": {
+      "PackAddendum": {
         "additionalProperties": false,
+        "description": "An answered committee question, attached to the pack (R6); the pack's\ncontent and hash are untouched by it.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "no": {
+            "title": "No",
+            "type": "integer"
+          },
+          "numbers_changed": {
+            "title": "Numbers Changed",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "no",
+          "text",
+          "by",
+          "at",
+          "numbers_changed"
+        ],
+        "title": "PackAddendum",
+        "type": "object"
+      },
+      "PackArea": {
+        "additionalProperties": false,
+        "description": "One scored domain: the L x I, control effectiveness and residual.",
+        "properties": {
+          "I": {
+            "title": "I",
+            "type": "number"
+          },
+          "L": {
+            "title": "L",
+            "type": "number"
+          },
+          "ce": {
+            "title": "Ce",
+            "type": "number"
+          },
+          "contribution": {
+            "title": "Contribution",
+            "type": "number"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "inherent": {
+            "title": "Inherent",
+            "type": "number"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "residual": {
+            "title": "Residual",
+            "type": "number"
+          },
+          "retention": {
+            "title": "Retention",
+            "type": "number"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "domain",
+          "label",
+          "L",
+          "I",
+          "inherent",
+          "ce",
+          "retention",
+          "residual",
+          "weight",
+          "contribution"
+        ],
+        "title": "PackArea",
+        "type": "object"
+      },
+      "PackAuditHead": {
+        "additionalProperties": false,
+        "properties": {
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seq",
+          "hash"
+        ],
+        "title": "PackAuditHead",
+        "type": "object"
+      },
+      "PackBoundary": {
+        "additionalProperties": false,
+        "properties": {
+          "acknowledged_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged By"
+          },
+          "distance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance"
+          },
+          "flag": {
+            "title": "Flag",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "flag",
+          "text"
+        ],
+        "title": "PackBoundary",
+        "type": "object"
+      },
+      "PackBuild": {
+        "additionalProperties": false,
+        "description": "``POST /packs``. H1 (service) sends the ``snapshot``; an analyst sends\nonly the ``case_id`` and is handed the latest pack.",
         "properties": {
           "case_id": {
             "title": "Case Id",
             "type": "string"
           },
-          "checks": {
-            "$ref": "#/components/schemas/ReleaseChecks"
+          "snapshot": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot"
+          }
+        },
+        "required": [
+          "case_id"
+        ],
+        "title": "PackBuild",
+        "type": "object"
+      },
+      "PackClarificationRound": {
+        "additionalProperties": false,
+        "properties": {
+          "answered": {
+            "title": "Answered",
+            "type": "integer"
+          },
+          "questions": {
+            "title": "Questions",
+            "type": "integer"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "round",
+          "questions",
+          "answered"
+        ],
+        "title": "PackClarificationRound",
+        "type": "object"
+      },
+      "PackClause": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "quote": {
+            "title": "Quote",
+            "type": "string"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "quote",
+          "ref"
+        ],
+        "title": "PackClause",
+        "type": "object"
+      },
+      "PackCondition": {
+        "additionalProperties": false,
+        "description": "A drafted condition (``ConditionAnalyst`` in ``analyst.ts``).",
+        "properties": {
+          "due": {
+            "title": "Due",
+            "type": "string"
+          },
+          "from": {
+            "title": "From",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "scheduled",
+              "evidence_submitted",
+              "closed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "owner",
+          "due",
+          "status",
+          "from"
+        ],
+        "title": "PackCondition",
+        "type": "object"
+      },
+      "PackControl": {
+        "additionalProperties": false,
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "evidence": {
+            "title": "Evidence",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "rating": {
+            "title": "Rating",
+            "type": "number"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          },
+          "weight_norm": {
+            "title": "Weight Norm",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "domain",
+          "rating",
+          "weight_norm",
+          "evidence",
+          "stale"
+        ],
+        "title": "PackControl",
+        "type": "object"
+      },
+      "PackCriticFinding": {
+        "additionalProperties": false,
+        "description": "A critic finding and where it points (``CriticFinding`` in ``analyst.ts``).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "records": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "severity": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "severity",
+          "text",
+          "records"
+        ],
+        "title": "PackCriticFinding",
+        "type": "object"
+      },
+      "PackOverride": {
+        "additionalProperties": false,
+        "properties": {
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "from": {
+            "title": "From",
+            "type": "number"
+          },
+          "item": {
+            "title": "Item",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "record_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Seq"
+          },
+          "to": {
+            "title": "To",
+            "type": "number"
+          }
+        },
+        "required": [
+          "item",
+          "from",
+          "to",
+          "by",
+          "reason"
+        ],
+        "title": "PackOverride",
+        "type": "object"
+      },
+      "PackPins": {
+        "additionalProperties": false,
+        "description": "The versions the case was assessed under (``PinnedVersions`` in\n``common.ts``: display strings, not the run's integer pins).",
+        "properties": {
+          "controls": {
+            "title": "Controls",
+            "type": "string"
+          },
+          "corpus": {
+            "title": "Corpus",
+            "type": "string"
+          },
+          "field_set": {
+            "title": "Field Set",
+            "type": "string"
+          },
+          "jurisdictions": {
+            "title": "Jurisdictions",
+            "type": "string"
+          },
+          "prompts": {
+            "title": "Prompts",
+            "type": "string"
+          },
+          "routing": {
+            "title": "Routing",
+            "type": "string"
+          },
+          "scoring": {
+            "title": "Scoring",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scoring",
+          "corpus",
+          "controls",
+          "field_set",
+          "jurisdictions",
+          "routing",
+          "prompts"
+        ],
+        "title": "PackPins",
+        "type": "object"
+      },
+      "PackPlanned": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "due": {
+            "title": "Due",
+            "type": "string"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          }
+        },
+        "required": [
+          "description",
+          "owner",
+          "due"
+        ],
+        "title": "PackPlanned",
+        "type": "object"
+      },
+      "PackRecommendation": {
+        "additionalProperties": false,
+        "properties": {
+          "edits_by_analyst": {
+            "title": "Edits By Analyst",
+            "type": "integer"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/Outcome"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "text",
+          "edits_by_analyst"
+        ],
+        "title": "PackRecommendation",
+        "type": "object"
+      },
+      "PackRemoval": {
+        "additionalProperties": false,
+        "properties": {
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "item": {
+            "title": "Item",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item",
+          "reason",
+          "by"
+        ],
+        "title": "PackRemoval",
+        "type": "object"
+      },
+      "PackScore": {
+        "additionalProperties": false,
+        "description": "The locked score as the committee sees it (computed by S2, never here).",
+        "properties": {
+          "areas": {
+            "items": {
+              "$ref": "#/components/schemas/PackArea"
+            },
+            "title": "Areas",
+            "type": "array"
+          },
+          "band": {
+            "enum": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "title": "Band",
+            "type": "integer"
+          },
+          "band_label": {
+            "title": "Band Label",
+            "type": "string"
+          },
+          "composite": {
+            "title": "Composite",
+            "type": "number"
+          },
+          "route_label": {
+            "title": "Route Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "composite",
+          "band",
+          "band_label",
+          "route_label",
+          "areas"
+        ],
+        "title": "PackScore",
+        "type": "object"
+      },
+      "PackSummary": {
+        "additionalProperties": false,
+        "description": "One pack version in a case's list (``PackSummary`` in ``analyst.ts``).",
+        "properties": {
+          "built_at": {
+            "format": "date-time",
+            "title": "Built At",
+            "type": "string"
           },
           "content_hash": {
             "title": "Content Hash",
             "type": "string"
           },
+          "counts": {
+            "$ref": "#/components/schemas/PackSummaryCounts"
+          },
           "pack_id": {
             "title": "Pack Id",
             "type": "string"
+          },
+          "status": {
+            "enum": [
+              "built",
+              "released",
+              "superseded",
+              "decided"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pack_id",
+          "version",
+          "content_hash",
+          "status",
+          "built_at",
+          "counts"
+        ],
+        "title": "PackSummary",
+        "type": "object"
+      },
+      "PackSummaryCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "areas": {
+            "title": "Areas",
+            "type": "integer"
+          },
+          "band": {
+            "enum": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "title": "Band",
+            "type": "integer"
+          },
+          "clauses": {
+            "title": "Clauses",
+            "type": "integer"
+          },
+          "composite": {
+            "title": "Composite",
+            "type": "number"
+          },
+          "controls": {
+            "title": "Controls",
+            "type": "integer"
+          },
+          "gaps": {
+            "title": "Gaps",
+            "type": "integer"
+          },
+          "overrides": {
+            "title": "Overrides",
+            "type": "integer"
+          },
+          "planned": {
+            "title": "Planned",
+            "type": "integer"
+          },
+          "rounds": {
+            "title": "Rounds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "composite",
+          "band",
+          "areas",
+          "controls",
+          "overrides",
+          "planned",
+          "clauses",
+          "gaps",
+          "rounds"
+        ],
+        "title": "PackSummaryCounts",
+        "type": "object"
+      },
+      "PackView": {
+        "additionalProperties": false,
+        "description": "``PackView`` in ``committee.ts``: a pack as the committee and the analyst\nread it. ``status`` is derived by S5; ``addenda`` live beside the pack, not\nin it.",
+        "properties": {
+          "addenda": {
+            "items": {
+              "$ref": "#/components/schemas/PackAddendum"
+            },
+            "title": "Addenda",
+            "type": "array"
+          },
+          "analyst_name": {
+            "title": "Analyst Name",
+            "type": "string"
+          },
+          "audit_head": {
+            "$ref": "#/components/schemas/PackAuditHead"
+          },
+          "boundary": {
+            "$ref": "#/components/schemas/PackBoundary"
+          },
+          "business_summary": {
+            "title": "Business Summary",
+            "type": "string"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "clarification_rounds": {
+            "items": {
+              "$ref": "#/components/schemas/PackClarificationRound"
+            },
+            "title": "Clarification Rounds",
+            "type": "array"
+          },
+          "clauses": {
+            "items": {
+              "$ref": "#/components/schemas/PackClause"
+            },
+            "title": "Clauses",
+            "type": "array"
+          },
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/PackCondition"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "controls": {
+            "items": {
+              "$ref": "#/components/schemas/PackControl"
+            },
+            "title": "Controls",
+            "type": "array"
+          },
+          "critic_findings": {
+            "items": {
+              "$ref": "#/components/schemas/PackCriticFinding"
+            },
+            "title": "Critic Findings",
+            "type": "array"
+          },
+          "gaps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Gaps",
+            "type": "array"
+          },
+          "overrides": {
+            "items": {
+              "$ref": "#/components/schemas/PackOverride"
+            },
+            "title": "Overrides",
+            "type": "array"
+          },
+          "owner_name": {
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "pins": {
+            "$ref": "#/components/schemas/PackPins"
+          },
+          "planned": {
+            "items": {
+              "$ref": "#/components/schemas/PackPlanned"
+            },
+            "title": "Planned",
+            "type": "array"
+          },
+          "recommendation": {
+            "$ref": "#/components/schemas/PackRecommendation"
           },
           "released_at": {
             "anyOf": [
@@ -1750,16 +2864,33 @@
             ],
             "title": "Released At"
           },
-          "superseded_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
+          "removals": {
+            "items": {
+              "$ref": "#/components/schemas/PackRemoval"
+            },
+            "title": "Removals",
+            "type": "array"
+          },
+          "score": {
+            "$ref": "#/components/schemas/PackScore"
+          },
+          "status": {
+            "enum": [
+              "built",
+              "released",
+              "superseded",
+              "decided"
             ],
-            "title": "Superseded By"
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
           },
           "version": {
             "title": "Version",
@@ -1767,33 +2898,32 @@
           }
         },
         "required": [
-          "pack_id",
           "case_id",
+          "title",
+          "unit",
+          "owner_name",
+          "analyst_name",
+          "score",
+          "boundary",
+          "recommendation",
+          "business_summary",
+          "conditions",
+          "overrides",
+          "removals",
+          "clauses",
+          "gaps",
+          "controls",
+          "planned",
+          "critic_findings",
+          "clarification_rounds",
+          "pins",
+          "audit_head",
+          "pack_id",
           "version",
           "content_hash",
-          "checks"
+          "status"
         ],
-        "title": "Pack",
-        "type": "object"
-      },
-      "PackBuild": {
-        "additionalProperties": false,
-        "properties": {
-          "case_id": {
-            "title": "Case Id",
-            "type": "string"
-          },
-          "snapshot": {
-            "additionalProperties": true,
-            "title": "Snapshot",
-            "type": "object"
-          }
-        },
-        "required": [
-          "case_id",
-          "snapshot"
-        ],
-        "title": "PackBuild",
+        "title": "PackView",
         "type": "object"
       },
       "Page_AuditRecordRow_": {
@@ -1952,6 +3082,84 @@
         "title": "Page[CaseListItemPO]",
         "type": "object"
       },
+      "Page_CommitteeQueueItem_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CommitteeQueueItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[CommitteeQueueItem]",
+        "type": "object"
+      },
+      "Page_CommitteeThread_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CommitteeThread"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[CommitteeThread]",
+        "type": "object"
+      },
       "Page_ControlVersionOut_": {
         "additionalProperties": false,
         "properties": {
@@ -2028,6 +3236,45 @@
           "items"
         ],
         "title": "Page[JurisdictionVersionOut]",
+        "type": "object"
+      },
+      "Page_PackSummary_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PackSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[PackSummary]",
         "type": "object"
       },
       "Page_Proposal_": {
@@ -2420,36 +3667,6 @@
         "title": "RefreshRequest",
         "type": "object"
       },
-      "ReleaseChecks": {
-        "additionalProperties": false,
-        "description": "The four release checks before a pack may go to committee (design A\n§3.1 \"proposed enumeration\", mirrors SubmitCaseChecks in spirit).",
-        "properties": {
-          "all_review_items_decided": {
-            "title": "All Review Items Decided",
-            "type": "boolean"
-          },
-          "boundary_and_band_acknowledged": {
-            "title": "Boundary And Band Acknowledged",
-            "type": "boolean"
-          },
-          "conditions_drafted": {
-            "title": "Conditions Drafted",
-            "type": "boolean"
-          },
-          "numbers_locked": {
-            "title": "Numbers Locked",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "numbers_locked",
-          "conditions_drafted",
-          "all_review_items_decided",
-          "boundary_and_band_acknowledged"
-        ],
-        "title": "ReleaseChecks",
-        "type": "object"
-      },
       "ResolvedFieldSetOut": {
         "additionalProperties": false,
         "description": "``GET /field-sets/{version}/resolve?change_types=a,b``: the fields a\ncase with those change types must fill (the always-required set, then each\ntype's own fields in the order the types were given, de-duplicated by\nfield id). Each per-type field carries the change type that adds it.",
@@ -2489,29 +3706,6 @@
           "completion_threshold"
         ],
         "title": "ResolvedFieldSetOut",
-        "type": "object"
-      },
-      "RevealedVote": {
-        "additionalProperties": false,
-        "properties": {
-          "member_id": {
-            "title": "Member Id",
-            "type": "string"
-          },
-          "option": {
-            "$ref": "#/components/schemas/VoteOption"
-          },
-          "rationale": {
-            "title": "Rationale",
-            "type": "string"
-          }
-        },
-        "required": [
-          "member_id",
-          "option",
-          "rationale"
-        ],
-        "title": "RevealedVote",
         "type": "object"
       },
       "ReviewItem": {
@@ -2596,6 +3790,47 @@
           "proposed_value"
         ],
         "title": "ReviewItem",
+        "type": "object"
+      },
+      "RevoteRequest": {
+        "additionalProperties": false,
+        "description": "``POST /packs/{pack_id}/revote`` (H1, after ``vote.no_majority``).",
+        "properties": {
+          "reason": {
+            "const": "no_majority",
+            "default": "no_majority",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "title": "RevoteRequest",
+        "type": "object"
+      },
+      "RevoteResult": {
+        "additionalProperties": false,
+        "properties": {
+          "member_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Member Ids",
+            "type": "array"
+          },
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pack_id",
+          "round",
+          "member_ids"
+        ],
+        "title": "RevoteResult",
         "type": "object"
       },
       "Role": {
@@ -3180,6 +4415,143 @@
         "title": "SubmitCaseResponse",
         "type": "object"
       },
+      "SupersedeRequest": {
+        "additionalProperties": false,
+        "description": "``POST /packs/{pack_id}/supersede`` (H1, after the analyst unlocks).",
+        "properties": {
+          "reason": {
+            "minLength": 10,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "SupersedeRequest",
+        "type": "object"
+      },
+      "SupersedeResult": {
+        "additionalProperties": false,
+        "properties": {
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "rerequested": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rerequested",
+            "type": "array"
+          },
+          "status": {
+            "const": "superseded",
+            "default": "superseded",
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "voided_votes": {
+            "title": "Voided Votes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pack_id",
+          "version",
+          "voided_votes",
+          "rerequested"
+        ],
+        "title": "SupersedeResult",
+        "type": "object"
+      },
+      "ThreadAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "addendum_no": {
+            "title": "Addendum No",
+            "type": "integer"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "numbers_changed": {
+            "title": "Numbers Changed",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "by",
+          "text",
+          "at",
+          "addendum_no",
+          "numbers_changed"
+        ],
+        "title": "ThreadAnswer",
+        "type": "object"
+      },
+      "ThreadAnswerIn": {
+        "additionalProperties": false,
+        "description": "``POST /threads/{thread_id}/answer``. ``numbers_changed`` needs a reason\nof at least :data:`REASON_MIN_CHARS`; without it the answer is an addendum.",
+        "properties": {
+          "numbers_changed": {
+            "title": "Numbers Changed",
+            "type": "boolean"
+          },
+          "text": {
+            "maxLength": 4000,
+            "title": "Text",
+            "type": "string"
+          },
+          "unlock_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unlock Reason"
+          }
+        },
+        "required": [
+          "text",
+          "numbers_changed"
+        ],
+        "title": "ThreadAnswerIn",
+        "type": "object"
+      },
+      "ThreadAsk": {
+        "additionalProperties": false,
+        "description": "``POST /packs/{pack_id}/threads``: a member's question.",
+        "properties": {
+          "text": {
+            "maxLength": 2000,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ThreadAsk",
+        "type": "object"
+      },
       "UpdateCaseTitleRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3297,37 +4669,84 @@
         "title": "VerifyResult",
         "type": "object"
       },
-      "VoteCast": {
+      "VoteIn": {
         "additionalProperties": false,
+        "description": "``POST /packs/{pack_id}/votes``. The member is the caller and the round\nis the pack's current one; neither is in the body.",
         "properties": {
-          "member_id": {
-            "title": "Member Id",
-            "type": "string"
-          },
-          "option": {
-            "$ref": "#/components/schemas/VoteOption"
-          },
-          "pack_id": {
-            "title": "Pack Id",
-            "type": "string"
-          },
           "rationale": {
             "title": "Rationale",
             "type": "string"
           },
-          "round": {
-            "title": "Round",
-            "type": "integer"
+          "vote": {
+            "$ref": "#/components/schemas/VoteOption"
           }
         },
         "required": [
-          "pack_id",
-          "member_id",
-          "round",
-          "option",
+          "vote",
           "rationale"
         ],
-        "title": "VoteCast",
+        "title": "VoteIn",
+        "type": "object"
+      },
+      "VoteMember": {
+        "additionalProperties": false,
+        "properties": {
+          "cast_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cast At"
+          },
+          "choice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Outcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "is_you": {
+            "title": "Is You",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rationale"
+          },
+          "status": {
+            "enum": [
+              "voted",
+              "not_voted"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "status",
+          "is_you"
+        ],
+        "title": "VoteMember",
         "type": "object"
       },
       "VoteOption": {
@@ -3341,9 +4760,85 @@
         "title": "VoteOption",
         "type": "string"
       },
-      "VotesHidden": {
+      "VoteReceipt": {
         "additionalProperties": false,
+        "description": "What a vote returns: that it counted, never what it was.",
         "properties": {
+          "cast_n_of_3": {
+            "title": "Cast N Of 3",
+            "type": "integer"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "vote_id": {
+            "title": "Vote Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vote_id",
+          "round",
+          "cast_n_of_3"
+        ],
+        "title": "VoteReceipt",
+        "type": "object"
+      },
+      "VotesView": {
+        "additionalProperties": false,
+        "description": "The votes of one round. Until all three are cast ``revealed`` is false\nand every ``choice`` but the caller's own is null; the reveal and the tally\nhappen together on the third vote (R2).",
+        "properties": {
+          "cast_count": {
+            "title": "Cast Count",
+            "type": "integer"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/VoteMember"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "mine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MyVote"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "enum": [
+                  "approve",
+                  "approve_with_conditions",
+                  "defer",
+                  "reject",
+                  "no_majority"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "outcome_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Label"
+          },
           "pack_id": {
             "title": "Pack Id",
             "type": "string"
@@ -3352,57 +4847,38 @@
             "title": "Quorum",
             "type": "integer"
           },
-          "round": {
-            "title": "Round",
-            "type": "integer"
-          },
-          "votes_cast": {
-            "title": "Votes Cast",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "pack_id",
-          "round",
-          "votes_cast",
-          "quorum"
-        ],
-        "title": "VotesHidden",
-        "type": "object"
-      },
-      "VotesRevealed": {
-        "additionalProperties": false,
-        "properties": {
-          "pack_id": {
-            "title": "Pack Id",
-            "type": "string"
+          "revealed": {
+            "title": "Revealed",
+            "type": "boolean"
           },
           "round": {
             "title": "Round",
             "type": "integer"
           },
           "tally": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "title": "Tally",
-            "type": "object"
-          },
-          "votes": {
-            "items": {
-              "$ref": "#/components/schemas/RevealedVote"
-            },
-            "title": "Votes",
-            "type": "array"
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tally"
           }
         },
         "required": [
           "pack_id",
           "round",
-          "votes",
-          "tally"
+          "quorum",
+          "cast_count",
+          "revealed",
+          "members"
         ],
-        "title": "VotesRevealed",
+        "title": "VotesView",
         "type": "object"
       },
       "WriteFieldValueRequest": {
@@ -4939,26 +6415,27 @@
         ]
       }
     },
-    "/api/fcrm/decision/packs": {
-      "post": {
-        "description": "Build a new pack version, or hand back the current one unchanged.\n\n``pack_unchanged`` (by content hash) is a no-op: the same pack id and\nversion come back, no new row is written. Any real content change --\nincluding a number corrected after an R6 unlock -- mints a new pack id\nand version, and supersedes the previous one (its votes are voided,\nnever deleted: design A §3.6 \"pack v2\").",
-        "operationId": "S5_build_or_reuse_pack_packs_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PackBuild"
-              }
+    "/api/fcrm/decision/cases/{case_id}/outcome": {
+      "get": {
+        "description": "What was decided for the case, and how: the committee's tally or the\nanalyst's delegated close.\n\nRaises:\n    NotFoundError: The case has no decisive outcome yet (a round that ended\n        with no majority decided nothing).",
+        "operationId": "S5_case_outcome_cases__case_id__outcome_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
             }
-          },
-          "required": true
-        },
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Pack"
+                  "$ref": "#/components/schemas/CaseOutcome"
                 }
               }
             },
@@ -4980,7 +6457,296 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Build Or Reuse Pack",
+        "summary": "Case Outcome",
+        "tags": [
+          "decision"
+        ]
+      }
+    },
+    "/api/fcrm/decision/cases/{case_id}/packs": {
+      "get": {
+        "description": "Every version of the case's pack, newest first; a superseded version stays\nreadable (both packs are kept).",
+        "operationId": "S5_case_packs_cases__case_id__packs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_PackSummary_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Case Packs",
+        "tags": [
+          "decision"
+        ]
+      }
+    },
+    "/api/fcrm/decision/cases/{case_id}/packs/latest": {
+      "get": {
+        "description": "The case's newest pack. A committee member gets the newest *released* one;\na pack not yet released is the analyst's alone.",
+        "operationId": "S5_latest_pack_cases__case_id__packs_latest_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Latest Pack",
+        "tags": [
+          "decision"
+        ]
+      }
+    },
+    "/api/fcrm/decision/committee/queue": {
+      "get": {
+        "description": "Released packs that are still the case's current one, newest first, each\nwith the caller's own vote status and how many have voted (never how). One\naggregation: no query per pack.",
+        "operationId": "S5_committee_queue_committee_queue_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_CommitteeQueueItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Committee Queue",
+        "tags": [
+          "decision"
+        ]
+      }
+    },
+    "/api/fcrm/decision/outcomes": {
+      "post": {
+        "description": "Record an outcome people decided and announce it (``outcome.set``).\n\n``committee``: the pack's decisive tally, exactly. ``delegated``: an\nanalyst's Band 1-2 close with a reason (R1); never over an open committee\npack, never over an existing outcome.",
+        "operationId": "S5_outcomes_outcomes_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutcomeRecord"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseOutcome"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Outcomes",
+        "tags": [
+          "decision"
+        ]
+      }
+    },
+    "/api/fcrm/decision/packs": {
+      "post": {
+        "description": "H1 (service): freeze ``snapshot`` as the case's next pack, 201, or hand\nback the live pack when the content is the same, 200. Building never\nreleases. An analyst: the case's latest pack, 200, or 409 when none has\nbeen built (it is built when the recommendation is locked).",
+        "operationId": "S5_build_or_latest_pack_packs_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackBuild"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Build Or Latest Pack",
         "tags": [
           "decision"
         ]
@@ -4988,7 +6754,7 @@
     },
     "/api/fcrm/decision/packs/{pack_id}": {
       "get": {
-        "description": "A pack by id, for a committee member's or analyst's own lookup.",
+        "description": "A pack by id, with its addenda.",
         "operationId": "S5_get_pack_packs__pack_id__get",
         "parameters": [
           {
@@ -5006,7 +6772,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Pack"
+                  "$ref": "#/components/schemas/PackView"
                 }
               }
             },
@@ -5036,8 +6802,8 @@
     },
     "/api/fcrm/decision/packs/{pack_id}/outcome": {
       "get": {
-        "description": "The persisted tally result for a pack's latest round.\n\nRaises :class:`ConflictError` (409) while quorum has not yet been\nreached -- there is no outcome to read, and none is ever invented.",
-        "operationId": "S5_get_outcome_packs__pack_id__outcome_get",
+        "description": "The pack's latest round result.\n\nRaises:\n    NotTalliedError: No round has been tallied yet (409): there is no\n        outcome to read, and none is ever invented.",
+        "operationId": "S5_pack_outcome_packs__pack_id__outcome_get",
         "parameters": [
           {
             "in": "path",
@@ -5076,16 +6842,16 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Get Outcome",
+        "summary": "Pack Outcome",
         "tags": [
           "decision"
         ]
       }
     },
-    "/api/fcrm/decision/packs/{pack_id}/questions": {
+    "/api/fcrm/decision/packs/{pack_id}/release": {
       "post": {
-        "description": "R6: open a committee question thread on ``pack_id``, visible to\nevery member and the analyst. ``body.asked_by`` must be the caller\n(403 otherwise). There is no ``Thread`` shape in\n``fcrm_contracts.api.decision`` yet, so the response echoes the\nquestion with a minted ``question_id`` as a plain object rather than\ninventing a new contract type.",
-        "operationId": "S5_ask_question_packs__pack_id__questions_post",
+        "description": "Release the pack to the committee (the ``pack_release`` gate).\n\n409 unless all four release checks passed, naming the ones that did not;\nthe committee roster comes from X1. Releasing an already released pack is\na no-op that announces nothing a second time.",
+        "operationId": "S5_release_packs__pack_id__release_post",
         "parameters": [
           {
             "in": "path",
@@ -5097,24 +6863,12 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CommitteeQuestion"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Ask Question Packs  Pack Id  Questions Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/PackView"
                 }
               }
             },
@@ -5136,7 +6890,271 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Ask Question",
+        "summary": "Release",
+        "tags": [
+          "decision"
+        ]
+      }
+    },
+    "/api/fcrm/decision/packs/{pack_id}/revote": {
+      "post": {
+        "description": "Confirm the re-vote round after a 1-1-1 split (ADR-08, ADR-31). S5 opened\nthe round when it tallied the split; this reports which round it is and who\nis asked to vote again, and writes nothing. 409 unless the previous round\nended with no majority.",
+        "operationId": "S5_revote_packs__pack_id__revote_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "title": "Pack Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevoteResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Revote",
+        "tags": [
+          "decision"
+        ]
+      }
+    },
+    "/api/fcrm/decision/packs/{pack_id}/supersede": {
+      "post": {
+        "description": "Supersede the pack after the analyst unlocked it (R6): it takes no more\nvotes, its cast votes are voided (kept, never deleted) and re-requested for\nthe next version, and ``pack.superseded`` (plus ``vote.rerequested``) goes\nout. 409 once the pack has an outcome.",
+        "operationId": "S5_supersede_packs__pack_id__supersede_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "title": "Pack Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupersedeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupersedeResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Supersede",
+        "tags": [
+          "decision"
+        ]
+      }
+    },
+    "/api/fcrm/decision/packs/{pack_id}/threads": {
+      "get": {
+        "description": "The pack's question threads, oldest first: visible to every member and the\nanalyst (R6).",
+        "operationId": "S5_threads_packs__pack_id__threads_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "title": "Pack Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_CommitteeThread_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Threads",
+        "tags": [
+          "decision"
+        ]
+      },
+      "post": {
+        "description": "Open a question thread on a released pack, in the caller's own name.",
+        "operationId": "S5_ask_packs__pack_id__threads_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "title": "Pack Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThreadAsk"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitteeThread"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ask",
         "tags": [
           "decision"
         ]
@@ -5144,8 +7162,8 @@
     },
     "/api/fcrm/decision/packs/{pack_id}/votes": {
       "get": {
-        "description": "Before quorum: :class:`VotesHidden` (a count only, R2). Once the\nrequested round has been tallied, its votes are revealed with full\nrationale and the tally -- never before.",
-        "operationId": "S5_vote_status_packs__pack_id__votes_get",
+        "description": "One round's votes (the current one unless ``round`` is given).\n\nUntil the round is tallied ``revealed`` is false and every member's choice\nbut the caller's own is null: the choices are not sent, not merely hidden.\nA tallied round (including one that ended with no majority) shows every\nvote and its rationale together with the tally.",
+        "operationId": "S5_votes_packs__pack_id__votes_get",
         "parameters": [
           {
             "in": "path",
@@ -5163,6 +7181,7 @@
             "schema": {
               "anyOf": [
                 {
+                  "minimum": 1,
                   "type": "integer"
                 },
                 {
@@ -5178,15 +7197,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/VotesHidden"
-                    },
-                    {
-                      "$ref": "#/components/schemas/VotesRevealed"
-                    }
-                  ],
-                  "title": "Response Vote Status Packs  Pack Id  Votes Get"
+                  "$ref": "#/components/schemas/VotesView"
                 }
               }
             },
@@ -5208,14 +7219,14 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Vote Status",
+        "summary": "Votes",
         "tags": [
           "decision"
         ]
       },
       "post": {
-        "description": "Cast one committee member's vote.\n\nThe member is the caller: ``body.member_id`` must equal the verified\n``principal.sub`` (403 otherwise), so no token can vote in another\nmember's name and the one-vote-per-member rule binds to real identity.\n\nHidden until quorum (R2): the response is always either\n``VotesHidden`` (a count, never a vote) while fewer than\n:data:`QUORUM` members have voted this round, or the freshly computed\n``OutcomeSet`` *only once the third vote has just landed* -- the\nvoter who completes the round learns the outcome because quorum is,\nby definition, reached; nobody before that point can.",
-        "operationId": "S5_cast_vote_packs__pack_id__votes_post",
+        "description": "Cast the caller's vote in the pack's current round.\n\nThe member is the verified caller, so no token can vote in another member's\nname and one-vote-per-member binds to real identity; a rationale is\nrequired on every vote (R2). The receipt says that the vote counted, never\nwhat it was: the choice is hidden until all three are in, and the member who\ncasts the third finds the revealed round on their next read.",
+        "operationId": "S5_cast_packs__pack_id__votes_post",
         "parameters": [
           {
             "in": "path",
@@ -5231,26 +7242,18 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/VoteCast"
+                "$ref": "#/components/schemas/VoteIn"
               }
             }
           },
           "required": true
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/VotesHidden"
-                    },
-                    {
-                      "$ref": "#/components/schemas/OutcomeSet"
-                    }
-                  ],
-                  "title": "Response Cast Vote Packs  Pack Id  Votes Post"
+                  "$ref": "#/components/schemas/VoteReceipt"
                 }
               }
             },
@@ -5272,23 +7275,23 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Cast Vote",
+        "summary": "Cast",
         "tags": [
           "decision"
         ]
       }
     },
-    "/api/fcrm/decision/questions/{question_id}/answers": {
+    "/api/fcrm/decision/threads/{thread_id}/answer": {
       "post": {
-        "description": "R6: attach the analyst's answer as a pack addendum.\n``body.answered_by`` must be the caller (403 otherwise).\n\n``numbers_changed=True`` unlocks the pack immediately: it stops\naccepting votes and its already-cast votes for the open round are\nvoided (kept for audit, never deleted). No new pack is built here --\nthe real \"did a number change\" detection and the corrected content\nboth live with whatever calls this service (H1 caseflow); S5's job is\nonly to act on the flag once it is told. The next ``POST /packs`` for\nthis case, carrying the corrected snapshot, is what actually produces\npack v2 and so re-requests every vote (a fresh, empty round on a new\npack id).",
-        "operationId": "S5_answer_question_questions__question_id__answers_post",
+        "description": "Answer a committee question, in the caller's own name (R6).\n\nUnchanged numbers: the answer is attached as a pack addendum and the pack's\n``content_hash`` stays exactly as it was. Changed numbers: the contract\nalready required an ``unlock_reason`` of at least 20 characters; the pack\nstops taking votes at once and ``committee.answered`` tells H1, which\ndrives the supersede, the corrected pack and the re-vote.",
+        "operationId": "S5_answer_threads__thread_id__answer_post",
         "parameters": [
           {
             "in": "path",
-            "name": "question_id",
+            "name": "thread_id",
             "required": true,
             "schema": {
-              "title": "Question Id",
+              "title": "Thread Id",
               "type": "string"
             }
           }
@@ -5297,7 +7300,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CommitteeAnswer"
+                "$ref": "#/components/schemas/ThreadAnswerIn"
               }
             }
           },
@@ -5308,9 +7311,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Answer Question Questions  Question Id  Answers Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/CommitteeThread"
                 }
               }
             },
@@ -5332,54 +7333,7 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Answer Question",
-        "tags": [
-          "decision"
-        ]
-      }
-    },
-    "/api/fcrm/decision/release-checks": {
-      "post": {
-        "description": "Re-derive the four release checks through the pure\n``evaluate_release_checks`` rather than trusting a pre-built\n``ReleaseChecks`` object -- a thin, stateless wrapper a caller can poll\nbefore assembling a pack's snapshot.",
-        "operationId": "S5_check_release_release_checks_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReleaseChecks"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReleaseChecks"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Check Release",
+        "summary": "Answer",
         "tags": [
           "decision"
         ]
