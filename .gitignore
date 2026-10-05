@@ -1,0 +1,3 @@
+# Repo-level ignores; project ignores live in trustops/.gitignore.
+.DS_Store
+.claude/worktrees/
