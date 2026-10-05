@@ -11,9 +11,8 @@ called. Where the two registries differ on purpose (a field's source is written
 is given the same label, so a difference in the pack can only come from the
 adaptation under test.
 
-``policy_search`` and ``control_inventory`` have no HTTP backing yet; the research
-pack is built over a registry that is explicitly the HTTP tools plus those two
-seed-backed ones.
+The research pack is built over the pure HTTP registry too: ``policy_search``
+and ``control_inventory`` answer from S3 like every other tool.
 """
 
 from __future__ import annotations
@@ -24,35 +23,28 @@ import pytest
 from fcrm_agents import builder_for
 from fcrm_agents.demo import demo_request
 from fcrm_contracts.enums import AgentName
-from fcrm_contracts.proposals.provenance import DocSourceRef
-from fcrm_tools import ToolNotWiredError
+from fcrm_contracts.proposals.provenance import ClauseSourceRef, DocSourceRef
 
 
 async def _packs(
-    demo_peers: SimpleNamespace, agent: AgentName, *, hybrid: bool = False
+    demo_peers: SimpleNamespace, agent: AgentName
 ) -> tuple[object, object]:
     request = demo_request(agent)
     builder = builder_for(agent)
     oracle = await builder.build(request, demo_peers.oracle)
-    over_http = await builder.build(
-        request, demo_peers.hybrid if hybrid else demo_peers.http
-    )
+    over_http = await builder.build(request, demo_peers.http)
     return oracle, over_http
 
 
 @pytest.mark.parametrize(
-    ("agent", "hybrid"),
-    [
-        (AgentName.SCREENING, False),
-        (AgentName.INTAKE, False),
-        (AgentName.RESEARCH, True),
-    ],
+    "agent",
+    [AgentName.SCREENING, AgentName.INTAKE, AgentName.RESEARCH],
     ids=["screening", "intake", "research"],
 )
 async def test_the_pack_over_http_is_the_pack_over_the_seed(
-    demo_peers: SimpleNamespace, agent: AgentName, hybrid: bool
+    demo_peers: SimpleNamespace, agent: AgentName
 ) -> None:
-    oracle, over_http = await _packs(demo_peers, agent, hybrid=hybrid)
+    oracle, over_http = await _packs(demo_peers, agent)
     assert over_http.sections == oracle.sections  # type: ignore[attr-defined]
     assert over_http.pack_hash == oracle.pack_hash  # type: ignore[attr-defined]
     assert over_http.tools_called == oracle.tools_called  # type: ignore[attr-defined]
@@ -78,7 +70,7 @@ async def test_the_screening_pack_shows_the_adapted_precedent_data(
 async def test_the_research_pack_reads_the_adapted_ratings_and_dates(
     demo_peers: SimpleNamespace,
 ) -> None:
-    _, pack = await _packs(demo_peers, AgentName.RESEARCH, hybrid=True)
+    _, pack = await _packs(demo_peers, AgentName.RESEARCH)
     precedent_lines = pack.sections["precedents"].splitlines()  # type: ignore[attr-defined]
     assert precedent_lines
     # id · title · types · outcome · closed_date · score · ratings CTL-x r, ...
@@ -100,14 +92,19 @@ async def test_the_intake_pack_cites_the_pages_it_shows(
     assert [ref.page for ref in cited] == sorted(ref.page for ref in cited)
 
 
-async def test_a_pack_whose_tool_has_no_http_backing_fails_loudly(
+async def test_the_research_pack_cites_only_quotable_clauses_with_their_citation(
     demo_peers: SimpleNamespace,
 ) -> None:
-    """Research over the pure HTTP registry cannot silently use seed data."""
-    with pytest.raises(ToolNotWiredError, match="policy_search"):
-        await builder_for(AgentName.RESEARCH).build(
-            demo_request(AgentName.RESEARCH), demo_peers.http
-        )
+    _, pack = await _packs(demo_peers, AgentName.RESEARCH)
+    clauses = pack.sections["clauses"]  # type: ignore[attr-defined]
+    assert clauses
+    cited = [
+        s.source_ref
+        for s in pack.sources  # type: ignore[attr-defined]
+        if isinstance(s.source_ref, ClauseSourceRef)
+    ]
+    assert cited
+    assert {ref.corpus_v for ref in cited} == {14}
 
 
 async def test_the_http_pack_calls_the_peers_and_the_object_store(
@@ -120,3 +117,14 @@ async def test_the_http_pack_calls_the_peers_and_the_object_store(
     assert "/internal/cases/FCRM-2026-0151/record" in paths
     assert "/field-sets/v6/resolve" in paths
     assert "/internal/documents/business_case_remittance_MX.pdf" in paths
+
+
+async def test_the_research_pack_reads_clauses_and_controls_from_s3(
+    demo_peers: SimpleNamespace,
+) -> None:
+    await builder_for(AgentName.RESEARCH).build(
+        demo_request(AgentName.RESEARCH), demo_peers.http
+    )
+    s3 = [r for r in demo_peers.peers.requests if r.url.host == "policy.test"]
+    assert any(r.url.path == "/search" and r.method == "POST" for r in s3)
+    assert any(r.url.path == "/controls" and r.method == "GET" for r in s3)

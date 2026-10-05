@@ -10,10 +10,14 @@ from typing import Any
 
 import pytest
 from fcrm_contracts.api.policy import SearchFilters, SearchRequest
+from fcrm_contracts.enums import Domain
+from fcrm_contracts.tools.control_inventory import ControlInventoryInput
+from fcrm_contracts.tools.evidence_store import EvidenceStoreInput
 from fcrm_contracts.tools.field_rules import FieldRulesInput
 from fcrm_contracts.tools.jurisdiction_list import JurisdictionListInput
+from fcrm_seed.loader import generated_clauses
 from fcrm_tools import ToolInputError, UnknownEntityError
-from fcrm_tools.seed_backed import FieldRulesTool
+from fcrm_tools.seed_backed import ControlInventoryTool, FieldRulesTool
 from fcrm_tools.seed_data import case_control_ratings, jurisdiction_list_out
 
 
@@ -115,3 +119,109 @@ async def test_precedent_search_over_s3_without_a_match_is_an_empty_list(
         SearchRequest(index="precedent_cases", query="zzzzqqqq xxxxyyyy", top_k=5)
     )
     assert out.hits == []
+
+
+# ── policy_search, control_inventory and evidence_store over the real S3 ───
+
+
+async def test_policy_search_over_s3_returns_the_stored_clauses_verbatim(
+    real_s3_corpus: Any,
+) -> None:
+    clauses = {c["clause_id"]: c for c in generated_clauses() or []}
+    out = await real_s3_corpus.registry.get("policy_search").call(
+        SearchRequest(
+            index="policy_clauses",
+            query="cash pickup agent",
+            top_k=8,
+            filters=SearchFilters(corpus_version=14),
+        )
+    )
+
+    assert len(out.hits) == 8
+    for hit in out.hits:
+        clause = clauses[hit.id]
+        assert hit.text == clause["text"]
+        assert hit.metadata["source_id"] == clause["source_id"]
+        assert hit.metadata["ref"] == clause["ref"]
+        assert hit.metadata["quotable"] is True
+        assert hit.metadata["corpus_version"] == 14
+        assert hit.metadata["page"] == clause["page"]
+
+
+async def test_policy_search_over_s3_filters_by_risk_area(
+    real_s3_corpus: Any,
+) -> None:
+    out = await real_s3_corpus.registry.get("policy_search").call(
+        SearchRequest(
+            index="policy_clauses",
+            query="screening",
+            top_k=10,
+            filters=SearchFilters(corpus_version=14, risk_area="geography"),
+        )
+    )
+    assert out.hits
+    assert all("geography" in h.metadata["risk_areas"] for h in out.hits)
+
+
+async def test_policy_search_over_s3_for_a_corpus_version_that_is_not_held(
+    real_s3_corpus: Any,
+) -> None:
+    out = await real_s3_corpus.registry.get("policy_search").call(
+        SearchRequest(
+            index="policy_clauses",
+            query="screening",
+            top_k=3,
+            filters=SearchFilters(corpus_version=15),
+        )
+    )
+    assert out.hits == []
+
+
+@pytest.mark.parametrize("domain", list(Domain))
+async def test_control_inventory_over_s3_equals_the_seed_backed_tool(
+    real_s3_corpus: Any, seed_raw: dict[str, Any], domain: Domain
+) -> None:
+    request = ControlInventoryInput(domain=domain, controls_v=9)
+    seeded = await ControlInventoryTool(seed_raw).run(request)
+    over_http = await real_s3_corpus.registry.get("control_inventory").call(request)
+    assert over_http == seeded
+    assert over_http.controls
+
+
+async def test_control_inventory_over_s3_unknown_version(real_s3_corpus: Any) -> None:
+    with pytest.raises(UnknownEntityError):
+        await real_s3_corpus.registry.get("control_inventory").call(
+            ControlInventoryInput(domain=Domain.CHANNEL, controls_v=99)
+        )
+
+
+async def test_evidence_store_over_s3_knows_the_controls_and_dates_by_last_test(
+    real_s3_corpus: Any, seed_raw: dict[str, Any]
+) -> None:
+    control = next(c for c in seed_raw["controls"] if c["id"] == "CTL-T01")
+    real_s3_corpus.case_peers.respond(
+        "case.test",
+        "GET",
+        "/internal/cases/FCRM-2026-0151/evidence",
+        {
+            "control_id": "CTL-T01",
+            "items": [
+                {
+                    "evidence_id": "evd_1",
+                    "kind": "document",
+                    "summary": "Vendor due-diligence scope letter",
+                }
+            ],
+        },
+    )
+    tool = real_s3_corpus.registry.get("evidence_store")
+
+    out = await tool.call(
+        EvidenceStoreInput(case_id="FCRM-2026-0151", control_id="CTL-T01")
+    )
+
+    assert out.items[0].evidence_date == control["last_tested"]
+    with pytest.raises(UnknownEntityError, match="CTL-NOPE"):
+        await tool.call(
+            EvidenceStoreInput(case_id="FCRM-2026-0151", control_id="CTL-NOPE")
+        )

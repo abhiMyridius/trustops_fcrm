@@ -10,6 +10,7 @@ import json
 import re
 from collections.abc import Callable
 from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Optional
 
@@ -24,11 +25,17 @@ from fcrm_contracts.api.case_internal import (
     FieldValueInternal,
     OwnerRef,
 )
-from fcrm_contracts.api.policy import ResolvedFieldSetOut, SearchRequest
+from fcrm_contracts.api.policy import (
+    ControlInventoryOut,
+    ResolvedFieldSetOut,
+    SearchRequest,
+)
 from fcrm_contracts.enums import CaseState, ChangeType, Role
 from fcrm_contracts.proposals.provenance import DocSourceRef
 from fcrm_contracts.tools.case_record import CaseRecordInput, CaseRecordOutput
+from fcrm_contracts.tools.control_inventory import ControlInventoryInput
 from fcrm_contracts.tools.field_rules import FieldRulesInput
+from fcrm_contracts.tools.submission_diff import SubmissionDiffInput
 from fcrm_contracts.versions import PinnedVersions
 from fcrm_seed.loader import load_raw
 from fcrm_tools import (
@@ -41,7 +48,14 @@ from fcrm_tools import (
 )
 from fcrm_tools.http_backed import source_label
 from fcrm_tools.markdown import render_pages
-from fcrm_tools.seed_backed import CaseRecordTool, FieldRulesTool, PrecedentSearchTool
+from fcrm_tools.seed_backed import (
+    CaseRecordTool,
+    ControlInventoryTool,
+    FieldRulesTool,
+    PolicySearchTool,
+    PrecedentSearchTool,
+    SubmissionDiffTool,
+)
 from fcrm_tools.seed_data import (
     field_labels,
     jurisdiction_list_out,
@@ -449,6 +463,28 @@ class _NormalisedCaseRecord(CaseRecordTool):
         return out.model_copy(update={"fields": fields})
 
 
+async def _clause_hits(tool: PolicySearchTool, asked: SearchRequest) -> dict[str, Any]:
+    """The seed-backed ``policy_search`` answer, re-shaped the way S3 serves
+    clause hits: the clause id and corpus version in the metadata, ``quotable``
+    kept as the seed has it.
+    """
+    found = await tool.run(asked)
+    hits = []
+    for hit in found.hits:
+        meta = hit.metadata
+        shaped = {
+            "clause_id": hit.id,
+            "source_id": meta["source_id"],
+            "ref": meta["ref"],
+            "title": meta["title"],
+            "quotable": meta["quotable"],
+            "corpus_version": meta["corpus_v"],
+            "risk_areas": meta["risk_areas"],
+        }
+        hits.append({**hit.model_dump(mode="json"), "metadata": shaped})
+    return {"hits": hits}
+
+
 @pytest.fixture
 async def demo_peers(
     peers: PeerStub,
@@ -457,11 +493,9 @@ async def demo_peers(
     object_store: ObjectStore,
     seed_raw: dict[str, Any],
 ) -> SimpleNamespace:
-    """S1 and S3 answering for the demo case from the seed, and three registries:
-    ``oracle`` (seed-backed, with HTTP-style source labels), ``http`` (the HTTP
-    tools over those peers) and ``hybrid`` (``http`` plus the seed's
-    ``policy_search`` and ``control_inventory``, which have no HTTP backing yet,
-    so the research pack can be built)."""
+    """S1 and S3 answering for the demo case from the seed, and two registries:
+    ``oracle`` (seed-backed, with HTTP-style source labels) and ``http`` (the
+    thirteen HTTP tools over those peers)."""
     seed_registry = build_seed_registry(seed_raw)
     oracle = ToolRegistry(
         _NormalisedCaseRecord(seed_raw) if tool.name == "case_record" else tool
@@ -545,11 +579,15 @@ async def demo_peers(
         return httpx.Response(200, json=listing.model_dump(mode="json"))
 
     precedents = PrecedentSearchTool(seed_raw)
+    clauses = PolicySearchTool(seed_raw)
+    controls = ControlInventoryTool(seed_raw)
+    diffs = SubmissionDiffTool(seed_raw)
 
     async def search(request: httpx.Request) -> httpx.Response:
-        found = await precedents.run(
-            SearchRequest.model_validate(json.loads(request.content))
-        )
+        asked = SearchRequest.model_validate(json.loads(request.content))
+        if asked.index == "policy_clauses":
+            return httpx.Response(200, json=await _clause_hits(clauses, asked))
+        found = await precedents.run(asked)
         hits = []
         for hit in found.hits:
             metadata = dict(hit.metadata)
@@ -558,19 +596,33 @@ async def demo_peers(
             hits.append({**hit.model_dump(mode="json"), "metadata": metadata})
         return httpx.Response(200, json={"hits": hits})
 
+    async def inventory(request: httpx.Request) -> httpx.Response:
+        version = request.url.params["version"]
+        domain = request.url.params["domain"]
+        out = await controls.run(
+            ControlInventoryInput(domain=domain, controls_v=int(version.lstrip("v")))
+        )
+        body = ControlInventoryOut(version=version, active=True, controls=out.controls)
+        return httpx.Response(200, json=body.model_dump(mode="json"))
+
+    async def diff(request: httpx.Request) -> httpx.Response:
+        out = await diffs.run(
+            SubmissionDiffInput(
+                case_id=DEMO_CASE_ID,
+                from_version=int(request.url.params["from_version"]),
+                to_version=int(request.url.params["to_version"]),
+            )
+        )
+        return httpx.Response(200, json=out.model_dump(mode="json"))
+
     peers.on(POLICY_HOST, "GET", "/field-sets/v6/resolve", resolve)
     peers.on(POLICY_HOST, "GET", "/jurisdictions", jurisdictions)
     peers.on(POLICY_HOST, "POST", "/search", search)
+    peers.on(POLICY_HOST, "GET", "/controls", inventory)
+    peers.on(CASE_HOST, "GET", f"/cases/{DEMO_CASE_ID}/versions/diff", diff)
 
     http = build_http_registry(tool_clients, object_store)
-    hybrid = ToolRegistry(
-        [
-            *(http.get(name) for name in http.names()),
-            seed_registry.get("policy_search"),
-            seed_registry.get("control_inventory"),
-        ]
-    )
-    return SimpleNamespace(oracle=oracle, http=http, hybrid=hybrid, peers=peers)
+    return SimpleNamespace(oracle=oracle, http=http, peers=peers)
 
 
 @pytest.fixture
@@ -622,3 +674,72 @@ def real_s3_tools(
         ),
     )
     return build_http_registry(clients, object_store)
+
+
+@pytest.fixture
+async def real_s3_corpus(
+    seed_raw: dict[str, Any],
+    wire_test_auth: Callable[[Any], Any],
+    act_as: Callable[[Role, str], None],
+    object_store: ObjectStore,
+    tmp_path: Path,
+) -> SimpleNamespace:
+    """The HTTP registry whose S3 client talks to the *real* S3 app with its
+    197-clause corpus: the clause store, the keyword collections and H4's real
+    vector engine (memory backend, dummy embeddings) behind the fusion. S1 is a
+    scriptable stand-in (``case_peers``), S4 is unscripted.
+    """
+    from fcrm_context_worker.config import context_config_from_env
+    from fcrm_context_worker.seedload import seeded_store
+    from fcrm_policy.corpus import InMemoryClauseStore
+    from fcrm_policy.main import create_app
+    from fcrm_policy.precedents import InMemoryPrecedentStore
+    from fcrm_policy.reference import InMemoryReferenceStore
+    from fcrm_policy.search.service import SearchService
+    from fcrm_policy.search.vector import VectorClauseSource
+    from fcrm_policy.seedmodel import clause_documents, precedent_documents
+    from fcrm_policy.store import build_in_memory_collections
+
+    config = context_config_from_env(
+        {"VECTOR_BACKEND": "memory", "EMBEDDING_DIMENSION": "64"},
+        projects_root=tmp_path,
+    )
+    vector_store, llm = await seeded_store(config)
+    app = create_app(standalone=False)
+    app.state.reference = InMemoryReferenceStore.from_seed(seed_raw)
+    app.state.clauses = InMemoryClauseStore(clause_documents())
+    app.state.precedents = InMemoryPrecedentStore(precedent_documents(seed_raw))
+    app.state.search = SearchService(
+        collections=build_in_memory_collections(seed_raw),
+        vector=VectorClauseSource(vector_store, llm, config),
+    )
+    wire_test_auth(app)
+    act_as(Role.SERVICE, "svc:agent-worker")
+
+    async def no_sleep(_seconds: float) -> None:
+        return None
+
+    case_peers, audit_peers = PeerStub(), PeerStub()
+    clients = ToolClients(
+        case=ServiceClient(
+            "http://case.test",
+            dependency="case",
+            transport=httpx.MockTransport(case_peers.handle),
+            sleep=no_sleep,
+        ),
+        policy=ServiceClient(
+            "http://s3.test",
+            dependency="policy",
+            transport=httpx.ASGITransport(app=app),
+            sleep=no_sleep,
+        ),
+        audit=ServiceClient(
+            "http://audit.test",
+            dependency="audit",
+            transport=httpx.MockTransport(audit_peers.handle),
+            sleep=no_sleep,
+        ),
+    )
+    return SimpleNamespace(
+        registry=build_http_registry(clients, object_store), case_peers=case_peers
+    )

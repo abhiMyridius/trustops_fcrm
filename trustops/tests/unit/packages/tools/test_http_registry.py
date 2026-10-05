@@ -4,6 +4,7 @@ and how the peer clients are built and closed."""
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -11,6 +12,7 @@ from fcrm_agents.spec import REGISTRY as AGENT_SPECS
 from fcrm_common.objectstore import ObjectStore
 from fcrm_contracts.enums import AgentName
 from fcrm_contracts.tools.rules_check import RulesCheckInput
+from fcrm_prompts import PromptLibrary
 from fcrm_tools import (
     TOOL_NAMES,
     InMemoryTTLCache,
@@ -19,7 +21,9 @@ from fcrm_tools import (
     UnknownToolError,
     build_http_registry,
 )
-from fcrm_tools.http_backed import NOT_WIRED_TOOLS, WIRED_TOOLS, HttpToolRegistry
+from fcrm_tools.http_backed import WIRED_TOOLS, HttpToolRegistry
+
+REPO_AI = Path(__file__).parents[4] / "ai"
 
 
 @pytest.fixture
@@ -28,108 +32,78 @@ def registry(tool_clients: ToolClients, object_store: ObjectStore) -> Any:
     return build_http_registry(tool_clients, object_store)
 
 
-def test_the_registry_holds_exactly_the_tools_that_have_a_backing(
+def test_the_registry_holds_all_thirteen_tools_and_nothing_else(
     registry: Any,
 ) -> None:
     assert isinstance(registry, HttpToolRegistry)
     assert registry.names() == WIRED_TOOLS
-    assert set(WIRED_TOOLS) == {
-        "document_reader",
-        "case_record",
-        "field_rules",
-        "jurisdiction_list",
-        "precedent_search",
-        "rules_check",
-    }
+    assert set(registry.names()) == set(TOOL_NAMES)
+    assert len(registry) == 13
 
 
-def test_wired_and_not_wired_partition_the_thirteen_tools() -> None:
-    assert set(WIRED_TOOLS) | set(NOT_WIRED_TOOLS) == set(TOOL_NAMES)
-    assert not set(WIRED_TOOLS) & set(NOT_WIRED_TOOLS)
-    assert set(NOT_WIRED_TOOLS) == {
-        "policy_search",
-        "control_inventory",
-        "evidence_store",
-        "evidence_ledger",
-        "audit_log",
-        "submission_diff",
-        "case_search",
-    }
-
-
-@pytest.mark.parametrize("name", NOT_WIRED_TOOLS)
-def test_an_unwired_tool_is_a_clear_error_never_a_seed_fallback(
-    registry: Any, name: str
-) -> None:
-    with pytest.raises(ToolNotWiredError) as raised:
-        registry.get(name)
-    assert name in str(raised.value)
-    assert "no HTTP backing yet" in str(raised.value)
-    assert "document_reader" in str(raised.value)  # says what is wired
-    assert name not in registry
-
-
-def test_an_unwired_tool_is_still_an_unknown_tool_to_existing_callers(
-    registry: Any,
-) -> None:
-    with pytest.raises(UnknownToolError):
-        registry.get("policy_search")
-
-
-def test_there_is_no_scoring_engine_tool_anywhere() -> None:
-    """Agents never score (ADR-07): no thirteenth-plus tool, not wired, not
-    named in the registry, and asking for one is a plain unknown tool."""
+def test_there_is_no_scoring_engine_tool_anywhere(registry: Any) -> None:
+    """Agents never score (ADR-07): no fourteenth tool, not registered, not
+    named, and asking for one is a plain unknown tool."""
     assert "scoring_engine" not in TOOL_NAMES
     assert "scoring_engine" not in WIRED_TOOLS
-
-
-def test_a_name_that_is_not_a_tool_is_a_plain_unknown_tool(registry: Any) -> None:
+    assert "scoring_engine" not in registry
     with pytest.raises(UnknownToolError) as raised:
         registry.get("scoring_engine")
     assert not isinstance(raised.value, ToolNotWiredError)
 
 
-def test_a_subset_with_an_unwired_tool_is_refused(registry: Any) -> None:
-    assert registry.subset(["case_record", "field_rules"]).names() == (
-        "case_record",
-        "field_rules",
-    )
+def test_a_partial_registry_says_why_a_known_tool_is_missing(registry: Any) -> None:
+    partial = HttpToolRegistry([registry.get("case_record")])
+    with pytest.raises(ToolNotWiredError) as raised:
+        partial.get("policy_search")
+    assert "policy_search" in str(raised.value)
+    assert "case_record" in str(raised.value)  # says what is registered
+    with pytest.raises(UnknownToolError):  # still an unknown tool to old callers
+        partial.get("policy_search")
     with pytest.raises(ToolNotWiredError):
-        registry.subset(["case_record", "policy_search"])
+        partial.subset(["case_record", "policy_search"])
 
 
 def test_every_tool_has_the_bare_name_as_its_permit_key(registry: Any) -> None:
-    assert registry.permit_keys() == {name: name for name in WIRED_TOOLS}
+    assert registry.permit_keys() == {name: name for name in TOOL_NAMES}
 
 
-@pytest.mark.parametrize("agent", [AgentName.INTAKE, AgentName.SCREENING])
-def test_the_intake_and_screening_agents_have_every_tool_they_need(
+@pytest.mark.parametrize("agent", list(AgentName))
+def test_every_agent_has_every_tool_it_declares_and_its_pack_builder_reads(
     registry: Any, agent: AgentName
 ) -> None:
-    """The V1 vertical runs on this registry: everything intake and screening
-    declare, to the model and to their pack builder, is wired."""
+    """The whole pipeline runs on this registry: everything each of the nine
+    agents declares, to the model and to its pack builder, is registered."""
     spec = AGENT_SPECS[agent]
     for name in (*spec.tools, *spec.pack_tools):
         assert name in registry, f"{agent.value} needs {name}"
 
 
-def test_the_agents_that_need_an_unwired_tool_are_named_by_the_spec_check(
+def test_the_registry_is_exactly_what_the_agent_yaml_specs_declare(
     registry: Any,
 ) -> None:
+    """Lock: every tool an agent may call is present and there is no extra one.
+    ``ai/agents/*.agent.yaml`` is the declaration; the registry must equal the
+    union of every agent's ``tools`` and ``pack_tools``."""
+    library = PromptLibrary(REPO_AI)
     declared = {
-        agent.value: [*spec.tools, *spec.pack_tools]
-        for agent, spec in AGENT_SPECS.items()
+        name: [*spec.tools, *spec.pack_tools]
+        for name, spec in library.agent_specs.items()
     }
+    assert len(declared) == 9
     report = registry.check_declared(declared)
-    assert "intake" not in report.missing
-    assert "screening" not in report.missing
-    assert set(report.missing["research"]) == {
-        "policy_search",
-        "control_inventory",
-        "submission_diff",
-    }
-    missing_anywhere = {tool for tools in report.missing.values() for tool in tools}
-    assert missing_anywhere <= set(NOT_WIRED_TOOLS)
+    assert report.missing == {}
+    assert report.undeclared == []
+    union = {tool for tools in declared.values() for tool in tools}
+    assert set(registry.names()) == union
+    assert "scoring_engine" not in union
+
+
+def test_the_agent_spec_check_over_the_real_ai_root_passes(registry: Any) -> None:
+    report = registry.check_agent_specs(REPO_AI)
+    assert report.skipped is False
+    assert report.ok is True
+    assert report.missing == {}
 
 
 async def test_rules_check_runs_in_process_and_calls_no_peer(
