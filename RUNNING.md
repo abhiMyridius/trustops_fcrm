@@ -1,6 +1,12 @@
 # Running and checking TrustOps
 
-How to set up the repo, run the checks, start the full stack and confirm that it works. Every command runs from the repo root.
+How to set up the repo, run the checks, start the full stack and confirm that it works.
+
+Every command runs from the repo root, the folder that holds the `Makefile`. Running `make` from anywhere else fails with `No rule to make target`.
+
+```bash
+cd ~/Downloads/Hackathon/trustops     # or wherever you cloned it
+```
 
 This file describes the state on 5 October 2026. If a step stops matching what you see, check `git log --oneline` first: every commit says what it adds and what it is still waiting on.
 
@@ -156,6 +162,8 @@ make down-v      # stop the stack and delete every local volume
 
 | Symptom | Cause and fix |
 |---|---|
+| `make: *** No rule to make target 'bootstrap'` | You are not in the repo root. `cd` into the folder that holds the `Makefile` |
+| `No resource found to remove for project "trustops"` | Harmless: no other TrustOps stack was running |
 | `make up` waits, then times out | `ingestion-worker` and `context-worker` crash-loop (no start entry point yet). Use the scale-0 command in step 3 |
 | `port is already allocated` | Another local stack holds the port. Set the `*_HOST_PORT` values in `.env` |
 | Mount or permission error on start | macOS is blocking Docker's access to `~/Downloads`. See step 0 |
