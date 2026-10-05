@@ -14,13 +14,15 @@ from __future__ import annotations
 
 import logging
 from typing import Final, Optional
+from urllib.parse import quote
 
 from fcrm_common.http import ServiceClient
-from fcrm_contracts.api.audit import AuditRecord, RecordAppend
+from fcrm_contracts.api.audit import AuditRecord, RecordAppend, VerifyResult
 
 logger = logging.getLogger(__name__)
 
 RECORDS_PATH: Final = "/records"
+VERIFY_PATH: Final = "/verify/{case_id}"
 
 
 class AuditClient:
@@ -57,3 +59,15 @@ class AuditClient:
             extra={"case_id": record.case_id, "type": record.type},
         )
         return AuditRecord.model_validate(body)
+
+    async def verify(self, case_id: str) -> VerifyResult:
+        """``GET /verify/{case_id}``: S4 recomputes the case's whole chain and
+        says whether it is intact (and the first broken ``seq`` when it is not).
+
+        Raises:
+            fcrm_common.errors.FcrmError: S4 refused or was unreachable.
+        """
+        body = await self._client.request_json(
+            "GET", VERIFY_PATH.format(case_id=quote(case_id, safe=""))
+        )
+        return VerifyResult.model_validate(body)

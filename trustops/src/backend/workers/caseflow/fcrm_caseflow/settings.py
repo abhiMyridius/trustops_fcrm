@@ -22,6 +22,7 @@ class CaseflowSettings(BaseServiceSettings):
         "AUDIT_SERVICE_URL",
         "CASE_SERVICE_URL",
         "POLICY_SERVICE_URL",
+        "DECISION_SERVICE_URL",
     )
 
     app_name: str = "fcrm-caseflow"
@@ -33,6 +34,9 @@ class CaseflowSettings(BaseServiceSettings):
     intake core calls the ``/internal/...`` routes under it."""
     policy_service_url: Optional[str] = None
     """S3's base URL: the precedent lookup (``POST /search``)."""
+    decision_service_url: Optional[str] = None
+    """S5's base URL (``.../api/fcrm/decision``): the decision core records
+    outcomes, supersedes packs and confirms re-votes through it."""
 
     s3_bucket_canonical: str = "canonical"
     """The bucket H3 writes a case document's canonical Markdown into; named in

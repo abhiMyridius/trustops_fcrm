@@ -109,6 +109,22 @@ class OutcomePut(BaseModel):
         return self
 
 
+class OutcomeDelivered(BaseModel):
+    """The payload of the catalogued ``outcome.delivered`` event H1 announces
+    when it has finalised a closed case, and S1 shows to the PO in plain words.
+
+    It carries the outcome's label and how many conditions apply and nothing
+    else: no score, band, vote or pack. S1 still refuses to show it to the PO if
+    a restricted key or term ever got in.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    outcome: Outcome
+    outcome_label: str = Field(min_length=1, max_length=100)
+    conditions: int = Field(ge=0)
+
+
 class OutcomePutResult(BaseModel):
     """What S1 answers: that the case is closed under this outcome.
 

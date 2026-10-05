@@ -355,6 +355,28 @@ _RECOMMEND = [
     ),
 ]
 
+# A Band 1-2 case is closed by the analyst under delegated authority (R1) from
+# where it is: its recommendation is locked and its pack built, never released
+# to the committee (S5 refuses a delegated outcome over an open committee pack),
+# so the run is still in RECOMMEND when the close is requested. The DECIDE rows
+# below cover a case whose pack was released and has since been closed the same way.
+_RECOMMEND_DELEGATED = [
+    Transition(
+        S.RECOMMEND,
+        Trigger.CASE_CLOSE_REQUESTED,
+        S.RECOMMEND,
+        "R1: Band 1-2 delegated close from a locked recommendation; "
+        "POST /outcomes{mode: delegated}, awaiting outcome.set",
+        guard=lambda ctx: ctx.band in (1, 2) and ctx.acks_done and ctx.flags.locked,
+    ),
+    Transition(
+        S.RECOMMEND,
+        Trigger.OUTCOME_SET_DELEGATED,
+        S.CLOSED,
+        "delegated close resolves the same way a committee outcome does",
+    ),
+]
+
 # --- DECIDE ----------------------------------------------------------------
 _DECIDE = [
     Transition(
@@ -445,6 +467,7 @@ TRANSITIONS: list[Transition] = [
     *_CLARIFICATION,
     *_REVIEW,
     *_RECOMMEND,
+    *_RECOMMEND_DELEGATED,
     *_DECIDE,
     *_CLOSED_HANDOFF,
 ]

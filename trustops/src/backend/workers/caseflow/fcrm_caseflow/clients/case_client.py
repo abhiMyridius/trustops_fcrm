@@ -29,6 +29,7 @@ from fcrm_contracts.api.case_internal import (
     StatePatch,
     UiEventIn,
 )
+from fcrm_contracts.api.case_internal_outcome import OutcomePut, OutcomePutResult
 from fcrm_contracts.enums import ItemKind
 
 from fcrm_caseflow.clients import CALL_TIMEOUTS, parse_body, path_segment
@@ -45,6 +46,7 @@ INTAKE_PATH: Final = "/internal/cases/{case_id}/intake"
 STATE_PATH: Final = "/internal/cases/{case_id}/state"
 ASSIGN_PATH: Final = "/internal/cases/{case_id}/assign"
 EVENTS_PATH: Final = "/internal/cases/{case_id}/events"
+OUTCOME_PATH: Final = "/internal/cases/{case_id}/outcome"
 DOCUMENT_PATH: Final = "/internal/documents/{doc_id}"
 ANALYST_LOAD_PATH: Final = "/internal/analysts/load"
 
@@ -216,6 +218,30 @@ class CaseClient:
             json=_json(event),
             idempotency_key=idempotency_key,
             timeout=CALL_TIMEOUTS,
+        )
+
+    async def put_outcome(
+        self, case_id: str, body: OutcomePut, *, idempotency_key: str
+    ) -> OutcomePutResult:
+        """``PUT /internal/cases/{case_id}/outcome``: record the outcome S5
+        decided, activate its conditions and close the case, in one S1
+        transaction. The body is the whole intended state and the key binds it
+        to one body, so a step that runs twice closes the case once.
+
+        Raises:
+            fcrm_common.errors.NotFoundError: no such case.
+            fcrm_common.errors.ConflictError: the case already has a different
+                outcome, or the key belongs to another request.
+        """
+        body_json = await self._client.request_json(
+            "PUT",
+            _fill(OUTCOME_PATH, case_id=case_id),
+            json=_json(body),
+            idempotency_key=idempotency_key,
+            timeout=CALL_TIMEOUTS,
+        )
+        return parse_body(
+            OutcomePutResult, body_json, dependency=DEPENDENCY, route=OUTCOME_PATH
         )
 
     async def analyst_load(self) -> AnalystLoadResponse:

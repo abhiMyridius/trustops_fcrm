@@ -34,6 +34,7 @@ import httpx
 import pytest
 from fcrm_caseflow.audit_client import AuditClient
 from fcrm_caseflow.clients.case_client import CaseClient
+from fcrm_caseflow.clients.decision_votes_client import DecisionVotesClient
 from fcrm_caseflow.clients.policy_client import PolicyClient
 from fcrm_caseflow.engine import CaseflowEngine
 from fcrm_caseflow.gates import GateStore
@@ -50,7 +51,7 @@ from fcrm_caseflow.triggers import Trigger
 from fcrm_common.http import ServiceClient
 from fcrm_common.outbox import Outbox
 from fcrm_common.time import utcnow
-from fcrm_contracts.api.audit import AuditRecord, RecordAppend
+from fcrm_contracts.api.audit import AuditRecord, RecordAppend, VerifyResult
 from fcrm_contracts.enums import CaseState, StepKind
 from fcrm_contracts.events.envelope import Envelope
 from pymongo.errors import DuplicateKeyError
@@ -444,6 +445,21 @@ class RecordingAudit(AuditClient):
     def __init__(self) -> None:
         self.records: list[RecordAppend] = []
         self.keys: list[Optional[str]] = []
+        self.verify_ok = True
+        self.first_break_seq: Optional[int] = None
+        self.verified: list[str] = []
+
+    async def verify(self, case_id: str) -> VerifyResult:
+        """What S4's ``GET /verify`` would say: the chain is intact unless
+        ``verify_ok`` was set False. The count is the records appended so far.
+        """
+        self.verified.append(case_id)
+        return VerifyResult(
+            case_id=case_id,
+            record_count=len(self.records),
+            ok=self.verify_ok,
+            first_break_seq=self.first_break_seq,
+        )
 
     async def append(
         self, record: RecordAppend, *, idempotency_key: Optional[str] = None
@@ -897,6 +913,269 @@ def step_deps_factory(
             "case": case_client,
             "policy": policy_client,
             "agent_results": agent_results,
+            **overrides,
+        }
+        return StepDeps(**values)
+
+    return build
+
+
+# --- the decision core's peers (S5 and S1's outcome route) --------------------------
+
+DECISION_BASE = "https://trustops.local/errors/"
+
+#: The demo's three conditions as the pack's narrative drafted them (the seed
+#: extraction's table, 06-walkthrough-seed-extraction.md section 3.8).
+DEMO_CONDITIONS: list[dict[str, Any]] = [
+    {
+        "id": "CND-1",
+        "text": "Corridor-scope vendor DD review completed and filed",
+        "owner": "Priya Nair",
+        "due": "before go-live",
+        "status": "open",
+        "from": "overridden control CTL-T01",
+    },
+    {
+        "id": "CND-2",
+        "text": "Enhanced monitoring rules on payout agents live",
+        "owner": "FCRM Ops",
+        "due": "go-live",
+        "status": "scheduled",
+        "from": "planned control",
+    },
+    {
+        "id": "CND-3",
+        "text": "Quarterly sample review of agent KYC files",
+        "owner": "Priya Nair",
+        "due": "6 months",
+        "status": "scheduled",
+        "from": "policy gap (cash-pickup agents)",
+    },
+]
+
+COMMITTEE = ("u-amendes", "u-jokafor", "u-lchen")
+
+
+def coded_problem(status: int, code: str, detail: str = "refused") -> httpx.Response:
+    """An error response whose problem ``type`` ends in ``code``, as S5 sends."""
+    return httpx.Response(
+        status,
+        json={
+            "type": f"{DECISION_BASE}{code}",
+            "title": code,
+            "status": status,
+            "detail": detail,
+        },
+        headers={"content-type": "application/problem+json"},
+    )
+
+
+class FakeDecisionService(FakePeer):
+    """A stand-in for S5's service surface: ``POST /outcomes`` (refusing what S5
+    refuses: an untallied pack, a different outcome, a delegated close over an
+    open committee pack), ``POST .../supersede``, ``POST .../revote`` and the
+    pack and outcome reads.
+
+    ``tallied`` is the outcome S5 would have tallied for the pack (``None`` =
+    nothing tallied yet); ``committee_pending`` makes a delegated outcome
+    refuse. A repeated ``Idempotency-Key`` answers what the first did.
+    """
+
+    BASE_PATH = "/api/fcrm/decision"
+
+    def __init__(self, pack: dict[str, Any]) -> None:
+        super().__init__()
+        self.pack = pack
+        self.tallied: Optional[str] = None
+        self.committee_pending = False
+        self.revote_round = 2
+        self.voided_votes = 2
+        self.outcomes: list[dict[str, Any]] = []
+        self.supersedes: list[dict[str, Any]] = []
+        self.revotes: list[dict[str, Any]] = []
+        self.case_outcome: Optional[dict[str, Any]] = None
+        self._answers: dict[str, httpx.Response] = {}
+
+    def route(self, call: Call) -> httpx.Response:
+        parts = [unquote(p) for p in call.path.strip("/").split("/")]
+        key = call.headers.get("idempotency-key")
+        if key is not None and key in self._answers:
+            return self._answers[key]
+        response = self._route(call, parts)
+        if key is not None and response.status_code < 300:
+            self._answers[key] = response
+        return response
+
+    def _route(self, call: Call, parts: list[str]) -> httpx.Response:
+        if (call.method, parts) == ("POST", ["outcomes"]):
+            return self._outcome(call)
+        if call.method == "POST" and len(parts) == 3 and parts[0] == "packs":
+            if parts[2] == "supersede":
+                self.supersedes.append({"pack_id": parts[1], **(call.body or {})})
+                return httpx.Response(
+                    200,
+                    json={
+                        "pack_id": parts[1],
+                        "version": 1,
+                        "status": "superseded",
+                        "voided_votes": self.voided_votes,
+                        "rerequested": list(COMMITTEE[: self.voided_votes]),
+                    },
+                )
+            if parts[2] == "revote":
+                self.revotes.append({"pack_id": parts[1], **(call.body or {})})
+                return httpx.Response(
+                    200,
+                    json={
+                        "pack_id": parts[1],
+                        "round": self.revote_round,
+                        "member_ids": list(COMMITTEE),
+                    },
+                )
+        if call.method == "GET" and parts[:1] == ["packs"] and len(parts) == 2:
+            return httpx.Response(200, json=self.pack)
+        if call.method == "GET" and parts[:1] == ["cases"]:
+            if parts[-2:] == ["packs", "latest"]:
+                return httpx.Response(200, json=self.pack)
+            if parts[-1:] == ["outcome"]:
+                if self.case_outcome is None:
+                    return problem(404, "no outcome yet")
+                return httpx.Response(200, json=self.case_outcome)
+        return problem(404, f"no route {call.method} {call.path}")
+
+    def _outcome(self, call: Call) -> httpx.Response:
+        body = call.body or {}
+        if body["mode"] == "committee":
+            if self.tallied is None:
+                return coded_problem(409, "not_tallied")
+            if body["outcome"] != self.tallied:
+                return coded_problem(409, "outcome_mismatch")
+        elif self.committee_pending:
+            return coded_problem(409, "committee_pending")
+        self.outcomes.append(body)
+        return httpx.Response(
+            200,
+            json={
+                "case_id": body["case_id"],
+                "outcome": body["outcome"],
+                "label": body["outcome"].replace("_", " ").title(),
+                "mode": body["mode"],
+                "pack_id": body.get("pack_id"),
+                "round": 1,
+                "decided_by": body.get("decided_by"),
+                "reason": body.get("reason"),
+                "plain_summary": body.get("plain_summary"),
+                "conditions": body.get("conditions", []),
+                "recorded": True,
+            },
+        )
+
+
+class FakeClosingCaseService(FakeCaseService):
+    """S1's internal routes plus ``PUT /internal/cases/{id}/outcome``: closes
+    the fake case, remembers every body and key, and refuses a different body
+    under a known key or for a decided case, as S1 does.
+    """
+
+    def __init__(self, case_id: str = "FCRM-2026-0151") -> None:
+        super().__init__(case_id)
+        self.analyst = {"id": "u-riyer", "name": "Rahul Iyer"}
+        self.fields = [
+            {
+                "field_id": "F03",
+                "label": "Go-live date",
+                "value": "February 2027",
+                "origin": "owner_declared",
+            }
+        ]
+        self.outcome_puts: list[dict[str, Any]] = []
+        self.outcome_keys: dict[str, dict[str, Any]] = {}
+
+    def _case_route(self, call: Call, case_id: str, leaf: str) -> httpx.Response:
+        if (call.method, leaf) != ("PUT", "outcome"):
+            return super()._case_route(call, case_id, leaf)
+        key = call.headers.get("idempotency-key", "")
+        body = call.body or {}
+        if key in self.outcome_keys:
+            if self.outcome_keys[key] != body:
+                return coded_problem(409, "idempotency_key_reused")
+            return httpx.Response(200, json=self._outcome_result(body, replayed=True))
+        if self.outcome_puts and self.outcome_puts[-1] != body:
+            return coded_problem(409, "outcome_already_set")
+        self.outcome_keys[key] = body
+        if not self.outcome_puts:
+            self.outcome_puts.append(body)
+        self.stage = "closed"
+        return httpx.Response(200, json=self._outcome_result(body, replayed=False))
+
+    @staticmethod
+    def _outcome_result(body: dict[str, Any], *, replayed: bool) -> dict[str, Any]:
+        return {
+            "case_id": "FCRM-2026-0151",
+            "outcome": body["outcome"],
+            "mode": body["mode"],
+            "closed": True,
+            "conditions_activated": len(body.get("conditions", [])),
+            "replayed": replayed,
+        }
+
+
+@pytest.fixture
+def closing_case_service() -> FakeClosingCaseService:
+    return FakeClosingCaseService()
+
+
+@pytest.fixture
+def decision_service(
+    release_snapshot: Callable[..., dict[str, Any]],
+) -> FakeDecisionService:
+    """The fake S5 holding the demo's released pack v1 with its three drafted
+    conditions and a business summary the PO may read.
+    """
+    snapshot = release_snapshot("FCRM-2026-0151")
+    body = {k: v for k, v in snapshot.items() if k not in ("checks", "change_types")}
+    body.update(
+        {
+            "pack_id": "pack_1",
+            "version": 1,
+            "content_hash": "ab" * 32,
+            "released_at": "2026-10-05T12:00:00Z",
+            "status": "released",
+            "addenda": [],
+            "conditions": DEMO_CONDITIONS,
+            "business_summary": (
+                "The cross-border remittance service can launch once the payout "
+                "partner's review for this corridor is on file."
+            ),
+        }
+    )
+    return FakeDecisionService(body)
+
+
+@pytest.fixture
+def decision_votes_client(decision_service: FakeDecisionService) -> DecisionVotesClient:
+    return DecisionVotesClient(decision_service.client("decision"))
+
+
+@pytest.fixture
+def closing_case_client(closing_case_service: FakeClosingCaseService) -> CaseClient:
+    return CaseClient(closing_case_service.client("case"))
+
+
+@pytest.fixture
+def decision_deps_factory(
+    recording_audit: RecordingAudit,
+    closing_case_client: CaseClient,
+    decision_votes_client: DecisionVotesClient,
+) -> Callable[..., StepDeps]:
+    """Builds the :class:`StepDeps` a decision-core handler gets, over the fakes."""
+
+    def build(run: Optional[CaseRun] = None, **overrides: Any) -> StepDeps:
+        values: dict[str, Any] = {
+            "run": run if run is not None else make_run(state=CaseState.DECIDE),
+            "audit": recording_audit,
+            "case": closing_case_client,
+            "decision_votes": decision_votes_client,
             **overrides,
         }
         return StepDeps(**values)

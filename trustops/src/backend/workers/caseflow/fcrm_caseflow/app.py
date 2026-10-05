@@ -48,6 +48,7 @@ from pymongo import AsyncMongoClient
 from fcrm_caseflow.audit_client import AuditClient
 from fcrm_caseflow.audit_map import STEP_FOR
 from fcrm_caseflow.clients.case_client import CaseClient
+from fcrm_caseflow.clients.decision_votes_client import DecisionVotesClient
 from fcrm_caseflow.clients.policy_client import PolicyClient
 from fcrm_caseflow.consumers import (
     AgentResultsConsumer,
@@ -189,6 +190,7 @@ def build_unit(
     audit_http = _service_client(settings, settings.audit_service_url, "audit")
     case_http = _service_client(settings, settings.case_service_url, "case")
     policy_http = _service_client(settings, settings.policy_service_url, "policy")
+    decision_http = _service_client(settings, settings.decision_service_url, "decision")
     db = mongo[db_name]
     consumed = db[CONSUMED_MESSAGES_COLLECTION]
     outbox_collection = db[OUTBOX_COLLECTION]
@@ -218,6 +220,7 @@ def build_unit(
         case=CaseClient(case_http),
         policy=PolicyClient(policy_http),
         agent_results=results_store,
+        decision_votes=DecisionVotesClient(decision_http),
     )
 
     case_events_consumer = CaseEventsConsumer(
@@ -279,6 +282,7 @@ def build_unit(
             audit_http.aclose,
             case_http.aclose,
             policy_http.aclose,
+            decision_http.aclose,
         ),
         checks=(ReadinessCheck("indexes", _indexes_check, critical=True),),
     )
