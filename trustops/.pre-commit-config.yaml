@@ -1,36 +1,40 @@
+# The project lives in trustops/ inside the trustops_fcrm repo (ADR-25).
+# pre-commit runs hooks from the git root, so entries carry the trustops/
+# prefix and `files` keeps Documents/ and FCRM_v2/ out of the Python hooks.
+files: ^trustops/
 repos:
   - repo: local
     hooks:
       - id: ruff-format
         name: ruff format
-        entry: uv run --project src ruff format
+        entry: uv run --project trustops/src ruff format
         language: system
         types: [python]
       - id: ruff-check
         name: ruff check
-        entry: uv run --project src ruff check --fix
+        entry: uv run --project trustops/src ruff check --fix
         language: system
         types: [python]
       - id: mypy
         name: mypy (changed packages)
-        entry: ops/scripts/mypy_changed.sh
+        entry: trustops/ops/scripts/mypy_changed.sh
         language: system
         types: [python]
         pass_filenames: false
       - id: pytest-unit
         name: pytest unit (changed packages)
-        entry: ops/scripts/pytest_changed.sh
+        entry: trustops/ops/scripts/pytest_changed.sh
         language: system
         types: [python]
         pass_filenames: false
       - id: governance-append-only
         name: governance tables are append-only
-        entry: ops/scripts/governance_append_only.py
+        entry: trustops/ops/scripts/governance_append_only.py
         language: system
         pass_filenames: false
         always_run: true
       - id: commit-msg-lint
         name: commit message references a decision
-        entry: ops/scripts/commit_msg_lint.py
+        entry: trustops/ops/scripts/commit_msg_lint.py
         language: system
         stages: [commit-msg]

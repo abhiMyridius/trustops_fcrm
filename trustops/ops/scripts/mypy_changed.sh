@@ -5,10 +5,10 @@
 # Written for the macOS system bash (3.2): no mapfile, no empty-array
 # expansion under `set -u`.
 set -eo pipefail
-cd "$(git rev-parse --show-toplevel)"
+cd "$(dirname "$0")/../.."   # the project root (trustops/), not the git root (ADR-25)
 export PATH="${HOME}/.local/bin:${PATH}"
 
-staged="$(git diff --cached --name-only --diff-filter=ACMR -- 'src/*.py' || true)"
+staged="$(git diff --cached --name-only --relative --diff-filter=ACMR -- 'src/*.py' || true)"
 
 args=""
 for unit in src/services/* src/workers/* src/packages/*; do

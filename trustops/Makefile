@@ -62,7 +62,7 @@ help: ## list targets
 bootstrap: tools ## uv sync the workspace, install git hooks, pull images
 	@if [ -f src/pyproject.toml ]; then $(UV) sync --project src --all-packages; else echo "bootstrap: no src/pyproject.toml, skipping uv sync"; fi
 	@if [ -f .pre-commit-config.yaml ] && git rev-parse --git-dir >/dev/null 2>&1 && [ -z "$(SKIP_HOOKS)" ]; then \
-		$(UV) run --project src pre-commit install --hook-type pre-commit --hook-type commit-msg; \
+		$(UV) run --project src pre-commit install -c .pre-commit-config.yaml --hook-type pre-commit --hook-type commit-msg; \
 	else echo "bootstrap: skipping pre-commit install"; fi
 	@$(MAKE) --no-print-directory pull
 

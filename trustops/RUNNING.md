@@ -5,7 +5,7 @@ How to set up the repo, run the checks, start the full stack and confirm that it
 Every command runs from the repo root, the folder that holds the `Makefile`. Running `make` from anywhere else fails with `No rule to make target`.
 
 ```bash
-cd ~/Downloads/Hackathon/trustops     # or wherever you cloned it
+cd ~/Downloads/Hackathon/trustops_fcrm/trustops     # or wherever you cloned it
 ```
 
 This file describes the state on 5 October 2026. If a step stops matching what you see, check `git log --oneline` first: every commit says what it adds and what it is still waiting on.

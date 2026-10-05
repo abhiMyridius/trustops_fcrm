@@ -5,7 +5,7 @@
 # (tests/conftest.py, pytest.ini, src/pyproject.toml, src/uv.lock) changed.
 # Written for the macOS system bash (3.2).
 set -eo pipefail
-cd "$(git rev-parse --show-toplevel)"
+cd "$(dirname "$0")/../.."   # the project root (trustops/), not the git root (ADR-25)
 export PATH="${HOME}/.local/bin:${PATH}"
 
 targets=""
@@ -22,7 +22,7 @@ while IFS= read -r file; do
       targets="${targets}"$'\n'"${file}" ;;
   esac
 done <<EOF
-$(git diff --cached --name-only --diff-filter=ACMR || true)
+$(git diff --cached --name-only --relative --diff-filter=ACMR || true)
 EOF
 
 if [ "${run_all}" -eq 1 ]; then

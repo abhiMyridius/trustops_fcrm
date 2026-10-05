@@ -12,8 +12,12 @@ from __future__ import annotations
 import logging
 import subprocess
 import sys
+from pathlib import Path
 
 logger = logging.getLogger("governance_append_only")
+
+# The project root (trustops/), which sits below the git root (ADR-25).
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def removed_rows() -> list[str]:
@@ -25,9 +29,11 @@ def removed_rows() -> list[str]:
             "--cached",
             "--unified=0",
             "--no-color",
+            "--relative",
             "--",
             "docs/governance",
         ],  # noqa: S607
+        cwd=PROJECT_ROOT,
         capture_output=True,
         text=True,
         check=True,
