@@ -27,7 +27,15 @@ ops/     compose, nginx, OPA, Mongo init, otel/grafana, scripts, runbooks, AWS p
 
 ## Quick start
 
-Arrives with the first build commit: `make bootstrap && make up && make seed-verify`, then `make demo` to drive case FCRM-2026-0151 end to end, and `make e2e` for the 21-scene suite. Everything runs locally with docker-compose; model calls go to Amazon Bedrock (`.env` from `.env.example`), or run fully offline with `FCRM_LLM_MODE=replay`.
+See [`RUNNING.md`](RUNNING.md) for setup, the checks, starting the full stack and confirming it works, including what is not wired yet. In short:
+
+```bash
+make bootstrap && make env && make keys
+make check && make test-int
+docker compose -f docker-compose.yaml -f compose.obs.yaml up -d --build --scale ingestion-worker=0 --scale context-worker=0
+```
+
+`make demo`, `make seed-verify` and `make e2e` still print "pending". They land with the integration wiring.
 
 ## Walkthrough and decision log
 
