@@ -1,0 +1,450 @@
+{
+ "agent": "intake",
+ "dataset": "intake/extraction-80",
+ "dataset_sha256": "1d53e364cfa7e767d744fee749473e2463ef506e4cfb39b64a00da9823df5277",
+ "producer": "live",
+ "n": 5,
+ "primary_metric": "field_extraction_accuracy",
+ "metrics": {
+  "field_extraction_accuracy": 1.0,
+  "source_span_accuracy": 1.0,
+  "category_f1": 0.0,
+  "gap_question_precision": 1.0,
+  "citation_validity": 1.0
+ },
+ "summaries": [
+  {
+   "name": "field_extraction_accuracy",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 9.0,
+   "denominator": 9.0,
+   "rows_scored": 1,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": true,
+   "description": "normalised exact value match per expected field",
+   "flags": []
+  },
+  {
+   "name": "source_span_accuracy",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 9.0,
+   "denominator": 9.0,
+   "rows_scored": 1,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "same doc/page, overlapping lines",
+   "flags": []
+  },
+  {
+   "name": "category_f1",
+   "kind": "deterministic",
+   "score": 0.0,
+   "numerator": 0.0,
+   "denominator": 10.0,
+   "rows_scored": 5,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": false,
+   "description": "micro-F1 over change types",
+   "flags": [
+    "fn ['new_geography', 'new_product', 'vendor_onboarding']",
+    "fn ['new_feature', 'process_change']",
+    "fn ['new_geography', 'vendor_onboarding']",
+    "fn ['new_geography', 'vendor_onboarding']",
+    "fn ['new_geography']"
+   ]
+  },
+  {
+   "name": "gap_question_precision",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 9.0,
+   "denominator": 9.0,
+   "rows_scored": 1,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "gap questions about really-absent fields",
+   "flags": []
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 9.0,
+   "denominator": 9.0,
+   "rows_scored": 1,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "FCRM-2026-0151",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "field_extraction_accuracy": 1.0,
+    "source_span_accuracy": 1.0,
+    "category_f1": 0.0,
+    "gap_question_precision": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "category_f1: fn ['new_geography', 'new_product', 'vendor_onboarding']"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0151",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 2,
+    "input_tokens": 15509,
+    "output_tokens": 1949,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.025254,
+    "latency_s": 12.726,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 10,
+    "items_dropped": 0,
+    "claims_attempt1": 9,
+    "verified_attempt1": 9,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0080",
+   "case_id": "FCRM-2026-0080",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_feature', 'process_change']"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0080",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 3,
+    "input_tokens": 21800,
+    "output_tokens": 516,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.02438,
+    "latency_s": 7.252,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 6,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0097",
+   "case_id": "FCRM-2026-0097",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_geography', 'vendor_onboarding']"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0097",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 3,
+    "input_tokens": 21821,
+    "output_tokens": 1055,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.027096,
+    "latency_s": 18.702,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 13,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0109",
+   "case_id": "FCRM-2026-0109",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_geography', 'vendor_onboarding']"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0109",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 3,
+    "input_tokens": 21824,
+    "output_tokens": 880,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.026224,
+    "latency_s": 8.179,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 13,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0144",
+   "case_id": "FCRM-2026-0144",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_geography']"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0144",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 3,
+    "input_tokens": 21806,
+    "output_tokens": 510,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.024356,
+    "latency_s": 9.431,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 6,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": []
+   }
+  }
+ ],
+ "timestamp": "2026-10-05T17:46:55.136667Z",
+ "usage": {
+  "calls": 14,
+  "retries": 0,
+  "blocked_rows": 0,
+  "failed_rows": 0,
+  "input_tokens": 102760,
+  "output_tokens": 4910,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.12731,
+  "latency_p50_s": 9.431,
+  "latency_max_s": 18.702,
+  "models": [
+   "Haiku 4.5"
+  ]
+ },
+ "judge_usage": null,
+ "sampled": {
+  "n": 5,
+  "of": 80,
+  "seed": 7,
+  "strategy": "demo+uniform",
+  "row_ids": [
+   "FCRM-2026-0151",
+   "FCRM-2026-0080",
+   "FCRM-2026-0097",
+   "FCRM-2026-0109",
+   "FCRM-2026-0144"
+  ],
+  "demo_row_ids": [
+   "FCRM-2026-0151"
+  ]
+ },
+ "judge": "fake"
+}

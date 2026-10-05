@@ -1,0 +1,444 @@
+{
+ "agent": "narrative",
+ "dataset": "narrative/recommendation-66",
+ "dataset_sha256": "31ea644339aa24f93d2495af1d4786843f48900262cd74d132e923bb8aac409e",
+ "producer": "live",
+ "n": 5,
+ "primary_metric": "number_grounding",
+ "metrics": {},
+ "summaries": [
+  {
+   "name": "number_grounding",
+   "kind": "deterministic",
+   "score": null,
+   "numerator": 0.0,
+   "denominator": 0.0,
+   "rows_scored": 0,
+   "threshold": 1.0,
+   "threshold_source": "design_b",
+   "passed": null,
+   "primary": true,
+   "description": "numbers in text appear in the inputs (Guard 4 check)",
+   "flags": []
+  },
+  {
+   "name": "narrative_restricted_terms",
+   "kind": "deterministic",
+   "score": null,
+   "numerator": 0.0,
+   "denominator": 0.0,
+   "rows_scored": 0,
+   "threshold": 1.0,
+   "threshold_source": "design_b",
+   "passed": null,
+   "primary": false,
+   "description": "business summaries with zero restricted terms",
+   "flags": []
+  },
+  {
+   "name": "conditions_traceable",
+   "kind": "deterministic",
+   "score": null,
+   "numerator": 0.0,
+   "denominator": 0.0,
+   "rows_scored": 0,
+   "threshold": 1.0,
+   "threshold_source": "design_b",
+   "passed": null,
+   "primary": false,
+   "description": "condition sources are weak/planned/gap refs",
+   "flags": []
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": null,
+   "numerator": 0.0,
+   "denominator": 0.0,
+   "rows_scored": 0,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": null,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  },
+  {
+   "name": "narrative_faithfulness",
+   "kind": "llm_judge",
+   "score": null,
+   "numerator": 0.0,
+   "denominator": 0.0,
+   "rows_scored": 0,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": null,
+   "primary": false,
+   "description": "narrative_faithfulness via injected judge (k=3)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "FCRM-2026-0151",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "number_grounding": null,
+    "narrative_restricted_terms": null,
+    "conditions_traceable": null,
+    "citation_validity": null,
+    "narrative_faithfulness": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0151",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "output_shape",
+    "reason": "attempt 2: model call failed: Exceeded maximum output retries (0)",
+    "attempts": 2,
+    "calls": 5,
+    "input_tokens": 31532,
+    "output_tokens": 3270,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.073231,
+    "latency_s": 31.732,
+    "models": [
+     "Haiku 4.5",
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0]: source_resolves failed (unresolved source control:CTL-T01@9); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0090",
+   "case_id": "FCRM-2026-0090",
+   "metrics": {
+    "number_grounding": null,
+    "narrative_restricted_terms": null,
+    "conditions_traceable": null,
+    "citation_validity": null,
+    "narrative_faithfulness": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0090",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "output_shape",
+    "reason": "narrative attempt 2 failed: 1 item(s) invalid after retry",
+    "attempts": 2,
+    "calls": 5,
+    "input_tokens": 29159,
+    "output_tokens": 1279,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.053561,
+    "latency_s": 16.59,
+    "models": [
+     "Haiku 4.5",
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0]: source_resolves failed (unresolved source record:FCRM-2026-0090#1); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0091",
+   "case_id": "FCRM-2026-0091",
+   "metrics": {
+    "number_grounding": null,
+    "narrative_restricted_terms": null,
+    "conditions_traceable": null,
+    "citation_validity": null,
+    "narrative_faithfulness": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0091",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "output_shape",
+    "reason": "attempt 2: model call failed: Exceeded maximum output retries (0)",
+    "attempts": 2,
+    "calls": 4,
+    "input_tokens": 23815,
+    "output_tokens": 1570,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.051855,
+    "latency_s": 21.728,
+    "models": [
+     "Haiku 4.5",
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0]: source_resolves failed (unresolved source record:FCRM-2026-0091#0); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0098",
+   "case_id": "FCRM-2026-0098",
+   "metrics": {
+    "number_grounding": null,
+    "narrative_restricted_terms": null,
+    "conditions_traceable": null,
+    "citation_validity": null,
+    "narrative_faithfulness": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0098",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "output_shape",
+    "reason": "narrative attempt 2 failed: 1 item(s) invalid after retry",
+    "attempts": 2,
+    "calls": 5,
+    "input_tokens": 29189,
+    "output_tokens": 1485,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.055102,
+    "latency_s": 18.575,
+    "models": [
+     "Haiku 4.5",
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0]: source_resolves failed (unresolved source record:FCRM-2026-0098#0); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0129",
+   "case_id": "FCRM-2026-0129",
+   "metrics": {
+    "number_grounding": null,
+    "narrative_restricted_terms": null,
+    "conditions_traceable": null,
+    "citation_validity": null,
+    "narrative_faithfulness": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0129",
+    "status": "blocked",
+    "verdict": "blocked",
+    "stopped_at": "output_shape",
+    "reason": "narrative attempt 2 failed: 1 item(s) invalid after retry",
+    "attempts": 2,
+    "calls": 5,
+    "input_tokens": 29220,
+    "output_tokens": 1601,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.056349,
+    "latency_s": 20.683,
+    "models": [
+     "Haiku 4.5",
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "blocked",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0]: source_resolves failed (unresolved source record:FCRM-2026-0129#0); fix it from the sources shown or drop any item you cannot source"
+    ]
+   }
+  }
+ ],
+ "timestamp": "2026-10-05T17:46:55.136667Z",
+ "usage": {
+  "calls": 24,
+  "retries": 5,
+  "blocked_rows": 5,
+  "failed_rows": 0,
+  "input_tokens": 142915,
+  "output_tokens": 9205,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.290098,
+  "latency_p50_s": 20.683,
+  "latency_max_s": 31.732,
+  "models": [
+   "Haiku 4.5",
+   "Sonnet 5.5"
+  ]
+ },
+ "judge_usage": null,
+ "sampled": {
+  "n": 5,
+  "of": 66,
+  "seed": 7,
+  "strategy": "demo+uniform",
+  "row_ids": [
+   "FCRM-2026-0151",
+   "FCRM-2026-0090",
+   "FCRM-2026-0091",
+   "FCRM-2026-0098",
+   "FCRM-2026-0129"
+  ],
+  "demo_row_ids": [
+   "FCRM-2026-0151"
+  ]
+ },
+ "judge": "fake"
+}
