@@ -138,17 +138,18 @@ class TestGateToOpen:
         result = gate_to_open(Trigger.CASE_LOCKED, TransitionContext())
         assert result is GateType.PACK_RELEASE
 
-    def test_agent_done_intake_opens_po_confirm_category_gate(self) -> None:
-        assert (
-            gate_to_open(Trigger.AGENT_DONE_INTAKE, TransitionContext())
-            is GateType.PO_CONFIRM_CATEGORY
-        )
+    def test_agent_done_intake_opens_no_combined_gate_any_more(self) -> None:
+        """ADR-28: one ``po_confirm_category`` gate per proposed change type
+        now comes from the ``intake.publish`` step's result, not from this
+        table.
+        """
+        assert gate_to_open(Trigger.AGENT_DONE_INTAKE, TransitionContext()) is None
 
-    def test_agent_done_assess_both_opens_review_item_gate(self) -> None:
-        assert (
-            gate_to_open(Trigger.AGENT_DONE_ASSESS_BOTH, TransitionContext())
-            is GateType.REVIEW_ITEM
-        )
+    def test_agent_done_assess_both_opens_no_combined_gate_any_more(self) -> None:
+        """One ``review_item`` gate per clause, rating, control and critic
+        finding now comes from the ``assess.publish`` step's result.
+        """
+        assert gate_to_open(Trigger.AGENT_DONE_ASSESS_BOTH, TransitionContext()) is None
 
     def test_review_item_opens_ack_only_on_a_band_change_or_boundary_flag(self) -> None:
         assert (
@@ -198,3 +199,23 @@ class TestBuildJobEnvelope:
         payload = JobPayload.model_validate(env.payload)
         assert payload.scope == "changed_fields"
         assert payload.changed_fields == ["a", "b"]
+
+    def test_refs_default_to_empty(self) -> None:
+        env = build_job_envelope(AgentDispatch(AgentName.CRITIC), _run())
+        assert JobPayload.model_validate(env.payload).refs == {}
+
+    def test_refs_become_the_job_payload_refs(self) -> None:
+        refs = {"mode": "completeness", "submission_version": 2}
+        env = build_job_envelope(
+            AgentDispatch(AgentName.NARRATIVE, scope="completeness"),
+            _run(),
+            refs=refs,
+        )
+        assert JobPayload.model_validate(env.payload).refs == refs
+        assert env.payload["refs"] == refs
+
+    def test_the_refs_are_copied_not_shared_with_the_caller(self) -> None:
+        refs = {"mode": "completeness"}
+        env = build_job_envelope(AgentDispatch(AgentName.NARRATIVE), _run(), refs=refs)
+        refs["mode"] = "recommendation"
+        assert env.payload["refs"] == {"mode": "completeness"}

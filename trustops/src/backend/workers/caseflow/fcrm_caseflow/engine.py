@@ -31,27 +31,41 @@ COMPLETENESS`` self-loop) would otherwise start a fresh exclusion set and
 wrongly re-fire ``COMPLETENESS_DISPATCH`` a second time — a real bug this
 package's own tests caught; see ``dispatched_in_state``'s docstring for
 the fix.
+
+**Steps (ADR-28).** Work that needs HTTP cannot run in this transaction (it
+may be re-run, and a slow call would hold it open). When a trigger is in the
+engine's ``step_map`` (:data:`fcrm_caseflow.audit_map.STEP_FOR`),
+:meth:`CaseflowEngine._persist_and_dispatch` enqueues a ``harness.step``
+through the outbox in the same transaction, with an id derived from the
+triggering message so a redelivery re-derives it, and records it in the
+run's ``pending_steps``. While any step is pending
+:meth:`CaseflowEngine._chain_internal` does not chain.
+:meth:`CaseflowEngine.complete_step` closes a step in one short transaction
+and only then lets the chain continue. See :mod:`fcrm_caseflow.steps`.
 """
 
 from __future__ import annotations
 
 import dataclasses
 import logging
-from typing import Any, Optional
+from collections.abc import Awaitable, Callable, Mapping
+from typing import Any, Optional, Protocol
 
 from fcrm_common.events import build_envelope
-from fcrm_common.ids import new_id
-from fcrm_common.mongo import Document
+from fcrm_common.ids import deterministic_id, new_id
+from fcrm_common.mongo import Document, with_transaction
 from fcrm_common.outbox import Outbox
 from fcrm_contracts.api.audit import RecordAppend
 from fcrm_contracts.common import GateDecision, Principal
-from fcrm_contracts.enums import CaseState, GateType, Role
+from fcrm_contracts.enums import CaseState, GateType, Role, StepKind
 from fcrm_contracts.events.envelope import Envelope
-from fcrm_contracts.events.payloads import GateOpened
+from fcrm_contracts.events.payloads import GateOpened, HarnessStep
 from fcrm_guardrails.base import AUDIT_TYPES, GuardName, GuardResult, GuardStatus
+from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from fcrm_caseflow.audit_client import AuditClient
+from fcrm_caseflow.audit_map import STEP_FOR
 from fcrm_caseflow.dispatch import (
     REQUIRED_ROLE,
     DispatchPlan,
@@ -70,6 +84,7 @@ from fcrm_caseflow.resolve import (
     gate_decided_trigger,
     resolve_simple,
 )
+from fcrm_caseflow.steps import GateSpec, StepResult
 from fcrm_caseflow.store import (
     CaseRun,
     CaseRunStore,
@@ -82,6 +97,31 @@ from fcrm_caseflow.triggers import Trigger
 logger = logging.getLogger(__name__)
 
 _INTERNAL_PREFIX = "internal."
+
+
+class Transact(Protocol):
+    """Runs ``fn(session)`` in one Mongo transaction and returns its result.
+
+    :func:`mongo_transact` is the production implementation; a test passes a
+    function that calls ``fn`` with a fake session. As with
+    :func:`fcrm_common.mongo.with_transaction`, ``fn`` may run more than once,
+    so it must do every write through ``session`` and nothing else.
+    """
+
+    async def __call__[R](self, fn: Callable[[AsyncClientSession], Awaitable[R]]) -> R:
+        """Run ``fn`` transactionally."""
+        ...
+
+
+def mongo_transact(client: AsyncMongoClient[Document]) -> Transact:
+    """A :class:`Transact` over ``client``'s replica set
+    (:func:`fcrm_common.mongo.with_transaction`).
+    """
+
+    async def transact[R](fn: Callable[[AsyncClientSession], Awaitable[R]]) -> R:
+        return await with_transaction(client, fn)
+
+    return transact
 
 
 class OrphanEventError(Exception):
@@ -102,7 +142,22 @@ class DuplicateCaseCreatedError(Exception):
 
 
 class CaseflowEngine:
-    """Applies one envelope's worth of state-machine work."""
+    """Applies one envelope's worth of state-machine work, and closes the
+    harness steps its transitions enqueue.
+
+    Args:
+        runs: ``case_runs`` / ``run_events``.
+        gates: ``gates``.
+        outbox: The transactional outbox every announcement goes through.
+        audit: S4, for the per-transition audit record.
+        step_map: Trigger -> step kind. A trigger in the map enqueues that
+            step in the transaction that applied it. Defaults to
+            :data:`fcrm_caseflow.audit_map.STEP_FOR` (empty until the cores
+            land); tests inject entries.
+        transact: Opens the one short transaction :meth:`complete_step` runs
+            in (:func:`mongo_transact`). ``handle`` never needs it: its caller
+            already owns the transaction. Without it ``complete_step`` raises.
+    """
 
     def __init__(
         self,
@@ -110,11 +165,16 @@ class CaseflowEngine:
         gates: GateStore,
         outbox: Outbox,
         audit: AuditClient,
+        *,
+        step_map: Mapping[Trigger, StepKind] = STEP_FOR,
+        transact: Optional[Transact] = None,
     ) -> None:
         self._runs = runs
         self._gates = gates
         self._outbox = outbox
         self._audit = audit
+        self._step_map = step_map
+        self._transact = transact
 
     async def handle(
         self, envelope: Envelope, session: Optional[AsyncClientSession]
@@ -173,7 +233,7 @@ class CaseflowEngine:
             # this run if this call does not. A found gap, same shape as
             # D-15 — see the package report.
             base_ctx = TransitionContext(flags=run.snapshot.flags, band=run.band)
-            await self._chain_internal(run, base_ctx, session)
+            await self._chain_internal(run, base_ctx, session, envelope.event_id)
             return
         trigger, ctx = resolution
         await self._apply_and_chain(
@@ -197,6 +257,16 @@ class CaseflowEngine:
             trace_id=envelope.trace_id,
         )
         run = await self._runs.create(document, session=session)
+        # Opening a run is not a state transition, but it can still start a
+        # step (``intake.open``: field set, ``workflow.started``).
+        await self._enqueue_step_for(
+            run,
+            Trigger.CASE_CREATED,
+            envelope.event_id,
+            envelope.event_id,
+            envelope.payload,
+            session,
+        )
         await self._write_audit_raw(
             case_id=run.snapshot.case_id,
             trigger_value="case.created",
@@ -360,7 +430,7 @@ class CaseflowEngine:
         run: CaseRun,
         trigger: Trigger,
         ctx: TransitionContext,
-        message_id: Optional[str],
+        message_id: str,
         payload: dict[str, Any],
         session: AsyncClientSession,
     ) -> None:
@@ -369,11 +439,14 @@ class CaseflowEngine:
             flags=run.snapshot.flags,
             band=ctx.band if ctx.band is not None else run.band,
         )
+        # The guards that read open-gate counts see H1's own gates, never a
+        # value a payload carried (resolve.H1_DERIVED_CONTEXT_FIELDS).
+        ctx = await self._refresh_gate_derived_ctx(run, ctx, session)
         result = apply(run.state, trigger, ctx)
         run = await self._persist_and_dispatch(
-            run, trigger, ctx, result, message_id, payload, session
+            run, trigger, ctx, result, message_id, message_id, payload, session
         )
-        await self._chain_internal(run, ctx, session)
+        await self._chain_internal(run, ctx, session, message_id)
 
     async def _persist_and_dispatch(
         self,
@@ -382,9 +455,18 @@ class CaseflowEngine:
         ctx: TransitionContext,
         result: TransitionResult,
         message_id: Optional[str],
+        origin: str,
         payload: dict[str, Any],
         session: AsyncClientSession,
     ) -> CaseRun:
+        """Persist one applied transition and everything it announces.
+
+        ``origin`` is the id of the envelope or completed step whose handling
+        led here. A chained (internal) trigger has no message of its own
+        (``message_id is None``), so a step it enqueues derives its id from
+        ``origin`` plus the trigger: stable across redeliveries of the
+        message that started the chain.
+        """
         new_flags = next_flags(trigger, ctx, run.snapshot.flags)
         run = await self._runs.apply_transition(
             run,
@@ -400,6 +482,9 @@ class CaseflowEngine:
             await self._runs.set_band(run.snapshot.run_id, ctx.band, session=session)
             run = dataclasses.replace(run, band=ctx.band)
         await self._dispatch(run, trigger, ctx, payload, session)
+        run = await self._enqueue_step_for(
+            run, trigger, message_id, origin, payload, session
+        )
         await self._write_audit(run, trigger, result)
         return run
 
@@ -441,12 +526,25 @@ class CaseflowEngine:
             required_role=required_role,
         )
         await self._gates.open(document, session=session)
+        await self._announce_gate_opened(
+            run, gate_id, gate_type, required_role, {}, session
+        )
+
+    async def _announce_gate_opened(
+        self,
+        run: CaseRun,
+        gate_id: str,
+        gate_type: GateType,
+        required_role: Role,
+        subject: Mapping[str, str],
+        session: AsyncClientSession,
+    ) -> None:
         opened = GateOpened(
             gate_id=gate_id,
             gate_type=gate_type,
             case_id=run.snapshot.case_id,
             run_id=run.snapshot.run_id,
-            subject={},
+            subject=dict(subject),
             required_role=required_role.value,
         )
         env = build_envelope(
@@ -462,6 +560,7 @@ class CaseflowEngine:
         run: CaseRun,
         ctx: TransitionContext,
         session: AsyncClientSession,
+        origin: str,
     ) -> None:
         """Auto-fire internal triggers until none are left legal from the
         current state. ``run.dispatched_in_state`` (already correct by the
@@ -472,8 +571,24 @@ class CaseflowEngine:
         ``engine.handle()`` call that happens to leave the run in the same
         state (see :class:`~fcrm_caseflow.store.CaseRun.dispatched_in_state`'s
         docstring for the bug this specifically fixes).
+
+        Returns without chaining while a harness step is pending: the step's
+        result (gates opened, agents dispatched) decides what the next
+        trigger's guard sees, so :meth:`complete_step` resumes the chain once
+        the step is done. A trigger that enqueues a step mid-chain stops the
+        chain at that point for the same reason.
+
+        ``origin`` is the id of the envelope or completed step that started
+        this chain (see :meth:`_persist_and_dispatch`).
         """
         while True:
+            if run.pending_steps:
+                logger.debug(
+                    "internal chain waits for %d pending step(s)",
+                    len(run.pending_steps),
+                    extra={"case_id": run.snapshot.case_id},
+                )
+                return
             ctx = await self._refresh_gate_derived_ctx(run, ctx, session)
             candidate = self._first_internal_trigger(
                 run.state, ctx, run.dispatched_in_state
@@ -482,7 +597,210 @@ class CaseflowEngine:
                 return
             result = apply(run.state, candidate, ctx)
             run = await self._persist_and_dispatch(
-                run, candidate, ctx, result, None, {}, session
+                run, candidate, ctx, result, None, origin, {}, session
+            )
+
+    # -- harness steps (ADR-28) ------------------------------------------
+
+    async def _enqueue_step_for(
+        self,
+        run: CaseRun,
+        trigger: Trigger,
+        message_id: Optional[str],
+        origin: str,
+        payload: dict[str, Any],
+        session: AsyncClientSession,
+    ) -> CaseRun:
+        """Enqueue the step ``trigger`` maps to, if any, in this transaction."""
+        kind = self._step_map.get(trigger)
+        if kind is None:
+            return run
+        trigger_id = f"{origin}/{trigger.value}" if message_id is None else message_id
+        args = {"trigger": trigger.value, "message_id": message_id, "payload": payload}
+        return await self._enqueue_step(run, kind, trigger_id, args, session)
+
+    async def _enqueue_step(
+        self,
+        run: CaseRun,
+        kind: StepKind,
+        trigger_id: str,
+        args: Mapping[str, Any],
+        session: AsyncClientSession,
+    ) -> CaseRun:
+        """Mark a step pending and publish its ``harness.step`` through the
+        outbox, both in ``session``'s transaction. The id is
+        ``deterministic_id("step", run_id, kind, trigger_id)``: the same
+        triggering message always yields the same step.
+        """
+        run_id, case_id = run.snapshot.run_id, run.snapshot.case_id
+        step_id = deterministic_id("step", run_id, kind.value, trigger_id)
+        await self._runs.add_pending_step(run_id, step_id, session=session)
+        body = HarnessStep(
+            step_id=step_id, step=kind, case_id=case_id, run_id=run_id, args=dict(args)
+        )
+        envelope = build_envelope(
+            "harness.step",
+            body.model_dump(mode="json"),
+            case_id=case_id,
+            run_id=run_id,
+        )
+        await self._outbox.enqueue(session, envelope)
+        if step_id in run.pending_steps:
+            return run
+        return dataclasses.replace(run, pending_steps=(*run.pending_steps, step_id))
+
+    async def complete_step(
+        self,
+        run_id: str,
+        step_id: str,
+        result: StepResult,
+        *,
+        step: Optional[StepKind] = None,
+    ) -> None:
+        """Close a harness step in ONE short transaction, exactly once.
+
+        In that transaction: record the ``step_done`` run event (a step that
+        already has one is a no-op, so redelivery and replay are safe), drop
+        the step from ``pending_steps``, open each gate in ``result`` with a
+        deterministic id (an existing gate is left alone and announced no
+        second time), publish the agent jobs, enqueue the follow-up steps,
+        announce the UI events, merge refs, bump counters, record the band,
+        and finally resume the internal chain (which proceeds only if no step
+        is still pending).
+
+        Args:
+            run_id: The run the step belongs to.
+            step_id: The step's deterministic id (``HarnessStep.step_id``).
+            result: What the handler asked for.
+            step: The step's kind, kept on the ``step_done`` row for the
+                reader of ``run_events``.
+
+        Raises:
+            ValueError: the engine was built without a ``transact``.
+            OrphanEventError: no run ``run_id``.
+            fcrm_common.events.UnknownEventTypeError: a ``UiEvent`` names an
+                uncatalogued type (the whole transaction rolls back).
+            pymongo.errors.PyMongoError: Mongo failed; the step is retried.
+        """
+        if self._transact is None:
+            raise ValueError(
+                "complete_step needs the engine's transact (fcrm_caseflow.engine"
+                ".mongo_transact) to open its transaction"
+            )
+
+        async def work(session: AsyncClientSession) -> None:
+            await self._complete_step_in(run_id, step_id, result, step, session)
+
+        await self._transact(work)
+
+    async def _complete_step_in(
+        self,
+        run_id: str,
+        step_id: str,
+        result: StepResult,
+        step: Optional[StepKind],
+        session: AsyncClientSession,
+    ) -> None:
+        run = await self._runs.get(run_id, session=session)
+        if run is None:
+            raise OrphanEventError(f"step {step_id} names run {run_id}, which is gone")
+        if await self._runs.has_step_done(run_id, step_id, session=session):
+            logger.info(
+                "step already completed; nothing to apply",
+                extra={"case_id": run.snapshot.case_id, "step_id": step_id},
+            )
+            return
+        run = await self._runs.record_step_done(
+            run, step_id, step.value if step else "unknown", session=session
+        )
+        remaining = await self._runs.remove_pending_step(
+            run_id, step_id, session=session
+        )
+        run = dataclasses.replace(run, pending_steps=tuple(remaining))
+        run = await self._apply_step_result(run, step_id, result, session)
+        ctx = TransitionContext(flags=run.snapshot.flags, band=run.band)
+        await self._chain_internal(run, ctx, session, step_id)
+
+    async def _apply_step_result(
+        self,
+        run: CaseRun,
+        step_id: str,
+        result: StepResult,
+        session: AsyncClientSession,
+    ) -> CaseRun:
+        for spec in result.gates_to_open:
+            await self._open_step_gate(run, spec, session)
+        await self._dispatch_step_jobs(run, result, session)
+        for index, follow_up in enumerate(result.follow_up_steps):
+            run = await self._enqueue_step(
+                run,
+                follow_up.kind,
+                f"{step_id}/follow/{index}",
+                follow_up.args,
+                session,
+            )
+        for event in result.ui_events:
+            await self._outbox.enqueue(
+                session,
+                build_envelope(
+                    event.event_type,
+                    event.payload,
+                    case_id=run.snapshot.case_id,
+                    run_id=run.snapshot.run_id,
+                ),
+            )
+        await self._runs.merge_refs(
+            run.snapshot.run_id, result.refs_patch, session=session
+        )
+        await self._runs.bump_counters(
+            run.snapshot.run_id, result.counter_deltas, session=session
+        )
+        if result.band is not None and result.band != run.band:
+            await self._runs.set_band(run.snapshot.run_id, result.band, session=session)
+            run = dataclasses.replace(run, band=result.band)
+        return run
+
+    async def _open_step_gate(
+        self, run: CaseRun, spec: GateSpec, session: AsyncClientSession
+    ) -> None:
+        """Open ``spec`` with ``deterministic_id("gate", run, type, subject)``;
+        a gate that already exists is left alone and not announced again.
+        """
+        gate_id = deterministic_id(
+            "gate", run.snapshot.run_id, spec.gate_type.value, spec.subject_key
+        )
+        required_role = REQUIRED_ROLE[spec.gate_type]
+        document: Document = gate_document(
+            gate_id=gate_id,
+            case_id=run.snapshot.case_id,
+            run_id=run.snapshot.run_id,
+            gate_type=spec.gate_type,
+            required_role=required_role,
+            subject=dict(spec.subject),
+        )
+        if not await self._gates.open_if_absent(document, session=session):
+            logger.info(
+                "gate already open; not announced again",
+                extra={"case_id": run.snapshot.case_id, "gate_id": gate_id},
+            )
+            return
+        await self._announce_gate_opened(
+            run, gate_id, spec.gate_type, required_role, spec.subject, session
+        )
+
+    async def _dispatch_step_jobs(
+        self, run: CaseRun, result: StepResult, session: AsyncClientSession
+    ) -> None:
+        jobs = result.agent_jobs_to_dispatch
+        for job in jobs:
+            await self._outbox.enqueue(
+                session, build_job_envelope(job.dispatch, run, refs=job.refs)
+            )
+        if len(jobs) > 1:
+            await self._runs.set_pending_agents(
+                run.snapshot.run_id,
+                [job.dispatch.agent.value for job in jobs],
+                session=session,
             )
 
     @staticmethod

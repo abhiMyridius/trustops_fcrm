@@ -92,13 +92,13 @@ async def test_a_dispatched_job_reaches_the_agent_worker_queue_through_the_relay
     async def _capture(msg: RabbitMessage) -> None:
         received.append(msg)
 
-    # The batch also contains the gate.opened announcement
-    # (AGENT_DONE_INTAKE opens the po_confirm_category gate) published onto
-    # case.events; give it somewhere to land too, exactly as the real
-    # caseflow.events queue's "#" binding would (otherwise TestRabbitBroker
-    # raises SubscriberNotFound on that row and the whole batch stops at
-    # the first unpublishable row, same as a real broker would behave if
-    # a routing key had no queue at all).
+    # Any case.events row in the batch (a gate.opened, a harness.step) needs
+    # somewhere to land, exactly as the real caseflow.events queue's "#"
+    # binding gives it one (otherwise TestRabbitBroker raises
+    # SubscriberNotFound on that row and the whole batch stops at the first
+    # unpublishable row, same as a real broker would behave if a routing key
+    # had no queue at all). This prelude no longer produces one: the
+    # AGENT_DONE_INTAKE gate now comes from the intake.publish step.
     @broker.subscriber(
         passive_queue("caseflow.events", routing_key="#"),
         passive_exchange(CASE_EVENTS_EXCHANGE),

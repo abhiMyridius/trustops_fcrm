@@ -20,7 +20,11 @@ from typing import Any, Optional
 from conftest import FakeCollection
 from faststream.rabbit import RabbitBroker, TestRabbitBroker
 from fcrm_caseflow.app import wire_subscribers
-from fcrm_caseflow.consumers import AgentResultsConsumer, CaseEventsConsumer
+from fcrm_caseflow.consumers import (
+    AgentResultsConsumer,
+    CaseEventsConsumer,
+    HarnessStepConsumer,
+)
 from fcrm_caseflow.publisher import FastStreamPublisher
 from fcrm_caseflow.topology import (
     AGENT_JOBS_EXCHANGE,
@@ -28,10 +32,34 @@ from fcrm_caseflow.topology import (
     passive_exchange,
     passive_queue,
 )
+from fcrm_common.events import Publisher
 from fcrm_common.ids import new_id
 from fcrm_common.time import utcnow
 from fcrm_contracts.events.envelope import Envelope
+from fcrm_contracts.events.payloads import HarnessStep
 from pymongo.asynchronous.client_session import AsyncClientSession
+
+
+class RecordingRunner:
+    """Stands in for :class:`~fcrm_caseflow.steps.StepRunner`: records every
+    step it is asked to run (its own behaviour is ``test_steps.py``'s job).
+    """
+
+    def __init__(self) -> None:
+        self.steps: list[HarnessStep] = []
+
+    async def run(self, step: HarnessStep) -> None:
+        self.steps.append(step)
+
+
+def _steps_consumer(
+    publisher: Publisher, runner: Optional[RecordingRunner] = None
+) -> HarnessStepConsumer:
+    return HarnessStepConsumer(
+        FakeCollection("consumed_messages"),
+        publisher,
+        runner=runner or RecordingRunner(),  # type: ignore[arg-type]
+    )
 
 
 class RecordingEngine:
@@ -77,7 +105,7 @@ async def test_a_case_events_message_reaches_the_case_events_consumer() -> None:
         publisher,
         engine=engine,  # type: ignore[arg-type]
     )
-    wire_subscribers(broker, case_events, agent_results)
+    wire_subscribers(broker, case_events, agent_results, _steps_consumer(publisher))
 
     case_events_exchange = passive_exchange(CASE_EVENTS_EXCHANGE)
     env = _env("case.created", {"actor": "u-pnair", "data": {}})
@@ -111,7 +139,7 @@ async def test_a_gate_decided_message_also_reaches_it_via_the_wildcard_binding()
         publisher,
         engine=engine,  # type: ignore[arg-type]
     )
-    wire_subscribers(broker, case_events, agent_results)
+    wire_subscribers(broker, case_events, agent_results, _steps_consumer(publisher))
 
     case_events_exchange = passive_exchange(CASE_EVENTS_EXCHANGE)
     env = _env("gate.decided", {"gate_id": "gate_1"})
@@ -142,7 +170,7 @@ async def test_agent_done_and_agent_failed_both_reach_the_agent_results_consumer
         publisher,
         engine=engine,  # type: ignore[arg-type]
     )
-    wire_subscribers(broker, case_events, agent_results)
+    wire_subscribers(broker, case_events, agent_results, _steps_consumer(publisher))
 
     agent_jobs_exchange = passive_exchange(AGENT_JOBS_EXCHANGE)
     done = _env("agent.done", {"agent": "research"})
@@ -180,7 +208,7 @@ async def test_an_agent_run_message_does_not_reach_either_caseflow_consumer() ->
         publisher,
         engine=engine,  # type: ignore[arg-type]
     )
-    wire_subscribers(broker, case_events, agent_results)
+    wire_subscribers(broker, case_events, agent_results, _steps_consumer(publisher))
 
     agent_jobs_exchange = passive_exchange(AGENT_JOBS_EXCHANGE)
 

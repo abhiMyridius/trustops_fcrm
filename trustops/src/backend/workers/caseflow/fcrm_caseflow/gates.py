@@ -123,6 +123,29 @@ class GateStore:
         """Insert a freshly opened gate."""
         await self._collection.insert_one(document, session=session)
 
+    async def open_if_absent(
+        self, document: Document, *, session: AsyncClientSession
+    ) -> bool:
+        """Insert ``document`` unless a gate with the same ``_id`` already
+        exists; returns whether *this call* created it.
+
+        For gates with a deterministic id (:func:`fcrm_common.ids
+        .deterministic_id`), where a retry derives the id it used before. It
+        is an upsert with ``$setOnInsert`` rather than ``insert_one`` plus a
+        caught ``DuplicateKeyError`` because inside a MongoDB transaction a
+        duplicate-key error aborts the whole transaction: catching it would
+        leave the caller committing a dead transaction. An existing gate (open
+        or decided) is left exactly as it is.
+        """
+        body = {k: v for k, v in document.items() if k != "_id"}
+        result = await self._collection.update_one(
+            {"_id": document["_id"]},
+            {"$setOnInsert": body},
+            upsert=True,
+            session=session,
+        )
+        return result.upserted_id is not None
+
     async def get(
         self, gate_id: str, *, session: Optional[AsyncClientSession] = None
     ) -> Optional[Document]:

@@ -13,6 +13,7 @@ from typing import Any, Optional
 
 import pytest
 from conftest import FakeCollection, FakeSession, RecordingAudit
+from fcrm_caseflow.dispatch import REQUIRED_ROLE
 from fcrm_caseflow.engine import (
     CaseflowEngine,
     DuplicateCaseCreatedError,
@@ -70,6 +71,24 @@ def _gate_decision_payload(
 
 async def _open_run(engine: CaseflowEngine, session: FakeSession) -> str:
     await engine.handle(_env("case.created", {"actor": "u-pnair", "data": {}}), session)
+
+
+async def _open_gate(
+    gate_store: GateStore, session: FakeSession, run_id: str, gate_type: GateType
+) -> None:
+    """Opens the one gate a (not yet registered) step would open, with the
+    required role the real engine gives that type.
+    """
+    await gate_store.open(
+        gate_document(
+            gate_id=new_id("gate"),
+            case_id=CASE_ID,
+            run_id=run_id,
+            gate_type=gate_type,
+            required_role=REQUIRED_ROLE[gate_type],
+        ),
+        session=session,
+    )
 
 
 def _published_agent_run_payloads(
@@ -240,7 +259,9 @@ class TestResearchAssessmentPairJoin:
         assert run.state is CaseState.CRITIC
         assert run.pending_agents == ()
         assert run.band == 2
-        assert await gate_store.count_open(CASE_ID, GateType.REVIEW_ITEM) == 1
+        # ADR-28: the join itself opens no review_item gate (the old combined
+        # stand-in is gone); the assess.publish step opens one per item.
+        assert await gate_store.count_open(CASE_ID, GateType.REVIEW_ITEM) == 0
         assert _published_agent_run_payloads(outbox_collection, AgentName.CRITIC)
 
 
@@ -347,13 +368,17 @@ class TestFullDemoLifecycle:
         assert run is not None
         run_id = run.snapshot.run_id
 
-        # INTAKE: a document, the intake agent, the one PO gate.
+        # INTAKE: a document, the intake agent. The transition opens no gate
+        # itself any more (ADR-28); the intake.publish step does, one per
+        # proposed change type, so the test opens the one it stands for.
         await engine.handle(
             _env("case.document_stored", {"doc_id": "doc_1"}, run_id=run_id), session
         )
         await engine.handle(
             _env("agent.done", {"agent": "intake"}, run_id=run_id), session
         )
+        assert await gate_store.count_open(CASE_ID, GateType.PO_CONFIRM_CATEGORY) == 0
+        await _open_gate(gate_store, session, run_id, GateType.PO_CONFIRM_CATEGORY)
         assert await gate_store.count_open(CASE_ID, GateType.PO_CONFIRM_CATEGORY) == 1
         po_gate = next(
             d
@@ -414,6 +439,9 @@ class TestFullDemoLifecycle:
         assert after_assess is not None
         assert after_assess.state is CaseState.CRITIC
         assert after_assess.band == 2
+        # What the assess.publish step opens: the review item the analyst
+        # will override below (the real step opens one per item).
+        await _open_gate(gate_store, session, run_id, GateType.REVIEW_ITEM)
 
         # CRITIC -> COMPLETENESS, narrative dispatched in completeness mode.
         await engine.handle(
@@ -651,6 +679,7 @@ class TestDispatchedInStateDoesNotRefireAcrossSeparateHandleCalls:
         await engine.handle(
             _env("agent.done", {"agent": "intake"}, run_id=run_id), session
         )
+        await _open_gate(gate_store, session, run_id, GateType.PO_CONFIRM_CATEGORY)
         po_gate = next(
             d
             for d in gate_store._collection.docs  # type: ignore[attr-defined]

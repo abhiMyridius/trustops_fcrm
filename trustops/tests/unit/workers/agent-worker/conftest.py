@@ -310,6 +310,12 @@ def recording_publisher() -> RecordingPublisher:
 
 
 @pytest.fixture
+def failing_publisher() -> RecordingPublisher:
+    """A publisher whose broker is down: every publish raises."""
+    return RecordingPublisher(fail=True)
+
+
+@pytest.fixture
 def recording_audit() -> RecordingAuditClient:
     return RecordingAuditClient()
 

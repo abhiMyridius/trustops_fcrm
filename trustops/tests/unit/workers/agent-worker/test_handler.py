@@ -74,9 +74,13 @@ async def test_handle_publishes_agent_done_and_writes_audit(
     assert len(done.output["accepted"]) == len(research_outputs)
     assert done.model == "fake-fixed-output"
 
-    assert len(recording_audit.records) == 1
-    assert recording_audit.records[0].type == "agent.done"
-    assert recording_audit.records[0].case_id == done.case_id
+    # The walkthrough vocabulary: Guard 2's permit and Guard 4's verdict. No
+    # ``agent.done`` record: H1 records what the agent proposed (``proposal.*``).
+    assert [r.type for r in recording_audit.records] == [
+        "guard.permit",
+        "guard.output",
+    ]
+    assert all(r.case_id == done.case_id for r in recording_audit.records)
 
 
 async def test_handle_publishes_agent_failed_on_permit_denial(
@@ -110,7 +114,11 @@ async def test_handle_publishes_agent_failed_on_permit_denial(
     assert failed.job_id == "job-research-1"
     assert failed.reason.startswith("permit_denied:")
 
-    assert recording_audit.records[0].type == "agent.failed"
+    assert [r.type for r in recording_audit.records] == [
+        "guard.permit",
+        "agent.failed",
+    ]
+    assert recording_audit.records[0].data["allowed"] is False
 
 
 async def test_handle_reports_agent_failed_on_context_pack_error(

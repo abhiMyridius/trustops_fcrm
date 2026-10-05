@@ -30,3 +30,11 @@ class CaseflowSettings(BaseServiceSettings):
     health_port: int = 9100
     prefetch: int = 16
     """Design A §4.1: Caseflow's own consumer prefetch."""
+    step_prefetch: int = 4
+    """How many ``harness.step`` messages run at once. A step makes HTTP calls
+    (S1/S2/S3/S4/S5), so the bound keeps the load on those services modest;
+    steps of one case are serialised regardless
+    (:class:`~fcrm_caseflow.steps.StepRunner`)."""
+    step_timeout_s: float = 120.0
+    """Deadline for one step handler; past it the step fails and is retried
+    rather than holding its case's lock for ever."""
