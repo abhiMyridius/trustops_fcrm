@@ -9,13 +9,37 @@ dependencies = [
   "fcrm-audit-service",
   "fcrm-caseflow",
   "fcrm-seed",
+  "fcrm-common",
+  "fcrm-agents",
+  "fcrm-agent-worker",
+  "fcrm-tools",
+  "fcrm-prompts",
   "pydantic>=2.9",
+  "pymongo>=4.13",
+  "pyyaml>=6.0",
 ]
 # fcrm-audit-service: the real hash chain (build_record, verify_chain,
 # build_demo_chain) that critic and examiner grounding resolve record refs
 # against. fcrm-caseflow: the real R4 predicate (is_fast_lane_candidate)
 # that labels the screening dataset. fcrm-seed is a runtime dependency here,
 # not test-only, because every dataset row is generated from it.
+# fcrm-agents, fcrm-agent-worker, fcrm-tools and fcrm-prompts are what a LIVE
+# run executes: the nine agent specs and guard chain, H2's run_agent_live and
+# live_model_for_slot (imported from fcrm_agent_worker.live_runtime, which
+# stays H2's module), the seed-backed tool registry and the prompt library.
+# fcrm-common and pymongo publish a run to fcrm_evals.eval_runs; pyyaml reads the model
+# price table from ai/models/tiers.yaml.
+
+[project.optional-dependencies]
+live = [
+  "deepeval==4.2.8",
+  "aiobotocore>=3.9,<4",
+]
+# The LLM judge (fcrm_evals.judge): DeepEval's metrics run on its
+# AmazonBedrockModel, which opens its own aiobotocore client. Imported lazily,
+# so fcrm_evals itself imports without them. The workspace root's dev group
+# installs this extra, so make check runs the judge tests; production images
+# are built with --no-dev and never carry it.
 
 [dependency-groups]
 dev = [
