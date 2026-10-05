@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from fcrm_common.settings import BaseServiceSettings
 
 
@@ -17,3 +19,7 @@ class ScoringSettings(BaseServiceSettings):
 
     app_name: str = "fcrm-scoring"
     seed_recompute_on_start: bool = True
+    case_service_url: Optional[str] = None
+    """S1's base URL, including its mount prefix (``.../api/fcrm``): the only
+    thing ``POST /simulate`` needs from outside. ``/score`` reads nothing and
+    works without it; unset, ``/simulate`` answers 503 rather than guess."""

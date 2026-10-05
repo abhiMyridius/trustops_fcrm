@@ -1154,3 +1154,44 @@ def make_score_push(
         )
 
     return _make
+
+
+# ── S2 simulate (lane I3-A) ─────────────────────────────────────────────────────
+@pytest.fixture
+def demo_score_view(demo_review_items: list[ReviewItemRow]) -> Any:
+    """What S1 answers ``GET /internal/cases/FCRM-2026-0151/score-request`` with
+    before the override: built by S1's own builder from the demo items (9.8,
+    Band 2); CTL-T01 is scored at 7.6 and its planned corridor review is listed
+    and left out.
+    """
+    from fcrm_case.domain.assessment import build_score_view
+
+    return build_score_view("FCRM-2026-0151", 3, demo_review_items)
+
+
+@pytest.fixture
+def stub_case_inputs(demo_score_view: Any) -> Callable[..., Any]:
+    """``stub_case_inputs(view=None, error=None)``: S2's source of case inputs,
+    canned. It answers ``view`` (the demo case as it stands when neither is
+    given) or raises ``error``, and keeps the case ids it was asked for in
+    ``.asked``.
+    """
+
+    class _Stub:
+        def __init__(self, view: Any, error: Optional[Exception]) -> None:
+            self.view = view
+            self.error = error
+            self.asked: list[str] = []
+
+        async def score_request(self, case_id: str) -> Any:
+            self.asked.append(case_id)
+            if self.error is not None:
+                raise self.error
+            return self.view
+
+    def _make(view: Any = None, error: Optional[Exception] = None) -> _Stub:
+        if view is None and error is None:
+            view = demo_score_view
+        return _Stub(view, error)
+
+    return _make

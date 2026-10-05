@@ -605,6 +605,17 @@
         "effect": "allow"
       },
       {
+        "id": "scoring-post-simulate-analyst",
+        "description": "analyst previews a control rating (POST /simulate); named so narrowing the analyst wildcard above cannot drop it",
+        "service": "scoring",
+        "method": "POST",
+        "path": "/simulate",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
         "id": "scoring-get-models-committee",
         "description": "committee reads scoring models",
         "service": "scoring",
@@ -1499,6 +1510,17 @@
         "service": "decision",
         "method": "POST",
         "path": "/threads/{thread_id}/answer",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-scoring-post-simulate",
+        "description": "A control-rating preview is the analyst's; the service account inherits the analyst's grants and scores of record only through POST /score",
+        "service": "scoring",
+        "method": "POST",
+        "path": "/simulate",
         "roles": [
           "fcrm_service"
         ],

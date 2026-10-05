@@ -51,9 +51,16 @@ SCORE_BODY: dict = {
     ],
 }
 
+SIMULATE_BODY: dict = {
+    "case_id": "FCRM-2026-0151",
+    "control_id": "CTL-T01",
+    "value": 4.5,
+}
+
 #: Every route S2 serves, as (method, path, json body or None).
 ROUTES: list[tuple[str, str, dict | None]] = [
     ("post", "/score", SCORE_BODY),
+    ("post", "/simulate", SIMULATE_BODY),
     ("get", "/models/active", None),
     ("get", "/models/3", None),
     ("get", "/routing/active", None),

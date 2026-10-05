@@ -3024,6 +3024,188 @@
         "title": "SearchResponse",
         "type": "object"
       },
+      "SimulateRequest": {
+        "additionalProperties": false,
+        "description": "What the analyst asks: which control, rated at what.",
+        "properties": {
+          "case_id": {
+            "minLength": 1,
+            "title": "Case Id",
+            "type": "string"
+          },
+          "control_id": {
+            "minLength": 1,
+            "title": "Control Id",
+            "type": "string"
+          },
+          "value": {
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "case_id",
+          "control_id",
+          "value"
+        ],
+        "title": "SimulateRequest",
+        "type": "object"
+      },
+      "SimulateResponse": {
+        "additionalProperties": false,
+        "description": "Both scores of the control's domain and of the case, with the band and\nthe boundary flag each time. The first five pairs are the web's contract;\n``route``, ``boundary_flag`` and ``boundary_distance`` are additive.",
+        "properties": {
+          "band": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Band",
+            "type": "array"
+          },
+          "boundary_distance": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            ],
+            "title": "Boundary Distance",
+            "type": "array"
+          },
+          "boundary_flag": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "title": "Boundary Flag",
+            "type": "array"
+          },
+          "ce": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Ce",
+            "type": "array"
+          },
+          "composite": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Composite",
+            "type": "array"
+          },
+          "domain": {
+            "$ref": "#/components/schemas/Domain"
+          },
+          "line": {
+            "title": "Line",
+            "type": "string"
+          },
+          "residual": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Residual",
+            "type": "array"
+          },
+          "retention": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Retention",
+            "type": "array"
+          },
+          "route": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Route",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "ce",
+          "retention",
+          "residual",
+          "composite",
+          "band",
+          "route",
+          "boundary_flag",
+          "boundary_distance",
+          "line"
+        ],
+        "title": "SimulateResponse",
+        "type": "object"
+      },
       "SubmissionDiffOutput": {
         "additionalProperties": false,
         "properties": {
@@ -5870,6 +6052,53 @@
           }
         ],
         "summary": "Score",
+        "tags": [
+          "scoring"
+        ]
+      }
+    },
+    "/api/fcrm/scoring/simulate": {
+      "post": {
+        "description": "What the case would score with one control at ``value``: both scores of\nthe control's domain and of the composite, each with its band and boundary\nflag. The analyst's preview before an override; it stores nothing, decides\nnothing, and is the engine that scores the case of record over S1's current\ninputs (a planned control is never among them, rule 7).",
+        "operationId": "S2_simulate_rating_simulate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Simulate Rating",
         "tags": [
           "scoring"
         ]

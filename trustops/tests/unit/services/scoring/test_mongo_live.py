@@ -14,15 +14,17 @@ from __future__ import annotations
 import os
 from collections.abc import Callable
 from contextlib import AbstractContextManager
+from typing import Any
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from fcrm_common.errors import install_error_handlers
 from fcrm_common.health import ReadinessProbe, build_health_router
-from fcrm_contracts.enums import Band
+from fcrm_contracts.enums import Band, Role
 from fcrm_scoring.lifespan import lifespan
 from fcrm_scoring.routes import router
+from fcrm_scoring.simulate import HttpCaseInputs, UnconfiguredCaseInputs
 from pymongo import AsyncMongoClient
 
 #: ``tests/conftest.py``'s ``live_client``: real lifespan, real HS256
@@ -129,3 +131,46 @@ def test_post_score_through_the_real_mongo_backed_store(
         response = client.post("/score", json=request)
         assert response.status_code == 200
         assert response.json()["band"] in {b.value for b in Band}
+
+
+def test_the_lifespan_leaves_simulate_refusing_until_the_case_service_is_set(
+    app: FastAPI, live_client: LiveClient
+) -> None:
+    with live_client(app):
+        assert isinstance(app.state.case_inputs, UnconfiguredCaseInputs)
+
+
+def test_the_lifespan_wires_the_case_service_from_the_setting_and_closes_it(
+    app: FastAPI, live_client: LiveClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CASE_SERVICE_URL", "http://case.invalid/api/fcrm")
+
+    with live_client(app):
+        assert isinstance(app.state.case_inputs, HttpCaseInputs)
+    # leaving the context ran the shutdown, which closed S2's one client
+
+
+def test_simulate_scores_over_the_model_mongo_holds(
+    app: FastAPI,
+    live_client: LiveClient,
+    wire_test_auth: Callable[[FastAPI], FastAPI],
+    act_as: Callable[[Role, str], None],
+    stub_case_inputs: Callable[..., Any],
+) -> None:
+    """The real lifespan and the Mongo-backed model, with S1 stubbed and the
+    caller acting as the analyst: the walkthrough's override preview, 9.8 in
+    Band 2 to 10.4 in Band 3.
+    """
+    with live_client(app) as client:
+        wire_test_auth(app)
+        act_as(Role.ANALYST, "u-riyer")
+        app.state.case_inputs = stub_case_inputs()
+
+        response = client.post(
+            "/simulate",
+            json={"case_id": "FCRM-2026-0151", "control_id": "CTL-T01", "value": 4.5},
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["composite"] == [9.8, 10.4]
+        assert response.json()["band"] == [2, 3]
