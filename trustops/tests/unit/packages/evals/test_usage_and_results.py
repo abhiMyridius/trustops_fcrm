@@ -16,6 +16,7 @@ from fcrm_evals.results import (
     TREND_FILE,
     TrendPoint,
     append_trend,
+    completion,
     gate_all,
     git_sha,
     link_latest,
@@ -269,3 +270,37 @@ def test_a_baseline_pointer_names_a_run_folder_and_a_missing_one_is_no_baseline(
     }
     assert load_baseline(tmp_path) == {}
     assert "holds no results" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("blocked", "failed", "status"),
+    [
+        (0, 0, GateStatus.PASS),
+        (20, 0, GateStatus.PASS),  # 80 of 100 completed: the floor
+        (21, 0, GateStatus.FAIL),
+        (10, 11, GateStatus.FAIL),  # blocked and failed rows both count
+        (100, 0, GateStatus.FAIL),
+    ],
+)
+async def test_a_gate_needs_four_fifths_of_the_rows_to_have_an_output(
+    stamp: datetime, blocked: int, failed: int, status: GateStatus
+) -> None:
+    """A primary metric over the few rows that completed reads as a pass for
+    an agent refused on the rest, so the gate also asks for completion."""
+    echo = await evaluate_agent(AgentName.SCREENING, EchoProducer(), timestamp=stamp)
+    result = echo.model_copy(
+        update={"usage": RunUsage(blocked_rows=blocked, failed_rows=failed)}
+    )
+    verdict = gate_all([result], {})[AgentName.SCREENING]
+    assert verdict.status is status
+    if status is GateStatus.FAIL:
+        done = result.n - blocked - failed
+        assert any(f"completed {done}/{result.n} rows" in r for r in verdict.reasons)
+    assert completion(result) == (result.n - blocked - failed) / result.n
+
+
+async def test_an_offline_result_has_no_completion_rule(stamp: datetime) -> None:
+    echo = await evaluate_agent(AgentName.SCREENING, EchoProducer(), timestamp=stamp)
+    assert echo.usage is None
+    assert completion(echo) is None
+    assert gate_all([echo], {})[AgentName.SCREENING].status is GateStatus.PASS

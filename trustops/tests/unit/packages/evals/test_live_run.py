@@ -3,6 +3,7 @@ verdicts, the files it writes and the gate command."""
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Callable
 from datetime import timedelta
@@ -283,6 +284,63 @@ async def test_the_gate_command_passes_and_fails_on_the_newest_result(
     )
     assert main([*args, "--agent", "screening"]) == 1
     assert main([*args, "--agent", "intake"]) == 2  # no result for it
+
+
+async def test_rerender_rebuilds_the_files_from_the_saved_results_without_a_model(
+    finished: Callable[..., Any],
+    tiers_config: Any,
+    results_root: Path,
+    unresolved_source_tamper: Callable[..., Any],
+) -> None:
+    outcome = await finished(tamper=unresolved_source_tamper)
+    gates = gate_all(outcome.results, {})
+    out = results_root / "run"
+    live_cli.write_run(
+        out=out,
+        root=results_root,
+        outcome=outcome,
+        gates=gates,
+        index=_index(outcome, gates, tiers_config),
+        make_baseline=True,
+    )
+    before = json.loads((out / GATE_FILE).read_text(encoding="utf-8"))
+    (out / "dashboard.html").unlink()
+    (out / GATE_FILE).unlink()
+    assert main(["rerender", "--results-root", str(results_root)]) == 0
+    assert json.loads((out / GATE_FILE).read_text(encoding="utf-8")) == before
+    assert (out / "dashboard.html").read_text(encoding="utf-8").count("<article") == 9
+    assert len(read_trend(results_root / TREND_FILE)) == 1
+
+
+async def test_rejudge_grades_the_saved_outputs_again_without_calling_an_agent(
+    finished: Callable[..., Any], tiers_config: Any, results_root: Path
+) -> None:
+    outcome = await finished()
+    gates = gate_all(outcome.results, {})
+    out = results_root / "run"
+    live_cli.write_run(
+        out=out,
+        root=results_root,
+        outcome=outcome,
+        gates=gates,
+        index=_index(outcome, gates, tiers_config),
+        make_baseline=False,
+    )
+    saved = json.loads((out / "screening.live.json").read_text(encoding="utf-8"))
+    args = ["rejudge", "--judge", "fake", "--results-root", str(results_root)]
+    assert await asyncio.to_thread(main, args) == 0
+    again = json.loads((out / "screening.live.json").read_text(encoding="utf-8"))
+    assert again["usage"] == saved["usage"]
+    assert again["sampled"] == saved["sampled"]
+    assert [c["row_id"] for c in again["per_case"]] == saved["sampled"]["row_ids"]
+    assert again["metrics"] == saved["metrics"]
+    index = json.loads((out / "index.json").read_text(encoding="utf-8"))
+    assert index["judge"] == "fake"
+    assert index["gates_pass"] == 2
+
+
+def test_rerender_of_an_empty_folder_is_an_error(results_root: Path) -> None:
+    assert main(["rerender", "--results", str(results_root / "nothing")]) == 2
 
 
 def test_the_cli_takes_the_live_options() -> None:

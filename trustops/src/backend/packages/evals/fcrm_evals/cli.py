@@ -7,6 +7,10 @@
   the agents on Bedrock over a sampled slice, grade them, write the run folder
   and the dashboard, optionally publish (:mod:`fcrm_evals.live_cli`).
 - ``gate --agent A``: the promotion gate on the newest live result.
+- ``rerender [--results D]``: rebuild a finished run's verdicts, report and
+  dashboard from its files, with no model call.
+- ``rejudge [--results D] [--judge bedrock|fake]``: grade a finished run's saved
+  outputs again (judge calls only; no agent is called).
 - ``selfcheck --out D``: the offline proof (echo perfect and passing,
   degraded failing the gate); writes results, ``gate.json`` and
   ``report.md``; exit code 1 if any expectation fails.
@@ -33,7 +37,11 @@ from fcrm_evals.datasets import build as dataset_build
 from fcrm_evals.live_cli import (
     add_gate_parser,
     add_live_arguments,
+    add_rejudge_parser,
+    add_rerender_parser,
     gate_command,
+    rejudge_command,
+    rerender_command,
     run_live_command,
 )
 from fcrm_evals.outputs import load_outputs
@@ -131,6 +139,8 @@ def _parser() -> argparse.ArgumentParser:
             cmd.add_argument("--outputs", type=Path, default=None)
             add_live_arguments(cmd)
     add_gate_parser(sub)
+    add_rerender_parser(sub)
+    add_rejudge_parser(sub)
     return parser
 
 
@@ -144,6 +154,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return dataset_build.main(["--check"] if args.check else [])
     if args.command == "gate":
         return gate_command(args)
+    if args.command == "rerender":
+        return rerender_command(args)
+    if args.command == "rejudge":
+        return asyncio.run(rejudge_command(args))
     if args.command == "run" and args.producer == "live":
         return asyncio.run(run_live_command(args))
     if args.command == "run":

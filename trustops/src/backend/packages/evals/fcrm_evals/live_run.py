@@ -41,9 +41,10 @@ from fcrm_evals.metrics.judge import JudgeFn
 from fcrm_evals.outputs import AgentOutput, dump_outputs
 from fcrm_evals.producers import produce_all
 from fcrm_evals.results import OUTPUTS_SUFFIX
+from fcrm_evals.rows import EvalRow
 from fcrm_evals.runner import EvalResult, arun
-from fcrm_evals.sampling import sample_rows
-from fcrm_evals.usage import PriceTable, UsageMeter, usage_of_rows
+from fcrm_evals.sampling import SampleInfo, sample_rows
+from fcrm_evals.usage import PriceTable, RunUsage, UsageMeter, usage_of_rows
 
 logger = logging.getLogger(__name__)
 
@@ -186,9 +187,41 @@ async def _run_agent(
     if config.spool is not None:
         config.spool.mkdir(parents=True, exist_ok=True)
         dump_outputs(outputs, config.spool / f"{agent.value}.{OUTPUTS_SUFFIX}")
-    usage = usage_of_rows(o.run for o in outputs if o.run is not None)
-    meter = UsageMeter(producer.prices)
-    kit = judge_factory(agent, meter, producer.packs, config)
+    result = await score_agent(
+        agent,
+        config,
+        rows,
+        info,
+        outputs,
+        usage_of_rows(o.run for o in outputs if o.run is not None),
+        packs=producer.packs,
+        prices=producer.prices,
+        judge_factory=judge_factory,
+        semaphore=judge_gate,
+        timestamp=timestamp,
+    )
+    return result, outputs
+
+
+async def score_agent(
+    agent: AgentName,
+    config: LiveRunConfig,
+    rows: Sequence[EvalRow],
+    info: SampleInfo,
+    outputs: Sequence[AgentOutput],
+    usage: Optional[RunUsage],
+    *,
+    packs: RowPackBuilder,
+    prices: PriceTable,
+    judge_factory: JudgeFactory,
+    semaphore: asyncio.Semaphore,
+    timestamp: datetime,
+) -> EvalResult:
+    """Score one agent's ``outputs`` on ``rows``: its deterministic metrics, and
+    the judge's where the judge applies. Used by a live run once the agent has
+    produced, and by a re-grade of a saved run (no agent call is made here)."""
+    meter = UsageMeter(prices)
+    kit = judge_factory(agent, meter, packs, config)
     suite = suite_for(agent, kit.judge_fn, votes=config.judge_votes, extra=kit.specs)
     result = await arun(
         agent,
@@ -197,7 +230,7 @@ async def _run_agent(
         outputs,
         primary_metric=suite.primary,
         rows=rows,
-        semaphore=judge_gate,
+        semaphore=semaphore,
         usage=usage,
         sampled=info,
         judge=config.judge,
@@ -206,7 +239,7 @@ async def _run_agent(
     if meter.calls or kit.failures():
         judged = meter.as_usage().model_copy(update={"failed_rows": kit.failures()})
         result = result.model_copy(update={"judge_usage": judged})
-    return result, outputs
+    return result
 
 
 async def run_live(
@@ -276,4 +309,5 @@ __all__ = [
     "bedrock_judge_kit",
     "fake_judge_kit",
     "run_live",
+    "score_agent",
 ]

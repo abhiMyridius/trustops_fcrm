@@ -322,9 +322,11 @@ async def test_the_judge_reads_what_the_agent_was_shown_not_the_dataset_row(
     assert case.actual_output.strip()
     assert case.retrieval_context == context_lines(pack)
     assert not any(line in ("(none)", "") for line in case.retrieval_context)
-    assert not any(
-        line.startswith("Case FCRM") and "submission v1" in line
-        for line in case.retrieval_context
+    # The identity line is something the agent was shown (which case it is
+    # answering about), so a claim that repeats it is supported, not invented.
+    assert any(
+        line.startswith(f"Case {row.case_id}") for line in case.retrieval_context
     )
+    assert not any(line.startswith("[showing") for line in case.retrieval_context)
     if agent is AgentName.EXAMINER:
         assert case.input == row.input["question"]

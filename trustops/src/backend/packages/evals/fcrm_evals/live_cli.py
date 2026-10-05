@@ -20,17 +20,30 @@ exits 1 on FAIL.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import logging
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final, Optional
 
+from fcrm_agents.models import load_tiers_config
 from fcrm_contracts.enums import AgentName
 
-from fcrm_evals.live_run import LiveRunConfig, LiveRunOutcome, run_live
-from fcrm_evals.outputs import dump_outputs
+from fcrm_evals.datasets import load
+from fcrm_evals.instructions import DEFAULT_AI_ROOT
+from fcrm_evals.live import LiveProducer
+from fcrm_evals.live_run import (
+    LiveRunConfig,
+    LiveRunOutcome,
+    bedrock_judge_kit,
+    fake_judge_kit,
+    run_live,
+    score_agent,
+)
+from fcrm_evals.outputs import AgentOutput, dump_outputs, load_outputs
 from fcrm_evals.pipeline import tolerance_for
 from fcrm_evals.publish import DEFAULT_DB, publish_to_uri
 from fcrm_evals.report import render
@@ -56,7 +69,7 @@ from fcrm_evals.results import (
     trend_point,
     write_baseline_pointer,
 )
-from fcrm_evals.runner import GateResult, GateStatus, gate_detail
+from fcrm_evals.runner import EvalResult, GateResult, GateStatus, gate_detail
 from fcrm_evals.usage import PriceTable
 
 logger = logging.getLogger(__name__)
@@ -249,6 +262,175 @@ async def run_live_command(args: argparse.Namespace) -> int:
     return 0
 
 
+@dataclass(frozen=True)
+class SavedRun:
+    """A finished run read back from its folder."""
+
+    folder: Path
+    meta: RunIndex
+    results: list[EvalResult]
+    outputs: dict[AgentName, list[AgentOutput]]
+
+
+def _load_saved(args: argparse.Namespace) -> Optional[SavedRun]:
+    """The run in ``--results`` (default: ``latest``), or ``None`` if none."""
+    root: Path = args.results_root
+    folder = (args.results or root / LATEST_LINK).resolve()
+    index_path = folder / INDEX_FILE
+    if not index_path.is_file():
+        logger.error("no run in %s", folder)
+        return None
+    results = [
+        load_result(folder / f"{agent.value}.{RESULT_SUFFIX}")
+        for agent in AgentName
+        if (folder / f"{agent.value}.{RESULT_SUFFIX}").is_file()
+    ]
+    return SavedRun(
+        folder=folder,
+        meta=RunIndex.model_validate_json(index_path.read_text(encoding="utf-8")),
+        results=results,
+        outputs={
+            r.agent: load_outputs(r.agent, folder / f"{r.agent.value}.{OUTPUTS_SUFFIX}")
+            for r in results
+        },
+    )
+
+
+def _rebuild(
+    args: argparse.Namespace,
+    saved: SavedRun,
+    results: list[EvalResult],
+    *,
+    judge: str,
+    judge_votes: int,
+) -> RunIndex:
+    """Verdicts, index and every file of ``saved``'s folder, from ``results``."""
+    root: Path = args.results_root
+    pointer = root / BASELINE_FILE
+    own_baseline = (
+        pointer.is_file()
+        and json.loads(pointer.read_text(encoding="utf-8")).get("run_id")
+        == saved.meta.run_id
+    )
+    gates = gate_all(results, {} if own_baseline else load_baseline(root))
+    tiers = load_tiers_config(DEFAULT_AI_ROOT)
+    meta = saved.meta
+    index = build_index(
+        results=results,
+        gates=gates,
+        tiers=tiers,
+        sha=meta.git_sha,
+        timestamp=meta.timestamp,
+        producer=meta.producer,
+        judge=judge,
+        judge_votes=judge_votes,
+        sample_n=meta.sample_n,
+        seed=meta.seed,
+        concurrency=meta.concurrency,
+        instructions=meta.instructions,
+        token_budget_factor=meta.token_budget_factor,
+        baseline_run_id=meta.baseline_run_id,
+    )
+    outcome = LiveRunOutcome(
+        config=LiveRunConfig(),
+        timestamp=meta.timestamp,
+        results=results,
+        outputs=saved.outputs,
+        tiers=tiers,
+    )
+    write_run(
+        out=saved.folder,
+        root=root,
+        outcome=outcome,
+        gates=gates,
+        index=index,
+        make_baseline=False,
+    )
+    return index
+
+
+def rerender_command(args: argparse.Namespace) -> int:
+    """``rerender``: recompute a finished run's verdicts, index, report and
+    dashboard from the files it wrote, with no model call (after a change to the
+    gate, the dashboard or the price table, or to rebuild a lost file).
+
+    Returns 0, or 2 when the folder holds no run.
+    """
+    saved = _load_saved(args)
+    if saved is None:
+        return 2
+    index = _rebuild(
+        args,
+        saved,
+        saved.results,
+        judge=saved.meta.judge,
+        judge_votes=saved.meta.judge_votes,
+    )
+    logger.info(
+        "re-rendered %s: %d/%d gates PASS",
+        index.run_id,
+        index.gates_pass,
+        index.gates_total,
+    )
+    return 0
+
+
+async def rejudge_command(args: argparse.Namespace) -> int:
+    """``rejudge``: score a finished run's saved outputs again, with the judge
+    named by ``--judge``, and rebuild its files. No agent is called: the rows,
+    the outputs and the usage are the saved ones; only the judge's calls (and
+    their cost) are new. Use it after a change to a judge or its context.
+
+    Returns 0, or 2 when the folder holds no run.
+    """
+    saved = _load_saved(args)
+    if saved is None:
+        return 2
+    config = LiveRunConfig(
+        judge=args.judge,
+        judge_votes=args.judge_votes,
+        concurrency=args.concurrency,
+        instructions="rendered" if saved.meta.instructions == "rendered" else "raw",
+    )
+    chosen = bedrock_judge_kit if args.judge == "bedrock" else fake_judge_kit
+    gate = asyncio.Semaphore(max(1, config.concurrency))
+    results: list[EvalResult] = []
+    for result in saved.results:
+        if result.sampled is None:
+            results.append(result)
+            continue
+        producer = LiveProducer.for_agent(
+            result.agent, ai_root=config.ai_root, instructions=config.instructions
+        )
+        wanted = set(result.sampled.row_ids)
+        results.append(
+            await score_agent(
+                result.agent,
+                config,
+                [r for r in load(result.agent) if r.row_id in wanted],
+                result.sampled,
+                saved.outputs[result.agent],
+                result.usage,
+                packs=producer.packs,
+                prices=producer.prices,
+                judge_factory=chosen,
+                semaphore=gate,
+                timestamp=result.timestamp,
+            )
+        )
+    index = _rebuild(
+        args, saved, results, judge=args.judge, judge_votes=args.judge_votes
+    )
+    logger.info(
+        "re-judged %s: %d/%d gates PASS, judge ~$%.2f",
+        index.run_id,
+        index.gates_pass,
+        index.gates_total,
+        index.judge_usage.cost_usd,
+    )
+    return 0
+
+
 def gate_command(args: argparse.Namespace) -> int:
     """``gate --agent A``: the promotion rule for one agent's newest result.
 
@@ -316,6 +498,31 @@ def add_live_arguments(run: argparse.ArgumentParser) -> None:
     run.add_argument("--results-root", type=Path, default=DEFAULT_RESULTS_ROOT)
 
 
+def add_rerender_parser(
+    sub: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    """The ``rerender`` subcommand."""
+    rerender = sub.add_parser(
+        "rerender", help="rebuild a finished run's gate, report and dashboard"
+    )
+    rerender.add_argument("--results", type=Path, default=None, help="a run folder")
+    rerender.add_argument("--results-root", type=Path, default=DEFAULT_RESULTS_ROOT)
+
+
+def add_rejudge_parser(
+    sub: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    """The ``rejudge`` subcommand."""
+    rejudge = sub.add_parser(
+        "rejudge", help="grade a finished run's saved outputs again (judge calls only)"
+    )
+    rejudge.add_argument("--results", type=Path, default=None, help="a run folder")
+    rejudge.add_argument("--results-root", type=Path, default=DEFAULT_RESULTS_ROOT)
+    rejudge.add_argument("--judge", choices=["bedrock", "fake"], default="bedrock")
+    rejudge.add_argument("--judge-votes", type=int, default=3)
+    rejudge.add_argument("--concurrency", type=int, default=3)
+
+
 def add_gate_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """The ``gate`` subcommand."""
     gate = sub.add_parser("gate", help="the promotion gate for one agent")
@@ -334,6 +541,10 @@ __all__ = [
     "DEFAULT_RESULTS_ROOT",
     "add_gate_parser",
     "add_live_arguments",
+    "add_rejudge_parser",
+    "add_rerender_parser",
+    "rejudge_command",
+    "rerender_command",
     "gate_command",
     "run_live_command",
     "write_run",

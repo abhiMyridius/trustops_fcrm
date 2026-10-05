@@ -43,6 +43,11 @@ INDEX_FILE: Final[str] = "index.json"
 TREND_FILE: Final[str] = "trend.jsonl"
 BASELINE_FILE: Final[str] = "baseline.json"
 LATEST_LINK: Final[str] = "latest"
+MIN_COMPLETION: Final[float] = 0.80
+"""Share of the sampled rows an agent must have produced an output for, for its
+gate to pass. A blocked or failed row has no output to measure, and a primary
+metric aggregated over the one row that did complete would read as a pass for
+an agent that was refused on the other four."""
 TREND_POINTS: Final[int] = 8
 """Runs a tile's sparkline shows."""
 GIT_TIMEOUT_S: Final[float] = 10.0
@@ -82,6 +87,7 @@ class AgentSummary(BaseModel):
     latency_p50_s: Optional[float]
     blocked_rows: int
     failed_rows: int
+    completed: int = 0
     reasons: list[str] = Field(default_factory=list)
     others: list[MetricBrief] = Field(default_factory=list)
 
@@ -185,16 +191,42 @@ def gate_all(
 ) -> dict[AgentName, GateResult]:
     """One verdict per agent: its primary metric measured, at its threshold,
     and no worse than the baseline's (within the judge tolerance for a
-    judge-graded primary). With no baseline only the threshold applies."""
-    return {
-        result.agent: gate_detail(
+    judge-graded primary), on a run that completed at least
+    :data:`MIN_COMPLETION` of its rows. With no baseline only the threshold
+    applies; an offline run has no usage record and no completion rule."""
+    verdicts: dict[AgentName, GateResult] = {}
+    for result in results:
+        verdict = gate_detail(
             result,
             baseline.get(result.agent),
             result.primary_metric or "",
             tolerance_for(result),
         )
-        for result in results
-    }
+        rate = completion(result)
+        if rate is not None and rate < MIN_COMPLETION:
+            done = round(rate * result.n)
+            reason = (
+                f"completed {done}/{result.n} rows ({rate:.0%}); a gate needs at "
+                f"least {MIN_COMPLETION:.0%}, because a blocked or failed row has "
+                "no output to measure"
+            )
+            verdict = verdict.model_copy(
+                update={
+                    "status": GateStatus.FAIL,
+                    "reasons": [*verdict.reasons, reason],
+                }
+            )
+        verdicts[result.agent] = verdict
+    return verdicts
+
+
+def completion(result: EvalResult) -> Optional[float]:
+    """The share of ``result``'s rows that produced an output (``None`` when it
+    has no usage record, i.e. an offline run)."""
+    usage = result.usage
+    if usage is None or result.n == 0:
+        return None
+    return (result.n - usage.blocked_rows - usage.failed_rows) / result.n
 
 
 def agent_summary(result: EvalResult, gate: GateResult, tier: str) -> AgentSummary:
@@ -223,6 +255,7 @@ def agent_summary(result: EvalResult, gate: GateResult, tier: str) -> AgentSumma
         latency_p50_s=usage.latency_p50_s if usage else None,
         blocked_rows=usage.blocked_rows if usage else 0,
         failed_rows=usage.failed_rows if usage else 0,
+        completed=result.n - (usage.blocked_rows + usage.failed_rows if usage else 0),
         reasons=list(gate.reasons),
         others=[
             MetricBrief(

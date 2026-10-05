@@ -217,6 +217,7 @@ def _tile(
         f"{_meter(summary)}"
         '<div class="stats">'
         f"<span>sampled <b>{sample}</b></span>"
+        f"<span>completed <b>{summary.completed}/{summary.n}</b></span>"
         f"<span>tokens <b>{_fmt_tokens(summary.tokens)}</b></span>"
         f"<span>cost <b>{_fmt_cost(summary.cost_usd + summary.judge_cost_usd)}"
         "</b></span>"

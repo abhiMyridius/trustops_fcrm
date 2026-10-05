@@ -53,8 +53,10 @@ MAX_CONTEXT_LINES: Final[int] = 80
 by line, so an unbounded context is an unbounded bill; the largest pack (the
 examiner's, 67 records plus six routing rules) fits."""
 
-NON_FACT_SECTIONS: Final[frozenset[str]] = frozenset({"identity", "versions"})
-"""Pack sections that describe the run, not the case."""
+PRELUDE_SECTIONS: Final[frozenset[str]] = frozenset({"identity", "versions"})
+"""Pack sections that head every pack. They are facts the agent was shown (the
+case id, the pinned versions) and so are part of the context a claim is checked
+against, but they are not the task, so ``input`` leaves them out."""
 
 
 @dataclass(frozen=True)
@@ -67,12 +69,12 @@ class JudgeCase:
 
 
 def context_lines(pack: ContextPack) -> tuple[str, ...]:
-    """Every fact line of ``pack``, in section order, without the run's own
-    identity and versions lines, ``(none)`` placeholders or truncation notes."""
+    """Every line of ``pack``, in section order, without ``(none)``
+    placeholders or truncation notes. The identity and versions lines stay: they
+    are facts the agent was shown, and an agent that says which case it is
+    answering about is not inventing it."""
     lines: list[str] = []
-    for name, text in pack.sections.items():
-        if name in NON_FACT_SECTIONS:
-            continue
+    for _name, text in pack.sections.items():
         lines += [
             line.strip()
             for line in text.split("\n")
@@ -114,7 +116,7 @@ def _input_for(agent: AgentName, row: EvalRow, pack: ContextPack) -> str:
         wanted = ("proposals", "rules", "evidence_dates")
         return "\n".join(pack.sections[n] for n in wanted if n in pack.sections)
     return "\n".join(
-        text for name, text in pack.sections.items() if name not in NON_FACT_SECTIONS
+        text for name, text in pack.sections.items() if name not in PRELUDE_SECTIONS
     )
 
 
