@@ -1,0 +1,148 @@
+# ai/models/tiers.yaml
+#
+# The ONLY file in the repository that names a model id (ADR-03, ADR-04).
+# Every other file refers to a tier name: cheap | mid | strong | judge.
+# A lock test (tests/registry/test_locks.py::test_no_model_ids_outside_tiers)
+# greps /ai, /src, /evals and /ops for model-id shapes and fails on any hit
+# outside this file.
+#
+# Ids are Amazon Bedrock inference-profile ids verified against the account
+# on 3 Oct 2026 (docs/requirements/research/07-runtime-facts.md). Do not edit
+# an id without re-verifying it with boto3 `list_inference_profiles` and
+# adding a decision-log row.
+
+schema_version: 1
+provider: bedrock
+region: ${AWS_REGION}            # resolved from the environment by the loader; us-east-1 in the demo account
+verified_on: "2026-10-03"
+sdk:
+  pydantic_ai: "2.53.0"          # pydantic-ai-slim[bedrock]; BedrockConverseModel + FallbackModel
+  boto3: "1.39.11"
+model_string_prefix: "bedrock:"  # Pydantic AI model string form is "bedrock:<id>"
+
+embeddings:
+  model: amazon.titan-embed-text-v2:0
+  dims: 1024
+  normalize: true
+  invocation: on_demand
+  used_by: [H4 context-worker, S3 policy-service]
+
+# Fallback order is the FallbackModel order on attempt 1 (transport, 4xx and
+# 5xx errors move down the list). Attempt 2 (after a Guard 4 rejection or a
+# timeout) runs fallbacks[0] alone with the validation error appended
+# (ADR-14). Exactly one retry per run (BUILD-PLAN §3.4).
+#
+# `budget` is copied into every agent spec; a lock test asserts the copy
+# equals the tier (test_budget_matches_tier). `max_tokens`, `wall_clock_s`
+# and `retries` repeat the budget fields in the flat form the runtime reads.
+# Raising any of them needs a decision-log row.
+tiers:
+  cheap:
+    primary: us.anthropic.claude-haiku-4-5-20251001-v1:0
+    fallbacks:
+      - us.amazon.nova-lite-v1:0
+    max_tokens: 2000               # output cap per request
+    wall_clock_s: 60
+    retries: 1
+    budget: {tokens: 6000, wall_s: 60, retries: 1}
+    cache_min_prefix_tokens: 4096  # Haiku-class minimum; cheap system prompts stay below it, so no cache point is emitted
+    used_by: [screening, intake, watchlist]
+  mid:
+    primary: us.anthropic.claude-sonnet-5-5
+    fallbacks:
+      - us.anthropic.claude-haiku-4-5-20251001-v1:0
+    max_tokens: 3500
+    wall_clock_s: 120
+    retries: 1
+    budget: {tokens: 12000, wall_s: 120, retries: 1}
+    cache_min_prefix_tokens: 1024
+    used_by: [narrative, examiner, policy_gap]
+  strong:
+    primary: us.anthropic.claude-sonnet-5-5
+    fallbacks:
+      - us.anthropic.claude-opus-5-5
+      - us.amazon.nova-pro-v1:0
+    max_tokens: 5000
+    wall_clock_s: 180
+    retries: 1
+    budget: {tokens: 20000, wall_s: 180, retries: 1}
+    cache_min_prefix_tokens: 1024
+    used_by: [research, assessment]
+  judge:
+    # Runs on a different model than the assessor it checks (ADR-04): the
+    # strong tier's primary is Sonnet, so the critic's primary is Opus.
+    primary: us.anthropic.claude-opus-5-5
+    fallbacks:
+      - us.anthropic.claude-sonnet-5-5
+    max_tokens: 4000
+    wall_clock_s: 180
+    retries: 1
+    budget: {tokens: 20000, wall_s: 180, retries: 1}
+    cache_min_prefix_tokens: 1024
+    used_by: [critic, eval judges]
+
+per_case_budget_tokens: 120000
+
+# Request constraints per model, read by the fcrm_agents runtime when it
+# builds ModelSettings. Taken from the Claude API reference (Sept 2026); the
+# Bedrock Converse surface is expected to behave the same, and the agents lane
+# confirms with one live call per model before relying on it.
+#  - temperature: Sonnet 5.5 rejects non-default sampling values and Opus 5.5
+#    rejects sampling parameters entirely, so the runtime OMITS temperature
+#    for those ids. Determinism for demos and E2E comes from replay mode
+#    (ADR-12), not from temperature 0.
+#  - forced_tool_choice: Sonnet 5.5 and Opus 5.5 reject tool_choice any/tool.
+#    If Pydantic AI's ToolOutput forces the output tool, use tool_choice auto
+#    plus the prompt's "output exactly one object" line (or PromptedOutput)
+#    and let Guard 4 reject a missing output.
+#  - thinking: neither model can switch thinking off; it is adaptive.
+models:
+  us.anthropic.claude-haiku-4-5-20251001-v1:0:
+    family: anthropic
+    temperature: 0
+    forced_tool_choice: allowed
+    thinking: off_by_default
+  us.anthropic.claude-sonnet-5-5:
+    family: anthropic
+    temperature: omit
+    forced_tool_choice: rejected
+    thinking: adaptive_always
+  us.anthropic.claude-opus-5-5:
+    family: anthropic
+    temperature: omit
+    forced_tool_choice: rejected
+    thinking: adaptive_always
+    effort_default: medium
+  us.amazon.nova-lite-v1:0:
+    family: amazon
+    temperature: 0
+    forced_tool_choice: unverified
+    thinking: none
+  us.amazon.nova-pro-v1:0:
+    family: amazon
+    temperature: 0
+    forced_tool_choice: unverified
+    thinking: none
+
+# USD per 1M tokens, used only for ModelCallRecord.cost_usd and the token
+# report. AWS sets Bedrock prices for partner models and they can differ from
+# the vendor's own list price.
+#  - Anthropic rows are the Anthropic first-party list rates (Claude API, Sept
+#    2026): Haiku 4.5 $1/$5, Sonnet 5.5 $2/$10, Opus 5.5 $4/$20; cache read =
+#    0.1x input (Sonnet 5.5 and Opus 5.5 list $0.20), 5-minute cache write =
+#    1.25x input. They stand in for Bedrock pricing (placeholder: confirm
+#    against the AWS Bedrock pricing page before go-live).
+#  - Nova and Titan rows are the public Bedrock on-demand rates last
+#    published (placeholder: confirm against the AWS Bedrock pricing page
+#    before go-live). No cache pricing is recorded for Nova.
+# Reconcile against the AWS bill weekly (07-runtime-facts.md).
+prices_usd_per_mtok:
+  currency: USD
+  status: placeholder_confirm_before_go_live
+  rows:
+    us.anthropic.claude-haiku-4-5-20251001-v1:0: {input: 1.00, output: 5.00, cache_read: 0.10, cache_write: 1.25}
+    us.anthropic.claude-sonnet-5-5: {input: 2.00, output: 10.00, cache_read: 0.20, cache_write: 2.50}
+    us.anthropic.claude-opus-5-5: {input: 4.00, output: 20.00, cache_read: 0.20, cache_write: 5.00}
+    us.amazon.nova-lite-v1:0: {input: 0.06, output: 0.24, cache_read: null, cache_write: null}
+    us.amazon.nova-pro-v1:0: {input: 0.80, output: 3.20, cache_read: null, cache_write: null}
+    amazon.titan-embed-text-v2:0: {input: 0.02, output: null, cache_read: null, cache_write: null}

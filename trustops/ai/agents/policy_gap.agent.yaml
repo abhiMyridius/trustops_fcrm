@@ -1,0 +1,49 @@
+# ai/agents/policy_gap.agent.yaml  (design B §2.9; ADR-18)
+name: policy_gap
+version: 1
+purpose: >-
+  Group the policy gaps analysts recorded across cases, confirm with a fresh
+  search that the corpus still lacks coverage, and draft a suggestion for the
+  policy owner: topic, affected cases, nearest existing clauses, suggested home
+  standard and a one-sentence scope suggestion labelled as not policy. Never
+  writes policy text. Never on the decision path.
+lifecycle_state: null                 # oversight job outside the case state machine (ADR-18)
+trigger: "case.gap_recorded, and weekly"
+tier: mid
+budget_tier: mid
+budget: {tokens: 12000, wall_s: 120, retries: 1}
+tools: [policy_search, case_search]
+tool_caps: {policy_search: 3, case_search: 1}
+tool_call_cap: 4
+pack_tools: [policy_search, case_search, evidence_ledger]
+skills: [declare_gap, cite_verbatim]
+context_pack: policy_gap
+output_schema:
+  envelope: PolicyGapOutput
+  envelope_module: fcrm_contracts.proposals.policy_gap
+  fields:
+    suggestions: {model: fcrm_contracts.proposals.policy_gap.GapSuggestion, many: true, max_items: 10, status: contract_change_required}
+    closed_gaps: {type: "list[str]", status: primitive, description: gap ids found to be covered by an existing clause}
+    notes_for_analyst: {type: "list[str]", max_items: 5, status: primitive}
+  contract_changes_required:
+    - field: GapSuggestion.suggested_clause_text
+      change: "rename to scope_suggestion (max 240)"
+      why: "the agent must never draft text that could be mistaken for policy (rule 8); the field name invites it. Until renamed, the prompt requires the value to begin 'Suggested scope (not policy): '"
+    - field: GapSuggestion.cases / nearest_clauses / suggested_standard / searched
+      change: "add cases: list[str] (min 1), nearest_clauses: list[{clause_id, score}] (max 5), suggested_standard: str (max 80), searched: Searched"
+      why: "grouping across cases and coverage_check_correctness need them as data; interim the prompt writes them into `rationale`"
+prompt_id: {system: policy_gap.system, user: policy_gap.user}
+guards: [input_scan, permit, budget, output_shape, rules]
+gate: null                            # ADR-18: reviewed by fcrm_analyst in Assurance; not a case GateType
+gate_detail:
+  review: assurance_queue
+  rule: "fcrm_analyst reviews each suggestion under Assurance (accept, reject with reason); there is no policy_owner role (ADR-18)"
+eval_set: policy_gap/suggestions-14
+eval:
+  datasets: [policy_gap/suggestions-14]
+  primary_metric: coverage_check_correctness
+  gated_metrics: [coverage_check_correctness, citation_validity]
+  live_metrics: [suggestion_acceptance]
+reruns_on: []
+owner: fcrm_analyst
+tokens_expected: {input: 3500, output: 900}

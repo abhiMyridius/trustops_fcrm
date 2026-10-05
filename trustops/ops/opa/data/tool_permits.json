@@ -1,0 +1,69 @@
+{
+  "tool_permits": {
+    "_comment": "Agent -> tool permits (Guard 2). Source copy, generated from ai/agents/*.agent.yaml and copied to ops/opa/data/tool_permits.json at build. Top-level key tool_permits (not tools) so it never collides with the policy package path data.tools. `tools` per agent = what the model may call (design B section 2, exactly). `pack_tools` per agent = what the deterministic context-pack builder may fetch for that agent (design B section 3.2); never exposed to the model and only allowed with input.caller == builder. ADR-07: no agent, model or builder, is permitted a scoring tool.",
+    "version": "2026-10-03.1",
+    "caller_roles": ["fcrm_service"],
+    "tools": [
+      "audit_log",
+      "case_record",
+      "case_search",
+      "control_inventory",
+      "document_reader",
+      "evidence_ledger",
+      "evidence_store",
+      "field_rules",
+      "jurisdiction_list",
+      "policy_search",
+      "precedent_search",
+      "rules_check",
+      "submission_diff"
+    ],
+    "permits": [
+      {
+        "agent": "screening",
+        "tools": ["field_rules", "precedent_search"],
+        "pack_tools": ["case_record", "field_rules", "precedent_search"]
+      },
+      {
+        "agent": "intake",
+        "tools": ["document_reader", "field_rules", "jurisdiction_list", "precedent_search"],
+        "pack_tools": ["case_record", "document_reader", "field_rules", "jurisdiction_list"]
+      },
+      {
+        "agent": "research",
+        "tools": ["policy_search", "precedent_search", "jurisdiction_list"],
+        "pack_tools": ["case_record", "submission_diff", "policy_search", "precedent_search", "jurisdiction_list", "control_inventory"]
+      },
+      {
+        "agent": "assessment",
+        "tools": ["control_inventory", "evidence_store", "precedent_search"],
+        "pack_tools": ["case_record", "submission_diff", "control_inventory", "evidence_store", "precedent_search", "evidence_ledger"]
+      },
+      {
+        "agent": "critic",
+        "tools": ["evidence_ledger", "precedent_search", "rules_check"],
+        "pack_tools": ["case_record", "evidence_ledger", "precedent_search", "rules_check", "evidence_store"]
+      },
+      {
+        "agent": "narrative",
+        "tools": ["case_record", "evidence_ledger"],
+        "pack_tools": ["case_record", "evidence_ledger", "field_rules", "evidence_store", "submission_diff"]
+      },
+      {
+        "agent": "examiner",
+        "tools": ["audit_log"],
+        "pack_tools": ["case_record", "audit_log"]
+      },
+      {
+        "agent": "watchlist",
+        "tools": ["jurisdiction_list", "case_search"],
+        "pack_tools": ["jurisdiction_list", "case_search", "policy_search"]
+      },
+      {
+        "agent": "policy_gap",
+        "tools": ["policy_search", "case_search"],
+        "pack_tools": ["policy_search", "case_search", "evidence_ledger"]
+      }
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+# ai/tools/evidence_store.tool.yaml
+name: evidence_store
+version: 1
+description: >-
+  Fetch the evidence held for one control: the inventory's tested artefact
+  with its date and stated scope, plus any spans in this case's documents that
+  mention the control, with doc id, page and lines. Report the date and scope
+  exactly as returned. Whether evidence is stale is decided by code from the
+  date; you state the date and whether the scope covers this change.
+backing_service: [S3, S1]
+backing:
+  - {service: policy-service, method: GET, path: "/controls/{control_id}/evidence"}
+  - {service: case-service, method: GET, path: "/internal/cases/{case_id}/documents?kind=evidence"}
+read_only: true
+side_effects: none
+permit_key: evidence_store
+permitted_agents: [assessment]
+builder_agents: [assessment, critic, narrative]
+timeout_s: 6
+cost_class: io
+cache: {key: [case_id, control_id, controls_v, submission_v], scope: controls_v, ttl_s: 86400}
+scope_rule: "case_id must equal payload.case_id; controls_v must equal payload.versions.controls_v"
+input_schema:
+  contract_target: fcrm_contracts.tools.EvidenceStoreIn
+  fields:
+    - {name: case_id, type: str, required: true}
+    - {name: control_id, type: str, required: true, constraints: "pattern=^CTL-[A-Z]\\d{2}$"}
+    - {name: controls_v, type: str, required: true}
+output_schema:
+  contract_target: fcrm_contracts.tools.EvidenceStoreOut
+  fields:
+    - {name: control_id, type: str}
+    - {name: inventory, type: "{artefact: str, last_tested: date, scope: str}"}
+    - {name: case_spans, type: "list[{doc_id: str, page: int, line_start: int, line_end: int, text: str}]"}

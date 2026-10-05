@@ -1,0 +1,37 @@
+# Grafana datasources (ADR-09). Fixed uids so the provisioned dashboards
+# reference them without a lookup; Prometheus exemplars link to Jaeger
+# traces by trace_id.
+apiVersion: 1
+
+deleteDatasources:
+  - name: Prometheus
+    orgId: 1
+  - name: Jaeger
+    orgId: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: POST
+      timeInterval: 15s
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: jaeger
+
+  - name: Jaeger
+    uid: jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686
+    editable: false
+    jsonData:
+      tracesToMetrics:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true

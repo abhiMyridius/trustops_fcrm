@@ -1,0 +1,59 @@
+[project]
+name = "fcrm-context-worker"
+version = "0.1.0"
+description = "H4 context-worker: clause segmenter, embeddings and the vector indexes (S3 Vectors or the in-memory `memory` backend) with Index Contract metadata filters; AEO synthesis switched off. Carries a clone of AEO's evoq_context engine (see UPSTREAM.md) plus the thin fcrm_context_worker host package."
+requires-python = ">=3.13"
+# Runtime deps = upstream evoq_context's core deps, plus litellm (the
+# engine imports it at module level in llm/client.py, kept only for Bedrock
+# Titan v2 embeddings -- BP §11; the chat path is never called in TrustOps
+# builds, CONTEXT_SYNTHESIS_ENABLED=false).
+#
+# aioboto3 (the s3vectors backend) is an optional extra, not a hard
+# dependency: aioboto3's pinned aiobotocore chain caps boto3<1.40.62,
+# which is incompatible with fcrm-agents' pydantic-ai-slim[bedrock]
+# (boto3>=1.42.63 on every published version) in this workspace's single
+# uv lock. VECTOR_BACKEND defaults to `memory`, which this worker and its
+# tests run against without aioboto3 at all; `s3_vectors.py` imports
+# aioboto3 lazily (inside the method that needs it) so the module itself
+# stays importable either way, and the operator installs the `s3vectors`
+# extra only on the host that will actually talk to S3 Vectors.
+#
+# botocore (bare, no boto3) stays a hard dependency: llm/retry.py uses
+# only `botocore.exceptions.ClientError` for AWS error-code classification,
+# which does not pin boto3 and does not conflict with pydantic-ai-slim.
+dependencies = [
+  "fcrm-contracts",
+  "fcrm-seed",
+  "tiktoken>=0.7",
+  "markdownify>=0.13",
+  "beautifulsoup4>=4.12",
+  "botocore>=1.40",
+  "litellm>=1.40",
+]
+
+[project.optional-dependencies]
+s3vectors = ["aioboto3>=15.5"]
+# FastStream consumer wiring (index.build -> index.built) lands with fcrm_common.
+
+[project.scripts]
+evoq-context = "evoq_context.cli:main"
+
+[dependency-groups]
+# fcrm-policy-service is test-only: fcrm_context_worker.filters duplicates
+# fcrm_policy.search.filters (no runtime services<->workers dependency, the
+# fcrm_decision precedent), and a unit test asserts the two stay identical.
+dev = [
+  "pytest>=8.3",
+  "pytest-asyncio>=0.25",
+  "hypothesis>=6.123",
+  "mypy>=1.14",
+  "jsonschema>=4.20",
+  "fcrm-policy-service",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["evoq_context", "fcrm_context_worker"]

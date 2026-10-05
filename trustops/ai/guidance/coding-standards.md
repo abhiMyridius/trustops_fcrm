@@ -1,0 +1,106 @@
+# Coding standards
+
+Binding for every Python unit in this repository. Set by the operator on 3 October 2026 (ADR-21); the linter and hook configuration encode them. The TypeScript standards for `src/web` follow at the end.
+
+## Python
+
+### Style
+- Follow PEP 8.
+- Use 4 spaces for indentation, never tabs.
+- Max line length: 88 characters.
+- Use f-strings for string formatting.
+
+### Naming
+- Variables and functions: `snake_case`.
+- Classes: `PascalCase`.
+- Constants: `UPPER_SNAKE_CASE`.
+- Private members: `_leading_underscore`.
+
+### Type hints
+- Always add type hints to function signatures.
+- Use `Optional[T]` for nullable values.
+- Import from the `typing` module when needed.
+
+### Functions
+- Keep functions small and single-purpose.
+- Use `None` as the default for mutable arguments, never `[]` or `{}`.
+- Write docstrings for all public functions and classes.
+
+### Error handling
+- Always catch specific exceptions, never a bare `except`.
+- Never silently suppress exceptions with `pass`.
+- Always log errors with context.
+
+### File and resource handling
+- Always use context managers (`with`) for files, DB connections and locks.
+
+### Logging
+- Use the `logging` module instead of `print` statements.
+- Use `__name__` as the logger name.
+- Log at the appropriate level: DEBUG, INFO, WARNING, ERROR.
+
+### Imports
+- Group imports: stdlib → third-party → local.
+- Never use wildcard imports (`from x import *`).
+- Keep imports at the top of the file.
+
+### Code quality
+- DRY: don't repeat yourself.
+- Avoid deeply nested code (max 3 levels).
+- Prefer list/dict comprehensions over loops when readable.
+- Avoid global variables.
+
+### Testing
+- Write tests for all public functions.
+- Use pytest.
+- Aim for 80%+ code coverage.
+- Name tests `test_<function>_<scenario>`.
+
+### Dependencies
+- Always use virtual environments.
+- Pin dependencies in `requirements.txt`.
+- Separate dev dependencies from production.
+
+### Security
+- Never hardcode secrets or API keys.
+- Use environment variables for config.
+- Validate all external inputs.
+
+### Root layout
+- Keep source code in the `src/` directory.
+- Never mix tests with source code.
+- Never mix config files with source code.
+
+### `tests/` rules
+- Mirror the `src/` structure inside `tests/`.
+- Unit tests: `tests/unit/`.
+- Integration tests: `tests/integration/`.
+- Fixtures and shared mocks: `tests/conftest.py` only.
+- No business logic inside test files.
+
+## How the standards map onto this repository
+
+| Standard | Mechanism here |
+|---|---|
+| PEP 8, 88 columns, import grouping, no wildcard imports, no `print` | `ruff` (rules `E, W, F, I, N, UP, B, T20, SIM, C90`) with `line-length = 88` and `max-complexity` enforcing the three-level nesting limit; `ruff format` on save via the PostToolUse hook |
+| `Optional[T]` | ruff rules `UP007` and `UP045` disabled so `Optional[T]` is the accepted form |
+| Type hints on every signature | `mypy --strict` on `fcrm_contracts`, `fcrm_scoring`, `fcrm_guardrails`, `fcrm_caseflow`, `evoq_ingestion`, `evoq_context`; `disallow_untyped_defs = true` everywhere else |
+| Docstrings on public functions and classes | ruff `D` rules for public symbols (`pydocstyle`, Google convention), tests excluded |
+| Specific exceptions, no silent `pass` | ruff `BLE001` (blind except), `S110` (try-except-pass), `E722`; the `fcrm_common.errors` hierarchy is what gets raised and caught |
+| Context managers | ruff `SIM115`; the Mongo client and HTTP client expose `async with` lifespans |
+| Logging with `__name__` | `logging.getLogger(__name__)` in every module; JSON formatter from `fcrm_common.logging`; `T201` forbids `print` |
+| Virtual environments and pinning | `uv` workspace at `src/` with one `uv.lock`; `make export-requirements` writes `requirements.txt` and `requirements-dev.txt` per unit from the lock (used by the Dockerfiles), so pins are visible as plain files too |
+| Dev vs production dependencies | `[dependency-groups] dev` in each `pyproject.toml`; images are built with `--no-dev` |
+| Secrets and config | `pydantic-settings` classes read environment variables only; `.env.example` lists names; hooks block reading `.env*`; YAML configuration lives under `ai/` and `ops/`, never under `src/` |
+| Validate external inputs | Pydantic 2 models with `extra="forbid"` on every request body, event payload and agent output |
+| 80%+ coverage, tests mirror `src/` | `pytest --cov=src --cov-fail-under=80` in `make gate`; `tests/unit/<same path as src>` and `tests/integration/<same path as src>`; a single `tests/conftest.py` holds fixtures and shared fakes; `tests/{contract,e2e,resilience,perf}` are the cross-unit layers. The cloned `evoq_*` engines keep their upstream test suites inside the clone until `UPSTREAM.md` records their move |
+| Test naming | `test_<function>_<scenario>`; checked by a ruff `PT` rule set plus a naming check in `make check` |
+| No business logic in tests | fixtures are data; assertions compare against goldens in `tests/fixtures/` generated by `gen_seed.py` |
+
+## TypeScript (`src/web`)
+
+- `strict`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax`; no `any`; no `@ts-ignore`.
+- Generated API client only (`src/api/generated`, never edited by hand); no business arithmetic in the client: band ranges, completion percentages, SLA days and tallies come from the server.
+- Design tokens, never raw hex values; components in `components/ui` are the only primitives.
+- `oxlint` and `eslint` (a11y plugin) clean; `vitest` + Testing Library + `vitest-axe` for component tests; Playwright for E2E under `/tests/e2e`.
+- Features import from `components`, `api`, `auth`, `lib`; never from each other.

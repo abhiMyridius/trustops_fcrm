@@ -1,0 +1,83 @@
+# ai/agents/narrative.agent.yaml  (design B §2.6; two modes)
+name: narrative
+version: 1
+purpose: >-
+  Write for people from confirmed inputs. Completeness mode (before review,
+  D-16/D-17) lists missing, stale and contradictory items and drafts the one
+  clarification round. Recommendation mode (after review and the final S2
+  result) drafts the recommendation, the conditions and the plain-language
+  summary for the owner. Numbers are read-only inputs in both modes.
+lifecycle_state: [completeness, recommend]
+trigger: "completeness: H1 after the critic's agent.done; recommendation: H1 when every review item is decided and the final score is returned"
+tier: mid
+budget_tier: mid
+budget: {tokens: 12000, wall_s: 120, retries: 1}
+tools: [case_record, evidence_ledger]
+tool_caps: {case_record: 1, evidence_ledger: 1}
+tool_call_cap: 2
+pack_tools: [case_record, evidence_ledger, field_rules, evidence_store, submission_diff]
+skills: [draft_for_business_reader, batch_questions]
+context_pack: narrative
+modes:
+  completeness:
+    lifecycle_state: completeness
+    prompt_id: {system: narrative.system, user: narrative.completeness.user}
+    output_schema:
+      envelope: CompletenessOutput
+      envelope_module: fcrm_contracts.proposals.narrative
+      fields:
+        report: {model: fcrm_contracts.proposals.narrative.CompletenessReport, many: false, status: contract}
+        questions: {model: fcrm_contracts.proposals.narrative.Question, many: true, max_items: 6, status: contract}
+        enough_to_assess: {type: bool, status: primitive}
+        notes_for_analyst: {type: "list[str]", max_items: 5, status: primitive}
+    gate: completeness
+    gate_detail:
+      items: [CompletenessReport, Question]
+      rule: "analyst chooses ask now or proceed, edits and sends the single clarification round (D-16)"
+    eval:
+      datasets: [narrative/completeness-30]
+      primary_metric: question_grounding
+      gated_metrics: [question_grounding, question_dedupe]
+  recommendation:
+    lifecycle_state: recommend
+    prompt_id: {system: narrative.system, user: narrative.recommendation.user}
+    output_schema:
+      envelope: RecommendationOutput
+      envelope_module: fcrm_contracts.proposals.narrative
+      fields:
+        outcome_suggested: {type: fcrm_contracts.enums.Outcome, status: primitive}
+        recommendation: {model: fcrm_contracts.proposals.narrative.Narrative, many: false, status: contract}
+        conditions: {model: fcrm_contracts.proposals.narrative.Condition, many: true, max_items: 6, status: contract}
+        business_summary: {model: fcrm_contracts.proposals.narrative.BusinessSummary, many: false, status: contract}
+        notes_for_analyst: {type: "list[str]", max_items: 5, status: primitive}
+    gate: lock
+    gate_detail:
+      also: [pack_release]
+      items: [Narrative, Condition, BusinessSummary]
+      rule: "analyst edits and locks (D-19a); the business summary must pass the restricted-terms check (Guard 4) before the pack can be released"
+    eval:
+      datasets: [narrative/recommendation-40]
+      primary_metric: narrative_faithfulness
+      gated_metrics: [narrative_faithfulness, number_grounding, restricted_terms_zero, conditions_map_to_weak_controls]
+# The two system texts are rendered once per mode with `mode_schema` bound at
+# load time (narrative.system@1[completeness], narrative.system@1[recommendation]);
+# each is its own cache prefix (design B §2.6).
+prompt_id: {system: narrative.system, user: [narrative.completeness.user, narrative.recommendation.user]}
+output_schema:
+  by_mode: true
+  notes: >-
+    See modes.*.output_schema. Design B's Recommendation.grounded_in list is
+    not in the committed Narrative (a single Claim); interim: the Claim's
+    source_ref is the record of the locked score and the text names no ids.
+    Condition.owner and Condition.due are free strings in the contract; the
+    prompt constrains them to the seed's vocabulary.
+guards: [input_scan, permit, budget, output_shape, rules]
+gate: completeness            # first gate fed; the recommendation mode feeds `lock` (see modes)
+eval_set: narrative/completeness-30
+eval:
+  datasets: [narrative/completeness-30, narrative/recommendation-40]
+  primary_metric: {completeness: question_grounding, recommendation: narrative_faithfulness}
+  gated_metrics: [question_grounding, question_dedupe, narrative_faithfulness, number_grounding, restricted_terms_zero, conditions_map_to_weak_controls]
+reruns_on: [unlock_with_reason]
+owner: fcrm_analyst
+tokens_expected: {completeness: {input: 4500, output: 800}, recommendation: {input: 6000, output: 1300}}

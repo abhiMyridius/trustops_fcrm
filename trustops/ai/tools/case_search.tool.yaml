@@ -1,0 +1,33 @@
+# ai/tools/case_search.tool.yaml
+name: case_search
+version: 1
+description: >-
+  List cases matching structured filters: change types, geographies (country
+  names as stored on the case) and lifecycle states. Returns ids, titles,
+  states, geographies and change types only; no scores, ratings or outcomes.
+  Use it to confirm which cases a jurisdiction-list change or a policy gap
+  touches. It does not rank by similarity; use precedent_search for that.
+backing_service: S1
+backing: {service: case-service, method: GET, path: "/cases/search"}
+read_only: true
+side_effects: none
+permit_key: case_search
+permitted_agents: [watchlist, policy_gap]
+builder_agents: [watchlist, policy_gap]
+timeout_s: 5
+cost_class: io
+cache: {key: [change_types, geographies, states, limit], scope: none, ttl_s: 60}
+scope_rule: "oversight agents only; the call is scoped to case_id='oversight'"
+input_schema:
+  contract_target: fcrm_contracts.tools.CaseSearchIn
+  fields:
+    - {name: change_types, type: "list[ChangeType]", required: false}
+    - {name: geographies, type: "list[str]", required: false}
+    - {name: states, type: "list[CaseState]", required: false, description: "default: every state except closed"}
+    - {name: q, type: str, required: false, constraints: "max_length=120", description: title text match}
+    - {name: limit, type: int, required: false, constraints: "le=50; default 20"}
+output_schema:
+  contract_target: fcrm_contracts.tools.CaseSearchOut
+  fields:
+    - {name: cases, type: "list[{case_id: str, title: str, unit: str, state: CaseState, geographies: list[str], change_types: list[ChangeType]}]"}
+    - {name: total, type: int}

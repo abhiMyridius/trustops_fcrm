@@ -1,0 +1,48 @@
+# ai/agents/watchlist.agent.yaml  (design B §2.8)
+name: watchlist
+version: 1
+purpose: >-
+  When a new jurisdiction list version is published, write one re-flag
+  proposal per candidate case that code selected (open cases whose
+  geographies intersect the countries added or moved): why, which list line,
+  which agents to re-run. The intersection is deterministic; the agent writes
+  the explanation with provenance so the analyst acknowledgement is uniform.
+lifecycle_state: null                 # oversight job outside the case state machine
+trigger: "jurisdiction.list_published (S3 /jurisdictions/versions/{v}/activate) -> H1 computes candidates -> one watchlist job"
+tier: cheap
+budget_tier: cheap
+budget: {tokens: 6000, wall_s: 60, retries: 1}
+tools: [jurisdiction_list, case_search]
+tool_caps: {jurisdiction_list: 1, case_search: 1}
+tool_call_cap: 2
+pack_tools: [jurisdiction_list, case_search, policy_search]
+skills: [cite_verbatim]
+context_pack: watchlist
+output_schema:
+  envelope: WatchlistOutput
+  envelope_module: fcrm_contracts.proposals.watchlist
+  fields:
+    reflags: {model: fcrm_contracts.proposals.watchlist.ReflagProposal, many: true, max_items: 20, status: contract_change_required}
+    cases_considered: {type: int, status: primitive}
+    notes_for_analyst: {type: "list[str]", max_items: 5, status: primitive}
+  contract_changes_required:
+    - field: ReflagProposal.list_change
+      change: "add list_change: Literal['added','removed','moved']"
+      why: "the analyst queue and reflag_grounding need to know what changed, not only the new version"
+    - field: ReflagProposal.rerun
+      change: "add rerun: list[Literal['research','assessment']] (min 1)"
+      why: "acknowledgement queues these re-runs; H1 must not parse them out of free text"
+prompt_id: {system: watchlist.system, user: watchlist.user}
+guards: [input_scan, permit, budget, output_shape, rules]
+gate: reflag_ack
+gate_detail:
+  items: [ReflagProposal]
+  rule: "analyst acknowledges each re-flag; acknowledgement queues the re-runs"
+eval_set: watchlist/reflag-24
+eval:
+  datasets: [watchlist/reflag-24]
+  primary_metric: reflag_recall
+  gated_metrics: [reflag_recall, citation_validity]
+reruns_on: []
+owner: fcrm_analyst
+tokens_expected: {input: 2200, output: 500}

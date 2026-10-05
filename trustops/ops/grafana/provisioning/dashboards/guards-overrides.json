@@ -1,0 +1,474 @@
+{
+  "uid": "trustops-guards-overrides",
+  "title": "TrustOps \u00b7 Guards and overrides",
+  "description": "How often the seven guards block, how often analysts override what an agent proposed, and how long people take at each human gate.",
+  "tags": [
+    "trustops",
+    "guards",
+    "hitl"
+  ],
+  "editable": false,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "fiscalYearStartMonth": 0,
+  "liveNow": false,
+  "weekStart": "",
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "links": [
+    {
+      "title": "TrustOps dashboards",
+      "type": "dashboards",
+      "tags": [
+        "trustops"
+      ],
+      "asDropdown": true,
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "icon": "external link",
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "title": "Traces (Jaeger)",
+      "type": "link",
+      "url": "/explore?left=%7B%22datasource%22:%22jaeger%22%7D",
+      "icon": "info",
+      "targetBlank": true,
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": false,
+      "tags": [],
+      "tooltip": "Open the Jaeger datasource in Explore"
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "type": "row",
+      "id": 1,
+      "title": "Guards",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 2,
+      "title": "Guard block rate by guard",
+      "description": "Share of guard evaluations that blocked, per guard (fcrm_guard_results_total{guard,result=pass|block}).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (guard) (rate(fcrm_guard_results_total{result=\"block\"}[$__rate_interval])) / sum by (guard) (rate(fcrm_guard_results_total[$__rate_interval]))",
+          "legendFormat": "{{guard}}",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "bargauge",
+      "id": 3,
+      "title": "Guard blocks by guard (time range)",
+      "description": "Absolute block counts in the selected range.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (guard) (increase(fcrm_guard_results_total{result=\"block\"}[$__range]))",
+          "legendFormat": "{{guard}}",
+          "range": true,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "min": 0,
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "valueMode": "text",
+        "namePlacement": "left",
+        "sizing": "auto"
+      }
+    },
+    {
+      "type": "row",
+      "id": 4,
+      "title": "Overrides",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 5,
+      "title": "Override rate by agent",
+      "description": "Analyst overrides per agent run: fcrm_override_total{agent} over the run count from the fcrm_agent_latency_ms histogram. A rising line is an eval-dataset candidate.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (agent) (rate(fcrm_override_total[$__rate_interval])) / sum by (agent) (rate(fcrm_agent_latency_ms_count[$__rate_interval]))",
+          "legendFormat": "{{agent}}",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "bargauge",
+      "id": 6,
+      "title": "Overrides by agent (time range)",
+      "description": "Absolute override counts (fcrm_override_total{agent}).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 10,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (agent) (increase(fcrm_override_total[$__range]))",
+          "legendFormat": "{{agent}}",
+          "range": true,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "min": 0,
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "valueMode": "text",
+        "namePlacement": "left",
+        "sizing": "auto"
+      }
+    },
+    {
+      "type": "row",
+      "id": 7,
+      "title": "Human gates",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 8,
+      "title": "Gate wait seconds, p50 by gate type",
+      "description": "Median time a gate stayed open (fcrm_gate_wait_seconds{gate_type}).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.50, sum by (le, gate_type) (rate(fcrm_gate_wait_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "{{gate_type}}",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "bargauge",
+      "id": 9,
+      "title": "Mean gate wait by gate type (time range)",
+      "description": "Total wait over decisions, per gate type.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 19,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (gate_type) (increase(fcrm_gate_wait_seconds_sum[$__range])) / sum by (gate_type) (increase(fcrm_gate_wait_seconds_count[$__range]))",
+          "legendFormat": "{{gate_type}}",
+          "range": true,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "min": 0,
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "valueMode": "text",
+        "namePlacement": "left",
+        "sizing": "auto"
+      }
+    }
+  ]
+}

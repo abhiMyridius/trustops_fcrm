@@ -1,0 +1,10 @@
+# Test fixture only (fcrm_prompts unit tests).
+name: screening
+tier: cheap
+budget: {tokens: 6000, wall_s: 60, retries: 1}
+tools: [field_rules, precedent_search]
+tool_call_cap: 1
+skills: [declare_gap]
+output_schema: fcrm_contracts.proposals.screening.ScreeningProposal
+prompt_id: {system: screening.system}
+gate: fast_lane_confirm

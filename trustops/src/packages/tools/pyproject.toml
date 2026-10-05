@@ -1,0 +1,34 @@
+[project]
+name = "fcrm-tools"
+version = "0.1.0"
+description = "P2: the thirteen read-only agent tool clients (one per fcrm_contracts.tools schema), the ToolRegistry, a retrieval TTL cache, and seed-backed implementations of every tool so the agent pipeline runs today without any live service. Design B §1.3, §3.5; BUILD-PLAN §3.4."
+requires-python = ">=3.13"
+dependencies = [
+  "fcrm-contracts",
+  # rules_check evaluates the real, pure rule functions in-process
+  # (design B §1.3: "rules_check -> in-process call into fcrm_guardrails.rules").
+  "fcrm-guardrails",
+  "fcrm-seed",
+  # field_rules resolves through S1's single field-set function (rule 2's
+  # one source of truth) rather than re-implementing the union here.
+  "fcrm-case-service",
+  # audit_log_from_demo replays the demo's 67 records through S4's real
+  # chain builder; fcrm_audit is pure (contracts only, no I/O).
+  "fcrm-audit-service",
+  # ToolRegistry.check_agent_specs reads ai/agents/*.agent.yaml through the
+  # one /ai loader rather than parsing the YAML a second way.
+  "fcrm-prompts",
+  "pydantic>=2.9",
+]
+# The HTTP-backed clients (httpx against S1/S3/S4) land with fcrm_common;
+# they implement the same Tool protocol, so nothing built on it changes.
+
+[dependency-groups]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.25", "mypy>=1.14"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["fcrm_tools"]

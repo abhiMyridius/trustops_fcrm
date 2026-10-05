@@ -1,0 +1,350 @@
+{
+ "agent": "watchlist",
+ "dataset": "watchlist/reflag-29",
+ "dataset_sha256": "f100cccce23e812ec7d46d189d3e0e4f351d4a9dfb536c83cd8c47e06b7b694a",
+ "producer": "echo",
+ "n": 29,
+ "primary_metric": "reflag_recall",
+ "metrics": {
+  "reflag_recall": 1.0,
+  "reflag_precision": 1.0,
+  "citation_validity": 1.0
+ },
+ "summaries": [
+  {
+   "name": "reflag_recall",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 4.0,
+   "denominator": 4.0,
+   "rows_scored": 3,
+   "threshold": 1.0,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": true,
+   "description": "code candidates with a proposal",
+   "flags": []
+  },
+  {
+   "name": "reflag_precision",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 4.0,
+   "denominator": 4.0,
+   "rows_scored": 3,
+   "threshold": 1.0,
+   "threshold_source": "proposed",
+   "passed": true,
+   "primary": false,
+   "description": "proposals that are code candidates",
+   "flags": []
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 4.0,
+   "denominator": 4.0,
+   "rows_scored": 3,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "list:v2026-10-fixture",
+   "case_id": "FCRM-2026-0144",
+   "metrics": {
+    "reflag_recall": 1.0,
+    "reflag_precision": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "list:v2026-06",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Algeria",
+   "case_id": "FCRM-2026-0144",
+   "metrics": {
+    "reflag_recall": 1.0,
+    "reflag_precision": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Angola",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Bolivia",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Bosnia and Herzegovina",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Bulgaria",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Cameroon",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Côte d'Ivoire",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Democratic People's Republic of Korea",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Democratic Republic of the Congo",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Haiti",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Iran",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Iraq",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Kenya",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Kuwait",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Lao PDR",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Lebanon",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Monaco",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Myanmar",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Namibia",
+   "case_id": "FCRM-2026-0147",
+   "metrics": {
+    "reflag_recall": 1.0,
+    "reflag_precision": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Nepal",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Papua New Guinea",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:South Sudan",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Syria",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Venezuela",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Vietnam",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Virgin Islands (UK)",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  },
+  {
+   "row_id": "single:Yemen",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": []
+  }
+ ],
+ "timestamp": "2026-10-03T21:39:36.905978Z"
+}

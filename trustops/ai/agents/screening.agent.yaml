@@ -1,0 +1,42 @@
+# ai/agents/screening.agent.yaml  (design B §2.1)
+name: screening
+version: 1
+purpose: >-
+  After triage, read the free-text description and say whether it matches the
+  text conditions of routing rule R4 (vendor renewal, or a feature with no new
+  geography, segment or product). Code applies the volume test and the
+  change-type test; H1 computes fast_lane = code_criteria_met and the agent's
+  reading; the analyst confirms.
+lifecycle_state: screening
+trigger: "H1 enters CaseState.SCREENING after triage"
+tier: cheap
+budget_tier: cheap
+budget: {tokens: 6000, wall_s: 60, retries: 1}     # must equal ai/models/tiers.yaml tiers.cheap.budget
+tools: [field_rules, precedent_search]             # model-callable; equals ai/policies/tool_permits.json
+tool_caps: {field_rules: 1, precedent_search: 1}
+tool_call_cap: 1
+pack_tools: [case_record, field_rules, precedent_search]   # deterministic builder fetches, never exposed to the model
+skills: [declare_gap]
+context_pack: screening                             # ScreeningPackBuilder in fcrm_agents.context
+output_schema:
+  model: fcrm_contracts.proposals.screening.ScreeningProposal
+  notes: >-
+    Design B's ScreeningClassification (five booleans) is not in the
+    committed contract. Interim: the prompt asks for one FastLaneReason per
+    fact (vendor renewal, feature only, new geography, new segment, new
+    product), each a Claim with its own source span. Promote the five facts
+    into a typed field when fcrm_contracts gains it.
+prompt_id: {system: screening.system, user: screening.user}   # versions come from ai/prompts/MANIFEST.yaml
+guards: [input_scan, permit, budget, output_shape, rules]     # critic (6) and human_gate (7) are scheduled by H1
+gate: fast_lane_confirm
+gate_detail:
+  items: [ScreeningProposal]
+  rule: "analyst confirms or rejects the fast lane; a rejection of a proposed fast lane needs a reason (R4)"
+eval_set: screening/fast-lane-100
+eval:
+  datasets: [screening/fast-lane-100]
+  primary_metric: fast_lane_precision
+  gated_metrics: [fast_lane_precision, fast_lane_recall, citation_validity]
+reruns_on: []
+owner: fcrm_analyst
+tokens_expected: {input: 1400, output: 300}

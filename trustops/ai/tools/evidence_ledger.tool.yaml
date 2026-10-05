@@ -1,0 +1,33 @@
+# ai/tools/evidence_ledger.tool.yaml
+name: evidence_ledger
+version: 1
+description: >-
+  Read proposals recorded in the evidence ledger for this case: one proposal by
+  id, or all proposals of a run filtered by agent and item kind. Each proposal
+  carries its items, provenance, the Guard 4 check results, and, once a human
+  decided it, the status (accepted, overridden, removed), the human value and
+  the reason. Use it to fetch the full text of an item your context shows only
+  in compact form.
+backing_service: S4
+backing: {service: audit-service, method: GET, path: "/proposals"}
+read_only: true
+side_effects: none
+permit_key: evidence_ledger
+permitted_agents: [critic, narrative]
+builder_agents: [assessment, critic, narrative, policy_gap]
+timeout_s: 5
+cost_class: io
+cache: {key: [case_id, run_id, proposal_id, agent, kind], scope: ledger_head, ttl_s: 30}
+scope_rule: "case_id must equal payload.case_id (policy_gap: any case listed in its gap records)"
+input_schema:
+  contract_target: fcrm_contracts.tools.EvidenceLedgerIn
+  fields:
+    - {name: case_id, type: str, required: true}
+    - {name: proposal_id, type: "str|null", required: false}
+    - {name: run_id, type: "str|null", required: false}
+    - {name: agent, type: "AgentName|null", required: false}
+    - {name: kind, type: "str|null", required: false, description: item type, e.g. ControlProposal}
+output_schema:
+  contract_target: fcrm_contracts.tools.EvidenceLedgerOut
+  fields:
+    - {name: proposals, type: "list[{proposal_id: str, record_seq: int|null, agent: AgentName, item_type: str, item: dict, guard4: list[{check: str, ok: bool}], status: str, human_value: dict|null, reason: str|null, decided_by: str|null}]"}

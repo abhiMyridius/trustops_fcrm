@@ -1,0 +1,64 @@
+"""Every trigger the state machine responds to (design A §3.1's "Trigger
+(consumed)" column). A handful of rows are marked "internal" in the design
+table — meaning Caseflow dispatches the next step itself on completing the
+previous one, with no external event — and are modelled here as ordinary
+triggers Caseflow raises against itself, since that is exactly what they
+are: a typed self-event, not a special case the state machine needs to
+know about.
+"""
+
+from __future__ import annotations
+
+from enum import StrEnum
+
+
+class Trigger(StrEnum):
+    CASE_CREATED = "case.created"
+    CASE_DOCUMENT_STORED = "case.document_stored"
+    AGENT_DONE_INTAKE = "agent.done.intake"
+    GATE_DECIDED_PO_CONFIRM_CATEGORY_ALL = "gate.decided.po_confirm_category.all"
+    CASE_SUBMITTED = "case.submitted"
+
+    TRIAGE_DISPATCH = "internal.triage_dispatch"
+    SCREENING_DISPATCH = "internal.screening_dispatch"
+    AGENT_DONE_SCREENING = "agent.done.screening"
+    GATE_DECIDED_FAST_LANE_CONFIRM = "gate.decided.fast_lane_confirm"
+
+    ASSESS_DISPATCH = "internal.assess_dispatch"
+    AGENT_DONE_ASSESS_BOTH = "agent.done.research_and_assessment"
+
+    CRITIC_DISPATCH = "internal.critic_dispatch"
+    AGENT_DONE_CRITIC = "agent.done.critic"
+
+    COMPLETENESS_DISPATCH = "internal.completeness_dispatch"
+    AGENT_DONE_NARRATIVE_COMPLETENESS = "agent.done.narrative.completeness"
+    GATE_DECIDED_COMPLETENESS_ASK = "gate.decided.completeness.ask"
+    GATE_DECIDED_COMPLETENESS_PROCEED = "gate.decided.completeness.proceed"
+
+    CASE_ANSWERED = "case.answered"
+    AGENT_DONE_RERUN_BOTH = "agent.done.rerun.research_and_assessment"
+
+    GATE_DECIDED_REVIEW_ITEM = "gate.decided.review_item"
+    CASE_RETAGGED = "case.retagged"
+    CASE_RERUN_REQUESTED = "case.rerun_requested"
+    CASE_GAP_RECORDED = "case.gap_recorded"
+    ALL_ITEMS_DECIDED = "internal.all_items_decided"
+
+    AGENT_DONE_NARRATIVE_RECOMMENDATION = "agent.done.narrative.recommendation"
+    CASE_LOCKED = "case.locked"
+    PACK_RELEASED = "pack.released"
+    CASE_UNLOCKED = "case.unlocked"
+
+    CASE_CLOSE_REQUESTED = "case.close_requested"
+    VOTE_CAST = "vote.cast"
+    COMMITTEE_QUESTION_ASKED = "committee.question_asked"
+    COMMITTEE_ANSWERED_NO_CHANGE = "committee.answered.no_change"
+    COMMITTEE_ANSWERED_CHANGED = "committee.answered.changed"
+    VOTE_TALLIED = "vote.tallied"
+    VOTE_NO_MAJORITY = "vote.no_majority"
+    OUTCOME_SET_DELEGATED = "outcome.set.delegated"
+
+    CLOSED_DISPATCH = "internal.closed_dispatch"
+
+    AGENT_FAILED_AFTER_RETRY = "agent.failed.after_retry"
+    GATE_DECIDED_HANDOFF = "gate.decided.handoff"

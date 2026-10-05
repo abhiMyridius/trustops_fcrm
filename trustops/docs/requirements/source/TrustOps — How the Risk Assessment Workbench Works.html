@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TrustOps — How the Risk Assessment Workbench Works</title>
+<style>
+  :root {
+    --canvas: #F6F3F0;
+    --surface: #FFFFFF;
+    --surface-2: #EDEEEC;
+    --ink: #0C2226;
+    --ink-2: #285055;
+    --ink-3: #52787D;
+    --moss: #194247;
+    --moss-deep: #133338;
+    --leaf: #52E081;
+    --leaf-mid: #94DEA5;
+    --leaf-light: #CBEBBD;
+    --teal: #09A78D;
+    --border: #DDE3E2;
+    --border-2: #C3D2D3;
+    --danger: #8A3324;
+    --warn: #B98A1E;
+    --radius: 10px;
+    --maxw: 1080px;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html { scroll-behavior: smooth; scroll-padding-top: calc(env(safe-area-inset-top, 0px) + 64px); }
+  body {
+    margin: 0;
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+  header.hero {
+    background: var(--moss);
+    color: #fff;
+    padding: 56px 0 44px;
+  }
+  header.hero .eyebrow {
+    font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--leaf-mid); margin: 0 0 12px;
+  }
+  header.hero h1 { margin: 0 0 14px; font-size: 34px; line-height: 1.2; font-weight: 600; }
+  header.hero p { margin: 0; max-width: 70ch; color: #DDE3E2; font-size: 17px; }
+
+  nav.toc {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  nav.toc ul { display: flex; gap: 4px; list-style: none; margin: 0; padding: 0 24px; max-width: var(--maxw); margin: 0 auto; white-space: nowrap; }
+  nav.toc a {
+    display: inline-block; padding: 13px 12px; font-size: 13.5px;
+    color: var(--ink-2); text-decoration: none; border-bottom: 2px solid transparent;
+  }
+  nav.toc a:hover { color: var(--moss); border-bottom-color: var(--leaf); }
+
+  section { padding: 44px 0 8px; }
+  section > .wrap > h2 {
+    font-size: 24px; margin: 0 0 6px; font-weight: 600; color: var(--moss-deep);
+  }
+  section > .wrap > .lede { margin: 0 0 24px; color: var(--ink-2); max-width: 74ch; }
+  h3 { font-size: 17px; margin: 30px 0 8px; font-weight: 600; color: var(--moss-deep); }
+  p { max-width: 78ch; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px 22px; margin: 16px 0;
+  }
+  .card h4 { margin: 0 0 6px; font-size: 15px; font-weight: 600; color: var(--moss-deep); }
+  .card p:last-child { margin-bottom: 0; }
+
+  .grid { display: grid; gap: 16px; }
+  @media (min-width: 720px) { .grid.c2 { grid-template-columns: 1fr 1fr; } .grid.c3 { grid-template-columns: repeat(3, 1fr); } }
+
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14.5px; }
+  .scroll { overflow-x: auto; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--surface-2); font-weight: 600; font-size: 13px; color: var(--ink-2); }
+  tbody tr:last-child td { border-bottom: none; }
+  table.boxed { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+
+  code, .mono { font-family: "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace; font-size: 13.5px; }
+  pre.calc {
+    background: var(--moss-deep); color: #E1E6E4; border-radius: var(--radius);
+    padding: 18px 20px; overflow-x: auto; font-size: 13.5px; line-height: 1.7;
+  }
+  pre.calc .hl { color: var(--leaf); }
+  pre.calc .dim { color: #8AAEB2; }
+
+  .pill {
+    display: inline-block; padding: 2px 9px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; border: 1px solid var(--border-2);
+    background: var(--surface-2); color: var(--ink-2);
+  }
+  .pill.leaf { background: #E3F6DB; border-color: var(--leaf-mid); color: #1f5a33; }
+  .pill.warn { background: #FBF3DF; border-color: #E4CE94; color: #6d5310; }
+  .pill.danger { background: #F6E4E0; border-color: #D9B5AC; color: var(--danger); }
+
+  ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 20px 0; }
+  ol.steps > li {
+    counter-increment: s; position: relative; padding: 0 0 22px 46px; margin: 0;
+    border-left: 2px solid var(--border); margin-left: 15px;
+  }
+  ol.steps > li:last-child { border-left-color: transparent; padding-bottom: 4px; }
+  ol.steps > li::before {
+    content: counter(s); position: absolute; left: -16px; top: 0;
+    width: 30px; height: 30px; border-radius: 50%; background: var(--moss); color: #fff;
+    display: grid; place-items: center; font-size: 13px; font-weight: 600;
+  }
+  ol.steps h4 { margin: 3px 0 4px; font-size: 16px; font-weight: 600; color: var(--moss-deep); }
+  ol.steps .who { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--teal); font-weight: 600; }
+  ol.steps p { margin: 4px 0 0; }
+
+  .note {
+    border-left: 3px solid var(--teal); background: var(--surface);
+    padding: 14px 18px; border-radius: 0 var(--radius) var(--radius) 0; margin: 18px 0;
+  }
+  .note strong { color: var(--moss-deep); }
+
+  dl.gloss { margin: 8px 0; }
+  dl.gloss > div { padding: 12px 0; border-bottom: 1px solid var(--border); }
+  dl.gloss > div:last-child { border-bottom: none; }
+  dt { font-weight: 600; color: var(--moss-deep); }
+  dd { margin: 3px 0 0; color: var(--ink-2); max-width: 78ch; }
+
+  footer { background: var(--surface-2); border-top: 1px solid var(--border); padding: 28px 0; margin-top: 48px; color: var(--ink-3); font-size: 14px; }
+
+  .diagram-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin: 20px 0; }
+  svg.flow { display: block; min-width: 760px; width: 100%; height: auto; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --canvas: #0C2226; --surface: #133338; --surface-2: #163439;
+      --ink: #E5E8E6; --ink-2: #C3D2D3; --ink-3: #9CAAAB;
+      --moss: #15393E; --moss-deep: #E5E8E6; --border: #285055; --border-2: #337077;
+    }
+  }
+  :root[data-theme="dark"] {
+    --canvas: #0C2226; --surface: #133338; --surface-2: #163439;
+    --ink: #E5E8E6; --ink-2: #C3D2D3; --ink-3: #9CAAAB;
+    --moss: #15393E; --moss-deep: #E5E8E6; --border: #285055; --border-2: #337077;
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">TrustOps · Risk Assessment Workbench</p>
+    <h1>How the workbench works, and the problem it solves</h1>
+  </div>
+</header>
+
+<nav class="toc">
+  <ul>
+    <li><a href="#domain">The domain</a></li>
+    <li><a href="#problem">The problem</a></li>
+    <li><a href="#people">The three roles</a></li>
+    <li><a href="#flow">The flow</a></li>
+    <li><a href="#maths">The calculation</a></li>
+    <li><a href="#worked">Worked example</a></li>
+    <li><a href="#rules">Design rules</a></li>
+    <li><a href="#build">What is built</a></li>
+    <li><a href="#glossary">Glossary</a></li>
+  </ul>
+</nav>
+
+<section id="domain">
+  <div class="wrap">
+    <h2>The domain, in plain terms</h2>
+    <p class="lede">Banks are legally obliged to understand how money launderers and sanctioned parties might exploit them. That obligation does not stop at the products they run today. It applies every time something changes.</p>
+
+    <p>If a bank launches a new product, enters a new country, hands part of a process to an outside company, or starts serving a customer type it has not served before, it has to assess whether that change creates a new route for financial crime. Regulators expect the assessment to exist, to be documented, and to be defensible years later.</p>
+
+    <p>The team that performs those assessments is <strong>FCRM</strong>, Financial Crimes Risk Management. The person proposing the change is usually a <strong>Product Owner</strong> on the business side. A <strong>Risk Committee</strong> signs off on the ones that carry real exposure.</p>
+
+    <div class="card">
+      <h4>Six kinds of change that require an assessment</h4>
+      <p>New product · New feature · Process change · Vendor or third-party onboarding · New geography · New customer segment. A single change often falls into several at once, and the assessment covers the union of them.</p>
+    </div>
+
+    <h3>How risk is actually measured</h3>
+    <p>The industry method is two-stage, and the whole system is built around it.</p>
+
+    <div class="grid c3">
+      <div class="card">
+        <h4>1. Inherent risk</h4>
+        <p>The exposure before any defences are considered. How likely is this to be exploited, and how bad would it be if it were?</p>
+      </div>
+      <div class="card">
+        <h4>2. Controls</h4>
+        <p>The defences the bank already has. Sanctions screening, customer due diligence, transaction monitoring, vendor audits. Each has an effectiveness rating.</p>
+      </div>
+      <div class="card">
+        <h4>3. Residual risk</h4>
+        <p>What is left after the controls are applied. This is the number that decides how much oversight the change needs.</p>
+      </div>
+    </div>
+
+    <div class="note">
+      <p><strong>Controls reduce risk. They never eliminate it.</strong> The system enforces a floor: no matter how strong the controls, at least 40 percent of inherent risk survives as residual. This is a real principle in the domain, and it is the reason the arithmetic is capped rather than open-ended.</p>
+    </div>
+
+    <p>Risk is assessed across four standard categories drawn from the US regulatory examination framework: <strong>customer or entity</strong>, <strong>product and service</strong>, <strong>geography</strong>, and <strong>delivery channel and third party</strong>. Which of the four apply to a given change depends on what kind of change it is.</p>
+  </div>
+</section>
+
+<section id="problem">
+  <div class="wrap">
+    <h2>The problem we are solving</h2>
+    <p class="lede">The current process works, slowly and inconsistently. Three failures drive everything in the design.</p>
+
+    <div class="grid c3">
+      <div class="card">
+        <h4>Incomplete submissions</h4>
+        <p>The business owner fills in a form without knowing what the analyst needs. The analyst then asks follow-up questions one at a time, by email, over days. This back and forth is the single largest contributor to the overall timeline.</p>
+      </div>
+      <div class="card">
+        <h4>Two analysts, two conclusions</h4>
+        <p>The same change assessed by two people produces different answers. Policy is looked up from scratch each time, and control effectiveness is a judgment nobody has to evidence.</p>
+      </div>
+      <div class="card">
+        <h4>Unreconstructable reasoning</h4>
+        <p>Months later, when a regulator asks why a decision was reached, the reasoning lives in email threads, personal spreadsheets and people's memories. Rebuilding it is manual archaeology.</p>
+      </div>
+    </div>
+
+    <p>Each of the three has a direct counterpart in the design: a completeness gate at intake, a shared policy layer with an evidenced scoring model, and a case record that accumulates continuously rather than being filed at the end.</p>
+  </div>
+</section>
+
+<section id="people">
+  <div class="wrap">
+    <h2>The three roles</h2>
+    <p class="lede">The prototype has three personas, and the boundaries between them are deliberate. Each sees a different subset of the same case.</p>
+
+    <div class="scroll">
+    <table class="boxed">
+      <thead><tr><th style="width:22%">Role</th><th>What they do</th><th style="width:34%">What they deliberately cannot do</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Product Owner</strong><br><span class="pill">business side</span></td>
+          <td>Raises the case, describes the change, answers the analyst's questions, receives the outcome.</td>
+          <td>Cannot see the risk score, the policy mapping, the control ratings, or any of the assessment reasoning. Cannot configure the rules that decide whether their own change needs review.</td>
+        </tr>
+        <tr>
+          <td><strong>FCRM Analyst</strong><br><span class="pill">the assessment</span></td>
+          <td>Reviews the submission, maps applicable policy, rates controls, produces the score and the recommendation. Owns all system configuration.</td>
+          <td>Cannot edit what the business submitted. They request clarification; the business owner answers.</td>
+        </tr>
+        <tr>
+          <td><strong>Risk Committee</strong><br><span class="pill">oversight</span></td>
+          <td>Reads the generated pack and casts one vote with a written rationale. Three members, majority decides.</td>
+          <td>Cannot edit anything. Votes are hidden until all three are cast, so nobody votes on a running tally.</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<section id="flow">
+  <div class="wrap">
+    <h2>The flow we designed</h2>
+    <p class="lede">A change moves through intake, assessment and decision. The governing principle throughout is that the system prepares and humans decide: every AI action is a proposal with a human accept or override, and the log of those decisions is the audit trail.</p>
+
+    <div class="diagram-scroll">
+    <svg class="flow" viewBox="0 0 900 1580" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Detailed swimlane flow across Product Owner, system, FCRM Analyst and Risk Committee">
+      <defs>
+        <marker id="a" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+          <path d="M0,0 L9,4.5 L0,9 z" fill="#52787D"/>
+        </marker>
+        <marker id="ab" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+          <path d="M0,0 L9,4.5 L0,9 z" fill="#B98A1E"/>
+        </marker>
+      </defs>
+      <style>
+        .ln { font: 600 12px "Segoe UI", sans-serif; letter-spacing:.05em; text-transform:uppercase; }
+        .bx { font: 13px "Segoe UI", sans-serif; }
+        .bxb { font: 600 13px "Segoe UI", sans-serif; }
+        .sm { font: 11px "Segoe UI", sans-serif; }
+        .lb { font: 600 11px "Segoe UI", sans-serif; }
+      </style>
+
+      <!-- lane bands -->
+      <rect x="10" y="10" width="205" height="1560" rx="10" fill="#EDEEEC"/>
+      <rect x="235" y="10" width="205" height="1560" rx="10" fill="#F6F3F0"/>
+      <rect x="460" y="10" width="205" height="1560" rx="10" fill="#EDEEEC"/>
+      <rect x="685" y="10" width="205" height="1560" rx="10" fill="#F6F3F0"/>
+
+      <text class="ln" x="112" y="34" text-anchor="middle" fill="#194247">Product Owner</text>
+      <text class="ln" x="337" y="34" text-anchor="middle" fill="#09A78D">System · AI</text>
+      <text class="ln" x="562" y="34" text-anchor="middle" fill="#194247">FCRM Analyst</text>
+      <text class="ln" x="787" y="34" text-anchor="middle" fill="#194247">Risk Committee</text>
+      <line x1="10" y1="46" x2="890" y2="46" stroke="#C3D2D3"/>
+
+      <!-- 1 PO new case -->
+      <rect x="22" y="62" width="180" height="46" rx="8" fill="#FFFFFF" stroke="#C3D2D3"/>
+      <text class="bxb" x="112" y="82" text-anchor="middle" fill="#0C2226">Open new case</text>
+      <text class="sm" x="112" y="98" text-anchor="middle" fill="#52787D">case ID issued, draft</text>
+      <line x1="112" y1="108" x2="112" y2="130" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+
+      <!-- 2 PO upload -->
+      <rect x="22" y="136" width="180" height="46" rx="8" fill="#FFFFFF" stroke="#C3D2D3"/>
+      <text class="bxb" x="112" y="156" text-anchor="middle" fill="#0C2226">Upload documents</text>
+      <text class="sm" x="112" y="172" text-anchor="middle" fill="#52787D">business case, contract</text>
+      <line x1="202" y1="159" x2="248" y2="200" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+
+      <!-- 3 SYS extract + classify -->
+      <rect x="247" y="206" width="180" height="56" rx="8" fill="#194247"/>
+      <text class="bxb" x="337" y="226" text-anchor="middle" fill="#FFFFFF">Extract · Classify</text>
+      <text class="sm" x="337" y="242" text-anchor="middle" fill="#94DEA5">run in parallel</text>
+      <text class="sm" x="337" y="256" text-anchor="middle" fill="#94DEA5">fields + proposed categories</text>
+      <line x1="247" y1="234" x2="208" y2="278" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+
+      <!-- 4 PO confirm categories -->
+      <rect x="22" y="284" width="180" height="56" rx="8" fill="#FFFFFF" stroke="#C3D2D3"/>
+      <text class="bxb" x="112" y="304" text-anchor="middle" fill="#0C2226">Confirm categories</text>
+      <text class="sm" x="112" y="320" text-anchor="middle" fill="#52787D">removal needs a reason</text>
+      <text class="sm" x="112" y="334" text-anchor="middle" fill="#52787D">required field set fixed</text>
+      <line x1="202" y1="312" x2="248" y2="356" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+
+      <!-- 5 SYS similar cases -->
+      <rect x="247" y="362" width="180" height="46" rx="8" fill="#194247"/>
+      <text class="bxb" x="337" y="382" text-anchor="middle" fill="#FFFFFF">Offer similar cases</text>
+      <text class="sm" x="337" y="398" text-anchor="middle" fill="#94DEA5">field-level reuse</text>
+      <line x1="247" y1="385" x2="208" y2="428" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+
+      <!-- 6 PO reuse -->
+      <rect x="22" y="434" width="180" height="46" rx="8" fill="#FFFFFF" stroke="#C3D2D3"/>
+      <text class="bxb" x="112" y="454" text-anchor="middle" fill="#0C2226">Reuse fields</text>
+      <text class="sm" x="112" y="470" text-anchor="middle" fill="#52787D">source case retained</text>
+      <line x1="202" y1="457" x2="248" y2="500" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+
+      <!-- 7 SYS remaining questions -->
+      <rect x="247" y="506" width="180" height="46" rx="8" fill="#194247"/>
+      <text class="bxb" x="337" y="526" text-anchor="middle" fill="#FFFFFF">Ask what is missing</text>
+      <text class="sm" x="337" y="542" text-anchor="middle" fill="#94DEA5">gaps only</text>
+      <line x1="247" y1="529" x2="208" y2="572" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+
+      <!-- 8 PO answer -->
+      <rect x="22" y="578" width="180" height="46" rx="8" fill="#FFFFFF" stroke="#C3D2D3"/>
+      <text class="bxb" x="112" y="598" text-anchor="middle" fill="#0C2226">Answer</text>
+      <text class="sm" x="112" y="614" text-anchor="middle" fill="#52787D">chat or inline field</text>
+      <line x1="202" y1="601" x2="248" y2="648" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+
+      <!-- 9 validation gate -->
+      <path d="M337,646 L437,700 L337,754 L237,700 z" fill="#FBF3DF" stroke="#E4CE94"/>
+      <text class="bxb" x="337" y="692" text-anchor="middle" fill="#6d5310">Validation gate</text>
+      <text class="sm" x="337" y="708" text-anchor="middle" fill="#6d5310">80% filled, and every</text>
+      <text class="sm" x="337" y="721" text-anchor="middle" fill="#6d5310">always-required field</text>
+
+      <!-- fail loop back to step 7 -->
+      <path d="M237,700 L215,700 L215,529 L247,529" fill="none" stroke="#B98A1E" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#ab)"/>
+      <text class="lb" x="222" y="620" text-anchor="start" fill="#B98A1E" transform="rotate(-90 222 620)">fails · reopens intake</text>
+
+      <line x1="337" y1="754" x2="337" y2="776" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+
+      <!-- 10 auto triage -->
+      <rect x="247" y="782" width="180" height="46" rx="8" fill="#194247"/>
+      <text class="bxb" x="337" y="802" text-anchor="middle" fill="#FFFFFF">Auto-triage</text>
+      <text class="sm" x="337" y="818" text-anchor="middle" fill="#94DEA5">assigns an analyst</text>
+      <line x1="427" y1="805" x2="472" y2="848" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+
+      <!-- 11 analyst review -->
+      <rect x="472" y="854" width="180" height="56" rx="8" fill="#E3F6DB" stroke="#94DEA5"/>
+      <text class="bxb" x="562" y="874" text-anchor="middle" fill="#194247">Review submission</text>
+      <text class="sm" x="562" y="890" text-anchor="middle" fill="#285055">summary, flags, precedent</text>
+      <text class="sm" x="562" y="904" text-anchor="middle" fill="#285055">no score shown yet</text>
+      <line x1="562" y1="910" x2="562" y2="932" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+
+      <!-- 12 retag -->
+      <rect x="472" y="938" width="180" height="46" rx="8" fill="#E3F6DB" stroke="#94DEA5"/>
+      <text class="bxb" x="562" y="958" text-anchor="middle" fill="#194247">Re-tag if needed</text>
+      <text class="sm" x="562" y="974" text-anchor="middle" fill="#285055">may expand required set</text>
+      <line x1="562" y1="984" x2="562" y2="1006" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+
+      <!-- 13 clarification -->
+      <rect x="472" y="1012" width="180" height="56" rx="8" fill="#E3F6DB" stroke="#94DEA5"/>
+      <text class="bxb" x="562" y="1032" text-anchor="middle" fill="#194247">Clarification round</text>
+      <text class="sm" x="562" y="1048" text-anchor="middle" fill="#285055">batched, field-anchored</text>
+      <text class="sm" x="562" y="1062" text-anchor="middle" fill="#285055">pauses analyst clock</text>
+
+      <!-- clarification loop to PO and back -->
+      <path d="M472,1040 L215,1040 L215,1090 L112,1090" fill="none" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+      <rect x="22" y="1096" width="180" height="56" rx="8" fill="#FFFFFF" stroke="#C3D2D3"/>
+      <text class="bxb" x="112" y="1116" text-anchor="middle" fill="#0C2226">Answer</text>
+      <text class="sm" x="112" y="1132" text-anchor="middle" fill="#52787D">writes back as v2</text>
+      <text class="sm" x="112" y="1146" text-anchor="middle" fill="#52787D">original kept, diff shown</text>
+      <path d="M202,1124 L440,1124 L440,1090 L472,1090" fill="none" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+
+      <line x1="652" y1="1040" x2="700" y2="1040" stroke="#DDE3E2" stroke-width="1"/>
+      <line x1="562" y1="1152" x2="562" y2="1174" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+
+      <!-- 14 run analysis -->
+      <rect x="472" y="1180" width="180" height="46" rx="8" fill="#E3F6DB" stroke="#94DEA5"/>
+      <text class="bxb" x="562" y="1200" text-anchor="middle" fill="#194247">Run analysis</text>
+      <text class="sm" x="562" y="1216" text-anchor="middle" fill="#285055">blocked below threshold</text>
+      <line x1="472" y1="1203" x2="432" y2="1240" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+
+      <!-- 15 agent pipeline -->
+      <rect x="247" y="1246" width="180" height="84" rx="8" fill="#194247"/>
+      <text class="bxb" x="337" y="1266" text-anchor="middle" fill="#FFFFFF">Agent pipeline</text>
+      <text class="sm" x="337" y="1282" text-anchor="middle" fill="#94DEA5">policy · risk · controls</text>
+      <text class="sm" x="337" y="1295" text-anchor="middle" fill="#94DEA5">precedent · narrative</text>
+      <line x1="262" y1="1303" x2="412" y2="1303" stroke="#337077"/>
+      <text class="sm" x="337" y="1320" text-anchor="middle" fill="#52E081">scoring computed, not inferred</text>
+      <line x1="427" y1="1288" x2="472" y2="1330" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+
+      <!-- 16 confirm components -->
+      <rect x="472" y="1336" width="180" height="56" rx="8" fill="#E3F6DB" stroke="#94DEA5"/>
+      <text class="bxb" x="562" y="1356" text-anchor="middle" fill="#194247">Confirm or override</text>
+      <text class="sm" x="562" y="1372" text-anchor="middle" fill="#285055">per component, reasons logged</text>
+      <text class="sm" x="562" y="1386" text-anchor="middle" fill="#285055">score recomputes each time</text>
+      <line x1="472" y1="1364" x2="437" y2="1420" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+
+      <!-- 17 band decision -->
+      <path d="M337,1400 L437,1452 L337,1504 L237,1452 z" fill="#FBF3DF" stroke="#E4CE94"/>
+      <text class="bxb" x="337" y="1446" text-anchor="middle" fill="#6d5310">Composite residual</text>
+      <text class="sm" x="337" y="1462" text-anchor="middle" fill="#6d5310">band determines route</text>
+
+      <!-- band 1-2 to analyst close -->
+      <path d="M437,1452 L455,1452 L455,1424 L472,1424" fill="none" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+      <rect x="472" y="1408" width="180" height="40" rx="8" fill="#E3F6DB" stroke="#94DEA5"/>
+      <text class="bxb" x="562" y="1425" text-anchor="middle" fill="#194247">Delegated close</text>
+      <text class="sm" x="562" y="1439" text-anchor="middle" fill="#285055">bands 1 and 2</text>
+
+      <!-- band 3-4 to pack then committee -->
+      <path d="M337,1504 L337,1520 L700,1520 L700,1496" fill="none" stroke="#52787D" stroke-width="1.5" marker-end="url(#a)"/>
+      <rect x="697" y="1440" width="180" height="50" rx="8" fill="#FFFFFF" stroke="#C3D2D3"/>
+      <text class="bxb" x="787" y="1459" text-anchor="middle" fill="#0C2226">Three votes</text>
+      <text class="sm" x="787" y="1474" text-anchor="middle" fill="#52787D">hidden until all cast</text>
+      <text class="sm" x="787" y="1486" text-anchor="middle" fill="#52787D">majority decides · bands 3 and 4</text>
+      <text class="lb" x="500" y="1534" text-anchor="middle" fill="#52787D">pack generated deterministically, analyst approves</text>
+
+      <!-- outcome back to PO -->
+      <path d="M697,1465 L215,1465 L215,1548 L202,1548" fill="none" stroke="#52787D" stroke-width="1.5" stroke-dasharray="5 3"/>
+      <rect x="22" y="1526" width="180" height="44" rx="8" fill="#FFFFFF" stroke="#C3D2D3"/>
+      <text class="bxb" x="112" y="1545" text-anchor="middle" fill="#0C2226">Outcome received</text>
+      <text class="sm" x="112" y="1560" text-anchor="middle" fill="#52787D">decision and plain summary</text>
+    </svg>
+    </div>
+
+    <ol class="steps">
+      <li><span class="who">Product Owner</span><h4>Case opens</h4>
+        <p>A case ID is issued at the start of the conversation, before any content exists. Everything attaches to it from that point.</p></li>
+      <li><span class="who">Product Owner · System</span><h4>Documents first, questions second</h4>
+        <p>The owner uploads what they already have. Extraction and classification run in parallel against it.</p></li>
+      <li><span class="who">Product Owner</span><h4>Categories confirmed</h4>
+        <p>Required fields depend on which categories apply, so this comes before detailed questions. Removing a proposed category needs a recorded reason.</p></li>
+      <li><span class="who">System · Product Owner</span><h4>Prior cases offered for reuse</h4>
+        <p>Field-level reuse with checkboxes, never a whole-case clone. Reused values keep a label naming their source case.</p></li>
+      <li><span class="who">System · Product Owner</span><h4>Only the gaps are asked about</h4>
+        <p>Answers go in the chat or an inline box, both writing to the same field. The completion ring shows the submission threshold.</p></li>
+      <li><span class="who">System</span><h4>Validation gate</h4>
+        <p>Four checks run visibly. Submission needs 80 percent of required fields and separately every always-required field. A failure names which ground it failed on and reopens intake asking only for what is missing.</p></li>
+      <li><span class="who">System</span><h4>Auto-triage assigns an analyst</h4>
+        <p>Workload-balanced rotation. Every case has a named owner from arrival.</p></li>
+      <li><span class="who">FCRM Analyst</span><h4>Review before running anything</h4>
+        <p>Summary, confirmed categories, flagged inconsistencies and precedent. No score is shown, because a number offered before the work anchors the assessment to it.</p></li>
+      <li><span class="who">FCRM Analyst</span><h4>Re-tag if the categories are wrong</h4>
+        <p>Adding a category expands the required set and can push a complete submission back below threshold.</p></li>
+      <li><span class="who">Analyst · Product Owner</span><h4>Clarification, batched and anchored</h4>
+        <p>One round rather than a trickle. Questions attach to fields, and marked answers write back as a new submission version with the original retained and the change shown as a diff.</p></li>
+      <li><span class="who">System</span><h4>Analysis pipeline</h4>
+        <p>Five agents run in sequence with the scoring computation between them, rendered distinctly because it is arithmetic rather than model output. Re-running discards prior work and requires a reason.</p></li>
+      <li><span class="who">FCRM Analyst</span><h4>Policy, risk factors and controls confirmed</h4>
+        <p>Clauses accepted, removed with a reason, or added by search. Control ratings confirmed in one click or overridden with a reason. Per component, never in bulk.</p></li>
+      <li><span class="who">System</span><h4>Score recomputes, band determines route</h4>
+        <p>Inspectable to four levels of depth, down to the arithmetic. An override that crosses a band boundary is flagged and logged with the before, the after and the cause.</p></li>
+      <li><span class="who">FCRM Analyst</span><h4>Recommendation confirmed and locked</h4>
+        <p>Unlocking later requires a reason and regenerates the pack. Material clarifications assemble themselves from what was asked and what changed.</p></li>
+      <li><span class="who">System · Analyst</span><h4>Committee pack generated</h4>
+        <p>Deterministic, no AI. Narrative and notes editable; numbers and ratings locked. The plain-language summary for the business owner must exist before the pack can be approved.</p></li>
+      <li><span class="who">Risk Committee</span><h4>Three votes, hidden until all are cast</h4>
+        <p>Mandatory written rationale each. Revealed together so the last voter judges the case rather than a result. Majority decides.</p></li>
+      <li><span class="who">Product Owner</span><h4>Outcome returns with a reason</h4>
+        <p>Decision and summary in business terms. Never the score, band, control ratings or policy clauses.</p></li>
+    </ol>
+
+    <div class="note">
+      <p><strong>Filing is not a step.</strong> In the current process, someone drops documents on a shared drive at the end. Here the record accumulates as work happens: every agent action, every human override with its reason, every clarification round, every version of the submission, and the version of the scoring model, field set and policy corpus in force at the time.</p>
+    </div>
+  </div>
+</section>
+
+<section id="maths">
+  <div class="wrap">
+    <h2>The calculation</h2>
+    <p class="lede">This is the part worth reading closely. It is deterministic arithmetic, it lives server-side in its own module, and no AI touches it. The agents supply inputs; the engine computes.</p>
+
+    <h3>Inputs</h3>
+    <div class="scroll">
+    <table class="boxed">
+      <thead><tr><th style="width:26%">Input</th><th style="width:16%">Range</th><th>Where it comes from</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Likelihood</strong></td><td>1 to 5</td><td>Set by the analyst against written definitions for each level. Some values are pre-populated from reference data, such as a jurisdiction risk list.</td></tr>
+        <tr><td><strong>Impact</strong></td><td>1 to 5</td><td>Set by the analyst against written definitions, informed by volume and customer exposure.</td></tr>
+        <tr><td><strong>Control effectiveness</strong></td><td>0.0 to 10.0</td><td>Per control, proposed by the system from a maintained inventory along with the evidence supporting it, then confirmed or overridden by the analyst.</td></tr>
+        <tr><td><strong>Control weight</strong></td><td>sums to 1.00</td><td>Held in the control inventory. Each risk category's controls carry weights summing to exactly one.</td></tr>
+        <tr><td><strong>Category weight</strong></td><td>relative</td><td>Configuration. Normalised across whichever categories are in scope for the case, so they need not sum to one globally.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>The chain</h3>
+<pre class="calc"><span class="dim">// per risk category in scope</span>
+Inherent   = Likelihood × Impact                    <span class="dim">// 1 to 25</span>
+CE         = weighted mean of that category's control ratings
+Retention  = 1 − (0.6 × CE ÷ 10)                    <span class="dim">// 1.00 down to 0.40</span>
+Residual   = Inherent × Retention
+
+<span class="dim">// across all in-scope categories</span>
+<span class="hl">Composite  = Σ (Residual × normalised category weight)</span>
+Band       = lookup(Composite) against the band table
+Route      = the band's routing consequence</pre>
+
+    <p>The retention formula is where the floor lives. At a control effectiveness of zero, retention is 1.00 and the full inherent risk carries through. At a perfect ten, retention is 0.40 and sixty percent of the risk has been mitigated, which is the most the model will ever allow.</p>
+
+    <h3>Bands and routing</h3>
+    <div class="scroll">
+    <table class="boxed">
+      <thead><tr><th style="width:18%">Band</th><th style="width:22%">Composite residual</th><th>Route</th></tr></thead>
+      <tbody>
+        <tr><td>Band 1 of 4</td><td class="mono">0.0 to 5.0</td><td>Closes under the analyst's delegated authority</td></tr>
+        <tr><td>Band 2 of 4</td><td class="mono">5.1 to 10.0</td><td>Closes under the analyst's delegated authority</td></tr>
+        <tr><td>Band 3 of 4</td><td class="mono">10.1 to 17.0</td><td>Goes to committee review</td></tr>
+        <tr><td>Band 4 of 4</td><td class="mono">17.1 to 25.0</td><td>Goes to committee review</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Four bands over two routing outcomes is deliberate. The bands give reporting and query granularity finer than the routing decision itself, so a committee can see where in the range a case sits rather than only that it arrived.</p>
+
+    <h3>Guards in the engine</h3>
+    <div class="grid c2">
+      <div class="card">
+        <h4>Boundary proximity</h4>
+        <p>When a composite lands within half a point of a band edge, the system flags it and requires the analyst to acknowledge before proceeding. A judgment-derived number of 10.0 against 10.1 changes who oversees the case, and that should be visible rather than silent.</p>
+      </div>
+      <div class="card">
+        <h4>Nothing is retroactive</h4>
+        <p>Every case records the version of the scoring model, field set and policy corpus that applied to it. Changing configuration affects new work only. In-flight cases continue on their version, with an explicit logged option to re-score.</p>
+      </div>
+      <div class="card">
+        <h4>Evidence has a shelf life</h4>
+        <p>Control ratings are backed by named artifacts with test dates. Evidence past its recency window is flagged stale; evidence approaching it is flagged as nearing. A rating with no supporting artifact is marked judgment-only.</p>
+      </div>
+      <div class="card">
+        <h4>Planned controls do not count</h4>
+        <p>A control that does not exist yet is recorded separately and affects no score. The recommendation can reference it, but the arithmetic ignores it, because a control that is not live cannot mitigate anything.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="worked">
+  <div class="wrap">
+    <h2>Worked example</h2>
+    <p class="lede">The reference case in the prototype: a bank onboarding a payout partner to launch consumer remittances into a new corridor. Three risk categories are in scope because the change is simultaneously a vendor onboarding, a new geography and a new product.</p>
+
+    <h3>First computation</h3>
+    <div class="scroll">
+    <table class="boxed">
+      <thead><tr><th>Risk category</th><th>L</th><th>I</th><th>Inherent</th><th>CE</th><th>Retention</th><th>Residual</th><th>Weight</th></tr></thead>
+      <tbody>
+        <tr><td>Delivery channel and third party</td><td class="mono">4</td><td class="mono">5</td><td class="mono">20</td><td class="mono">7.6</td><td class="mono">0.54</td><td class="mono">10.9</td><td class="mono">0.45</td></tr>
+        <tr><td>Geography</td><td class="mono">4</td><td class="mono">4</td><td class="mono">16</td><td class="mono">6.0</td><td class="mono">0.64</td><td class="mono">10.2</td><td class="mono">0.30</td></tr>
+        <tr><td>Product and service</td><td class="mono">3</td><td class="mono">4</td><td class="mono">12</td><td class="mono">6.5</td><td class="mono">0.61</td><td class="mono">7.3</td><td class="mono">0.25</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+<pre class="calc">Composite = (10.9 × 0.45) + (10.2 × 0.30) + (7.3 × 0.25)
+          = 4.91 + 3.06 + 1.83
+          = <span class="hl">9.8</span>   →  Band 2  →  delegated close</pre>
+
+    <p>The composite lands close to the Band 3 edge, so the boundary proximity flag fires and the analyst has to acknowledge it.</p>
+
+    <h3>What the analyst finds</h3>
+    <p>Reviewing the controls, the analyst notices that the vendor due-diligence rating rests on an independent audit dated well before the corridor arrangement existed, covering the vendor's domestic operations only. They raise a clarification, confirm the audit's date and scope, and reduce that control's effectiveness from 7.6 to 4.5, recording the reason.</p>
+
+<pre class="calc">Delivery channel CE 7.6 → 4.5, so retention 0.54 → 0.73
+Residual for that category 10.9 → 14.6
+
+Composite = (14.6 × 0.45) + (10.2 × 0.30) + (7.3 × 0.25)
+          = <span class="hl">11.5</span>  →  Band 3  →  committee review</pre>
+
+    <div class="note">
+      <p><strong>This is the whole design in one sequence.</strong> A gap in evidence surfaces, a clarification confirms it, a human overrides an AI proposal with a recorded reason, the arithmetic recomputes, the case crosses a routing boundary, and the change of oversight is logged with its cause. Every step of that is reconstructable months later.</p>
+    </div>
+  </div>
+</section>
+
+<section id="rules">
+  <div class="wrap">
+    <h2>Design rules that constrain the build</h2>
+    <p class="lede">These are not preferences. Each one exists because violating it would undermine something the product claims.</p>
+
+    <div class="grid c2">
+      <div class="card">
+        <h4>AI proposes, humans decide</h4>
+        <p>Every AI output is a proposal with an accept or override. Confirmation is per component, never bulk. A single accept-all button would make the audit trail record consent instead of review.</p>
+      </div>
+      <div class="card">
+        <h4>Scoring is arithmetic, not inference</h4>
+        <p>Agents supply inputs and draft narrative. The engine computes every score. No model ever sets a rating or a band.</p>
+      </div>
+      <div class="card">
+        <h4>Policy is retrieved, never generated</h4>
+        <p>Applicable clauses are shown verbatim with their source. If nothing applicable is found, the system says so rather than producing something plausible. A fabricated policy citation in a bank's risk record is worse than no citation.</p>
+      </div>
+      <div class="card">
+        <h4>The business owner cannot configure their own gate</h4>
+        <p>Required fields, completion thresholds and classification rules are owned by FCRM and read-only to the business. The business owner controls only their own optional fields and notification preferences.</p>
+      </div>
+      <div class="card">
+        <h4>Submissions are never edited by the analyst</h4>
+        <p>The analyst requests clarification; the business owner answers. Answers land in the submission as a new version with a visible diff. The original is retained permanently.</p>
+      </div>
+      <div class="card">
+        <h4>Overrides carry reasons</h4>
+        <p>Removing a proposed category, removing a policy clause, changing a control rating and re-running an analysis all require a recorded reason. The reasons are the audit trail.</p>
+      </div>
+      <div class="card">
+        <h4>Visibility is asymmetric by design</h4>
+        <p>The business owner never sees working scores, policy mapping or control ratings. Where those exist on a case, their view renders nothing at all rather than a locked placeholder.</p>
+      </div>
+      <div class="card">
+        <h4>Closed means closed</h4>
+        <p>No analyst, including the one who signed it off, can re-run or edit a closed assessment. Silently changing the basis of a decision already delivered is the failure this prevents.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="build">
+  <div class="wrap">
+    <h2>What is built, and what comes next</h2>
+    <p class="lede">The prototype is a front end over a mock service layer. Understanding that boundary matters for anyone picking up the work.</p>
+
+    <div class="grid c2">
+      <div class="card">
+        <h4>Real today</h4>
+        <p>The scoring engine is genuine deterministic arithmetic, not scripted output. Field resolution, band lookup, routing, version stamping, completeness calculation and all dashboard aggregation compute from a generated data corpus. The regulatory frameworks referenced are real ones.</p>
+      </div>
+      <div class="card">
+        <h4>Mocked today</h4>
+        <p>All AI agent outputs are scripted. There is no database, no authentication, and no live retrieval. The persona switcher stands in for real sessions.</p>
+      </div>
+      <div class="card">
+        <h4>Architecture that anticipates this</h4>
+        <p>Every data access goes through one service module with one function per backend call, each faking latency. Components never touch mock data directly. Replacing the mock with a real API is a change of function bodies, not call sites.</p>
+      </div>
+      <div class="card">
+        <h4>Sequence for making it real</h4>
+        <p>Database and API first, then move the scoring engine server-side, then the agents one at a time. Policy retrieval is the first agent worth making real: it is the highest-value demonstration and its failure mode is visible rather than silent.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="glossary">
+  <div class="wrap">
+    <h2>Glossary</h2>
+    <p class="lede">Terms that appear throughout the code and the interface.</p>
+
+    <dl class="gloss">
+      <div><dt>AML</dt><dd>Anti-money laundering. The body of law and practice requiring banks to detect and prevent the movement of criminal proceeds.</dd></div>
+      <div><dt>KYC and CDD</dt><dd>Know Your Customer and Customer Due Diligence. The checks a bank performs to establish who a customer is and what risk they carry.</dd></div>
+      <div><dt>FCRM</dt><dd>Financial Crimes Risk Management. The team that assesses and governs financial crime exposure.</dd></div>
+      <div><dt>Trigger category</dt><dd>One of the six kinds of change that require an assessment. A case can carry several, and its required fields are the union of the ones each category adds.</dd></div>
+      <div><dt>AML risk category</dt><dd>One of the four standard dimensions risk is assessed across: customer or entity, product and service, geography, delivery channel and third party. Distinct from trigger categories, and derived from them.</dd></div>
+      <div><dt>Inherent risk</dt><dd>Exposure before controls. Likelihood multiplied by impact, giving a value from 1 to 25.</dd></div>
+      <div><dt>Control</dt><dd>An existing mechanism that reduces risk. Screening systems, due diligence procedures, transaction limits, monitoring rules.</dd></div>
+      <div><dt>Control effectiveness</dt><dd>How well a control actually works, rated 0 to 10 and backed by named evidence with a test date.</dd></div>
+      <div><dt>Residual risk</dt><dd>What remains after controls are applied. The number that decides the level of oversight.</dd></div>
+      <div><dt>Band</dt><dd>The range the composite residual falls into, one of four. Determines routing and provides reporting granularity.</dd></div>
+      <div><dt>Delegated authority</dt><dd>The analyst's power to close a lower-risk case without committee involvement.</dd></div>
+      <div><dt>Always required</dt><dd>A field that must be filled regardless of the completion percentage. The mechanism that stops the threshold's slack landing on fields that determine the assessment.</dd></div>
+      <div><dt>Clarification round</dt><dd>One batched set of questions from analyst to business owner. Batching is enforced; questions do not go out individually.</dd></div>
+      <div><dt>SLA</dt><dd>The target turnaround, measured in business days. Tracked on two clocks: total elapsed, and analyst-active, which pauses while awaiting a response from the business.</dd></div>
+      <div><dt>FATF</dt><dd>Financial Action Task Force. The international body that publishes lists of jurisdictions with deficient anti-money-laundering regimes.</dd></div>
+      <div><dt>OFAC</dt><dd>The US Treasury office that administers sanctions programmes.</dd></div>
+      <div><dt>FFIEC</dt><dd>The US interagency body whose examination manual defines the four AML risk categories the scoring model uses.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>TrustOps Risk Assessment Workbench · Myridius</p>
+  </div>
+</footer>
+
+</body>
+</html>

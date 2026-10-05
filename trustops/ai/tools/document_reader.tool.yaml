@@ -1,0 +1,37 @@
+# ai/tools/document_reader.tool.yaml
+name: document_reader
+version: 1
+description: >-
+  Read a page range of one document already attached to this case, as canonical
+  Markdown with page and line anchors ("p.N l.M: text"). The text is the
+  PII-masked version produced at ingestion; masked spans appear as
+  <PII:TYPE:n>. Use it to read pages that were not in your window, or to
+  re-read the exact lines you want to quote. At most 6 pages per call.
+  It cannot read documents of other cases and it cannot search.
+backing_service: S1
+backing: {service: case-service, method: GET, path: "/internal/cases/{case_id}/documents/{doc_id}/pages"}
+read_only: true
+side_effects: none
+permit_key: document_reader          # value of OPA input.tool; the pair key is "<agent>:document_reader"
+permitted_agents: [intake]            # model-callable (must equal ai/policies/tool_permits.json)
+builder_agents: [intake]              # deterministic pack-builder use (pack_tools)
+timeout_s: 6
+cost_class: io
+cache: {key: [case_id, doc_id, page_start, page_end], scope: doc_sha256, ttl_s: null}   # pages are immutable per doc id
+scope_rule: "case_id must equal payload.case_id; doc_id must belong to that case"
+input_schema:
+  contract_target: fcrm_contracts.tools.DocumentReaderIn     # not yet in fcrm_contracts; promote these fields
+  fields:
+    - {name: case_id, type: str, required: true}
+    - {name: doc_id, type: str, required: true}
+    - {name: page_start, type: int, required: true, constraints: "ge=1"}
+    - {name: page_end, type: int, required: true, constraints: "ge=page_start; page_end - page_start <= 5"}
+output_schema:
+  contract_target: fcrm_contracts.tools.DocumentReaderOut
+  fields:
+    - {name: doc_id, type: str}
+    - {name: name, type: str}
+    - {name: pages_total, type: int}
+    - {name: pages, type: "list[{page: int, lines: list[{n: int, text: str}]}]"}
+    - {name: pii_masked, type: int, description: count of masked spans in the returned pages}
+    - {name: renderer_version, type: str}

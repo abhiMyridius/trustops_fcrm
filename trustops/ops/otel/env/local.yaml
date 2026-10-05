@@ -1,0 +1,12 @@
+# ENV=local overlay, merged over ../collector.yaml. Adds the debug exporter
+# to every pipeline (one summary line per batch on the collector's stdout).
+# Lists replace rather than append when configs merge, so each pipeline's
+# exporters are restated in full.
+service:
+  pipelines:
+    traces:
+      exporters: [otlp/jaeger, debug]
+    metrics:
+      exporters: [prometheus, debug]
+    logs:
+      exporters: [debug]

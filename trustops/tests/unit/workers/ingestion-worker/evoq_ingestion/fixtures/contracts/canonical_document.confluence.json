@@ -1,0 +1,157 @@
+{
+  "source_id": "SRCaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "job_id": "job-1",
+  "origin_id": "PRJ1775812945588",
+  "source_type": "confluence",
+  "source_key": "confluence:98765",
+  "scope_key": "space:ENG",
+  "source_display_name": "VAULT-TSR-100 Requirements",
+  "file_name": "98765.html",
+  "url": "https://acme.atlassian.net/wiki/spaces/ENG/pages/98765/VAULT-TSR-100+Requirements",
+  "domain_url": "https://acme.atlassian.net",
+  "is_active": true,
+  "version": 1,
+  "created_by": "amey.phansalkar@myridius.com",
+  "created_on": "2026-09-10 14:05:36.078393+00:00",
+  "content_hash": "sha256:e6314cda5edd2523c9d87630750882552cbf1dde2e3cf5f77864340213122fc3",
+  "metadata_hash": "sha256:e0aa0f07dde75e422dd7a0470ee5007ba11e98e1b54a0e1b7e712aac5fd3e7a6",
+  "body_format": "markdown",
+  "body_markdown": "# VAULT-TSR-100 Requirements\n\n# Overview\n\nThis page defines requirement VAULT-TSR-100 and VAULT-TSR-101.\n\n## Requirements\n\n| ID | Statement |\n|---|---|\n| VAULT-TSR-100 | The system shall enforce eligibility rules. |\n| VAULT-TSR-101 | The system shall log all eligibility decisions. |\n",
+  "body_inline": true,
+  "body_chars": 284,
+  "body_bytes": 284,
+  "body_path": "/aeo/PRJ1775812945588/sources/confluence/SRCaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/v1.md",
+  "raw_format": "confluence_export_view_html",
+  "raw_path": "/aeo/PRJ1775812945588/sources/confluence/SRCaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/v1.raw.html",
+  "title": "VAULT-TSR-100 Requirements",
+  "labels": [
+    "requirements",
+    "vault"
+  ],
+  "authors": [
+    {
+      "name": "Priya Sharma",
+      "account_id": "acc-1",
+      "role": "editor"
+    }
+  ],
+  "source_created_at": "2026-01-15T09:00:00.000Z",
+  "source_updated_at": "2026-08-01T10:00:00.000Z",
+  "source_version": 4,
+  "attachments": [],
+  "attachments_truncated": false,
+  "hierarchy": {
+    "space_key": "ENG",
+    "space_name": "Engineering",
+    "parent_id": "200",
+    "parent_title": "Requirements",
+    "ancestors": [
+      {
+        "id": "100",
+        "title": "Home"
+      },
+      {
+        "id": "200",
+        "title": "Requirements"
+      }
+    ],
+    "section_path": "Engineering / Home / Requirements",
+    "depth": 2
+  },
+  "structure": {
+    "headings": [
+      {
+        "level": 1,
+        "text": "Overview",
+        "line": 1
+      },
+      {
+        "level": 2,
+        "text": "Requirements",
+        "line": 5
+      }
+    ],
+    "heading_count": 2,
+    "page_count": null,
+    "sheet_count": null,
+    "slide_count": null,
+    "table_count": 1,
+    "list_item_count": 0,
+    "code_block_count": 0,
+    "image_count": 0,
+    "requirement_ids": [
+      "VAULT-TSR-100",
+      "VAULT-TSR-101"
+    ],
+    "word_count": 41,
+    "char_count": 284
+  },
+  "extraction": {
+    "engine": "confluence.export_view+html2md",
+    "engine_version": "1",
+    "html2md_version": "1",
+    "fallback_used": false,
+    "warnings": [],
+    "duration_ms": 0,
+    "raw_hash": null
+  },
+  "profile_hints": {
+    "profile_version": 1,
+    "char_count": 284,
+    "word_count": 41,
+    "line_count": 13,
+    "non_blank_line_count": 8,
+    "paragraph_count": 1,
+    "avg_paragraph_words": 7.0,
+    "max_paragraph_words": 7,
+    "sentence_count": 1,
+    "avg_sentence_words": 41.0,
+    "heading_count": 2,
+    "heading_levels": {
+      "1": 2,
+      "2": 1
+    },
+    "max_heading_depth": 2,
+    "heading_density": 48.78,
+    "numbered_section_count": 0,
+    "table_count": 1,
+    "table_row_count": 4,
+    "table_text_ratio": 0.5669,
+    "list_item_count": 0,
+    "list_item_ratio": 0.0,
+    "code_block_count": 0,
+    "code_char_ratio": 0.0,
+    "page_count": null,
+    "sheet_count": null,
+    "slide_count": null,
+    "requirement_id_count": 5,
+    "requirement_id_unique": 2,
+    "requirement_id_density": 121.951,
+    "requirement_id_prefixes": {
+      "VAULT-TSR": 5
+    },
+    "link_count": 0,
+    "image_count": 0,
+    "replacement_char_ratio": 0.0,
+    "non_printable_ratio": 0.0,
+    "is_scanned_pdf": false,
+    "language": "und",
+    "body_prefix_sha1": "1648eb2b6594a6c811768484909013956149c82e"
+  },
+  "extraction_status": "COMPLETE",
+  "metadata": {
+    "confluence_id": "98765",
+    "space_key": "ENG",
+    "status": "current",
+    "author_id": "acc-1",
+    "created_at": "2026-01-15T09:00:00.000Z",
+    "updated_at": "2026-08-01T10:00:00.000Z",
+    "space_name": "Engineering",
+    "version_number": 4,
+    "last_modified_by": "Priya Sharma"
+  },
+  "first_seen_at": "2026-09-10 14:05:36.078393+00:00",
+  "last_seen_at": "2026-09-10 14:05:36.078393+00:00",
+  "last_seen_job_id": "job-1",
+  "file_path": "/aeo/PRJ1775812945588/sources/confluence/SRCaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/v1.md"
+}

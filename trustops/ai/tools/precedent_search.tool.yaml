@@ -1,0 +1,33 @@
+# ai/tools/precedent_search.tool.yaml
+name: precedent_search
+version: 1
+description: >-
+  Find the closed cases most similar to a case summary (at most 5), with the
+  similarity score, closed date, outcome and the control ratings and
+  likelihood/impact the analyst confirmed in each. Also returns the mean rating
+  per control across the results. Copy similarity numbers and ratings exactly
+  as returned; never estimate them. Set titles_only=true when you only need
+  titles, types and the fast-lane flag.
+backing_service: S3
+backing: {service: policy-service, method: POST, path: "/precedents/search"}   # POST carries the filter body; no write
+read_only: true
+side_effects: none
+permit_key: precedent_search
+permitted_agents: [screening, intake, research, assessment, critic]
+builder_agents: [screening, research, assessment, critic]
+timeout_s: 8
+cost_class: io
+cache: {key: [query, filters, top_k, titles_only], scope: precedent_index_version, ttl_s: 86400}
+scope_rule: "never returns the calling case itself; only cases in state closed"
+input_schema:
+  contract_target: fcrm_contracts.tools.PrecedentSearchIn
+  fields:
+    - {name: query, type: str, required: true, constraints: "max_length=600", description: case summary text}
+    - {name: filters, type: "{trigger_types: list[ChangeType], risk_areas: list[Domain], closed_after: date|null, closed_before: date|null, outcome: Outcome|null}", required: false}
+    - {name: top_k, type: int, required: false, constraints: "le=5; default 5"}
+    - {name: titles_only, type: bool, required: false, description: "default false"}
+output_schema:
+  contract_target: fcrm_contracts.tools.PrecedentSearchOut
+  fields:
+    - {name: results, type: "list[{case_id: str, title: str, change_types: list[ChangeType], similarity: float, closed_date: date, outcome: Outcome, fast_lane: bool, factors: dict[Domain, {L: int, I: int}], control_ratings: dict[str, float]}]"}
+    - {name: precedent_avg, type: "dict[str, float]", description: mean rating per control across results}

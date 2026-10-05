@@ -1,0 +1,1145 @@
+{
+ "agent": "intake",
+ "dataset": "intake/extraction-80",
+ "dataset_sha256": "1d53e364cfa7e767d744fee749473e2463ef506e4cfb39b64a00da9823df5277",
+ "producer": "degraded",
+ "n": 80,
+ "primary_metric": "field_extraction_accuracy",
+ "metrics": {
+  "field_extraction_accuracy": 0.7777777777777778,
+  "source_span_accuracy": 1.0,
+  "category_f1": 0.8349514563106796,
+  "gap_question_precision": 1.0,
+  "citation_validity": 1.0
+ },
+ "summaries": [
+  {
+   "name": "field_extraction_accuracy",
+   "kind": "deterministic",
+   "score": 0.7777777777777778,
+   "numerator": 7.0,
+   "denominator": 9.0,
+   "rows_scored": 1,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": true,
+   "description": "normalised exact value match per expected field",
+   "flags": [
+    "F01: 'Priya Nair, Payments (approx.)'",
+    "F06: 'Remesas del Norte S.A. (approx.)'"
+   ]
+  },
+  {
+   "name": "source_span_accuracy",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 9.0,
+   "denominator": 9.0,
+   "rows_scored": 1,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "same doc/page, overlapping lines",
+   "flags": []
+  },
+  {
+   "name": "category_f1",
+   "kind": "deterministic",
+   "score": 0.8349514563106796,
+   "numerator": 172.0,
+   "denominator": 206.0,
+   "rows_scored": 80,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": false,
+   "description": "micro-F1 over change types",
+   "flags": [
+    "fn ['process_change']",
+    "fn ['process_change']",
+    "fn ['process_change']",
+    "fn ['process_change']",
+    "fn ['new_geography']",
+    "fn ['new_segment']",
+    "fn ['new_feature']",
+    "fn ['new_product']",
+    "fn ['new_geography']",
+    "fn ['new_segment']",
+    "fn ['process_change']",
+    "fn ['new_geography']",
+    "fn ['process_change']",
+    "fn ['new_geography']",
+    "fn ['new_product']",
+    "fn ['new_product']",
+    "fn ['process_change']",
+    "fn ['new_segment']",
+    "fn ['new_feature']",
+    "fn ['new_product']"
+   ]
+  },
+  {
+   "name": "gap_question_precision",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 3.0,
+   "denominator": 3.0,
+   "rows_scored": 1,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "gap questions about really-absent fields",
+   "flags": []
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 95.0,
+   "denominator": 95.0,
+   "rows_scored": 58,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "FCRM-2026-0151",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "field_extraction_accuracy": 0.7777777777777778,
+    "source_span_accuracy": 1.0,
+    "category_f1": 1.0,
+    "gap_question_precision": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "field_extraction_accuracy: F01: 'Priya Nair, Payments (approx.)'",
+    "field_extraction_accuracy: F06: 'Remesas del Norte S.A. (approx.)'"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0072",
+   "case_id": "FCRM-2026-0072",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0073",
+   "case_id": "FCRM-2026-0073",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.8,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "category_f1: fn ['process_change']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0074",
+   "case_id": "FCRM-2026-0074",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.6666666666666666,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "category_f1: fn ['process_change']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0075",
+   "case_id": "FCRM-2026-0075",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0076",
+   "case_id": "FCRM-2026-0076",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0077",
+   "case_id": "FCRM-2026-0077",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['process_change']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0078",
+   "case_id": "FCRM-2026-0078",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0079",
+   "case_id": "FCRM-2026-0079",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0080",
+   "case_id": "FCRM-2026-0080",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0081",
+   "case_id": "FCRM-2026-0081",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['process_change']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0082",
+   "case_id": "FCRM-2026-0082",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_geography']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0083",
+   "case_id": "FCRM-2026-0083",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0084",
+   "case_id": "FCRM-2026-0084",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0085",
+   "case_id": "FCRM-2026-0085",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0086",
+   "case_id": "FCRM-2026-0086",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_segment']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0087",
+   "case_id": "FCRM-2026-0087",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0088",
+   "case_id": "FCRM-2026-0088",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0089",
+   "case_id": "FCRM-2026-0089",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_feature']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0090",
+   "case_id": "FCRM-2026-0090",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0091",
+   "case_id": "FCRM-2026-0091",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0092",
+   "case_id": "FCRM-2026-0092",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0093",
+   "case_id": "FCRM-2026-0093",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0094",
+   "case_id": "FCRM-2026-0094",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.8,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "category_f1: fn ['new_product']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0095",
+   "case_id": "FCRM-2026-0095",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.6666666666666666,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "category_f1: fn ['new_geography']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0096",
+   "case_id": "FCRM-2026-0096",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_segment']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0097",
+   "case_id": "FCRM-2026-0097",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0098",
+   "case_id": "FCRM-2026-0098",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0099",
+   "case_id": "FCRM-2026-0099",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0100",
+   "case_id": "FCRM-2026-0100",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0101",
+   "case_id": "FCRM-2026-0101",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0102",
+   "case_id": "FCRM-2026-0102",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.6666666666666666,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "category_f1: fn ['process_change']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0103",
+   "case_id": "FCRM-2026-0103",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0104",
+   "case_id": "FCRM-2026-0104",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0105",
+   "case_id": "FCRM-2026-0105",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_geography']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0106",
+   "case_id": "FCRM-2026-0106",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0107",
+   "case_id": "FCRM-2026-0107",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0108",
+   "case_id": "FCRM-2026-0108",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0109",
+   "case_id": "FCRM-2026-0109",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0110",
+   "case_id": "FCRM-2026-0110",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0111",
+   "case_id": "FCRM-2026-0111",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.8,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "category_f1: fn ['process_change']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0112",
+   "case_id": "FCRM-2026-0112",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_geography']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0113",
+   "case_id": "FCRM-2026-0113",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_product']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0114",
+   "case_id": "FCRM-2026-0114",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_product']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0115",
+   "case_id": "FCRM-2026-0115",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.8,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "category_f1: fn ['process_change']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0116",
+   "case_id": "FCRM-2026-0116",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_segment']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0117",
+   "case_id": "FCRM-2026-0117",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0118",
+   "case_id": "FCRM-2026-0118",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0119",
+   "case_id": "FCRM-2026-0119",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.6666666666666666,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "category_f1: fn ['new_feature']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0120",
+   "case_id": "FCRM-2026-0120",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0121",
+   "case_id": "FCRM-2026-0121",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0122",
+   "case_id": "FCRM-2026-0122",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.6666666666666666,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "category_f1: fn ['new_product']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0123",
+   "case_id": "FCRM-2026-0123",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0124",
+   "case_id": "FCRM-2026-0124",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_geography']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0125",
+   "case_id": "FCRM-2026-0125",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_product']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0126",
+   "case_id": "FCRM-2026-0126",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0127",
+   "case_id": "FCRM-2026-0127",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_geography']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0128",
+   "case_id": "FCRM-2026-0128",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0129",
+   "case_id": "FCRM-2026-0129",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0130",
+   "case_id": "FCRM-2026-0130",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_feature']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0131",
+   "case_id": "FCRM-2026-0131",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0132",
+   "case_id": "FCRM-2026-0132",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.6666666666666666,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "category_f1: fn ['new_feature']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0133",
+   "case_id": "FCRM-2026-0133",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['vendor_onboarding']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0134",
+   "case_id": "FCRM-2026-0134",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_geography']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0135",
+   "case_id": "FCRM-2026-0135",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0136",
+   "case_id": "FCRM-2026-0136",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0137",
+   "case_id": "FCRM-2026-0137",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0138",
+   "case_id": "FCRM-2026-0138",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.6666666666666666,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "category_f1: fn ['new_segment']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0139",
+   "case_id": "FCRM-2026-0139",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['vendor_onboarding']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0140",
+   "case_id": "FCRM-2026-0140",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['vendor_onboarding']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0141",
+   "case_id": "FCRM-2026-0141",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_geography']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0142",
+   "case_id": "FCRM-2026-0142",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0143",
+   "case_id": "FCRM-2026-0143",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0144",
+   "case_id": "FCRM-2026-0144",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0145",
+   "case_id": "FCRM-2026-0145",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0146",
+   "case_id": "FCRM-2026-0146",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0147",
+   "case_id": "FCRM-2026-0147",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.6666666666666666,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "category_f1: fn ['new_geography']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0148",
+   "case_id": "FCRM-2026-0148",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_feature']"
+   ]
+  },
+  {
+   "row_id": "FCRM-2026-0149",
+   "case_id": "FCRM-2026-0149",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0150",
+   "case_id": "FCRM-2026-0150",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_product']"
+   ]
+  }
+ ],
+ "timestamp": "2026-10-03T21:39:36.738102Z"
+}

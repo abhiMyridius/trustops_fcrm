@@ -1,0 +1,15 @@
+# Lint overrides for the cloned evoq_context test suite (moved here from
+# AEO aeocontextjob/evoq_context/tests/ under ADR-21; see
+# src/workers/context-worker/UPSTREAM.md). Everything else comes from the
+# repository's root ruff.toml. Upstream wrote these tests at line length 100
+# and ran them unlinted; the lead may hoist these into the root ruff.toml.
+extend = "../../../../../ruff.toml"
+
+[lint]
+extend-per-file-ignores = { "*.py" = [
+  "E501",   # upstream long literal fixtures/messages, kept as written
+  "PT011",  # upstream pytest.raises without match, kept as written
+  "PT018",  # upstream composite assertions, kept as written
+], "test_incremental_analysis.py" = [
+  "E402",   # upstream mid-module import, kept as written
+] }

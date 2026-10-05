@@ -1,0 +1,115 @@
+{
+  "attachments": [],
+  "attachments_truncated": false,
+  "authors": [],
+  "body_markdown": "--- Page 1 ---\n\n# Capacity Plan\n\nRequirement validates operator this report returns index. Approval stores schedule its balance must response request a checks request reviewer snapshot checks. Table 1 - Service placement\n\n| Service | Region | Replicas | CPU (m) |\n|---|---|---|---|\n| svc-01 | eu-west-1 | 6 | 1411 |\n| svc-02 | eu-west-1 | 10 | 1684 |\n| svc-03 | eu-west-1 | 5 | 2367 |\n| svc-04 | ap-south-1 | 5 | 2932 |\n| svc-05 | eu-west-1 | 10 | 664 |\n| svc-06 | ap-south-1 | 9 | 1074 |\n| svc-07 | eu-west-1 | 12 | 2413 |\n| svc-08 | us-east-1 | 5 | 427 |\n\nService records retry any session may version alert their may retry deadline request checks. Retry emits index each deadline shall response heading that. Table 2 - Queue depth\n\n| Queue | Depth p95 | Consumers |\n|---|---|---|\n| q.notify.1 | 744 | 8 |\n| q.ingest.2 | 526 | 5 |\n| q.notify.3 | 60 | 3 |\n| q.notify.4 | 52 | 5 |\n| q.notify.5 | 333 | 2 |\n| q.notify.6 | 866 | 5 |\n| q.ingest.7 | 199 | 8 |\n| q.notify.8 | 681 | 1 |\n| q.context.9 | 867 | 5 |\n\n--- Page 2 ---\n\nToken shall session its vector stores heading timeout. Tenant validates reviewer a chunk checks snapshot manifest that validates system timeout. Table 3 - Monthly cost\n\n| Month | Storage GB | Egress GB | Cost USD | Delta |\n|---|---|---|---|---|\n| 2026-01 | 442 | 93 | 4813.80 | +10% |\n| 2026-02 | 720 | 59 | 4223.51 | +6% |\n| 2026-03 | 435 | 253 | 2163.50 | -1% |\n| 2026-04 | 585 | 218 | 4482.74 | -4% |\n| 2026-05 | 775 | 177 | 3135.21 | +6% |\n| 2026-06 | 816 | 279 | 1133.05 | +5% |\n| 2026-07 | 627 | 195 | 1163.32 | -15% |\n",
+  "content_type": null,
+  "domain_url": null,
+  "extraction": {
+    "adf2md_version": null,
+    "engine": "pdfplumber",
+    "engine_version": "2",
+    "failure_code": null,
+    "failure_message": null,
+    "fallback_used": false,
+    "front_matter": null,
+    "html2md_version": null,
+    "is_scanned_pdf": false,
+    "profile_version": 1,
+    "raw_hash": "sha256:882a4d4a9836e91a4b8e573e48e7dbf84c06058312607fa6a67a851e5b3be407",
+    "scanned_page_fraction": 0.0,
+    "unit_failures": [],
+    "warnings": [
+      "inferred_headings:layout:size"
+    ]
+  },
+  "extraction_status": "COMPLETE",
+  "file_name": "PDF-03_tables_and_prose.pdf",
+  "file_size": 4080,
+  "hierarchy": {},
+  "labels": [],
+  "legacy_extracted_text_path": null,
+  "legacy_file_path": null,
+  "metadata": {},
+  "origin_id": "",
+  "original_upload_path": "<corpus>/generated/PDF-03_tables_and_prose.pdf",
+  "profile_hints": {
+    "avg_paragraph_words": 26.33,
+    "avg_sentence_words": 56.17,
+    "body_prefix_sha1": "712a6fe996594a3a987d0258c56dbdc152cf6728",
+    "char_count": 1549,
+    "code_block_count": 0,
+    "code_char_ratio": 0.0,
+    "heading_count": 1,
+    "heading_density": 2.967,
+    "heading_levels": {
+      "1": 1
+    },
+    "image_count": 0,
+    "is_scanned_pdf": false,
+    "language": "und",
+    "line_count": 45,
+    "link_count": 0,
+    "list_item_count": 0,
+    "list_item_ratio": 0.0,
+    "max_heading_depth": 1,
+    "max_paragraph_words": 28,
+    "non_blank_line_count": 36,
+    "non_printable_ratio": 0.0,
+    "numbered_section_count": 0,
+    "page_count": 2,
+    "paragraph_count": 3,
+    "profile_version": 1,
+    "replacement_char_ratio": 0.0,
+    "requirement_id_count": 0,
+    "requirement_id_density": 0.0,
+    "requirement_id_prefixes": {},
+    "requirement_id_unique": 0,
+    "sentence_count": 6,
+    "sheet_count": null,
+    "slide_count": null,
+    "table_count": 3,
+    "table_row_count": 27,
+    "table_text_ratio": 0.6217,
+    "word_count": 337
+  },
+  "raw_format": "pdf",
+  "scope_key": null,
+  "source_key": "file:name:PDF-03_tables_and_prose.pdf",
+  "source_type": "file",
+  "structure": {
+    "char_count": 1549,
+    "code_block_count": 0,
+    "heading_count": 1,
+    "headings": [
+      {
+        "level": 1,
+        "line": 3,
+        "text": "Capacity Plan"
+      }
+    ],
+    "image_count": 0,
+    "list_item_count": 0,
+    "page_count": 2,
+    "pages": [
+      {
+        "end_line": 30,
+        "n": 1,
+        "start_line": 3
+      },
+      {
+        "end_line": 44,
+        "n": 2,
+        "start_line": 34
+      }
+    ],
+    "requirement_ids": [],
+    "sheet_count": null,
+    "sheets": [],
+    "slide_count": null,
+    "table_count": 3,
+    "word_count": 337
+  },
+  "title": "PDF-03_tables_and_prose",
+  "url": null
+}

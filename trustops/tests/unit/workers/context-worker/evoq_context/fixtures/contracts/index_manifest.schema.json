@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "index_manifest",
+  "type": "object",
+  "required": [
+    "manifest_version", "project_id", "snapshot_version", "backend", "store", "index",
+    "distance_metric", "embedding_model", "embedding_dimension", "index_contract", "chunk_count", "doc_count", "generated_at"
+  ],
+  "properties": {
+    "manifest_version": { "const": 1 },
+    "project_id": { "type": "string" },
+    "snapshot_version": { "type": "string", "pattern": "^v[0-9]+$" },
+    "context_version": { "type": "integer" },
+    "backend": { "type": "string", "description": "s3vectors | memory | <future backend name>" },
+    "store": { "type": "string", "description": "backend container: S3 Vectors bucket / DSN / collection" },
+    "index": { "type": "string" },
+    "region": { "type": "string" },
+    "distance_metric": { "type": "string", "enum": ["cosine", "euclidean", "dot"] },
+    "embedding_model": { "type": "string", "description": "full LiteLLM route, provider-prefixed" },
+    "embedding_dimension": { "type": "integer" },
+    "index_contract": { "const": 2 },
+    "contract_revision": { "type": "string", "description": "v2.1: additive revision this manifest was written under, e.g. \"2.1\"" },
+    "chunk_count": { "type": "integer" },
+    "doc_count": { "type": "integer" },
+    "parent_chunk_count": { "type": "integer", "description": "v2.1: number of stored-only parent records (chunk_level=0) alongside chunk_count's embedded children" },
+    "strategy_histogram": { "type": "object", "additionalProperties": { "type": "integer" } },
+    "generated_at": { "type": "string" }
+  },
+  "additionalProperties": false
+}

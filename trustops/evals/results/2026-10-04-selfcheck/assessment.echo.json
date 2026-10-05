@@ -1,0 +1,1050 @@
+{
+ "agent": "assessment",
+ "dataset": "assessment/ratings-80",
+ "dataset_sha256": "d03b7c0548a89ba2778c103ec5b877425078f575f49694e6dc84616f39032f76",
+ "producer": "echo",
+ "n": 80,
+ "primary_metric": "li_within_one",
+ "metrics": {
+  "li_within_one": 1.0,
+  "control_match_precision": 1.0,
+  "control_match_recall": 1.0,
+  "evidence_date_exact": 1.0,
+  "citation_validity": 1.0
+ },
+ "summaries": [
+  {
+   "name": "li_within_one",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 136.0,
+   "denominator": 136.0,
+   "rows_scored": 80,
+   "threshold": 0.85,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": true,
+   "description": "|L-L*|<=1 and |I-I*|<=1 per domain",
+   "flags": []
+  },
+  {
+   "name": "control_match_precision",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 679.0,
+   "denominator": 679.0,
+   "rows_scored": 80,
+   "threshold": 0.9,
+   "threshold_source": "proposed",
+   "passed": true,
+   "primary": false,
+   "description": "proposed controls the analyst matched",
+   "flags": []
+  },
+  {
+   "name": "control_match_recall",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 679.0,
+   "denominator": 679.0,
+   "rows_scored": 80,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "matched controls the agent proposed",
+   "flags": []
+  },
+  {
+   "name": "evidence_date_exact",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 679.0,
+   "denominator": 679.0,
+   "rows_scored": 80,
+   "threshold": 0.95,
+   "threshold_source": "proposed",
+   "passed": true,
+   "primary": false,
+   "description": "evidence date equals the seed's",
+   "flags": []
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 815.0,
+   "denominator": 815.0,
+   "rows_scored": 80,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "FCRM-2026-0072",
+   "case_id": "FCRM-2026-0072",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0073",
+   "case_id": "FCRM-2026-0073",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0074",
+   "case_id": "FCRM-2026-0074",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0075",
+   "case_id": "FCRM-2026-0075",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0076",
+   "case_id": "FCRM-2026-0076",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0077",
+   "case_id": "FCRM-2026-0077",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0078",
+   "case_id": "FCRM-2026-0078",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0079",
+   "case_id": "FCRM-2026-0079",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0080",
+   "case_id": "FCRM-2026-0080",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0081",
+   "case_id": "FCRM-2026-0081",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0082",
+   "case_id": "FCRM-2026-0082",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0083",
+   "case_id": "FCRM-2026-0083",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0084",
+   "case_id": "FCRM-2026-0084",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0085",
+   "case_id": "FCRM-2026-0085",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0086",
+   "case_id": "FCRM-2026-0086",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0087",
+   "case_id": "FCRM-2026-0087",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0088",
+   "case_id": "FCRM-2026-0088",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0089",
+   "case_id": "FCRM-2026-0089",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0090",
+   "case_id": "FCRM-2026-0090",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0091",
+   "case_id": "FCRM-2026-0091",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0092",
+   "case_id": "FCRM-2026-0092",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0093",
+   "case_id": "FCRM-2026-0093",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0094",
+   "case_id": "FCRM-2026-0094",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0095",
+   "case_id": "FCRM-2026-0095",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0096",
+   "case_id": "FCRM-2026-0096",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0097",
+   "case_id": "FCRM-2026-0097",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0098",
+   "case_id": "FCRM-2026-0098",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0099",
+   "case_id": "FCRM-2026-0099",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0100",
+   "case_id": "FCRM-2026-0100",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0101",
+   "case_id": "FCRM-2026-0101",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0102",
+   "case_id": "FCRM-2026-0102",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0103",
+   "case_id": "FCRM-2026-0103",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0104",
+   "case_id": "FCRM-2026-0104",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0105",
+   "case_id": "FCRM-2026-0105",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0106",
+   "case_id": "FCRM-2026-0106",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0107",
+   "case_id": "FCRM-2026-0107",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0108",
+   "case_id": "FCRM-2026-0108",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0109",
+   "case_id": "FCRM-2026-0109",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0110",
+   "case_id": "FCRM-2026-0110",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0111",
+   "case_id": "FCRM-2026-0111",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0112",
+   "case_id": "FCRM-2026-0112",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0113",
+   "case_id": "FCRM-2026-0113",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0114",
+   "case_id": "FCRM-2026-0114",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0115",
+   "case_id": "FCRM-2026-0115",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0116",
+   "case_id": "FCRM-2026-0116",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0117",
+   "case_id": "FCRM-2026-0117",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0118",
+   "case_id": "FCRM-2026-0118",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0119",
+   "case_id": "FCRM-2026-0119",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0120",
+   "case_id": "FCRM-2026-0120",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0121",
+   "case_id": "FCRM-2026-0121",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0122",
+   "case_id": "FCRM-2026-0122",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0123",
+   "case_id": "FCRM-2026-0123",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0124",
+   "case_id": "FCRM-2026-0124",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0125",
+   "case_id": "FCRM-2026-0125",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0126",
+   "case_id": "FCRM-2026-0126",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0127",
+   "case_id": "FCRM-2026-0127",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0128",
+   "case_id": "FCRM-2026-0128",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0129",
+   "case_id": "FCRM-2026-0129",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0130",
+   "case_id": "FCRM-2026-0130",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0131",
+   "case_id": "FCRM-2026-0131",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0132",
+   "case_id": "FCRM-2026-0132",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0133",
+   "case_id": "FCRM-2026-0133",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0134",
+   "case_id": "FCRM-2026-0134",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0135",
+   "case_id": "FCRM-2026-0135",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0136",
+   "case_id": "FCRM-2026-0136",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0137",
+   "case_id": "FCRM-2026-0137",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0138",
+   "case_id": "FCRM-2026-0138",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0139",
+   "case_id": "FCRM-2026-0139",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0140",
+   "case_id": "FCRM-2026-0140",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0141",
+   "case_id": "FCRM-2026-0141",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0142",
+   "case_id": "FCRM-2026-0142",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0143",
+   "case_id": "FCRM-2026-0143",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0144",
+   "case_id": "FCRM-2026-0144",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0145",
+   "case_id": "FCRM-2026-0145",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0146",
+   "case_id": "FCRM-2026-0146",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0147",
+   "case_id": "FCRM-2026-0147",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0148",
+   "case_id": "FCRM-2026-0148",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0149",
+   "case_id": "FCRM-2026-0149",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0150",
+   "case_id": "FCRM-2026-0150",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  },
+  {
+   "row_id": "FCRM-2026-0151",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": []
+  }
+ ],
+ "timestamp": "2026-10-03T21:39:36.799063Z"
+}

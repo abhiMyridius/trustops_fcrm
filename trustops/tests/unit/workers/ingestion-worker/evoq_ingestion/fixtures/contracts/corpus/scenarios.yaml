@@ -1,0 +1,956 @@
+# AEO shared test corpus — scenario matrix (plan §3.3).
+#
+# Consumed as DATA by both engines and by golden.py; neither engine imports the other.
+# Fixtures are produced by generate_corpus.py (seed 20260911, byte-identical on every run).
+#
+# Row shape (every key under `expected` is optional; `null` = "not pinned yet", see `todo`):
+#
+#   id:          PDF-01 … CTX-04 (also REAL-NN from real/*.yaml sidecars)
+#   file:        path relative to this directory (generated/…, generated/edge/…, ctx/…)
+#   format:      pdf | docx | xlsx | csv | pptx | md | txt | confluence_storage_xhtml |
+#                confluence_export_view_html | jira_issue_json | markdown_canonical (chunk-only) |
+#                binary | unsupported | symlink
+#   tags:        free-form
+#   size_class:  tiny | small | medium | large
+#   on_demand:   true when the file is not committed (generate_corpus.py --edge)
+#   invoke:      file (default) | folder  — `folder` runs the ingestion CLI over the parent dir and
+#                picks this row's document by file_name (scanner-level behaviour such as symlinks)
+#   engine_args: extra CLI args for the ingestion engine (EDGE-07)
+#   expected:
+#     canonical:                          # ingestion engine — Canonical Document contract
+#       status:        COMPLETE | FAILED | UNSUPPORTED | [any, of]
+#       codes:         [required codes]   # lower_snake names from evoq_ingestion/core/codes.py; an
+#                                         # entry matches `code` or `code:detail`; checked against
+#                                         # extraction.warnings + failure_code
+#       codes_absent:  [forbidden codes]
+#       codes_any_of:  [at least one of]
+#       structure:     {field: [min, max] | exact | null}          # structure.* counts
+#       requirement_ids: [ids…] | [{prefix, start, end, width?}] | null   # exact, document order
+#       markers:       {page|sheet|slide|comment: [min, max]}    # count of marker lines in body
+#       body:          {contains: [], not_contains: [], max_occurrences: {}, min_occurrences: {},
+#                       regex_counts: {pattern: [min, max]}}      # multi-line regex over body
+#       fields:        {top_level_field: exact_value}
+#       content_hash_equals: <other id>                           # EDGE-06
+#     chunking:                           # context engine — python -m evoq_context chunk --json
+#       strategy:      heading_sections | paragraph_windows | page_windows | slide_units |
+#                      table_aware | requirement_units | comment_thread | null
+#       children:      [min, max]         # level-1 chunks (embedded)
+#       parents:       [min, max]         # level-0 stored-only parents
+#       req_coverage_pct:   % of the document's requirement ids present in some child's requirement_ids
+#       section_path_pct:   % of children carrying section_path
+#       page_pct / sheet_pct / slide_pct: % of children carrying page / sheet / slide
+#       hard_max_violations: 0            # children with token_estimate > CHUNK_HARD_MAX_TOKENS
+#       topics_min:    n                  # distinct topic_id values (topic refiner)
+#       same_texts_as: <other id>         # EDGE-06: identical child texts
+#   todo:        why an expectation is still null / provisional
+
+schema_version: 1
+seed: 20260911
+codes_owner: aeoingestionjob/evoq_ingestion/core/codes.py
+requirement_id_pattern: '\b([A-Z][A-Z0-9]{1,12}(?:-[A-Z0-9]{1,12})*-\d{1,5})\b'
+chunk_defaults: {target: 350, overlap: 50, min: 80, hard_max: 2000, parent_max: 1500}
+strategies: [heading_sections, paragraph_windows, page_windows, slide_units, table_aware, requirement_units, comment_thread]
+
+scenarios:
+
+  # ───────────────────────────── PDF ─────────────────────────────
+  - id: PDF-01
+    file: generated/PDF-01_single_column_headings.pdf
+    format: pdf
+    tags: [pdf, headings, font-size-inference, single-column]
+    size_class: small
+    description: Single-column PDF; headings only distinguishable by font size (20/16/13 pt bold vs 10 pt body).
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: [inferred_headings]
+        codes_absent: [scanned_pdf_no_ocr, multi_column_detected, encrypted_pdf, corrupt_file]
+        structure: {heading_count: [6, 12], page_count: [2, 2], table_count: [0, 0]}
+        requirement_ids: []
+        markers: {page: [2, 2]}
+        body: {contains: ["Ledger Service Design Notes", "Posting Pipeline", "Reconciliation"]}
+      chunking:
+        strategy: heading_sections
+        children: [4, 24]
+        parents: [0, 12]
+        req_coverage_pct: null
+        section_path_pct: 100
+        page_pct: 100
+        hard_max_violations: 0
+
+  - id: PDF-02
+    file: generated/PDF-02_multi_column_header_footer.pdf
+    format: pdf
+    tags: [pdf, multi-column, header-footer, no-headings]
+    size_class: small
+    description: 6 pages, two text columns, identical header and "Page N of 6" footer on every page.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: [multi_column_detected, header_footer_removed]
+        codes_absent: [scanned_pdf_no_ocr]
+        structure: {page_count: [6, 6], heading_count: [0, 1], table_count: [0, 0]}
+        requirement_ids: []
+        markers: {page: [6, 6]}
+        body: {max_occurrences: {"Distribution restricted": 1, "Confidential - Page": 1}}
+      chunking:
+        strategy: page_windows
+        children: [10, 60]
+        parents: [3, 12]
+        req_coverage_pct: null
+        section_path_pct: null
+        page_pct: 100
+        hard_max_violations: 0
+
+  - id: PDF-03
+    file: generated/PDF-03_tables_and_prose.pdf
+    format: pdf
+    tags: [pdf, tables, dedup]
+    size_class: small
+    description: Three ruled tables with captions plus short prose; table text must not be emitted twice (cropped out of the text layer).
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        codes_absent: [scanned_pdf_no_ocr]
+        structure: {table_count: [3, 3], page_count: [2, 2]}
+        requirement_ids: []
+        markers: {page: [2, 2]}
+        body:
+          contains: ["Table 1 - Service placement", "| Service | Region | Replicas | CPU (m) |", "Table 3 - Monthly cost"]
+          max_occurrences: {"svc-01": 1, "svc-08": 1}
+      chunking:
+        strategy: table_aware
+        children: [3, 12]
+        parents: [0, 6]
+        req_coverage_pct: null
+        section_path_pct: null
+        page_pct: 100
+        hard_max_violations: 0
+
+  - id: PDF-04
+    file: generated/PDF-04_numbered_requirements_79p.pdf
+    format: pdf
+    tags: [pdf, numbered-headings, requirements, multi-page, header-footer]
+    size_class: medium
+    description: 79 pages, 9 chapters, numbered headings (1. / 1.1 …), exactly one line-leading VAULT-TSR-1xx id per page, repeated header/footer. Synthetic twin of REAL-01.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: [inferred_headings, header_footer_removed]
+        codes_absent: [scanned_pdf_no_ocr]
+        structure: {page_count: [79, 79], heading_count: [79, 100], table_count: [0, 0]}
+        requirement_ids: [{prefix: "VAULT-TSR-", start: 100, end: 178}]
+        markers: {page: [79, 79]}
+        body:
+          contains: ["1. Introduction", "8. Audit and Logging", "VAULT-TSR-178:"]
+          max_occurrences: {"Technical System Requirements - Rev 4": 1}
+      chunking:
+        strategy: heading_sections
+        children: [60, 200]
+        parents: [0, 100]
+        req_coverage_pct: 100
+        section_path_pct: 100
+        page_pct: 100
+        hard_max_violations: 0
+
+  - id: PDF-05
+    file: generated/PDF-05_scanned_image_only.pdf
+    format: pdf
+    tags: [pdf, scanned, failure]
+    size_class: small
+    description: Three image-only pages (PIL bitmaps), zero text layer → refused, OCR is out of scope.
+    expected:
+      canonical:
+        status: FAILED
+        codes: [scanned_pdf_no_ocr]
+        structure: null
+      chunking: null
+
+  - id: PDF-06
+    file: generated/PDF-06_encrypted.pdf
+    format: pdf
+    tags: [pdf, encrypted, failure]
+    size_class: tiny
+    description: RC4-128 StandardEncryption with a non-empty user password; opening with password "" must fail gracefully.
+    expected:
+      canonical:
+        status: FAILED
+        codes: [encrypted_pdf]
+        body: {not_contains: ["SEC-REQ-001"]}
+        structure: null
+      chunking: null
+
+  - id: PDF-07
+    file: generated/PDF-07_corrupt_truncated.pdf
+    format: pdf
+    tags: [pdf, corrupt, failure]
+    size_class: tiny
+    description: Valid %PDF header, one object, then 6 KiB of seeded garbage — no xref, no trailer, no page tree.
+    expected:
+      canonical:
+        status: FAILED
+        codes: [corrupt_file]
+        structure: null
+      chunking: null
+
+  - id: PDF-08
+    file: generated/PDF-08_page_limit_2001.pdf
+    format: pdf
+    tags: [pdf, limits, failure]
+    size_class: medium
+    description: Hand-built valid PDF with 2001 pages sharing one content stream (cap is 2000) — refused before iterating pages.
+    expected:
+      canonical:
+        status: FAILED
+        codes: [page_limit_exceeded]
+        structure: null
+      chunking: null
+
+  - id: PDF-09
+    file: generated/PDF-09_cjk_no_whitespace.pdf
+    format: pdf
+    tags: [pdf, cjk, no-whitespace, hard-max]
+    size_class: small
+    description: 3 pages of Chinese text with no spaces or punctuation (~2,600 tokens per page) — each page exceeds the hard max on its own.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        codes_absent: [scanned_pdf_no_ocr, binary_content]
+        structure: {page_count: [3, 3], table_count: [0, 0]}
+        markers: {page: [3, 3]}
+        body: {contains: ["账"]}
+      chunking:
+        strategy: page_windows
+        children: [6, 40]
+        parents: [3, 12]
+        req_coverage_pct: null
+        section_path_pct: null
+        page_pct: 100
+        hard_max_violations: 0
+
+  # ───────────────────────────── DOCX ─────────────────────────────
+  - id: DOCX-01
+    file: generated/DOCX-01_headings_lists.docx
+    format: docx
+    tags: [docx, headings, lists]
+    size_class: small
+    description: Title + Heading 1/2/3 styles, bullet and numbered lists (style-resolved, locale independent).
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        codes_absent: [tracked_changes_present, extension_mismatch]
+        structure: {heading_count: [9, 11], list_item_count: [8, 10], table_count: [0, 0]}
+        requirement_ids: []
+        body:
+          contains: ["# Payments Platform Handbook", "## 1.1 Accounts", "### 2.1.1 Cut-off", "Create the tenant", "Rotate every ninety days"]
+      chunking:
+        strategy: heading_sections
+        children: [5, 20]
+        parents: [0, 12]
+        req_coverage_pct: null
+        section_path_pct: 100
+        page_pct: null
+        hard_max_violations: 0
+
+  - id: DOCX-02
+    file: generated/DOCX-02_merged_cells.docx
+    format: docx
+    tags: [docx, tables, merged-cells]
+    size_class: small
+    description: 9x4 table; row 0 merged across 4 columns (gridSpan → colspan, text once), rows 2-3 merged vertically (vMerge → rowspan).
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        structure: {table_count: [1, 1], heading_count: [1, 1]}
+        body:
+          contains: ["Quarterly totals", "Region A", "Region F", "| Region | Q1 | Q2 | Q3 |"]
+          max_occurrences: {"Quarterly totals": 1}
+      chunking:
+        strategy: table_aware
+        children: [1, 4]
+        parents: [0, 2]
+        req_coverage_pct: null
+        section_path_pct: null
+        page_pct: null
+        hard_max_violations: 0
+    todo: table_text_ratio sits around 0.6 — if the renderer pads colspan cells differently the strategy may flip to paragraph_windows; re-pin at S2.
+
+  - id: DOCX-03
+    file: generated/DOCX-03_header_footer_footnote_textbox.docx
+    format: docx
+    tags: [docx, header, footer, footnotes, textbox]
+    size_class: small
+    description: Section header/footer, one footnote (zip-patched word/footnotes.xml + footnoteReference), one VML text box — each present exactly once.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        structure: {heading_count: [2, 2]}
+        body:
+          contains: ["HEADER-CHARLIE", "FOOTER-DELTA", "FN-ALPHA", "TEXTBOX-BRAVO"]
+          max_occurrences: {"HEADER-CHARLIE": 1, "FOOTER-DELTA": 1, "FN-ALPHA": 1, "TEXTBOX-BRAVO": 1}
+      chunking:
+        strategy: paragraph_windows
+        children: [1, 6]
+        parents: [0, 3]
+        req_coverage_pct: null
+        section_path_pct: null
+        page_pct: null
+        hard_max_violations: 0
+
+  - id: DOCX-04
+    file: generated/DOCX-04_tracked_changes.docx
+    format: docx
+    tags: [docx, tracked-changes]
+    size_class: small
+    description: Raw w:del/w:delText + w:ins patch; deleted text must be absent (unless docx_include_deletions), inserted text present, warning raised.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: [tracked_changes_present]
+        structure: {heading_count: [1, 1]}
+        body:
+          contains: ["INSERTED-FOXTROT 200 ms", "under nominal load."]
+          not_contains: ["DELETED-ECHO"]
+      chunking:
+        strategy: paragraph_windows
+        children: [1, 4]
+        parents: [0, 2]
+        req_coverage_pct: null
+        section_path_pct: null
+        page_pct: null
+        hard_max_violations: 0
+
+  - id: DOCX-05
+    file: generated/DOCX-05_numbered_headings_inferred.docx
+    format: docx
+    tags: [docx, numbered-headings, inference, requirements]
+    size_class: small
+    description: Every paragraph is Normal style; ten "1." / "1.1" numbered lines must be inferred as headings (level = dotted depth).
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: [inferred_headings]
+        structure: {heading_count: [8, 11], table_count: [0, 0]}
+        requirement_ids: [PORTAL-SRS-7, {prefix: "REQ-", start: 1, end: 12, width: 3}]
+        body: {contains: ["# 1. Introduction", "## 1.1 Scope", "## 3.2 Availability"]}
+      chunking:
+        strategy: heading_sections
+        children: [4, 20]
+        parents: [0, 12]
+        req_coverage_pct: 100
+        section_path_pct: 100
+        page_pct: null
+        hard_max_violations: 0
+
+  - id: DOCX-06
+    file: generated/DOCX-06_zip_renamed.docx
+    format: docx
+    tags: [docx, extension-mismatch, failure]
+    size_class: tiny
+    description: Plain zip (README.txt, data/notes.txt; no [Content_Types].xml) saved with a .docx extension.
+    expected:
+      canonical:
+        status: FAILED
+        codes: [extension_mismatch]
+        structure: null
+      chunking: null
+
+  # ───────────────────────────── XLSX ─────────────────────────────
+  - id: XLSX-01
+    file: generated/XLSX-01_three_sheets.xlsx
+    format: xlsx
+    tags: [xlsx, multi-sheet, requirements]
+    size_class: small
+    description: Three visible sheets (Requirements 20 rows REQ-001.., Risks 12 rows RISK-01.., Glossary 15 rows), header rows detected.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        codes_absent: [rows_truncated, columns_truncated, hidden_sheet]
+        structure: {sheet_count: [3, 3], table_count: [3, 3]}
+        requirement_ids: [{prefix: "REQ-", start: 1, end: 20, width: 3}, {prefix: "RISK-", start: 1, end: 12, width: 2}]
+        markers: {sheet: [3, 3]}
+        body: {contains: ["--- Sheet: Requirements ---", "--- Sheet: Risks ---", "--- Sheet: Glossary ---", "| ID | Title | Priority | Owner |"]}
+      chunking:
+        strategy: table_aware
+        children: [3, 12]
+        parents: [0, 6]
+        req_coverage_pct: 100
+        section_path_pct: null
+        sheet_pct: 100
+        hard_max_violations: 0
+
+  - id: XLSX-02
+    file: generated/XLSX-02_formulas_no_cache.xlsx
+    format: xlsx
+    tags: [xlsx, formulas]
+    size_class: tiny
+    description: Formula cells written by openpyxl have no cached <v>; one cell (B6 =SUM) is zip-patched to carry <v>1000</v>. Cached value wins, else formula text + warning.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: [formula_without_cached_value]
+        structure: {sheet_count: [1, 1], table_count: [1, 1]}
+        markers: {sheet: [1, 1]}
+        body: {contains: ["=B2*1.1", "=AVERAGE(B2:B5)", "1000"], not_contains: ["=SUM(B2:B5)"]}
+      chunking:
+        strategy: table_aware
+        children: [1, 3]
+        parents: [0, 1]
+        req_coverage_pct: null
+        section_path_pct: null
+        sheet_pct: 100
+        hard_max_violations: 0
+
+  - id: XLSX-03
+    file: generated/XLSX-03_merged_header_empty_rows_cols.xlsx
+    format: xlsx
+    tags: [xlsx, merged-cells, empty-rows, hidden-sheet]
+    size_class: tiny
+    description: A1:D1 merged title, blank row 2, header on row 3, column C empty, two blank rows mid-table, plus a hidden sheet "Scratch".
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: [hidden_sheet]
+        structure: {sheet_count: [1, 2], table_count: [1, 2]}
+        body: {contains: ["Quarterly report - FY26", "North", "Overseas"]}
+      chunking:
+        strategy: table_aware
+        children: [1, 6]
+        parents: [0, 3]
+        req_coverage_pct: null
+        section_path_pct: null
+        sheet_pct: 100
+        hard_max_violations: 0
+    todo: whether the hidden sheet's cells (HIDDEN-GOLF) appear depends on xlsx_hidden_sheets=include|skip default — pin body/sheet_count exactly once L2d fixes it.
+
+  - id: XLSX-04
+    file: generated/XLSX-04_rows_200001.xlsx
+    format: xlsx
+    tags: [xlsx, limits, streaming, large]
+    size_class: large
+    description: Header + 200,001 identical data rows (hand-built sheet XML, rows without r= attributes; 28 KB zipped). Cap 200,000 → streaming truncation, still COMPLETE.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: [rows_truncated]
+        structure: {sheet_count: [1, 1], table_count: [1, 1]}
+        markers: {sheet: [1, 1]}
+        body: {contains: ["--- Sheet: Data ---", "| id | value |"]}
+      chunking:
+        strategy: table_aware
+        children: [400, 6000]
+        parents: null
+        req_coverage_pct: null
+        section_path_pct: null
+        sheet_pct: 100
+        hard_max_violations: 0
+    todo: parents range depends on how the sheet segment (~1M tokens) is split at child boundaries under parent_max=1500; pin after L5.
+
+  - id: XLSX-05
+    file: generated/XLSX-05_dates_percent_iso.xlsx
+    format: xlsx
+    tags: [xlsx, formatting, dates]
+    size_class: tiny
+    description: date / datetime / bool / percent (0.00%) / #,##0.00 cells — rendered as ISO dates, TRUE/FALSE and .15g floats, not Excel display strings.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        structure: {sheet_count: [1, 1], table_count: [1, 1]}
+        body:
+          contains: ["2026-03-15", "2026-05-01", "09:30", "TRUE", "FALSE", "0.125", "1200.5"]
+          not_contains: ["12.50%", "1,200.50"]
+      chunking:
+        strategy: table_aware
+        children: [1, 2]
+        parents: [0, 1]
+        req_coverage_pct: null
+        section_path_pct: null
+        sheet_pct: 100
+        hard_max_violations: 0
+
+  # ───────────────────────────── CSV ─────────────────────────────
+  - id: CSV-01
+    file: generated/CSV-01_bom_utf8.csv
+    format: csv
+    tags: [csv, bom, encoding]
+    size_class: tiny
+    description: UTF-8 with BOM; the BOM must not leak into the first header cell.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        codes_absent: [encoding_fallback, sniff_fallback, binary_content]
+        structure: {sheet_count: [1, 1], table_count: [1, 1]}
+        markers: {sheet: [1, 1]}
+        body:
+          contains: ["--- Sheet: CSV-01_bom_utf8 ---", "| id | title | owner | status |"]
+          not_contains: ["﻿"]
+      chunking:
+        strategy: table_aware
+        children: [1, 3]
+        parents: [0, 1]
+        req_coverage_pct: null
+        section_path_pct: null
+        sheet_pct: 100
+        hard_max_violations: 0
+
+  - id: CSV-02
+    file: generated/CSV-02_semicolon_quoted_newlines.csv
+    format: csv
+    tags: [csv, delimiter, quoted-newlines]
+    size_class: tiny
+    description: Semicolon delimiter (sniffed), quoted fields containing ';', doubled quotes and embedded newlines — 9 logical rows, never split.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        codes_absent: [sniff_fallback]
+        structure: {table_count: [1, 1]}
+        requirement_ids: [{prefix: "CFG-", start: 1, end: 9, width: 1}]
+        body:
+          contains: ["Retry policy; exponential backoff", "line one", "line two", "Quoted \"inner\" text"]
+          regex_counts: {"^\\| CFG-\\d": [9, 9]}
+      chunking:
+        strategy: table_aware
+        children: [1, 3]
+        parents: [0, 1]
+        req_coverage_pct: 100
+        section_path_pct: null
+        sheet_pct: 100
+        hard_max_violations: 0
+
+  - id: CSV-03
+    file: generated/CSV-03_utf16.csv
+    format: csv
+    tags: [csv, utf16, encoding]
+    size_class: tiny
+    description: UTF-16 (BOM) CSV with accented and CJK names — detected by BOM, no fallback, not binary.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        codes_absent: [encoding_fallback, binary_content]
+        structure: {table_count: [1, 1]}
+        body: {contains: ["| id | name | city |", "Señora Muñoz", "山田 太郎", "Köln"]}
+      chunking:
+        strategy: table_aware
+        children: [1, 1]
+        parents: [0, 0]
+        req_coverage_pct: null
+        section_path_pct: null
+        sheet_pct: 100
+        hard_max_violations: 0
+
+  - id: CSV-04
+    file: generated/CSV-04_ragged_rows.csv
+    format: csv
+    tags: [csv, ragged]
+    size_class: tiny
+    description: Rows with 3, 4, 5 and 2 fields under a 4-column header — padded/flattened into one well-formed GFM table.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        structure: {table_count: [1, 1]}
+        body:
+          contains: ["| a | b | c | d |"]
+          regex_counts: {"^\\|": [7, 7]}
+      chunking:
+        strategy: table_aware
+        children: [1, 1]
+        parents: [0, 0]
+        req_coverage_pct: null
+        section_path_pct: null
+        sheet_pct: 100
+        hard_max_violations: 0
+
+  # ───────────────────────────── PPTX ─────────────────────────────
+  - id: PPTX-01
+    file: generated/PPTX-01_six_slides_notes.pptx
+    format: pptx
+    tags: [pptx, slides, notes]
+    size_class: small
+    description: Title slide + 5 bullet slides, speaker notes on all six.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        codes_absent: [slide_limit_exceeded, hidden_slide]
+        structure: {slide_count: [6, 6], table_count: [0, 0]}
+        markers: {slide: [6, 6]}
+        body: {contains: ["--- Slide 1 ---", "--- Slide 6 ---", "Context Engine Roadmap", "Speaker note 1", "Speaker note 6"]}
+      chunking:
+        strategy: slide_units
+        children: [6, 12]
+        parents: [0, 6]
+        req_coverage_pct: null
+        section_path_pct: null
+        slide_pct: 100
+        hard_max_violations: 0
+
+  - id: PPTX-02
+    file: generated/PPTX-02_table_grouped_shapes_hidden.pptx
+    format: pptx
+    tags: [pptx, tables, group-shapes, hidden-slide]
+    size_class: small
+    description: A 4x3 table, a group shape holding two text boxes (recursed), and a hidden 4th slide.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: [hidden_slide]
+        structure: {slide_count: [4, 4], table_count: [1, 1]}
+        markers: {slide: [3, 4]}
+        body: {contains: ["GROUP-HOTEL", "GROUP-INDIA", "| Service | Owner | Tier |", "ingestion"]}
+      chunking:
+        strategy: slide_units
+        children: [3, 8]
+        parents: [0, 4]
+        req_coverage_pct: null
+        section_path_pct: null
+        slide_pct: 100
+        hard_max_violations: 0
+    todo: whether HIDDEN-JULIET text is emitted (marker + content) or only the marker is an L2e decision; pin body once fixed.
+
+  - id: PPTX-03
+    file: generated/PPTX-03_slide_limit_101.pptx
+    format: pptx
+    tags: [pptx, limits, failure]
+    size_class: medium
+    description: 101 title-only slides (cap 100) → refused before iterating slides.
+    expected:
+      canonical:
+        status: FAILED
+        codes: [slide_limit_exceeded]
+        structure: null
+      chunking: null
+
+  # ───────────────────────────── MD / TXT ─────────────────────────────
+  - id: MD-01
+    file: generated/MD-01_atx_fences_tables.md
+    format: md
+    tags: [md, atx, fences, tables, requirements]
+    size_class: tiny
+    description: ATX headings (3 levels), two fenced code blocks (python/json), two GFM tables, links, two SPEC-nnn ids. Passthrough (Raw) — structure from the shared scan.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        structure: {heading_count: [6, 6], table_count: [2, 2], code_block_count: [2, 2]}
+        requirement_ids: [SPEC-001, SPEC-002]
+        body: {contains: ["```python", "| Format | Engine | Markers |"]}
+      chunking:
+        strategy: heading_sections
+        children: [3, 8]
+        parents: [0, 6]
+        req_coverage_pct: 100
+        section_path_pct: 100
+        page_pct: null
+        hard_max_violations: 0
+
+  - id: MD-02
+    file: generated/MD-02_setext_nested_lists.md
+    format: md
+    tags: [md, setext, nested-lists]
+    size_class: tiny
+    description: Setext (underlined) headings only, three-level nested bullets mixing '-' and '1.', a block quote.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        structure: {heading_count: null, list_item_count: [8, 10], table_count: [0, 0]}
+        body: {contains: ["Deep bullet one-a-ii", "Mixed nested bullet under ordered"]}
+      chunking:
+        strategy: null
+        children: [1, 4]
+        parents: [0, 2]
+        req_coverage_pct: null
+        section_path_pct: null
+        page_pct: null
+        hard_max_violations: 0
+    todo: setext heading recognition is not part of the markers grammar (ATX only); heading_count/strategy depend on whether the MD passthrough scan learns setext — decide at L2e/L5, then pin.
+
+  - id: TXT-01
+    file: generated/TXT-01_two_topics_paragraphs.txt
+    format: txt
+    tags: [txt, paragraphs, topic-refiner]
+    size_class: tiny
+    description: 12 paragraphs — six about databases then six about gardening (disjoint vocabularies) — the lexical-cohesion refiner must cut at least once.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        codes_absent: [encoding_fallback, binary_content]
+        structure: {heading_count: [0, 0], table_count: [0, 0], word_count: [600, 700]}
+        requirement_ids: []
+      chunking:
+        strategy: paragraph_windows
+        children: [2, 8]
+        parents: [0, 4]
+        req_coverage_pct: null
+        section_path_pct: null
+        page_pct: null
+        hard_max_violations: 0
+        topics_min: 2
+
+  - id: TXT-02
+    file: generated/TXT-02_utf16.txt
+    format: txt
+    tags: [txt, utf16, encoding]
+    size_class: tiny
+    description: UTF-16 (BOM) plain text with accented, CJK and typographic characters.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        codes_absent: [encoding_fallback, binary_content]
+        body: {contains: ["Zoë, Jörg, Señora Muñoz, 東京, Ærø", "fin du document"]}
+      chunking:
+        strategy: paragraph_windows
+        children: [1, 2]
+        parents: [0, 1]
+        req_coverage_pct: null
+        section_path_pct: null
+        page_pct: null
+        hard_max_violations: 0
+
+  - id: TXT-03
+    file: generated/TXT-03_binary_content.txt
+    format: binary
+    tags: [txt, binary, failure]
+    size_class: tiny
+    description: 4 KiB of seeded random bytes with a .txt extension (non-printable ratio ≈ 0.64 > 0.30).
+    expected:
+      canonical:
+        status: FAILED
+        codes: [binary_content]
+        structure: null
+      chunking: null
+
+  - id: TXT-04
+    file: generated/TXT-04_empty.txt
+    format: txt
+    tags: [txt, empty, failure]
+    size_class: tiny
+    description: Zero-byte text file.
+    expected:
+      canonical:
+        status: FAILED
+        codes: [empty_file]
+        structure: null
+      chunking: null
+
+  - id: TXT-05
+    file: generated/TXT-05_base64_blob.txt
+    format: txt
+    tags: [txt, base64, no-whitespace, hard-max]
+    size_class: small
+    description: One 40,000-character base64 line (~28,600 tokens, no whitespace) — the whitespace-free case that previously escaped the hard cap.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        codes_absent: [binary_content]
+        structure: {word_count: [1, 1], heading_count: [0, 0]}
+      chunking:
+        strategy: paragraph_windows
+        children: [10, 200]
+        parents: [0, 200]
+        req_coverage_pct: null
+        section_path_pct: null
+        page_pct: null
+        hard_max_violations: 0
+
+  # (HTML-01..04 Confluence and ADF-01..03 Jira rows pruned on the TrustOps clone —
+  #  the Atlassian sources and renderers were removed; see src/workers/ingestion-worker/UPSTREAM.md)
+
+  # ───────────────────────────── EDGE ─────────────────────────────
+  - id: EDGE-01
+    file: generated/edge/EDGE-01_sparse_201mib.pdf
+    format: pdf
+    tags: [edge, limits, size, failure, upload]
+    size_class: large
+    on_demand: true
+    description: 201 MiB sparse file (`%PDF-1.4` header, seek + one byte). Cap is 200 MiB — refused by stat() before any read; the same code is returned as HTTP 413 `file_too_large:{name}` by aeoingestionservice's upload route.
+    expected:
+      canonical:
+        status: FAILED
+        codes: [file_too_large]
+        structure: null
+      chunking: null
+
+  - id: EDGE-02
+    file: generated/EDGE-02_unsupported_ext.xyz
+    format: unsupported
+    tags: [edge, extension, failure]
+    size_class: tiny
+    description: Text content with a .xyz extension outside UPLOAD_ALLOWED_EXTENSIONS.
+    expected:
+      canonical:
+        status: [FAILED, UNSUPPORTED]
+        codes: [unsupported_extension]
+        structure: null
+      chunking: null
+
+  - id: EDGE-03
+    file: "generated/EDGE-03_ünïcødé_文件名.md"
+    format: md
+    tags: [edge, unicode-filename]
+    size_class: tiny
+    description: Latin-1 accents + CJK in the file name (NFC); the name must survive into file_name/source_key untouched.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        fields: {file_name: "EDGE-03_ünïcødé_文件名.md"}
+        body: {contains: ["Unicode filename"]}
+      chunking:
+        strategy: paragraph_windows
+        children: [1, 1]
+        parents: [0, 0]
+        req_coverage_pct: null
+        section_path_pct: null
+        page_pct: null
+        hard_max_violations: 0
+
+  - id: EDGE-04
+    file: generated/EDGE-04_zero_byte.pdf
+    format: pdf
+    tags: [edge, empty, corrupt, failure]
+    size_class: tiny
+    description: Zero-byte file with a .pdf extension.
+    expected:
+      canonical:
+        status: FAILED
+        codes: []
+        codes_any_of: [corrupt_file, empty_file]
+        structure: null
+      chunking: null
+    todo: plan §3.3 says corrupt_file, but FileGate.inspect may claim empty_file first (is_empty is checked before the parser) — pin exactly one at S2 once L1's gate ordering is final.
+
+  - id: EDGE-05
+    file: generated/EDGE-05_symlink.pdf
+    format: symlink
+    tags: [edge, symlink, scanner, failure]
+    size_class: tiny
+    invoke: folder
+    description: Relative symlink to PDF-01 inside generated/. FolderScanner(follow_symlinks=False) must emit a FAILED row rather than follow or silently skip it.
+    expected:
+      canonical:
+        status: FAILED
+        codes: [symlink_rejected]
+        structure: null
+      chunking: null
+
+  - id: EDGE-06
+    file: generated/EDGE-06_duplicate_of_md01.md
+    format: md
+    tags: [edge, duplicate, hashing, determinism]
+    size_class: tiny
+    description: Byte-identical copy of MD-01 under another name — identical content_hash and identical child texts/counts; only doc_id-derived keys differ.
+    expected:
+      canonical:
+        status: COMPLETE
+        codes: []
+        content_hash_equals: MD-01
+        structure: {heading_count: [6, 6], table_count: [2, 2], code_block_count: [2, 2]}
+        requirement_ids: [SPEC-001, SPEC-002]
+      chunking:
+        strategy: heading_sections
+        children: [3, 8]
+        parents: [0, 6]
+        req_coverage_pct: 100
+        section_path_pct: 100
+        page_pct: null
+        hard_max_violations: 0
+        same_texts_as: MD-01
+
+  - id: EDGE-07
+    file: generated/PDF-04_numbered_requirements_79p.pdf
+    format: pdf
+    tags: [edge, timeout, failure]
+    size_class: medium
+    engine_args: ["--per-file-timeout-seconds", "0.01"]
+    description: PDF-04 extracted under a 10 ms per-file deadline — cooperative Deadline.check() between pages must surface `extraction_timeout` as a FAILED row, never a crash.
+    expected:
+      canonical:
+        status: FAILED
+        codes: [extraction_timeout]
+        structure: null
+      chunking: null
+    todo: the CLI flag name for the per-file deadline is L2g's; golden.py passes engine_args verbatim — align at L10.
+
+  # ───────────────────────────── CTX (chunk-only canonical Markdown) ─────────────────────────────
+  - id: CTX-01
+    file: ctx/CTX-01_tiny.md
+    format: markdown_canonical
+    tags: [ctx, tiny, single-chunk]
+    size_class: tiny
+    description: One heading, two sentences (~21 tokens) — one child, and no parent because the single child equals the parent.
+    expected:
+      canonical: null
+      chunking:
+        strategy: paragraph_windows
+        children: [1, 1]
+        parents: [0, 0]
+        req_coverage_pct: null
+        section_path_pct: 100
+        page_pct: null
+        hard_max_violations: 0
+
+  - id: CTX-02
+    file: ctx/CTX-02_giant_section.md
+    format: markdown_canonical
+    tags: [ctx, giant-section, parent-split, hard-max]
+    size_class: small
+    description: A single heading followed by ~2,900 tokens of prose — children packed to target, the oversize parent split at child boundaries (parent_max 1500), no chunk above hard max.
+    expected:
+      canonical: null
+      chunking:
+        strategy: paragraph_windows
+        children: [6, 14]
+        parents: [1, 8]
+        req_coverage_pct: null
+        section_path_pct: 100
+        page_pct: null
+        hard_max_violations: 0
+
+  - id: CTX-03
+    file: ctx/CTX-03_prose_requirements_with_table.md
+    format: markdown_canonical
+    tags: [ctx, requirements, table-hijack]
+    size_class: tiny
+    description: Twelve line-leading prose requirements (SYS-REQ-001..012) plus a 3-row table carrying one id (SYS-REQ-013). The table must not hijack requirement_units — 13/13 ids covered.
+    expected:
+      canonical: null
+      chunking:
+        strategy: requirement_units
+        children: [3, 14]
+        parents: [0, 6]
+        req_coverage_pct: 100
+        section_path_pct: 100
+        page_pct: null
+        hard_max_violations: 0
+
+  - id: CTX-04
+    file: ctx/CTX-04_mixed_page_heading_markers.md
+    format: markdown_canonical
+    tags: [ctx, page-markers, headings, hierarchy]
+    size_class: tiny
+    description: Four `--- Page N ---` markers interleaved with numbered ATX headings (1. / 1.1 / 1.2 / 2. / 2.1 / 2.2 / 2.2.1) — every child carries page and a cross-page section_path.
+    expected:
+      canonical: null
+      chunking:
+        strategy: heading_sections
+        children: [4, 14]
+        parents: [0, 8]
+        req_coverage_pct: null
+        section_path_pct: 100
+        page_pct: 100
+        hard_max_violations: 0

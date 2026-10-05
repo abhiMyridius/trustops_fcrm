@@ -1,0 +1,438 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FCRM Prototype Teardown</title></head><body style="margin:0">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column, sticky section nav, dense reference tables; TrustOps palette reused from the team's own explainer */
+:root{color-scheme:light;
+  --bg:#F4F5F3; --surface:#FFFFFF; --surface-2:#E9EDEB;
+  --ink:#0C2226; --ink-2:#285055; --ink-3:#557a7f;
+  --moss:#194247; --accent:#09A78D; --leaf:#2FAE5E;
+  --border:#D9E1DF;
+  --ok:#1f7a45; --ok-bg:#E1F4E6; --warn:#8a6512; --warn-bg:#FBF1D9; --bad:#9a3524; --bad-bg:#F7E3DE;
+  --bar:#19797a; --bar-2:#9CC7C2;
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15.5px;line-height:1.6;margin:0}
+.wrap{max-width:1040px;margin:0 auto;padding-inline:20px}
+header.top{padding-block:40px 28px;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin:0 0 10px}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(30px,5vw,44px);line-height:1.1;margin:0 0 12px;text-wrap:balance;color:var(--moss)}
+.sub{max-width:68ch;color:var(--ink-2);margin:0}
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto}
+nav.toc ul{display:flex;gap:2px;list-style:none;margin:0 auto;padding-inline:20px;max-width:1040px;white-space:nowrap}
+nav.toc a{display:inline-block;padding:11px 10px;font-size:13.5px;color:var(--ink-2);text-decoration:none;border-bottom:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{color:var(--ink);border-bottom-color:var(--accent);outline:none}
+section{padding-block:40px 8px;scroll-margin-top:48px}
+h2{font-family:var(--f-display);font-weight:600;font-size:26px;margin:0 0 6px;color:var(--moss);text-wrap:balance}
+h3{font-family:var(--f-display);font-weight:600;font-size:18px;margin:28px 0 8px;color:var(--moss)}
+.lede{color:var(--ink-2);max-width:70ch;margin:0 0 20px}
+p{max-width:72ch}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:26px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.stat b{display:block;font-family:var(--f-display);font-size:32px;line-height:1;color:var(--moss);font-variant-numeric:tabular-nums}
+.stat span{display:block;font-size:13px;color:var(--ink-3);margin-top:6px}
+.stat.alert b{color:var(--bad)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px 20px;margin:14px 0;min-width:0}
+.diagram{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin:16px 0;overflow-x:auto}
+.diagram pre.mmd{margin:0;background:transparent;text-align:center}
+.cap{font-size:13px;color:var(--ink-3);margin:6px 0 0}
+.scroll{overflow-x:auto;margin:14px 0}
+table{width:100%;border-collapse:collapse;font-size:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+th{background:var(--surface-2);font-size:12.5px;font-weight:600;color:var(--ink-2);letter-spacing:.02em}
+tbody tr:last-child td{border-bottom:none}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f-mono)}
+code,.mono{font-family:var(--f-mono);font-size:13px}
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.pill.ai{background:var(--surface-2);color:var(--accent);border:1px solid var(--accent)}
+.pill.det{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--border)}
+.grid2{display:grid;gap:14px}
+@media(min-width:760px){.grid2{grid-template-columns:1fr 1fr}}
+/* bar chart */
+.bars{display:grid;gap:7px;margin:10px 0 4px}
+.brow{display:grid;grid-template-columns:minmax(120px,210px) 1fr 64px;gap:10px;align-items:center;font-size:13.5px}
+.brow .lbl{color:var(--ink-2);min-width:0;overflow-wrap:anywhere}
+.track{height:16px;background:var(--surface-2);border-radius:3px;position:relative}
+.fill{position:absolute;inset:0 auto 0 0;background:var(--bar);border-radius:3px}
+.fill.alt{background:var(--bar-2)}
+.brow .v{font-family:var(--f-mono);font-size:12.5px;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}
+.axis{display:grid;grid-template-columns:minmax(120px,210px) 1fr 64px;gap:10px;font-family:var(--f-mono);font-size:11px;color:var(--ink-3)}
+.axis .ticks{display:flex;justify-content:space-between}
+/* rubric */
+.rub{display:grid;grid-template-columns:52px minmax(0,1fr) 110px;gap:12px;align-items:start;padding:12px 0;border-bottom:1px solid var(--border)}
+.rub:last-child{border-bottom:none}
+.rub .w{font-family:var(--f-display);font-size:24px;font-weight:700;color:var(--moss);line-height:1}
+.rub h4{margin:0;font-size:15px}
+.rub p{margin:3px 0 0;font-size:13.5px;color:var(--ink-2)}
+.rub .st{text-align:right}
+.wbar{height:6px;background:var(--surface-2);border-radius:3px;margin-top:8px;overflow:hidden;display:flex}
+.wbar i{display:block;height:100%}
+ul.flags{padding-left:18px;margin:8px 0}
+ul.flags li{margin:8px 0;max-width:74ch}
+.note{border-left:3px solid var(--accent);background:var(--surface);padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0}
+footer{margin-top:48px;padding-block:24px;border-top:1px solid var(--border);color:var(--ink-3);font-size:13px}
+@media(max-width:520px){.brow,.axis{grid-template-columns:96px 1fr 52px}.rub{grid-template-columns:40px minmax(0,1fr)}.rub .st{grid-column:2;text-align:left}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* mermaid edge labels: force readable text */
+.mmd .edgeLabel,.mmd .edgeLabel foreignObject div{color:#0C2226!important;background:transparent!important;font-size:13px!important;font-weight:500}
+.mmd .edgeLabel p,.mmd .edgeLabel span.edgeLabel{color:#0C2226!important;background:#FBF3DF!important;padding:0 3px;border-radius:3px;margin:0}
+.mmd .edgeLabel rect{fill:#FBF3DF!important}
+.mmd .edgeLabel text{fill:#0C2226!important}
+.mmd .flowchart-link,.mermaid path.transition,.mmd .edgePath path{stroke:#557a7f!important}
+.mmd .marker{fill:#557a7f!important;stroke:#557a7f!important}
+pre.mmd{white-space:normal;font-family:inherit;margin:0;background:transparent;text-align:center}
+pre.mmd:not([data-processed]){white-space:pre;font-family:var(--f-mono);font-size:11px;color:var(--ink-3);text-align:left}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <p class="eyebrow">Genius Hacks Q3 2026 · Step 1 · Repo analysis</p>
+    <h1>FCRM prototype teardown</h1>
+    <p class="sub">What the BA's TrustOps prototype contains, how it is put together, and what is missing against the judging rubric and the required repo layout. Deadline is now 9 October 2026.</p>
+    <div class="stats">
+      <div class="stat"><b>15</b><span>screens across 3 roles</span></div>
+      <div class="stat"><b>22</b><span>tabs and config sections</span></div>
+      <div class="stat"><b>10</b><span>AI agents, all scripted today</span></div>
+      <div class="stat"><b>~175</b><span>service functions to back with a real API</span></div>
+      <div class="stat"><b>29.8k</b><span>lines of front-end code, 112 files</span></div>
+      <div class="stat alert"><b>0</b><span>tests, commits, evals, prompts</span></div>
+    </div>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Sections">
+  <ul>
+    <li><a href="#map">Screen map</a></li>
+    <li><a href="#flow">Case flow</a></li>
+    <li><a href="#inventory">Inventory</a></li>
+    <li><a href="#agents">AI vs rules</a></li>
+    <li><a href="#code">Code shape</a></li>
+    <li><a href="#rubric">Rubric fit</a></li>
+    <li><a href="#gaps">Repo gaps</a></li>
+    <li><a href="#flags">Flags</a></li>
+    <li><a href="#days">9 days</a></li>
+  </ul>
+</nav>
+
+<main class="wrap">
+
+<section id="map">
+  <h2>Screen map</h2>
+  <p class="lede">Each role sees a different navigation. The committee gets only two screens on purpose. Analyst owns all configuration.</p>
+  <div class="diagram">
+<pre class="mmd">
+flowchart LR
+  subgraph PO["Product Owner · 8 screens"]
+    direction TB
+    P1["Dashboard"]
+    P2["My Queue"]
+    P3["New Case intake chat"]
+    P4["Case Detail<br/>Overview · Inbox · AI Assistance · Activity"]
+    P5["Templates"]
+    P6["Integrations"]
+    P7["AI Configuration"]
+    P8["Notification Settings"]
+  end
+  subgraph AN["FCRM Analyst · 5 screens"]
+    direction TB
+    A1["Dashboard"]
+    A2["Queue"]
+    A3["Case Workbench<br/>8 tabs"]
+    A4["Assurance<br/>audit search"]
+    A5["Config<br/>8 sections"]
+  end
+  subgraph RC["Risk Committee · 2 screens"]
+    direction TB
+    C1["Queue"]
+    C2["Committee Case<br/>Pack · Inbox · Vote"]
+  end
+  P3 --> P4
+  P4 -- "submitted case" --> A2
+  A2 --> A3
+  A3 -- "bands 3 and 4" --> C1
+  C1 --> C2
+  C2 -- "outcome" --> P4
+</pre>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h3 style="margin-top:0">Case Workbench tabs (analyst)</h3>
+      <p class="mono" style="margin:0">Summary · Submission · Inbox · Policy Mapping · Risk &amp; Controls · Recommendation · Handoff · Activity Log</p>
+    </div>
+    <div class="panel">
+      <h3 style="margin-top:0">Config sections (analyst)</h3>
+      <p class="mono" style="margin:0">Categories &amp; Fields · Classification Rules · Scoring Model · Control Inventory · Policy Corpus · Rules &amp; Routing · Jurisdiction Risk List · AI Agents</p>
+    </div>
+  </div>
+</section>
+
+<section id="flow">
+  <h2>Case lifecycle</h2>
+  <p class="lede">The status values in the code, and the gates that move a case between them.</p>
+  <div class="diagram">
+<pre class="mmd">
+stateDiagram-v2
+  [*] --> Draft: PO opens case, ID issued
+  Draft --> Draft: validation fails, intake reopens
+  Draft --> Submitted: gate passes, 80% filled plus every always-required field
+  Submitted --> UnderAssessment: auto-triage assigns analyst
+  UnderAssessment --> UnderAssessment: clarification round, new submission version
+  UnderAssessment --> Closed: band 1 or 2, analyst signs off
+  UnderAssessment --> CommitteeReview: band 3 or 4, pack approved
+  CommitteeReview --> Approved: majority of 3 votes
+  CommitteeReview --> Rejected: majority of 3 votes
+  Approved --> [*]
+  Rejected --> [*]
+  Closed --> [*]
+  state "Under Assessment" as UnderAssessment
+  state "Committee Review" as CommitteeReview
+</pre>
+  </div>
+  <p class="cap">The brief also lists "deferred" and "approved with conditions" as outcomes. The prototype's status list does not have them yet.</p>
+
+  <h3>Scoring chain (deterministic, in <code>services/scoring.ts</code>)</h3>
+  <div class="diagram">
+<pre class="mmd">
+flowchart LR
+  L["Likelihood 1-5"] --> I["Inherent = L x I<br/>1 to 25"]
+  M["Impact 1-5"] --> I
+  C["Control ratings 0-10<br/>AI proposes, analyst confirms"] --> CE["Weighted CE<br/>per category"]
+  CE --> R["Retention = 1 - 0.6 x CE/10<br/>floor 0.40"]
+  I --> RS["Residual = Inherent x Retention"]
+  R --> RS
+  RS --> CO["Composite = weighted sum<br/>across in-scope categories"]
+  CO --> B{"Band"}
+  B -- "0-10.0" --> D["Bands 1-2<br/>analyst closes"]
+  B -- "10.1-25" --> K["Bands 3-4<br/>committee votes"]
+</pre>
+  </div>
+</section>
+
+<section id="inventory">
+  <h2>Inventory</h2>
+  <p class="lede">Counts taken from the code. Use this as the build checklist.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Item</th><th class="num">Count</th><th>What they are</th></tr></thead>
+    <tbody>
+      <tr><td>Roles</td><td class="num">3</td><td>Product Owner, FCRM Analyst, Risk Committee (switched with a persona toggle, no login)</td></tr>
+      <tr><td>Screens (routes)</td><td class="num">15</td><td>PO 8, Analyst 5, Committee 2</td></tr>
+      <tr><td>Tabs and config sections</td><td class="num">22</td><td>Case Detail 4, Workbench 8, Committee 2, Config 8</td></tr>
+      <tr><td>Pop-ups and drawers</td><td class="num">~27</td><td>Validation, category removal reason, reuse fields, clarification composer, re-tag, document view, integration connect, and more</td></tr>
+      <tr><td>AI agents</td><td class="num">10</td><td>5 on intake, 5 on assessment (see next section)</td></tr>
+      <tr><td>Service functions</td><td class="num">~175</td><td><code>api.ts</code> 52 and <code>analystApi.ts</code> ~125. Each one becomes a real API endpoint</td></tr>
+      <tr><td>Data types</td><td class="num">~100</td><td>About 15 are core tables: Case, Submission Version, Field Value, Document, Clarification Thread, Policy Clause, Control, Case Control, Scoring Model Version, Jurisdiction Entry, Routing Rules, Agent Config, Activity Event, Committee Vote, Committee Query</td></tr>
+      <tr><td>Trigger categories</td><td class="num">6</td><td>New Product, New Feature, Process Change, Vendor Onboarding, New Geography, New Customer Segment</td></tr>
+      <tr><td>AML risk categories</td><td class="num">4</td><td>Customer, Product and service, Geography, Delivery channel and third party (from FFIEC)</td></tr>
+      <tr><td>Required field definitions</td><td class="num">27</td><td>Union depends on which trigger categories apply</td></tr>
+      <tr><td>Controls in inventory</td><td class="num">~24</td><td>Sanctions screening, KYC/CDD, PEP, vendor due diligence, and others</td></tr>
+      <tr><td>Synthetic cases</td><td class="num">80</td><td>78 generated from a fixed seed plus 2 hand-written reference cases</td></tr>
+      <tr><td>Governance rules</td><td class="num">8</td><td>From the explainer: per-item confirm, scoring is arithmetic, policy retrieved not generated, PO cannot set own gate, analyst never edits submission, overrides need reasons, asymmetric visibility, closed means closed</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="agents">
+  <h2>Where AI sits and where rules sit</h2>
+  <p class="lede">This split is already good and scores under engineering judgement. Keep it. The job is to make the ten AI steps real and measurable.</p>
+  <div class="diagram">
+<pre class="mmd">
+flowchart LR
+  subgraph Decide["Decision"]
+    direction LR
+    PK["Committee pack"]:::det --> V["3 votes, hidden till all cast"]:::det
+  end
+  subgraph Assess["Assessment · analyst side"]
+    direction LR
+    T1["Auto-triage"]:::det --> A1["Policy Mapping"]:::ai
+    A1 --> A2["Control Matching"]:::ai
+    A2 --> A3["Precedent"]:::ai
+    A3 --> SC["Scoring engine"]:::det
+    SC --> A4["Risk Drafting"]:::ai
+    A4 --> A5["Clarification drafts"]:::ai
+  end
+  subgraph Intake["Intake · PO side"]
+    direction LR
+    S1["Screening"]:::ai --> S2["Extraction"]:::ai
+    S2 --> S3["Classification"]:::ai
+    S3 --> S4["Intake questions"]:::ai
+    S4 --> S5["Submission Validation"]:::ai
+    S5 --> G1["80% gate"]:::det
+  end
+  classDef ai fill:#09A78D,stroke:#066e5d,color:#ffffff
+  classDef det fill:#E9EDEB,stroke:#557a7f,color:#0C2226
+</pre>
+  </div>
+  <p class="cap">Teal = AI proposal, human confirms. Grey = plain code, no model involved.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Agent</th><th>Stage</th><th>Job</th><th>Needs to become real</th></tr></thead>
+    <tbody>
+      <tr><td>Screening</td><td>Intake</td><td>Decide if the change needs a full assessment or can auto-clear</td><td>Prompt + rule table</td></tr>
+      <tr><td>Extraction</td><td>Intake</td><td>Pull field values out of uploaded documents</td><td>Doc parsing + structured output</td></tr>
+      <tr><td>Classification</td><td>Intake</td><td>Propose trigger categories</td><td>Structured output + eval set</td></tr>
+      <tr><td>Intake</td><td>Intake</td><td>Ask only about missing fields</td><td>Chat agent over field state</td></tr>
+      <tr><td>Submission Validation</td><td>Intake</td><td>Flag inconsistencies before submit</td><td>Prompt + checks</td></tr>
+      <tr><td>Policy Mapping</td><td>Assessment</td><td>Find applicable policy clauses, verbatim</td><td>Vector search over policy corpus (first to build)</td></tr>
+      <tr><td>Control Matching</td><td>Assessment</td><td>Propose controls and ratings with evidence</td><td>Retrieval over control inventory</td></tr>
+      <tr><td>Precedent</td><td>Assessment</td><td>Find similar past cases</td><td>Similarity search</td></tr>
+      <tr><td>Risk Drafting</td><td>Assessment</td><td>Propose likelihood/impact, draft narrative</td><td>Prompt with scoring definitions</td></tr>
+      <tr><td>Clarification</td><td>Assessment</td><td>Draft batched questions tied to fields</td><td>Prompt over gaps and flags</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="code">
+  <h2>Where the code is</h2>
+  <p class="lede">Lines of code by area. Config screens and mock data are the heaviest. The mocks are what the backend replaces.</p>
+  <div class="panel">
+    <div class="bars" role="img" aria-label="Lines of code by area">
+      <div class="brow"><span class="lbl">Analyst Config (8 sections)</span><span class="track"><i class="fill" style="width:99.2%"></i></span><span class="v">6,942</span></div>
+      <div class="brow"><span class="lbl">Mock data and scripts</span><span class="track"><i class="fill alt" style="width:71.8%"></i></span><span class="v">5,027</span></div>
+      <div class="brow"><span class="lbl">Services (API, scoring, store)</span><span class="track"><i class="fill alt" style="width:63.8%"></i></span><span class="v">4,465</span></div>
+      <div class="brow"><span class="lbl">Case Workbench</span><span class="track"><i class="fill" style="width:53.2%"></i></span><span class="v">3,723</span></div>
+      <div class="brow"><span class="lbl">PO other pages</span><span class="track"><i class="fill" style="width:29.2%"></i></span><span class="v">2,044</span></div>
+      <div class="brow"><span class="lbl">New Case intake</span><span class="track"><i class="fill" style="width:27.2%"></i></span><span class="v">1,905</span></div>
+      <div class="brow"><span class="lbl">UI kit and layout</span><span class="track"><i class="fill" style="width:25.8%"></i></span><span class="v">1,804</span></div>
+      <div class="brow"><span class="lbl">Analyst dashboard, queue, assurance</span><span class="track"><i class="fill" style="width:16.7%"></i></span><span class="v">1,168</span></div>
+      <div class="brow"><span class="lbl">Types</span><span class="track"><i class="fill alt" style="width:16.3%"></i></span><span class="v">1,138</span></div>
+      <div class="brow"><span class="lbl">PO Case Detail</span><span class="track"><i class="fill" style="width:15.6%"></i></span><span class="v">1,093</span></div>
+      <div class="brow"><span class="lbl">Committee</span><span class="track"><i class="fill" style="width:7.0%"></i></span><span class="v">492</span></div>
+    </div>
+    <div class="axis"><span></span><span class="ticks"><span>0</span><span>1.75k</span><span>3.5k</span><span>5.25k</span><span>7k</span></span><span></span></div>
+    <p class="cap">Dark bars are screens. Light bars are data and service code, which the backend work replaces or moves server-side.</p>
+  </div>
+
+  <h3>Stack and structure</h3>
+  <div class="grid2">
+    <div class="panel">
+      <p style="margin:0"><strong>Front end:</strong> React 19, TypeScript, Vite 8, Tailwind 4, React Router 7, Recharts, Framer Motion.</p>
+      <p style="margin:8px 0 0"><strong>Backend:</strong> none. No database, no auth, no network calls. Service functions fake a delay and read an in-memory store.</p>
+    </div>
+    <div class="panel">
+      <p style="margin:0"><strong>Good seam:</strong> screens only call the two service files. Swap function bodies for HTTP calls and the UI stays as is.</p>
+      <p style="margin:8px 0 0"><strong>Missing source:</strong> the code cites a spec by section (§1 to §10, 300+ references). That spec is not in the repo.</p>
+    </div>
+  </div>
+</section>
+
+<section id="rubric">
+  <h2>Rubric fit today</h2>
+  <p class="lede">How the prototype, as it stands, covers each judging area. The bar under each row shows its weight out of 100.</p>
+  <div class="panel">
+    <div class="rub"><span class="w">30</span><div><h4>AI harness and agent orchestration</h4><p>Agents are scripts. No prompts, no orchestration, no context design, no model calls.</p><div class="wbar"><i style="width:30%;background:var(--bad)"></i></div></div><span class="st"><span class="pill bad">Missing</span></span></div>
+    <div class="rub"><span class="w">20</span><div><h4>SDLC automation</h4><p>Requirements and design exist informally. Development is front end only. Testing, deployment and ops have nothing.</p><div class="wbar"><i style="width:20%;background:var(--warn)"></i></div></div><span class="st"><span class="pill warn">Partial</span></span></div>
+    <div class="rub"><span class="w">15</span><div><h4>Human-in-the-loop and governance</h4><p>Strong in the UI: per-item confirm, reasons, hidden votes. No written gate rationale in the repo.</p><div class="wbar"><i style="width:15%;background:var(--warn)"></i></div></div><span class="st"><span class="pill warn">Partial, strong base</span></span></div>
+    <div class="rub"><span class="w">10</span><div><h4>Evaluation framework</h4><p>Nothing yet. The Assurance page tracks override rates, which is a useful signal to build on.</p><div class="wbar"><i style="width:10%;background:var(--bad)"></i></div></div><span class="st"><span class="pill bad">Missing</span></span></div>
+    <div class="rub"><span class="w">10</span><div><h4>Context engineering and requirement expansion</h4><p>A detailed spec clearly exists (the § references) plus the explainer. Neither is in the repo, and no research trail.</p><div class="wbar"><i style="width:10%;background:var(--warn)"></i></div></div><span class="st"><span class="pill warn">Partial</span></span></div>
+    <div class="rub"><span class="w">5</span><div><h4>Production readiness</h4><p>No backend, auth, database, containers or deployment.</p><div class="wbar"><i style="width:5%;background:var(--bad)"></i></div></div><span class="st"><span class="pill bad">Missing</span></span></div>
+    <div class="rub"><span class="w">5</span><div><h4>Token efficiency</h4><p>Model tiers exist in config (Haiku, Sonnet, Opus per agent). No real usage to measure.</p><div class="wbar"><i style="width:5%;background:var(--bad)"></i></div></div><span class="st"><span class="pill bad">Missing</span></span></div>
+    <div class="rub"><span class="w">5</span><div><h4>Engineering judgement</h4><p>Scoring, routing, gates and pack generation are plain code, separate from AI. Well argued.</p><div class="wbar"><i style="width:5%;background:var(--ok)"></i></div></div><span class="st"><span class="pill ok">Strong</span></span></div>
+  </div>
+  <div class="note"><strong>Reading this:</strong> about 70 of 100 points sit in areas that have no evidence in the repo yet. The prototype gives you a very good product design to build the harness around. The marks come from the harness, evals, governance docs and commit trail.</div>
+</section>
+
+<section id="gaps">
+  <h2>Required repo layout vs today</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Folder</th><th>Judges expect</th><th>Today</th><th>Starting material</th></tr></thead>
+    <tbody>
+      <tr><td><code>/src</code></td><td>Application code</td><td><span class="pill warn">Front end only</span></td><td>This prototype</td></tr>
+      <tr><td><code>/ai</code></td><td>Prompts, agent config, guidance files</td><td><span class="pill bad">Missing</span></td><td>Mock scripts show each agent's expected output</td></tr>
+      <tr><td><code>/docs/requirements</code></td><td>Spec expanded from the brief</td><td><span class="pill bad">Missing</span></td><td>BA's § spec, the explainer</td></tr>
+      <tr><td><code>/docs/architecture</code></td><td>Design decisions and diagrams</td><td><span class="pill bad">Missing</span></td><td>Explainer flow and maths sections</td></tr>
+      <tr><td><code>/docs/governance</code></td><td>Review gates and why each exists</td><td><span class="pill bad">Missing</span></td><td>The 8 design rules</td></tr>
+      <tr><td><code>/evals</code></td><td>Eval definitions, datasets, results</td><td><span class="pill bad">Missing</span></td><td>80 synthetic cases can seed eval sets</td></tr>
+      <tr><td><code>/tests</code></td><td>Automated test suites</td><td><span class="pill bad">Missing</span></td><td>Worked example (9.8 → 11.5) is a ready unit test</td></tr>
+      <tr><td><code>/ops</code></td><td>Deployment, monitoring, token analysis</td><td><span class="pill bad">Missing</span></td><td>None</td></tr>
+      <tr><td><code>README.md</code></td><td>Setup, walkthrough, decision log</td><td><span class="pill bad">Vite default</span></td><td>None</td></tr>
+      <tr><td>Git history</td><td>Many commits showing how you worked</td><td><span class="pill bad">No repo</span></td><td>Start now, commit often</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="flags">
+  <h2>Things to raise with the BA</h2>
+  <ul class="flags">
+    <li><strong>PO has an AI Configuration page</strong> that sets model and effort for intake agents. This clashes with the rule that the business owner cannot configure their own gate. Suggest moving it to analyst Config.</li>
+    <li><strong>PO also has Integrations</strong> (connect SharePoint and similar to import documents). Fine to keep, but it is extra scope. Decide if it is in or out for 9 Oct.</li>
+    <li><strong>Outcomes missing:</strong> the brief names four outcomes (approved, rejected, deferred, approved with conditions). The code has approved and rejected only.</li>
+    <li><strong>The "Evoq" logo</strong> sits in the sidebar. Confirm it is allowed in the submission.</li>
+    <li><strong>Ask for the numbered spec</strong> that the code cites. It is the core of the requirements folder.</li>
+    <li><strong>Correction to my earlier note:</strong> the band gaps (10.0 to 10.1) are safe. The composite is rounded to one decimal before the band lookup. Still worth a unit test.</li>
+  </ul>
+</section>
+
+<section id="days">
+  <h2>What 9 days has to hold</h2>
+  <p class="lede">A rough shape, for discussion in step 2. Tracks run in parallel across the team. Adjust once we split the work.</p>
+  <div class="diagram">
+<pre class="mmd">
+gantt
+  title 1 to 9 October 2026
+  dateFormat YYYY-MM-DD
+  axisFormat %d %b
+  section Foundation
+  Git repo, folder layout, README skeleton :a1, 2026-10-01, 1d
+  Requirements and governance docs        :a2, 2026-10-01, 3d
+  section Backend
+  Database schema and API                 :b1, 2026-10-02, 3d
+  Move scoring server-side plus tests     :b2, 2026-10-03, 2d
+  section AI harness
+  Policy Mapping agent with retrieval     :c1, 2026-10-03, 2d
+  Extraction and Classification agents    :c2, 2026-10-04, 2d
+  Remaining agents                        :c3, 2026-10-06, 2d
+  section Evals and tests
+  Eval sets from synthetic cases          :d1, 2026-10-04, 3d
+  E2E tests and eval runs                 :d2, 2026-10-07, 2d
+  section Ship
+  Docker, deploy, monitoring, token report :e1, 2026-10-07, 2d
+  Deck and demo rehearsal                 :e2, 2026-10-08, 2d
+</pre>
+  </div>
+</section>
+
+<footer>
+  Built from the FCRM_v2 repo, the Genius Hacks brief and the TrustOps explainer · 30 September 2026
+</footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js"></script>
+<script>
+(function(){
+  if(!window.mermaid){document.querySelectorAll('pre.mmd').forEach(function(p){p.style.whiteSpace='pre-wrap';});return;}
+  mermaid.initialize({startOnLoad:false,securityLevel:'loose',theme:'base',
+    flowchart:{htmlLabels:true,curve:'basis',padding:12},sequence:{useMaxWidth:true,mirrorActors:false},gantt:{useMaxWidth:true},
+    themeVariables:{fontFamily:'IBM Plex Sans, system-ui, sans-serif',fontSize:'14px',
+      primaryColor:'#FFFFFF',primaryBorderColor:'#557a7f',primaryTextColor:'#0C2226',textColor:'#0C2226',
+      secondaryColor:'#E9EDEB',secondaryBorderColor:'#9CAAAB',secondaryTextColor:'#0C2226',
+      tertiaryColor:'#F7F8F3',tertiaryBorderColor:'#C3D2D3',tertiaryTextColor:'#0C2226',
+      lineColor:'#557a7f',mainBkg:'#FFFFFF',nodeBorder:'#557a7f',nodeTextColor:'#0C2226',
+      clusterBkg:'#F7F8F3',clusterBorder:'#C3D2D3',titleColor:'#0C2226',
+      edgeLabelBackground:'#FBF1D9',
+      actorBkg:'#DDF3EE',actorBorder:'#09A78D',actorTextColor:'#0C2226',actorLineColor:'#9CAAAB',signalColor:'#0C2226',signalTextColor:'#0C2226',
+      labelBoxBkgColor:'#F7F8F3',labelBoxBorderColor:'#C3D2D3',labelTextColor:'#0C2226',loopTextColor:'#0C2226',
+      noteBkgColor:'#FBF1D9',noteBorderColor:'#D9B85A',noteTextColor:'#0C2226',activationBkgColor:'#E9EDEB',activationBorderColor:'#557a7f',sequenceNumberColor:'#FFFFFF',
+      taskBkgColor:'#09A78D',taskBorderColor:'#066e5d',taskTextColor:'#FFFFFF',taskTextLightColor:'#FFFFFF',taskTextDarkColor:'#0C2226',taskTextOutsideColor:'#0C2226',
+      activeTaskBkgColor:'#194247',activeTaskBorderColor:'#0C2226',sectionBkgColor:'#E9EDEB',sectionBkgColor2:'#F2F4F3',altSectionBkgColor:'#FFFFFF',gridColor:'#C3D2D3',todayLineColor:'#8A3324',
+      labelColor:'#0C2226',stateBkg:'#FFFFFF',stateLabelColor:'#0C2226',transitionColor:'#557a7f',transitionLabelColor:'#0C2226',compositeBackground:'#F7F8F3',altBackground:'#F7F8F3',specialStateColor:'#194247'}});
+  mermaid.run({nodes:document.querySelectorAll('pre.mmd')}).then(function(){document.dispatchEvent(new Event('mmd-ready'));}).catch(function(e){console.error('mermaid',e);});
+})();
+</script>
+</body></html>

@@ -1,0 +1,213 @@
+/* Reset, focus, motion and print rules. Tokens come from tokens.css; no hex literals here. */
+/* The reset sits in Tailwind's base layer. Unlayered rules beat every layered
+   rule, so outside a layer `button { color: inherit; font: inherit }` silently
+   overrode the text-* and font-* utilities on every button (dark-on-dark text
+   on primary buttons), and `ul { padding: 0 }` / `svg { display: block }` beat
+   p-* and inline utilities. */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-canvas);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  ul,
+  ol,
+  dl,
+  dd,
+  figure {
+    margin: 0;
+  }
+
+  ul,
+  ol {
+    padding: 0;
+    list-style: none;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  img,
+  svg {
+    display: block;
+    max-width: 100%;
+  }
+
+  a {
+    color: var(--color-carbon-moss);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--color-carbon-moss-hover);
+    text-decoration: underline;
+  }
+
+  ::selection {
+    background: var(--color-quantum-leaf-tint-2);
+  }
+
+  /* Numbers line up in tables and score boxes. */
+  .tabular,
+  table td,
+  table th {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* One visible focus ring for every interactive element (WCAG 2.4.7). */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -48px;
+  z-index: 100;
+  padding: 8px 12px;
+  background: var(--color-carbon-moss);
+  color: var(--color-text-on-dark);
+  border-radius: var(--radius-sm);
+}
+.skip-link:focus {
+  top: 8px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--ink-6);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-canvas);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes ringFill {
+  from {
+    stroke-dashoffset: var(--ring-circumference);
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--ink-3) 25%, var(--ink-4) 37%, var(--ink-3) 63%);
+  background-size: 800px 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+.toast-in {
+  animation: toastIn 0.2s ease-out;
+}
+
+.ring-animate {
+  animation: ringFill 0.6s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Print: the committee pack prints as a document; chrome, nav and actions are dropped. */
+@media print {
+  html {
+    font-size: 11pt;
+  }
+  body {
+    background: var(--color-surface);
+  }
+  .no-print,
+  nav,
+  aside,
+  header[data-chrome],
+  button {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  .print-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border: 1px solid var(--color-border) !important;
+    box-shadow: none !important;
+  }
+  a[href]::after {
+    content: '';
+  }
+}

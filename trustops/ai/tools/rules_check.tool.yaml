@@ -1,0 +1,31 @@
+# ai/tools/rules_check.tool.yaml
+name: rules_check
+version: 1
+description: >-
+  Run the eight product rules as code over this case run and return one result
+  per rule (R-1 to R-8) with ok and a detail line: no agent wrote a score; no
+  bulk accept; the PO view has no restricted fields; the analyst never edited
+  the submission; a closed case is untouched; every override has a reason; a
+  planned control is not scored; policy is quoted, not generated. Quote these
+  results; never re-derive a rule outcome yourself.
+backing_service: local
+backing: {service: in-process, callable: "fcrm_guardrails.rules.check_all"}   # no network
+read_only: true
+side_effects: none
+permit_key: rules_check
+permitted_agents: [critic]
+builder_agents: [critic]
+timeout_s: 2
+cost_class: compute
+cache: {key: [case_id, run_id, ledger_head], scope: run_id, ttl_s: 0}
+scope_rule: "case_id and run_id must equal the payload's"
+input_schema:
+  contract_target: fcrm_contracts.tools.RulesCheckIn
+  fields:
+    - {name: case_id, type: str, required: true}
+    - {name: run_id, type: str, required: true}
+output_schema:
+  contract_target: fcrm_contracts.tools.RulesCheckOut
+  fields:
+    - {name: results, type: "list[{rule_id: Literal['R-1','R-2','R-3','R-4','R-5','R-6','R-7','R-8'], name: str, ok: bool, detail: str}]"}
+    - {name: evaluated_at, type: datetime}

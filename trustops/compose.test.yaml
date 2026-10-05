@@ -1,0 +1,73 @@
+# Test override (ADR-12) for `make e2e` and `make test-int`:
+#
+#   docker compose -p trustops-test \
+#     -f docker-compose.yaml -f compose.obs.yaml -f compose.test.yaml up -d
+#
+# Every model call is served from recorded proposals (FCRM_LLM_MODE=replay,
+# a Pydantic AI FunctionModel over evals/fixtures/replay), vectors live in
+# memory and embeddings are the deterministic dummy provider, so the
+# 21-scene suite reproduces the seed's figures on every run with no AWS
+# credentials. AWS keys are blanked so a stray live call fails instead of
+# spending. The Makefile runs this under its own project name
+# (trustops-test) so its volumes never touch the dev stack's, tears it down
+# with -v afterwards, and moves the host ports by +1000.
+
+x-test-modes: &test-modes
+  ENV: test
+  FCRM_LLM_MODE: replay
+  VECTOR_BACKEND: memory
+  EMBEDDING_PROVIDER: dummy
+  AWS_ACCESS_KEY_ID: ""
+  AWS_SECRET_ACCESS_KEY: ""
+  AWS_SESSION_TOKEN: ""
+  SEED_ON_EMPTY: "true"
+  MODEL_CACHE_ENABLED: "false"
+
+services:
+  agent-worker:
+    environment:
+      <<: *test-modes
+
+  policy:
+    environment:
+      <<: *test-modes
+
+  context-worker:
+    environment:
+      <<: *test-modes
+
+  # The remaining app containers only need ENV=test (log/trace labels,
+  # otel overlay) and an always-seeded database.
+  identity:
+    environment:
+      ENV: test
+      SEED_ON_EMPTY: "true"
+  case:
+    environment:
+      ENV: test
+      SEED_ON_EMPTY: "true"
+  scoring:
+    environment:
+      ENV: test
+      SEED_ON_EMPTY: "true"
+  audit:
+    environment:
+      ENV: test
+      SEED_ON_EMPTY: "true"
+  decision:
+    environment:
+      ENV: test
+      SEED_ON_EMPTY: "true"
+  caseflow:
+    environment:
+      ENV: test
+  ingestion-worker:
+    environment:
+      ENV: test
+
+  otel-collector:
+    command:
+      - --config=/etc/otelcol/collector.yaml
+      - --config=/etc/otelcol/env/test.yaml
+    environment:
+      ENV: test

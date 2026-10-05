@@ -1,0 +1,24 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+node_modules/
+dist/
+.cache/
+*.tsbuildinfo
+mongo_data/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+src/.venv/
+src/uv.lock.bak
+.claude/worktrees/
+
+# personal direnv files
+.envrc*

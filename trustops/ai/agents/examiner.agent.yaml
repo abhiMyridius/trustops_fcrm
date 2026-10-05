@@ -1,0 +1,45 @@
+# ai/agents/examiner.agent.yaml  (design B §2.7)
+name: examiner
+version: 1
+purpose: >-
+  Answer an examiner's or auditor's question about one case from its
+  hash-chained audit records only. Every sentence cites records; the agent
+  refuses when the records do not hold the answer (D-23). Read-only: the
+  answer is shown to the asker and logged as an `examiner.answered` record.
+lifecycle_state: null                 # oversight job outside the case state machine
+trigger: "on demand from Assurance > Ask (analyst, committee, observer); after GET /verify/{case} returns ok"
+tier: mid
+budget_tier: mid
+budget: {tokens: 12000, wall_s: 120, retries: 1}
+tools: [audit_log]
+tool_caps: {audit_log: 2}
+tool_call_cap: 2
+pack_tools: [case_record, audit_log]
+skills: [cite_verbatim, declare_gap]
+context_pack: examiner
+output_schema:
+  envelope: ExaminerOutput
+  envelope_module: fcrm_contracts.proposals.examiner
+  fields:
+    answer: {model: fcrm_contracts.proposals.examiner.ExaminerAnswer, many: false, status: contract}
+    answered: {type: bool, status: primitive}
+    refusal_reason: {type: "Optional[str]", max_length: 240, status: primitive}
+    records_read: {type: int, status: primitive}
+    notes_for_analyst: {type: "list[str]", max_items: 5, status: primitive}
+  contract_changes_required:
+    - field: ExaminerSentence.quotes
+      change: "add quotes: list[Claim] (min 1, max 2) whose source_ref is a RecordSourceRef"
+      why: "sentence_record_grounding (gated at 1.00) needs a verbatim fragment of the cited record; record_refs alone proves only that the record exists"
+prompt_id: {system: examiner.system, user: examiner.user}
+guards: [input_scan, permit, budget, output_shape, rules]
+gate: null                            # no gate: read-only answer (GateType has no examiner gate)
+gate_detail:
+  rule: "none; every answer is itself logged as an audit record of type examiner.answered"
+eval_set: examiner/questions-120
+eval:
+  datasets: [examiner/questions-120]
+  primary_metric: sentence_record_grounding
+  gated_metrics: [sentence_record_grounding, refusal_rate, citation_validity]
+reruns_on: []
+owner: fcrm_analyst
+tokens_expected: {input: 6000, output: 900}

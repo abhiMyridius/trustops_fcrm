@@ -1,0 +1,42 @@
+# ai/guards/injection_patterns.txt  (Guard 1, version 1)
+#
+# Format: one Python `re` pattern per line, matched case-insensitively against
+# canonical document text, owner free text and every pack section. An
+# optional weight prefix "[w=0.N] " sets the line's weight (default 0.5).
+# The scan score is min(1.0, sum of weights of distinct lines that hit);
+# >= thresholds.injection_score_block blocks and quarantines, >= amber gets
+# a cheap-tier second opinion. Lines starting with "#" and blank lines are
+# ignored. Red-team rows live in evals/redteam/injection-50.jsonl; every new
+# pattern needs a row there that it catches and a benign row it must not.
+
+# --- instruction override ---------------------------------------------------
+[w=0.9] \b(ignore|disregard|forget|override)\b.{0,30}\b(all |any |the )?(previous|prior|above|earlier|preceding|system)\b.{0,20}\b(instructions?|prompts?|rules?|directions?|context)\b
+[w=0.8] \bdo not (follow|obey|apply)\b.{0,30}\b(instructions?|rules?|system prompt)\b
+[w=0.8] \b(new|updated|revised|real) (system )?instructions?\s*[:\-]
+[w=0.6] \bfrom now on\b.{0,40}\b(you (will|must|should)|always|never)\b
+
+# --- role reassignment --------------------------------------------------------
+[w=0.8] \byou are (now|no longer)\b
+[w=0.7] \b(act|behave|respond|pretend) (as|like) (if you (are|were) )?(an?|the) (unrestricted|different|new|developer|admin|jailbroken)\b
+[w=0.7] \b(developer|debug|god|jailbreak|dan) mode\b
+
+# --- fake conversation / chat-template markers --------------------------------
+[w=0.6] ^\s*(system|assistant|developer)\s*:\s
+[w=0.9] <\|(im_start|im_end|system|user|assistant|endoftext|eot_id|start_header_id)\|>
+[w=0.7] \[/?(INST|SYS)\]|<<\s*/?SYS\s*>>
+[w=0.6] </?(system|instructions?|prompt)>
+
+# --- tool-call and output look-alikes -------------------------------------------
+[w=0.7] ["']?(tool_use|function_call|tool_calls)["']?\s*[:=]
+[w=0.6] \b(call|invoke|use) the (\w+ )?(tool|function)\b.{0,40}\b(with|to)\b
+[w=0.8] \b(set|change|make|output|return|write)\b.{0,25}\b(score|band|rating|composite|residual)\b.{0,15}\b(to|=|as)\s*\d
+
+# --- this product's rules, attacked directly ------------------------------------
+[w=0.8] \b(approve|accept|clear|close)\b.{0,20}\b(this|the) (case|change|request)\b.{0,30}\b(automatically|without (review|approval|a human))\b
+[w=0.7] \b(mark|treat|classify)\b.{0,30}\bas (low risk|fast[- ]lane|band 1|approved)\b
+[w=0.7] \b(reveal|print|show|repeat|output)\b.{0,25}\b(your|the) (system prompt|instructions|hidden prompt|rules)\b
+
+# --- obfuscation -----------------------------------------------------------------
+[w=0.5] [​‌‍⁠﻿]
+[w=0.4] <!--.*?-->
+[w=0.5] (?:[A-Za-z0-9+/]{4}){50,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?

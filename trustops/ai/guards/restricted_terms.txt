@@ -1,0 +1,74 @@
+# ai/guards/restricted_terms.txt  (version 1; thresholds.yaml restricted_terms.version)
+#
+# Terms that may never appear in text shown to the product owner (rule 3, D-62):
+# the narrative business summary, PO notifications and PO-facing condition
+# text. Guard 4 rejects RecommendationOutput.business_summary on any hit, and
+# the PO response middleware in S1 re-scans string values with the same list.
+#
+# Format: one term per line, matched case-insensitively on word boundaries
+# (a multi-word term matches with any whitespace between words). A line
+# starting with "re:" is a Python regex instead of a literal term. "#" lines
+# and blank lines are ignored.
+#
+# This is the AI layer's source copy. The guardrails lane's RESTRICTED_KEYS
+# (JSON keys) is a different list; the two must be reconciled so that every
+# key here has a term and vice versa (design A §2 restricted-field rule).
+
+# --- scores and their parts ---
+score
+scores
+scoring
+scored
+composite
+residual
+inherent
+retention
+retention factor
+control effectiveness
+effectiveness score
+weighted
+weighting
+
+# --- bands, routing labels, boundary ---
+band
+bands
+re:\bband\s*[1-4]\b
+re:\b(low|moderate|elevated|high)[- ]risk band\b
+boundary
+boundary flag
+threshold
+risk tier
+risk level
+risk rating
+
+# --- ratings and factor inputs ---
+rating
+ratings
+rated
+re:\b\d{1,2}(\.\d)?\s*/\s*10\b
+likelihood
+impact score
+re:\bL\s*[x×]\s*I\b
+
+# --- the assessment machinery ---
+critic
+critic finding
+override
+overridden
+overrode
+precedent rating
+precedent average
+re:\bprecedent[s]? (mean|avg|average)\b
+committee vote
+vote count
+re:\b[0-3]\s*[-–]\s*[0-3]\s+(vote|split|majority)\b
+route
+routed
+
+# --- identifiers the owner must not see ---
+re:\bCTL-[A-Z]\d{2}\b
+re:\bF\d{2}\b
+re:\b(FFIEC|OFAC|FINCEN|OCC|FATF|FCRM42|TP71|PR23|CO18)-[A-Z0-9.\-]+\b
+re:\bINT-[A-Z]{2,4}-\d\.\d\b
+clause id
+control id

@@ -1,0 +1,572 @@
+{
+  "_comment": "TrustOps topology (design A 4.1, 4.5), imported at boot via rabbitmq.conf. RETRY (TTL + DLX requeue): on a handler exception with x-attempt < 3 the consumer republishes the message to exchange 'retry' with routing key '<queue>' and x-attempt + 1, then acks the original. '<queue>.retry' has no consumer; it holds the message for x-message-ttl (30 s) and on expiry dead-letters it through the default exchange ('') with routing key '<queue>', i.e. straight back onto the work queue: a delayed redelivery without the delayed-message plugin. PARK: when x-attempt reaches 3, or the envelope fails validation (poison), the consumer publishes to exchange 'dlx' with routing key '<queue>' and acks; '<queue>.dlq' keeps it with no TTL until 'make dlq-replay q=<queue>'. Work queues also carry x-dead-letter-exchange 'dlx', so a reject(requeue=false), or the quorum delivery-limit (5, policy fcrm-quorum-safety) after repeated consumer crashes, lands in the same DLQ. Policy fcrm-quorum-safety makes dead-lettering at-least-once (requires overflow reject-publish), so nothing is dropped between queues. Clients must declare these queues passively (or with exactly these arguments): ops owns the topology. No users here: ops/rabbitmq/entrypoint.sh adds the single RABBITMQ_DEFAULT_USER from .env (hashed) to a runtime copy at start.",
+  "rabbit_version": "4.0.9",
+  "rabbitmq_version": "4.0.9",
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
+  "policies": [
+    {
+      "vhost": "/",
+      "name": "fcrm-quorum-safety",
+      "pattern": "^(caseflow|case-service|policy-service|evals|agent-worker|ingestion-worker|context-worker)\\.",
+      "apply-to": "queues",
+      "priority": 0,
+      "definition": {
+        "dead-letter-strategy": "at-least-once",
+        "overflow": "reject-publish",
+        "delivery-limit": 5
+      }
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "case.events",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "agent.jobs",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "ingestion.jobs",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "context.jobs",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "retry",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "dlx",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "caseflow.events",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "caseflow.events"
+      }
+    },
+    {
+      "name": "caseflow.events.retry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-message-ttl": 30000,
+        "x-dead-letter-exchange": "",
+        "x-dead-letter-routing-key": "caseflow.events"
+      }
+    },
+    {
+      "name": "caseflow.events.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum"
+      }
+    },
+    {
+      "name": "case-service.events",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "case-service.events"
+      }
+    },
+    {
+      "name": "case-service.events.retry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-message-ttl": 30000,
+        "x-dead-letter-exchange": "",
+        "x-dead-letter-routing-key": "case-service.events"
+      }
+    },
+    {
+      "name": "case-service.events.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum"
+      }
+    },
+    {
+      "name": "policy-service.events",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "policy-service.events"
+      }
+    },
+    {
+      "name": "policy-service.events.retry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-message-ttl": 30000,
+        "x-dead-letter-exchange": "",
+        "x-dead-letter-routing-key": "policy-service.events"
+      }
+    },
+    {
+      "name": "policy-service.events.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum"
+      }
+    },
+    {
+      "name": "evals.events",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "evals.events"
+      }
+    },
+    {
+      "name": "evals.events.retry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-message-ttl": 30000,
+        "x-dead-letter-exchange": "",
+        "x-dead-letter-routing-key": "evals.events"
+      }
+    },
+    {
+      "name": "evals.events.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum"
+      }
+    },
+    {
+      "name": "agent-worker.run",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "agent-worker.run"
+      }
+    },
+    {
+      "name": "agent-worker.run.retry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-message-ttl": 30000,
+        "x-dead-letter-exchange": "",
+        "x-dead-letter-routing-key": "agent-worker.run"
+      }
+    },
+    {
+      "name": "agent-worker.run.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum"
+      }
+    },
+    {
+      "name": "caseflow.agent-results",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "caseflow.agent-results"
+      }
+    },
+    {
+      "name": "caseflow.agent-results.retry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-message-ttl": 30000,
+        "x-dead-letter-exchange": "",
+        "x-dead-letter-routing-key": "caseflow.agent-results"
+      }
+    },
+    {
+      "name": "caseflow.agent-results.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum"
+      }
+    },
+    {
+      "name": "ingestion-worker.run",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "ingestion-worker.run"
+      }
+    },
+    {
+      "name": "ingestion-worker.run.retry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-message-ttl": 30000,
+        "x-dead-letter-exchange": "",
+        "x-dead-letter-routing-key": "ingestion-worker.run"
+      }
+    },
+    {
+      "name": "ingestion-worker.run.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum"
+      }
+    },
+    {
+      "name": "context-worker.run",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "context-worker.run"
+      }
+    },
+    {
+      "name": "context-worker.run.retry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-message-ttl": 30000,
+        "x-dead-letter-exchange": "",
+        "x-dead-letter-routing-key": "context-worker.run"
+      }
+    },
+    {
+      "name": "context-worker.run.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "source": "case.events",
+      "vhost": "/",
+      "destination": "caseflow.events",
+      "destination_type": "queue",
+      "routing_key": "#",
+      "arguments": {}
+    },
+    {
+      "source": "retry",
+      "vhost": "/",
+      "destination": "caseflow.events.retry",
+      "destination_type": "queue",
+      "routing_key": "caseflow.events",
+      "arguments": {}
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "caseflow.events.dlq",
+      "destination_type": "queue",
+      "routing_key": "caseflow.events",
+      "arguments": {}
+    },
+    {
+      "source": "case.events",
+      "vhost": "/",
+      "destination": "case-service.events",
+      "destination_type": "queue",
+      "routing_key": "outcome.*",
+      "arguments": {}
+    },
+    {
+      "source": "case.events",
+      "vhost": "/",
+      "destination": "case-service.events",
+      "destination_type": "queue",
+      "routing_key": "vote.rerequested",
+      "arguments": {}
+    },
+    {
+      "source": "case.events",
+      "vhost": "/",
+      "destination": "case-service.events",
+      "destination_type": "queue",
+      "routing_key": "pack.released",
+      "arguments": {}
+    },
+    {
+      "source": "case.events",
+      "vhost": "/",
+      "destination": "case-service.events",
+      "destination_type": "queue",
+      "routing_key": "index.built",
+      "arguments": {}
+    },
+    {
+      "source": "retry",
+      "vhost": "/",
+      "destination": "case-service.events.retry",
+      "destination_type": "queue",
+      "routing_key": "case-service.events",
+      "arguments": {}
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "case-service.events.dlq",
+      "destination_type": "queue",
+      "routing_key": "case-service.events",
+      "arguments": {}
+    },
+    {
+      "source": "case.events",
+      "vhost": "/",
+      "destination": "policy-service.events",
+      "destination_type": "queue",
+      "routing_key": "index.*",
+      "arguments": {}
+    },
+    {
+      "source": "retry",
+      "vhost": "/",
+      "destination": "policy-service.events.retry",
+      "destination_type": "queue",
+      "routing_key": "policy-service.events",
+      "arguments": {}
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "policy-service.events.dlq",
+      "destination_type": "queue",
+      "routing_key": "policy-service.events",
+      "arguments": {}
+    },
+    {
+      "source": "case.events",
+      "vhost": "/",
+      "destination": "evals.events",
+      "destination_type": "queue",
+      "routing_key": "gate.decided",
+      "arguments": {}
+    },
+    {
+      "source": "case.events",
+      "vhost": "/",
+      "destination": "evals.events",
+      "destination_type": "queue",
+      "routing_key": "outcome.*",
+      "arguments": {}
+    },
+    {
+      "source": "retry",
+      "vhost": "/",
+      "destination": "evals.events.retry",
+      "destination_type": "queue",
+      "routing_key": "evals.events",
+      "arguments": {}
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "evals.events.dlq",
+      "destination_type": "queue",
+      "routing_key": "evals.events",
+      "arguments": {}
+    },
+    {
+      "source": "agent.jobs",
+      "vhost": "/",
+      "destination": "agent-worker.run",
+      "destination_type": "queue",
+      "routing_key": "agent.run",
+      "arguments": {}
+    },
+    {
+      "source": "retry",
+      "vhost": "/",
+      "destination": "agent-worker.run.retry",
+      "destination_type": "queue",
+      "routing_key": "agent-worker.run",
+      "arguments": {}
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "agent-worker.run.dlq",
+      "destination_type": "queue",
+      "routing_key": "agent-worker.run",
+      "arguments": {}
+    },
+    {
+      "source": "agent.jobs",
+      "vhost": "/",
+      "destination": "caseflow.agent-results",
+      "destination_type": "queue",
+      "routing_key": "agent.done",
+      "arguments": {}
+    },
+    {
+      "source": "agent.jobs",
+      "vhost": "/",
+      "destination": "caseflow.agent-results",
+      "destination_type": "queue",
+      "routing_key": "agent.failed",
+      "arguments": {}
+    },
+    {
+      "source": "retry",
+      "vhost": "/",
+      "destination": "caseflow.agent-results.retry",
+      "destination_type": "queue",
+      "routing_key": "caseflow.agent-results",
+      "arguments": {}
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "caseflow.agent-results.dlq",
+      "destination_type": "queue",
+      "routing_key": "caseflow.agent-results",
+      "arguments": {}
+    },
+    {
+      "source": "ingestion.jobs",
+      "vhost": "/",
+      "destination": "ingestion-worker.run",
+      "destination_type": "queue",
+      "routing_key": "ingest.run",
+      "arguments": {}
+    },
+    {
+      "source": "retry",
+      "vhost": "/",
+      "destination": "ingestion-worker.run.retry",
+      "destination_type": "queue",
+      "routing_key": "ingestion-worker.run",
+      "arguments": {}
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "ingestion-worker.run.dlq",
+      "destination_type": "queue",
+      "routing_key": "ingestion-worker.run",
+      "arguments": {}
+    },
+    {
+      "source": "context.jobs",
+      "vhost": "/",
+      "destination": "context-worker.run",
+      "destination_type": "queue",
+      "routing_key": "index.build",
+      "arguments": {}
+    },
+    {
+      "source": "retry",
+      "vhost": "/",
+      "destination": "context-worker.run.retry",
+      "destination_type": "queue",
+      "routing_key": "context-worker.run",
+      "arguments": {}
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "context-worker.run.dlq",
+      "destination_type": "queue",
+      "routing_key": "context-worker.run",
+      "arguments": {}
+    }
+  ]
+}

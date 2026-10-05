@@ -1,0 +1,155 @@
+{
+  "attachments": [],
+  "attachments_truncated": false,
+  "authors": [],
+  "body_markdown": "# Payments Platform Handbook\n\nTable checks index every account records batch. Manifest shall balance this snapshot stores timeout ledger its validates alert batch. Requirement must vector their deadline may metric threshold any must vector system policy must system.\n\n# 1 Onboarding\n\nVersion returns tenant each reviewer checks audit response that returns ledger deadline session stores. Batch checks account a timeout must session system a validates system manifest. Index may reviewer their chunk validates handler document their emits version posting session. Retry emits response any alert shall threshold request each must.\n\n## 1.1 Accounts\n\n- Create the tenant\n- Assign an operator role\n- Verify the callback URL\n\n## 1.2 Credentials\n\n1. Request a client id\n2. Store the secret in the vault\n3. Rotate every ninety days\n\n# 2 Daily Operations\n\nQueue validates reviewer each schedule emits document alert. Heading records table their owner shall heading posting that emits table request policy stores token. Document may vector a request emits timeout alert each records approval operator operator may. Worker must system its system may posting retry their emits timeout table reviewer rejects.\n\n## 2.1 Posting window\n\nHeading stores worker each threshold shall policy queue their shall session request threshold emits. Operator validates audit each timeout emits retry threshold its shall alert snapshot balance returns. Timeout stores handler that index returns table metric each emits account ledger version.\n\n### 2.1.1 Cut-off\n\nVector stores report a balance shall vector reviewer each checks request posting. Manifest checks report every handler may version service its.\n\n## 2.2 Reconciliation\n\nSystem may reviewer their response rejects owner policy the returns owner audit approval. Requirement may document this table must tenant batch. System records worker a index validates document service no must requirement alert chunk validates version.\n\n# 3 Incident Response\n\nSystem validates snapshot the session validates queue record every returns retry reviewer schedule stores. Queue records heading this service must owner request their records vector deadline worker shall reviewer. Posting shall token a audit emits retry. Alert returns handler the heading emits reviewer queue a returns record policy metric returns snapshot.\n\n## 3.1 Severity levels\n\n- Sev-1: customer impact\n- Sev-2: degraded service\n- Sev-3: cosmetic\n",
+  "content_type": null,
+  "domain_url": null,
+  "extraction": {
+    "adf2md_version": null,
+    "engine": "python-docx",
+    "engine_version": "2",
+    "failure_code": null,
+    "failure_message": null,
+    "fallback_used": false,
+    "front_matter": null,
+    "html2md_version": null,
+    "is_scanned_pdf": false,
+    "profile_version": 1,
+    "raw_hash": "sha256:0dac876fa0ca5cc89e2cc04a100698924a270c4fcee2ac5c2f755da975b3281d",
+    "scanned_page_fraction": null,
+    "unit_failures": [],
+    "warnings": []
+  },
+  "extraction_status": "COMPLETE",
+  "file_name": "DOCX-01_headings_lists.docx",
+  "file_size": 35332,
+  "hierarchy": {},
+  "labels": [],
+  "legacy_extracted_text_path": null,
+  "legacy_file_path": null,
+  "metadata": {},
+  "origin_id": "",
+  "original_upload_path": "<corpus>/generated/DOCX-01_headings_lists.docx",
+  "profile_hints": {
+    "avg_paragraph_words": 40.43,
+    "avg_sentence_words": 13.85,
+    "body_prefix_sha1": "f42b80a30632bdbde37d67c9705bb347065c973c",
+    "char_count": 2432,
+    "code_block_count": 0,
+    "code_char_ratio": 0.0,
+    "heading_count": 10,
+    "heading_density": 27.778,
+    "heading_levels": {
+      "1": 4,
+      "2": 5,
+      "3": 1
+    },
+    "image_count": 0,
+    "is_scanned_pdf": false,
+    "language": "und",
+    "line_count": 46,
+    "link_count": 0,
+    "list_item_count": 9,
+    "list_item_ratio": 0.3462,
+    "max_heading_depth": 3,
+    "max_paragraph_words": 51,
+    "non_blank_line_count": 26,
+    "non_printable_ratio": 0.0,
+    "numbered_section_count": 0,
+    "page_count": null,
+    "paragraph_count": 7,
+    "profile_version": 1,
+    "replacement_char_ratio": 0.0,
+    "requirement_id_count": 0,
+    "requirement_id_density": 0.0,
+    "requirement_id_prefixes": {},
+    "requirement_id_unique": 0,
+    "sentence_count": 26,
+    "sheet_count": null,
+    "slide_count": null,
+    "table_count": 0,
+    "table_row_count": 0,
+    "table_text_ratio": 0.0,
+    "word_count": 360
+  },
+  "raw_format": "docx",
+  "scope_key": null,
+  "source_key": "file:name:DOCX-01_headings_lists.docx",
+  "source_type": "file",
+  "structure": {
+    "char_count": 2432,
+    "code_block_count": 0,
+    "heading_count": 10,
+    "headings": [
+      {
+        "level": 1,
+        "line": 1,
+        "text": "Payments Platform Handbook"
+      },
+      {
+        "level": 1,
+        "line": 5,
+        "text": "1 Onboarding"
+      },
+      {
+        "level": 2,
+        "line": 9,
+        "text": "1.1 Accounts"
+      },
+      {
+        "level": 2,
+        "line": 15,
+        "text": "1.2 Credentials"
+      },
+      {
+        "level": 1,
+        "line": 21,
+        "text": "2 Daily Operations"
+      },
+      {
+        "level": 2,
+        "line": 25,
+        "text": "2.1 Posting window"
+      },
+      {
+        "level": 3,
+        "line": 29,
+        "text": "2.1.1 Cut-off"
+      },
+      {
+        "level": 2,
+        "line": 33,
+        "text": "2.2 Reconciliation"
+      },
+      {
+        "level": 1,
+        "line": 37,
+        "text": "3 Incident Response"
+      },
+      {
+        "level": 2,
+        "line": 41,
+        "text": "3.1 Severity levels"
+      }
+    ],
+    "image_count": 0,
+    "list_item_count": 9,
+    "page_count": null,
+    "pages": [
+      {
+        "end_line": 45,
+        "n": 1,
+        "start_line": 1
+      }
+    ],
+    "requirement_ids": [],
+    "sheet_count": null,
+    "sheets": [],
+    "slide_count": null,
+    "table_count": 0,
+    "word_count": 360
+  },
+  "title": "DOCX-01_headings_lists",
+  "url": null
+}

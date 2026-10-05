@@ -1,0 +1,1452 @@
+{
+  "permissions": {
+    "_comment": "Route authorization for TrustOps (design A \u00a78.2). Default deny; any matching allow grants unless a matching deny exists (deny overrides). 'path' is the FastAPI route template relative to the service's APP_ROOT_PATH. Matcher: exact, '{param}' segments (an exact literal rule for the same service and method wins over a template), and a trailing '/*' for one or more further segments. role_hierarchy is data (fixes the hard-coded AEO map): a role inherits the permissions of every role in its list. Deny rules match the caller's own roles, not inherited ones.",
+    "role_hierarchy": {
+      "fcrm_po": [
+        "fcrm_po"
+      ],
+      "fcrm_analyst": [
+        "fcrm_analyst"
+      ],
+      "fcrm_committee": [
+        "fcrm_committee"
+      ],
+      "fcrm_observer": [
+        "fcrm_observer"
+      ],
+      "fcrm_service": [
+        "fcrm_service",
+        "fcrm_analyst",
+        "fcrm_po",
+        "fcrm_committee"
+      ]
+    },
+    "rules": [
+      {
+        "id": "case-post-cases-po",
+        "description": "PO raises a case (mints FCRM-YYYY-NNNN)",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-po",
+        "description": "PO lists own cases (ownership enforced in S1)",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-po",
+        "description": "PO reads own case (CasePO shape)",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-documents-po",
+        "description": "PO uploads documents",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/documents",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-documents-po-analyst",
+        "description": "document list",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/documents",
+        "roles": [
+          "fcrm_po",
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-documents-doc_id-download-po-analyst",
+        "description": "presigned download",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/documents/{doc_id}/download",
+        "roles": [
+          "fcrm_po",
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-intake-po",
+        "description": "PO intake view (proposals to confirm)",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/intake",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-intake-categories-change_type-po",
+        "description": "gate po_confirm_category",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/intake/categories/{change_type}",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-intake-values-field_id-po",
+        "description": "gate po_confirm_value (Rule 4: PO only)",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/intake/values/{field_id}",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-intake-reuse-po",
+        "description": "gate po_reuse",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/intake/reuse",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-intake-answers-po",
+        "description": "gate po_answer_gaps",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/intake/answers",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-review-po",
+        "description": "review-and-submit view",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/review",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-submit-po",
+        "description": "submit (four checks)",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/submit",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-inbox-po",
+        "description": "PO clarification inbox",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/inbox",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-clarifications-thread_id-answer-po",
+        "description": "PO answers a clarification",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/clarifications/{thread_id}/answer",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-conditions-po",
+        "description": "PO conditions (own case)",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/conditions",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-conditions-cnd_id-evidence-po",
+        "description": "PO submits condition evidence",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/conditions/{cnd_id}/evidence",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-outcome-po",
+        "description": "PO outcome (business register only)",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/outcome",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-activity-po-analyst",
+        "description": "activity (role-shaped by S1)",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/activity",
+        "roles": [
+          "fcrm_po",
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-stream-po-analyst",
+        "description": "SSE (role-filtered by S1)",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/stream",
+        "roles": [
+          "fcrm_po",
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-dashboard-po",
+        "description": "PO dashboard",
+        "service": "case",
+        "method": "GET",
+        "path": "/dashboard",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-queue-analyst",
+        "description": "analyst queue",
+        "service": "case",
+        "method": "GET",
+        "path": "/queue",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-search-analyst",
+        "description": "case search (backs case_search tool, watchlist)",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/search",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-workbench-analyst",
+        "description": "analyst read: workbench",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/workbench",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-submissions-analyst",
+        "description": "analyst read: submissions",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/submissions",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-submissions-diff-analyst",
+        "description": "analyst read: submissions/diff",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/submissions/diff",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-items-analyst",
+        "description": "analyst read: items",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/items",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-score-analyst",
+        "description": "analyst read: score",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/score",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-recommendation-analyst",
+        "description": "analyst read: recommendation",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/recommendation",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-change-types-analyst",
+        "description": "re-tag (adds only)",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/change-types",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-screening-analyst",
+        "description": "gate fast_lane_confirm",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/screening",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-completeness-analyst",
+        "description": "gate completeness (ask/proceed)",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/completeness",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-clarifications-analyst",
+        "description": "open a clarification round",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/clarifications",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-acknowledge-analyst",
+        "description": "gate ack (R3 boundary / band change)",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/acknowledge",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-controls-planned-analyst",
+        "description": "planned control (never scored, Rule 7)",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/controls/planned",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-gaps-analyst",
+        "description": "record a policy gap",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/gaps",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-runs-analyst",
+        "description": "re-run with a reason",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/runs",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-recommendation-lock-analyst",
+        "description": "gate lock",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/recommendation/lock",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-recommendation-unlock-analyst",
+        "description": "gate unlock (reason required)",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/recommendation/unlock",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-close-analyst",
+        "description": "delegated close (R1)",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/close",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-clarifications-thread_id-resolve-analyst",
+        "description": "resolve a thread",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/clarifications/{thread_id}/resolve",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-items-item_id-analyst",
+        "description": "gate review_item: one item per call (Rule 2)",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/items/{item_id}",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-put-cases-id-recommendation-analyst",
+        "description": "edit recommendation draft",
+        "service": "case",
+        "method": "PUT",
+        "path": "/cases/{id}/recommendation",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-conditions-analyst",
+        "description": "condition tracker",
+        "service": "case",
+        "method": "GET",
+        "path": "/conditions",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-patch-conditions-cnd_id-analyst",
+        "description": "close/update a condition",
+        "service": "case",
+        "method": "PATCH",
+        "path": "/conditions/{cnd_id}",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-reflags-analyst",
+        "description": "watchlist re-flags",
+        "service": "case",
+        "method": "GET",
+        "path": "/reflags",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-reflags-id-acknowledge-analyst",
+        "description": "gate reflag_ack",
+        "service": "case",
+        "method": "POST",
+        "path": "/reflags/{id}/acknowledge",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-monitor-case_id-analyst-committee-observer",
+        "description": "(proposed) ADR-19 harness monitor; PO always 403",
+        "service": "case",
+        "method": "GET",
+        "path": "/monitor/{case_id}",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_committee",
+          "fcrm_observer"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-monitor-case_id-stream-analyst-committee-observer",
+        "description": "(proposed) ADR-19 harness event stream; PO always 403",
+        "service": "case",
+        "method": "GET",
+        "path": "/monitor/{case_id}/stream",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_committee",
+          "fcrm_observer"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-any-internal-all-service",
+        "description": "H1/H2 internal routes",
+        "service": "case",
+        "method": "*",
+        "path": "/internal/*",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-all-service",
+        "description": "service account reads",
+        "service": "case",
+        "method": "GET",
+        "path": "/*",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "scoring-any-all-analyst",
+        "description": "analyst: every scoring route (score, simulate, models, routing rules)",
+        "service": "scoring",
+        "method": "*",
+        "path": "/*",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "scoring-get-models-committee",
+        "description": "committee reads scoring models",
+        "service": "scoring",
+        "method": "GET",
+        "path": "/models",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "scoring-get-models-version-committee",
+        "description": "committee reads a scoring model",
+        "service": "scoring",
+        "method": "GET",
+        "path": "/models/{version}",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "scoring-get-bands-committee",
+        "description": "committee reads the band table",
+        "service": "scoring",
+        "method": "GET",
+        "path": "/bands",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "scoring-get-routing-all-committee",
+        "description": "committee reads the routing rules (R1-R6)",
+        "service": "scoring",
+        "method": "GET",
+        "path": "/routing/*",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "scoring-post-score-service",
+        "description": "H1 requests the score of record (ADR-07)",
+        "service": "scoring",
+        "method": "POST",
+        "path": "/score",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "scoring-get-all-service",
+        "description": "service account reads",
+        "service": "scoring",
+        "method": "GET",
+        "path": "/*",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "policy-get-field-sets-version-resolve-po",
+        "description": "PO sees field labels only",
+        "service": "policy",
+        "method": "GET",
+        "path": "/field-sets/{version}/resolve",
+        "roles": [
+          "fcrm_po"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "policy-any-all-analyst",
+        "description": "analyst: every policy route (owns configuration, D-03)",
+        "service": "policy",
+        "method": "*",
+        "path": "/*",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "policy-get-clauses-all-committee",
+        "description": "committee reads clauses",
+        "service": "policy",
+        "method": "GET",
+        "path": "/clauses/*",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "policy-get-controls-committee",
+        "description": "committee reads reference data",
+        "service": "policy",
+        "method": "GET",
+        "path": "/controls",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "policy-get-controls-versions-committee",
+        "description": "committee reads reference data",
+        "service": "policy",
+        "method": "GET",
+        "path": "/controls/versions",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "policy-get-jurisdictions-committee",
+        "description": "committee reads reference data",
+        "service": "policy",
+        "method": "GET",
+        "path": "/jurisdictions",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "policy-get-jurisdictions-versions-committee",
+        "description": "committee reads reference data",
+        "service": "policy",
+        "method": "GET",
+        "path": "/jurisdictions/versions",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "policy-post-search-committee",
+        "description": "committee searches clauses/precedents/controls",
+        "service": "policy",
+        "method": "POST",
+        "path": "/search",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "policy-any-internal-all-service",
+        "description": "H1/H4 internal routes",
+        "service": "policy",
+        "method": "*",
+        "path": "/internal/*",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "policy-post-policy-search-service",
+        "description": "policy_search tool",
+        "service": "policy",
+        "method": "POST",
+        "path": "/policy/search",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "policy-post-precedents-search-service",
+        "description": "precedent_search tool",
+        "service": "policy",
+        "method": "POST",
+        "path": "/precedents/search",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "policy-post-search-service",
+        "description": "hybrid search (policy_search / precedent_search tools)",
+        "service": "policy",
+        "method": "POST",
+        "path": "/search",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "policy-get-all-service",
+        "description": "service account reads",
+        "service": "policy",
+        "method": "GET",
+        "path": "/*",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-records-analyst",
+        "description": "analyst audit reads",
+        "service": "audit",
+        "method": "GET",
+        "path": "/records",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-records-all-analyst",
+        "description": "analyst audit reads",
+        "service": "audit",
+        "method": "GET",
+        "path": "/records/*",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-proposals-analyst",
+        "description": "analyst audit reads",
+        "service": "audit",
+        "method": "GET",
+        "path": "/proposals",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-proposals-all-analyst",
+        "description": "analyst audit reads",
+        "service": "audit",
+        "method": "GET",
+        "path": "/proposals/*",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-verify-all-analyst",
+        "description": "analyst audit reads",
+        "service": "audit",
+        "method": "GET",
+        "path": "/verify/*",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-examiner-all-analyst",
+        "description": "analyst audit reads",
+        "service": "audit",
+        "method": "GET",
+        "path": "/examiner/*",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-metrics-all-analyst",
+        "description": "analyst audit reads",
+        "service": "audit",
+        "method": "GET",
+        "path": "/metrics/*",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-records-committee",
+        "description": "committee audit reads (released packs only, S4 checks)",
+        "service": "audit",
+        "method": "GET",
+        "path": "/records",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-records-all-committee",
+        "description": "committee audit reads (released packs only, S4 checks)",
+        "service": "audit",
+        "method": "GET",
+        "path": "/records/*",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-verify-all-committee",
+        "description": "committee audit reads (released packs only, S4 checks)",
+        "service": "audit",
+        "method": "GET",
+        "path": "/verify/*",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-post-records-service",
+        "description": "append a hash-chained record",
+        "service": "audit",
+        "method": "POST",
+        "path": "/records",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-post-proposals-service",
+        "description": "append to the evidence ledger",
+        "service": "audit",
+        "method": "POST",
+        "path": "/proposals",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-all-service",
+        "description": "service account reads",
+        "service": "audit",
+        "method": "GET",
+        "path": "/*",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-get-packs-pack_id-analyst-committee",
+        "description": "pack view",
+        "service": "decision",
+        "method": "GET",
+        "path": "/packs/{pack_id}",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-get-cases-case_id-packs-analyst-committee",
+        "description": "pack versions of a case",
+        "service": "decision",
+        "method": "GET",
+        "path": "/cases/{case_id}/packs",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-get-cases-case_id-outcome-analyst-committee",
+        "description": "outcome",
+        "service": "decision",
+        "method": "GET",
+        "path": "/cases/{case_id}/outcome",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-get-packs-pack_id-votes-analyst-committee",
+        "description": "pack votes (votes hidden until tally)",
+        "service": "decision",
+        "method": "GET",
+        "path": "/packs/{pack_id}/votes",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-get-packs-pack_id-outcome-analyst-committee",
+        "description": "pack outcome (409 before quorum)",
+        "service": "decision",
+        "method": "GET",
+        "path": "/packs/{pack_id}/outcome",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-get-packs-pack_id-threads-analyst-committee",
+        "description": "pack threads (votes hidden until tally)",
+        "service": "decision",
+        "method": "GET",
+        "path": "/packs/{pack_id}/threads",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-get-packs-pack_id-addenda-analyst-committee",
+        "description": "pack addenda (votes hidden until tally)",
+        "service": "decision",
+        "method": "GET",
+        "path": "/packs/{pack_id}/addenda",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-post-packs-pack_id-release-analyst",
+        "description": "gate pack_release (assigned analyst)",
+        "service": "decision",
+        "method": "POST",
+        "path": "/packs/{pack_id}/release",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-post-threads-thread_id-answer-analyst",
+        "description": "R6 answer / addendum",
+        "service": "decision",
+        "method": "POST",
+        "path": "/threads/{thread_id}/answer",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-post-questions-question_id-answers-analyst-service",
+        "description": "R6 answer / addendum (answered_by must be the caller)",
+        "service": "decision",
+        "method": "POST",
+        "path": "/questions/{question_id}/answers",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-post-release-checks-analyst-service",
+        "description": "re-derive the four release checks (stateless)",
+        "service": "decision",
+        "method": "POST",
+        "path": "/release-checks",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-get-committee-queue-committee",
+        "description": "committee queue",
+        "service": "decision",
+        "method": "GET",
+        "path": "/committee/queue",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-post-packs-pack_id-votes-committee",
+        "description": "gate vote: hidden, rationale required",
+        "service": "decision",
+        "method": "POST",
+        "path": "/packs/{pack_id}/votes",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-post-packs-pack_id-threads-committee",
+        "description": "R6 committee question",
+        "service": "decision",
+        "method": "POST",
+        "path": "/packs/{pack_id}/threads",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-post-packs-pack_id-questions-committee",
+        "description": "R6 committee question (asked_by must be the caller)",
+        "service": "decision",
+        "method": "POST",
+        "path": "/packs/{pack_id}/questions",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-post-packs-service",
+        "description": "H1 builds a pack; S5 freezes it",
+        "service": "decision",
+        "method": "POST",
+        "path": "/packs",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-post-packs-pack_id-supersede-service",
+        "description": "R6 pack v2",
+        "service": "decision",
+        "method": "POST",
+        "path": "/packs/{pack_id}/supersede",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-post-packs-pack_id-revote-service",
+        "description": "ADR-08 no_majority re-vote round",
+        "service": "decision",
+        "method": "POST",
+        "path": "/packs/{pack_id}/revote",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-post-outcomes-service",
+        "description": "record an outcome decided by people",
+        "service": "decision",
+        "method": "POST",
+        "path": "/outcomes",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-get-all-service",
+        "description": "service account reads",
+        "service": "decision",
+        "method": "GET",
+        "path": "/*",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "identity-get-me-po-analyst-committee-observer",
+        "description": "own profile",
+        "service": "identity",
+        "method": "GET",
+        "path": "/me",
+        "roles": [
+          "fcrm_po",
+          "fcrm_analyst",
+          "fcrm_committee",
+          "fcrm_observer"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "identity-get-users-me-po-analyst-committee-observer",
+        "description": "own profile",
+        "service": "identity",
+        "method": "GET",
+        "path": "/users/me",
+        "roles": [
+          "fcrm_po",
+          "fcrm_analyst",
+          "fcrm_committee",
+          "fcrm_observer"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "identity-post-logout-po-analyst-committee-observer",
+        "description": "logout",
+        "service": "identity",
+        "method": "POST",
+        "path": "/logout",
+        "roles": [
+          "fcrm_po",
+          "fcrm_analyst",
+          "fcrm_committee",
+          "fcrm_observer"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "identity-get-users-analyst-committee-service",
+        "description": "user directory (assignees, committee membership)",
+        "service": "identity",
+        "method": "GET",
+        "path": "/users",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_committee",
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "identity-post-internal-service-token-service",
+        "description": "mint a fcrm_service token",
+        "service": "identity",
+        "method": "POST",
+        "path": "/internal/service-token",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "deny-case-post-cases-id-intake-categories-change_type",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/intake/categories/{change_type}",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-intake-values-field_id",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/intake/values/{field_id}",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-intake-reuse",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/intake/reuse",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-intake-answers",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/intake/answers",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-submit",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/submit",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-clarifications-thread_id-answer",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/clarifications/{thread_id}/answer",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-screening",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/screening",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-completeness",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/completeness",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-items-item_id",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/items/{item_id}",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-acknowledge",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/acknowledge",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-recommendation-lock",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/recommendation/lock",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-recommendation-unlock",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/recommendation/unlock",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-close",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/close",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-reflags-id-acknowledge",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/reflags/{id}/acknowledge",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-decision-post-packs-pack_id-release",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "decision",
+        "method": "POST",
+        "path": "/packs/{pack_id}/release",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-decision-post-packs-pack_id-votes",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "decision",
+        "method": "POST",
+        "path": "/packs/{pack_id}/votes",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-decision-post-packs-pack_id-questions",
+        "description": "Guard 7: committee questions are asked by members, never by the service account",
+        "service": "decision",
+        "method": "POST",
+        "path": "/packs/{pack_id}/questions",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-decision-post-threads-thread_id-answer",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "decision",
+        "method": "POST",
+        "path": "/threads/{thread_id}/answer",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+# Lint overrides for the cloned evoq_ingestion test suite (moved here from
+# AEO aeoingestionjob/evoq_ingestion/tests/ under ADR-21; see
+# src/workers/ingestion-worker/UPSTREAM.md). Everything else comes from the
+# repository's root ruff.toml. These mirror upstream's own per-file ignores
+# for its tests ("**/tests/**" = E501, ...), which were written at line
+# length 100; the lead may hoist them into the root ruff.toml instead.
+extend = "../../../../../ruff.toml"
+
+[lint]
+extend-per-file-ignores = { "*.py" = [
+  "E501",   # upstream tests use long literal fixtures/messages (upstream ignored E501 in tests)
+  "PT006",  # upstream parametrize style kept as written
+  "PT011",  # upstream pytest.raises(ValueError) without match, kept as written
+  "PT018",  # upstream composite assertions kept as written
+], "fixtures/contracts/corpus/*.py" = [
+  "T201",   # golden.py / generate_corpus.py are CLI tools that report on stdout
+  "C901",   # upstream harness functions, unchanged
+  "UP031",
+  "B007",
+] }
