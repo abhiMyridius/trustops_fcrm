@@ -6,6 +6,9 @@
 - :mod:`fcrm_tools.seed_backed`: every tool backed by ``fcrm_seed`` so the
   pipeline runs with no live service; :mod:`fcrm_tools.seed_data` documents
   each deterministic synthesis where the seed lacks an artefact.
+- :mod:`fcrm_tools.http_backed`: the tools whose backing service exists
+  (S1 documents and case record, S3 field sets, jurisdictions and precedents),
+  built by :func:`build_http_registry`; the rest raise ``ToolNotWiredError``.
 
 Design B §1.3 (tool specs), §3.5 (pinning and retrieval caching), §4.3
 (permits); BUILD-PLAN §3.4.
@@ -31,12 +34,19 @@ from fcrm_tools.cache import (
     with_retrieval_cache,
 )
 from fcrm_tools.errors import (
+    DocumentUnavailableError,
     ToolError,
     ToolInputError,
     ToolNotPermittedError,
+    ToolNotWiredError,
     ToolScopeError,
     UnknownEntityError,
     UnknownToolError,
+)
+from fcrm_tools.http_backed import (
+    HttpToolRegistry,
+    ToolClients,
+    build_http_registry,
 )
 from fcrm_tools.seed_backed import (
     AuditLogTool,
@@ -56,18 +66,23 @@ __all__ = [
     "BaseTool",
     "Cache",
     "CachedTool",
+    "DocumentUnavailableError",
     "EvidenceLedgerTool",
+    "HttpToolRegistry",
     "InMemoryTTLCache",
     "SpecCheckReport",
     "Tool",
+    "ToolClients",
     "ToolError",
     "ToolInputError",
     "ToolNotPermittedError",
+    "ToolNotWiredError",
     "ToolRegistry",
     "ToolScopeError",
     "UnknownEntityError",
     "UnknownToolError",
     "audit_log_from_demo",
+    "build_http_registry",
     "build_seed_registry",
     "cache_key",
     "evidence_ledger_from_demo",

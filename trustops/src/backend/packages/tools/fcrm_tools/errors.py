@@ -31,3 +31,16 @@ class ToolNotPermittedError(ToolError):
 
 class UnknownToolError(ToolError, LookupError):
     """No tool with that name is registered."""
+
+
+class ToolNotWiredError(UnknownToolError):
+    """The tool is one of the thirteen, but this registry has no backing for
+    it yet. Raised instead of ever answering from another registry (an HTTP
+    registry never falls back to the seed one): the caller sees which tool is
+    missing and that it is a wiring gap, not a typo."""
+
+
+class DocumentUnavailableError(ToolError):
+    """The document exists but has no readable anchored text: it is not
+    extracted yet, was quarantined by Guard 1, or its anchored file is
+    missing or unreadable. The model must proceed without it."""
