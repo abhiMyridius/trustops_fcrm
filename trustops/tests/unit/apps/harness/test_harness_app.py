@@ -1,4 +1,4 @@
-"""fcrm_harness: one broker, one Mongo client and one health app host H1 and H2."""
+"""fcrm_harness: one broker, one Mongo client and one health app host H1, H2 and H3."""
 
 from __future__ import annotations
 
@@ -38,6 +38,9 @@ ENV_NAMES = (
     "DECISION_SERVICE_URL",
     "CASEFLOW_PREFETCH",
     "AGENT_PREFETCH",
+    "INGESTION_PREFETCH",
+    "UPLOADS_PER_FILE_TIMEOUT_SECONDS",
+    "PDF_ENGINE",
     "S3_ENDPOINT_URL",
     "S3_REGION",
     "S3_ACCESS_KEY",
@@ -125,6 +128,44 @@ def test_the_harness_database_is_shared_by_every_unit(tmp_path: Path):
     settings = _settings(tmp_path)
     assert settings.caseflow_settings().mongodb_db == "fcrm_harness"
     assert settings.agent_worker_settings().mongodb_db == "fcrm_harness"
+    assert settings.ingestion_settings().mongodb_db == "fcrm_harness"
+
+
+def test_h1_gets_the_peer_urls_and_the_canonical_bucket_it_names_in_ingest_runs(
+    tmp_path: Path,
+):
+    settings = _settings(tmp_path, s3_bucket_canonical="canonical-eu")
+    caseflow = settings.caseflow_settings()
+    assert caseflow.case_service_url == "http://localhost:8000/api/fcrm"
+    assert caseflow.policy_service_url == "http://localhost:8000/api/fcrm/policy"
+    assert caseflow.s3_bucket_canonical == "canonical-eu"
+
+
+def test_h3_settings_are_derived_with_the_object_store_and_its_own_knobs(
+    tmp_path: Path,
+):
+    settings = _settings(
+        tmp_path,
+        ingestion_prefetch=3,
+        uploads_per_file_timeout_seconds=45,
+        pdf_engine="pypdf",
+        pdf_min_chars_per_page=10,
+        s3_endpoint_url="http://minio:9000",
+        s3_bucket_uploads="uploads-eu",
+    )
+
+    ingestion = settings.ingestion_settings()
+
+    assert ingestion.prefetch == 3
+    assert ingestion.uploads_per_file_timeout_seconds == 45
+    assert (ingestion.pdf_engine, ingestion.pdf_min_chars_per_page) == ("pypdf", 10)
+    assert ingestion.s3_endpoint_url == "http://minio:9000"
+    assert ingestion.s3_bucket_uploads == "uploads-eu"
+    assert ingestion.s3_bucket_canonical == "canonical"
+
+
+def test_the_ingestion_prefetch_defaults_to_two(tmp_path: Path):
+    assert _settings(tmp_path).ingestion_prefetch == 2
 
 
 def test_a_missing_service_url_fails_fast_naming_it():
@@ -148,11 +189,13 @@ def test_build_app_wires_every_queue_onto_one_broker(tmp_path: Path):
         "caseflow.agent-results",
         "caseflow.steps",
         "agent-worker.run",
+        "ingestion-worker.run",
     }
     assert by_queue["caseflow.events"].channel.prefetch_count == 16
     assert by_queue["caseflow.agent-results"].channel.prefetch_count == 16
     assert by_queue["caseflow.steps"].channel.prefetch_count == 4
     assert by_queue["agent-worker.run"].channel.prefetch_count == 4
+    assert by_queue["ingestion-worker.run"].channel.prefetch_count == 2
 
 
 def test_the_units_contribute_their_startup_shutdown_hooks_and_checks(
@@ -165,15 +208,22 @@ def test_the_units_contribute_their_startup_shutdown_hooks_and_checks(
         publisher=FastStreamPublisher(RabbitBroker("amqp://guest:guest@localhost/")),
     )
     by_id = {unit.component_id: unit for unit in units}
-    assert list(by_id) == ["H1", "H2"]
-    # H1: index creation then the outbox relay; its relay and audit client stop.
+    assert list(by_id) == ["H1", "H2", "H3"]
+    # H1: index creation then the outbox relay; its relay stops and it closes
+    # its audit, S1 and S3 clients.
     assert len(by_id["H1"].after_startup) == 2
-    assert len(by_id["H1"].on_shutdown) == 2
+    assert len(by_id["H1"].on_shutdown) == 4
     assert [check.name for check in by_id["H1"].checks] == ["indexes"]
     # H2: nothing to start; it closes its OPA and audit clients and probes OPA.
     assert by_id["H2"].after_startup == ()
     assert len(by_id["H2"].on_shutdown) == 1  # OPA, audit and tool clients, together
     assert [check.name for check in by_id["H2"].checks] == ["opa"]
+    # H3: the consumed-message index at startup; it holds no client to close and
+    # probes the uploads bucket without making readiness depend on it.
+    assert len(by_id["H3"].after_startup) == 1
+    assert by_id["H3"].on_shutdown == ()
+    [uploads] = by_id["H3"].checks
+    assert (uploads.name, uploads.critical) == ("uploads_bucket", False)
 
 
 def test_build_app_raises_a_clear_error_when_the_ai_root_has_no_tiers_file(

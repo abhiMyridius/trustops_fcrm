@@ -16,6 +16,7 @@ from fcrm_caseflow.steps import StepDeps, StepResult, UnknownStepKindError
 from fcrm_caseflow.triggers import Trigger
 from fcrm_common.broker import FastStreamPublisher
 from fcrm_common.mongo import get_client
+from fcrm_common.settings import MissingSettingsError
 from fcrm_contracts.enums import StepKind
 from fcrm_contracts.events.payloads import HarnessStep
 
@@ -28,6 +29,8 @@ def _settings(**overrides: object) -> CaseflowSettings:
         "identity_jwks_url": "http://localhost:8000/.well-known/jwks.json",
         "rabbitmq_url": "amqp://guest:guest@localhost:5672/",
         "audit_service_url": "http://localhost:8004",
+        "case_service_url": "http://localhost:8000/api/fcrm",
+        "policy_service_url": "http://localhost:8000/api/fcrm/policy",
     }
     values.update(overrides)
     return CaseflowSettings(**values)  # type: ignore[arg-type]
@@ -68,19 +71,55 @@ def test_the_step_prefetch_is_a_setting() -> None:
     assert by_queue["caseflow.steps"].channel.prefetch_count == 2
 
 
-def test_the_default_unit_has_the_same_hooks_and_checks_as_before() -> None:
+def test_the_default_unit_closes_its_three_http_clients() -> None:
     unit, _ = _unit(_settings())
     assert unit.component_id == "H1"
     assert len(unit.after_startup) == 2  # indexes, relay
-    assert len(unit.on_shutdown) == 2  # relay, audit client
+    assert len(unit.on_shutdown) == 4  # relay, then the audit, case, policy clients
     assert [c.name for c in unit.checks] == ["indexes"]
 
 
+def test_the_default_unit_runs_every_step_the_shipped_trigger_map_enqueues() -> None:
+    """``build_unit`` refuses to start when a mapped step has no handler, so a
+    default unit that builds at all has the intake core wired to ``STEP_FOR``.
+    """
+    unit, broker = _unit(_settings())
+    unit.wire(broker)
+    assert "caseflow.steps" in {sub.queue.name for sub in broker.subscribers}
+
+
+@pytest.mark.parametrize(
+    ("missing", "env_name"),
+    [
+        ("case_service_url", "CASE_SERVICE_URL"),
+        ("policy_service_url", "POLICY_SERVICE_URL"),
+        ("audit_service_url", "AUDIT_SERVICE_URL"),
+    ],
+)
+def test_a_unit_without_a_peer_url_refuses_to_start(
+    missing: str, env_name: str
+) -> None:
+    with pytest.raises(MissingSettingsError, match=env_name):
+        _unit(_settings(**{missing: None}))
+
+
+def test_the_settings_require_the_case_and_policy_urls() -> None:
+    required = CaseflowSettings.required_settings
+    assert {"CASE_SERVICE_URL", "POLICY_SERVICE_URL", "AUDIT_SERVICE_URL"} <= set(
+        required
+    )
+
+
+def test_the_canonical_bucket_defaults_to_the_object_store_default() -> None:
+    assert _settings().s3_bucket_canonical == "canonical"
+    assert _settings(s3_bucket_canonical="canon-x").s3_bucket_canonical == "canon-x"
+
+
 def test_a_mapped_step_without_a_handler_refuses_to_start() -> None:
-    with pytest.raises(UnknownStepKindError, match=r"submit\.record"):
+    with pytest.raises(UnknownStepKindError, match=r"lock\.build_pack"):
         _unit(
             _settings(),
-            step_map={Trigger.CASE_SUBMITTED: StepKind.SUBMIT_RECORD},
+            step_map={Trigger.CASE_LOCKED: StepKind.LOCK_BUILD_PACK},
         )
 
 
@@ -94,7 +133,17 @@ def test_a_mapped_step_with_its_handler_starts() -> None:
     assert "caseflow.steps" in {sub.queue.name for sub in broker.subscribers}
 
 
+def test_handlers_passed_in_replace_the_defaults_entirely() -> None:
+    """With the shipped trigger map left in place, a table without the intake
+    handlers cannot start: the unit names what is missing.
+    """
+    with pytest.raises(UnknownStepKindError, match=r"intake\.open"):
+        _unit(_settings(), step_handlers={StepKind.STATE_PUSH: _push})
+
+
 def test_a_handler_nobody_maps_is_allowed() -> None:
     """Handlers can be registered ahead of the trigger entry that uses them."""
-    unit, _ = _unit(_settings(), step_handlers={StepKind.STATE_PUSH: _push})
+    unit, _ = _unit(
+        _settings(), step_handlers={StepKind.STATE_PUSH: _push}, step_map={}
+    )
     assert unit.component_id == "H1"

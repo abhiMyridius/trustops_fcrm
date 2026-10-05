@@ -12,7 +12,12 @@ from __future__ import annotations
 from typing import Any, Optional
 
 import pytest
-from conftest import FakeCollection, FakeSession, RecordingAudit
+from conftest import (
+    FakeCollection,
+    FakeSession,
+    RecordingAudit,
+    document_stored_payload,
+)
 from fcrm_caseflow.dispatch import REQUIRED_ROLE
 from fcrm_caseflow.engine import (
     CaseflowEngine,
@@ -372,7 +377,10 @@ class TestFullDemoLifecycle:
         # itself any more (ADR-28); the intake.publish step does, one per
         # proposed change type, so the test opens the one it stands for.
         await engine.handle(
-            _env("case.document_stored", {"doc_id": "doc_1"}, run_id=run_id), session
+            _env(
+                "case.document_stored", document_stored_payload("doc_1"), run_id=run_id
+            ),
+            session,
         )
         await engine.handle(
             _env("agent.done", {"agent": "intake"}, run_id=run_id), session
@@ -674,7 +682,10 @@ class TestDispatchedInStateDoesNotRefireAcrossSeparateHandleCalls:
         run_id = run.snapshot.run_id
 
         await engine.handle(
-            _env("case.document_stored", {"doc_id": "doc_1"}, run_id=run_id), session
+            _env(
+                "case.document_stored", document_stored_payload("doc_1"), run_id=run_id
+            ),
+            session,
         )
         await engine.handle(
             _env("agent.done", {"agent": "intake"}, run_id=run_id), session

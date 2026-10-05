@@ -2,12 +2,12 @@
 (design A §3.5's ``caseflow/audit_map.py``; ADR-28).
 
 :data:`STEP_FOR` is the wiring table the engine consults: after it applies a
-trigger, a step is enqueued if (and only if) the trigger is a key here. It
-ships **empty** — the lane that implements a step's handler adds its entry,
-in the same commit, so a trigger never enqueues a step nobody can run (the
-runner would fail it with ``UnknownStepKindError`` and the run would wait).
-The engine takes the table as a constructor argument, so tests inject their
-own.
+trigger, a step is enqueued if (and only if) the trigger is a key here. An
+entry is added by the lane that implements the step's handler, in the same
+commit, so a trigger never enqueues a step nobody can run (the runner would
+fail it with ``UnknownStepKindError`` and the run would wait; ``build_unit``
+refuses to start in that case). The engine takes the table as a constructor
+argument, so tests inject their own.
 
 :data:`RECORDS_FOR` is documentation that tests hold to: for every
 :class:`~fcrm_contracts.enums.StepKind`, the audit record types a finished
@@ -15,10 +15,12 @@ step has produced in S4's chain. The vocabulary is the walkthrough seed's
 (``demo.audit[].type``, the 67 records of FCRM-2026-0151) plus the catalogued
 event names for the paths the demo does not take. "Produced" includes a
 record a service writes when H1 asks it to (``outcome.set`` from S5), because
-what a reader of the chain sees is the same. Records the engine writes for a
-transition itself (``workflow.started``...) and the ones S1 and H2 write
-(``document.stored``, ``guard.permit``, ``guard.output``, ``agent.retry``)
-belong to their writers, not to a step.
+what a reader of the chain sees is the same. The engine also writes one
+generic record per applied transition (type = the trigger's value), except
+where the step writes a record of that very type (``case.created``,
+``case.submitted``): :class:`~fcrm_caseflow.engine.CaseflowEngine` reads this
+table to avoid the duplicate. H2 writes ``guard.permit``, ``guard.output`` and
+``agent.retry`` itself.
 """
 
 from __future__ import annotations
@@ -31,18 +33,34 @@ from fcrm_contracts.enums import StepKind
 
 from fcrm_caseflow.triggers import Trigger
 
-#: Trigger -> the step it enqueues. Empty until the cores land (I2-I4).
-STEP_FOR: Final[Mapping[Trigger, StepKind]] = MappingProxyType({})
-
 K = StepKind
+
+#: Trigger -> the step it enqueues. One entry per step a core has a handler
+#: for (``fcrm_caseflow.cores``): the intake core's (scenes 2-7) are here; the
+#: assessment, decision and oversight cores add theirs with their handlers.
+STEP_FOR: Final[Mapping[Trigger, StepKind]] = MappingProxyType(
+    {
+        Trigger.CASE_CREATED: K.INTAKE_OPEN,
+        Trigger.CASE_DOCUMENT_STORED: K.INTAKE_DOCUMENT_STORED,
+        Trigger.INGEST_DONE: K.INTAKE_INGESTED,
+        Trigger.INGEST_FAILED: K.INTAKE_INGEST_FAILED,
+        Trigger.AGENT_DONE_INTAKE: K.INTAKE_PUBLISH,
+        Trigger.GATE_DECIDED_PO_CONFIRM_CATEGORY_ALL: K.INTAKE_FIELDSET_RESOLVED,
+        Trigger.GATE_DECIDED_PO_ACTION: K.INTAKE_PO_ACTION,
+        Trigger.CASE_SUBMITTED: K.SUBMIT_RECORD,
+        Trigger.TRIAGE_DISPATCH: K.TRIAGE_ASSIGN,
+    }
+)
 
 #: Step kind -> the audit record types it produces, in the order they appear.
 #: Every :class:`StepKind` has an entry (an empty tuple means "none").
 RECORDS_FOR: Final[Mapping[StepKind, tuple[str, ...]]] = MappingProxyType(
     {
         # intake (scenes 2-7)
-        K.INTAKE_OPEN: ("workflow.started",),
-        K.INTAKE_DOCUMENT_STORED: (),  # publishes ingest.run; S1 wrote document.stored
+        # S1 writes no audit records of its own; the steps record what the PO and
+        # S1 did on the chain, so scenes 2-7 read as the walkthrough's.
+        K.INTAKE_OPEN: ("case.created", "workflow.started"),
+        K.INTAKE_DOCUMENT_STORED: ("document.stored",),  # + ingest.run, by the engine
         K.INTAKE_INGESTED: ("guard.input",),
         K.INTAKE_INGEST_FAILED: ("guard.input",),
         K.INTAKE_PUBLISH: (
@@ -50,11 +68,17 @@ RECORDS_FOR: Final[Mapping[StepKind, tuple[str, ...]]] = MappingProxyType(
             "proposal.category",
             "proposal.gaps",
             "precedent.matched",
+            "fact.flagged",
         ),
-        K.INTAKE_FIELDSET_RESOLVED: ("fieldset.resolved",),
-        K.INTAKE_PO_ACTION: ("fact.flagged",),
-        K.SUBMIT_RECORD: ("gate.validation", "eval.recorded"),
-        K.TRIAGE_ASSIGN: ("triage.assigned",),
+        K.INTAKE_FIELDSET_RESOLVED: ("gate.decided", "fieldset.resolved"),
+        K.INTAKE_PO_ACTION: (
+            "gate.decided",
+            "owner.corrected",
+            "values.reused",
+            "owner.answered",
+        ),
+        K.SUBMIT_RECORD: ("gate.validation", "case.submitted"),
+        K.TRIAGE_ASSIGN: ("triage.assigned", "eval.recorded"),
         # assessment (scenes 8-9)
         K.SCREENING_PUBLISH: ("screening.proposed",),
         K.ASSESS_OPEN: ("workflow.stage",),

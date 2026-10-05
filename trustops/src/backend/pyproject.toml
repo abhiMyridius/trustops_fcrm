@@ -11,6 +11,7 @@ fcrm-prompts     = { workspace = true }
 fcrm-seed        = { workspace = true }
 fcrm-case-service  = { workspace = true }
 fcrm-agent-worker = { workspace = true }
+fcrm-ingestion-worker = { workspace = true }
 fcrm-identity-service = { workspace = true }
 fcrm-scoring-service = { workspace = true }
 fcrm-decision-service = { workspace = true }

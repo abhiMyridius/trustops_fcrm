@@ -20,12 +20,23 @@ class CaseflowSettings(BaseServiceSettings):
     required_settings: ClassVar[tuple[str, ...]] = (
         *BaseServiceSettings.required_settings,
         "AUDIT_SERVICE_URL",
+        "CASE_SERVICE_URL",
+        "POLICY_SERVICE_URL",
     )
 
     app_name: str = "fcrm-caseflow"
     mongodb_db: Optional[str] = "fcrm_harness"
 
     audit_service_url: Optional[str] = None
+    case_service_url: Optional[str] = None
+    """S1's base URL, including its mount prefix (``.../api/fcrm``): the
+    intake core calls the ``/internal/...`` routes under it."""
+    policy_service_url: Optional[str] = None
+    """S3's base URL: the precedent lookup (``POST /search``)."""
+
+    s3_bucket_canonical: str = "canonical"
+    """The bucket H3 writes a case document's canonical Markdown into; named in
+    every ``ingest.run`` H1 publishes (same variable the object store uses)."""
 
     health_port: int = 9100
     prefetch: int = 16

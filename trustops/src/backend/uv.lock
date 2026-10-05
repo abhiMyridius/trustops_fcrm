@@ -1496,6 +1496,7 @@ dependencies = [
     { name = "fcrm-caseflow", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
     { name = "fcrm-common", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
     { name = "fcrm-contracts", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "fcrm-ingestion-worker", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
     { name = "uvicorn", extra = ["standard"], marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 
@@ -1512,6 +1513,7 @@ requires-dist = [
     { name = "fcrm-caseflow", editable = "workers/caseflow" },
     { name = "fcrm-common", editable = "packages/common" },
     { name = "fcrm-contracts", editable = "packages/contracts" },
+    { name = "fcrm-ingestion-worker", editable = "workers/ingestion-worker" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.34" },
 ]
 
@@ -1566,6 +1568,8 @@ name = "fcrm-ingestion-worker"
 version = "0.1.0"
 source = { editable = "workers/ingestion-worker" }
 dependencies = [
+    { name = "faststream", extra = ["rabbit"] },
+    { name = "fcrm-common" },
     { name = "fcrm-contracts" },
     { name = "fcrm-guardrails" },
     { name = "lxml" },
@@ -1574,6 +1578,7 @@ dependencies = [
     { name = "pypdf" },
     { name = "python-docx" },
     { name = "python-pptx" },
+    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.dev-dependencies]
@@ -1589,6 +1594,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "faststream", extras = ["rabbit"], specifier = "==0.6.7" },
+    { name = "fcrm-common", editable = "packages/common" },
     { name = "fcrm-contracts", editable = "packages/contracts" },
     { name = "fcrm-guardrails", editable = "packages/guardrails" },
     { name = "lxml", specifier = ">=5.0" },
@@ -1597,6 +1604,7 @@ requires-dist = [
     { name = "pypdf", specifier = ">=4.0" },
     { name = "python-docx", specifier = ">=1.1" },
     { name = "python-pptx", specifier = ">=0.6.23" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.34" },
 ]
 
 [package.metadata.requires-dev]

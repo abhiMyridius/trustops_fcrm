@@ -37,7 +37,8 @@ from typing import Any, Final, Optional
 
 from fcrm_common.mongo import Document, to_bson
 from fcrm_common.time import utcnow
-from fcrm_contracts.enums import CaseState
+from fcrm_contracts.enums import AgentName, CaseState
+from fcrm_contracts.events.payloads import AgentDone
 from fcrm_contracts.versions import PinnedVersions
 from pymongo import ASCENDING, IndexModel, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -671,3 +672,138 @@ class CaseRunStore:
             session=session,
         )
         return [recorded_transition_from_document(doc) async for doc in cursor]
+
+
+AGENT_RESULTS_COLLECTION: Final = "agent_results"
+
+
+@dataclass(frozen=True)
+class AgentResult:
+    """One finished agent job as H1 kept it: the ``agent.done`` body.
+
+    ``agent.done`` is the only place the proposals Guard 4 kept exist, and a
+    step that merges several jobs (the intake agent runs once per document)
+    sees only the last message that completed the join. Every result is
+    therefore stored as it arrives.
+
+    Attributes:
+        job_id: The job (``agent_results._id``).
+        run_id: The run it belongs to.
+        case_id: The case it belongs to.
+        agent: Which agent ran.
+        output: ``AgentDone.output``: ``accepted`` (the kept proposals as
+            JSON), ``dropped``, ``notes_for_analyst``, ``guard_summary``.
+        usage: Token counts.
+        model: The model that answered.
+        attempt: How many model calls it took.
+        finished_at: When H1 stored it; orders results.
+    """
+
+    job_id: str
+    run_id: str
+    case_id: str
+    agent: AgentName
+    output: dict[str, Any]
+    usage: dict[str, int]
+    model: str
+    attempt: int
+    finished_at: datetime
+
+    def accepted(self) -> list[dict[str, Any]]:
+        """The proposals Guard 4 kept, as the JSON the agent produced."""
+        items = self.output.get("accepted")
+        return [i for i in items if isinstance(i, dict)] if items else []
+
+
+def agent_result_from_document(doc: Document) -> AgentResult:
+    """Validate a stored ``agent_results`` document back into
+    :class:`AgentResult`.
+    """
+    return AgentResult(
+        job_id=doc["_id"],
+        run_id=doc["run_id"],
+        case_id=doc["case_id"],
+        agent=AgentName(doc["agent"]),
+        output=dict(doc["output"]),
+        usage={str(k): int(v) for k, v in (doc.get("usage") or {}).items()},
+        model=str(doc.get("model", "")),
+        attempt=int(doc.get("attempt", 1)),
+        finished_at=doc["finished_at"],
+    )
+
+
+class AgentResultStore:
+    """Typed access to ``agent_results``, scoped to one database.
+
+    Writes take the caller's transaction ``session``: a result is stored in
+    the same transaction that applies the ``agent.done`` it came with, so a
+    redelivered message neither loses nor duplicates it (the upsert is keyed
+    by ``job_id``).
+    """
+
+    def __init__(self, collection: AsyncCollection[Document]) -> None:
+        """Wrap ``collection`` (``agent_results`` in ``fcrm_harness``)."""
+        self._collection = collection
+
+    async def ensure_indexes(self) -> list[str]:
+        """``{run_id, agent, finished_at}`` for :meth:`list_for`."""
+        return await self._collection.create_indexes(
+            [
+                IndexModel(
+                    [
+                        ("run_id", ASCENDING),
+                        ("agent", ASCENDING),
+                        ("finished_at", ASCENDING),
+                    ],
+                    name="run_agent_finished",
+                )
+            ]
+        )
+
+    async def save(
+        self, payload: Mapping[str, Any], *, session: AsyncClientSession
+    ) -> None:
+        """Store the ``agent.done`` ``payload``'s result, once per job.
+
+        Only the :class:`~fcrm_contracts.events.payloads.AgentDone` fields are
+        read (a producer's extra keys are ignored).
+
+        Raises:
+            pydantic.ValidationError: ``payload`` is not an ``agent.done`` body.
+        """
+        done = AgentDone.model_validate(
+            {k: v for k, v in payload.items() if k in AgentDone.model_fields}
+        )
+        now = utcnow()
+        fields: dict[str, Any] = {
+            "run_id": done.run_id,
+            "case_id": done.case_id,
+            "agent": done.agent.value,
+            "output": to_bson(done.output),
+            "usage": dict(done.usage),
+            "model": done.model,
+            "attempt": done.attempt,
+        }
+        await self._collection.update_one(
+            {"_id": done.job_id},
+            {"$set": fields, "$setOnInsert": {"finished_at": now}},
+            upsert=True,
+            session=session,
+        )
+
+    async def list_for(
+        self,
+        run_id: str,
+        agent: AgentName,
+        *,
+        session: Optional[AsyncClientSession] = None,
+    ) -> list[AgentResult]:
+        """Every stored result of ``agent`` in ``run_id``, oldest first (ties
+        by job id, so the order is the same on every read).
+        """
+        cursor = self._collection.find(
+            {"run_id": run_id, "agent": agent.value},
+            sort=[("finished_at", ASCENDING), ("_id", ASCENDING)],
+            session=session,
+        )
+        return [agent_result_from_document(doc) async for doc in cursor]

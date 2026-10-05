@@ -33,6 +33,7 @@ from fcrm_common.mongo import Document, close_clients, get_client
 from fcrm_common.settings import required_value
 from fcrm_common.tracing import init_otel, shutdown_otel
 from fcrm_common.worker import WorkerUnit
+from fcrm_ingestion_worker.app import build_unit as build_ingestion_unit
 from fcrm_tools import ToolRegistry
 from pymongo import AsyncMongoClient
 
@@ -69,6 +70,9 @@ def build_units(
             publisher=publisher,
             registry=registry,
             model_factory=model_factory,
+        ),
+        build_ingestion_unit(
+            settings.ingestion_settings(), mongo=mongo, publisher=publisher
         ),
     ]
 

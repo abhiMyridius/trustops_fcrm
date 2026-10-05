@@ -24,24 +24,153 @@ without ``FCRM_TEST_MONGO_URI``, mirrors
 from __future__ import annotations
 
 import copy
+import json
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Optional, TypeVar
+from typing import Any, NamedTuple, Optional, TypeVar
+from urllib.parse import unquote
 
+import httpx
 import pytest
 from fcrm_caseflow.audit_client import AuditClient
+from fcrm_caseflow.clients.case_client import CaseClient
+from fcrm_caseflow.clients.policy_client import PolicyClient
 from fcrm_caseflow.engine import CaseflowEngine
 from fcrm_caseflow.gates import GateStore
-from fcrm_caseflow.store import CaseRunStore
+from fcrm_caseflow.steps import StepDeps
+from fcrm_caseflow.store import (
+    DEFAULT_PINS,
+    AgentResultStore,
+    CaseRun,
+    CaseRunStore,
+    case_run_from_document,
+    new_case_run_document,
+)
 from fcrm_caseflow.triggers import Trigger
+from fcrm_common.http import ServiceClient
 from fcrm_common.outbox import Outbox
 from fcrm_common.time import utcnow
 from fcrm_contracts.api.audit import AuditRecord, RecordAppend
-from fcrm_contracts.enums import StepKind
+from fcrm_contracts.enums import CaseState, StepKind
 from fcrm_contracts.events.envelope import Envelope
 from pymongo.errors import DuplicateKeyError
 
 R = TypeVar("R")
+
+
+def document_stored_payload(doc_id: str = "doc_1", **overrides: Any) -> dict[str, Any]:
+    """A full ``case.document_stored`` payload, as S1's contract promises it
+    (``fcrm_contracts.events.payloads.CaseDocumentStored``). The engine reads
+    ``bucket`` and ``key`` from it to hand the document to H3.
+    """
+    return {
+        "case_id": "FCRM-2026-0151",
+        "actor": "u-pnair",
+        "doc_id": doc_id,
+        "name": f"{doc_id}.pdf",
+        "bucket": "uploads",
+        "key": f"FCRM-2026-0151/{doc_id}/{doc_id}.pdf",
+        "sha256": "0" * 64,
+        "size_bytes": 1024,
+        "content_type": "application/pdf",
+        **overrides,
+    }
+
+
+def doc_source(doc: str = "doc_1", page: int = 1, line: int = 3) -> dict[str, Any]:
+    """A ``DocSourceRef`` as an agent's claim carries it."""
+    return {
+        "kind": "doc",
+        "doc_id": doc,
+        "page": page,
+        "line_start": line,
+        "line_end": line,
+    }
+
+
+def extracted_field(
+    field_id: str,
+    value: str,
+    confidence: float = 0.9,
+    *,
+    label: Optional[str] = None,
+    source: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    """One ``ExtractedField`` the intake agent proposed."""
+    return {
+        "field_id": field_id,
+        "label": label or f"Label {field_id}",
+        "value": value,
+        "source_ref": source or doc_source(),
+        "quote": f"quote for {value}",
+        "confidence": confidence,
+    }
+
+
+def extraction_proposal(*fields: dict[str, Any]) -> dict[str, Any]:
+    """An ``ExtractionProposal`` (one document window) of ``fields``."""
+    return {"case_id": "FCRM-2026-0151", "window_id": "w1", "fields": list(fields)}
+
+
+def category_proposal(
+    change_type: str, confidence: float = 0.9, source: Optional[dict[str, Any]] = None
+) -> dict[str, Any]:
+    """A ``CategoryProposal`` the intake agent proposed."""
+    return {
+        "change_type": change_type,
+        "source_ref": source or doc_source(),
+        "quote": f"quote for {change_type}",
+        "confidence": confidence,
+    }
+
+
+def gap_question(
+    question_id: str, field_id: Optional[str] = "F10", blocking: bool = True
+) -> dict[str, Any]:
+    """A ``GapQuestion`` the intake agent asked."""
+    return {
+        "question_id": question_id,
+        "field_id": field_id,
+        "text": f"What is {field_id}?",
+        "blocking": blocking,
+    }
+
+
+def fact_flag(text: str, field_id: Optional[str] = "F21") -> dict[str, Any]:
+    """A ``FactFlag`` the intake agent raised."""
+    return {
+        "source_ref": doc_source(),
+        "quote": "quote",
+        "confidence": 0.7,
+        "field_id": field_id,
+        "text": text,
+        "kind": "new_fact",
+    }
+
+
+def agent_done_body(
+    job_id: str,
+    run_id: str,
+    *accepted: dict[str, Any],
+    agent: str = "intake",
+) -> dict[str, Any]:
+    """An ``agent.done`` body as H2 publishes it, carrying ``accepted``."""
+    return {
+        "job_id": job_id,
+        "case_id": "FCRM-2026-0151",
+        "run_id": run_id,
+        "agent": agent,
+        "output": {
+            "accepted": list(accepted),
+            "dropped": [],
+            "notes_for_analyst": [],
+            "guard_summary": {"claims_total": 0, "claims_with_source": 0, "dropped": 0},
+            "attempts": 1,
+        },
+        "usage": {"input_tokens": 1200, "output_tokens": 300},
+        "model": "anthropic:claude-haiku",
+        "attempt": 1,
+    }
 
 
 class FakeSession:
@@ -412,15 +541,20 @@ def engine_factory(
     transact: FakeTransact,
 ) -> Callable[..., CaseflowEngine]:
     """Builds an engine over the fakes; ``step_map`` injects trigger -> step
-    entries (the shipped ``STEP_FOR`` is empty).
+    entries. Without one the engine maps no trigger to a step (not the shipped
+    ``STEP_FOR``, which the intake core fills), so a test that is not about
+    steps sees only the transitions it drives.
     """
 
     def build(
         step_map: Optional[Mapping[Trigger, StepKind]] = None,
+        **overrides: Any,
     ) -> CaseflowEngine:
-        kwargs: dict[str, Any] = {"transact": transact}
-        if step_map is not None:
-            kwargs["step_map"] = step_map
+        kwargs: dict[str, Any] = {
+            "transact": transact,
+            "step_map": step_map if step_map is not None else {},
+            **overrides,
+        }
         return CaseflowEngine(
             run_store,
             gate_store,
@@ -440,3 +574,331 @@ def engine(engine_factory: Callable[..., CaseflowEngine]) -> CaseflowEngine:
 @pytest.fixture
 def session() -> FakeSession:
     return FakeSession(in_transaction=True)
+
+
+# --- the peer services H1's steps call ----------------------------------------
+
+
+class Call(NamedTuple):
+    """One request a fake peer received: ``path`` is relative to its base URL."""
+
+    method: str
+    path: str
+    body: Any
+    headers: Mapping[str, str]
+    params: Mapping[str, str]
+
+
+async def _no_sleep(_seconds: float) -> None:
+    """Stands in for ``asyncio.sleep`` so retry backoff costs no time."""
+
+
+def problem(status: int, detail: str = "boom") -> httpx.Response:
+    """An ``application/problem+json`` error response, as the services send."""
+    return httpx.Response(
+        status,
+        json={
+            "type": "about:blank",
+            "title": "error",
+            "status": status,
+            "detail": detail,
+        },
+        headers={"content-type": "application/problem+json"},
+    )
+
+
+class FakePeer:
+    """The shared half of the fake S1 and S3: a request log, queued failures
+    and an ``httpx.MockTransport``-ready handler.
+
+    Subclasses implement :meth:`route`. A response queued with :meth:`fail` is
+    returned once, for the first matching request, instead of the real answer.
+    """
+
+    BASE_PATH = ""
+
+    def __init__(self) -> None:
+        self.calls: list[Call] = []
+        self._failures: list[tuple[str, str, httpx.Response]] = []
+
+    def fail(self, method: str, path_contains: str, response: httpx.Response) -> None:
+        """Answer the next ``method`` request whose path contains
+        ``path_contains`` with ``response``.
+        """
+        self._failures.append((method, path_contains, response))
+
+    def calls_to(self, method: str, path_contains: str = "") -> list[Call]:
+        """The requests of ``method`` whose path contains ``path_contains``."""
+        return [c for c in self.calls if c.method == method and path_contains in c.path]
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        """The ``httpx.MockTransport`` handler."""
+        raw_path = request.url.raw_path.decode("ascii").split("?")[0]
+        path = raw_path.removeprefix(self.BASE_PATH)
+        body = json.loads(request.content) if request.content else None
+        call = Call(
+            request.method,
+            path,
+            body,
+            dict(request.headers),
+            dict(request.url.params),
+        )
+        self.calls.append(call)
+        for index, (method, contains, response) in enumerate(self._failures):
+            if method == call.method and contains in call.path:
+                del self._failures[index]
+                return response
+        return self.route(call)
+
+    def route(self, call: Call) -> httpx.Response:
+        raise NotImplementedError
+
+    def client(self, dependency: str) -> ServiceClient:
+        """A real :class:`ServiceClient` whose transport is this fake."""
+        return ServiceClient(
+            f"http://{dependency}.test{self.BASE_PATH}",
+            dependency=dependency,
+            transport=httpx.MockTransport(self.handler),
+            sleep=_no_sleep,
+        )
+
+
+class FakeCaseService(FakePeer):
+    """A stateful stand-in for S1's internal routes (``/internal/...``).
+
+    Holds one case (the demo's) plus any ``add_precedent`` cases, its
+    documents, a roster of analysts with open-case counts, and logs what H1
+    pushed: ``intake_pushes``, ``events``, ``state_patches``, ``assignments``.
+    """
+
+    BASE_PATH = "/api/fcrm"
+
+    def __init__(self, case_id: str = "FCRM-2026-0151") -> None:
+        super().__init__()
+        self.case_id = case_id
+        self.stage = "intake"
+        self.run_id: Optional[str] = None
+        self.owner = {"id": "u-pnair", "name": "Priya Nair"}
+        self.analyst: Optional[dict[str, str]] = None
+        self.roster: dict[str, tuple[str, int]] = {
+            "u-riyer": ("Rahul Iyer", 4),
+            "u-mshah": ("Meera Shah", 5),
+            "u-dbrooks": ("Daniel Brooks", 6),
+        }
+        self.change_types: list[str] = []
+        self.required_field_ids: list[str] = []
+        self.fields: list[dict[str, Any]] = []
+        self.documents: dict[str, dict[str, Any]] = {}
+        self.page_maps: dict[str, Any] = {}
+        self.other_cases: dict[str, dict[str, Any]] = {}
+        self.intake_pushes: list[dict[str, Any]] = []
+        self.events: list[dict[str, Any]] = []
+        self.state_patches: list[dict[str, Any]] = []
+        self.assignments: list[dict[str, Any]] = []
+
+    # -- seeding ----------------------------------------------------------
+
+    def add_document(
+        self, doc_id: str, name: str, status: str = "stored", **extra: Any
+    ) -> None:
+        """A document the PO uploaded."""
+        self.documents[doc_id] = {
+            "doc_id": doc_id,
+            "case_id": self.case_id,
+            "name": name,
+            "status": status,
+            "bucket": "uploads",
+            "key": f"{self.case_id}/{doc_id}/{name}",
+            "size_bytes": 1024,
+            "content_type": "application/pdf",
+            "uploaded_at": "2026-10-05T10:00:00Z",
+            **extra,
+        }
+
+    def add_precedent(
+        self,
+        case_id: str,
+        title: str,
+        values: Mapping[str, tuple[str, str]],
+        unit: str = "Payments",
+    ) -> None:
+        """A closed case whose fields (``{field_id: (label, value)}``) the PO
+        may reuse.
+        """
+        record = self._record(case_id)
+        record.update(
+            {
+                "title": title,
+                "unit": unit,
+                "state": "closed",
+                "analyst": {"id": "u-mshah", "name": "Meera Shah"},
+                "documents": [],
+                "fields": [
+                    {
+                        "field_id": field_id,
+                        "label": label,
+                        "value": value,
+                        "origin": "owner_declared",
+                    }
+                    for field_id, (label, value) in values.items()
+                ],
+            }
+        )
+        self.other_cases[case_id] = record
+
+    # -- the routes -------------------------------------------------------
+
+    def _record(self, case_id: str) -> dict[str, Any]:
+        return {
+            "case_id": case_id,
+            "title": "Consumer remittances US → Mexico via payout partner",
+            "unit": "Payments",
+            "owner": self.owner,
+            "analyst": self.analyst,
+            "state": self.stage,
+            "run_id": self.run_id,
+            "change_types": list(self.change_types),
+            "domains": [],
+            "pins": DEFAULT_PINS.model_dump(mode="json"),
+            "fieldset_v": 6,
+            "required_field_ids": list(self.required_field_ids),
+            "fields": [dict(f) for f in self.fields],
+            "documents": [dict(d) for d in self.documents.values()],
+            "submission_version": None,
+        }
+
+    def route(self, call: Call) -> httpx.Response:
+        parts = [unquote(p) for p in call.path.strip("/").split("/")]
+        if parts[:2] == ["internal", "cases"] and len(parts) == 4:
+            return self._case_route(call, parts[2], parts[3])
+        if parts[:2] == ["internal", "documents"] and len(parts) == 3:
+            return self._document_route(call, parts[2])
+        if parts == ["internal", "analysts", "load"]:
+            loads = [
+                {"analyst_id": a, "open_case_count": n}
+                for a, (_, n) in sorted(self.roster.items())
+            ]
+            return httpx.Response(200, json={"loads": loads})
+        return problem(404, f"no route {call.method} {call.path}")
+
+    def _case_route(self, call: Call, case_id: str, leaf: str) -> httpx.Response:
+        if leaf == "record":
+            if case_id in self.other_cases:
+                return httpx.Response(200, json=self.other_cases[case_id])
+            if case_id != self.case_id:
+                return problem(404, f"no case {case_id}")
+            return httpx.Response(200, json=self._record(case_id))
+        if (call.method, leaf) == ("PUT", "intake"):
+            self.intake_pushes.append(call.body)
+            return httpx.Response(200, json={"ok": True})
+        if (call.method, leaf) == ("PATCH", "state"):
+            self.state_patches.append(call.body)
+            self.stage = call.body["stage"]
+            self.run_id = call.body.get("run_id", self.run_id)
+            return httpx.Response(200, json={"ok": True})
+        if (call.method, leaf) == ("POST", "assign"):
+            self.assignments.append(call.body)
+            name, count = self.roster[call.body["analyst_id"]]
+            self.analyst = {"id": call.body["analyst_id"], "name": name}
+            self.roster[call.body["analyst_id"]] = (name, count + 1)
+            return httpx.Response(200, json={"ok": True})
+        if (call.method, leaf) == ("POST", "events"):
+            self.events.append(call.body)
+            return httpx.Response(202, json={"ok": True})
+        return problem(404, f"no route {call.method} {call.path}")
+
+    def _document_route(self, call: Call, doc_id: str) -> httpx.Response:
+        document = self.documents.get(doc_id)
+        if document is None:
+            return problem(404, f"no document {doc_id}")
+        if call.method == "PATCH":
+            body = call.body
+            document.update(
+                {k: v for k, v in body.items() if k != "page_map" and v is not None}
+            )
+            self.page_maps[doc_id] = body.get("page_map")
+        return httpx.Response(200, json=document)
+
+
+class FakePolicyService(FakePeer):
+    """A stand-in for S3's ``POST /search``: answers with ``hits`` verbatim."""
+
+    BASE_PATH = "/api/fcrm/policy"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.hits: list[dict[str, Any]] = []
+
+    def route(self, call: Call) -> httpx.Response:
+        if (call.method, call.path) == ("POST", "/search"):
+            return httpx.Response(200, json={"hits": self.hits})
+        return problem(404, f"no route {call.method} {call.path}")
+
+
+@pytest.fixture
+def case_service() -> FakeCaseService:
+    return FakeCaseService()
+
+
+@pytest.fixture
+def policy_service() -> FakePolicyService:
+    return FakePolicyService()
+
+
+@pytest.fixture
+def case_client(case_service: FakeCaseService) -> CaseClient:
+    return CaseClient(case_service.client("case"))
+
+
+@pytest.fixture
+def policy_client(policy_service: FakePolicyService) -> PolicyClient:
+    return PolicyClient(policy_service.client("policy"))
+
+
+@pytest.fixture
+def agent_results_collection() -> FakeCollection:
+    return FakeCollection("agent_results")
+
+
+@pytest.fixture
+def agent_results(agent_results_collection: FakeCollection) -> AgentResultStore:
+    return AgentResultStore(agent_results_collection)  # type: ignore[arg-type]
+
+
+def make_run(
+    *,
+    run_id: str = "run_1",
+    case_id: str = "FCRM-2026-0151",
+    state: CaseState = CaseState.INTAKE,
+    refs: Optional[Mapping[str, Any]] = None,
+) -> CaseRun:
+    """A :class:`CaseRun` as a handler sees it (the snapshot taken when its
+    step began), in ``state`` with ``refs``.
+    """
+    document = new_case_run_document(run_id=run_id, case_id=case_id, pins=DEFAULT_PINS)
+    document["state"] = state.value
+    document["refs"] = dict(refs or {})
+    return case_run_from_document(document)
+
+
+@pytest.fixture
+def step_deps_factory(
+    recording_audit: RecordingAudit,
+    case_client: CaseClient,
+    policy_client: PolicyClient,
+    agent_results: AgentResultStore,
+) -> Callable[..., StepDeps]:
+    """Builds the :class:`StepDeps` a handler gets, over the fakes."""
+
+    def build(run: Optional[CaseRun] = None, **overrides: Any) -> StepDeps:
+        values: dict[str, Any] = {
+            "run": run if run is not None else make_run(),
+            "audit": recording_audit,
+            "case": case_client,
+            "policy": policy_client,
+            "agent_results": agent_results,
+            **overrides,
+        }
+        return StepDeps(**values)
+
+    return build

@@ -4,13 +4,18 @@ version = "0.1.0"
 description = "H3 ingestion-worker: documents -> canonical Markdown with page:line anchors, then Guard 1 (injection scan + PII masking) before the text counts as clean. Carries a pruned clone of AEO's evoq_ingestion engine (see UPSTREAM.md) plus the thin fcrm_ingestion_worker host package."
 requires-python = ">=3.13"
 # Runtime deps = upstream evoq_ingestion's `inprocess` extra (the only engine
-# mode kept after the prune), plus the two workspace packages the host
-# integration imports. Upstream's core `httpx` dep and the `mcp` / `summary`
-# (litellm) extras went with the pruned Jira/Confluence/MCP/summariser code;
-# beautifulsoup4 went with the Confluence HTML renderer.
+# mode kept after the prune), plus the workspace packages the host integration
+# imports (contracts, guardrails, and common for the consumer, settings and the
+# object store) and the broker and server the unit runs on. Upstream's core
+# `httpx` dep and the `mcp` / `summary` (litellm) extras went with the pruned
+# Jira/Confluence/MCP/summariser code; beautifulsoup4 went with the Confluence
+# HTML renderer.
 dependencies = [
   "fcrm-contracts",
+  "fcrm-common",
   "fcrm-guardrails",
+  "faststream[rabbit]==0.6.7",
+  "uvicorn[standard]>=0.34",
   "lxml>=5.0",
   "pypdf>=4.0",
   "pdfplumber>=0.11",
@@ -18,9 +23,9 @@ dependencies = [
   "openpyxl>=3.1",
   "python-pptx>=0.6.23",
 ]
-# FastStream / RabbitMQ consumer wiring lands with fcrm_common; the job entry
-# point (fcrm_ingestion_worker.jobs.ingest_document.handle) is already shaped
-# for it.
+# The consumer (fcrm_ingestion_worker.consumer) wraps the job entry point
+# (fcrm_ingestion_worker.jobs.ingest_document.handle); build_unit() hands it to
+# the harness as a WorkerUnit.
 
 [project.scripts]
 evoq-ingestion = "evoq_ingestion.cli:main"

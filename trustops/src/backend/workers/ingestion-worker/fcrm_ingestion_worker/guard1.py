@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Collection
+from pathlib import Path
 from typing import Literal, Optional
 
 from fcrm_guardrails.input_scan import InjectionScan, InputScanGuard
@@ -54,6 +55,20 @@ class Guard1Outcome(BaseModel):
     def audit_summary(self) -> dict[str, object]:
         """Audit-safe facts: status, injection score/hits, PII counts only."""
         return self.model_dump(exclude={"masked_markdown"})
+
+
+def load_terms(path: str) -> tuple[str, ...]:
+    """The terms in ``path``, one per line, for ``GUARD1_ALLOWLIST_FILE``:
+    values Guard 1 must never mask (a seeded user, the partner entity). Blank
+    lines and lines starting with ``#`` are skipped.
+
+    Raises:
+        OSError: ``path`` cannot be read (the caller turns it into a startup
+            error naming the variable).
+    """
+    with Path(path).open(encoding="utf-8") as handle:
+        lines = (line.strip() for line in handle)
+        return tuple(line for line in lines if line and not line.startswith("#"))
 
 
 def _status(injection: InjectionScan, pii_total: int) -> Guard1Status:
