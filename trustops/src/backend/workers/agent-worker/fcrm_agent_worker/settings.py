@@ -15,11 +15,16 @@ from __future__ import annotations
 
 from typing import ClassVar, Optional
 
-from fcrm_common.settings import BaseServiceSettings
+from fcrm_common.settings import BaseServiceSettings, S3Settings
 
 
-class AgentWorkerSettings(BaseServiceSettings):
-    """H2's settings. ``load()`` fails fast on anything missing."""
+class AgentWorkerSettings(BaseServiceSettings, S3Settings):
+    """H2's settings. ``load()`` fails fast on anything missing.
+
+    ``S3Settings`` is the object-store contract: ``document_reader`` reads the
+    anchored Markdown H3 wrote to ``S3_BUCKET_CANONICAL`` (MinIO locally, S3
+    on AWS), so H2 needs the endpoint, region, keys and bucket names too.
+    """
 
     required_settings: ClassVar[tuple[str, ...]] = (
         *BaseServiceSettings.required_settings,
@@ -28,6 +33,7 @@ class AgentWorkerSettings(BaseServiceSettings):
         "POLICY_SERVICE_URL",
         "AUDIT_SERVICE_URL",
         "DECISION_SERVICE_URL",
+        *S3Settings.s3_required_settings,
     )
 
     app_name: str = "fcrm-agent-worker"

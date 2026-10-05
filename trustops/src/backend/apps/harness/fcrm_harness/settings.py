@@ -14,11 +14,15 @@ from typing import Any, ClassVar, Optional
 
 from fcrm_agent_worker.settings import AgentWorkerSettings
 from fcrm_caseflow.settings import CaseflowSettings
-from fcrm_common.settings import BaseServiceSettings
+from fcrm_common.settings import BaseServiceSettings, S3Settings
 
 
-class HarnessSettings(BaseServiceSettings):
+class HarnessSettings(BaseServiceSettings, S3Settings):
     """Environment contract of the ``harness`` container.
+
+    The object-store variables (``S3Settings``: endpoint, region, keys, bucket
+    names) are shared by the units that read or write documents (H2's
+    ``document_reader`` reads ``S3_BUCKET_CANONICAL``).
 
     Attributes:
         health_port: Port of the one ``/healthz`` and ``/readyz`` endpoint.
@@ -41,6 +45,7 @@ class HarnessSettings(BaseServiceSettings):
         "POLICY_SERVICE_URL",
         "AUDIT_SERVICE_URL",
         "DECISION_SERVICE_URL",
+        *S3Settings.s3_required_settings,
     )
 
     case_service_url: Optional[str] = None
@@ -71,6 +76,10 @@ class HarnessSettings(BaseServiceSettings):
             "health_port": self.health_port,
         }
 
+    def _s3(self) -> dict[str, Any]:
+        """The object-store fields every document-handling unit takes."""
+        return {name: getattr(self, name) for name in S3Settings.model_fields}
+
     def caseflow_settings(self) -> CaseflowSettings:
         """H1's settings derived from this one, validated like ``load()``."""
         settings = CaseflowSettings(
@@ -85,6 +94,7 @@ class HarnessSettings(BaseServiceSettings):
         """H2's settings derived from this one, validated like ``load()``."""
         settings = AgentWorkerSettings(
             **self._shared(),
+            **self._s3(),
             case_service_url=self.case_service_url,
             scoring_service_url=self.scoring_service_url,
             policy_service_url=self.policy_service_url,
