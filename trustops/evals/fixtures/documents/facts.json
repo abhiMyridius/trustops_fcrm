@@ -1,0 +1,211 @@
+[
+  {
+    "field_id": "F02",
+    "label": "Change description",
+    "value": "Consumer remittances US to Mexico through payout partner Remesas del Norte S.A.",
+    "doc": "business_case_remittance_MX.pdf",
+    "page": 1,
+    "line": 3,
+    "quote": "Consumer remittances US to Mexico through payout partner Remesas del Norte S.A.",
+    "stage": "intake",
+    "seed_source": "case p.1 l.3"
+  },
+  {
+    "field_id": "F01",
+    "label": "Change owner",
+    "value": "Priya Nair, Payments",
+    "doc": "business_case_remittance_MX.pdf",
+    "page": 1,
+    "line": 4,
+    "quote": "Priya Nair, Payments",
+    "stage": "intake",
+    "seed_source": "case p.1 l.2"
+  },
+  {
+    "field_id": "F03",
+    "label": "Go-live date",
+    "value": "Q1 2027",
+    "doc": "business_case_remittance_MX.pdf",
+    "page": 1,
+    "line": 9,
+    "quote": "Target go-live is Q1 2027",
+    "stage": "intake",
+    "seed_source": "case p.1 l.9"
+  },
+  {
+    "field_id": "F04",
+    "label": "Customer segment",
+    "value": "Retail consumers",
+    "doc": "business_case_remittance_MX.pdf",
+    "page": 2,
+    "line": 8,
+    "quote": "Retail consumers",
+    "stage": "intake",
+    "seed_source": "case p.2 l.8"
+  },
+  {
+    "field_id": null,
+    "label": "Sending channels",
+    "value": "Mobile app and web banking",
+    "doc": "business_case_remittance_MX.pdf",
+    "page": 3,
+    "line": 5,
+    "quote": "Customers send through the Bank's mobile app and web banking",
+    "stage": "intake",
+    "seed_source": null
+  },
+  {
+    "field_id": "F20",
+    "label": "Corridor countries",
+    "value": "US to Mexico",
+    "doc": "business_case_remittance_MX.pdf",
+    "page": 4,
+    "line": 12,
+    "quote": "US to Mexico, one way",
+    "stage": "intake",
+    "seed_source": "case p.4 l.12"
+  },
+  {
+    "field_id": "F21",
+    "label": "Payout channels",
+    "value": "Bank deposit only",
+    "doc": "business_case_remittance_MX.pdf",
+    "page": 5,
+    "line": 5,
+    "quote": "Payout is by bank deposit only",
+    "stage": "intake",
+    "seed_source": null
+  },
+  {
+    "field_id": null,
+    "label": "Launch sending states",
+    "value": "Texas, California and Illinois",
+    "doc": "business_case_remittance_MX.pdf",
+    "page": 6,
+    "line": 11,
+    "quote": "Texas, California and Illinois",
+    "stage": "intake",
+    "seed_source": null
+  },
+  {
+    "field_id": "F05",
+    "label": "Expected annual volume",
+    "value": "$48M year 1",
+    "doc": "business_case_remittance_MX.pdf",
+    "page": 6,
+    "line": 17,
+    "quote": "Year 1 (2027) | $48M",
+    "stage": "intake",
+    "seed_source": "case p.6 tbl 2"
+  },
+  {
+    "field_id": null,
+    "label": "Year 1 fee revenue",
+    "value": "$1.9M",
+    "doc": "business_case_remittance_MX.pdf",
+    "page": 6,
+    "line": 17,
+    "quote": "$1.9M",
+    "stage": "intake",
+    "seed_source": null
+  },
+  {
+    "field_id": "F05",
+    "label": "Expected annual volume",
+    "value": "$120M year 3",
+    "doc": "business_case_remittance_MX.pdf",
+    "page": 6,
+    "line": 19,
+    "quote": "Year 3 (2029) | $120M",
+    "stage": "intake",
+    "seed_source": "case p.6 tbl 2"
+  },
+  {
+    "field_id": "F06",
+    "label": "Partner or vendor identity",
+    "value": "Remesas del Norte S.A.",
+    "doc": "payout_partner_contract.pdf",
+    "page": 1,
+    "line": 5,
+    "quote": "Remesas del Norte S.A.",
+    "stage": "intake",
+    "seed_source": "contract p.1"
+  },
+  {
+    "field_id": "F23",
+    "label": "Settlement currency",
+    "value": "MXN",
+    "doc": "payout_partner_contract.pdf",
+    "page": 3,
+    "line": 13,
+    "quote": "Settlement Currency is Mexican pesos (MXN)",
+    "stage": "intake",
+    "seed_source": "contract p.3 §4"
+  },
+  {
+    "field_id": "F21",
+    "label": "Payout channels",
+    "value": "Bank deposit only",
+    "doc": "payout_partner_contract.pdf",
+    "page": 5,
+    "line": 3,
+    "quote": "solely by credit to a bank account held by the Beneficiary at a Mexican bank (bank deposit)",
+    "stage": "intake",
+    "seed_source": "contract p.5 (bank deposit only)"
+  },
+  {
+    "field_id": "F12",
+    "label": "Contract AML clauses reference",
+    "value": "contract section 9 (AML, screening, audit rights)",
+    "doc": "payout_partner_contract.pdf",
+    "page": 7,
+    "line": 3,
+    "quote": "anti-money laundering, sanctions screening and audit obligations",
+    "stage": "intake",
+    "seed_source": "contract p.7 §9"
+  },
+  {
+    "field_id": "F11",
+    "label": "Partner AML programme attestation",
+    "value": "Corridor review scheduled Nov 2026",
+    "doc": "vendor_DD_scope_letter_2026.pdf",
+    "page": 1,
+    "line": 11,
+    "quote": "Fieldwork is scheduled for 2 to 20 November 2026",
+    "stage": "clarification_v2",
+    "seed_source": null
+  },
+  {
+    "field_id": null,
+    "label": "Payout agent network",
+    "value": "38 cash-pickup agent locations in 6 states",
+    "doc": "vendor_DD_scope_letter_2026.pdf",
+    "page": 1,
+    "line": 15,
+    "quote": "38 cash-pickup agent locations in 6 states",
+    "stage": "clarification_v2",
+    "seed_source": null
+  },
+  {
+    "field_id": "F32",
+    "label": "Expected monthly transaction count",
+    "value": "About 62,000 per month by month 6",
+    "doc": "vendor_DD_scope_letter_2026.pdf",
+    "page": 1,
+    "line": 17,
+    "quote": "about 62,000 transactions a month by month 6",
+    "stage": "clarification_v2",
+    "seed_source": null
+  },
+  {
+    "field_id": null,
+    "label": "Partner KYC standard",
+    "value": "v4",
+    "doc": "vendor_DD_scope_letter_2026.pdf",
+    "page": 2,
+    "line": 3,
+    "quote": "Partner's KYC standard v4",
+    "stage": "clarification_v2",
+    "seed_source": null
+  }
+]
