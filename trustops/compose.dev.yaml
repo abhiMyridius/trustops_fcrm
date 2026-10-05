@@ -17,8 +17,7 @@
 # http://localhost:8080 serves the dev build with HMR (vite is also reachable
 # directly on 5173).
 #
-# Defaults that differ from the base stack: FCRM_LLM_MODE=replay unless set
-# (design C §4.1), LOG_LEVEL=DEBUG.
+# Defaults that differ from the base stack: LOG_LEVEL=DEBUG.
 
 x-dev-python: &dev-python
   volumes:
@@ -38,33 +37,9 @@ services:
     environment:
       LOG_LEVEL: DEBUG
 
-  caseflow:
+  harness:
     <<: *dev-python
-    command: ["worker", "fcrm_caseflow"]
-    environment:
-      LOG_LEVEL: DEBUG
-
-  agent-worker:
-    <<: *dev-python
-    volumes:
-      - ./src/backend:/workspace/src:ro
-      - ./ops/scripts/dev_run.sh:/usr/local/bin/dev_run.sh:ro
-      - ./ai:/app/ai:ro
-      - ./evals/fixtures:/app/evals/fixtures:ro
-    command: ["worker", "fcrm_agent_worker"]
-    environment:
-      LOG_LEVEL: DEBUG
-      FCRM_LLM_MODE: ${FCRM_LLM_MODE:-replay}
-
-  ingestion-worker:
-    <<: *dev-python
-    command: ["worker", "fcrm_ingestion_worker"]
-    environment:
-      LOG_LEVEL: DEBUG
-
-  context-worker:
-    <<: *dev-python
-    command: ["worker", "fcrm_context_worker"]
+    command: ["worker", "fcrm_harness"]
     environment:
       LOG_LEVEL: DEBUG
 

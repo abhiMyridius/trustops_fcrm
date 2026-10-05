@@ -31,17 +31,17 @@ suggest), ``caseflow.events``'s ``#`` binding already catches it with no
 topology change on this side — but that is a forward-looking note, not a
 verified fact about code that exists today.
 
-Every :class:`~faststream.rabbit.schemas.queue.RabbitQueue` and
-:class:`~faststream.rabbit.schemas.exchange.RabbitExchange` this module
-builds sets ``declare=False``: ops owns the topology, Caseflow only
-connects to it (``definitions.json``'s own ``_comment``).
+The passive queue and exchange helpers are shared
+(:mod:`fcrm_common.broker`): they set ``declare=False`` because ops owns
+the topology and Caseflow only connects to it (``definitions.json``'s own
+``_comment``).
 """
 
 from __future__ import annotations
 
 from typing import Final
 
-from faststream.rabbit import ExchangeType, RabbitExchange, RabbitQueue
+from fcrm_common.broker import EXCHANGE_TYPES, passive_exchange, passive_queue
 
 #: ``case.events`` fan-in: every case-lifecycle/gate/pack/vote/committee/
 #: outcome/condition/index event, bound with routing key ``#``.
@@ -63,34 +63,16 @@ ROUTING_KEY_AGENT_DONE: Final = "agent.done"
 ROUTING_KEY_AGENT_FAILED: Final = "agent.failed"
 ROUTING_KEY_AGENT_RUN: Final = "agent.run"
 
-#: Every exchange's type, exactly as ``ops/rabbitmq/definitions.json``
-#: declares it (mirrors ``fcrm_agent_worker.topology.EXCHANGE_TYPES``).
-EXCHANGE_TYPES: Final[dict[str, ExchangeType]] = {
-    "case.events": ExchangeType.TOPIC,
-    "agent.jobs": ExchangeType.DIRECT,
-    "ingestion.jobs": ExchangeType.DIRECT,
-    "context.jobs": ExchangeType.DIRECT,
-    "retry": ExchangeType.DIRECT,
-    "dlx": ExchangeType.DIRECT,
-}
-
-
-def passive_queue(name: str, *, routing_key: str = "") -> RabbitQueue:
-    """A durable quorum queue this worker only connects to (never declares).
-
-    ``routing_key`` is never sent as a bind (``declare=False``); it only
-    tells FastStream which key this queue answers to, for its AsyncAPI
-    metadata and for ``TestRabbitBroker``'s in-memory publish/subscribe
-    matching — the real broker already bound it, by ops.
-    """
-    return RabbitQueue(name=name, durable=True, declare=False, routing_key=routing_key)
-
-
-def passive_exchange(name: str) -> RabbitExchange:
-    """The named exchange, connected to passively (ops already declared it)."""
-    return RabbitExchange(
-        name=name,
-        type=EXCHANGE_TYPES.get(name, ExchangeType.DIRECT),
-        durable=True,
-        declare=False,
-    )
+__all__ = [
+    "AGENT_JOBS_EXCHANGE",
+    "CASEFLOW_AGENT_RESULTS_QUEUE",
+    "CASEFLOW_EVENTS_QUEUE",
+    "CASE_EVENTS_EXCHANGE",
+    "EXCHANGE_TYPES",
+    "ROUTING_KEY_AGENT_DONE",
+    "ROUTING_KEY_AGENT_FAILED",
+    "ROUTING_KEY_AGENT_RUN",
+    "ROUTING_KEY_CASE_EVENTS",
+    "passive_exchange",
+    "passive_queue",
+]

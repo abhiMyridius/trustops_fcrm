@@ -158,3 +158,21 @@ class BaseServiceSettings(BaseSettings):
         invalid = self.invalid_settings()
         if missing or invalid:
             raise MissingSettingsError(self.app_name, missing, invalid)
+
+
+def required_value[T](value: Optional[T], env_name: str, unit: str) -> T:
+    """``value`` when it is set; otherwise raise :class:`MissingSettingsError`.
+
+    ``Settings.load()`` already refuses to start with a required variable
+    missing, so this never fires in a running process. It exists to narrow
+    an ``Optional`` field for the type checker with a real, named error
+    rather than an ``assert`` that ``python -O`` would strip.
+
+    Args:
+        value: The settings field, possibly ``None``.
+        env_name: The environment variable behind it, for the message.
+        unit: The unit's name, for the message.
+    """
+    if value is None:
+        raise MissingSettingsError(unit, [env_name], [])
+    return value

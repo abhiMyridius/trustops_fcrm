@@ -20,7 +20,7 @@ from pymongo import AsyncMongoClient
 from fcrm_common.auth import TokenVerifier
 from fcrm_common.authz import OPAClient
 from fcrm_common.mongo import Document, mongo_client
-from fcrm_common.settings import BaseServiceSettings, MissingSettingsError
+from fcrm_common.settings import BaseServiceSettings, required_value
 
 
 @dataclass(frozen=True)
@@ -56,20 +56,12 @@ async def standalone_deps(settings: BaseServiceSettings) -> AsyncIterator[Servic
         MissingSettingsError: ``mongodb_uri`` or ``opa_url`` is unset,
             which ``load()`` would already have refused.
     """
-    missing = [
-        name
-        for name, value in (
-            ("MONGODB_URI", settings.mongodb_uri),
-            ("OPA_URL", settings.opa_url),
-        )
-        if value is None
-    ]
-    if missing or settings.mongodb_uri is None or settings.opa_url is None:
-        raise MissingSettingsError(settings.app_name, missing, [])
+    mongodb_uri = required_value(settings.mongodb_uri, "MONGODB_URI", settings.app_name)
+    opa_url = required_value(settings.opa_url, "OPA_URL", settings.app_name)
     verifier = TokenVerifier.from_settings(settings)
-    opa = OPAClient(settings.opa_url)
+    opa = OPAClient(opa_url)
     try:
-        async with mongo_client(settings.mongodb_uri) as client:
+        async with mongo_client(mongodb_uri) as client:
             yield ServiceDeps(mongo=client, token_verifier=verifier, opa=opa)
     finally:
         await verifier.aclose()

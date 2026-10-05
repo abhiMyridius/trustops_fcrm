@@ -28,7 +28,7 @@ ONESHOTS := mongo-init minio-init
 INFRA    := mongo rabbitmq redis minio opa
 OBS      := otel-collector jaeger prometheus grafana
 SERVICES := api
-WORKERS  := caseflow agent-worker ingestion-worker context-worker
+WORKERS  := harness
 EDGE     := gateway web
 
 # OPA: a local binary when present (fast), else the pinned image.
@@ -103,7 +103,7 @@ up-infra: env ## infra + observability only (mongo, rabbitmq, redis, minio, opa,
 		--url otel-collector=http://$$($(COMPOSE) port otel-collector 13133)/
 
 up: env keys ## the full stack, 24 containers (needs every lane's Dockerfile)
-	@missing=""; for f in src/backend/Dockerfile $(foreach w,$(WORKERS),src/backend/workers/$(w)/Dockerfile) src/frontend/Dockerfile; do \
+	@missing=""; for f in src/backend/Dockerfile src/frontend/Dockerfile; do \
 		[ -f "$$f" ] || missing="$$missing $$f"; done; \
 	if [ -n "$$missing" ]; then echo "up: not buildable yet, missing:$$missing" >&2; echo "up: use 'make up-infra' until those lanes land" >&2; exit 1; fi
 	$(COMPOSE) up -d --build

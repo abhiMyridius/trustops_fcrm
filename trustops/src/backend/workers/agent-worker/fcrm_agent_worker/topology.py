@@ -11,18 +11,15 @@ exactly these arguments): ops owns the topology." Every
 builds therefore sets ``declare=False``: FastStream connects to the named
 object instead of trying to create it.
 
-Exchanges (``definitions.json: exchanges``): ``agent.jobs`` and
-``retry``/``dlx`` are ``direct``; ``case.events`` is the only ``topic``
-exchange this worker ever publishes to (it does not, today, but
-:mod:`fcrm_agent_worker.publisher` is generic over any catalogued event
-type, so the type map is complete).
+The passive queue and exchange helpers and the exchange type map are
+shared (:mod:`fcrm_common.broker`).
 """
 
 from __future__ import annotations
 
 from typing import Final
 
-from faststream.rabbit import ExchangeType, RabbitExchange, RabbitQueue
+from fcrm_common.broker import EXCHANGE_TYPES, passive_exchange, passive_queue
 
 #: ``agent.run`` lands here (binding: exchange ``agent.jobs``, routing key
 #: ``agent.run`` -> queue ``agent-worker.run``).
@@ -41,35 +38,14 @@ ROUTING_KEY_AGENT_FAILED: Final = "agent.failed"
 #: declares it. ``fcrm_common.events.RETRY_EXCHANGE`` /
 #: ``DLX_EXCHANGE`` name the same two "direct" exchanges this worker's
 #: retry/DLQ republishing targets.
-EXCHANGE_TYPES: Final[dict[str, ExchangeType]] = {
-    "case.events": ExchangeType.TOPIC,
-    "agent.jobs": ExchangeType.DIRECT,
-    "ingestion.jobs": ExchangeType.DIRECT,
-    "context.jobs": ExchangeType.DIRECT,
-    "retry": ExchangeType.DIRECT,
-    "dlx": ExchangeType.DIRECT,
-}
 
-
-def passive_queue(name: str, *, routing_key: str = "") -> RabbitQueue:
-    """A durable quorum queue this worker only connects to (never declares).
-
-    Matches ``definitions.json``'s ``x-queue-type: quorum`` queues; the
-    actual arguments (DLX routing, delivery limit) are ops's, not repeated
-    here since ``declare=False`` never sends a declare frame. ``routing_key``
-    is likewise never sent as a bind (``declare=False``); it only tells
-    FastStream which key this queue answers to, for its AsyncAPI metadata
-    and for ``TestRabbitBroker``'s in-memory publish/subscribe matching --
-    the real broker already bound it, by ops.
-    """
-    return RabbitQueue(name=name, durable=True, declare=False, routing_key=routing_key)
-
-
-def passive_exchange(name: str) -> RabbitExchange:
-    """The named exchange, connected to passively (ops already declared it)."""
-    return RabbitExchange(
-        name=name,
-        type=EXCHANGE_TYPES.get(name, ExchangeType.DIRECT),
-        durable=True,
-        declare=False,
-    )
+__all__ = [
+    "AGENT_JOBS_EXCHANGE",
+    "AGENT_WORKER_RUN_QUEUE",
+    "EXCHANGE_TYPES",
+    "ROUTING_KEY_AGENT_DONE",
+    "ROUTING_KEY_AGENT_FAILED",
+    "ROUTING_KEY_AGENT_RUN",
+    "passive_exchange",
+    "passive_queue",
+]

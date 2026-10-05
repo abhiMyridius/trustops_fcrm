@@ -10,6 +10,7 @@ fcrm-tools       = { workspace = true }
 fcrm-prompts     = { workspace = true }
 fcrm-seed        = { workspace = true }
 fcrm-case-service  = { workspace = true }
+fcrm-agent-worker = { workspace = true }
 fcrm-identity-service = { workspace = true }
 fcrm-scoring-service = { workspace = true }
 fcrm-decision-service = { workspace = true }
@@ -31,8 +32,9 @@ package = false
 # all; nothing in this workspace installs both at once (the extra is opt-in,
 # for a host that sets VECTOR_BACKEND=s3vectors). fcrm-agent-worker (H2)
 # pulls in fcrm-agents too, so it inherits the same incompatibility and
-# needs its own pair here -- uv's conflict markers are not transitive
-# across workspace packages, only declared per pair.
+# needs its own pair here, and so does fcrm-harness, which depends on it --
+# uv's conflict markers are not transitive across workspace packages, only
+# declared per pair.
 conflicts = [
   [
     { package = "fcrm-context-worker", extra = "s3vectors" },
@@ -41,6 +43,10 @@ conflicts = [
   [
     { package = "fcrm-context-worker", extra = "s3vectors" },
     { package = "fcrm-agent-worker" },
+  ],
+  [
+    { package = "fcrm-context-worker", extra = "s3vectors" },
+    { package = "fcrm-harness" },
   ],
 ]
 

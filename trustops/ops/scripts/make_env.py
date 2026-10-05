@@ -89,9 +89,10 @@ HEADER = """\
 # described in .env.example.
 """
 AWS_INTRO = """\
-# ── 1. Optional: live AI on Amazon Bedrock ─────────────────────────────
-# Leave empty and the agents run on recorded replays: no cost, no cloud.
-# To go live, fill these in and set FCRM_LLM_MODE=live.
+# ── 1. Live AI on Amazon Bedrock ────────────────────────────────────────
+# The agents call Bedrock (there is no replay mode). Fill these in to run
+# them; without keys the services, login and web app still work, but every
+# agent run fails at the model call.
 """
 PORTS_INTRO = """\
 # ── 2. Optional: host ports ────────────────────────────────────────────
@@ -141,7 +142,6 @@ def render(
     wanted = [
         *AWS,
         AWS_SESSION_TOKEN,
-        "FCRM_LLM_MODE",
         *(n for n, _ in COMMON_PORTS),
         *USERNAMES,
         *SECRETS,
@@ -163,7 +163,7 @@ def render(
         return USERNAMES.get(name) or LOCAL_DEFAULTS.get(name, "")
 
     filled: list[str] = []
-    lines = [HEADER.rstrip("\n"), "", AWS_INTRO.rstrip("\n"), "FCRM_LLM_MODE=replay"]
+    lines = [HEADER.rstrip("\n"), "", AWS_INTRO.rstrip("\n")]
     lines += [
         f"{name}={AWS_DEFAULT_REGION if name == 'AWS_DEFAULT_REGION' else ''}"
         for name in AWS

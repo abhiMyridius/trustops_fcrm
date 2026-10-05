@@ -12,6 +12,9 @@ dependencies = [
   "pymongo>=4.13",
   "httpx>=0.28",
   "fastapi>=0.115",
+  # RabbitMQ consumers and publishers shared by the harness and (from the
+  # outbox work) the api process; pinned to the version the workers ran on.
+  "faststream[rabbit]==0.6.7",
   # PyJWT, not python-jose: design A §8.1 moves identity to PyJWT, jose is
   # unmaintained, and PyJWT ships PyJWKClient for JWKS fetching/kid lookup.
   "pyjwt[crypto]>=2.10",

@@ -312,147 +312,44 @@ services:
       <<: *health-timing
       test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/readyz', timeout=4).status == 200 else 1)"]
 
-  # ── H1 Caseflow ────────────────────────────────────────────────────────
-  caseflow:
+  # ── harness: H1 caseflow + H2 agent-worker (H3/H4 join as their entry points land)
+  # One process (python -m fcrm_harness, ADR-26) on the same image as api: one
+  # broker, one Mongo client (fcrm_harness) and one health endpoint on 9100.
+  # H2 runs AGENT_PREFETCH jobs at once instead of the two replicas it used to.
+  harness:
     <<: *worker
-    build:
-      context: .
-      dockerfile: src/backend/workers/caseflow/Dockerfile
-    image: trustops/caseflow:local
+    image: trustops/backend:local
+    command: ["python", "-m", "fcrm_harness"]
     depends_on:
       mongo-init:
         condition: service_completed_successfully
       rabbitmq:
         condition: service_healthy
-      api:
-        condition: service_healthy
-    environment:
-      <<: [*app-env, *service-urls]
-      OTEL_SERVICE_NAME: caseflow
-      OTEL_RESOURCE_ATTRIBUTES: component.id=H1,service.namespace=trustops
-      MONGODB_DB: fcrm_harness
-      PORT: "9100"
-      CASE_CAP_TOKENS: "120000"
-      TIERS_FILE: /app/ai/models/tiers.yaml
-      LEASE_REAPER_INTERVAL_S: "30"
-      OUTBOX_RELAY_INTERVAL_MS: "200"
-      PREFETCH: "16"
-    ports:
-      - "${BIND_ADDRESS:-127.0.0.1}:${CASEFLOW_HEALTH_HOST_PORT:-9100}:9100"
-    volumes:
-      - ./ai:/app/ai:ro
-    healthcheck:
-      <<: *health-timing
-      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:9100/readyz', timeout=4).status == 200 else 1)"]
-
-  # ── H2 agent-worker ×2 ─────────────────────────────────────────────────
-  # Two replicas, so the health port is not published to the host (two
-  # containers cannot bind one host port); each replica is probed inside.
-  agent-worker:
-    <<: *worker
-    build:
-      context: .
-      dockerfile: src/backend/workers/agent-worker/Dockerfile
-    image: trustops/agent-worker:local
-    deploy:
-      replicas: 2
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
       opa:
         condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
       api:
         condition: service_healthy
     environment:
       <<: [*app-env, *service-urls, *s3-env, *aws-env]
-      OTEL_SERVICE_NAME: agent-worker
-      OTEL_RESOURCE_ATTRIBUTES: component.id=H2,service.namespace=trustops
+      OTEL_SERVICE_NAME: harness
+      OTEL_RESOURCE_ATTRIBUTES: component.id=harness,service.namespace=trustops
       MONGODB_DB: fcrm_harness
-      PORT: "9101"
-      FCRM_LLM_MODE: ${FCRM_LLM_MODE:-replay}
-      FCRM_REPLAY_DIR: /app/evals/fixtures/replay
+      CASEFLOW_PREFETCH: "16"
+      AGENT_PREFETCH: "4"
+      FCRM_LLM_MODE: live
       BEDROCK_REGION_FALLBACK: ${BEDROCK_REGION_FALLBACK:-us-west-2}
       # The ai/ root, not a path to tiers.yaml or to ai/prompts: both
       # fcrm_agents.models.load_tiers_config and fcrm_prompts.PromptLibrary
       # expect this same root directory (D-15).
       PROMPTS_DIR: /app/ai
       AGENT_MAX_TOOL_CALLS: "12"
-      MODEL_CACHE_ENABLED: ${MODEL_CACHE_ENABLED:-false}
-      PREFETCH: "2"
     expose:
-      - "9101"
-    volumes:
-      - ./ai:/app/ai:ro
-      - ./evals/fixtures:/app/evals/fixtures:ro
-    healthcheck:
-      <<: *health-timing
-      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:9101/readyz', timeout=4).status == 200 else 1)"]
-
-  # ── H3 ingestion-worker ────────────────────────────────────────────────
-  ingestion-worker:
-    <<: *worker
-    build:
-      context: .
-      dockerfile: src/backend/workers/ingestion-worker/Dockerfile
-    image: trustops/ingestion-worker:local
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      mongo-init:
-        condition: service_completed_successfully
-      minio-init:
-        condition: service_completed_successfully
-    environment:
-      <<: [*app-env, *s3-env]
-      OTEL_SERVICE_NAME: ingestion-worker
-      OTEL_RESOURCE_ATTRIBUTES: component.id=H3,service.namespace=trustops
-      MONGODB_DB: fcrm_harness
-      PORT: "9102"
-      PDF_ENGINE: pdfplumber
-      PDF_MIN_CHARS_PER_PAGE: ${PDF_MIN_CHARS_PER_PAGE:-}
-      UPLOADS_PER_FILE_TIMEOUT_SECONDS: "120"
-      GUARD1_ALLOWLIST_FILE: /app/ai/guards/thresholds.yaml
-      INJECTION_PATTERNS_FILE: /app/ai/guards/injection_patterns.txt
-      PREFETCH: "2"
-    ports:
-      - "${BIND_ADDRESS:-127.0.0.1}:${INGESTION_HEALTH_HOST_PORT:-9102}:9102"
+      - "9100"
     volumes:
       - ./ai:/app/ai:ro
     healthcheck:
       <<: *health-timing
-      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:9102/readyz', timeout=4).status == 200 else 1)"]
-
-  # ── H4 context-worker ──────────────────────────────────────────────────
-  context-worker:
-    <<: *worker
-    build:
-      context: .
-      dockerfile: src/backend/workers/context-worker/Dockerfile
-    image: trustops/context-worker:local
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      mongo-init:
-        condition: service_completed_successfully
-      minio-init:
-        condition: service_completed_successfully
-      api:
-        condition: service_healthy
-    environment:
-      <<: [*app-env, *service-urls, *s3-env, *aws-env, *vector-env]
-      OTEL_SERVICE_NAME: context-worker
-      OTEL_RESOURCE_ATTRIBUTES: component.id=H4,service.namespace=trustops
-      MONGODB_DB: fcrm_harness
-      PORT: "9103"
-      CONTEXT_SYNTHESIS_ENABLED: "false"
-      PREFETCH: "4"
-    ports:
-      - "${BIND_ADDRESS:-127.0.0.1}:${CONTEXT_HEALTH_HOST_PORT:-9103}:9103"
-    healthcheck:
-      <<: *health-timing
-      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:9103/readyz', timeout=4).status == 200 else 1)"]
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:9100/readyz', timeout=4).status == 200 else 1)"]
 
   # ── G1 gateway ─────────────────────────────────────────────────────────
   gateway:
@@ -473,7 +370,7 @@ services:
       timeout: 3s
       retries: 20
 
-  # ── W1 web (nginx-served static build of src/web) ──────────────────────
+  # ── W1 web (nginx-served static build of src/frontend) ──────────────────────
   # Reached through the gateway at http://localhost:8080/. compose.dev.yaml
   # swaps it for the vite dev server on 5173.
   web:

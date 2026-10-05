@@ -49,13 +49,13 @@ def test_only_the_short_set_is_written_and_every_name_exists_in_the_example() ->
     written = set(_assignments(text))
     assert written <= set(_assignments(EXAMPLE))
     assert len(written) < 25
-    assert {"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "FCRM_LLM_MODE"} <= written
+    assert {"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"} <= written
 
 
-def test_aws_keys_are_empty_and_mode_is_replay_so_no_live_call_by_default() -> None:
+def test_aws_keys_are_left_empty_for_the_operator_and_no_llm_mode_is_written() -> None:
     text = make_env.render(EXAMPLE)[0]
     values = _assignments(text)
-    assert values["FCRM_LLM_MODE"] == "replay"
+    assert "FCRM_LLM_MODE" not in values
     assert values["AWS_ACCESS_KEY_ID"] == ""
     assert values["AWS_SECRET_ACCESS_KEY"] == ""
     assert values["AWS_DEFAULT_REGION"] == "us-east-1"

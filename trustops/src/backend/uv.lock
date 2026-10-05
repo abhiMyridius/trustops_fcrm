@@ -11,6 +11,9 @@ conflicts = [[
 ], [
     { package = "fcrm-agent-worker" },
     { package = "fcrm-context-worker", extra = "s3vectors" },
+], [
+    { package = "fcrm-context-worker", extra = "s3vectors" },
+    { package = "fcrm-harness" },
 ]]
 
 [manifest]
@@ -27,6 +30,7 @@ members = [
     "fcrm-decision-service",
     "fcrm-evals",
     "fcrm-guardrails",
+    "fcrm-harness",
     "fcrm-identity-service",
     "fcrm-ingestion-worker",
     "fcrm-policy-service",
@@ -243,7 +247,7 @@ version = "4.15.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
-    { name = "typing-extensions", marker = "python_full_version < '3.15' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.15' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a9/d2/f4d173e22df740bc37b1db102b386ba719b66e95b0f0d751f556b387e6d2/anyio-4.15.1.tar.gz", hash = "sha256:9f28306018cbd6d329e64a36d58256edff76dd996fe423bc957326e578b82a94", size = 276966, upload-time = "2026-09-05T10:42:39.44Z" }
 wheels = [
@@ -438,9 +442,9 @@ resolution-markers = [
     "python_full_version < '3.15'",
 ]
 dependencies = [
-    { name = "botocore", version = "1.43.108", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "jmespath", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "s3transfer", version = "0.19.2", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "botocore", version = "1.43.108", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "jmespath", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "s3transfer", version = "0.19.2", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/48/59/fb93b6ebd9ad43eb9a58c7a6da51a0fe24ab0c04bc4d534a0bfc5eba7f59/boto3-1.43.108.tar.gz", hash = "sha256:03341f089158368acf83e921aca98b706095322ca52bc4c039a616940aa5ad41", size = 112682, upload-time = "2026-10-02T19:32:25.211Z" }
 wheels = [
@@ -474,9 +478,9 @@ resolution-markers = [
     "python_full_version < '3.15'",
 ]
 dependencies = [
-    { name = "jmespath", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "python-dateutil", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "urllib3", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "jmespath", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "python-dateutil", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "urllib3", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/16/6b4477f433da2c11193802f538330ce080076c2f38d817ad437ed3cd1465/botocore-1.43.108.tar.gz", hash = "sha256:ee4f75cf3bdbb0da7912e089950e8112f692016539d939312c771499958e6cfd", size = 16312879, upload-time = "2026-10-02T19:32:20.797Z" }
 wheels = [
@@ -497,7 +501,7 @@ name = "cffi"
 version = "2.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "pycparser", marker = "implementation_name != 'PyPy' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9e/ef/008a1939e372c06329a3fce4279c02f328488f3526744906eeec3da7ad5f/cffi-2.1.1.tar.gz", hash = "sha256:dd31f52ea1086513bb9df30f8fcee9b8918323ae067a3d5b78bc826a000712be", size = 530807, upload-time = "2026-08-03T21:21:18.939Z" }
 wheels = [
@@ -796,7 +800,7 @@ name = "cryptography"
 version = "50.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cffi", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "cffi", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9d/af/182eb91b0df3fe75c4d9f26fe70684569566745f6ba7e5c9c73a862c5252/cryptography-50.0.2.tar.gz", hash = "sha256:7b46165bb56eb4704e2eaaf86f3c940d19154535d9b0ca7d6d590b04060e00d5", size = 880623, upload-time = "2026-09-30T15:30:04.884Z" }
 wheels = [
@@ -886,7 +890,7 @@ name = "docker"
 version = "7.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywin32", marker = "sys_platform == 'win32' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "pywin32", marker = "sys_platform == 'win32' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
     { name = "requests" },
     { name = "urllib3" },
 ]
@@ -993,13 +997,13 @@ name = "fcrm-agent-worker"
 version = "0.1.0"
 source = { editable = "workers/agent-worker" }
 dependencies = [
-    { name = "faststream", extra = ["rabbit"], marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "fcrm-agents", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "fcrm-common", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "fcrm-contracts", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "fcrm-guardrails", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "fcrm-tools", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "uvicorn", extra = ["standard"], marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "faststream", extra = ["rabbit"], marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "fcrm-agents", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "fcrm-common", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "fcrm-contracts", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "fcrm-guardrails", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "fcrm-tools", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "uvicorn", extra = ["standard"], marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 
 [package.dev-dependencies]
@@ -1034,13 +1038,13 @@ name = "fcrm-agents"
 version = "0.1.0"
 source = { editable = "packages/agents" }
 dependencies = [
-    { name = "fcrm-contracts", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "fcrm-guardrails", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "fcrm-prompts", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "fcrm-seed", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "fcrm-tools", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "pydantic", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "pydantic-ai-slim", extra = ["bedrock"], marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "fcrm-contracts", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "fcrm-guardrails", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "fcrm-prompts", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "fcrm-seed", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "fcrm-tools", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "pydantic", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "pydantic-ai-slim", extra = ["bedrock"], marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 
 [package.dev-dependencies]
@@ -1236,6 +1240,7 @@ version = "0.1.0"
 source = { editable = "packages/common" }
 dependencies = [
     { name = "fastapi" },
+    { name = "faststream", extra = ["rabbit"] },
     { name = "fcrm-contracts" },
     { name = "fcrm-seed" },
     { name = "httpx" },
@@ -1263,6 +1268,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
+    { name = "faststream", extras = ["rabbit"], specifier = "==0.6.7" },
     { name = "fcrm-contracts", editable = "packages/contracts" },
     { name = "fcrm-seed", editable = "packages/seed" },
     { name = "httpx", specifier = ">=0.28" },
@@ -1294,7 +1300,7 @@ source = { editable = "workers/context-worker" }
 dependencies = [
     { name = "beautifulsoup4" },
     { name = "botocore", version = "1.40.61", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "botocore", version = "1.43.108", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "botocore", version = "1.43.108", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
     { name = "fcrm-contracts" },
     { name = "fcrm-seed" },
     { name = "litellm" },
@@ -1473,6 +1479,41 @@ requires-dist = [
 dev = [
     { name = "fcrm-seed", editable = "packages/seed" },
     { name = "hypothesis", specifier = ">=6.123" },
+    { name = "mypy", specifier = ">=1.14" },
+    { name = "pytest", specifier = ">=8.3" },
+    { name = "pytest-asyncio", specifier = ">=0.25" },
+]
+
+[[package]]
+name = "fcrm-harness"
+version = "0.1.0"
+source = { editable = "apps/harness" }
+dependencies = [
+    { name = "fcrm-agent-worker", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "fcrm-caseflow", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "fcrm-common", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "fcrm-contracts", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "uvicorn", extra = ["standard"], marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fcrm-agent-worker", editable = "workers/agent-worker" },
+    { name = "fcrm-caseflow", editable = "workers/caseflow" },
+    { name = "fcrm-common", editable = "packages/common" },
+    { name = "fcrm-contracts", editable = "packages/contracts" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.34" },
+]
+
+[package.metadata.requires-dev]
+dev = [
     { name = "mypy", specifier = ">=1.14" },
     { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-asyncio", specifier = ">=0.25" },
@@ -1835,8 +1876,8 @@ name = "genai-prices"
 version = "0.1.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "httpx2", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "pydantic", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "httpx2", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "pydantic", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d6/f0/4b4c7f63de6d558714d2207808080dd0988d0317a54ebcde790e4f6c1b6e/genai_prices-0.1.9.tar.gz", hash = "sha256:20ec774d32ec5d345510877fac415f2560bbfeb081bc4cd4e7ebce57a5503e8d", size = 118447, upload-time = "2026-09-25T03:47:27.569Z" }
 wheels = [
@@ -1915,8 +1956,8 @@ name = "httpcore2"
 version = "2.13.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "h11", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "truststore", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "h11", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "truststore", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/cb/f3/1db7aa2bc2524062192bb0e0323969492d1883152a232fe36eea65f4e35c/httpcore2-2.13.1.tar.gz", hash = "sha256:e0aa977abe17e69a3b820a24542a6fa88702676d83880b8d194dcd18408e5103", size = 68071, upload-time = "2026-09-23T07:47:22.372Z" }
 wheels = [
@@ -1972,11 +2013,11 @@ name = "httpx2"
 version = "2.13.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "anyio", marker = "(sys_platform != 'emscripten' and extra != 'extra-19-fcrm-context-worker-s3vectors') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
-    { name = "httpcore2", marker = "(sys_platform != 'emscripten' and extra != 'extra-19-fcrm-context-worker-s3vectors') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
-    { name = "httpx2-jsfetch", marker = "(sys_platform == 'emscripten' and extra != 'extra-19-fcrm-context-worker-s3vectors') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
-    { name = "idna", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "truststore", marker = "(sys_platform != 'emscripten' and extra != 'extra-19-fcrm-context-worker-s3vectors') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "anyio", marker = "(sys_platform != 'emscripten' and extra != 'extra-19-fcrm-context-worker-s3vectors') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "httpcore2", marker = "(sys_platform != 'emscripten' and extra != 'extra-19-fcrm-context-worker-s3vectors') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "httpx2-jsfetch", marker = "(sys_platform == 'emscripten' and extra != 'extra-19-fcrm-context-worker-s3vectors') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "idna", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "truststore", marker = "(sys_platform != 'emscripten' and extra != 'extra-19-fcrm-context-worker-s3vectors') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d5/44/474bef2a0e9d90f1715d32cb98b0738695ca17ba324095fb2497ed7fbd59/httpx2-2.13.1.tar.gz", hash = "sha256:e48744a19e3af5ee48313d0ce5fe941d5422fae5705ea922a4aabf94d7800dfa", size = 100405, upload-time = "2026-09-23T07:47:23.052Z" }
 wheels = [
@@ -2000,7 +2041,7 @@ dependencies = [
     { name = "click" },
     { name = "filelock" },
     { name = "fsspec" },
-    { name = "hf-xet", marker = "platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "hf-xet", marker = "platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
     { name = "httpx" },
     { name = "packaging" },
     { name = "pyyaml" },
@@ -2697,7 +2738,7 @@ version = "2.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ast-serialize" },
-    { name = "librt", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "librt", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
     { name = "mypy-extensions" },
     { name = "pathspec" },
     { name = "typing-extensions" },
@@ -2869,7 +2910,7 @@ dependencies = [
     { name = "opentelemetry-semantic-conventions" },
     { name = "packaging" },
     { name = "wrapt", version = "1.17.3", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "wrapt", version = "2.5.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "wrapt", version = "2.5.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d1/97/e6959310cff3dbbce24ca0a60e5e12f773320d17480c779b038b55defd35/opentelemetry_instrumentation-0.66b0.tar.gz", hash = "sha256:316715ed7b33a12530c0ae3e8d4cdf26d70e1aad358d7ba256e5dea2d4ceed71", size = 43308, upload-time = "2026-09-25T12:35:46.504Z" }
 wheels = [
@@ -2918,7 +2959,7 @@ dependencies = [
     { name = "opentelemetry-semantic-conventions" },
     { name = "opentelemetry-util-http" },
     { name = "wrapt", version = "1.17.3", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "wrapt", version = "2.5.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "wrapt", version = "2.5.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a7/34/12fb760868737e2d97df926d94b1a0a4ea62b8811cbc9126ec260dd479c0/opentelemetry_instrumentation_httpx-0.66b0.tar.gz", hash = "sha256:c89297975f54d67692d3c29e9e33a1bdac47710031cc3ed0d83a0c9765336981", size = 26636, upload-time = "2026-09-25T12:36:02.246Z" }
 wheels = [
@@ -3284,14 +3325,14 @@ name = "pydantic-ai-slim"
 version = "2.54.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "anyio", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "genai-prices", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "griffelib", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "httpx2", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "opentelemetry-api", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "pydantic", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "pydantic-graph", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "typing-inspection", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "anyio", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "genai-prices", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "griffelib", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "httpx2", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "opentelemetry-api", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "pydantic", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "pydantic-graph", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "typing-inspection", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/54/c0/b5e33b82b05c87a03e2c18089e89671da5c8fb0ba0da143011917d102745/pydantic_ai_slim-2.54.0.tar.gz", hash = "sha256:e39fd5ded83c5f2f1b271f42707de04fba420c4fd2c3bbc809d8d57614b904df", size = 1802066, upload-time = "2026-10-03T03:38:51.982Z" }
 wheels = [
@@ -3300,7 +3341,7 @@ wheels = [
 
 [package.optional-dependencies]
 bedrock = [
-    { name = "boto3", version = "1.43.108", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "boto3", version = "1.43.108", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 
 [[package]]
@@ -3364,10 +3405,10 @@ name = "pydantic-graph"
 version = "2.54.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "anyio", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "logfire-api", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "pydantic", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "typing-inspection", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "anyio", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "logfire-api", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "pydantic", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "typing-inspection", marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ef/6f/b5cb10c937c8d00a219eb5a07aeb991d0c44d09d5ac31a087cd1ad40dbcd/pydantic_graph-2.54.0.tar.gz", hash = "sha256:948ff7249c28643ff028b47fab22b8a5b36912c59bb947c2a9b9bc18de1d5fa5", size = 45970, upload-time = "2026-10-03T03:38:55.987Z" }
 wheels = [
@@ -3495,7 +3536,7 @@ name = "pytest"
 version = "9.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
     { name = "iniconfig" },
     { name = "packaging" },
     { name = "pluggy" },
@@ -3926,7 +3967,7 @@ resolution-markers = [
     "python_full_version < '3.15'",
 ]
 dependencies = [
-    { name = "botocore", version = "1.43.108", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "botocore", version = "1.43.108", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/76/43/35e4d8aa320bffe8287fe8f65f578fa2d2db0a64212f0e710dce58267854/s3transfer-0.19.2.tar.gz", hash = "sha256:ba0309fd86be3c27dbf78cdd813c13c5e1df16e5874b99d2535ebbdfb9892993", size = 165592, upload-time = "2026-07-22T19:30:44.432Z" }
 wheels = [
@@ -3991,7 +4032,7 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "urllib3" },
     { name = "wrapt", version = "1.17.3", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-19-fcrm-context-worker-s3vectors'" },
-    { name = "wrapt", version = "2.5.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
+    { name = "wrapt", version = "2.5.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-11-fcrm-agents' or extra == 'project-12-fcrm-harness' or extra == 'project-17-fcrm-agent-worker' or extra != 'extra-19-fcrm-context-worker-s3vectors'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/4b/13/2cc466bddf26d0085f30a2b2bd56b7f8708b54a54db833eec97c5c69129b/testcontainers-4.15.0.tar.gz", hash = "sha256:085cde086337632e19002719460b7b80bbab2bdd51bb3ea04f77d0de96504706", size = 95340, upload-time = "2026-07-24T23:08:01.731Z" }
 wheels = [
@@ -4085,7 +4126,7 @@ name = "tqdm"
 version = "4.70.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0d/ea/b2a5bd54b28a324dae8211928b2d730b6547500342c7e6c6dea08bd0a485/tqdm-4.70.1.tar.gz", hash = "sha256:cefd0eca11b2a37a3aee776544d4f4ae913f02688135b5556b8788dfa474afc4", size = 171846, upload-time = "2026-09-11T07:25:16.601Z" }
 wheels = [
@@ -4193,7 +4234,7 @@ standard = [
     { name = "httptools" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
-    { name = "uvloop", marker = "(platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32') or (platform_python_implementation == 'PyPy' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (platform_python_implementation == 'PyPy' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker') or (sys_platform == 'cygwin' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (sys_platform == 'cygwin' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker') or (sys_platform == 'win32' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (sys_platform == 'win32' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "uvloop", marker = "(platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32') or (platform_python_implementation == 'PyPy' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (platform_python_implementation == 'PyPy' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (platform_python_implementation == 'PyPy' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker') or (sys_platform == 'cygwin' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (sys_platform == 'cygwin' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (sys_platform == 'cygwin' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker') or (sys_platform == 'win32' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (sys_platform == 'win32' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (sys_platform == 'win32' and extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
     { name = "watchfiles" },
     { name = "websockets" },
 ]

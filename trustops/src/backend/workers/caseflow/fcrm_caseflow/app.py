@@ -1,4 +1,4 @@
-"""The H1 process: one ``RabbitBroker`` consuming both
+"""The H1 consumer: one ``RabbitBroker`` consuming both
 :data:`~fcrm_caseflow.topology.CASEFLOW_EVENTS_QUEUE` and
 :data:`~fcrm_caseflow.topology.CASEFLOW_AGENT_RESULTS_QUEUE` through
 :class:`~fcrm_caseflow.consumers.CaseEventsConsumer` /
@@ -6,9 +6,12 @@
 :class:`~fcrm_common.outbox.OutboxRelay` run as a background task for the
 run of the process (the same transactional-outbox pattern every other
 state-changing unit in this repo uses — see ``fcrm_common.outbox``'s
-module docstring), and ``/healthz``/``/readyz`` on the same ASGI app
-(mirrors :mod:`fcrm_agent_worker.app`'s documented
-``AsgiFastStream``/health wiring exactly).
+module docstring).
+
+:func:`build_unit` returns H1 as a :class:`~fcrm_common.worker.WorkerUnit`
+for the composite ``fcrm_harness`` process, which owns the broker, the
+Mongo client and the health app; :func:`build_app` wraps the same unit in
+its own broker and ``/healthz``/``/readyz`` for ``python -m fcrm_caseflow``.
 """
 
 from __future__ import annotations
@@ -17,10 +20,11 @@ import asyncio
 import logging
 from typing import Optional
 
-from faststream import AckPolicy
 from faststream.asgi import AsgiFastStream
-from faststream.rabbit import RabbitBroker, RabbitMessage
+from faststream.rabbit import RabbitBroker
+from fcrm_common.broker import FastStreamPublisher, wire_consumer
 from fcrm_common.events import Consumer as EventConsumer
+from fcrm_common.events import Publisher
 from fcrm_common.health import (
     ReadinessCheck,
     ReadinessProbe,
@@ -31,14 +35,16 @@ from fcrm_common.health import (
 from fcrm_common.http import ServiceClient
 from fcrm_common.ids import new_id
 from fcrm_common.logging import configure_logging
-from fcrm_common.mongo import MongoLease, get_client
+from fcrm_common.mongo import Document, MongoLease, close_clients, get_client
 from fcrm_common.outbox import Outbox, OutboxRelay
+from fcrm_common.settings import required_value
+from fcrm_common.worker import WorkerUnit
+from pymongo import AsyncMongoClient
 
 from fcrm_caseflow.audit_client import AuditClient
 from fcrm_caseflow.consumers import AgentResultsConsumer, CaseEventsConsumer
 from fcrm_caseflow.engine import CaseflowEngine
 from fcrm_caseflow.gates import GateStore
-from fcrm_caseflow.publisher import FastStreamPublisher
 from fcrm_caseflow.settings import CaseflowSettings
 from fcrm_caseflow.store import CaseRunStore
 from fcrm_caseflow.topology import (
@@ -47,8 +53,6 @@ from fcrm_caseflow.topology import (
     ROUTING_KEY_AGENT_DONE,
     ROUTING_KEY_AGENT_FAILED,
     ROUTING_KEY_CASE_EVENTS,
-    passive_exchange,
-    passive_queue,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,110 +75,84 @@ def wire_subscribers(
     broker: RabbitBroker,
     case_events: EventConsumer,
     agent_results: EventConsumer,
+    *,
+    prefetch: Optional[int] = None,
 ) -> None:
-    """Register both manually-acked subscribers, delegating every delivery
-    to the matching consumer's ``process`` (dedupe, retry/DLQ — see
+    """Register H1's manually-acked subscribers, delegating every delivery to
+    the matching consumer's ``process`` (dedupe, retry/DLQ; see
     ``fcrm_common.events``). ``ack_policy=AckPolicy.MANUAL`` disables
-    FastStream's own ack/nack so ``consumer.process`` is the only thing
-    that ever acks or nacks a delivery (mirrors
-    :func:`fcrm_agent_worker.app.wire_subscriber`).
+    FastStream's own ack/nack so ``consumer.process`` is the only thing that
+    ever acks or nacks a delivery (:func:`fcrm_common.broker.wire_consumer`).
+    ``prefetch`` bounds how many deliveries H1 works on at once.
     """
-    case_events_exchange = passive_exchange(CASE_EVENTS_EXCHANGE)
-    agent_jobs_exchange = passive_exchange(AGENT_JOBS_EXCHANGE)
-
-    @broker.subscriber(
-        passive_queue(case_events.queue, routing_key=ROUTING_KEY_CASE_EVENTS),
-        case_events_exchange,
-        ack_policy=AckPolicy.MANUAL,
+    wire_consumer(
+        broker,
+        case_events,
+        exchange=CASE_EVENTS_EXCHANGE,
+        routing_keys=[ROUTING_KEY_CASE_EVENTS],
+        prefetch=prefetch,
     )
-    async def _consume_case_events(msg: RabbitMessage) -> None:
-        await case_events.process(
-            msg.body,
-            msg.headers,
-            ack=msg.ack,
-            nack=lambda requeue: msg.nack(requeue=requeue),
-        )
-
-    @broker.subscriber(
-        passive_queue(agent_results.queue, routing_key=ROUTING_KEY_AGENT_DONE),
-        agent_jobs_exchange,
-        ack_policy=AckPolicy.MANUAL,
+    wire_consumer(
+        broker,
+        agent_results,
+        exchange=AGENT_JOBS_EXCHANGE,
+        routing_keys=[ROUTING_KEY_AGENT_DONE, ROUTING_KEY_AGENT_FAILED],
+        prefetch=prefetch,
     )
-    async def _consume_agent_done(msg: RabbitMessage) -> None:
-        await agent_results.process(
-            msg.body,
-            msg.headers,
-            ack=msg.ack,
-            nack=lambda requeue: msg.nack(requeue=requeue),
-        )
-
-    @broker.subscriber(
-        passive_queue(agent_results.queue, routing_key=ROUTING_KEY_AGENT_FAILED),
-        agent_jobs_exchange,
-        ack_policy=AckPolicy.MANUAL,
-    )
-    async def _consume_agent_failed(msg: RabbitMessage) -> None:
-        await agent_results.process(
-            msg.body,
-            msg.headers,
-            ack=msg.ack,
-            nack=lambda requeue: msg.nack(requeue=requeue),
-        )
 
 
-def build_app(settings: Optional[CaseflowSettings] = None) -> AsgiFastStream:
-    """The full H1 process: broker + outbox relay + health ASGI app, real
-    dependencies.
+def build_unit(
+    settings: CaseflowSettings,
+    *,
+    mongo: AsyncMongoClient[Document],
+    publisher: Publisher,
+) -> WorkerUnit:
+    """H1 as a unit a host can wire onto its own broker.
+
+    Args:
+        settings: H1's settings (already ``load()``-ed).
+        mongo: The host's Mongo client; never closed here.
+        publisher: The host's publisher, used by the consumers and the relay.
+
+    Returns:
+        The unit: subscribers to wire, the index and relay startup hooks, the
+        relay and audit-client shutdown hooks, and the ``indexes`` check.
     """
-    configured = settings or CaseflowSettings.load()
-    configure_logging(configured.app_name, configured.log_level, env=configured.env)
-
-    assert configured.mongodb_uri is not None
-    assert configured.mongodb_db is not None
-    assert configured.audit_service_url is not None
-    assert configured.rabbitmq_url is not None
-
-    mongo_client = get_client(configured.mongodb_uri)
-    db = mongo_client[configured.mongodb_db]
+    db_name = required_value(settings.mongodb_db, "MONGODB_DB", settings.app_name)
+    audit_url = required_value(
+        settings.audit_service_url, "AUDIT_SERVICE_URL", settings.app_name
+    )
+    db = mongo[db_name]
     consumed = db[CONSUMED_MESSAGES_COLLECTION]
-    case_runs = db[CASE_RUNS_COLLECTION]
-    run_events = db[RUN_EVENTS_COLLECTION]
-    gates_collection = db[GATES_COLLECTION]
     outbox_collection = db[OUTBOX_COLLECTION]
-    leases = db[LEASES_COLLECTION]
 
-    runs_store = CaseRunStore(case_runs, run_events)
-    gate_store = GateStore(gates_collection)
+    runs_store = CaseRunStore(db[CASE_RUNS_COLLECTION], db[RUN_EVENTS_COLLECTION])
+    gate_store = GateStore(db[GATES_COLLECTION])
     outbox = Outbox(outbox_collection)
 
     audit_http = ServiceClient(
-        configured.audit_service_url,
+        audit_url,
         dependency="audit",
-        caller=configured.app_name,
+        caller=settings.app_name,
         token_secret=(
-            configured.service_token_secret.get_secret_value()
-            if configured.service_token_secret
+            settings.service_token_secret.get_secret_value()
+            if settings.service_token_secret
             else None
         ),
     )
-    audit = AuditClient(audit_http)
-    engine = CaseflowEngine(runs_store, gate_store, outbox, audit)
+    engine = CaseflowEngine(runs_store, gate_store, outbox, AuditClient(audit_http))
 
-    broker = build_broker(configured.rabbitmq_url)
-    publisher = FastStreamPublisher(broker)
     case_events_consumer = CaseEventsConsumer(
-        consumed, publisher, engine=engine, client=mongo_client
+        consumed, publisher, engine=engine, client=mongo
     )
     agent_results_consumer = AgentResultsConsumer(
-        consumed, publisher, engine=engine, client=mongo_client
+        consumed, publisher, engine=engine, client=mongo
     )
-    wire_subscribers(broker, case_events_consumer, agent_results_consumer)
 
-    lease = MongoLease(leases, OUTBOX_RELAY_LEASE_NAME, new_id("relay"))
+    lease = MongoLease(db[LEASES_COLLECTION], OUTBOX_RELAY_LEASE_NAME, new_id("relay"))
     relay = OutboxRelay(outbox_collection, lease, publisher)
     stop_event = asyncio.Event()
     relay_task: list[asyncio.Task[None]] = []
-
     indexes_ready: list[bool] = []
 
     async def _ensure_indexes() -> None:
@@ -205,17 +183,47 @@ def build_app(settings: Optional[CaseflowSettings] = None) -> AsgiFastStream:
         if relay_task:
             await relay_task[0]
 
+    return WorkerUnit(
+        "H1",
+        wire=lambda broker: wire_subscribers(
+            broker,
+            case_events_consumer,
+            agent_results_consumer,
+            prefetch=settings.prefetch,
+        ),
+        after_startup=(_ensure_indexes, _start_relay),
+        on_shutdown=(_stop_relay, audit_http.aclose),
+        checks=(ReadinessCheck("indexes", _indexes_check, critical=True),),
+    )
+
+
+def build_app(settings: Optional[CaseflowSettings] = None) -> AsgiFastStream:
+    """The standalone H1 process (``python -m fcrm_caseflow``): its own
+    broker, the unit, and a health ASGI app, with real dependencies.
+    """
+    configured = settings or CaseflowSettings.load()
+    configure_logging(configured.app_name, configured.log_level, env=configured.env)
+
+    mongodb_uri = required_value(
+        configured.mongodb_uri, "MONGODB_URI", configured.app_name
+    )
+    rabbitmq_url = required_value(
+        configured.rabbitmq_url, "RABBITMQ_URL", configured.app_name
+    )
+    mongo_client = get_client(mongodb_uri)
+    broker = build_broker(rabbitmq_url)
+    unit = build_unit(
+        configured, mongo=mongo_client, publisher=FastStreamPublisher(broker)
+    )
+    unit.wire(broker)
+
     probe = ReadinessProbe(
-        [
-            mongo_check(mongo_client),
-            amqp_check(configured.rabbitmq_url),
-            ReadinessCheck("indexes", _indexes_check, critical=True),
-        ]
+        [mongo_check(mongo_client), amqp_check(rabbitmq_url), *unit.checks]
     )
     health_app = build_health_asgi_app(probe)
     return AsgiFastStream(
         broker,
         asgi_routes=[("/healthz", health_app), ("/readyz", health_app)],
-        after_startup=[_ensure_indexes, _start_relay],
-        on_shutdown=[_stop_relay],
+        after_startup=list(unit.after_startup),
+        on_shutdown=[*unit.on_shutdown, close_clients],
     )

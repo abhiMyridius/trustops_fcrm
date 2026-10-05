@@ -20,13 +20,14 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 WORKDIR /app
 COPY src/backend/ ./src/
-# Install only what the two processes import (the composites and, through
+# Install only what the two processes import (the two composites and, through
 # them, their services, workers and packages). --all-packages is avoided on
 # purpose: it would also build dev-only members such as fcrm-evals into the
 # image. The cache mount keeps wheels between builds so a source-only change
 # re-installs in seconds.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    cd src && uv sync --frozen --no-dev --no-editable --package fcrm-api
+    cd src && uv sync --frozen --no-dev --no-editable \
+        --package fcrm-api --package fcrm-harness
 
 FROM python:3.13-slim AS runtime
 

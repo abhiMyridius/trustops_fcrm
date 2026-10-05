@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import FastAPI
 from fcrm_common.auth import TokenVerifier
@@ -23,7 +23,7 @@ from fcrm_common.health import ReadinessCheck, ReadinessProbe
 from fcrm_common.logging import configure_logging
 from fcrm_common.mongo import mongo_client
 from fcrm_common.service import ServiceDeps
-from fcrm_common.settings import BaseServiceSettings, MissingSettingsError
+from fcrm_common.settings import BaseServiceSettings, required_value
 from fcrm_common.tracing import init_otel
 
 from fcrm_api import __version__
@@ -35,15 +35,6 @@ logger = logging.getLogger(__name__)
 #: A mounted service's own checks run concurrently with 2 s each; the
 #: aggregate check that wraps them needs a little more than that.
 SUBPROBE_TIMEOUT_S = 3.0
-
-
-def _required(value: Optional[str], name: str) -> str:
-    """``value``, or ``MissingSettingsError`` naming ``name`` (``load()`` has
-    already enforced it, so this only narrows the type).
-    """
-    if value is None:
-        raise MissingSettingsError("fcrm-api", [name], [])
-    return value
 
 
 def _service_settings(mount: ServiceMount, api: ApiSettings) -> BaseServiceSettings:
@@ -90,11 +81,11 @@ async def api_lifespan(app: FastAPI) -> AsyncIterator[None]:
     init_otel(settings.app_name, __version__, environment=settings.env, app=app)
     logger.info("starting", extra={"env": settings.env})
 
-    app_uri = _required(settings.mongodb_uri, "MONGODB_URI")
-    writer_uri = _required(
-        settings.mongodb_uri_audit_writer, "MONGODB_URI_AUDIT_WRITER"
+    app_uri = required_value(settings.mongodb_uri, "MONGODB_URI", settings.app_name)
+    writer_uri = required_value(
+        settings.mongodb_uri_audit_writer, "MONGODB_URI_AUDIT_WRITER", settings.app_name
     )
-    opa_url = _required(settings.opa_url, "OPA_URL")
+    opa_url = required_value(settings.opa_url, "OPA_URL", settings.app_name)
 
     async with AsyncExitStack() as stack:
         app_mongo = await stack.enter_async_context(mongo_client(app_uri))
