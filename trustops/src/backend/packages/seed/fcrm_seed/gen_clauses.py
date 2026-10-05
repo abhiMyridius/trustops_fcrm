@@ -86,6 +86,8 @@ LINES_PER_PAGE: Final = 50
 DEFAULT_BATCH_SIZE: Final = 6
 MAX_ATTEMPTS: Final = 2
 SEED_MODEL_LABEL: Final = "walkthrough_v2_seed"
+#: ``trustops/ai``, found from this file so the CLI works from any directory.
+DEFAULT_AI_ROOT: Final = Path(__file__).resolve().parents[5] / "ai"
 
 SYSTEM_PROMPT: Final = """\
 You write synthetic policy clauses for a demonstration of a bank's financial-crime \
@@ -746,7 +748,7 @@ def build_live_writer(ai_root: Optional[Path] = None) -> AgentClauseWriter:
     from fcrm_contracts.enums import Tier
     from pydantic_ai import Agent, ToolOutput
 
-    models = tier_models(Tier.MID, load_tiers_config(ai_root))
+    models = tier_models(Tier.MID, load_tiers_config(ai_root or DEFAULT_AI_ROOT))
     agent: Agent[None, ClauseBatch] = Agent(
         build_model(models),
         output_type=ToolOutput(ClauseBatch, name="clause_batch"),

@@ -593,3 +593,25 @@ def test_no_model_id_is_written_in_the_generator() -> None:
         source = Path(module.__file__ or "").read_text(encoding="utf-8")
         for line in source.splitlines():
             assert not re.search(r"claude-|anthropic\.|amazon\.nova|gpt-\d", line, re.I)
+
+
+def test_the_default_ai_root_is_the_repos_ai_folder_with_tiers_yaml() -> None:
+    assert (gen_clauses.DEFAULT_AI_ROOT / "models" / "tiers.yaml").is_file()
+
+
+def test_the_live_writer_builds_the_mid_tier_from_tiers_yaml_without_a_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fcrm_agents.models import load_tiers_config, tier_models
+    from fcrm_contracts.enums import Tier
+
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test")
+    writer = gen_clauses.build_live_writer()
+    mid = tier_models(Tier.MID, load_tiers_config(gen_clauses.DEFAULT_AI_ROOT))
+    assert isinstance(writer, gen_clauses.AgentClauseWriter)
+    assert writer._fallback == mid.primary
+    model = writer._agent.model
+    assert type(model).__name__ == "FallbackModel"
+    assert len(model.models) == len(mid.chain)
