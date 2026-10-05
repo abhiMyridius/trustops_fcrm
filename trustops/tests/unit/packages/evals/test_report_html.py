@@ -83,6 +83,7 @@ def dashboard(
         judge: str = "bedrock",
         trend: Optional[list[TrendPoint]] = None,
         reason: Optional[str] = None,
+        budget_factor: float = 1.0,
     ) -> tuple[str, RunIndex, list[EvalResult]]:
         results = []
         for agent in agents:
@@ -107,6 +108,7 @@ def dashboard(
             sample_n=5,
             seed=7,
             concurrency=3,
+            token_budget_factor=budget_factor,
         )
         points = trend if trend is not None else [trend_point(index)]
         return render_dashboard(index, results, points), index, results
@@ -385,3 +387,12 @@ async def test_the_header_says_which_prompts_the_agents_ran_with(
 ) -> None:
     html, _index, _results = await dashboard()
     assert "prompts: unrendered, as the H2 worker sends them" in html
+
+
+async def test_a_run_with_lifted_token_budgets_says_it_is_a_diagnostic(
+    dashboard: Callable[..., Any],
+) -> None:
+    html, _index, _results = await dashboard(budget_factor=5.0)
+    assert "DIAGNOSTIC: token budgets lifted ×5, not the system as shipped" in html
+    shipped, _i, _r = await dashboard()
+    assert "DIAGNOSTIC" not in shipped

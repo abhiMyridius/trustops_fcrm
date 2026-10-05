@@ -85,6 +85,12 @@ def _note(index: RunIndex) -> str:
         if index.instructions == "raw"
         else "fully rendered system prompts"
     )
+    lifted = (
+        f" DIAGNOSTIC: the per-attempt token budgets were lifted x"
+        f"{index.token_budget_factor:g}; this is not the system as shipped."
+        if index.token_budget_factor != 1.0
+        else ""
+    )
     return (
         f"Live run `{index.run_id}` at `{index.git_sha}`: {sample}; agents answered "
         f"on Bedrock via {models} with {prompt}; graded with {judge}. "
@@ -93,7 +99,7 @@ def _note(index: RunIndex) -> str:
         f"${index.cost_usd_total:.2f} ({index.tokens_total:,} tokens) at the list "
         f"prices in `ai/models/tiers.yaml` (`{index.price_status}`). A gate is the "
         "agent's primary metric against its threshold, on the sampled rows only; "
-        "the dashboard's per-metric table shows the rest."
+        "the dashboard's per-metric table shows the rest." + lifted
     )
 
 
@@ -180,6 +186,7 @@ async def run_live_command(args: argparse.Namespace) -> int:
         judge=args.judge,
         judge_votes=args.judge_votes,
         instructions=args.instructions,
+        token_budget_factor=args.token_budget_factor,
         spool=out,
     )
     baseline = load_baseline(root)
@@ -205,6 +212,7 @@ async def run_live_command(args: argparse.Namespace) -> int:
         seed=config.seed,
         concurrency=config.concurrency,
         instructions=config.instructions,
+        token_budget_factor=config.token_budget_factor,
         baseline_run_id=baseline_id,
     )
     html = write_run(
@@ -285,6 +293,13 @@ def add_live_arguments(run: argparse.ArgumentParser) -> None:
     run.add_argument("--row-timeout", type=float, default=420.0)
     run.add_argument("--judge", choices=["bedrock", "fake"], default="bedrock")
     run.add_argument("--judge-votes", type=int, default=3)
+    run.add_argument(
+        "--token-budget-factor",
+        type=float,
+        default=1.0,
+        help="DIAGNOSTIC: scale the per-attempt token limits; 1.0 is the shipped "
+        "budget and the only value for a baseline",
+    )
     run.add_argument(
         "--instructions",
         choices=["raw", "rendered"],

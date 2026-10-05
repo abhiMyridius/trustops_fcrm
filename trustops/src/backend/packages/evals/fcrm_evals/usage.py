@@ -173,6 +173,7 @@ class RowRun(BaseModel):
     claims_attempt1: Optional[int] = None
     verified_attempt1: Optional[int] = None
     guards: list[GuardTrace] = Field(default_factory=list)
+    feedback: list[str] = Field(default_factory=list)
 
     @property
     def retries(self) -> int:

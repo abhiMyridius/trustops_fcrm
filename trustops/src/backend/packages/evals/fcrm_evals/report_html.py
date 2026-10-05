@@ -320,6 +320,12 @@ def _header(index: RunIndex) -> str:
         f"{escape(', '.join(index.judge_models) or index.judge)}"
         f" · {index.judge_votes} vote(s)</span>"
     )
+    budget_chip = (
+        '<span class="chip warn">⚠ DIAGNOSTIC: token budgets lifted ×'
+        f"{index.token_budget_factor:g}, not the system as shipped</span>"
+        if index.token_budget_factor != 1.0
+        else ""
+    )
     prompt_chip = (
         '<span class="chip">prompts: unrendered, as the H2 worker sends them</span>'
         if index.instructions == "raw"
@@ -343,7 +349,7 @@ def _header(index: RunIndex) -> str:
         f"{escape(index.timestamp.isoformat(timespec='minutes'))} · "
         f"{escape(index.producer)} · {escape(sample)} · "
         f"concurrency {index.concurrency}</div>"
-        f'<div class="chips">{judge_chip}{prompt_chip}{models}</div></div>'
+        f'<div class="chips">{budget_chip}{judge_chip}{prompt_chip}{models}</div></div>'
         '<div class="hero">'
         f'<div class="big">{index.gates_pass}/{index.gates_total}</div>'
         '<div class="cap">gates PASS</div>'

@@ -98,6 +98,7 @@ class RunIndex(BaseModel):
     judge: str
     judge_votes: int
     instructions: str = "raw"
+    token_budget_factor: float = 1.0
     sample_n: Optional[int]
     seed: Optional[int]
     concurrency: int
@@ -300,6 +301,7 @@ def build_index(
     seed: Optional[int],
     concurrency: int,
     instructions: str = "raw",
+    token_budget_factor: float = 1.0,
     baseline_run_id: Optional[str] = None,
 ) -> RunIndex:
     """The :class:`RunIndex` of a finished run."""
@@ -319,6 +321,7 @@ def build_index(
         judge=judge,
         judge_votes=judge_votes,
         instructions=instructions,
+        token_budget_factor=token_budget_factor,
         sample_n=sample_n,
         seed=seed,
         concurrency=concurrency,

@@ -15,7 +15,7 @@ from fcrm_contracts.enums import AgentName
 from fcrm_contracts.proposals.screening import ScreeningProposal
 from fcrm_evals.datasets import load
 from fcrm_evals.instructions import InstructionRenderer
-from fcrm_evals.live import LiveProducer, RowPackBuilder
+from fcrm_evals.live import LiveProducer, RowPackBuilder, lifted_token_budgets
 from fcrm_evals.usage import RowStatus
 from fcrm_seed.loader import load_raw
 from fcrm_tools import build_seed_registry, seed_pins
@@ -198,6 +198,8 @@ async def test_blocked_run_has_no_items_and_says_why(
     assert run.stopped_at == "output_shape"
     assert (run.attempts, run.retries) == (2, 1)
     assert run.reason
+    assert run.feedback
+    assert all("FCRM-2026-9999" in line or "source" in line for line in run.feedback)
     first_attempt = [g for g in run.guards if g.attempt == 1]
     assert (first_attempt[-1].guard, first_attempt[-1].status) == (
         "output_shape",
@@ -233,6 +235,32 @@ async def test_the_runtimes_token_budget_blocks_an_overlong_run(
     assert output.run.stopped_at == "budget"
     assert "total_tokens_limit" in (output.run.reason or "")
     assert output.run.output_tokens > 6_000
+
+
+async def test_lifted_budgets_are_a_scoped_diagnostic_and_the_limit_comes_back(
+    producer_for: Callable[..., LiveProducer],
+    inflate_output: Callable[..., Any],
+) -> None:
+    row = load(AgentName.SCREENING)[0]
+    producer = producer_for(AgentName.SCREENING, [row], tamper=inflate_output)
+    with lifted_token_budgets(5.0):
+        lifted = await producer.produce(row)
+    after = await producer.produce(row)
+    assert lifted.status is RowStatus.OK
+    assert after.status is RowStatus.BLOCKED
+    assert after.run is not None
+    assert after.run.stopped_at == "budget"
+
+
+async def test_a_budget_factor_of_one_is_the_shipped_budget(
+    producer_for: Callable[..., LiveProducer],
+    inflate_output: Callable[..., Any],
+) -> None:
+    row = load(AgentName.SCREENING)[0]
+    producer = producer_for(AgentName.SCREENING, [row], tamper=inflate_output)
+    with lifted_token_budgets(1.0):
+        output = await producer.produce(row)
+    assert output.status is RowStatus.BLOCKED
 
 
 def test_every_agent_has_a_system_prompt_the_producer_can_load(repo_ai: Path) -> None:

@@ -29,7 +29,12 @@ from fcrm_contracts.enums import AgentName
 
 from fcrm_evals.datasets import dataset_path, load
 from fcrm_evals.instructions import DEFAULT_AI_ROOT, InstructionsMode
-from fcrm_evals.live import DEFAULT_ROW_TIMEOUT_S, LiveProducer, RowPackBuilder
+from fcrm_evals.live import (
+    DEFAULT_ROW_TIMEOUT_S,
+    LiveProducer,
+    RowPackBuilder,
+    lifted_token_budgets,
+)
 from fcrm_evals.metrics import suite_for
 from fcrm_evals.metrics.base import MetricSpec
 from fcrm_evals.metrics.judge import JudgeFn
@@ -62,6 +67,9 @@ class LiveRunConfig:
     judge: JudgeMode = "bedrock"
     judge_votes: int = DEFAULT_JUDGE_VOTES
     instructions: InstructionsMode = "raw"
+    token_budget_factor: float = 1.0
+    """Diagnostic: scale the per-attempt token limits (see
+    :func:`fcrm_evals.live.lifted_token_budgets`). 1.0 is the shipped budget."""
     ai_root: Path = DEFAULT_AI_ROOT
     spool: Optional[Path] = None
     """Where each agent's outputs are written the moment they exist, before any
@@ -225,20 +233,21 @@ async def run_live(
     )
     produce_gate = asyncio.Semaphore(max(1, config.concurrency))
     judge_gate = asyncio.Semaphore(max(1, config.concurrency))
-    ran = await asyncio.gather(
-        *(
-            _run_agent(
-                agent,
-                config,
-                model_factory=model_factory,
-                judge_factory=chosen,
-                produce_gate=produce_gate,
-                judge_gate=judge_gate,
-                timestamp=stamp,
+    with lifted_token_budgets(config.token_budget_factor):
+        ran = await asyncio.gather(
+            *(
+                _run_agent(
+                    agent,
+                    config,
+                    model_factory=model_factory,
+                    judge_factory=chosen,
+                    produce_gate=produce_gate,
+                    judge_gate=judge_gate,
+                    timestamp=stamp,
+                )
+                for agent in config.agents
             )
-            for agent in config.agents
         )
-    )
     outcome = LiveRunOutcome(
         config=config, timestamp=stamp, tiers=load_tiers_config(config.ai_root)
     )

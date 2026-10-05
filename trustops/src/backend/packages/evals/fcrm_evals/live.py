@@ -33,12 +33,20 @@ from __future__ import annotations
 import logging
 import re
 import time
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import (
+    Awaitable,
+    Callable,
+    Iterator,
+    Mapping,
+    Sequence,
+)
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any, Final, Optional, Union
 
+from fcrm_agent_worker import live_runtime
 from fcrm_agent_worker.live_runtime import (
     ModelFactory,
     live_model_for_slot,
@@ -727,6 +735,38 @@ class RowPackBuilder:
         )
 
 
+# ---- diagnostics ------------------------------------------------------------
+
+
+@contextmanager
+def lifted_token_budgets(factor: float) -> Iterator[None]:
+    """Scale every attempt's token limit by ``factor`` while the block runs.
+
+    **A diagnostic, never the shipped path.** The tier budgets (cheap 6k, mid
+    12k, strong 20k tokens an attempt) are hard rules of the runtime, and a run
+    under them says whether the system as built can finish. When the budget is
+    what blocks a row, the agent's own quality cannot be seen behind it; one
+    run with the limit lifted shows it, and the run says so everywhere
+    (``token_budget_factor`` in the index, a chip on the dashboard, a line in
+    the report). ``1.0`` changes nothing.
+    """
+    if factor == 1.0:
+        yield
+        return
+    namespace = vars(live_runtime)
+    real = namespace["attempt_plan"]
+
+    def lifted(*args: Any, **kwargs: Any) -> AttemptPlan:
+        plan: AttemptPlan = real(*args, **kwargs)
+        return plan.model_copy(update={"token_limit": int(plan.token_limit * factor)})
+
+    namespace["attempt_plan"] = lifted
+    try:
+        yield
+    finally:
+        namespace["attempt_plan"] = real
+
+
 # ---- metering ---------------------------------------------------------------
 
 
@@ -799,6 +839,22 @@ def _first_claims(result: AgentRunResult) -> tuple[Optional[int], Optional[int]]
         if guard.guard is GuardName.OUTPUT_SHAPE and "claims" in guard.details:
             return int(guard.details["claims"]), int(guard.details.get("verified", 0))
     return None, None
+
+
+FEEDBACK_LINES: Final[int] = 5
+FEEDBACK_CHARS: Final[int] = 240
+
+
+def _guard_feedback(result: AgentRunResult) -> list[str]:
+    """Why Guard 4 refused the last attempt, one line per failing item (its own
+    ``details["feedback"]``): the evidence a blocked row's reason does not
+    carry (which quote was not verbatim, which source did not resolve)."""
+    for attempt in reversed(result.attempts):
+        for guard in attempt.guard_results:
+            lines = guard.details.get("feedback") if guard.details else None
+            if guard.guard is GuardName.OUTPUT_SHAPE and lines:
+                return [str(line)[:FEEDBACK_CHARS] for line in lines[:FEEDBACK_LINES]]
+    return []
 
 
 class LiveProducer:
@@ -957,6 +1013,7 @@ class LiveProducer:
             claims_attempt1=claims,
             verified_attempt1=verified,
             guards=_guard_trail(result) if result else [],
+            feedback=_guard_feedback(result) if result else [],
         )
         logger.info(
             "row %s %s: %d item(s), %d call(s), %d+%d tokens, $%.4f, %.1fs%s",
@@ -988,5 +1045,6 @@ __all__ = [
     "MeteredModel",
     "RowPackBuilder",
     "RowView",
+    "lifted_token_budgets",
     "metered_factory",
 ]
