@@ -1,7 +1,7 @@
 # The project lives in trustops/ inside the trustops_fcrm repo (ADR-25).
 # pre-commit runs hooks from the git root, so entries carry the trustops/
-# prefix and `files` keeps Documents/ and FCRM_v2/ out of the Python hooks.
-files: ^trustops/
+# prefix, and the Python hooks' `files` keeps Documents/ and FCRM_v2/ out. No
+# top-level `files`: it would also filter out .git/COMMIT_EDITMSG.
 repos:
   - repo: local
     hooks:
@@ -10,22 +10,26 @@ repos:
         entry: uv run --project trustops/src ruff format
         language: system
         types: [python]
+        files: ^trustops/
       - id: ruff-check
         name: ruff check
         entry: uv run --project trustops/src ruff check --fix
         language: system
         types: [python]
+        files: ^trustops/
       - id: mypy
         name: mypy (changed packages)
         entry: trustops/ops/scripts/mypy_changed.sh
         language: system
         types: [python]
+        files: ^trustops/
         pass_filenames: false
       - id: pytest-unit
         name: pytest unit (changed packages)
         entry: trustops/ops/scripts/pytest_changed.sh
         language: system
         types: [python]
+        files: ^trustops/
         pass_filenames: false
       - id: governance-append-only
         name: governance tables are append-only
