@@ -1012,11 +1012,22 @@
         "effect": "allow"
       },
       {
-        "id": "decision-get-packs-pack_id-analyst-committee",
-        "description": "pack view",
+        "id": "decision-get-committee-queue-committee",
+        "description": "committee queue: released packs with the member's own vote status",
         "service": "decision",
         "method": "GET",
-        "path": "/packs/{pack_id}",
+        "path": "/committee/queue",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "decision-get-cases-case_id-packs-latest-analyst-committee",
+        "description": "the case's latest pack (committee: latest released)",
+        "service": "decision",
+        "method": "GET",
+        "path": "/cases/{case_id}/packs/latest",
         "roles": [
           "fcrm_analyst",
           "fcrm_committee"
@@ -1048,8 +1059,20 @@
         "effect": "allow"
       },
       {
+        "id": "decision-get-packs-pack_id-analyst-committee",
+        "description": "pack view",
+        "service": "decision",
+        "method": "GET",
+        "path": "/packs/{pack_id}",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
         "id": "decision-get-packs-pack_id-votes-analyst-committee",
-        "description": "pack votes (votes hidden until tally)",
+        "description": "pack votes (a peer's choice is withheld until all three are cast)",
         "service": "decision",
         "method": "GET",
         "path": "/packs/{pack_id}/votes",
@@ -1061,7 +1084,7 @@
       },
       {
         "id": "decision-get-packs-pack_id-outcome-analyst-committee",
-        "description": "pack outcome (409 before quorum)",
+        "description": "pack outcome (409 before a round is tallied)",
         "service": "decision",
         "method": "GET",
         "path": "/packs/{pack_id}/outcome",
@@ -1073,7 +1096,7 @@
       },
       {
         "id": "decision-get-packs-pack_id-threads-analyst-committee",
-        "description": "pack threads (votes hidden until tally)",
+        "description": "pack threads (visible to every member and the analyst, R6)",
         "service": "decision",
         "method": "GET",
         "path": "/packs/{pack_id}/threads",
@@ -1084,20 +1107,20 @@
         "effect": "allow"
       },
       {
-        "id": "decision-get-packs-pack_id-addenda-analyst-committee",
-        "description": "pack addenda (votes hidden until tally)",
+        "id": "decision-post-packs-analyst-service",
+        "description": "H1 builds a pack and S5 freezes it; an analyst asks for the case's latest",
         "service": "decision",
-        "method": "GET",
-        "path": "/packs/{pack_id}/addenda",
+        "method": "POST",
+        "path": "/packs",
         "roles": [
           "fcrm_analyst",
-          "fcrm_committee"
+          "fcrm_service"
         ],
         "effect": "allow"
       },
       {
         "id": "decision-post-packs-pack_id-release-analyst",
-        "description": "gate pack_release (assigned analyst)",
+        "description": "gate pack_release (409 unless all four checks pass)",
         "service": "decision",
         "method": "POST",
         "path": "/packs/{pack_id}/release",
@@ -1107,54 +1130,8 @@
         "effect": "allow"
       },
       {
-        "id": "decision-post-threads-thread_id-answer-analyst",
-        "description": "R6 answer / addendum",
-        "service": "decision",
-        "method": "POST",
-        "path": "/threads/{thread_id}/answer",
-        "roles": [
-          "fcrm_analyst"
-        ],
-        "effect": "allow"
-      },
-      {
-        "id": "decision-post-questions-question_id-answers-analyst-service",
-        "description": "R6 answer / addendum (answered_by must be the caller)",
-        "service": "decision",
-        "method": "POST",
-        "path": "/questions/{question_id}/answers",
-        "roles": [
-          "fcrm_analyst",
-          "fcrm_service"
-        ],
-        "effect": "allow"
-      },
-      {
-        "id": "decision-post-release-checks-analyst-service",
-        "description": "re-derive the four release checks (stateless)",
-        "service": "decision",
-        "method": "POST",
-        "path": "/release-checks",
-        "roles": [
-          "fcrm_analyst",
-          "fcrm_service"
-        ],
-        "effect": "allow"
-      },
-      {
-        "id": "decision-get-committee-queue-committee",
-        "description": "committee queue",
-        "service": "decision",
-        "method": "GET",
-        "path": "/committee/queue",
-        "roles": [
-          "fcrm_committee"
-        ],
-        "effect": "allow"
-      },
-      {
         "id": "decision-post-packs-pack_id-votes-committee",
-        "description": "gate vote: hidden, rationale required",
+        "description": "gate vote: hidden, rationale required, the caller is the voter",
         "service": "decision",
         "method": "POST",
         "path": "/packs/{pack_id}/votes",
@@ -1165,7 +1142,7 @@
       },
       {
         "id": "decision-post-packs-pack_id-threads-committee",
-        "description": "R6 committee question",
+        "description": "R6 committee question (the caller is the asker)",
         "service": "decision",
         "method": "POST",
         "path": "/packs/{pack_id}/threads",
@@ -1175,30 +1152,19 @@
         "effect": "allow"
       },
       {
-        "id": "decision-post-packs-pack_id-questions-committee",
-        "description": "R6 committee question (asked_by must be the caller)",
+        "id": "decision-post-threads-thread_id-answer-analyst",
+        "description": "R6 answer / addendum (the caller is the answerer)",
         "service": "decision",
         "method": "POST",
-        "path": "/packs/{pack_id}/questions",
+        "path": "/threads/{thread_id}/answer",
         "roles": [
-          "fcrm_committee"
-        ],
-        "effect": "allow"
-      },
-      {
-        "id": "decision-post-packs-service",
-        "description": "H1 builds a pack; S5 freezes it",
-        "service": "decision",
-        "method": "POST",
-        "path": "/packs",
-        "roles": [
-          "fcrm_service"
+          "fcrm_analyst"
         ],
         "effect": "allow"
       },
       {
         "id": "decision-post-packs-pack_id-supersede-service",
-        "description": "R6 pack v2",
+        "description": "R6 pack v2: H1 supersedes the unlocked pack",
         "service": "decision",
         "method": "POST",
         "path": "/packs/{pack_id}/supersede",
@@ -1209,7 +1175,7 @@
       },
       {
         "id": "decision-post-packs-pack_id-revote-service",
-        "description": "ADR-08 no_majority re-vote round",
+        "description": "ADR-08 no_majority: H1 confirms the re-vote round",
         "service": "decision",
         "method": "POST",
         "path": "/packs/{pack_id}/revote",
@@ -1220,7 +1186,7 @@
       },
       {
         "id": "decision-post-outcomes-service",
-        "description": "record an outcome decided by people",
+        "description": "record an outcome decided by people (committee tally or delegated close)",
         "service": "decision",
         "method": "POST",
         "path": "/outcomes",
@@ -1239,6 +1205,50 @@
           "fcrm_service"
         ],
         "effect": "allow"
+      },
+      {
+        "id": "deny-decision-post-packs-pack_id-release",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "decision",
+        "method": "POST",
+        "path": "/packs/{pack_id}/release",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-decision-post-packs-pack_id-votes",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "decision",
+        "method": "POST",
+        "path": "/packs/{pack_id}/votes",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-decision-post-packs-pack_id-threads",
+        "description": "Guard 7: committee questions are asked by members, never by the service account",
+        "service": "decision",
+        "method": "POST",
+        "path": "/packs/{pack_id}/threads",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-decision-post-threads-thread_id-answer",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "decision",
+        "method": "POST",
+        "path": "/threads/{thread_id}/answer",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
       },
       {
         "id": "identity-get-me-po-analyst-committee-observer",
@@ -1455,50 +1465,6 @@
         "service": "case",
         "method": "POST",
         "path": "/reflags/{id}/acknowledge",
-        "roles": [
-          "fcrm_service"
-        ],
-        "effect": "deny"
-      },
-      {
-        "id": "deny-decision-post-packs-pack_id-release",
-        "description": "Guard 7: human gates are decided by people, never by the service account",
-        "service": "decision",
-        "method": "POST",
-        "path": "/packs/{pack_id}/release",
-        "roles": [
-          "fcrm_service"
-        ],
-        "effect": "deny"
-      },
-      {
-        "id": "deny-decision-post-packs-pack_id-votes",
-        "description": "Guard 7: human gates are decided by people, never by the service account",
-        "service": "decision",
-        "method": "POST",
-        "path": "/packs/{pack_id}/votes",
-        "roles": [
-          "fcrm_service"
-        ],
-        "effect": "deny"
-      },
-      {
-        "id": "deny-decision-post-packs-pack_id-questions",
-        "description": "Guard 7: committee questions are asked by members, never by the service account",
-        "service": "decision",
-        "method": "POST",
-        "path": "/packs/{pack_id}/questions",
-        "roles": [
-          "fcrm_service"
-        ],
-        "effect": "deny"
-      },
-      {
-        "id": "deny-decision-post-threads-thread_id-answer",
-        "description": "Guard 7: human gates are decided by people, never by the service account",
-        "service": "decision",
-        "method": "POST",
-        "path": "/threads/{thread_id}/answer",
         "roles": [
           "fcrm_service"
         ],
