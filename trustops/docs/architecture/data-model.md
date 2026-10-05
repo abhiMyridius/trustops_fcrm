@@ -46,10 +46,12 @@ Each of the three versioned collections has a unique `version` index and a parti
 
 | Collection | Shape | Notes |
 |---|---|---|
-| `packs` | `fcrm_decision.packs.PackSnapshot` | Frozen, content-hashed; `superseded_by` on a pack v2 |
-| `votes` | `VoteCast` | Unique `{pack_id, member_id, round}` once the DB layer lands, so a member cannot vote twice in one round |
-| `threads` / `addenda` | `CommitteeQuestion` / `CommitteeAnswer` | R6 |
-| `outcomes` | `OutcomeSet` | One per case; `no_majority` is a valid terminal state for a round, never for the case |
+| `packs` | `fcrm_decision.rows.PackRow` | `content` is H1's `PackContent` snapshot, stored and hashed as sent and never changed; `content_hash`, the four `checks`, `released_at`/`released_to`, `superseded_at`/`superseded_by`, `current_round`, `decided`. Unique `{case_id, version}` and `{pack_id}`; `{released_at}` serves the committee queue. A pack is built unreleased; the analyst's release opens it |
+| `votes` | `fcrm_decision.rows.VoteRow` | Unique `{pack_id, round, member_id}` (one vote per member per round, voided rows keep their seat); a voided vote is kept, never deleted. A round's votes are read by `{pack_id, round}` |
+| `outcomes` | `OutcomeRow{outcome: OutcomeSet, mode, decided_at, recorded}` | `_id` = `<pack_id>:<round>`; one row per tallied round, so a `no_majority` round is kept beside the next one. `delegated` closes carry `delegated:<case_id>` as the pack id. Indexed by `{outcome.pack_id, outcome.round}` and `{outcome.case_id, outcome.round}` |
+| `questions` | `ThreadRow` | One committee thread (R6) with its `answer` (the pack addendum) embedded; `{pack_id, created_at}`. S5 opens a system thread when a round ends with no majority |
+| `outbox` | `fcrm_common.outbox` row | The events S5 publishes (`pack.released`, `vote.cast`, `vote.tallied`, `vote.no_majority`, `vote.rerequested`, `pack.superseded`, `committee.question_asked`, `committee.answered`, `outcome.set`), written in the same transaction as the state change; relayed under the lease `outbox-relay:decision` |
+| `idempotency_keys` | `KeyRow` | `_id` = the `Idempotency-Key` on a service `POST`; `{kind, fingerprint, result, case_id, at}`, inserted with the change it produced; 24 h TTL on `at`. The same body replays the stored result, another body is a 409 |
 
 ## `fcrm_harness` (H1)
 

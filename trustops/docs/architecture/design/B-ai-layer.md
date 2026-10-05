@@ -1087,7 +1087,7 @@ The deck's token slide is generated from this file; nothing in it is typed by ha
 | Question batching, dedupe | Probabilistic with deterministic grounding check | Wording needs a model; "traces to a finding" is checked by code |
 | Pack generation | Deterministic (S5) | Assembles locked numbers and pinned versions; no model may touch the pack |
 | Four release checks | Deterministic | Boolean checks over ledger and gate state |
-| Vote tally and outcome (proposed rule for S5) | Deterministic | Plurality of three votes; a 1-1-1 split or any outcome short of two votes resolves to `defer` with "no majority" recorded, because nothing is approved without a majority |
+| Vote tally and outcome (proposed rule for S5) | Deterministic | Two identical votes of three decide; a 1-1-1 split or any count short of two identical votes is `no_majority` and opens round two (ADR-08, ADR-31), because nothing is decided without a majority, and `defer` is itself a decision |
 | Hash chain and verify | Deterministic (S4) | sha256 over canonical record + prev_hash; insert-only user |
 | Restricted-term check on PO text | Deterministic (regex) | A model cannot be trusted to police its own output; the list is short and auditable |
 | Number grounding in narrative | Deterministic | Token set comparison |
