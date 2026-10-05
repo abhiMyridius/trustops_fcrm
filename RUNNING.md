@@ -50,6 +50,22 @@ make keys        # generate the dev RS256 JWT keypair into jwt_keys/
 
 Every seeded demo user shares one password, `demo-password-2026`. To choose your own, run `make env DEMO_PASSWORD=<yours>` instead. This works only while `.env` does not exist yet.
 
+### The `.env` file
+
+`make env` writes a short `.env` of about 45 lines in three sections. Everything not in it uses a built-in default. `.env.example` is the full reference for every setting; you never edit or copy it.
+
+| Section | What to do |
+|---|---|
+| **1. Live AI on Amazon Bedrock** | Optional. Leave it empty and the agents run on recorded replays: no cost, no cloud. To go live, fill in `AWS_REGION`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (plus `AWS_SESSION_TOKEN` for SSO or temporary keys), and set `FCRM_LLM_MODE=live` |
+| **2. Host ports** | Optional. Change a port only if `up` reports `port is already allocated`: uncomment that line and choose a free port |
+| **3. Generated** | Leave as is. These are local passwords. The databases are created with them on the first start, so changing them later needs `make down-v`, which deletes local data |
+
+**About ports.** A host port is the number on your Mac where you reach a container, for example `http://localhost:8080` for the app. The six API services have no host port at all; you reach them only through the gateway on 8080. The other ports exist for the infrastructure and the dashboards. They clash only when another program on your Mac already uses the same number.
+
+**MinIO** is a small S3-compatible storage server running locally. It holds uploaded documents, the extracted text, frozen committee packs and vector-index data. On AWS the same code uses real S3 instead.
+
+If you created a `.env` before this change, keep it: it still works. To switch to the short form before your first `make up`, delete it and run `make env` again. If the stack has already run once, run `make down-v` first, because the databases already use the old passwords.
+
 Never commit `.env` or `jwt_keys/`.
 
 ## 2. Check the code (no stack needed)

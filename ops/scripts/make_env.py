@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
-"""Create a local ``.env`` from ``.env.example`` with generated dev secrets.
+"""Create a short local ``.env`` with generated dev secrets.
 
 Used by ``make env`` (and therefore ``make up`` / ``make up-infra``). It never
 overwrites an existing file, never prints a secret, and writes the file with
-mode 0600. Every variable the compose files require (``${VAR:?...}``) gets a
-value: usernames get fixed local names, passwords and the service-token
-secret get ``secrets.token_hex`` values (hex, so they are safe inside the
-Mongo/AMQP URIs compose builds). Everything else is left empty, which makes
-compose apply its documented ``${VAR:-default}``.
+mode 0600.
+
+The file it writes holds only what a person may need to touch, in three
+blocks: the optional AWS credentials for live mode, the host ports most
+likely to clash (commented out, with their defaults), and the generated
+values compose requires. Every other variable is left out, so compose
+applies its documented ``${VAR:-default}``. ``.env.example`` stays the full
+reference and the contract ``make compose-check`` enforces; every name
+written here must exist there.
+
+Usernames get fixed local names; passwords and the service-token secret get
+``secrets.token_hex`` values (hex, so they are safe inside the Mongo/AMQP
+URIs compose builds).
 
 Usage::
 
@@ -23,6 +31,7 @@ import re
 import secrets
 import sys
 from pathlib import Path
+from typing import Optional
 
 logger = logging.getLogger("make_env")
 
@@ -43,17 +52,73 @@ SECRETS = (
 )
 LOCAL_DEFAULTS = {
     "ENV": "local",
-    "FCRM_LLM_MODE": "replay",
     "VECTOR_BACKEND": "memory",
     "EMBEDDING_PROVIDER": "dummy",
 }
+#: The live-mode block, always written so there is one obvious place to add keys.
+AWS = (
+    "AWS_REGION",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+)
+#: Host ports that most often clash with other local stacks, with what each is.
+COMMON_PORTS = (
+    ("GATEWAY_HOST_PORT", "the app and API"),
+    ("GRAFANA_HOST_PORT", "Grafana dashboards"),
+    ("MONGO_HOST_PORT", "MongoDB"),
+    ("RABBITMQ_HOST_PORT", "RabbitMQ"),
+    ("RABBITMQ_MGMT_HOST_PORT", "RabbitMQ admin UI"),
+    ("REDIS_HOST_PORT", "Redis"),
+    ("MINIO_HOST_PORT", "MinIO (local S3)"),
+    ("MINIO_CONSOLE_HOST_PORT", "MinIO console"),
+    ("OPA_HOST_PORT", "OPA policy engine"),
+    ("PROMETHEUS_HOST_PORT", "Prometheus"),
+    ("JAEGER_UI_HOST_PORT", "Jaeger traces"),
+)
 ASSIGNMENT = re.compile(r"^([A-Z][A-Z0-9_]*)=(.*)$")
+#: ``# [8080]`` or ``# [5173] vite dev server``: the next assignment's default.
+BRACKET_DEFAULT = re.compile(r"^#.*?\[([^\]]+)\]")
+
+HEADER = """\
+# TrustOps local settings, written by `make env`. Never commit this file.
+# Anything not listed here uses its built-in default; every setting is
+# described in .env.example.
+"""
+AWS_INTRO = """\
+# ── 1. Optional: live AI on Amazon Bedrock ─────────────────────────────
+# Leave empty and the agents run on recorded replays: no cost, no cloud.
+# To go live, fill these in and set FCRM_LLM_MODE=live.
+"""
+PORTS_INTRO = """\
+# ── 2. Optional: host ports ────────────────────────────────────────────
+# Change one only if `up` says "port is already allocated": uncomment the
+# line and pick a free port. The values shown are the defaults.
+"""
+GENERATED_INTRO = """\
+# ── 3. Generated: leave as is ──────────────────────────────────────────
+# Local passwords and secrets. The databases are created with these on the
+# first start, so changing them later needs `make down-v` (deletes local data).
+"""
+
+
+def example_defaults(example: str) -> dict[str, str]:
+    """Map each ``.env.example`` assignment to the ``[default]`` in its comment."""
+    defaults: dict[str, str] = {}
+    previous = ""
+    for line in example.splitlines():
+        match = ASSIGNMENT.match(line)
+        if match:
+            bracket = BRACKET_DEFAULT.match(previous)
+            defaults[match.group(1)] = bracket.group(1) if bracket else ""
+        previous = line
+    return defaults
 
 
 def render(
-    example: str, overrides: dict[str, str] | None = None
+    example: str, overrides: Optional[dict[str, str]] = None
 ) -> tuple[str, list[str]]:
-    """Fill the example's assignments; return the text and generated names.
+    """Build the short ``.env``; return the text and the names given a value.
 
     Args:
         example: the contents of ``.env.example``.
@@ -63,34 +128,58 @@ def render(
 
     Returns:
         The rendered ``.env`` text and the names that received a value.
+
+    Raises:
+        ValueError: a name this script writes is missing from ``.env.example``
+            (the contract has drifted).
     """
-    lines: list[str] = []
-    filled: list[str] = []
-    for line in example.splitlines():
-        match = ASSIGNMENT.match(line)
-        if not match:
-            lines.append(line)
-            continue
-        name = match.group(1)
-        value = ""
-        if overrides and name in overrides:
+    overrides = overrides or {}
+    known = example_defaults(example)
+    wanted = [
+        *AWS,
+        "FCRM_LLM_MODE",
+        *(n for n, _ in COMMON_PORTS),
+        *USERNAMES,
+        *SECRETS,
+        *LOCAL_DEFAULTS,
+        *overrides,
+    ]
+    missing = sorted({n for n in wanted if n not in known})
+    if missing:
+        raise ValueError(f".env.example has no assignment for: {', '.join(missing)}")
+
+    def value_of(name: str) -> str:
+        if name in overrides:
             # docker compose interpolates ``$NAME`` inside .env values, so a
             # literal dollar (bcrypt hashes start with ``$2b$12$``) must be
             # written as ``$$`` or compose silently mangles the value.
-            value = overrides[name].replace("$", "$$")
-        elif name in SECRETS:
-            value = secrets.token_hex(24)
-        elif name in USERNAMES:
-            value = USERNAMES[name]
-        elif name in LOCAL_DEFAULTS:
-            value = LOCAL_DEFAULTS[name]
+            return overrides[name].replace("$", "$$")
+        if name in SECRETS:
+            return secrets.token_hex(24)
+        return USERNAMES.get(name) or LOCAL_DEFAULTS.get(name, "")
+
+    filled: list[str] = []
+    lines = [HEADER.rstrip("\n"), "", AWS_INTRO.rstrip("\n"), "FCRM_LLM_MODE=replay"]
+    lines += [f"{name}=" for name in AWS]
+    lines += ["", PORTS_INTRO.rstrip("\n")]
+    width = max(len(f"{n}={known[n]}") for n, _ in COMMON_PORTS)
+    lines += [f"# {f'{n}={known[n]}':<{width}}  {what}" for n, what in COMMON_PORTS]
+    lines += [
+        "# (every other port: see .env.example)",
+        "",
+        GENERATED_INTRO.rstrip("\n"),
+    ]
+    generated = [*USERNAMES, *SECRETS, *LOCAL_DEFAULTS]
+    generated += [n for n in overrides if n not in generated and n not in AWS]
+    for name in generated:
+        value = value_of(name)
         if value:
             filled.append(name)
         lines.append(f"{name}={value}")
     return "\n".join(lines) + "\n", filled
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: Optional[list[str]] = None) -> int:
     """Write the env file unless it already exists."""
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -114,12 +203,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.out.exists():
         logger.info("%s already exists; leaving it untouched", args.out)
         return 0
-    text, filled = render(args.example.read_text(encoding="utf-8"), overrides)
+    try:
+        text, filled = render(args.example.read_text(encoding="utf-8"), overrides)
+    except ValueError as exc:
+        logger.error("make_env: %s", exc)
+        return 1
     fd = os.open(args.out, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as handle:
         handle.write(text)
     logger.info("wrote %s (mode 0600); generated: %s", args.out, ", ".join(filled))
-    logger.info("add AWS credentials there to switch to live mode (BUILD-PLAN §11)")
+    logger.info("to use live Bedrock, add your AWS keys in section 1 of %s", args.out)
     return 0
 
 
