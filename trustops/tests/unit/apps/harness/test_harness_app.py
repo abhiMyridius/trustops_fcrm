@@ -244,7 +244,7 @@ def test_the_units_contribute_their_startup_shutdown_hooks_and_checks(
     by_id = {unit.component_id: unit for unit in units}
     assert list(by_id) == ["H1", "H2", "H3", "H4"]
     # H1: index creation then the outbox relay; its relay stops and it closes
-    # its audit, S1, S3, S2 and S5 clients.
+    # its audit, S1, S3, S2 and S5 clients (S5 serves both of its roles).
     assert len(by_id["H1"].after_startup) == 2
     assert len(by_id["H1"].on_shutdown) == 6
     assert [check.name for check in by_id["H1"].checks] == ["indexes"]

@@ -22,10 +22,14 @@ def _seed_audit_types() -> set[str]:
 
 
 class TestStepFor:
-    def test_it_holds_exactly_the_triggers_the_intake_and_assessment_cores_handle(
+    def test_it_holds_the_triggers_the_intake_and_assessment_cores_handle(
         self,
     ) -> None:
-        assert dict(STEP_FOR) == {
+        """Other cores add their own entries (the decision core's are asserted
+        in ``test_decision_wiring.py``); this pins the intake and assessment
+        cores'.
+        """
+        intake = {
             # intake (scenes 2-7)
             Trigger.CASE_CREATED: StepKind.INTAKE_OPEN,
             Trigger.CASE_DOCUMENT_STORED: StepKind.INTAKE_DOCUMENT_STORED,
@@ -60,6 +64,7 @@ class TestStepFor:
             Trigger.PACK_RELEASED: StepKind.PACK_APPROVED,
             Trigger.CASE_UNLOCKED: StepKind.UNLOCK_SUPERSEDE,
         }
+        assert intake.items() <= dict(STEP_FOR).items()
 
     def test_every_mapped_step_has_a_default_handler(self) -> None:
         """A trigger mapped to a step nobody can run would leave its run

@@ -64,11 +64,22 @@ TEST_MOUNTS = tuple(
 
 
 class FakeSubscriber:
-    """One subscriber a service added to the broker after it started."""
+    """One subscription a service registered on the fake broker after it started
+    (``wire_consumer``'s ``broker.subscriber(...)(handler)``): it records that it
+    was started and stopped.
+    """
 
     def __init__(self, queue: object) -> None:
         self.queue = queue
         self.running = False
+
+    @property
+    def started(self) -> bool:
+        """Whether it is running now (the name S1's consumer tests read)."""
+        return self.running
+
+    def __call__(self, handler: object) -> object:
+        return handler
 
     async def start(self) -> None:
         self.running = True
@@ -80,7 +91,8 @@ class FakeSubscriber:
 class FakeBroker:
     """Stands in for the process's one ``RabbitBroker`` (no RabbitMQ runs in
     these tests): it records what the services' relays publish through it and
-    which subscribers the services add to it (S3's ``index.*`` consumer).
+    which subscriptions the services' consumers register on it (S3's ``index.*``
+    consumer, S1's ``case-service.events`` consumer).
     """
 
     def __init__(self) -> None:
@@ -88,12 +100,15 @@ class FakeBroker:
         self.published: list[tuple[bytes, dict[str, object]]] = []
         self.subscribers: list[FakeSubscriber] = []
 
-    def subscriber(self, queue: object, *args: object, **kwargs: object) -> object:
-        """``RabbitBroker.subscriber``: returns the decorator that registers
-        the handler (kept as is; nothing is delivered in these tests).
+    def subscriber(
+        self, queue: object, *args: object, **kwargs: object
+    ) -> FakeSubscriber:
+        """``RabbitBroker.subscriber``: the subscription, also a decorator that
+        hands the handler back (nothing is delivered in these tests).
         """
-        self.subscribers.append(FakeSubscriber(queue))
-        return lambda handler: handler
+        sub = FakeSubscriber(queue)
+        self.subscribers.append(sub)
+        return sub
 
     async def start(self) -> None:
         self.started = True
@@ -103,6 +118,13 @@ class FakeBroker:
 
     async def publish(self, body: bytes, **kwargs: object) -> None:
         self.published.append((body, kwargs))
+
+
+def _on_queue(broker: FakeBroker, queue: str) -> list[FakeSubscriber]:
+    """The subscriptions the services added for one queue (every service that
+    consumes adds its own to the same broker).
+    """
+    return [s for s in broker.subscribers if getattr(s.queue, "name", None) == queue]
 
 
 async def _always_ok() -> None:
@@ -248,6 +270,22 @@ def test_s1_relays_its_outbox_through_the_composites_broker(
     assert fake_broker.started is False
 
 
+def test_s1_consumes_its_queue_through_the_composites_broker(
+    clean_dbs: None,
+    composite_env: None,
+    fake_broker: FakeBroker,
+    composite_client: Callable[[], AbstractContextManager[TestClient]],
+) -> None:
+    """S1 registers its subscriptions on the broker the composite already
+    started, starts each, and stops them when the process stops.
+    """
+    with composite_client():
+        mine = _on_queue(fake_broker, "case-service.events")
+        assert len(mine) == 4  # one per key ops bound
+        assert all(sub.started for sub in mine)
+    assert not any(sub.started for sub in mine)
+
+
 def test_s5_relays_its_outbox_through_the_composites_broker(
     clean_dbs: None,
     composite_env: None,
@@ -291,9 +329,8 @@ def test_s3_adds_its_index_consumer_to_the_composites_started_broker(
     composite_client: Callable[[], AbstractContextManager[TestClient]],
 ) -> None:
     with composite_client():
-        [subscriber] = fake_broker.subscribers
+        [subscriber] = _on_queue(fake_broker, "policy-service.events")
         assert subscriber.running is True
-        assert getattr(subscriber.queue, "name", None) == "policy-service.events"
     assert subscriber.running is False
 
 

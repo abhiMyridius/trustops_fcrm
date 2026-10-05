@@ -48,6 +48,7 @@ if TYPE_CHECKING:
     from fcrm_case.directory import AnalystLoadService, StaticIdentityDirectory
     from fcrm_case.domain.record import CaseRecord
     from fcrm_case.domain.views import ReviewItemRow
+    from fcrm_case.outcome_store import InMemoryOutcomeStore
     from fcrm_case.po_store import InMemoryPoStore
     from fcrm_case.sse import EventHub
     from fcrm_case.store import InMemoryCaseStore
@@ -785,6 +786,7 @@ class CaseService:
     loads: AnalystLoadService
     po: InMemoryPoStore
     objects: FakeObjectStore
+    outcomes: InMemoryOutcomeStore
 
 
 @pytest.fixture
@@ -805,6 +807,7 @@ def case_service(
     from fcrm_case.directory import AnalystLoadService, StaticIdentityDirectory
     from fcrm_case.fieldset_provider import active_type_domains, field_set_for
     from fcrm_case.main import create_app
+    from fcrm_case.outcome_store import InMemoryOutcomeStore
     from fcrm_case.po_documents import DirectoryFixtures
     from fcrm_case.po_store import InMemoryPoStore
     from fcrm_case.po_uploads import DocumentIntake
@@ -821,9 +824,15 @@ def case_service(
         ]
     )
     loads = AnalystLoadService(case_store, directory)
+    outcomes = InMemoryOutcomeStore(
+        case_store.activity,
+        lambda case_id: case_store._cases.get(case_id),
+        lambda record: case_store._cases.__setitem__(record.case_id, record),
+    )
     app = create_app()
     app.state.store = case_store
     app.state.views = view_store
+    app.state.outcomes = outcomes
     app.state.hub = event_hub
     app.state.directory = directory
     app.state.loads = loads
@@ -852,6 +861,7 @@ def case_service(
         loads=loads,
         po=po,
         objects=objects,
+        outcomes=outcomes,
     )
 
 
@@ -1122,6 +1132,57 @@ class FakeOutboxCollection:
                 doc.update(update.get("$set", {}))
                 for key, value in update.get("$inc", {}).items():
                     doc[key] = doc.get(key, 0) + value
+
+
+class FakeConsumedCollection:
+    """The ``consumed_messages`` collection as ``fcrm_common.events.Consumer``
+    uses it without a transaction: ``find_one`` and ``insert_one`` by
+    ``(message_id, consumer)``, a duplicate raising ``DuplicateKeyError``.
+    """
+
+    def __init__(self) -> None:
+        self.docs: list[dict[str, Any]] = []
+
+    async def find_one(
+        self, query: dict[str, Any], projection: Any = None
+    ) -> Optional[dict[str, Any]]:
+        for doc in self.docs:
+            if all(doc.get(k) == v for k, v in query.items()):
+                return doc
+        return None
+
+    async def insert_one(self, doc: dict[str, Any], session: Any = None) -> None:
+        from pymongo.errors import DuplicateKeyError
+
+        if await self.find_one(
+            {"message_id": doc["message_id"], "consumer": doc["consumer"]}
+        ):
+            raise DuplicateKeyError("duplicate message")
+        self.docs.append(dict(doc))
+
+
+class TopicRecorder:
+    """A ``Publisher`` that keeps ``(exchange, routing_key, body)``, so a test
+    can see where a failed message went (the retry or the dead-letter exchange).
+    """
+
+    def __init__(self) -> None:
+        self.published: list[tuple[str, str, bytes]] = []
+
+    async def publish(
+        self, exchange: str, routing_key: str, body: bytes, headers: dict[str, Any]
+    ) -> None:
+        self.published.append((exchange, routing_key, body))
+
+
+@pytest.fixture
+def case_consumed() -> FakeConsumedCollection:
+    return FakeConsumedCollection()
+
+
+@pytest.fixture
+def topic_recorder() -> TopicRecorder:
+    return TopicRecorder()
 
 
 class FakeRelayLease:

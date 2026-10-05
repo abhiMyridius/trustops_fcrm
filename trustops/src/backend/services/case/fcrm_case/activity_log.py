@@ -137,20 +137,34 @@ class MongoActivityLog:
         await self._activity.insert_one(entry_document(entry), session=session)
         return entry
 
+    async def append_in(
+        self,
+        session: Optional[AsyncClientSession],
+        case_id: str,
+        event: UiEventIn,
+    ) -> Optional[ActivityEntry]:
+        """``$inc`` the case's ``activity_seq`` and insert the row, inside the
+        caller's transaction (``session``), or in a transaction of its own when
+        ``session`` is ``None``. ``None`` when the case does not exist.
+        """
+        if session is None:
+            return await self.append(case_id, event)
+        doc = await self._cases.find_one_and_update(
+            {"_id": case_id},
+            {"$inc": {"activity_seq": 1}},
+            projection={"activity_seq": 1},
+            return_document=ReturnDocument.AFTER,
+            session=session,
+        )
+        if doc is None:
+            return None
+        return await self.stage(session, case_id, int(doc["activity_seq"]), event)
+
     async def append(self, case_id: str, event: UiEventIn) -> Optional[ActivityEntry]:
         """One transaction: ``$inc`` the case's ``activity_seq``, insert the row."""
 
         async def _do(session: AsyncClientSession) -> Optional[ActivityEntry]:
-            doc = await self._cases.find_one_and_update(
-                {"_id": case_id},
-                {"$inc": {"activity_seq": 1}},
-                projection={"activity_seq": 1},
-                return_document=ReturnDocument.AFTER,
-                session=session,
-            )
-            if doc is None:
-                return None
-            return await self.stage(session, case_id, int(doc["activity_seq"]), event)
+            return await self.append_in(session, case_id, event)
 
         return await with_transaction(self._client, _do)
 
@@ -195,6 +209,15 @@ class InMemoryActivityLog:
         """See :meth:`ActivityLog.append`."""
         seq = self._bump(case_id)
         return None if seq is None else self.stage(case_id, seq, event)
+
+    async def append_in(
+        self,
+        session: Optional[AsyncClientSession],
+        case_id: str,
+        event: UiEventIn,
+    ) -> Optional[ActivityEntry]:
+        """:meth:`append`; there is no transaction to join in memory."""
+        return await self.append(case_id, event)
 
     async def since(
         self,

@@ -50,6 +50,7 @@ from fcrm_caseflow.audit_client import AuditClient
 from fcrm_caseflow.audit_map import STEP_FOR
 from fcrm_caseflow.clients.case_client import CaseClient
 from fcrm_caseflow.clients.decision_client import DecisionClient
+from fcrm_caseflow.clients.decision_votes_client import DecisionVotesClient
 from fcrm_caseflow.clients.policy_client import PolicyClient
 from fcrm_caseflow.clients.scoring_client import ScoringClient
 from fcrm_caseflow.consumers import (
@@ -226,6 +227,7 @@ def build_unit(
         scoring=ScoringClient(scoring_http),
         decision=DecisionClient(decision_http),
         gates=gate_store,
+        decision_votes=DecisionVotesClient(decision_http),
     )
 
     case_events_consumer = CaseEventsConsumer(

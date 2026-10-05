@@ -42,6 +42,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from fcrm_case.activity_log import MongoActivityLog
 from fcrm_case.assessment_store import MongoAssessmentStore
+from fcrm_case.consumer import start_consumer
 from fcrm_case.directory import (
     AnalystLoadService,
     HttpIdentityDirectory,
@@ -54,6 +55,7 @@ from fcrm_case.fieldset_provider import (
     active_type_domains,
     field_set_for,
 )
+from fcrm_case.outcome_store import MongoOutcomeStore
 from fcrm_case.po_documents import DemoFixtures, DirectoryFixtures, ObjectFixtures
 from fcrm_case.po_store import MongoPoStore
 from fcrm_case.po_uploads import DocumentIntake
@@ -174,12 +176,16 @@ async def register(
     outbox = Outbox(db["outbox"])
     activity = MongoActivityLog(deps.mongo, db["cases"], db["activity"])
     views = MongoViewStore(deps.mongo, db, outbox)
+    outcomes = MongoOutcomeStore(
+        deps.mongo, db, cases_repo, views.repos.conditions, outbox, activity
+    )
     await ensure_case_indexes(cases_repo)
     await outbox.ensure_indexes()
     assessment = MongoAssessmentStore(deps.mongo, db, views.repos.score_snapshots)
     await views.ensure_indexes()
     await assessment.ensure_indexes()
     await activity.ensure_indexes()
+    await outcomes.ensure_indexes()
     if settings.seed_on_empty:
         await seed_case_service(
             SeedReader(settings.seed_path), cases_repo, views.repos, counters
@@ -207,6 +213,7 @@ async def register(
         objects, _build_fixtures(settings, objects), settings
     )
     app.state.assessment = assessment
+    app.state.outcomes = outcomes
     app.state.hub = EventHub(settings.sse_queue_size)
     app.state.directory = directory
     app.state.loads = AnalystLoadService(store, directory)
@@ -220,6 +227,13 @@ async def register(
         if closable is not None:
             stack.push_async_callback(closable.aclose)
         start_relay(stack, probe, outbox, db["leases"], deps)
+        await start_consumer(
+            stack,
+            deps,
+            consumed=db["consumed_messages"],
+            activity=activity,
+            hub=app.state.hub,
+        )
         yield
 
 

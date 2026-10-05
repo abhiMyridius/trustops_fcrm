@@ -40,7 +40,9 @@ class CaseflowSettings(BaseServiceSettings):
     """S2's base URL: ``POST /score``, the only way a score comes into being
     (ADR-07)."""
     decision_service_url: Optional[str] = None
-    """S5's base URL: ``POST /packs`` and the supersede call."""
+    """S5's base URL (``.../api/fcrm/decision``): the assessment core builds and
+    supersedes packs through it; the decision core records outcomes, supersedes
+    packs and confirms re-votes."""
 
     s3_bucket_canonical: str = "canonical"
     """The bucket H3 writes a case document's canonical Markdown into; named in

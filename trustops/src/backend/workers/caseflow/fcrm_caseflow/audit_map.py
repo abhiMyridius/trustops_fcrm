@@ -70,6 +70,15 @@ STEP_FOR: Final[Mapping[Trigger, StepKind]] = MappingProxyType(
         Trigger.CASE_LOCKED: K.LOCK_BUILD_PACK,
         Trigger.PACK_RELEASED: K.PACK_APPROVED,
         Trigger.CASE_UNLOCKED: K.UNLOCK_SUPERSEDE,
+        # decision and closing (scenes 17-19)
+        Trigger.VOTE_CAST: K.VOTE_RECORD,
+        Trigger.COMMITTEE_QUESTION_ASKED: K.COMMITTEE_QUESTION,
+        Trigger.COMMITTEE_ANSWERED_NO_CHANGE: K.COMMITTEE_ANSWER,
+        Trigger.COMMITTEE_ANSWERED_CHANGED: K.COMMITTEE_ANSWER,
+        Trigger.VOTE_TALLIED: K.DECIDE_OUTCOME,
+        Trigger.VOTE_NO_MAJORITY: K.DECIDE_NO_MAJORITY,
+        Trigger.CASE_CLOSE_REQUESTED: K.DECIDE_DELEGATED,
+        Trigger.CLOSED_DISPATCH: K.CLOSED_FINALIZE,
     }
 )
 
@@ -143,7 +152,14 @@ RECORDS_FOR: Final[Mapping[StepKind, tuple[str, ...]]] = MappingProxyType(
         # committee and close (scenes 17-19)
         K.VOTE_RECORD: ("vote.cast",),
         K.COMMITTEE_QUESTION: ("committee.question",),
-        K.COMMITTEE_ANSWER: ("committee.answer",),
+        # R6 (numbers changed): the answer, the unlock, the superseded pack and the
+        # re-request of every cast vote; an addendum answer writes only the first.
+        K.COMMITTEE_ANSWER: (
+            "committee.answer",
+            "case.unlocked",
+            "pack.superseded",
+            "vote.rerequested",
+        ),
         K.DECIDE_DELEGATED: ("outcome.set",),
         K.DECIDE_OUTCOME: ("vote.revealed", "outcome.set"),
         K.DECIDE_NO_MAJORITY: ("vote.no_majority", "vote.rerequested"),

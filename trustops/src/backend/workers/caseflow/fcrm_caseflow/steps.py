@@ -54,6 +54,7 @@ from pymongo.errors import PyMongoError
 from fcrm_caseflow.audit_client import AuditClient
 from fcrm_caseflow.clients.case_client import CaseClient
 from fcrm_caseflow.clients.decision_client import DecisionClient
+from fcrm_caseflow.clients.decision_votes_client import DecisionVotesClient
 from fcrm_caseflow.clients.policy_client import PolicyClient
 from fcrm_caseflow.clients.scoring_client import ScoringClient
 from fcrm_caseflow.dispatch import AgentDispatch
@@ -223,6 +224,8 @@ class StepDeps:
         policy: The S3 client, for the precedent lookup.
         agent_results: The agent results the engine kept, for a step that
             merges the output of several jobs.
+        decision_votes: The S5 client the decision core records outcomes,
+            supersedes and confirms re-votes through.
     """
 
     run: CaseRun
@@ -233,6 +236,7 @@ class StepDeps:
     scoring: Optional[ScoringClient] = None
     decision: Optional[DecisionClient] = None
     gates: Optional[GateStore] = None
+    decision_votes: Optional[DecisionVotesClient] = None
 
     def require_case(self) -> CaseClient:
         """The S1 client.
@@ -253,6 +257,18 @@ class StepDeps:
         if self.policy is None:
             raise StepDependencyError("this step needs the S3 client", needs="policy")
         return self.policy
+
+    def require_decision_votes(self) -> DecisionVotesClient:
+        """The S5 client for the decision core.
+
+        Raises:
+            StepDependencyError: the unit was built without one.
+        """
+        if self.decision_votes is None:
+            raise StepDependencyError(
+                "this step needs the S5 client", needs="decision_votes"
+            )
+        return self.decision_votes
 
     def require_agent_results(self) -> AgentResultStore:
         """The kept agent results.
@@ -458,6 +474,7 @@ class StepRunner:
         scoring: The S2 client, likewise.
         decision: The S5 client, likewise.
         gates: Read access to the gates, likewise.
+        decision_votes: The S5 client for the decision core, likewise.
     """
 
     def __init__(
@@ -474,6 +491,7 @@ class StepRunner:
         scoring: Optional[ScoringClient] = None,
         decision: Optional[DecisionClient] = None,
         gates: Optional[GateStore] = None,
+        decision_votes: Optional[DecisionVotesClient] = None,
     ) -> None:
         """Wire the runner's collaborators; it holds no other state."""
         self._runs = runs
@@ -487,6 +505,7 @@ class StepRunner:
         self._scoring = scoring
         self._decision = decision
         self._gates = gates
+        self._decision_votes = decision_votes
         self._locks = _CaseLocks()
 
     async def run(self, step: HarnessStep) -> None:
@@ -558,6 +577,7 @@ class StepRunner:
             scoring=self._scoring,
             decision=self._decision,
             gates=self._gates,
+            decision_votes=self._decision_votes,
         )
         try:
             async with asyncio.timeout(self._timeout_s) as deadline:

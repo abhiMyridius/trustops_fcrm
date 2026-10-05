@@ -218,9 +218,17 @@ class ConditionRow(BaseModel):
     condition_id: str
     case_id: str
     text: str
-    owner_id: str
+    # ``None`` for a team (``FCRM Ops``) that has no user id.
+    owner_id: Optional[str] = None
     owner_label: str
     due_label: str
     due_date: Optional[str] = None
     status: str
     source: dict[str, Any] = Field(default_factory=dict)
+    # Set when an outcome activates the condition (seeded rows leave them unset).
+    ref: Optional[str] = None
+    pack_id: Optional[str] = None
+    activated_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    updated_by: Optional[str] = None
+    note: Optional[str] = None

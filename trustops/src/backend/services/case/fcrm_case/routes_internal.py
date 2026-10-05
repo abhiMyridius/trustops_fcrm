@@ -46,7 +46,7 @@ from fcrm_contracts.api.case_internal import (
     UiEventResult,
 )
 from fcrm_contracts.common import Principal
-from fcrm_contracts.enums import ItemKind, Role
+from fcrm_contracts.enums import CaseState, ItemKind, Role
 
 from fcrm_case.deps import (
     get_directory,
@@ -58,6 +58,7 @@ from fcrm_case.deps import (
 from fcrm_case.directory import AnalystLoadService, IdentityDirectory
 from fcrm_case.domain.activity import po_may_receive
 from fcrm_case.domain.record import CaseRecord
+from fcrm_case.errors import ensure_open
 from fcrm_case.shaping import (
     to_case_record_internal,
     to_document_internal,
@@ -106,6 +107,15 @@ async def _get_or_404(store: CaseStore, case_id: str) -> CaseRecord:
     return record
 
 
+async def _require_open_case(store: CaseStore, case_id: str) -> CaseRecord:
+    """The case, for a write: 404 when missing, 409 ``case_closed`` once closed
+    (rule 5: the one guard, :func:`fcrm_case.errors.ensure_open`).
+    """
+    record = await _get_or_404(store, case_id)
+    ensure_open(record)
+    return record
+
+
 @router.get("/cases/{case_id}/record")
 async def get_case_record(
     case_id: str,
@@ -146,7 +156,7 @@ async def upsert_items(
     is rewritten; ``status`` and any decision are kept, so a retried push never
     undoes a human decision.
     """
-    await _require_case(store, case_id)
+    await _require_open_case(store, case_id)
     ids = await views.upsert_items(case_id, body.run_id, body.items)
     logger.info(
         "review items upserted",
@@ -166,7 +176,7 @@ async def put_intake(
     over a value a person already set), gated category and gap items, the
     precedent and the fact flags. The same body twice leaves the same state.
     """
-    await _require_case(store, case_id)
+    await _require_open_case(store, case_id)
     applied = await views.apply_intake_push(case_id, body)
     logger.info(
         "intake pushed",
@@ -197,8 +207,11 @@ async def patch_state(
 ) -> StateResult:
     """H1 moves the case. Only the fields the patch sets change. A change of
     stage writes ``case.stage_changed`` (visibility ``all``: the stage names, no
-    run id) and publishes it; a replay of the same patch changes nothing.
+    run id) and publishes it; a replay of the same patch changes nothing. A
+    closed case never leaves ``closed``: a patch to any other stage is a 409.
     """
+    if body.stage is not CaseState.CLOSED:
+        await _require_open_case(store, case_id)
     write = await store.apply_state(case_id, body, _actor(principal))
     if write is None:
         raise NotFoundError(f"no such case {case_id}")
@@ -226,6 +239,7 @@ async def assign_analyst(
     visible) carries the analyst's name and nothing else; the load cache is
     dropped so the next triage sees the new count.
     """
+    await _require_open_case(store, case_id)
     name = await directory.analyst_name(body.analyst_id)
     if name is None:
         raise ValidationError(f"{body.analyst_id} is not an analyst")
@@ -298,11 +312,17 @@ async def get_document(
 async def patch_document(
     doc_id: str,
     body: DocumentPatch,
+    store: Annotated[CaseStore, Depends(get_store)],
     views: Annotated[ViewStore, Depends(get_views)],
 ) -> DocumentInternal:
     """H1 records what H3 produced (``extracted``/``quarantined``/``failed``,
-    the canonical and anchored object keys, pages, the page map, Guard 1).
+    the canonical and anchored object keys, pages, the page map, Guard 1). A
+    document of a closed case is not changed.
     """
+    existing = await views.get_document(doc_id)
+    if existing is None:
+        raise NotFoundError(f"no such document {doc_id}")
+    await _require_open_case(store, existing.case_id)
     row = await views.patch_document(doc_id, body)
     if row is None:
         raise NotFoundError(f"no such document {doc_id}")
