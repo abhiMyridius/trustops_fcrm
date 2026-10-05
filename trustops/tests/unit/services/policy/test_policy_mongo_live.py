@@ -25,6 +25,7 @@ from fcrm_common.health import ReadinessProbe, build_health_router
 from fcrm_policy.lifespan import lifespan
 from fcrm_policy.routes import router
 from fcrm_policy.store import POLICY_CLAUSES, PRECEDENT_CASES
+from fcrm_seed.loader import generated_clauses
 from pymongo import AsyncMongoClient
 from pymongo.errors import DuplicateKeyError
 
@@ -78,7 +79,8 @@ def test_the_full_lifespan_seeds_mongo_and_the_vector_index(
 ) -> None:
     """Start the app for real (runs the lifespan): Mongo gets the seeded
     clauses/precedents/controls and the memory-backed vector index gets
-    the four demo clauses -- if either failed, ``/readyz`` would still be
+    the whole 197-clause synthetic corpus (ADR-29), including the four
+    verbatim demo clauses -- if either failed, ``/readyz`` would still be
     ``ok`` (S3 registers no self-test check, unlike S2), so this asserts
     through an actual search instead.
     """
@@ -92,12 +94,18 @@ def test_the_full_lifespan_seeds_mongo_and_the_vector_index(
             json={
                 "index": POLICY_CLAUSES,
                 "query": "screening of payout agents and corridors",
-                "top_k": 10,
+                "top_k": 30,
             },
         )
         assert response.status_code == 200
-        ids = {hit["id"] for hit in response.json()["hits"]}
-        assert ids == {"FFIEC-TPPP-04", "FCRM42-3.1", "TP71-2.3", "OFAC-1.2"}
+        ids = [hit["id"] for hit in response.json()["hits"]]
+        corpus_ids = {clause["clause_id"] for clause in generated_clauses() or []}
+        assert len(corpus_ids) == 197
+        # A full page proves far more than the four demo clauses are indexed;
+        # every hit must be a real corpus clause, never an invented id.
+        assert len(ids) == 30
+        assert set(ids) <= corpus_ids
+        assert {"FFIEC-TPPP-04", "FCRM42-3.1", "TP71-2.3", "OFAC-1.2"} <= corpus_ids
 
 
 def test_restarting_the_app_does_not_duplicate_the_mongo_seed(
