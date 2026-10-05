@@ -25,15 +25,21 @@ of this table automatically rather than needing its own entry.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final, Optional
 
 from fcrm_common.events import build_envelope
-from fcrm_common.ids import new_id
+from fcrm_common.ids import deterministic_id, new_id
 from fcrm_contracts.enums import AgentName, GateType, Role, Tier
 from fcrm_contracts.events.envelope import Envelope
-from fcrm_contracts.events.payloads import JobPayload
+from fcrm_contracts.events.payloads import (
+    CaseDocumentStored,
+    IngestRun,
+    JobPayload,
+    ObjectPrefix,
+    ObjectRef,
+)
 
 from fcrm_caseflow.states import RunFlags
 from fcrm_caseflow.store import CaseRun
@@ -212,5 +218,127 @@ def build_job_envelope(
         "agent.run",
         payload.model_dump(mode="json"),
         case_id=run.snapshot.case_id,
+        run_id=run.snapshot.run_id,
+    )
+
+
+# --- the pending-join keys of a dynamic set of jobs ---------------------------
+
+
+def join_keys(jobs: Sequence[tuple[AgentName, str]]) -> list[str]:
+    """What the run's pending-join set holds for ``jobs`` (``(agent, job_id)``
+    pairs dispatched together): the agent's name when it appears once, the
+    pair's own ``"<agent>:<job_id>"`` when the same agent runs several times
+    (one intake job per document).
+
+    Two intake jobs cannot both be tracked as ``"intake"``: the store removes
+    every entry equal to the one that reported done, so the first
+    ``agent.done`` would clear the join. :func:`done_join_keys` is the other
+    half: the keys an ``agent.done`` may match.
+    """
+    names = [agent.value for agent, _ in jobs]
+    return [
+        name if names.count(name) == 1 else f"{name}:{job_id}"
+        for name, (_, job_id) in zip(names, jobs, strict=True)
+    ]
+
+
+def done_join_keys(agent: AgentName, job_id: Optional[str]) -> tuple[str, ...]:
+    """The pending-join keys an ``agent.done`` from ``agent`` / ``job_id`` may
+    clear, most specific first (see :func:`join_keys`).
+    """
+    specific = (f"{agent.value}:{job_id}",) if job_id else ()
+    return (*specific, agent.value)
+
+
+def dispatch_refs(
+    dispatch: AgentDispatch, run_refs: Mapping[str, Any]
+) -> dict[str, Any]:
+    """``JobPayload.refs`` for a job a *transition* dispatches (a step passes
+    its own refs).
+
+    The one such job that needs refs is the intake agent's ``questions_only``
+    round, run after every change type is confirmed: H2's intake context
+    builder reads one document window and refuses a job without ``doc_id``,
+    so the job is given the first document the first round read
+    (``intake_docs``, which ``intake.ingested`` records).
+    """
+    if dispatch.agent is AgentName.INTAKE and dispatch.scope == "questions_only":
+        docs = run_refs.get("intake_docs")
+        if isinstance(docs, list) and docs:
+            return {"doc_id": str(docs[0])}
+    return {}
+
+
+# --- ingest.run: H1 -> H3 ------------------------------------------------------
+
+#: Where H3 writes a case's canonical and anchored Markdown, inside the
+#: canonical bucket (design A §7.1: ``canonical/{case_id}/{doc_id}.md``).
+CANONICAL_KEY_ROOT: Final = "canonical"
+
+
+@dataclass(frozen=True)
+class IngestDispatch:
+    """One ``ingest.run`` to publish: which stored document H3 should read."""
+
+    doc_id: str
+    bucket: str
+    key: str
+    keep_terms: tuple[str, ...] = ()
+
+
+def ingest_for(
+    trigger: Trigger, payload: Mapping[str, Any]
+) -> Optional[IngestDispatch]:
+    """The document to hand to H3 when ``trigger`` fired, or ``None``.
+
+    Only ``CASE_DOCUMENT_STORED`` does: the document is read from where S1
+    stored it (``bucket``/``key`` of the event), never copied through H1.
+
+    Raises:
+        pydantic.ValidationError: the ``case.document_stored`` payload does
+            not carry the fields S1's contract promises (the message is
+            retried, then parked).
+    """
+    if trigger is not Trigger.CASE_DOCUMENT_STORED:
+        return None
+    stored = CaseDocumentStored.model_validate(dict(payload))
+    return IngestDispatch(
+        doc_id=stored.doc_id,
+        bucket=stored.bucket,
+        key=stored.key,
+        keep_terms=tuple(stored.keep_terms),
+    )
+
+
+def build_ingest_envelope(
+    ingest: IngestDispatch, run: CaseRun, *, target_bucket: str
+) -> Envelope:
+    """The ``ingest.run`` envelope for ``ingest``, published on
+    ``ingestion.jobs``. Its ``job_id`` is deterministic in the run and the
+    document, so the same stored document always yields the same job.
+
+    Args:
+        ingest: The document to read.
+        run: The case's run, for the case and run ids.
+        target_bucket: The bucket H3 writes the canonical Markdown into; the
+            key prefix is ``canonical/<case_id>/``.
+    """
+    case_id = run.snapshot.case_id
+    payload = IngestRun(
+        job_id=deterministic_id("job", run.snapshot.run_id, "ingest", ingest.doc_id),
+        source=ObjectRef(bucket=ingest.bucket, key=ingest.key),
+        target=ObjectPrefix(
+            bucket=target_bucket, key_prefix=f"{CANONICAL_KEY_ROOT}/{case_id}/"
+        ),
+        purpose="case_document",
+        doc_id=ingest.doc_id,
+        guard1=True,
+        keep_terms=list(ingest.keep_terms),
+    )
+    return build_envelope(
+        "ingest.run",
+        payload.model_dump(mode="json"),
+        case_id=case_id,
         run_id=run.snapshot.run_id,
     )

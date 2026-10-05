@@ -48,7 +48,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any, Optional, Protocol
 
 from fcrm_common.events import build_envelope
@@ -57,7 +57,7 @@ from fcrm_common.mongo import Document, with_transaction
 from fcrm_common.outbox import Outbox
 from fcrm_contracts.api.audit import RecordAppend
 from fcrm_contracts.common import GateDecision, Principal
-from fcrm_contracts.enums import CaseState, GateType, Role, StepKind
+from fcrm_contracts.enums import AgentName, CaseState, GateType, Role, StepKind
 from fcrm_contracts.events.envelope import Envelope
 from fcrm_contracts.events.payloads import GateOpened, HarnessStep
 from fcrm_guardrails.base import AUDIT_TYPES, GuardName, GuardResult, GuardStatus
@@ -65,17 +65,28 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from fcrm_caseflow.audit_client import AuditClient
-from fcrm_caseflow.audit_map import STEP_FOR
+from fcrm_caseflow.audit_map import RECORDS_FOR, STEP_FOR
 from fcrm_caseflow.dispatch import (
     REQUIRED_ROLE,
+    AgentDispatch,
     DispatchPlan,
+    build_ingest_envelope,
     build_job_envelope,
     dispatch_for,
+    dispatch_refs,
+    done_join_keys,
     gate_to_open,
+    ingest_for,
+    join_keys,
 )
 from fcrm_caseflow.exceptions import IllegalTransition
 from fcrm_caseflow.flags import next_flags
-from fcrm_caseflow.gates import GateDecisionError, GateStore, gate_document
+from fcrm_caseflow.gates import (
+    GateDecisionError,
+    GateStore,
+    deterministic_gate_id,
+    gate_document,
+)
 from fcrm_caseflow.resolve import (
     agent_done_agent,
     agent_done_pair_members,
@@ -86,6 +97,7 @@ from fcrm_caseflow.resolve import (
 )
 from fcrm_caseflow.steps import GateSpec, StepResult
 from fcrm_caseflow.store import (
+    AgentResultStore,
     CaseRun,
     CaseRunStore,
     new_case_run_document,
@@ -97,6 +109,17 @@ from fcrm_caseflow.triggers import Trigger
 logger = logging.getLogger(__name__)
 
 _INTERNAL_PREFIX = "internal."
+
+#: The PO's intake gates whose decision moves nothing but is still recorded
+#: (``intake.po_action``): the wire values of their ``gate_type``.
+_PO_ACTION_GATES = frozenset(
+    {
+        GateType.PO_CONFIRM_CATEGORY.value,
+        GateType.PO_CONFIRM_VALUE.value,
+        GateType.PO_REUSE.value,
+        GateType.PO_ANSWER_GAPS.value,
+    }
+)
 
 
 class Transact(Protocol):
@@ -122,6 +145,20 @@ def mongo_transact(client: AsyncMongoClient[Document]) -> Transact:
         return await with_transaction(client, fn)
 
     return transact
+
+
+def _joined(
+    dispatches: Sequence[AgentDispatch], envelopes: Sequence[Envelope]
+) -> list[str]:
+    """The pending-join keys of ``dispatches`` published as ``envelopes``
+    (same order): see :func:`fcrm_caseflow.dispatch.join_keys`.
+    """
+    return join_keys(
+        [
+            (dispatch.agent, str(envelope.payload["job_id"]))
+            for dispatch, envelope in zip(dispatches, envelopes, strict=True)
+        ]
+    )
 
 
 class OrphanEventError(Exception):
@@ -157,6 +194,16 @@ class CaseflowEngine:
         transact: Opens the one short transaction :meth:`complete_step` runs
             in (:func:`mongo_transact`). ``handle`` never needs it: its caller
             already owns the transaction. Without it ``complete_step`` raises.
+        results: Where each ``agent.done`` is kept as it arrives, for a step
+            that merges several jobs (:class:`~fcrm_caseflow.store
+            .AgentResultStore`). Without it nothing is stored.
+        ingest_bucket: The bucket H3 writes a document's canonical Markdown
+            into, named in every ``ingest.run`` H1 publishes.
+        records_for: Step kind -> the audit record types it writes. When the
+            step a trigger enqueues writes a record of the trigger's own
+            type (``case.created``, ``case.submitted``), the engine skips its
+            generic per-transition record of that type, so the chain does not
+            carry the same type twice.
     """
 
     def __init__(
@@ -168,6 +215,9 @@ class CaseflowEngine:
         *,
         step_map: Mapping[Trigger, StepKind] = STEP_FOR,
         transact: Optional[Transact] = None,
+        results: Optional[AgentResultStore] = None,
+        ingest_bucket: str = "canonical",
+        records_for: Mapping[StepKind, tuple[str, ...]] = RECORDS_FOR,
     ) -> None:
         self._runs = runs
         self._gates = gates
@@ -175,6 +225,9 @@ class CaseflowEngine:
         self._audit = audit
         self._step_map = step_map
         self._transact = transact
+        self._results = results
+        self._ingest_bucket = ingest_bucket
+        self._records_for = records_for
 
     async def handle(
         self, envelope: Envelope, session: Optional[AsyncClientSession]
@@ -232,6 +285,7 @@ class CaseflowEngine:
             # newly legal, and nothing else will ever re-check that for
             # this run if this call does not. A found gap, same shape as
             # D-15 — see the package report.
+            run = await self._po_action_step(envelope, run, session)
             base_ctx = TransitionContext(flags=run.snapshot.flags, band=run.band)
             await self._chain_internal(run, base_ctx, session, envelope.event_id)
             return
@@ -267,13 +321,14 @@ class CaseflowEngine:
             envelope.payload,
             session,
         )
-        await self._write_audit_raw(
-            case_id=run.snapshot.case_id,
-            trigger_value="case.created",
-            actor="system",
-            summary="run opened; pins recorded",
-            data={"run_id": run.snapshot.run_id},
-        )
+        if not self._step_writes_record(Trigger.CASE_CREATED):
+            await self._write_audit_raw(
+                case_id=run.snapshot.case_id,
+                trigger_value="case.created",
+                actor="system",
+                summary="run opened; pins recorded",
+                data={"run_id": run.snapshot.run_id},
+            )
 
     # -- loading the target run --------------------------------------
 
@@ -362,6 +417,29 @@ class CaseflowEngine:
         ctx = self._gate_decision_context(trigger, decision, envelope.payload)
         return trigger, ctx
 
+    async def _po_action_step(
+        self, envelope: Envelope, run: CaseRun, session: AsyncClientSession
+    ) -> CaseRun:
+        """Start ``intake.po_action`` for a PO decision that moves nothing (a
+        change type confirmed while others are open, a value corrected, values
+        reused, a question answered), in this transaction and without a
+        transition: the run stays where it is and only the step records what
+        the PO did. Outside INTAKE, or for any other gate, the run is returned
+        unchanged.
+        """
+        if envelope.type != "gate.decided" or run.state is not CaseState.INTAKE:
+            return run
+        if envelope.payload.get("gate_type") not in _PO_ACTION_GATES:
+            return run
+        return await self._enqueue_step_for(
+            run,
+            Trigger.GATE_DECIDED_PO_ACTION,
+            envelope.event_id,
+            envelope.event_id,
+            envelope.payload,
+            session,
+        )
+
     @staticmethod
     def _gate_decision_context(
         trigger: Trigger, decision: GateDecision, payload: dict[str, Any]
@@ -394,9 +472,19 @@ class CaseflowEngine:
         session: AsyncClientSession,
     ) -> Optional[tuple[Trigger, TransitionContext]]:
         agent = agent_done_agent(envelope)
+        if self._results is not None:
+            # Kept before anything else: the proposals exist nowhere else, and
+            # a step that merges several jobs reads them back from here.
+            await self._results.save(envelope.payload, session=session)
         state = run.state
+        job_id = envelope.payload.get("job_id")
+        cleared = await self._clear_join_key(run, agent, job_id, session)
         single = agent_done_single(state, agent)
         if single is not None:
+            # A job of a fan-out (one intake job per document) may be one of
+            # several; the trigger fires when the last one reports done.
+            if cleared:
+                return None
             return single, context_from_payload(envelope.payload)
         pair = agent_done_pair_members(state)
         if pair is None:
@@ -416,12 +504,33 @@ class CaseflowEngine:
                 state.value,
             )
             return None
-        remaining = await self._runs.remove_pending_agent(
-            run.snapshot.run_id, agent.value, session=session
-        )
-        if remaining:
+        if cleared is None:
+            cleared = await self._runs.remove_pending_agent(
+                run.snapshot.run_id, agent.value, session=session
+            )
+        if cleared:
             return None
         return trigger, context_from_payload(envelope.payload)
+
+    async def _clear_join_key(
+        self,
+        run: CaseRun,
+        agent: AgentName,
+        job_id: Any,
+        session: AsyncClientSession,
+    ) -> Optional[list[str]]:
+        """Remove the pending-join entry this ``agent.done`` answers, and
+        return what is still pending (``[]``: the join is complete). ``None``
+        when no entry of the run's join matches (no join is in progress for
+        this agent).
+        """
+        keys = done_join_keys(agent, job_id if isinstance(job_id, str) else None)
+        for key in keys:
+            if key in run.pending_agents:
+                return await self._runs.remove_pending_agent(
+                    run.snapshot.run_id, key, session=session
+                )
+        return None
 
     # -- applying + persisting one transition, then chaining ----------
 
@@ -497,14 +606,23 @@ class CaseflowEngine:
         session: AsyncClientSession,
     ) -> None:
         plan: DispatchPlan = dispatch_for(trigger, ctx, run.snapshot.flags, payload)
-        for job in plan.agents:
-            env = build_job_envelope(job, run)
+        envelopes = [
+            build_job_envelope(job, run, refs=dispatch_refs(job, run.refs))
+            for job in plan.agents
+        ]
+        for env in envelopes:
             await self._outbox.enqueue(session, env)
         if len(plan.agents) > 1:
             await self._runs.set_pending_agents(
                 run.snapshot.run_id,
-                [job.agent.value for job in plan.agents],
+                _joined(plan.agents, envelopes),
                 session=session,
+            )
+        ingest = ingest_for(trigger, payload)
+        if ingest is not None:
+            await self._outbox.enqueue(
+                session,
+                build_ingest_envelope(ingest, run, target_bucket=self._ingest_bucket),
             )
         gate_type = gate_to_open(trigger, ctx)
         if gate_type is not None:
@@ -766,8 +884,8 @@ class CaseflowEngine:
         """Open ``spec`` with ``deterministic_id("gate", run, type, subject)``;
         a gate that already exists is left alone and not announced again.
         """
-        gate_id = deterministic_id(
-            "gate", run.snapshot.run_id, spec.gate_type.value, spec.subject_key
+        gate_id = deterministic_gate_id(
+            run.snapshot.run_id, spec.gate_type, spec.subject_key
         )
         required_role = REQUIRED_ROLE[spec.gate_type]
         document: Document = gate_document(
@@ -792,14 +910,15 @@ class CaseflowEngine:
         self, run: CaseRun, result: StepResult, session: AsyncClientSession
     ) -> None:
         jobs = result.agent_jobs_to_dispatch
-        for job in jobs:
-            await self._outbox.enqueue(
-                session, build_job_envelope(job.dispatch, run, refs=job.refs)
-            )
+        envelopes = [
+            build_job_envelope(job.dispatch, run, refs=job.refs) for job in jobs
+        ]
+        for env in envelopes:
+            await self._outbox.enqueue(session, env)
         if len(jobs) > 1:
             await self._runs.set_pending_agents(
                 run.snapshot.run_id,
-                [job.dispatch.agent.value for job in jobs],
+                _joined([job.dispatch for job in jobs], envelopes),
                 session=session,
             )
 
@@ -846,9 +965,19 @@ class CaseflowEngine:
 
     # -- audit ----------------------------------------------------------
 
+    def _step_writes_record(self, trigger: Trigger) -> bool:
+        """Whether the step ``trigger`` enqueues writes a record of the
+        trigger's own type, in which case the engine's generic record of that
+        type would only duplicate it.
+        """
+        kind = self._step_map.get(trigger)
+        return kind is not None and trigger.value in self._records_for.get(kind, ())
+
     async def _write_audit(
         self, run: CaseRun, trigger: Trigger, result: TransitionResult
     ) -> None:
+        if self._step_writes_record(trigger):
+            return
         await self._write_audit_raw(
             case_id=run.snapshot.case_id,
             trigger_value=trigger.value,

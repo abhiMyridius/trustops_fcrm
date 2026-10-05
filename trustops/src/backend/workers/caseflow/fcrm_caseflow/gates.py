@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import Any, Final, Optional
 
+from fcrm_common.ids import deterministic_id
 from fcrm_common.mongo import Document
 from fcrm_common.time import utcnow
 from fcrm_contracts.common import GateDecision, Principal
@@ -43,6 +44,16 @@ class GateDecisionError(Exception):
     def __init__(self, result: GuardResult) -> None:
         self.result = result
         super().__init__(result.summary)
+
+
+def deterministic_gate_id(run_id: str, gate_type: GateType, subject_key: str) -> str:
+    """The id of the gate a step opens for ``subject_key``: the same inputs
+    always give the same id, so a step run twice opens nothing twice, and a
+    step that pushes the id to S1 (an item's ``gate_id``) and the engine that
+    opens the gate (:meth:`fcrm_caseflow.engine.CaseflowEngine._open_step_gate`)
+    agree on it without a lookup.
+    """
+    return deterministic_id("gate", run_id, gate_type.value, subject_key)
 
 
 def gate_document(

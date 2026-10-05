@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import pytest
 from fcrm_caseflow.audit_map import RECORDS_FOR, STEP_FOR
+from fcrm_caseflow.cores import default_handlers
+from fcrm_caseflow.transitions import TRANSITIONS
 from fcrm_caseflow.triggers import Trigger
 from fcrm_contracts.enums import StepKind
 from fcrm_contracts.events.catalogue import EVENT_TYPES
@@ -20,8 +22,36 @@ def _seed_audit_types() -> set[str]:
 
 
 class TestStepFor:
-    def test_it_ships_empty_until_a_core_registers_its_handler(self) -> None:
-        assert dict(STEP_FOR) == {}
+    def test_it_holds_exactly_the_triggers_the_intake_core_handles(self) -> None:
+        assert dict(STEP_FOR) == {
+            Trigger.CASE_CREATED: StepKind.INTAKE_OPEN,
+            Trigger.CASE_DOCUMENT_STORED: StepKind.INTAKE_DOCUMENT_STORED,
+            Trigger.INGEST_DONE: StepKind.INTAKE_INGESTED,
+            Trigger.INGEST_FAILED: StepKind.INTAKE_INGEST_FAILED,
+            Trigger.AGENT_DONE_INTAKE: StepKind.INTAKE_PUBLISH,
+            Trigger.GATE_DECIDED_PO_CONFIRM_CATEGORY_ALL: (
+                StepKind.INTAKE_FIELDSET_RESOLVED
+            ),
+            Trigger.GATE_DECIDED_PO_ACTION: StepKind.INTAKE_PO_ACTION,
+            Trigger.CASE_SUBMITTED: StepKind.SUBMIT_RECORD,
+            Trigger.TRIAGE_DISPATCH: StepKind.TRIAGE_ASSIGN,
+        }
+
+    def test_every_mapped_step_has_a_default_handler(self) -> None:
+        """A trigger mapped to a step nobody can run would leave its run
+        waiting; the unit refuses to start in that case, and this catches it
+        before that.
+        """
+        assert set(STEP_FOR.values()) <= set(default_handlers())
+
+    def test_every_mapped_trigger_has_a_transition_or_is_step_only(self) -> None:
+        """``case.created`` opens a run and a PO decision that moves nothing
+        starts a step; neither has a transition row, by design. Any other
+        mapped trigger must, or its step could never be enqueued.
+        """
+        step_only = {Trigger.CASE_CREATED, Trigger.GATE_DECIDED_PO_ACTION}
+        legal = {t.trigger for t in TRANSITIONS} | step_only
+        assert set(STEP_FOR) <= legal
 
     def test_it_is_read_only(self) -> None:
         with pytest.raises(TypeError):

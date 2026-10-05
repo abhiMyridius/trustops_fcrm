@@ -17,6 +17,13 @@ class Trigger(StrEnum):
     CASE_DOCUMENT_STORED = "case.document_stored"
     AGENT_DONE_INTAKE = "agent.done.intake"
     GATE_DECIDED_PO_CONFIRM_CATEGORY_ALL = "gate.decided.po_confirm_category.all"
+    # One of the PO's other intake decisions: a change type confirmed while
+    # others are still open, a value confirmed or corrected, values reused from
+    # a precedent, a gap question answered. Like ``CASE_CREATED`` it is a
+    # step-only trigger: no transition exists for it and the run does not move;
+    # the engine only starts the step that records what the PO did
+    # (``audit_map.STEP_FOR``).
+    GATE_DECIDED_PO_ACTION = "gate.decided.po_action"
     CASE_SUBMITTED = "case.submitted"
 
     TRIAGE_DISPATCH = "internal.triage_dispatch"

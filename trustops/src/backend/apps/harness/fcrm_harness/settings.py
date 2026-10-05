@@ -10,14 +10,16 @@ still reported by name at startup.
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar, Literal, Optional
 
 from fcrm_agent_worker.settings import AgentWorkerSettings
 from fcrm_caseflow.settings import CaseflowSettings
-from fcrm_common.settings import BaseServiceSettings
+from fcrm_common.settings import BaseServiceSettings, S3Settings
+from fcrm_ingestion_worker.settings import IngestionSettings
+from pydantic import Field
 
 
-class HarnessSettings(BaseServiceSettings):
+class HarnessSettings(BaseServiceSettings, S3Settings):
     """Environment contract of the ``harness`` container.
 
     Attributes:
@@ -26,8 +28,19 @@ class HarnessSettings(BaseServiceSettings):
             on at once (design A §4.1).
         agent_prefetch: How many agent jobs H2 runs at once; each is one model
             call, so this replaces the second replica the stack used to run.
+        ingestion_prefetch: How many documents H3 extracts at once (design
+            A §4.1: 2).
+        uploads_per_file_timeout_seconds: H3's deadline for one document.
+        pdf_engine: H3's PDF engine (``pdfplumber`` or ``pypdf``).
+        pdf_min_chars_per_page: H3's scanned-page threshold (the engine's
+            default when unset).
+        guard1_allowlist_file: H3's file of terms Guard 1 never masks.
         prompts_dir: The ``ai/`` root holding prompts and ``models/tiers.yaml``.
         agent_max_tool_calls: Per-job cap on tool calls.
+
+    The object-store variables (``S3_*``) are :class:`~fcrm_common.settings
+    .S3Settings`: H3 reads uploads and writes canonical Markdown, and H1 names
+    the canonical bucket in every ``ingest.run``.
     """
 
     app_name: str = "fcrm-harness"
@@ -36,6 +49,7 @@ class HarnessSettings(BaseServiceSettings):
     required_settings: ClassVar[tuple[str, ...]] = (
         *BaseServiceSettings.required_settings,
         "RABBITMQ_URL",
+        *S3Settings.s3_required_settings,
         "CASE_SERVICE_URL",
         "SCORING_SERVICE_URL",
         "POLICY_SERVICE_URL",
@@ -52,6 +66,11 @@ class HarnessSettings(BaseServiceSettings):
     health_port: int = 9100
     caseflow_prefetch: int = 16
     agent_prefetch: int = 4
+    ingestion_prefetch: int = Field(default=2, ge=1)
+    uploads_per_file_timeout_seconds: float = Field(default=120.0, gt=0)
+    pdf_engine: Literal["pdfplumber", "pypdf"] = "pdfplumber"
+    pdf_min_chars_per_page: Optional[int] = Field(default=None, ge=0)
+    guard1_allowlist_file: Optional[str] = None
     prompts_dir: str = "ai"
     agent_max_tool_calls: int = 12
     bedrock_region_fallback: Optional[str] = None
@@ -71,12 +90,33 @@ class HarnessSettings(BaseServiceSettings):
             "health_port": self.health_port,
         }
 
+    def _s3(self) -> dict[str, Any]:
+        """The object-store fields every unit that touches it takes."""
+        return {name: getattr(self, name) for name in S3Settings.model_fields}
+
     def caseflow_settings(self) -> CaseflowSettings:
         """H1's settings derived from this one, validated like ``load()``."""
         settings = CaseflowSettings(
             **self._shared(),
             audit_service_url=self.audit_service_url,
+            case_service_url=self.case_service_url,
+            policy_service_url=self.policy_service_url,
+            s3_bucket_canonical=self.s3_bucket_canonical,
             prefetch=self.caseflow_prefetch,
+        )
+        settings.fail_fast()
+        return settings
+
+    def ingestion_settings(self) -> IngestionSettings:
+        """H3's settings derived from this one, validated like ``load()``."""
+        settings = IngestionSettings(
+            **self._shared(),
+            **self._s3(),
+            uploads_per_file_timeout_seconds=self.uploads_per_file_timeout_seconds,
+            pdf_engine=self.pdf_engine,
+            pdf_min_chars_per_page=self.pdf_min_chars_per_page,
+            guard1_allowlist_file=self.guard1_allowlist_file,
+            prefetch=self.ingestion_prefetch,
         )
         settings.fail_fast()
         return settings

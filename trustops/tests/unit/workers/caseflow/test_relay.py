@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from conftest import FakeCollection, FakeSession
+from conftest import FakeCollection, FakeSession, document_stored_payload
 from faststream.rabbit import RabbitBroker, RabbitMessage, TestRabbitBroker
 from fcrm_caseflow.engine import CaseflowEngine
 from fcrm_caseflow.publisher import FastStreamPublisher
@@ -70,7 +70,8 @@ async def test_a_dispatched_job_reaches_the_agent_worker_queue_through_the_relay
     # Drive the real prelude far enough to get one real agent.run dispatch
     # (SCREENING) sitting unpublished in the outbox.
     await engine.handle(
-        _env("case.document_stored", {"doc_id": "doc_1"}, run_id=run_id), session
+        _env("case.document_stored", document_stored_payload("doc_1"), run_id=run_id),
+        session,
     )
     await engine.handle(_env("agent.done", {"agent": "intake"}, run_id=run_id), session)
     await engine.handle(_env("case.submitted", {}, run_id=run_id), session)
@@ -106,11 +107,24 @@ async def test_a_dispatched_job_reaches_the_agent_worker_queue_through_the_relay
     async def _absorb_case_events(msg: RabbitMessage) -> None:
         return None
 
+    # The stored document is handed to H3: the engine publishes an ingest.run
+    # in the same transaction, which needs H3's queue to land on.
+    ingest_runs: list[RabbitMessage] = []
+
+    @broker.subscriber(
+        passive_queue("ingestion-worker.run", routing_key="ingest.run"),
+        passive_exchange("ingestion.jobs"),
+    )
+    async def _capture_ingest(msg: RabbitMessage) -> None:
+        ingest_runs.append(msg)
+
     async with TestRabbitBroker(broker):
         published, failed = await relay.publish_batch()
 
     assert failed is False
     assert published >= 1
+    [ingest] = ingest_runs
+    assert Envelope.model_validate_json(ingest.body).payload["doc_id"] == "doc_1"
     screening_jobs = [
         m
         for m in received

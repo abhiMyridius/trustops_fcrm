@@ -47,16 +47,19 @@ from pymongo import AsyncMongoClient
 
 from fcrm_caseflow.audit_client import AuditClient
 from fcrm_caseflow.audit_map import STEP_FOR
+from fcrm_caseflow.clients.case_client import CaseClient
+from fcrm_caseflow.clients.policy_client import PolicyClient
 from fcrm_caseflow.consumers import (
     AgentResultsConsumer,
     CaseEventsConsumer,
     HarnessStepConsumer,
 )
+from fcrm_caseflow.cores import default_handlers
 from fcrm_caseflow.engine import CaseflowEngine, mongo_transact
 from fcrm_caseflow.gates import GateStore
 from fcrm_caseflow.settings import CaseflowSettings
 from fcrm_caseflow.steps import StepHandler, StepRegistry, StepRunner
-from fcrm_caseflow.store import CaseRunStore
+from fcrm_caseflow.store import AGENT_RESULTS_COLLECTION, AgentResultStore, CaseRunStore
 from fcrm_caseflow.topology import (
     AGENT_JOBS_EXCHANGE,
     CASE_EVENTS_EXCHANGE,
@@ -124,6 +127,27 @@ def wire_subscribers(
     )
 
 
+def _service_client(
+    settings: CaseflowSettings, url: Optional[str], dependency: str
+) -> ServiceClient:
+    """A pooled client for one peer, authenticated with the service token.
+
+    Raises:
+        fcrm_common.settings.MissingSettingsError: the peer's URL is not set.
+    """
+    env_name = f"{dependency.upper()}_SERVICE_URL"
+    return ServiceClient(
+        required_value(url, env_name, settings.app_name),
+        dependency=dependency,
+        caller=settings.app_name,
+        token_secret=(
+            settings.service_token_secret.get_secret_value()
+            if settings.service_token_secret
+            else None
+        ),
+    )
+
+
 def build_unit(
     settings: CaseflowSettings,
     *,
@@ -138,9 +162,9 @@ def build_unit(
         settings: H1's settings (already ``load()``-ed).
         mongo: The host's Mongo client; never closed here.
         publisher: The host's publisher, used by the consumers and the relay.
-        step_handlers: The ``harness.step`` handlers by kind. Empty by default:
-            the cores that implement them land in later lanes, which pass
-            their table here.
+        step_handlers: The ``harness.step`` handlers by kind. Defaults to every
+            core's table (:func:`fcrm_caseflow.cores.default_handlers`); a
+            mapping passed here replaces it entirely.
         step_map: Trigger -> step kind for the engine. Defaults to
             :data:`fcrm_caseflow.audit_map.STEP_FOR`; keep it in step with
             ``step_handlers``, since a trigger mapped to a kind without a
@@ -148,38 +172,32 @@ def build_unit(
 
     Returns:
         The unit: subscribers to wire, the index and relay startup hooks, the
-        relay and audit-client shutdown hooks, and the ``indexes`` check.
+        relay and HTTP-client shutdown hooks, and the ``indexes`` check.
 
     Raises:
         fcrm_caseflow.steps.UnknownStepKindError: ``step_map`` names a step
             kind that has no handler in ``step_handlers`` (the unit refuses to
             start rather than enqueue steps nobody can run).
+        fcrm_common.settings.MissingSettingsError: a service URL or the
+            database name is not set.
     """
     wired_steps = step_map if step_map is not None else STEP_FOR
-    registry = StepRegistry(step_handlers)
+    handlers = default_handlers() if step_handlers is None else step_handlers
+    registry = StepRegistry(handlers)
     registry.require(wired_steps.values())
     db_name = required_value(settings.mongodb_db, "MONGODB_DB", settings.app_name)
-    audit_url = required_value(
-        settings.audit_service_url, "AUDIT_SERVICE_URL", settings.app_name
-    )
+    audit_http = _service_client(settings, settings.audit_service_url, "audit")
+    case_http = _service_client(settings, settings.case_service_url, "case")
+    policy_http = _service_client(settings, settings.policy_service_url, "policy")
     db = mongo[db_name]
     consumed = db[CONSUMED_MESSAGES_COLLECTION]
     outbox_collection = db[OUTBOX_COLLECTION]
 
     runs_store = CaseRunStore(db[CASE_RUNS_COLLECTION], db[RUN_EVENTS_COLLECTION])
     gate_store = GateStore(db[GATES_COLLECTION])
+    results_store = AgentResultStore(db[AGENT_RESULTS_COLLECTION])
     outbox = Outbox(outbox_collection)
 
-    audit_http = ServiceClient(
-        audit_url,
-        dependency="audit",
-        caller=settings.app_name,
-        token_secret=(
-            settings.service_token_secret.get_secret_value()
-            if settings.service_token_secret
-            else None
-        ),
-    )
     audit = AuditClient(audit_http)
     engine = CaseflowEngine(
         runs_store,
@@ -188,9 +206,18 @@ def build_unit(
         audit,
         step_map=wired_steps,
         transact=mongo_transact(mongo),
+        results=results_store,
+        ingest_bucket=settings.s3_bucket_canonical,
     )
     step_runner = StepRunner(
-        runs_store, registry, engine, audit, timeout_s=settings.step_timeout_s
+        runs_store,
+        registry,
+        engine,
+        audit,
+        timeout_s=settings.step_timeout_s,
+        case=CaseClient(case_http),
+        policy=PolicyClient(policy_http),
+        agent_results=results_store,
     )
 
     case_events_consumer = CaseEventsConsumer(
@@ -215,6 +242,7 @@ def build_unit(
         try:
             await runs_store.ensure_indexes()
             await gate_store.ensure_indexes()
+            await results_store.ensure_indexes()
             await outbox.ensure_indexes()
             await case_events_consumer.ensure_indexes()
         except Exception:
@@ -246,7 +274,12 @@ def build_unit(
             step_prefetch=settings.step_prefetch,
         ),
         after_startup=(_ensure_indexes, _start_relay),
-        on_shutdown=(_stop_relay, audit_http.aclose),
+        on_shutdown=(
+            _stop_relay,
+            audit_http.aclose,
+            case_http.aclose,
+            policy_http.aclose,
+        ),
         checks=(ReadinessCheck("indexes", _indexes_check, critical=True),),
     )
 

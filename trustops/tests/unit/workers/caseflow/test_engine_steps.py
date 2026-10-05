@@ -15,7 +15,13 @@ from collections.abc import Callable, Mapping
 from typing import Any, Optional
 
 import pytest
-from conftest import FakeCollection, FakeSession, FakeTransact, RecordingAudit
+from conftest import (
+    FakeCollection,
+    FakeSession,
+    FakeTransact,
+    RecordingAudit,
+    document_stored_payload,
+)
 from fcrm_caseflow.dispatch import REQUIRED_ROLE, AgentDispatch
 from fcrm_caseflow.engine import CaseflowEngine, OrphanEventError
 from fcrm_caseflow.eventstore import rebuild
@@ -110,7 +116,7 @@ class TestStepEnqueuedWithTheTransition:
             {Trigger.CASE_DOCUMENT_STORED: StepKind.INTAKE_DOCUMENT_STORED}
         )
         run_id = await _start(engine, run_store, session)
-        stored = _env("case.document_stored", {"doc_id": "doc_1"}, run_id)
+        stored = _env("case.document_stored", document_stored_payload("doc_1"), run_id)
 
         await engine.handle(stored, session)
 
@@ -124,7 +130,7 @@ class TestStepEnqueuedWithTheTransition:
         assert step.args == {
             "trigger": "case.document_stored",
             "message_id": stored.event_id,
-            "payload": {"doc_id": "doc_1"},
+            "payload": document_stored_payload("doc_1"),
         }
         run = await _load(run_store, run_id)
         assert run.pending_steps == (expected_id,)
@@ -181,7 +187,8 @@ class TestStepEnqueuedWithTheTransition:
     ) -> None:
         run_id = await _start(engine, run_store, session)
         await engine.handle(
-            _env("case.document_stored", {"doc_id": "doc_1"}, run_id), session
+            _env("case.document_stored", document_stored_payload("doc_1"), run_id),
+            session,
         )
         assert _steps(outbox_collection) == []
         assert (await _load(run_store, run_id)).pending_steps == ()
@@ -197,8 +204,8 @@ class TestStepEnqueuedWithTheTransition:
             {Trigger.CASE_DOCUMENT_STORED: StepKind.INTAKE_DOCUMENT_STORED}
         )
         run_id = await _start(engine, run_store, session)
-        first = _env("case.document_stored", {"doc_id": "doc_1"}, run_id)
-        second = _env("case.document_stored", {"doc_id": "doc_2"}, run_id)
+        first = _env("case.document_stored", document_stored_payload("doc_1"), run_id)
+        second = _env("case.document_stored", document_stored_payload("doc_2"), run_id)
         await engine.handle(first, session)
         await engine.handle(second, session)
         ids = [s.step_id for s in _steps(outbox_collection)]
@@ -247,7 +254,8 @@ class TestStepEnqueuedWithTheTransition:
         )
         run_id = await _start(engine, run_store, session)
         await engine.handle(
-            _env("case.document_stored", {"doc_id": "doc_1"}, run_id), session
+            _env("case.document_stored", document_stored_payload("doc_1"), run_id),
+            session,
         )
         assert recording_audit.records[-1].type == "case.document_stored"
 
@@ -355,7 +363,7 @@ async def _pending_step_run(
     """A run in INTAKE with one pending step; returns ``(run_id, step_id)``."""
     run_id = await _start(engine, run_store, session)
     await engine.handle(
-        _env("case.document_stored", {"doc_id": "doc_1"}, run_id), session
+        _env("case.document_stored", document_stored_payload("doc_1"), run_id), session
     )
     run = await _load(run_store, run_id)
     return run_id, run.pending_steps[0]
@@ -611,7 +619,8 @@ class TestCompleteStep:
         )
         # A later step merges key by key and keeps adding to the counters.
         await engine.handle(
-            _env("case.document_stored", {"doc_id": "doc_2"}, run_id), session
+            _env("case.document_stored", document_stored_payload("doc_2"), run_id),
+            session,
         )
         second = (await _load(run_store, run_id)).pending_steps[0]
         await engine.complete_step(

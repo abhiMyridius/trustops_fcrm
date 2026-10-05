@@ -395,7 +395,9 @@ def gate_decided_trigger(gate_type: GateType, decision: str) -> Optional[Trigger
     gates of this type are now decided" aggregation
     (``PO_CONFIRM_CATEGORY`` — :mod:`fcrm_caseflow.engine` calls
     :func:`fcrm_caseflow.gates.GateStore.count_open` for that one, not
-    this function).
+    this function). The PO's intake decisions are among the ``None`` ones:
+    they move no state, and the engine starts the ``intake.po_action`` step
+    for them itself (``CaseflowEngine._po_action_step``).
 
     Raises:
         ValueError: ``gate_type`` is ``COMPLETENESS`` with a ``decision``

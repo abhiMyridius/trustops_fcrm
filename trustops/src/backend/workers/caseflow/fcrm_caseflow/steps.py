@@ -52,8 +52,10 @@ from fcrm_contracts.events.payloads import HarnessStep
 from pymongo.errors import PyMongoError
 
 from fcrm_caseflow.audit_client import AuditClient
+from fcrm_caseflow.clients.case_client import CaseClient
+from fcrm_caseflow.clients.policy_client import PolicyClient
 from fcrm_caseflow.dispatch import AgentDispatch
-from fcrm_caseflow.store import CaseRun, CaseRunStore
+from fcrm_caseflow.store import AgentResultStore, CaseRun, CaseRunStore
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +76,16 @@ class UnknownStepKindError(FcrmError):
     status_code: ClassVar[int] = 500
     code: ClassVar[str] = "unknown_step_kind"
     title: ClassVar[str] = "Unknown step kind"
+
+
+class StepDependencyError(FcrmError):
+    """A handler needs a client or store the unit was built without. A wiring
+    mistake, raised so the step fails loudly instead of skipping its work.
+    """
+
+    status_code: ClassVar[int] = 500
+    code: ClassVar[str] = "step_dependency_missing"
+    title: ClassVar[str] = "Step dependency missing"
 
 
 @dataclass(frozen=True)
@@ -172,16 +184,56 @@ class StepResult:
 
 @dataclass(frozen=True)
 class StepDeps:
-    """What a handler may use. Later lanes add the typed S1/S2/S3/S5 clients
-    here as optional fields; the run is a snapshot taken when the step began.
+    """What a handler may use. Later lanes add the typed S2/S5 clients here as
+    optional fields; the run is a snapshot taken when the step began.
 
     Attributes:
         run: The run as loaded just before the handler started.
         audit: The S4 client.
+        case: The S1 internal-routes client (``None`` in a unit built without
+            it; a handler that needs it calls :func:`require`).
+        policy: The S3 client, for the precedent lookup.
+        agent_results: The agent results the engine kept, for a step that
+            merges the output of several jobs.
     """
 
     run: CaseRun
     audit: AuditClient
+    case: Optional[CaseClient] = None
+    policy: Optional[PolicyClient] = None
+    agent_results: Optional[AgentResultStore] = None
+
+    def require_case(self) -> CaseClient:
+        """The S1 client.
+
+        Raises:
+            StepDependencyError: the unit was built without one.
+        """
+        if self.case is None:
+            raise StepDependencyError("this step needs the S1 client", needs="case")
+        return self.case
+
+    def require_policy(self) -> PolicyClient:
+        """The S3 client.
+
+        Raises:
+            StepDependencyError: the unit was built without one.
+        """
+        if self.policy is None:
+            raise StepDependencyError("this step needs the S3 client", needs="policy")
+        return self.policy
+
+    def require_agent_results(self) -> AgentResultStore:
+        """The kept agent results.
+
+        Raises:
+            StepDependencyError: the unit was built without the store.
+        """
+        if self.agent_results is None:
+            raise StepDependencyError(
+                "this step needs the agent result store", needs="agent_results"
+            )
+        return self.agent_results
 
     async def append_record(
         self,
@@ -339,6 +391,9 @@ class StepRunner:
         completer: The engine's ``complete_step``.
         audit: Handed to every handler through :class:`StepDeps`.
         timeout_s: The deadline for one handler call, in seconds.
+        case: The S1 client, handed to handlers through :class:`StepDeps`.
+        policy: The S3 client, likewise.
+        agent_results: The kept agent results, likewise.
     """
 
     def __init__(
@@ -349,6 +404,9 @@ class StepRunner:
         audit: AuditClient,
         *,
         timeout_s: float = DEFAULT_STEP_TIMEOUT_S,
+        case: Optional[CaseClient] = None,
+        policy: Optional[PolicyClient] = None,
+        agent_results: Optional[AgentResultStore] = None,
     ) -> None:
         """Wire the runner's collaborators; it holds no other state."""
         self._runs = runs
@@ -356,6 +414,9 @@ class StepRunner:
         self._completer = completer
         self._audit = audit
         self._timeout_s = timeout_s
+        self._case = case
+        self._policy = policy
+        self._agent_results = agent_results
         self._locks = _CaseLocks()
 
     async def run(self, step: HarnessStep) -> None:
@@ -418,9 +479,16 @@ class StepRunner:
         hung step from holding the case lock (and so every later step of the
         case) for ever.
         """
+        deps = StepDeps(
+            run=run,
+            audit=self._audit,
+            case=self._case,
+            policy=self._policy,
+            agent_results=self._agent_results,
+        )
         try:
             async with asyncio.timeout(self._timeout_s) as deadline:
-                return await handler(step, StepDeps(run=run, audit=self._audit))
+                return await handler(step, deps)
         except TimeoutError as exc:
             if not deadline.expired():
                 raise  # the handler's own timeout, not this deadline
