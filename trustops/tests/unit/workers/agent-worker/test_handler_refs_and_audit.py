@@ -369,6 +369,7 @@ class TestAuditVocabulary:
         seed_registry: ToolRegistry,
         allow_all_opa_client: OPAClient,
         fake_tiers_config: dict[str, Any],
+        failing_publisher: Any,
         recording_audit: Any,
         fake_consumed: Any,
         make_model_factory_returning: Callable[..., ModelFactory],
@@ -376,13 +377,11 @@ class TestAuditVocabulary:
         """If the terminal event cannot be published the job is retried by the
         broker; writing its records first would duplicate them on the retry.
         """
-        from conftest import RecordingPublisher
-
         consumer = _consumer(
             registry=seed_registry,
             permit_client=allow_all_opa_client,
             audit=recording_audit,
-            publisher=RecordingPublisher(fail=True),
+            publisher=failing_publisher,
             tiers_config=fake_tiers_config,
             model_factory=make_model_factory_returning(research_outputs),
             consumed=fake_consumed,
