@@ -53,6 +53,13 @@ logger = logging.getLogger(__name__)
 
 MAX_QUERY_CHARS: Final = 1000
 """Longest ``case_search`` query sent in a URL (a longer one is refused)."""
+
+#: The three S1 routes these tools read, in one place: the evidence and search
+#: routes are assumed (see the module docstring), so a change of S1's route is a
+#: change of one line here. ``{case_id}`` is filled with an escaped path segment.
+EVIDENCE_PATH: Final = "/internal/cases/{case_id}/evidence"
+SUBMISSION_DIFF_PATH: Final = "/cases/{case_id}/versions/diff"
+CASE_SEARCH_PATH: Final = "/internal/cases/search"
 _ACTIVE_CONTROLS_KEY: Final = "evidence_store:active_controls"
 
 
@@ -135,7 +142,7 @@ class HttpEvidenceStoreTool(BaseTool[EvidenceStoreInput, EvidenceStoreOutput]):
         control = await self._control(request.control_id)
         evidence = await fetch_model(
             self._case,
-            f"/internal/cases/{segment(request.case_id)}/evidence",
+            EVIDENCE_PATH.format(case_id=segment(request.case_id)),
             CaseEvidenceOut,
             tool=self.name,
             what=f"case {request.case_id!r}",
@@ -178,7 +185,7 @@ class HttpSubmissionDiffTool(BaseTool[SubmissionDiffInput, SubmissionDiffOutput]
                 raise ToolInputError(msg)
         return await fetch_model(
             self._case,
-            f"/cases/{segment(request.case_id)}/versions/diff",
+            SUBMISSION_DIFF_PATH.format(case_id=segment(request.case_id)),
             SubmissionDiffOutput,
             tool=self.name,
             what=(
@@ -227,7 +234,7 @@ class HttpCaseSearchTool(BaseTool[CaseSearchInput, CaseSearchOutput]):
             params["geography"] = request.geography
         found = await fetch_model(
             self._case,
-            "/internal/cases/search",
+            CASE_SEARCH_PATH,
             CaseSearchOutput,
             tool=self.name,
             what=f"case search {query[:40]!r}",
@@ -243,7 +250,10 @@ class HttpCaseSearchTool(BaseTool[CaseSearchInput, CaseSearchOutput]):
 
 
 __all__ = [
+    "CASE_SEARCH_PATH",
+    "EVIDENCE_PATH",
     "MAX_QUERY_CHARS",
+    "SUBMISSION_DIFF_PATH",
     "HttpCaseSearchTool",
     "HttpEvidenceStoreTool",
     "HttpSubmissionDiffTool",
