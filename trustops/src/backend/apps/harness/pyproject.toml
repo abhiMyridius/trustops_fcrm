@@ -1,13 +1,14 @@
 [project]
 name = "fcrm-harness"
 version = "0.1.0"
-description = "The composite harness process: H1 caseflow and H2 agent-worker (and, as their entry points land, H3 ingestion and H4 context) as units on one FastStream broker, one Mongo client and one health endpoint (ADR-26)."
+description = "The composite harness process: H1 caseflow, H2 agent-worker and H3 ingestion-worker (and, as its entry point lands, H4 context) as units on one FastStream broker, one Mongo client and one health endpoint (ADR-26)."
 requires-python = ">=3.13"
 dependencies = [
   "fcrm-contracts",
   "fcrm-common",
   "fcrm-caseflow",
   "fcrm-agent-worker",
+  "fcrm-ingestion-worker",
   "uvicorn[standard]>=0.34",
 ]
 

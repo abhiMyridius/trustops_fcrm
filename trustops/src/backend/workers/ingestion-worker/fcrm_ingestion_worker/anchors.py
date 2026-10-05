@@ -23,11 +23,17 @@ grammar; this module is the TrustOps-facing API over it. Semantics:
 from __future__ import annotations
 
 import logging
-from typing import Optional
+import re
+from typing import Final, Optional
 
 from evoq_ingestion import scan_page_lines
 
 logger = logging.getLogger(__name__)
+
+#: Characters :meth:`str.splitlines` treats as a line boundary besides ``\n``.
+#: Inside an anchored line they would cut it in two when the reader splits the
+#: file again, losing the anchor of the second half, so each becomes a space.
+_LINE_BREAKS: Final = re.compile("[\r\x0b\x0c\x1c\x1d\x1e\x85  ]")
 
 
 class CitationOutOfRangeError(ValueError):
@@ -92,6 +98,35 @@ def read_pages(
     from_line = _marker_line(body, chosen[0], offsets[chosen[0]][0])
     to_line = offsets[chosen[-1]][1]
     return "\n".join(body[from_line - 1 : to_line])
+
+
+def render_anchored(markdown_output: str, *, doc_id: str) -> str:
+    """The page:line anchored copy agents read and cite (design B §2.2: "Lines
+    are numbered inside each page as ``p.N l.M: text``").
+
+    ``# <doc_id> (N pages)``, then per page ``## Page N`` and one
+    ``p.N l.M: text`` line for every line of that page, ``M`` counting from
+    the page's first non-blank line, exactly the numbering
+    :func:`compute_page_line_offsets` and :func:`resolve_citation` use. The
+    grammar is the one ``fcrm_tools.markdown`` writes and reads (a lock test
+    holds the two together, so H3 does not depend on the tools package).
+
+    Args:
+        markdown_output: The masked canonical Markdown (``--- Page N ---``
+            markers).
+        doc_id: Named in the header; the id a ``DocSourceRef`` cites.
+    """
+    offsets = compute_page_line_offsets(markdown_output)
+    body = markdown_output.split("\n")
+    out = [f"# {doc_id} ({len(offsets)} pages)"]
+    for page in sorted(offsets):
+        start, end = offsets[page]
+        out.append(f"## Page {page}")
+        out.extend(
+            f"p.{page} l.{number}: {_LINE_BREAKS.sub(' ', text)}"
+            for number, text in enumerate(body[start - 1 : end], start=1)
+        )
+    return "\n".join(out) + "\n"
 
 
 def _marker_line(body: list[str], page: int, start_line: int) -> int:

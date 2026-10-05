@@ -26,6 +26,7 @@ from evoq_ingestion import (
     extract_file,
     failure_code_of,
 )
+from evoq_ingestion.core.config import PdfEngine
 from pydantic import BaseModel, ConfigDict, Field
 
 from fcrm_ingestion_worker.anchors import compute_page_line_offsets
@@ -67,12 +68,22 @@ class IngestResult(BaseModel):
     guard1: Optional[dict[str, object]] = None
 
 
-def _extraction_options() -> ExtractionOptions:
-    """Production options: in-process engines, the upload allow-list, pdfplumber."""
+def _extraction_options(
+    pdf_engine: PdfEngine, pdf_min_chars_per_page: Optional[int]
+) -> ExtractionOptions:
+    """Production options: in-process engines, the upload allow-list, and the
+    host's PDF settings (the engine's own default minimum when ``None``).
+    """
+    min_chars = (
+        pdf_min_chars_per_page
+        if pdf_min_chars_per_page is not None
+        else ExtractionOptions().pdf_min_chars_per_page
+    )
     return ExtractionOptions(
         engine_mode="inprocess",
         allowed_extensions=DEFAULT_UPLOAD_ALLOWED_EXTENSIONS,
-        pdf_engine="pdfplumber",
+        pdf_engine=pdf_engine,
+        pdf_min_chars_per_page=min_chars,
     )
 
 
@@ -118,15 +129,27 @@ def _from_guard(
     )
 
 
-async def handle(payload: IngestDocumentPayload) -> IngestResult:
+async def handle(
+    payload: IngestDocumentPayload,
+    *,
+    pdf_engine: PdfEngine = "pdfplumber",
+    pdf_min_chars_per_page: Optional[int] = None,
+) -> IngestResult:
     """Extract, Guard-1-scan and anchor one document. Never raises on bad input.
 
     Engine refusals become ``FAILED``/``UNSUPPORTED`` results carrying the
     engine's ``lower_snake`` failure code; a Guard 1 block becomes
     ``QUARANTINED`` with no Markdown at all.
+
+    Args:
+        payload: The document to read.
+        pdf_engine: ``pdfplumber`` (the engine's default) or ``pypdf``.
+        pdf_min_chars_per_page: Below this many characters per page a PDF page
+            counts as a scan (the engine's default when ``None``).
     """
+    options = _extraction_options(pdf_engine, pdf_min_chars_per_page)
     try:
-        doc = await extract_file(Path(payload.path), options=_extraction_options())
+        doc = await extract_file(Path(payload.path), options=options)
     except ExtractionError as error:
         return _failed(payload, error)
     warnings = [str(w) for w in doc.extraction.get("warnings", [])]
