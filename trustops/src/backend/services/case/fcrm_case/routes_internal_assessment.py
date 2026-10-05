@@ -27,6 +27,7 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, Header, Query, Request
 from fcrm_common.auth import require_roles
 from fcrm_common.errors import (
+    ConflictError,
     NotFoundError,
     UpstreamUnavailableError,
     ValidationError,
@@ -35,7 +36,10 @@ from fcrm_contracts.api.case_internal_assessment import (
     CompletenessPush,
     CriticPush,
     HandoffPush,
+    RecommendationDraftBody,
     RecommendationDraftPush,
+    RecommendationEdits,
+    RecommendationInternal,
     ScorePush,
     ScoreRequestView,
     ScreeningPush,
@@ -43,6 +47,7 @@ from fcrm_contracts.api.case_internal_assessment import (
 )
 from fcrm_contracts.enums import ItemKind, Role
 from fcrm_contracts.tools.evidence_store import EvidenceStoreOutput
+from pydantic import ValidationError as PydanticValidationError
 
 from fcrm_case.assessment_store import AssessmentStore, checked_idempotency_key
 from fcrm_case.deps import get_store, get_views
@@ -196,6 +201,46 @@ async def put_handoff(
     return await assessment.put_handoff(
         case_id, body, checked_idempotency_key(idempotency_key)
     )
+
+
+@router.get("/cases/{case_id}/recommendation")
+async def get_recommendation(
+    case_id: str,
+    cases: Annotated[CaseStore, Depends(get_store)],
+    assessment: Annotated[AssessmentStore, Depends(get_assessment)],
+) -> RecommendationInternal:
+    """The recommendation as H1 builds the pack from it: the agent's draft, the
+    analyst's edits beside it (``None`` until they edit) and the lock.
+
+    Raises:
+        fcrm_common.errors.NotFoundError: no such case, or no draft yet.
+        fcrm_common.errors.ConflictError: the stored edits are not the shape the
+            analyst surface promises (a writer bug).
+    """
+    await _require_case(cases, case_id)
+    row = await assessment.get_recommendation(case_id)
+    if row is None:
+        raise NotFoundError(f"case {case_id} has no recommendation draft yet")
+    try:
+        edits = (
+            RecommendationEdits.model_validate(row.edits)
+            if row.edits is not None
+            else None
+        )
+        return RecommendationInternal(
+            case_id=case_id,
+            run_id=row.run_id,
+            draft=RecommendationDraftBody.model_validate(row.draft),
+            draft_seq=row.draft_seq,
+            edits=edits,
+            locked=row.locked,
+            locked_by=row.locked_by,
+        )
+    except PydanticValidationError as exc:
+        raise ConflictError(
+            f"the stored recommendation of {case_id} is not a valid shape",
+            errors_count=exc.error_count(),
+        ) from exc
 
 
 @router.get("/cases/{case_id}/score-request")

@@ -165,6 +165,7 @@ def _score_body(
     [
         *(("put", route) for route in (*PUT_ROUTES, "handoff")),
         ("get", "score-request"),
+        ("get", "recommendation"),
         ("get", "evidence?control_id=CTL-T01"),
     ],
 )
@@ -571,3 +572,60 @@ def test_evidence_needs_a_control_id(assessment_service: CaseService) -> None:
     response = assessment_service.client.get(f"/internal/cases/{CASE}/evidence")
 
     assert response.status_code == 422
+
+
+def test_there_is_no_recommendation_before_the_narrative_has_drafted_one(
+    assessment_service: CaseService,
+) -> None:
+    response = assessment_service.client.get(f"/internal/cases/{CASE}/recommendation")
+
+    assert response.status_code == 404
+
+
+def test_the_recommendation_read_carries_the_draft_the_edits_and_the_lock(
+    assessment_service: CaseService, assessment_store: InMemoryAssessmentStore
+) -> None:
+    _put(assessment_service, "recommendation-draft", _draft_body(), key="k1")
+    row = asyncio.run(assessment_store.get_recommendation(CASE))
+    assert row is not None
+    assessment_store.recommendations[CASE] = row.model_copy(
+        update={
+            "edits": {
+                "sections": [{"key": "recommendation", "text": "Edited."}],
+                "business_summary": "Ready for the committee.",
+                "edit_count": 2,
+            },
+            "locked": True,
+            "locked_by": "u-riyer",
+        }
+    )
+
+    response = assessment_service.client.get(f"/internal/cases/{CASE}/recommendation")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["draft"]["sections"][0]["text"] == "Residual risk sits in Band 3."
+    assert body["draft"]["conditions"][0]["condition_id"] == "CND-1"
+    assert body["edits"]["sections"] == [{"key": "recommendation", "text": "Edited."}]
+    assert body["edits"]["conditions"] is None  # not edited: the draft stands
+    assert body["edits"]["edit_count"] == 2
+    assert (body["draft_seq"], body["locked"], body["locked_by"]) == (
+        1,
+        True,
+        "u-riyer",
+    )
+
+
+def test_stored_edits_of_a_shape_the_analyst_surface_does_not_promise_are_a_conflict(
+    assessment_service: CaseService, assessment_store: InMemoryAssessmentStore
+) -> None:
+    _put(assessment_service, "recommendation-draft", _draft_body(), key="k1")
+    row = asyncio.run(assessment_store.get_recommendation(CASE))
+    assert row is not None
+    assessment_store.recommendations[CASE] = row.model_copy(
+        update={"edits": {"unexpected": True}}
+    )
+
+    response = assessment_service.client.get(f"/internal/cases/{CASE}/recommendation")
+
+    assert response.status_code == 409

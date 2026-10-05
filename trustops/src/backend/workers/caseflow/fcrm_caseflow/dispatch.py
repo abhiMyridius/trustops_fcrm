@@ -132,20 +132,10 @@ def dispatch_for(
         return DispatchPlan((AgentDispatch(AgentName.CRITIC),))
     if trigger is Trigger.COMPLETENESS_DISPATCH:
         return DispatchPlan((AgentDispatch(AgentName.NARRATIVE, scope="completeness"),))
-    if trigger is Trigger.CASE_ANSWERED:
-        changed = tuple((payload or {}).get("changed_field_ids") or ())
-        return DispatchPlan(
-            (
-                AgentDispatch(
-                    AgentName.RESEARCH, scope="changed_fields", changed_fields=changed
-                ),
-                AgentDispatch(
-                    AgentName.ASSESSMENT,
-                    scope="changed_fields",
-                    changed_fields=changed,
-                ),
-            )
-        )
+    # No entry for CASE_ANSWERED: the ``rerun.record`` step dispatches the
+    # research and assessment re-run, because it must wait for any document the
+    # owner added with the answer to be extracted first (the owner's answer may
+    # live in that document), and only the step can see whether one is pending.
     if trigger is Trigger.ALL_ITEMS_DECIDED:
         return DispatchPlan(
             (AgentDispatch(AgentName.NARRATIVE, scope="recommendation"),)
@@ -154,6 +144,11 @@ def dispatch_for(
         return DispatchPlan((AgentDispatch(AgentName.INTAKE, scope="questions_only"),))
     return DispatchPlan(())
 
+
+#: Subject keys of the gates the engine opens itself with deterministic ids
+#: (:func:`trigger_gate_key`); a step derives the same ids to write into S1.
+FAST_LANE_GATE_KEY: Final = "fast_lane"
+COMPLETENESS_GATE_KEY: Final = "completeness"
 
 #: Which gate (if any) opens as a direct consequence of ``trigger``
 #: firing, beyond what ``_GATE_OPEN_CONDITIONAL`` decides from ``ctx``.
@@ -181,11 +176,36 @@ def gate_to_open(trigger: Trigger, ctx: TransitionContext) -> Optional[GateType]
         return direct
     if trigger is Trigger.AGENT_DONE_SCREENING and ctx.fast_lane_proposed:
         return GateType.FAST_LANE_CONFIRM
-    if trigger is Trigger.GATE_DECIDED_REVIEW_ITEM and (
-        ctx.band_changed or ctx.boundary_flagged
-    ):
-        return GateType.ACK
+    # No entry for GATE_DECIDED_REVIEW_ITEM: whether a decision crossed a band
+    # edge is S2's answer, which only the ``review.item`` step has (it re-scores),
+    # so the step opens the ``ack`` gate (ADR-28). A payload's own
+    # ``band_changed`` is never what opens one.
     return None
+
+
+def trigger_gate_key(gate_type: GateType, run: CaseRun) -> Optional[str]:
+    """The subject key of a gate the engine opens for a trigger, or ``None``
+    for a gate that gets a fresh id each time.
+
+    The three gates a harness step needs the id of before the engine has
+    opened them (the step writes it into S1's view) get a deterministic one
+    (:func:`fcrm_caseflow.gates.deterministic_gate_id`): the fast-lane and
+    completeness gates are one per run, the pack-release gate one per pack
+    version (a re-lock after an unlock is a new version). A handoff gate may
+    open any number of times in a run, so it stays random.
+    """
+    if gate_type is GateType.FAST_LANE_CONFIRM:
+        return FAST_LANE_GATE_KEY
+    if gate_type is GateType.COMPLETENESS:
+        return COMPLETENESS_GATE_KEY
+    if gate_type is GateType.PACK_RELEASE:
+        return pack_release_gate_key(run.snapshot.flags.pack_version)
+    return None
+
+
+def pack_release_gate_key(pack_version: int) -> str:
+    """The subject key of the ``pack_release`` gate of pack ``pack_version``."""
+    return f"pack_v{pack_version}"
 
 
 def build_job_envelope(
@@ -251,23 +271,41 @@ def done_join_keys(agent: AgentName, job_id: Optional[str]) -> tuple[str, ...]:
     return (*specific, agent.value)
 
 
+#: Agents whose context pack reads the engine's read-only score summary
+#: (``fcrm_agents.context_pack.BuildRequest.score_summary``): the critic and the
+#: narrative. No other agent sees a score.
+_SCORE_READERS: Final = frozenset({AgentName.CRITIC, AgentName.NARRATIVE})
+
+
 def dispatch_refs(
     dispatch: AgentDispatch, run_refs: Mapping[str, Any]
 ) -> dict[str, Any]:
     """``JobPayload.refs`` for a job a *transition* dispatches (a step passes
     its own refs).
 
-    The one such job that needs refs is the intake agent's ``questions_only``
-    round, run after every change type is confirmed: H2's intake context
-    builder reads one document window and refuses a job without ``doc_id``,
-    so the job is given the first document the first round read
-    (``intake_docs``, which ``intake.ingested`` records).
+    Every such job gets what the run's earlier steps left in ``run_refs`` that
+    H2's context-pack builders read: the in-scope ``domains`` and the
+    ``submission_version`` (without ``domains`` the research and assessment
+    builders show no controls), and for the two agents that may read the score,
+    the ``score_summary`` (composite, band, route and boundary, read-only).
+
+    The intake agent's ``questions_only`` round, run after every change type is
+    confirmed, additionally needs ``doc_id``: H2's intake context builder reads
+    one document window and refuses a job without it, so the job is given the
+    first document the first round read (``intake_docs``, which
+    ``intake.ingested`` records).
     """
+    refs: dict[str, Any] = {}
+    for key in ("domains", "submission_version"):
+        if run_refs.get(key):
+            refs[key] = run_refs[key]
+    if dispatch.agent in _SCORE_READERS and run_refs.get("score_summary"):
+        refs["score_summary"] = dict(run_refs["score_summary"])
     if dispatch.agent is AgentName.INTAKE and dispatch.scope == "questions_only":
         docs = run_refs.get("intake_docs")
         if isinstance(docs, list) and docs:
-            return {"doc_id": str(docs[0])}
-    return {}
+            refs["doc_id"] = str(docs[0])
+    return refs
 
 
 # --- ingest.run: H1 -> H3 ------------------------------------------------------

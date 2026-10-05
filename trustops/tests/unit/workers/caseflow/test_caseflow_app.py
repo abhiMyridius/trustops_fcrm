@@ -31,6 +31,8 @@ def _settings(**overrides: object) -> CaseflowSettings:
         "audit_service_url": "http://localhost:8004",
         "case_service_url": "http://localhost:8000/api/fcrm",
         "policy_service_url": "http://localhost:8000/api/fcrm/policy",
+        "scoring_service_url": "http://localhost:8000/api/fcrm/scoring",
+        "decision_service_url": "http://localhost:8000/api/fcrm/decision",
     }
     values.update(overrides)
     return CaseflowSettings(**values)  # type: ignore[arg-type]
@@ -71,11 +73,12 @@ def test_the_step_prefetch_is_a_setting() -> None:
     assert by_queue["caseflow.steps"].channel.prefetch_count == 2
 
 
-def test_the_default_unit_closes_its_three_http_clients() -> None:
+def test_the_default_unit_closes_its_five_http_clients() -> None:
     unit, _ = _unit(_settings())
     assert unit.component_id == "H1"
     assert len(unit.after_startup) == 2  # indexes, relay
-    assert len(unit.on_shutdown) == 4  # relay, then the audit, case, policy clients
+    # the relay, then the audit, case, policy, scoring and decision clients
+    assert len(unit.on_shutdown) == 6
     assert [c.name for c in unit.checks] == ["indexes"]
 
 
@@ -94,6 +97,8 @@ def test_the_default_unit_runs_every_step_the_shipped_trigger_map_enqueues() -> 
         ("case_service_url", "CASE_SERVICE_URL"),
         ("policy_service_url", "POLICY_SERVICE_URL"),
         ("audit_service_url", "AUDIT_SERVICE_URL"),
+        ("scoring_service_url", "SCORING_SERVICE_URL"),
+        ("decision_service_url", "DECISION_SERVICE_URL"),
     ],
 )
 def test_a_unit_without_a_peer_url_refuses_to_start(
@@ -103,11 +108,15 @@ def test_a_unit_without_a_peer_url_refuses_to_start(
         _unit(_settings(**{missing: None}))
 
 
-def test_the_settings_require_the_case_and_policy_urls() -> None:
+def test_the_settings_require_every_peer_url() -> None:
     required = CaseflowSettings.required_settings
-    assert {"CASE_SERVICE_URL", "POLICY_SERVICE_URL", "AUDIT_SERVICE_URL"} <= set(
-        required
-    )
+    assert {
+        "CASE_SERVICE_URL",
+        "POLICY_SERVICE_URL",
+        "AUDIT_SERVICE_URL",
+        "SCORING_SERVICE_URL",
+        "DECISION_SERVICE_URL",
+    } <= set(required)
 
 
 def test_the_canonical_bucket_defaults_to_the_object_store_default() -> None:
@@ -116,10 +125,10 @@ def test_the_canonical_bucket_defaults_to_the_object_store_default() -> None:
 
 
 def test_a_mapped_step_without_a_handler_refuses_to_start() -> None:
-    with pytest.raises(UnknownStepKindError, match=r"lock\.build_pack"):
+    with pytest.raises(UnknownStepKindError, match=r"vote\.record"):
         _unit(
             _settings(),
-            step_map={Trigger.CASE_LOCKED: StepKind.LOCK_BUILD_PACK},
+            step_map={Trigger.VOTE_CAST: StepKind.VOTE_RECORD},
         )
 
 

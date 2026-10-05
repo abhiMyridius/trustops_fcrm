@@ -47,14 +47,17 @@ from fcrm_common.errors import FcrmError, NotFoundError, UpstreamTimeoutError
 from fcrm_common.ids import deterministic_id
 from fcrm_common.logging import bound_context
 from fcrm_contracts.api.audit import AuditRecord, RecordAppend
-from fcrm_contracts.enums import GateType, StepKind
+from fcrm_contracts.enums import GateStatus, GateType, StepKind
 from fcrm_contracts.events.payloads import HarnessStep
 from pymongo.errors import PyMongoError
 
 from fcrm_caseflow.audit_client import AuditClient
 from fcrm_caseflow.clients.case_client import CaseClient
+from fcrm_caseflow.clients.decision_client import DecisionClient
 from fcrm_caseflow.clients.policy_client import PolicyClient
+from fcrm_caseflow.clients.scoring_client import ScoringClient
 from fcrm_caseflow.dispatch import AgentDispatch
+from fcrm_caseflow.gates import GateStore
 from fcrm_caseflow.store import AgentResultStore, CaseRun, CaseRunStore
 
 logger = logging.getLogger(__name__)
@@ -110,6 +113,28 @@ class GateSpec:
 
 
 @dataclass(frozen=True)
+class GateCloseSpec:
+    """One gate a step ends itself, because what it was about no longer stands.
+
+    Attributes:
+        gate_type: Which gate.
+        subject_key: The key it was opened with (:class:`GateSpec`), so the gate
+            id is the same.
+        decision: What is recorded as its decision (``"superseded"``,
+            ``"released"``).
+        status: ``expired`` for a gate whose subject was replaced, ``decided``
+            for one whose job is done.
+        reason: Why, in a sentence.
+    """
+
+    gate_type: GateType
+    subject_key: str
+    decision: str
+    status: GateStatus = GateStatus.EXPIRED
+    reason: Optional[str] = None
+
+
+@dataclass(frozen=True)
 class AgentJobSpec:
     """One ``agent.run`` a step wants dispatched.
 
@@ -161,6 +186,8 @@ class StepResult:
         gates_to_open: Gates to open, each with a deterministic id (see
             :class:`GateSpec`); one ``gate.opened`` is announced per gate
             actually created.
+        gates_to_close: Gates to end (see :class:`GateCloseSpec`); one that is
+            not open is left alone.
         agent_jobs_to_dispatch: ``agent.run`` jobs to publish. More than one
             makes the run wait for every one of them (the research and
             assessment join).
@@ -174,6 +201,7 @@ class StepResult:
     """
 
     gates_to_open: tuple[GateSpec, ...] = ()
+    gates_to_close: tuple[GateCloseSpec, ...] = ()
     agent_jobs_to_dispatch: tuple[AgentJobSpec, ...] = ()
     refs_patch: Mapping[str, Any] = field(default_factory=dict)
     follow_up_steps: tuple[FollowUpStep, ...] = ()
@@ -202,6 +230,9 @@ class StepDeps:
     case: Optional[CaseClient] = None
     policy: Optional[PolicyClient] = None
     agent_results: Optional[AgentResultStore] = None
+    scoring: Optional[ScoringClient] = None
+    decision: Optional[DecisionClient] = None
+    gates: Optional[GateStore] = None
 
     def require_case(self) -> CaseClient:
         """The S1 client.
@@ -234,6 +265,36 @@ class StepDeps:
                 "this step needs the agent result store", needs="agent_results"
             )
         return self.agent_results
+
+    def require_scoring(self) -> ScoringClient:
+        """The S2 client.
+
+        Raises:
+            StepDependencyError: the unit was built without one.
+        """
+        if self.scoring is None:
+            raise StepDependencyError("this step needs the S2 client", needs="scoring")
+        return self.scoring
+
+    def require_decision(self) -> DecisionClient:
+        """The S5 client.
+
+        Raises:
+            StepDependencyError: the unit was built without one.
+        """
+        if self.decision is None:
+            raise StepDependencyError("this step needs the S5 client", needs="decision")
+        return self.decision
+
+    def require_gates(self) -> GateStore:
+        """Read access to the gates.
+
+        Raises:
+            StepDependencyError: the unit was built without the store.
+        """
+        if self.gates is None:
+            raise StepDependencyError("this step needs the gate store", needs="gates")
+        return self.gates
 
     async def append_record(
         self,
@@ -394,6 +455,9 @@ class StepRunner:
         case: The S1 client, handed to handlers through :class:`StepDeps`.
         policy: The S3 client, likewise.
         agent_results: The kept agent results, likewise.
+        scoring: The S2 client, likewise.
+        decision: The S5 client, likewise.
+        gates: Read access to the gates, likewise.
     """
 
     def __init__(
@@ -407,6 +471,9 @@ class StepRunner:
         case: Optional[CaseClient] = None,
         policy: Optional[PolicyClient] = None,
         agent_results: Optional[AgentResultStore] = None,
+        scoring: Optional[ScoringClient] = None,
+        decision: Optional[DecisionClient] = None,
+        gates: Optional[GateStore] = None,
     ) -> None:
         """Wire the runner's collaborators; it holds no other state."""
         self._runs = runs
@@ -417,6 +484,9 @@ class StepRunner:
         self._case = case
         self._policy = policy
         self._agent_results = agent_results
+        self._scoring = scoring
+        self._decision = decision
+        self._gates = gates
         self._locks = _CaseLocks()
 
     async def run(self, step: HarnessStep) -> None:
@@ -485,6 +555,9 @@ class StepRunner:
             case=self._case,
             policy=self._policy,
             agent_results=self._agent_results,
+            scoring=self._scoring,
+            decision=self._decision,
+            gates=self._gates,
         )
         try:
             async with asyncio.timeout(self._timeout_s) as deadline:

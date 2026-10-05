@@ -44,9 +44,6 @@ from fcrm_contracts.api.case_internal import (
     PrecedentMatch,
     ReusableField,
     StatePatch,
-    UiActor,
-    UiEventIn,
-    UiVisibility,
 )
 from fcrm_contracts.enums import AgentName, CaseState, GateType, StepKind
 from fcrm_contracts.events.payloads import (
@@ -58,9 +55,9 @@ from fcrm_contracts.events.payloads import (
     IngestDone,
     IngestFailed,
 )
-from pydantic import BaseModel, ValidationError
 
 from fcrm_caseflow import routing
+from fcrm_caseflow.cores.assessment_scope import scope_refs
 from fcrm_caseflow.cores.intake_merge import MergedIntake, merge_intake
 from fcrm_caseflow.cores.intake_records import (
     plural,
@@ -70,9 +67,13 @@ from fcrm_caseflow.cores.intake_records import (
     record_reuse_decision,
     record_value_decision,
 )
+from fcrm_caseflow.cores.refs import RERUN_PENDING_REF
+from fcrm_caseflow.cores.shared import show as _show
+from fcrm_caseflow.cores.shared import step_payload as _payload
 from fcrm_caseflow.dispatch import AgentDispatch
 from fcrm_caseflow.steps import (
     AgentJobSpec,
+    FollowUpStep,
     GateSpec,
     StepDeps,
     StepHandler,
@@ -90,8 +91,6 @@ CASE_IDENTITY_FIELDS: Final = frozenset({"F01", "F02", "F03", "F05", "F06"})
 #: The extracted fields the precedent search is worded from ("what is this
 #: change, where, with whom"): F02 description, F20 corridor, F06 partner.
 _QUERY_FIELDS: Final = ("F02", "F20", "F06")
-
-_UI_ACTOR: Final = UiActor(id="H1", role="system", component="H1")
 
 #: What the PO is told when a file could not be used, by failure code. Anything
 #: else gets the generic wording; the code itself stays in the audit record.
@@ -121,23 +120,6 @@ _MONTHS: Final = (
 # --- small helpers -------------------------------------------------------------
 
 
-def _payload[P: BaseModel](step: HarnessStep, model: type[P]) -> P:
-    """The trigger's payload as ``model``.
-
-    Raises:
-        fcrm_common.errors.ValidationError: the payload is missing or does not
-            match the contract (the step is retried, then parked).
-    """
-    try:
-        return model.model_validate(step.args.get("payload"))
-    except ValidationError as exc:
-        raise FcrmValidationError(
-            f"the {step.step.value} payload is not a valid {model.__name__}",
-            step_id=step.step_id,
-            errors_count=exc.error_count(),
-        ) from exc
-
-
 def _closed_month(closed_date: Optional[str]) -> str:
     """``"Jun 2026"`` from ``"2026-06-15"``; the date as given if it is not ISO."""
     if closed_date and len(closed_date) >= 7 and closed_date[4] == "-":
@@ -147,37 +129,6 @@ def _closed_month(closed_date: Optional[str]) -> str:
         except (ValueError, IndexError):
             logger.warning("a precedent's closed date is not an ISO date")
     return closed_date or "unknown"
-
-
-async def _show(
-    deps: StepDeps,
-    step: HarnessStep,
-    event_type: str,
-    visibility: UiVisibility,
-    summary: str,
-    detail: Optional[Mapping[str, Any]] = None,
-    *,
-    record_seq: Optional[int] = None,
-    ordinal: int = 0,
-) -> None:
-    """Ask S1 to show an event on the case stream, once per ``(step, type,
-    ordinal)`` (the idempotency key makes a rerun a no-op at S1).
-    """
-    event = UiEventIn(
-        type=event_type,
-        visibility=visibility,
-        summary=summary,
-        detail=dict(detail or {}),
-        actor=_UI_ACTOR,
-        record_seq=record_seq,
-    )
-    await deps.require_case().post_event(
-        step.case_id,
-        event,
-        idempotency_key=deterministic_id(
-            "idem", step.step_id, "ui", event_type, str(ordinal)
-        ),
-    )
 
 
 def _doc_name(record: CaseRecordInternal, doc_id: str) -> str:
@@ -317,6 +268,24 @@ def _dispatch_result(run: CaseRun, jobs: Sequence[AgentJobSpec]) -> StepResult:
     )
 
 
+def _after_ingest(deps: StepDeps, record: CaseRecordInternal) -> StepResult:
+    """What follows a document being extracted (or refused). At intake: one intake
+    agent per document, once none is still being read. In a clarification round a
+    document the owner added with an answer is not read by the intake agent; if
+    that answer is waiting for it, the assessment core's ``rerun.record`` step
+    runs again to dispatch the re-run.
+    """
+    if deps.run.state is CaseState.CLARIFICATION:
+        if deps.run.refs.get(RERUN_PENDING_REF):
+            return StepResult(
+                follow_up_steps=(
+                    FollowUpStep(StepKind.RERUN_RECORD, {"trigger": "follow_up"}),
+                )
+            )
+        return StepResult()
+    return _dispatch_result(deps.run, _intake_jobs(deps.run, record))
+
+
 async def intake_ingested(step: HarnessStep, deps: StepDeps) -> StepResult:
     """``ingest.done``: record what H3 produced on the document, what Guard 1
     did to it, tell the PO it was read, and, once every document of the case is
@@ -359,7 +328,7 @@ async def intake_ingested(step: HarnessStep, deps: StepDeps) -> StepResult:
         {"doc_id": doc_id, "name": name, "pages": done.pages, "status": "extracted"},
         record_seq=audit.seq,
     )
-    return _dispatch_result(deps.run, _intake_jobs(deps.run, record))
+    return _after_ingest(deps, record)
 
 
 async def intake_ingest_failed(step: HarnessStep, deps: StepDeps) -> StepResult:
@@ -408,7 +377,7 @@ async def intake_ingest_failed(step: HarnessStep, deps: StepDeps) -> StepResult:
         },
         record_seq=audit.seq,
     )
-    return _dispatch_result(deps.run, _intake_jobs(deps.run, record))
+    return _after_ingest(deps, record)
 
 
 # --- scene 3-6: the agents' proposals reach the PO ----------------------------
@@ -825,7 +794,10 @@ async def triage_assign(step: HarnessStep, deps: StepDeps) -> StepResult:
         {"analyst_name": name},
         record_seq=audit.seq,
     )
-    return StepResult()
+    # What the engine hands every agent job it dispatches from here on (the
+    # screening job is the first): the domains in scope and the submission the
+    # agents read. Nothing about the case beyond ids and names.
+    return StepResult(refs_patch=scope_refs(record))
 
 
 #: The intake core's handlers by step kind (``fcrm_caseflow.cores.default_handlers``).

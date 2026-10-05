@@ -78,6 +78,7 @@ from fcrm_caseflow.dispatch import (
     gate_to_open,
     ingest_for,
     join_keys,
+    trigger_gate_key,
 )
 from fcrm_caseflow.exceptions import IllegalTransition
 from fcrm_caseflow.flags import next_flags
@@ -95,7 +96,7 @@ from fcrm_caseflow.resolve import (
     gate_decided_trigger,
     resolve_simple,
 )
-from fcrm_caseflow.steps import GateSpec, StepResult
+from fcrm_caseflow.steps import GateCloseSpec, GateSpec, StepResult
 from fcrm_caseflow.store import (
     AgentResultStore,
     CaseRun,
@@ -286,6 +287,7 @@ class CaseflowEngine:
             # this run if this call does not. A found gap, same shape as
             # D-15 — see the package report.
             run = await self._po_action_step(envelope, run, session)
+            run = await self._ack_step(envelope, run, session)
             base_ctx = TransitionContext(flags=run.snapshot.flags, band=run.band)
             await self._chain_internal(run, base_ctx, session, envelope.event_id)
             return
@@ -434,6 +436,28 @@ class CaseflowEngine:
         return await self._enqueue_step_for(
             run,
             Trigger.GATE_DECIDED_PO_ACTION,
+            envelope.event_id,
+            envelope.event_id,
+            envelope.payload,
+            session,
+        )
+
+    async def _ack_step(
+        self, envelope: Envelope, run: CaseRun, session: AsyncClientSession
+    ) -> CaseRun:
+        """Start ``review.ack`` for an acknowledgement (R3), in this transaction
+        and without a transition: the run stays where it is, the step records
+        what the analyst acknowledged, and the chain that follows its completion
+        re-checks whether every item and acknowledgement is now done.
+        """
+        if (
+            envelope.type != "gate.decided"
+            or envelope.payload.get("gate_type") != GateType.ACK.value
+        ):
+            return run
+        return await self._enqueue_step_for(
+            run,
+            Trigger.GATE_DECIDED_ACK,
             envelope.event_id,
             envelope.event_id,
             envelope.payload,
@@ -634,7 +658,17 @@ class CaseflowEngine:
         gate_type: GateType,
         session: AsyncClientSession,
     ) -> None:
-        gate_id = new_id("gate")
+        """Open the gate a transition calls for. The three gates a step must
+        know the id of (:func:`~fcrm_caseflow.dispatch.trigger_gate_key`) get a
+        deterministic id and are opened at most once (a replayed trigger finds
+        the gate it opened); any other gets a fresh one.
+        """
+        key = trigger_gate_key(gate_type, run)
+        gate_id = (
+            deterministic_gate_id(run.snapshot.run_id, gate_type, key)
+            if key is not None
+            else new_id("gate")
+        )
         required_role = REQUIRED_ROLE[gate_type]
         document: Document = gate_document(
             gate_id=gate_id,
@@ -643,7 +677,15 @@ class CaseflowEngine:
             gate_type=gate_type,
             required_role=required_role,
         )
-        await self._gates.open(document, session=session)
+        if key is not None:
+            if not await self._gates.open_if_absent(document, session=session):
+                logger.info(
+                    "gate already open; not announced again",
+                    extra={"case_id": run.snapshot.case_id, "gate_id": gate_id},
+                )
+                return
+        else:
+            await self._gates.open(document, session=session)
         await self._announce_gate_opened(
             run, gate_id, gate_type, required_role, {}, session
         )
@@ -848,6 +890,8 @@ class CaseflowEngine:
     ) -> CaseRun:
         for spec in result.gates_to_open:
             await self._open_step_gate(run, spec, session)
+        for close in result.gates_to_close:
+            await self._close_step_gate(run, close, session)
         await self._dispatch_step_jobs(run, result, session)
         for index, follow_up in enumerate(result.follow_up_steps):
             run = await self._enqueue_step(
@@ -872,6 +916,21 @@ class CaseflowEngine:
         )
         await self._runs.bump_counters(
             run.snapshot.run_id, result.counter_deltas, session=session
+        )
+        # The chain that follows reads this run object, and the jobs it
+        # dispatches take their refs from it (``dispatch_refs``): the patch just
+        # written must be in it, or the first job after a step runs without
+        # what the step was there to leave (the screening job and the domains).
+        run = dataclasses.replace(
+            run,
+            refs={**run.refs, **result.refs_patch},
+            counters={
+                **run.counters,
+                **{
+                    k: run.counters.get(k, 0) + v
+                    for k, v in result.counter_deltas.items()
+                },
+            },
         )
         if result.band is not None and result.band != run.band:
             await self._runs.set_band(run.snapshot.run_id, result.band, session=session)
@@ -904,6 +963,28 @@ class CaseflowEngine:
             return
         await self._announce_gate_opened(
             run, gate_id, spec.gate_type, required_role, spec.subject, session
+        )
+
+    async def _close_step_gate(
+        self, run: CaseRun, spec: GateCloseSpec, session: AsyncClientSession
+    ) -> None:
+        """Close the gate ``spec`` names if it is still open (a gate that was
+        never opened, or is already decided, is left alone): a step that
+        supersedes an item or a pack ends the gate that item or pack had.
+        """
+        gate_id = deterministic_gate_id(
+            run.snapshot.run_id, spec.gate_type, spec.subject_key
+        )
+        closed = await self._gates.close_if_open(
+            gate_id,
+            status=spec.status,
+            decision=spec.decision,
+            reason=spec.reason,
+            session=session,
+        )
+        logger.info(
+            "gate closed by a step" if closed else "gate not open; nothing to close",
+            extra={"case_id": run.snapshot.case_id, "gate_id": gate_id},
         )
 
     async def _dispatch_step_jobs(

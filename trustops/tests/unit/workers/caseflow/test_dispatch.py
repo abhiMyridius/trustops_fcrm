@@ -65,17 +65,18 @@ class TestDispatchFor:
             AgentDispatch(AgentName.NARRATIVE, scope="completeness"),
         )
 
-    def test_case_answered_dispatches_a_scoped_rerun_of_both_agents(self) -> None:
+    def test_case_answered_dispatches_nothing_the_rerun_step_does(self) -> None:
+        """The re-run must wait for a document the owner added with the answer to
+        be extracted, and only the ``rerun.record`` step can see whether one is
+        pending, so the transition dispatches nothing.
+        """
         plan = dispatch_for(
             Trigger.CASE_ANSWERED,
             TransitionContext(),
             RunFlags(),
             payload={"changed_field_ids": ["f1", "f2"]},
         )
-        assert len(plan.agents) == 2
-        for dispatch in plan.agents:
-            assert dispatch.scope == "changed_fields"
-            assert dispatch.changed_fields == ("f1", "f2")
+        assert plan.agents == ()
 
     def test_all_items_decided_dispatches_narrative_recommendation(self) -> None:
         plan = dispatch_for(Trigger.ALL_ITEMS_DECIDED, TransitionContext(), RunFlags())
@@ -151,28 +152,17 @@ class TestGateToOpen:
         """
         assert gate_to_open(Trigger.AGENT_DONE_ASSESS_BOTH, TransitionContext()) is None
 
-    def test_review_item_opens_ack_only_on_a_band_change_or_boundary_flag(self) -> None:
-        assert (
-            gate_to_open(
-                Trigger.GATE_DECIDED_REVIEW_ITEM,
-                TransitionContext(band_changed=True),
-            )
-            is GateType.ACK
-        )
-        assert (
-            gate_to_open(
-                Trigger.GATE_DECIDED_REVIEW_ITEM,
-                TransitionContext(boundary_flagged=True),
-            )
-            is GateType.ACK
-        )
-        assert (
-            gate_to_open(
-                Trigger.GATE_DECIDED_REVIEW_ITEM,
-                TransitionContext(band_changed=False, boundary_flagged=False),
-            )
-            is None
-        )
+    def test_a_review_item_decision_opens_no_gate_by_itself(self) -> None:
+        """Whether a decision crossed a band edge is S2's answer, which only the
+        ``review.item`` step has, so it opens the ``ack`` gate: a payload's own
+        ``band_changed`` or ``boundary_flagged`` never does.
+        """
+        for context in (
+            TransitionContext(band_changed=True),
+            TransitionContext(boundary_flagged=True),
+            TransitionContext(band_changed=False, boundary_flagged=False),
+        ):
+            assert gate_to_open(Trigger.GATE_DECIDED_REVIEW_ITEM, context) is None
 
     def test_an_unrelated_trigger_opens_nothing(self) -> None:
         assert gate_to_open(Trigger.VOTE_CAST, TransitionContext()) is None

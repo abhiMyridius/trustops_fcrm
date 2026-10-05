@@ -31,6 +31,13 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 GATES_COLLECTION: Final = "gates"
 
+#: ``decided_by`` of a gate H1 itself closed (:meth:`GateStore.close_if_open`).
+SYSTEM_DECIDER: Final = "system:caseflow"
+
+#: How many of a case's decided gates of one type :meth:`GateStore.last_decider`
+#: looks through (a case has a handful of acknowledgements).
+LAST_DECIDER_SCAN: Final = 20
+
 
 class GateDecisionError(Exception):
     """A ``gate.decided`` event failed Guard 7
@@ -182,6 +189,65 @@ class GateStore:
         if run_id is not None:
             query["run_id"] = run_id
         return await self._collection.count_documents(query, session=session)
+
+    async def close_if_open(
+        self,
+        gate_id: str,
+        *,
+        status: GateStatus,
+        decision: str,
+        reason: Optional[str],
+        session: AsyncClientSession,
+    ) -> bool:
+        """End a gate H1 itself closes (not a human: no Guard 7), returning
+        whether *this call* changed it. A gate that does not exist or is no
+        longer open is left exactly as it is, so a step that closes it twice, or
+        closes one a person already decided, changes nothing.
+
+        Used when a step supersedes what the gate was about (a re-run replaces a
+        proposal, an unlock voids a pack) and when the pack-release gate has
+        done its job. ``status`` is ``decided`` or ``expired``.
+        """
+        result = await self._collection.update_one(
+            {"_id": gate_id, "status": GateStatus.OPEN.value},
+            {
+                "$set": {
+                    "status": status.value,
+                    "decision": decision,
+                    "reason": reason,
+                    "decided_by": SYSTEM_DECIDER,
+                    "decided_at": utcnow(),
+                }
+            },
+            session=session,
+        )
+        return result.matched_count == 1
+
+    async def last_decider(
+        self,
+        case_id: str,
+        gate_type: GateType,
+        *,
+        run_id: Optional[str] = None,
+    ) -> Optional[str]:
+        """Who last decided a gate of ``gate_type`` on ``case_id`` (a person,
+        not the system), or ``None``. Read by the pack step to say who
+        acknowledged a boundary flag.
+        """
+        query: dict[str, Any] = {
+            "case_id": case_id,
+            "gate_type": gate_type.value,
+            "status": GateStatus.DECIDED.value,
+        }
+        if run_id is not None:
+            query["run_id"] = run_id
+        cursor = self._collection.find(
+            query, sort=[("decided_at", -1)], limit=LAST_DECIDER_SCAN
+        )
+        async for doc in cursor:
+            if doc.get("decided_by") != SYSTEM_DECIDER:
+                return str(doc["decided_by"])
+        return None
 
     async def decide(
         self,

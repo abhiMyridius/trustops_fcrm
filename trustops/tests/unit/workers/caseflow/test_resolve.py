@@ -176,8 +176,16 @@ class TestAgentDone:
         assert members == frozenset({AgentName.RESEARCH, AgentName.ASSESSMENT})
         assert trigger is Trigger.AGENT_DONE_RERUN_BOTH
 
+    def test_pair_members_for_review(self) -> None:
+        """A re-run the analyst asks for, or a re-tag's new domain, joins the
+        same way a clarification round's re-run does.
+        """
+        members, trigger = agent_done_pair_members(CaseState.REVIEW)  # type: ignore[misc]
+        assert members == frozenset({AgentName.RESEARCH, AgentName.ASSESSMENT})
+        assert trigger is Trigger.AGENT_DONE_RERUN_BOTH
+
     def test_pair_members_none_outside_a_pair_state(self) -> None:
-        assert agent_done_pair_members(CaseState.REVIEW) is None
+        assert agent_done_pair_members(CaseState.RECOMMEND) is None
 
 
 class TestGateDecidedTrigger:

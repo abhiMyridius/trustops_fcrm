@@ -14,7 +14,11 @@ import logging
 from typing import Final, Optional
 
 from fcrm_common.http import ServiceClient, Timeouts
-from fcrm_contracts.api.scoring import ScoreRequest, ScoreResponse
+from fcrm_contracts.api.scoring import (
+    ScoreRequest,
+    ScoreResponse,
+    ScoringModelVersion,
+)
 
 from fcrm_caseflow.clients import parse_body
 
@@ -22,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 DEPENDENCY: Final = "scoring"
 SCORE_PATH: Final = "/score"
+MODEL_PATH: Final = "/models/{version}"
 
 #: ``/score`` read timeout 5 s (design A §10.3).
 SCORE_TIMEOUTS: Final = Timeouts(connect=2.0, read=5.0, write=5.0, pool=5.0)
@@ -61,3 +66,17 @@ class ScoringClient:
             timeout=SCORE_TIMEOUTS,
         )
         return parse_body(ScoreResponse, body, dependency=DEPENDENCY, route=SCORE_PATH)
+
+    async def model(self, version: int) -> ScoringModelVersion:
+        """``GET /models/{version}``: the scoring model a case is pinned to (its
+        band table, with each band's label and route), for the pack's wording.
+
+        Raises:
+            fcrm_common.errors.NotFoundError: S2 has no such version.
+        """
+        body = await self._client.request_json(
+            "GET", MODEL_PATH.format(version=version), timeout=SCORE_TIMEOUTS
+        )
+        return parse_body(
+            ScoringModelVersion, body, dependency=DEPENDENCY, route=MODEL_PATH
+        )

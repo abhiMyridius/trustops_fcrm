@@ -35,6 +35,7 @@ from fcrm_contracts.api.case_internal_assessment import (
     CriticPush,
     HandoffPush,
     RecommendationDraftPush,
+    RecommendationInternal,
     ScorePush,
     ScoreRequestView,
     ScreeningPush,
@@ -66,6 +67,7 @@ COMPLETENESS_PATH: Final = "/internal/cases/{case_id}/completeness"
 RECOMMENDATION_DRAFT_PATH: Final = "/internal/cases/{case_id}/recommendation-draft"
 HANDOFF_PATH: Final = "/internal/cases/{case_id}/handoff"
 SCORE_REQUEST_PATH: Final = "/internal/cases/{case_id}/score-request"
+RECOMMENDATION_PATH: Final = "/internal/cases/{case_id}/recommendation"
 
 
 def _fill(template: str, **values: str) -> str:
@@ -290,6 +292,22 @@ class CaseClient:
         body = await self._client.request_json("GET", route, timeout=CALL_TIMEOUTS)
         return parse_body(
             ScoreRequestView, body, dependency=DEPENDENCY, route=SCORE_REQUEST_PATH
+        )
+
+    async def get_recommendation(self, case_id: str) -> RecommendationInternal:
+        """``GET /internal/cases/{case_id}/recommendation``: the agent's draft,
+        the analyst's edits beside it and the lock.
+
+        Raises:
+            fcrm_common.errors.NotFoundError: the narrative has produced no draft.
+        """
+        route = _fill(RECOMMENDATION_PATH, case_id=case_id)
+        body = await self._client.request_json("GET", route, timeout=CALL_TIMEOUTS)
+        return parse_body(
+            RecommendationInternal,
+            body,
+            dependency=DEPENDENCY,
+            route=RECOMMENDATION_PATH,
         )
 
     async def _put_view(

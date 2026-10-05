@@ -290,14 +290,8 @@ def completeness_row(
 
 
 def draft_of(body: RecommendationDraftPush) -> dict[str, Any]:
-    """The ``draft`` document of a recommendation push."""
-    return {
-        "sections": [s.model_dump(mode="json") for s in body.sections],
-        "conditions": [c.model_dump(mode="json") for c in body.conditions],
-        "business_summary": body.business_summary.model_dump(mode="json"),
-        "score_record_seq": body.score_record_seq,
-        "proposal_ids": list(body.proposal_ids),
-    }
+    """The ``draft`` document of a recommendation push (everything but the run)."""
+    return body.model_dump(mode="json", exclude={"run_id"})
 
 
 def handoff_row(case_id: str, body: HandoffPush, now: Any) -> HandoffViewRow:

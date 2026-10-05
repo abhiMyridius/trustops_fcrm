@@ -22,8 +22,11 @@ def _seed_audit_types() -> set[str]:
 
 
 class TestStepFor:
-    def test_it_holds_exactly_the_triggers_the_intake_core_handles(self) -> None:
+    def test_it_holds_exactly_the_triggers_the_intake_and_assessment_cores_handle(
+        self,
+    ) -> None:
         assert dict(STEP_FOR) == {
+            # intake (scenes 2-7)
             Trigger.CASE_CREATED: StepKind.INTAKE_OPEN,
             Trigger.CASE_DOCUMENT_STORED: StepKind.INTAKE_DOCUMENT_STORED,
             Trigger.INGEST_DONE: StepKind.INTAKE_INGESTED,
@@ -35,6 +38,27 @@ class TestStepFor:
             Trigger.GATE_DECIDED_PO_ACTION: StepKind.INTAKE_PO_ACTION,
             Trigger.CASE_SUBMITTED: StepKind.SUBMIT_RECORD,
             Trigger.TRIAGE_DISPATCH: StepKind.TRIAGE_ASSIGN,
+            # assessment (scenes 8-16)
+            Trigger.AGENT_DONE_SCREENING: StepKind.SCREENING_PUBLISH,
+            Trigger.ASSESS_DISPATCH: StepKind.ASSESS_OPEN,
+            Trigger.AGENT_DONE_ASSESS_BOTH: StepKind.ASSESS_PUBLISH,
+            Trigger.AGENT_DONE_CRITIC: StepKind.CRITIC_PUBLISH,
+            Trigger.AGENT_DONE_NARRATIVE_COMPLETENESS: StepKind.COMPLETENESS_PUBLISH,
+            Trigger.GATE_DECIDED_COMPLETENESS_ASK: StepKind.CLARIFICATION_RECORD,
+            Trigger.GATE_DECIDED_COMPLETENESS_PROCEED: StepKind.STATE_PUSH,
+            Trigger.CASE_ANSWERED: StepKind.RERUN_RECORD,
+            Trigger.AGENT_DONE_RERUN_BOTH: StepKind.RERUN_PUBLISH,
+            Trigger.GATE_DECIDED_REVIEW_ITEM: StepKind.REVIEW_ITEM,
+            Trigger.GATE_DECIDED_ACK: StepKind.REVIEW_ACK,
+            Trigger.CASE_GAP_RECORDED: StepKind.GAP_RECORD,
+            Trigger.CASE_CONTROL_PLANNED: StepKind.CONTROL_PLANNED,
+            Trigger.CASE_RETAGGED: StepKind.RETAG_RECORD,
+            Trigger.CASE_RERUN_REQUESTED: StepKind.RERUN_REQUESTED,
+            Trigger.ALL_ITEMS_DECIDED: StepKind.STATE_PUSH,
+            Trigger.AGENT_DONE_NARRATIVE_RECOMMENDATION: StepKind.NARRATIVE_PUBLISH,
+            Trigger.CASE_LOCKED: StepKind.LOCK_BUILD_PACK,
+            Trigger.PACK_RELEASED: StepKind.PACK_APPROVED,
+            Trigger.CASE_UNLOCKED: StepKind.UNLOCK_SUPERSEDE,
         }
 
     def test_every_mapped_step_has_a_default_handler(self) -> None:
@@ -45,11 +69,15 @@ class TestStepFor:
         assert set(STEP_FOR.values()) <= set(default_handlers())
 
     def test_every_mapped_trigger_has_a_transition_or_is_step_only(self) -> None:
-        """``case.created`` opens a run and a PO decision that moves nothing
-        starts a step; neither has a transition row, by design. Any other
-        mapped trigger must, or its step could never be enqueued.
+        """``case.created`` opens a run, and a PO decision or an acknowledgement
+        that moves nothing starts a step; none has a transition row, by design.
+        Any other mapped trigger must, or its step could never be enqueued.
         """
-        step_only = {Trigger.CASE_CREATED, Trigger.GATE_DECIDED_PO_ACTION}
+        step_only = {
+            Trigger.CASE_CREATED,
+            Trigger.GATE_DECIDED_PO_ACTION,
+            Trigger.GATE_DECIDED_ACK,
+        }
         legal = {t.trigger for t in TRANSITIONS} | step_only
         assert set(STEP_FOR) <= legal
 

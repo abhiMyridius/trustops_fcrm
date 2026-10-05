@@ -254,6 +254,13 @@ _CLARIFICATION = [
     ),
     Transition(
         S.CLARIFICATION,
+        Trigger.CASE_DOCUMENT_STORED,
+        S.CLARIFICATION,
+        "the owner added a document with an answer: ingest.run for it, the "
+        "same path as at intake; the re-run waits for it",
+    ),
+    Transition(
+        S.CLARIFICATION,
         Trigger.INGEST_DONE,
         S.CLARIFICATION,
         "H3 extracted a document the owner added with an answer: record "
@@ -284,6 +291,14 @@ _REVIEW = [
         "update the item; recompute the score if a rating or control "
         "changed, recording human.override + score.recomputed; open "
         "the ack gate (R3) on a band change or boundary flag",
+    ),
+    Transition(
+        S.REVIEW,
+        Trigger.AGENT_DONE_RERUN_BOTH,
+        S.REVIEW,
+        "a re-run the analyst asked for (or a re-tag's new domain) finished: new "
+        "proposals supersede the ones whose inputs changed; POST /score; push "
+        "the new snapshot",
     ),
     Transition(
         S.REVIEW,

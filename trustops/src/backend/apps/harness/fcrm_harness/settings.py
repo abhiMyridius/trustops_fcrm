@@ -105,6 +105,8 @@ class HarnessSettings(BaseServiceSettings, S3Settings):
             audit_service_url=self.audit_service_url,
             case_service_url=self.case_service_url,
             policy_service_url=self.policy_service_url,
+            scoring_service_url=self.scoring_service_url,
+            decision_service_url=self.decision_service_url,
             s3_bucket_canonical=self.s3_bucket_canonical,
             prefetch=self.caseflow_prefetch,
         )

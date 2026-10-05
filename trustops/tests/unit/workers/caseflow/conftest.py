@@ -24,6 +24,7 @@ without ``FCRM_TEST_MONGO_URI``, mirrors
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -32,12 +33,17 @@ from urllib.parse import unquote
 
 import httpx
 import pytest
+from fcrm_case.domain.assessment import build_score_view
+from fcrm_case.domain.views import DecisionRow, ReviewItemRow
 from fcrm_caseflow.audit_client import AuditClient
 from fcrm_caseflow.clients.case_client import CaseClient
+from fcrm_caseflow.clients.decision_client import DecisionClient
 from fcrm_caseflow.clients.policy_client import PolicyClient
+from fcrm_caseflow.clients.scoring_client import ScoringClient
+from fcrm_caseflow.cores import assessment
 from fcrm_caseflow.engine import CaseflowEngine
 from fcrm_caseflow.gates import GateStore
-from fcrm_caseflow.steps import StepDeps
+from fcrm_caseflow.steps import StepDeps, StepResult
 from fcrm_caseflow.store import (
     DEFAULT_PINS,
     AgentResultStore,
@@ -47,12 +53,23 @@ from fcrm_caseflow.store import (
     new_case_run_document,
 )
 from fcrm_caseflow.triggers import Trigger
+from fcrm_common.errors import ConflictError
 from fcrm_common.http import ServiceClient
 from fcrm_common.outbox import Outbox
 from fcrm_common.time import utcnow
-from fcrm_contracts.api.audit import AuditRecord, RecordAppend
-from fcrm_contracts.enums import CaseState, StepKind
+from fcrm_contracts.api.audit import (
+    AuditRecord,
+    Proposal,
+    ProposalAppend,
+    RecordAppend,
+)
+from fcrm_contracts.api.scoring import ScoreRequest
+from fcrm_contracts.enums import CaseState, ItemKind, ItemStatus, StepKind
 from fcrm_contracts.events.envelope import Envelope
+from fcrm_contracts.events.payloads import HarnessStep
+from fcrm_scoring.engine import compute_score
+from fcrm_scoring.seedmodel import scoring_model_from_seed
+from fcrm_seed.loader import control_catalogue_weights, load_raw
 from pymongo.errors import DuplicateKeyError
 
 R = TypeVar("R")
@@ -170,6 +187,187 @@ def agent_done_body(
         "usage": {"input_tokens": 1200, "output_tokens": 300},
         "model": "anthropic:claude-haiku",
         "attempt": 1,
+    }
+
+
+def clause_source(clause_id: str, corpus_v: int = 14) -> dict[str, Any]:
+    """A ``ClauseSourceRef`` as a research claim carries it."""
+    return {"kind": "clause", "clause_id": clause_id, "corpus_v": corpus_v}
+
+
+def clause_proposal(
+    clause_id: str, domain: str, quote: Optional[str] = None, confidence: float = 0.9
+) -> dict[str, Any]:
+    """A research ``ClauseProposal``."""
+    return {
+        "source_ref": clause_source(clause_id),
+        "quote": quote or f"verbatim text of {clause_id}",
+        "confidence": confidence,
+        "clause_id": clause_id,
+        "domain": domain,
+        "applicability": f"{clause_id} applies",
+    }
+
+
+def precedent_match(case_id: str, similarity: float = 0.8) -> dict[str, Any]:
+    """A research ``PrecedentMatch``."""
+    return {
+        "case_id": case_id,
+        "similarity": similarity,
+        "outcome": "approve_with_conditions",
+        "note": "same corridor",
+    }
+
+
+def policy_gap(domain: str, description: str) -> dict[str, Any]:
+    """A research ``PolicyGap`` with the proof of the search."""
+    return {
+        "domain": domain,
+        "description": description,
+        "searched": {
+            "query": "cash pickup agent",
+            "indexes": ["policy_clauses"],
+            "hits": 0,
+        },
+    }
+
+
+def case_source(case_id: str = "FCRM-2026-0151") -> dict[str, Any]:
+    """A ``CaseSourceRef``."""
+    return {"kind": "case", "case_id": case_id}
+
+
+def factor_proposal(
+    domain: str, likelihood: int, impact: int, confidence: float = 0.85
+) -> dict[str, Any]:
+    """An assessment ``FactorProposal``."""
+    return {
+        "source_ref": case_source(),
+        "quote": f"{domain} facts",
+        "confidence": confidence,
+        "domain": domain,
+        "likelihood": likelihood,
+        "impact": impact,
+        "justification": f"{domain} likelihood {likelihood}, impact {impact}",
+    }
+
+
+def control_proposal(
+    control_id: str,
+    domain: str,
+    rating: Optional[float],
+    *,
+    evidence: str = "evidence artefact",
+    evidence_date: str = "2026-05-01",
+    planned: bool = False,
+    confidence: float = 0.8,
+) -> dict[str, Any]:
+    """An assessment ``ControlProposal`` (``rating`` is ``None`` when planned)."""
+    return {
+        "source_ref": {
+            "kind": "control",
+            "control_id": control_id,
+            "controls_v": 9,
+        },
+        "quote": f"evidence for {control_id}",
+        "confidence": confidence,
+        "control_id": control_id,
+        "domain": domain,
+        "rating": rating,
+        "rationale": f"{control_id} rationale",
+        "evidence_artifact": evidence,
+        "evidence_date": evidence_date,
+        "planned": planned,
+    }
+
+
+def record_source(seq: int, case_id: str = "FCRM-2026-0151") -> dict[str, Any]:
+    """A ``RecordSourceRef``."""
+    return {"kind": "record", "case_id": case_id, "seq": seq}
+
+
+def critic_finding(
+    text: str,
+    finding_type: str = "precedent_deviation",
+    severity: str = "high",
+    seq: int = 30,
+) -> dict[str, Any]:
+    """A critic ``CriticFinding``."""
+    return {
+        "source_ref": record_source(seq),
+        "quote": text[:20],
+        "confidence": 0.9,
+        "finding_type": finding_type,
+        "severity": severity,
+        "record_refs": [f"#{seq}"],
+        "text": text,
+    }
+
+
+def completeness_report(
+    missing: int = 0,
+    stale: int = 1,
+    contradictory: int = 1,
+    drafted: int = 3,
+    kept: int = 2,
+) -> dict[str, Any]:
+    """A narrative ``CompletenessReport``."""
+    return {
+        "missing": [f"missing {n}" for n in range(missing)],
+        "stale": [f"stale {n}" for n in range(stale)],
+        "contradictory": [f"contradiction {n}" for n in range(contradictory)],
+        "questions_drafted": drafted,
+        "questions_kept": kept,
+    }
+
+
+def drafted_question(
+    question_id: str, text: str = "Is a review planned?"
+) -> dict[str, Any]:
+    """A narrative ``Question``."""
+    return {"question_id": question_id, "anchored_to": "CTL-T01", "text": text}
+
+
+def narrative_text(text: str, seq: int = 32) -> dict[str, Any]:
+    """A narrative ``Narrative`` (the recommendation text)."""
+    return {
+        "source_ref": record_source(seq),
+        "quote": text[:20],
+        "confidence": 0.9,
+        "text": text,
+    }
+
+
+def drafted_condition(condition_id: str, text: str) -> dict[str, Any]:
+    """A narrative ``Condition``."""
+    return {
+        "condition_id": condition_id,
+        "text": text,
+        "owner": "Priya Nair",
+        "due": "before go-live",
+        "status": "open",
+        "source": "overridden control CTL-T01",
+    }
+
+
+def business_summary(text: str) -> dict[str, Any]:
+    """A narrative ``BusinessSummary``."""
+    return {"text": text, "restricted_term_hits": 0}
+
+
+def screening_proposal(fast_lane: bool = False) -> dict[str, Any]:
+    """A screening ``ScreeningProposal``."""
+    return {
+        "case_id": "FCRM-2026-0151",
+        "fast_lane": fast_lane,
+        "reasons": [
+            {
+                "source_ref": case_source(),
+                "quote": "three change types",
+                "confidence": 0.9,
+                "text": "3 change types, new geography",
+            }
+        ],
     }
 
 
@@ -444,23 +642,61 @@ class RecordingAudit(AuditClient):
     def __init__(self) -> None:
         self.records: list[RecordAppend] = []
         self.keys: list[Optional[str]] = []
+        self.proposals: list[ProposalAppend] = []
+        self.proposal_keys: list[Optional[str]] = []
+        self._stored: dict[str, Proposal] = {}
+        self._by_key: dict[str, AuditRecord] = {}
+        self._chain_length = 0
 
     async def append(
         self, record: RecordAppend, *, idempotency_key: Optional[str] = None
     ) -> AuditRecord:
+        """Log the call, and answer as S4 does: a repeated ``Idempotency-Key``
+        returns the record it already wrote (same ``seq`` and hash, nothing new
+        chained); anything else is the chain's next record.
+        """
         self.records.append(record)
         self.keys.append(idempotency_key)
-        return AuditRecord(
+        if idempotency_key is not None and idempotency_key in self._by_key:
+            return self._by_key[idempotency_key]
+        self._chain_length += 1
+        stored = AuditRecord(
             case_id=record.case_id,
-            seq=len(self.records),
+            seq=self._chain_length,
             type=record.type,
             actor=record.actor,
             summary=record.summary,
             data=record.data,
-            prev_hash="0" * 64,
-            hash="0" * 64,
+            prev_hash=f"{self._chain_length - 1:064x}",
+            hash=f"{self._chain_length:064x}",
             created_at=utcnow(),
         )
+        if idempotency_key is not None:
+            self._by_key[idempotency_key] = stored
+        return stored
+
+    async def append_proposal(
+        self,
+        proposal: ProposalAppend,
+        *,
+        idempotency_key: Optional[str] = None,
+    ) -> Proposal:
+        """Record the proposal and answer as S4 does: a repeated key returns
+        the entry already stored (the same id), a new one gets the next ``seq``.
+        """
+        self.proposals.append(proposal)
+        self.proposal_keys.append(idempotency_key)
+        if idempotency_key is not None and idempotency_key in self._stored:
+            return self._stored[idempotency_key]
+        number = len(self._stored) + 1
+        stored = Proposal(
+            **proposal.model_dump(),
+            proposal_id=f"prp_{number:04d}",
+            seq=number,
+            created_at=utcnow(),
+        )
+        self._stored[idempotency_key or f"anon{number}"] = stored
+        return stored
 
 
 class FakeTransact:
@@ -663,6 +899,17 @@ class FakePeer:
         )
 
 
+#: The ``PUT /internal/cases/{id}/<leaf>`` view writes of the assessment half.
+VIEW_LEAVES = (
+    "screening",
+    "score",
+    "critic",
+    "completeness",
+    "recommendation-draft",
+    "handoff",
+)
+
+
 class FakeCaseService(FakePeer):
     """A stateful stand-in for S1's internal routes (``/internal/...``).
 
@@ -695,6 +942,15 @@ class FakeCaseService(FakePeer):
         self.events: list[dict[str, Any]] = []
         self.state_patches: list[dict[str, Any]] = []
         self.assignments: list[dict[str, Any]] = []
+        # the assessment half
+        self.domains: list[str] = []
+        self.submission_version: Optional[int] = None
+        self.items: dict[str, dict[str, Any]] = {}
+        self.views: dict[str, list[dict[str, Any]]] = {name: [] for name in VIEW_LEAVES}
+        self.write_keys: dict[tuple[str, str], tuple[str, dict[str, Any]]] = {}
+        self.recommendation_edits: Optional[dict[str, Any]] = None
+        self.locked = False
+        self._item_counter = 0
 
     # -- seeding ----------------------------------------------------------
 
@@ -758,13 +1014,13 @@ class FakeCaseService(FakePeer):
             "state": self.stage,
             "run_id": self.run_id,
             "change_types": list(self.change_types),
-            "domains": [],
+            "domains": list(self.domains),
             "pins": DEFAULT_PINS.model_dump(mode="json"),
             "fieldset_v": 6,
             "required_field_ids": list(self.required_field_ids),
             "fields": [dict(f) for f in self.fields],
             "documents": [dict(d) for d in self.documents.values()],
-            "submission_version": None,
+            "submission_version": self.submission_version,
         }
 
     def route(self, call: Call) -> httpx.Response:
@@ -805,7 +1061,177 @@ class FakeCaseService(FakePeer):
         if (call.method, leaf) == ("POST", "events"):
             self.events.append(call.body)
             return httpx.Response(202, json={"ok": True})
+        return self._assessment_route(call, case_id, leaf)
+
+    # -- the assessment half's routes ----------------------------------------
+
+    def _assessment_route(self, call: Call, case_id: str, leaf: str) -> httpx.Response:
+        if case_id != self.case_id:
+            return problem(404, f"no case {case_id}")
+        if leaf == "items":
+            return self._items_route(call)
+        if call.method == "PUT" and leaf in VIEW_LEAVES:
+            return self._put_view(call, leaf)
+        if (call.method, leaf) == ("GET", "score-request"):
+            return self._score_request()
+        if (call.method, leaf) == ("GET", "recommendation"):
+            return self._recommendation()
         return problem(404, f"no route {call.method} {call.path}")
+
+    def _items_route(self, call: Call) -> httpx.Response:
+        if call.method == "GET":
+            kind = call.params.get("kind")
+            rows = [
+                {k: v for k, v in row.items() if k != "created_at"}
+                for row in self.items.values()
+                if kind is None or row["kind"] == kind
+            ]
+            return httpx.Response(200, json=rows)
+        if call.method != "PUT":
+            return problem(405, "no such method")
+        for upsert in call.body["items"]:
+            existing = self.items.get(upsert["item_id"])
+            content = {
+                "kind": upsert["kind"],
+                "proposal_id": upsert.get("proposal_id"),
+                "gate_id": upsert.get("gate_id"),
+                "subject": upsert.get("subject", {}),
+                "proposed": upsert.get("proposed", {}),
+                "source_refs": upsert.get("source_refs", []),
+                "input_fields": upsert.get("input_fields", []),
+                "supersedes": upsert.get("supersedes"),
+                "run_id": call.body["run_id"],
+            }
+            if existing is not None:
+                existing.update(content)
+                continue
+            self._item_counter += 1
+            self.items[upsert["item_id"]] = {
+                "item_id": upsert["item_id"],
+                "status": upsert.get("status", "proposed"),
+                "decided": None,
+                "created_at": self._item_counter,
+                **content,
+            }
+        return httpx.Response(
+            200,
+            json={
+                "upserted": len(call.body["items"]),
+                "item_ids": [i["item_id"] for i in call.body["items"]],
+            },
+        )
+
+    def decide_item(
+        self,
+        item_id: str,
+        status: str,
+        *,
+        value: Optional[dict[str, Any]] = None,
+        reason: Optional[str] = None,
+        by: str = "u-riyer",
+    ) -> None:
+        """What S1 stores when the analyst decides an item (before it publishes
+        ``gate.decided``): the new status and the decision on the item.
+        """
+        row = self.items[item_id]
+        row["status"] = status
+        row["decided"] = {
+            "value": value,
+            "reason": reason,
+            "by": by,
+            "at": "2026-10-05T12:00:00Z",
+        }
+
+    def item_rows(self) -> list[ReviewItemRow]:
+        """The stored items as S1's own pure builder reads them."""
+        from datetime import UTC, datetime, timedelta
+
+        base = datetime(2026, 10, 5, 9, tzinfo=UTC)
+        rows: list[ReviewItemRow] = []
+        for row in self.items.values():
+            decided = row["decided"]
+            rows.append(
+                ReviewItemRow(
+                    item_id=row["item_id"],
+                    case_id=self.case_id,
+                    kind=ItemKind(row["kind"]),
+                    status=ItemStatus(row["status"]),
+                    proposal_id=row["proposal_id"],
+                    gate_id=row["gate_id"],
+                    subject=row["subject"],
+                    proposed=row["proposed"],
+                    source_refs=row["source_refs"],
+                    input_fields=row["input_fields"],
+                    supersedes=row["supersedes"],
+                    run_id=row["run_id"],
+                    decided=(
+                        DecisionRow(
+                            value=decided["value"],
+                            reason=decided["reason"],
+                            by=decided["by"],
+                            at=datetime(2026, 10, 5, 12, tzinfo=UTC),
+                        )
+                        if decided
+                        else None
+                    ),
+                    created_at=base + timedelta(seconds=row["created_at"]),
+                )
+            )
+        return rows
+
+    def _put_view(self, call: Call, leaf: str) -> httpx.Response:
+        key = call.headers.get("idempotency-key")
+        replayed = False
+        if key is not None:
+            known = self.write_keys.get((leaf, key))
+            if known is not None:
+                if known[0] != json.dumps(call.body, sort_keys=True):
+                    return problem(409, "Idempotency-Key reused for another body")
+                replayed = True
+        if not replayed:
+            self.views[leaf].append(call.body)
+            if key is not None:
+                self.write_keys[(leaf, key)] = (
+                    json.dumps(call.body, sort_keys=True),
+                    call.body,
+                )
+        name = {"recommendation-draft": "recommendation"}.get(leaf, leaf)
+        return httpx.Response(
+            200,
+            json={
+                "case_id": self.case_id,
+                "view": name,
+                "id": f"snap_{len(self.views[leaf])}" if leaf == "score" else None,
+                "replayed": replayed,
+            },
+        )
+
+    def _score_request(self) -> httpx.Response:
+        try:
+            view = build_score_view(
+                self.case_id, DEFAULT_PINS.scoring_v, self.item_rows()
+            )
+        except ConflictError as exc:
+            return problem(409, str(exc))
+        return httpx.Response(200, json=view.model_dump(mode="json"))
+
+    def _recommendation(self) -> httpx.Response:
+        drafts = self.views["recommendation-draft"]
+        if not drafts:
+            return problem(404, "no recommendation draft yet")
+        body = dict(drafts[-1])
+        return httpx.Response(
+            200,
+            json={
+                "case_id": self.case_id,
+                "run_id": body.pop("run_id"),
+                "draft": body,
+                "draft_seq": len(drafts),
+                "edits": self.recommendation_edits,
+                "locked": self.locked,
+                "locked_by": None,
+            },
+        )
 
     def _document_route(self, call: Call, doc_id: str) -> httpx.Response:
         document = self.documents.get(doc_id)
@@ -832,7 +1258,156 @@ class FakePolicyService(FakePeer):
     def route(self, call: Call) -> httpx.Response:
         if (call.method, call.path) == ("POST", "/search"):
             return httpx.Response(200, json={"hits": self.hits})
+        if (call.method, call.path) == ("GET", "/controls"):
+            return httpx.Response(200, json=self._inventory())
+        if call.method == "GET" and call.path.startswith("/field-sets/"):
+            return httpx.Response(200, json=self._field_set())
         return problem(404, f"no route {call.method} {call.path}")
+
+    @staticmethod
+    def _inventory() -> dict[str, Any]:
+        """The seed's control inventory (v9), as S3 serves it."""
+        weights = control_catalogue_weights()
+        return {
+            "version": "v9",
+            "active": True,
+            "controls": [
+                {
+                    "control_id": c["id"],
+                    "domain": c["domain"],
+                    "name": c["name"],
+                    "catalogue_weight": weights[c["id"]],
+                    "evidence_artifact": c["evidence_artefact"],
+                    "last_tested": c["last_tested"],
+                }
+                for c in load_raw()["controls"]
+            ],
+        }
+
+    @staticmethod
+    def _field_set() -> dict[str, Any]:
+        """The seed's field set (v6), as S3 serves it."""
+        raw = load_raw()["field_set"]
+
+        def field(entry: dict[str, Any], always: bool) -> dict[str, Any]:
+            return {
+                "field_id": entry["id"],
+                "label": entry["label"],
+                "always_required": always,
+            }
+
+        return {
+            "version": "v6",
+            "active": True,
+            "max_required": raw["max_required"],
+            "completion_threshold": raw["completion_threshold"],
+            "always_required": [field(f, True) for f in raw["always_required"]],
+            "per_type": {
+                change_type: [field(f, False) for f in fields]
+                for change_type, fields in raw["per_type"].items()
+            },
+        }
+
+
+class FakeScoringService(FakePeer):
+    """S2 as the real engine: ``POST /score`` returns what
+    :func:`fcrm_scoring.engine.compute_score` computes for the request, and
+    ``requests`` keeps every body received (so a test can assert on exactly
+    what H1 sent, planned controls included or not). ``GET /models/{v}`` serves
+    the seed's scoring model.
+    """
+
+    BASE_PATH = "/api/fcrm/scoring"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.model = scoring_model_from_seed(load_raw()["scoring_model"])
+        self.requests: list[dict[str, Any]] = []
+
+    def route(self, call: Call) -> httpx.Response:
+        if (call.method, call.path) == ("POST", "/score"):
+            self.requests.append(call.body)
+            request = ScoreRequest.model_validate(call.body)
+            response = compute_score(request, self.model)
+            return httpx.Response(200, json=response.model_dump(mode="json"))
+        if call.method == "GET" and call.path.startswith("/models/"):
+            return httpx.Response(200, json=self.model.model_dump(mode="json"))
+        return problem(404, f"no route {call.method} {call.path}")
+
+
+class FakeDecisionService(FakePeer):
+    """S5's ``POST /packs`` (idempotent by content hash: the same snapshot gets
+    the pack it already built, a changed one the next version) and
+    ``POST /packs/{id}/supersede``. ``builds`` keeps every snapshot received.
+    """
+
+    BASE_PATH = "/api/fcrm/decision"
+    CHECK_KEYS = (
+        "numbers_locked",
+        "conditions_drafted",
+        "all_review_items_decided",
+        "boundary_and_band_acknowledged",
+    )
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.builds: list[dict[str, Any]] = []
+        self.packs: list[dict[str, Any]] = []
+        self.superseded: list[dict[str, Any]] = []
+
+    def route(self, call: Call) -> httpx.Response:
+        if (call.method, call.path) == ("POST", "/packs"):
+            return self._build(call.body)
+        parts = call.path.strip("/").split("/")
+        if call.method == "POST" and parts[0] == "packs" and parts[-1] == "supersede":
+            self.superseded.append({"pack_id": parts[1], **call.body})
+            for pack in self.packs:
+                if pack["pack_id"] == parts[1]:
+                    pack["superseded_by"] = "pack_next"
+            return httpx.Response(200, json={"ok": True})
+        return problem(404, f"no route {call.method} {call.path}")
+
+    def _build(self, body: dict[str, Any]) -> httpx.Response:
+        self.builds.append(body)
+        snapshot = body["snapshot"]
+        digest = hashlib.sha256(
+            json.dumps(snapshot, sort_keys=True).encode()
+        ).hexdigest()
+        for pack in self.packs:
+            if pack["content_hash"] == digest and pack["superseded_by"] is None:
+                return httpx.Response(200, json=pack)
+        checks = snapshot.get("checks", {})
+        pack = {
+            "pack_id": f"pack_{len(self.packs) + 1}",
+            "case_id": body["case_id"],
+            "version": len(self.packs) + 1,
+            "content_hash": digest,
+            "checks": {k: checks.get(k) is True for k in self.CHECK_KEYS},
+            "released_at": None,
+            "superseded_by": None,
+        }
+        self.packs.append(pack)
+        return httpx.Response(200, json=pack)
+
+
+@pytest.fixture
+def scoring_service() -> FakeScoringService:
+    return FakeScoringService()
+
+
+@pytest.fixture
+def decision_service() -> FakeDecisionService:
+    return FakeDecisionService()
+
+
+@pytest.fixture
+def scoring_client(scoring_service: FakeScoringService) -> ScoringClient:
+    return ScoringClient(scoring_service.client("scoring"))
+
+
+@pytest.fixture
+def decision_client(decision_service: FakeDecisionService) -> DecisionClient:
+    return DecisionClient(decision_service.client("decision"))
 
 
 @pytest.fixture
@@ -865,20 +1440,161 @@ def agent_results(agent_results_collection: FakeCollection) -> AgentResultStore:
     return AgentResultStore(agent_results_collection)  # type: ignore[arg-type]
 
 
+#: The domain each of the demo's four clauses is mapped to by the research agent.
+DEMO_CLAUSE_DOMAINS = {
+    "FFIEC-TPPP-04": "channel",
+    "FCRM42-3.1": "geography",
+    "TP71-2.3": "channel",
+    "OFAC-1.2": "geography",
+}
+
+
+@pytest.fixture
+def demo_research_output(demo: dict[str, Any]) -> list[dict[str, Any]]:
+    """What the research agent keeps for FCRM-2026-0151: the four clauses, the
+    five closest precedents and the one declared gap (the seed's).
+    """
+    clauses = [
+        clause_proposal(c["clause_id"], DEMO_CLAUSE_DOMAINS[c["clause_id"]], c["quote"])
+        for c in demo["clauses"]
+    ]
+    precedents = [precedent_match(case_id) for case_id in demo["precedents_closest"]]
+    return [*clauses, *precedents, policy_gap("channel", demo["clause_gap"])]
+
+
+@pytest.fixture
+def demo_assessment_output(demo: dict[str, Any]) -> list[dict[str, Any]]:
+    """What the assessment agent keeps for FCRM-2026-0151: likelihood and impact
+    per domain and the thirteen controls at the seed's ratings (``score_before``,
+    9.8 Band 2), plus the corridor review as a planned control (CTL-T01, no
+    rating: never scored).
+    """
+    output: list[dict[str, Any]] = []
+    for domain, area in demo["score_before"]["areas"].items():
+        output.append(factor_proposal(domain, area["L"], area["I"]))
+        output.extend(
+            control_proposal(
+                c["id"],
+                domain,
+                c["rating"],
+                evidence=c["evidence"],
+                evidence_date=c["evidence_date"],
+            )
+            for c in area["controls"]
+        )
+    output.append(
+        control_proposal(
+            "CTL-T01",
+            "channel",
+            None,
+            planned=True,
+            evidence="vendor_DD_scope_letter_2026.pdf",
+            evidence_date="",
+        )
+    )
+    return output
+
+
+@pytest.fixture
+def seed_results(
+    agent_results: AgentResultStore, session: FakeSession
+) -> Callable[..., Awaitable[str]]:
+    """``await seed_results("research", *accepted)``: store one finished agent job
+    as the engine would on ``agent.done`` (what a step reads back), returning its
+    job id.
+    """
+    counter = {"n": 0}
+
+    async def seed(
+        agent: str,
+        *accepted: dict[str, Any],
+        job_id: Optional[str] = None,
+        run_id: str = "run_1",
+    ) -> str:
+        counter["n"] += 1
+        job = job_id or f"job_{agent}_{counter['n']}"
+        await agent_results.save(
+            agent_done_body(job, run_id, *accepted, agent=agent),
+            session=session,  # type: ignore[arg-type]
+        )
+        return job
+
+    return seed
+
+
 def make_run(
     *,
     run_id: str = "run_1",
     case_id: str = "FCRM-2026-0151",
     state: CaseState = CaseState.INTAKE,
     refs: Optional[Mapping[str, Any]] = None,
+    flags: Optional[Mapping[str, Any]] = None,
+    band: Optional[int] = None,
 ) -> CaseRun:
     """A :class:`CaseRun` as a handler sees it (the snapshot taken when its
-    step began), in ``state`` with ``refs``.
+    step began), in ``state`` with ``refs``, run-snapshot ``flags`` and ``band``.
     """
     document = new_case_run_document(run_id=run_id, case_id=case_id, pins=DEFAULT_PINS)
     document["state"] = state.value
     document["refs"] = dict(refs or {})
+    document["flags"] = {**document["flags"], **dict(flags or {})}
+    document["band"] = band
     return case_run_from_document(document)
+
+
+def harness_step(
+    kind: StepKind,
+    payload: Optional[Mapping[str, Any]] = None,
+    *,
+    step_id: str = "step_1",
+    run_id: str = "run_1",
+    case_id: str = "FCRM-2026-0151",
+    trigger: str = "t",
+) -> HarnessStep:
+    """A ``harness.step`` as the engine enqueues it: ``payload`` is the
+    triggering event's body.
+    """
+    return HarnessStep(
+        step_id=step_id,
+        step=kind,
+        case_id=case_id,
+        run_id=run_id,
+        args={
+            "trigger": trigger,
+            "message_id": "evt_1",
+            "payload": dict(payload or {}),
+        },
+    )
+
+
+@pytest.fixture
+def assessed_case(case_service: FakeCaseService) -> FakeCaseService:
+    """The demo case as S1 holds it when assessment starts: three change types,
+    three domains, submission v1.
+    """
+    case_service.change_types = ["vendor_onboarding", "new_geography", "new_product"]
+    case_service.domains = ["channel", "geography", "product"]
+    case_service.submission_version = 1
+    return case_service
+
+
+@pytest.fixture
+async def published(
+    assessed_case: FakeCaseService,
+    step_deps_factory: Callable[..., StepDeps],
+    seed_results: Callable[..., Awaitable[str]],
+    demo_research_output: list[dict[str, Any]],
+    demo_assessment_output: list[dict[str, Any]],
+) -> tuple[StepResult, StepDeps]:
+    """``assess.publish`` run once over the demo's research and assessment."""
+    await seed_results("research", *demo_research_output, job_id="job_r1")
+    await seed_results("assessment", *demo_assessment_output, job_id="job_a1")
+    deps = step_deps_factory(make_run(run_id="run_1", state=CaseState.CRITIC))
+    result = await assessment.assess_publish(
+        harness_step(StepKind.ASSESS_PUBLISH, {"job_id": "job_a1"}, step_id="step_pub"),
+        deps,
+    )
+    return result, deps
 
 
 @pytest.fixture
@@ -887,6 +1603,9 @@ def step_deps_factory(
     case_client: CaseClient,
     policy_client: PolicyClient,
     agent_results: AgentResultStore,
+    scoring_client: ScoringClient,
+    decision_client: DecisionClient,
+    gate_store: GateStore,
 ) -> Callable[..., StepDeps]:
     """Builds the :class:`StepDeps` a handler gets, over the fakes."""
 
@@ -897,6 +1616,9 @@ def step_deps_factory(
             "case": case_client,
             "policy": policy_client,
             "agent_results": agent_results,
+            "scoring": scoring_client,
+            "decision": decision_client,
+            "gates": gate_store,
             **overrides,
         }
         return StepDeps(**values)

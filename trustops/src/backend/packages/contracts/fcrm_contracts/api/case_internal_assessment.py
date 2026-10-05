@@ -29,7 +29,7 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from fcrm_contracts.api.scoring import ScoreRequest, ScoreResponse
-from fcrm_contracts.enums import Band, Domain
+from fcrm_contracts.enums import Band, Domain, Outcome
 from fcrm_contracts.proposals.narrative import (
     BusinessSummary,
     CompletenessReport,
@@ -296,22 +296,71 @@ class NarrativeSectionItem(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
 
 
-class RecommendationDraftPush(BaseModel):
-    """``PUT /internal/cases/{id}/recommendation-draft``: the narrative agent's
-    recommendation draft. It replaces the *draft* only: edits the analyst made
-    to an earlier draft are kept by S1 beside it, never overwritten.
+class RecommendationDraftBody(BaseModel):
+    """The narrative agent's draft: the recommendation's sections, the
+    conditions it proposes and the PO-facing business summary.
     ``business_summary.text`` is empty when H1 withheld it because the
     restricted-term scan found a hit.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    run_id: str
     sections: list[NarrativeSectionItem] = Field(default_factory=list)
     conditions: list[Condition] = Field(default_factory=list)
     business_summary: BusinessSummary
     score_record_seq: Optional[int] = None
     proposal_ids: list[str] = Field(default_factory=list)
+
+
+class RecommendationDraftPush(RecommendationDraftBody):
+    """``PUT /internal/cases/{id}/recommendation-draft``: the narrative agent's
+    recommendation draft. It replaces the *draft* only: edits the analyst made
+    to an earlier draft are kept by S1 beside it, never overwritten.
+    """
+
+    run_id: str
+
+
+class RecommendationEditSection(BaseModel):
+    """One section of the recommendation as the analyst edited it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    text: str
+
+
+class RecommendationEdits(BaseModel):
+    """What the analyst did to the draft (design A's ``RecommendationEdit``),
+    written by S1's analyst routes. ``None`` fields mean "not edited": the draft
+    stands for them.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    sections: list[RecommendationEditSection] = Field(default_factory=list)
+    conditions: Optional[list[Condition]] = None
+    business_summary: Optional[str] = None
+    outcome: Optional[Outcome] = None
+    edit_count: int = Field(default=0, ge=0)
+
+
+class RecommendationInternal(BaseModel):
+    """``GET /internal/cases/{id}/recommendation``: the draft, the analyst's
+    edits beside it and whether it is locked. The pack H1 builds at the lock
+    reads the effective text: an edited section replaces the draft's, an edited
+    list of conditions or business summary replaces the draft's.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    run_id: str
+    draft: RecommendationDraftBody
+    draft_seq: int
+    edits: Optional[RecommendationEdits] = None
+    locked: bool = False
+    locked_by: Optional[str] = None
 
 
 class HandoffPush(BaseModel):
