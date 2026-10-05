@@ -146,10 +146,17 @@ def test_agent_failure_after_retry_hands_off_from_any_open_state() -> None:
         result = apply(state, T.AGENT_FAILED_AFTER_RETRY, TransitionContext())
         assert result.to_state == S.HANDOFF
 
-    # CLOSED and HANDOFF itself are not valid "any" sources (a closed case
-    # cannot fail an agent step; a run already in handoff isn't re-handed-off).
+    # A closed case cannot fail an agent step.
     with pytest.raises(IllegalTransition):
         apply(S.CLOSED, T.AGENT_FAILED_AFTER_RETRY, TransitionContext())
+
+
+def test_a_second_agent_failure_while_in_handoff_stays_in_handoff() -> None:
+    """A fan-out (one intake job per document) can fail twice: the second
+    failure must not be illegal, or its message dead-letters and freezes the run.
+    """
+    result = apply(S.HANDOFF, T.AGENT_FAILED_AFTER_RETRY, TransitionContext())
+    assert result.to_state == S.HANDOFF
 
 
 class TestRouting:

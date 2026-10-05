@@ -502,7 +502,21 @@ _HANDOFF_FROM_ANY: list[Transition] = [
     if state not in (S.CLOSED, S.HANDOFF)
 ]
 
+# A fan-out (one intake job per document) can fail more than once: the second
+# failure finds the run already in HANDOFF. It stays there, records its own
+# agent.failed and opens its own handoff gate (each failed job has its own raw
+# inputs for a human to complete); nothing is dead-lettered and the run does
+# not freeze.
+_HANDOFF_AGAIN = Transition(
+    S.HANDOFF,
+    Trigger.AGENT_FAILED_AFTER_RETRY,
+    S.HANDOFF,
+    "another agent failed while a handoff is open: record agent.failed and "
+    "open a handoff gate for its raw inputs",
+)
+
 TRANSITIONS.extend(_HANDOFF_FROM_ANY)
+TRANSITIONS.append(_HANDOFF_AGAIN)
 
 
 def apply(
