@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Sequence
 from functools import lru_cache
 from importlib import resources
 from pathlib import Path
@@ -58,6 +59,40 @@ def demo_case() -> dict[str, Any]:
     """
     demo: dict[str, Any] = load_raw()["demo"]
     return demo
+
+
+#: The seed's outcome labels for closed cases -> the platform's four outcomes
+#: (``fcrm_contracts.enums.Outcome``). The seed says "approved", "deferred" and
+#: "rejected"; the platform says approve, defer and reject.
+_PLATFORM_OUTCOMES = {
+    "approved": "approve",
+    "approve_with_conditions": "approve_with_conditions",
+    "deferred": "defer",
+    "rejected": "reject",
+}
+
+
+def platform_outcome(seed_label: str) -> str:
+    """The platform outcome (``approve``, ``approve_with_conditions``, ``defer``
+    or ``reject``) for a closed case's seed outcome label.
+
+    Raises:
+        KeyError: ``seed_label`` is not one of the four seed outcomes.
+    """
+    return _PLATFORM_OUTCOMES[seed_label]
+
+
+def closed_cases(
+    case_list: Optional[Sequence[dict[str, Any]]] = None,
+) -> list[dict[str, Any]]:
+    """The 65 seed cases at ``stage == "closed"`` (the precedent pool).
+
+    Args:
+        case_list: Cases to filter; defaults to :func:`cases`. Services that
+            read an alternative ``seed.json`` through ``SeedReader`` pass theirs.
+    """
+    source = cases() if case_list is None else case_list
+    return [c for c in source if c.get("stage") == "closed"]
 
 
 def routing_rules() -> list[dict[str, Any]]:

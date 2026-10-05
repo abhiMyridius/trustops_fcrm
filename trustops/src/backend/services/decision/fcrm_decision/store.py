@@ -36,12 +36,13 @@ only ever return the public contract models built from these rows.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import datetime
-from typing import Any, Optional, Protocol
+from typing import Any, Literal, Optional, Protocol
 
 from fcrm_common.errors import ConflictError, NotFoundError, RuleViolationError
 from fcrm_common.mongo import Repository, with_transaction
+from fcrm_common.seedload import load_if_empty
 from fcrm_contracts.api.decision import (
     CommitteeAnswer,
     CommitteeQuestion,
@@ -115,6 +116,11 @@ class _OutcomeRow(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     outcome: OutcomeSet
+    #: How the case was decided: ``committee`` for every outcome a vote round
+    #: tallies (the default, so rows written before this field existed read
+    #: back unchanged) and ``delegated`` for an analyst's close under R1,
+    #: whose ``pack_id`` is a ``delegated:<case_id>`` sentinel (no pack exists).
+    mode: Literal["committee", "delegated"] = "committee"
 
 
 class _QuestionRow(BaseModel):
@@ -246,6 +252,7 @@ class InMemoryDecisionStore:
         self._latest_by_case: dict[str, str] = {}
         self._votes: dict[tuple[str, int], dict[str, _VoteRow]] = {}
         self._outcomes: dict[tuple[str, int], OutcomeSet] = {}
+        self._modes: dict[tuple[str, int], str] = {}
         self._questions: dict[str, CommitteeQuestion] = {}
         self._answers: dict[str, CommitteeAnswer] = {}
 
@@ -340,6 +347,45 @@ class InMemoryDecisionStore:
             return None
         return self._outcomes[(pack_id, max(rounds))]
 
+    async def get_outcome_mode(
+        self, pack_id: str, round_: Optional[int] = None
+    ) -> Optional[str]:
+        """``committee`` or ``delegated`` for the outcome :meth:`get_outcome`
+        would return, or ``None`` when there is none.
+        """
+        outcome = await self.get_outcome(pack_id, round_)
+        if outcome is None:
+            return None
+        return self._modes.get((outcome.pack_id, outcome.round), "committee")
+
+    async def seed_if_empty(
+        self,
+        packs: Sequence[_PackRow],
+        votes: Sequence[_VoteRow],
+        outcomes: Sequence[_OutcomeRow],
+    ) -> dict[str, int]:
+        """Load seed rows into each collection that is still empty; returns how
+        many were loaded per collection (0 for one that already had data).
+        """
+        loaded = {"packs": 0, "votes": 0, "outcomes": 0}
+        if not self._packs:
+            for pack in packs:
+                self._packs[pack.pack_id] = pack
+                self._latest_by_case[pack.case_id] = pack.pack_id
+            loaded["packs"] = len(packs)
+        if not self._votes:
+            for vote in votes:
+                round_votes = self._votes.setdefault((vote.pack_id, vote.round), {})
+                round_votes[vote.member_id] = vote
+            loaded["votes"] = len(votes)
+        if not self._outcomes:
+            for row in outcomes:
+                key = (row.outcome.pack_id, row.outcome.round)
+                self._outcomes[key] = row.outcome
+                self._modes[key] = row.mode
+            loaded["outcomes"] = len(outcomes)
+        return loaded
+
     async def insert_question(
         self, question_id: str, question: CommitteeQuestion
     ) -> None:
@@ -395,7 +441,11 @@ async def ensure_indexes(db: AsyncDatabase[Any]) -> None:
     from the lifespan after the client connects.
     """
     await _packs_repo(db).ensure_indexes(
-        [IndexModel([("pack_id", 1)], unique=True, name="pack_id_unique")]
+        [
+            IndexModel([("pack_id", 1)], unique=True, name="pack_id_unique"),
+            # latest_pack(): the newest version of a case's pack.
+            IndexModel([("case_id", 1), ("version", -1)], name="case_id_version"),
+        ]
     )
     await _votes_repo(db).ensure_indexes(
         [
@@ -553,6 +603,44 @@ class MongoDecisionStore:
             {"outcome.pack_id": pack_id}, sort=[("outcome.round", -1)]
         )
         return row.outcome if row is not None else None
+
+    async def get_outcome_mode(
+        self, pack_id: str, round_: Optional[int] = None
+    ) -> Optional[str]:
+        """``committee`` or ``delegated`` for the outcome :meth:`get_outcome`
+        would return, or ``None`` when there is none.
+        """
+        if round_ is not None:
+            row = await self._outcomes.find_one(
+                {"outcome.pack_id": pack_id, "outcome.round": round_}
+            )
+        else:
+            row = await self._outcomes.find_one(
+                {"outcome.pack_id": pack_id}, sort=[("outcome.round", -1)]
+            )
+        return row.mode if row is not None else None
+
+    async def seed_if_empty(
+        self,
+        packs: Sequence[_PackRow],
+        votes: Sequence[_VoteRow],
+        outcomes: Sequence[_OutcomeRow],
+    ) -> dict[str, int]:
+        """Bulk-load seed rows, one ``insert_many`` per collection, into each
+        collection that is still empty (so a restart never duplicates them);
+        returns how many were inserted per collection.
+        """
+        return {
+            "packs": await load_if_empty(
+                self._packs, [self._packs.to_document(r) for r in packs]
+            ),
+            "votes": await load_if_empty(
+                self._votes, [self._votes.to_document(r) for r in votes]
+            ),
+            "outcomes": await load_if_empty(
+                self._outcomes, [self._outcomes.to_document(r) for r in outcomes]
+            ),
+        }
 
     async def insert_question(
         self, question_id: str, question: CommitteeQuestion
