@@ -16,8 +16,8 @@ mongo_data/
 .ruff_cache/
 .coverage
 htmlcov/
-src/.venv/
-src/uv.lock.bak
+src/backend/.venv/
+src/backend/uv.lock.bak
 .claude/worktrees/
 
 # personal direnv files

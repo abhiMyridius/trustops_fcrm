@@ -1,6 +1,6 @@
 """Shared fixtures for the cloned evoq_ingestion engine's test suite.
 
-TrustOps clone notes (src/workers/ingestion-worker/UPSTREAM.md):
+TrustOps clone notes (src/backend/workers/ingestion-worker/UPSTREAM.md):
 
 * This file stays beside the moved suite rather than in ``tests/conftest.py``
   because it only serves this engine's tests and the lane may not edit the

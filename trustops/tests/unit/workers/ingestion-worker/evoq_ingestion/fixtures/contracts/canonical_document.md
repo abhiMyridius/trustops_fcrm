@@ -67,7 +67,7 @@ Requirement-ID regex (shared default, env `REQUIREMENT_ID_PATTERN`): `\b([A-Z][A
 - `GET /source/documents/{origin_id}?source_type&updated_since&include_inactive&include_body&page&page_size(≤500)` → `{items, page, page_size, total, has_more}`, sorted `(source_id asc, version desc)`.
 - `GET /source/documents/{origin_id}/{source_id}?version&include_body=true`.
 
-## TrustOps clone addendum (H3 ingestion-worker, see `src/workers/ingestion-worker/UPSTREAM.md`)
+## TrustOps clone addendum (H3 ingestion-worker, see `src/backend/workers/ingestion-worker/UPSTREAM.md`)
 
 - `structure.pages: [{n, start_line, end_line}]` (renderer version `3`): for every `--- Page N ---` marker, the 1-based inclusive line range of that page's content in `body_markdown`, excluding the marker line and the blank separator lines before/after the content. A `DocSourceRef(page, line_start, line_end)` uses page-relative 1-based lines: body line = `start_line + line - 1`. A body with no page markers is one implicit page 1; an empty page has `end_line = start_line - 1`; an empty body has `pages: []`.
 - `source_type` is always `file` in TrustOps: the Jira and Confluence sources, the HTML/ADF renderers and the MCP document loader were pruned. Their codes (`body_format_fallback`, `macro_not_rendered`, `unknown_macro`, `unknown_adf_node`, `comments_truncated`, `pagination_loop_detected`, `ancestor_pages_excluded`, `mcp_batch_timeout`) are no longer emitted; they stay listed above only as upstream history.

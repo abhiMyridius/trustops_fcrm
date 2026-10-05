@@ -7,7 +7,7 @@ Skipped unless ``FCRM_TEST_MONGO_URI`` points at one, exactly like
 ``tests/unit/packages/common/test_common_mongo_live.py``::
 
     export FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:27117/?replicaSet=rs0'
-    uv run --project src --package fcrm-caseflow pytest \\
+    uv run --project src/backend --package fcrm-caseflow pytest \\
         tests/unit/workers/caseflow/test_engine_live.py
 """
 

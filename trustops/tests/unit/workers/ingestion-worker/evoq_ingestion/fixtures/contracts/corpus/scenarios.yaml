@@ -768,7 +768,7 @@ scenarios:
         hard_max_violations: 0
 
   # (HTML-01..04 Confluence and ADF-01..03 Jira rows pruned on the TrustOps clone —
-  #  the Atlassian sources and renderers were removed; see src/workers/ingestion-worker/UPSTREAM.md)
+  #  the Atlassian sources and renderers were removed; see src/backend/workers/ingestion-worker/UPSTREAM.md)
 
   # ───────────────────────────── EDGE ─────────────────────────────
   - id: EDGE-01

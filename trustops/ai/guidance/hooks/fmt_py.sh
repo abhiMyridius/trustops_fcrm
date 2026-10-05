@@ -5,12 +5,12 @@
 #   1. ruff format <file>
 #   2. ruff check --fix <file>; remaining errors -> exit 2 with them on stderr
 #      (Claude sees them and fixes the file; the edit itself already happened)
-#   3. mypy on the file's unit (nearest pyproject.toml under src/) in the
+#   3. mypy on the file's unit (nearest pyproject.toml under src/backend/) in the
 #      background, result appended to .cache/mypy.txt
-# Tools resolve as: `uv run --project src`, then src/.venv/bin, then PATH;
+# Tools resolve as: `uv run --project src/backend`, then src/backend/.venv/bin, then PATH;
 # a missing tool is skipped with a note, never a failure.
 #
-# Standalone: echo '{"tool_name":"Write","tool_input":{"file_path":"src/x.py"}}' | ai/guidance/hooks/fmt_py.sh
+# Standalone: echo '{"tool_name":"Write","tool_input":{"file_path":"src/backend/x.py"}}' | ai/guidance/hooks/fmt_py.sh
 set -u
 
 payload="$(cat)"
@@ -41,10 +41,10 @@ resolve() {  # resolve <tool> -> prints the command prefix or nothing
   local tool="$1" uv=""
   uv="$(command -v uv 2>/dev/null || true)"
   [ -z "$uv" ] && [ -x "$HOME/.local/bin/uv" ] && uv="$HOME/.local/bin/uv"
-  if [ -n "$uv" ] && [ -f "$root/src/pyproject.toml" ]; then
-    printf '%s run --project %s --quiet %s' "$uv" "$root/src" "$tool"; return
+  if [ -n "$uv" ] && [ -f "$root/src/backend/pyproject.toml" ]; then
+    printf '%s run --project %s --quiet %s' "$uv" "$root/src/backend" "$tool"; return
   fi
-  if [ -x "$root/src/.venv/bin/$tool" ]; then printf '%s' "$root/src/.venv/bin/$tool"; return; fi
+  if [ -x "$root/src/backend/.venv/bin/$tool" ]; then printf '%s' "$root/src/backend/.venv/bin/$tool"; return; fi
   command -v "$tool" 2>/dev/null || true
 }
 
@@ -65,7 +65,7 @@ if [ -n "$mypy_cmd" ]; then
   while [ "$unit" != "$root" ] && [ "$unit" != "/" ] && [ ! -f "$unit/pyproject.toml" ]; do
     unit="$(dirname "$unit")"
   done
-  if [ -f "$unit/pyproject.toml" ] && [ "$unit" != "$root/src" ]; then
+  if [ -f "$unit/pyproject.toml" ] && [ "$unit" != "$root/src/backend" ]; then
     mkdir -p "$root/.cache"
     (
       out="$($mypy_cmd "$unit" 2>&1 | tail -n 20)"

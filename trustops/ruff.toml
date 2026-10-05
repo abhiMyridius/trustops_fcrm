@@ -1,7 +1,10 @@
 target-version = "py313"
 line-length = 88
-src = ["src"]
-extend-exclude = ["src/workers/ingestion-worker/evoq_ingestion", "src/workers/context-worker/evoq_context"]
+src = ["src/backend"]
+# pre-commit passes files explicitly; without this ruff would format and lint the
+# vendored evoq_* clones that extend-exclude is there to skip.
+force-exclude = true
+extend-exclude = ["src/backend/workers/ingestion-worker/evoq_ingestion", "src/backend/workers/context-worker/evoq_context", "src/frontend"]
 
 [lint]
 select = ["E", "W", "F", "I", "N", "UP", "B", "T20", "SIM", "C90", "BLE", "S110", "D", "PT"]

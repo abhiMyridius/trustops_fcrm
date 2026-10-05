@@ -10,6 +10,46 @@ cd ~/Downloads/Hackathon/trustops_fcrm/trustops     # or wherever you cloned it
 
 This file describes the state on 5 October 2026. If a step stops matching what you see, check `git log --oneline` first: every commit says what it adds and what it is still waiting on.
 
+## Quick start: run the whole thing
+
+The application is two parts. The backend is one Docker stack. The frontend is one Node dev server. Run them in two terminals. Both terminals start at the repo root.
+
+**Before anything: let Docker see the repo.** The repo sits under `~/Downloads`, and macOS blocks Docker from mounting files there until you allow it. Verified on 5 October: a plain `docker run -v` from the repo fails with `mkdir /host_mnt/Users/apahuja/Downloads: operation not permitted`, while the same mount from `/tmp` works. Thirteen services need such mounts, so the backend cannot start at all until one of these is done:
+
+- Open System Settings, then Privacy & Security, then Files and Folders, find Docker and turn on Downloads Folder. If Docker is not listed there, turn on Full Disk Access for Docker instead. Then quit and reopen Docker Desktop.
+- Or move the repo out of Downloads, for example `mv ~/Downloads/Hackathon ~/MacWorkspace/Hackathon`, and reopen it from there.
+
+**Terminal 1: backend**
+
+1. `make tools` installs the OPA binary. Once.
+2. `make bootstrap` installs Python packages and pulls images. Once.
+3. `make env` writes `.env` with local passwords. Once. Add AWS keys to it only if you want agents to run.
+4. `make keys` writes the JWT keypair. Once.
+5. Start the stack:
+
+   ```bash
+   docker compose -f docker-compose.yaml -f compose.obs.yaml up -d --build \
+     --scale ingestion-worker=0 --scale context-worker=0
+   ```
+
+   The first build takes a few minutes. Do not use `make up` yet. It waits for two workers that cannot start and times out.
+
+   On this Mac a Homebrew Redis already listens on port 6379, so the first attempt stops with `port 6379 ... address already in use`. Either stop it with `brew services stop redis`, or add the line `REDIS_HOST_PORT=6380` to `.env`, then run the command again.
+6. `make ps` should show 19 containers healthy.
+7. `curl -s http://localhost:8080/healthz` should answer. The backend is up.
+
+**Terminal 2: frontend**
+
+8. `cd src/frontend` then `npm ci`. Once.
+9. Choose the backend for the UI:
+   - Mock backend, the default. Run `npm run dev`. Every screen works. This is the one to use for the demo today.
+   - Live backend. Run `printf 'VITE_API_MODE=live\nVITE_DEMO_USERS=false\n' > .env.local` then `npm run dev`. Sign-in fails today with a 422, see below. Delete `.env.local` to go back to mock.
+10. Open http://localhost:5173. The badge at the top says which backend you are on.
+
+**To stop:** `make down` in terminal 1, Ctrl-C in terminal 2.
+
+**Why live mode does not work yet, in plain words.** The backend starts and answers `curl` correctly. The frontend works against its mock. Put together, the web login sends a field named `username` and the identity service only accepts a field named `email`, so the very first request fails. Behind that, most analyst screens have no backend route yet, and the backend holds no seeded cases. The full list is in the last section of this file. The first fix is the login field name.
+
 ## What works today
 
 | Area | Status |
@@ -17,7 +57,7 @@ This file describes the state on 5 October 2026. If a step stops matching what y
 | Code checks: lint, format, types, unit tests, OPA policy tests | ✅ `make check` |
 | Integration tests against a real MongoDB | ✅ `make test-int` |
 | Web unit tests and type check | ✅ `npm test`, `npm run typecheck` |
-| Backend stack: identity, S1–S5, H1, H2, gateway, web image, infra, observability | ✅ boots, 19 containers healthy |
+| Backend stack: identity, S1–S5, H1, H2, gateway, web image, infra, observability | ✅ boots, 19 containers healthy, once Docker is allowed to read the repo folder (see the quick start) |
 | Login and access policy on every service, checked with `curl` through the gateway | ✅ |
 | Web app on its own, against the in-browser mock backend (MSW) | ✅ every screen for all three personas |
 | Web app against the live backend | ⏳ login fails (field-name mismatch); after that about a third of the screens have a backend route. See [Where the backend and the frontend stand](#where-the-backend-and-the-frontend-stand) |
@@ -89,7 +129,7 @@ FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:27217/?replicaSet=rs0' make test-int
 Then run the web checks:
 
 ```bash
-cd src/web
+cd src/frontend
 npm ci
 npm test            # vitest unit tests
 npm run typecheck
@@ -176,12 +216,12 @@ The badge at the top of every page tells you which backend you are on: "Mock bac
 ### A. Mock mode (what you get by default)
 
 ```bash
-cd src/web
+cd src/frontend
 npm ci                           # first time only
 npm run dev                      # http://localhost:5173
 ```
 
-`VITE_API_MODE` defaults to `msw`, so with no `.env.local` in `src/web` this is what runs. The login page shows a picker of seeded users and collects no password. The URL prefix chooses the persona: `/` is the product owner, `/analyst` the FCRM analyst, `/committee` the risk committee.
+`VITE_API_MODE` defaults to `msw`, so with no `.env.local` in `src/frontend` this is what runs. The login page shows a picker of seeded users and collects no password. The URL prefix chooses the persona: `/` is the product owner, `/analyst` the FCRM analyst, `/committee` the risk committee.
 
 ### B. Live mode, packaged (the web image behind the gateway)
 
@@ -197,7 +237,7 @@ The web image is built with `VITE_API_MODE=live`, so every request goes to the r
 Start the backend (step 3), then point the dev server at it:
 
 ```bash
-cd src/web
+cd src/frontend
 printf 'VITE_API_MODE=live\nVITE_DEMO_USERS=false\n' > .env.local
 npm run dev                      # Vite proxies /api/* to http://localhost:8080
 ```
@@ -247,13 +287,14 @@ Behind the HTTP seam there is a second gap inside the backend: S5 writes votes b
 | `No resource found to remove for project "trustops"` | Harmless: no other TrustOps stack was running |
 | `make up` waits, then times out | `ingestion-worker` and `context-worker` crash-loop (no start entry point yet). Use the scale-0 command in step 3 |
 | `port is already allocated` | Another local stack holds the port. Set the `*_HOST_PORT` values in `.env` |
-| Mount or permission error on start | macOS is blocking Docker's access to `~/Downloads`. See step 0 |
+| `error while creating mount source path ... mkdir /host_mnt/Users/<you>/Downloads: operation not permitted` | macOS is blocking Docker's access to `~/Downloads`. Grant Docker the Downloads Folder (or Full Disk Access) in System Settings and restart Docker, or move the repo out of Downloads. See the quick start |
 | `audit` keeps restarting with `ChainVerifyFailedError` | The audit records in the Mongo volume were written under an older hash format (D-29). Run `make down-v`, then start again, to reseed |
 | `identity` fails at start, asking for `DEMO_USERS_PASSWORD_HASH` | `.env` predates D-25. Move it aside and run `make env` again |
 | Every API call returns `503` | OPA is not reachable, and the services fail closed by design. Check with `make ps` and `make logs svc=opa` |
-| The page shows "Mock backend (MSW)" when you expected the live stack | You are on the dev server with no `src/web/.env.local`, so `VITE_API_MODE` defaulted to `msw`. See step 5 C. Also check `make ps`: if the services are down, live mode would only show errors |
+| The page shows "Mock backend (MSW)" when you expected the live stack | You are on the dev server with no `src/frontend/.env.local`, so `VITE_API_MODE` defaulted to `msw`. See step 5 C. Also check `make ps`: if the services are down, live mode would only show errors |
 | `Port 5173 is already in use` | A previous `npm run dev` is still running (it survives a folder move). `kill $(lsof -tnP -iTCP:5173 -sTCP:LISTEN)` and start again |
 | Live login returns `422` | The web posts `username`, the identity service wants `email`. First item in the seam table above |
-| Live login page hangs on the demo picker | `GET auth/demo-users` does not exist on the backend. Set `VITE_DEMO_USERS=false` in `src/web/.env.local` |
+| Live login page hangs on the demo picker | `GET auth/demo-users` does not exist on the backend. Set `VITE_DEMO_USERS=false` in `src/frontend/.env.local` |
 | Live PO queue is empty | S1 has no seeded cases yet (`make seed` is pending). Create a case from the UI, or use mock mode to see the 80 seed cases |
 | Agent jobs fail with a Bedrock or credentials error | Replay mode is not wired; agents always call Bedrock. Fill in the AWS keys in `.env` |
+| `ports are not available ... 127.0.0.1:6379 ... address already in use` | A Homebrew `redis-server` is running on your Mac. `brew services stop redis`, or add `REDIS_HOST_PORT=6380` to `.env` |

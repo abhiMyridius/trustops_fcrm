@@ -1,6 +1,6 @@
 # Lint overrides for the cloned evoq_ingestion test suite (moved here from
 # AEO aeoingestionjob/evoq_ingestion/tests/ under ADR-21; see
-# src/workers/ingestion-worker/UPSTREAM.md). Everything else comes from the
+# src/backend/workers/ingestion-worker/UPSTREAM.md). Everything else comes from the
 # repository's root ruff.toml. These mirror upstream's own per-file ignores
 # for its tests ("**/tests/**" = E501, ...), which were written at line
 # length 100; the lead may hoist them into the root ruff.toml instead.

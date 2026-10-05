@@ -61,9 +61,11 @@ except ImportError:  # pragma: no cover
 CORPUS_ROOT = Path(__file__).resolve().parent
 # TrustOps clone: this corpus lives under
 # tests/unit/workers/ingestion-worker/evoq_ingestion/fixtures/contracts/corpus,
-# and the engines under src/workers/{ingestion,context}-worker (UPSTREAM.md).
+# and the engines under src/backend/workers/{ingestion,context}-worker (UPSTREAM.md).
 REPO_ROOT = next(
-    p for p in CORPUS_ROOT.parents if (p / "src" / "pyproject.toml").exists()
+    p
+    for p in CORPUS_ROOT.parents
+    if (p / "src" / "backend" / "pyproject.toml").exists()
 )
 SCENARIOS = CORPUS_ROOT / "scenarios.yaml"
 GOLDEN_DIR = CORPUS_ROOT / "golden"
@@ -71,8 +73,8 @@ REAL_DIR = CORPUS_ROOT / "real"
 WORK_DIR = CORPUS_ROOT / ".work"
 
 ENGINE_CWD = {
-    "ingestion": REPO_ROOT / "src" / "workers" / "ingestion-worker",
-    "context": REPO_ROOT / "src" / "workers" / "context-worker",
+    "ingestion": REPO_ROOT / "src" / "backend" / "workers" / "ingestion-worker",
+    "context": REPO_ROOT / "src" / "backend" / "workers" / "context-worker",
 }
 ENGINE_MODULE = {"ingestion": "evoq_ingestion", "context": "evoq_context"}
 

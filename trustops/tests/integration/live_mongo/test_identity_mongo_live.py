@@ -15,7 +15,7 @@ where the analogous scoring file already lives, since that placement
 predates this lane and is left untouched).
 
     export FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:27217/?replicaSet=rs0'
-    uv run --project src --all-packages pytest \\
+    uv run --project src/backend --all-packages pytest \\
         tests/integration/live_mongo -m integration
 """
 

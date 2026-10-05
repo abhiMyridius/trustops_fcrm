@@ -1,6 +1,6 @@
 # Keeps every build context (repo root) small and images clean. Every
 # service/worker/web Dockerfile builds from the repo root (uv workspace
-# spans src/), so this file applies to all of them at once.
+# spans src/backend/), so this file applies to all of them at once.
 
 # VCS / editor / Claude Code state
 .git
@@ -26,10 +26,10 @@
 **/.coverage
 **/.coverage.*
 
-# Node / web
+# Node / frontend
 **/node_modules
-src/web/dist
-src/web/.vite
+src/frontend/dist
+src/frontend/.vite
 npm-debug.log*
 
 # Secrets and local env (never read, never shipped: CLAUDE.md)

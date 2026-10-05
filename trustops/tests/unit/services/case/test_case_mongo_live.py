@@ -5,7 +5,7 @@ Skipped unless ``FCRM_TEST_MONGO_URI`` points at a replica set, exactly
 like S2's ``test_mongo_live.py``::
 
     export FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:27217/?replicaSet=rs0'
-    uv run --project src --all-packages pytest \\
+    uv run --project src/backend --all-packages pytest \\
         tests/unit/services/case/test_case_mongo_live.py
 
 Each run uses its own throw-away database (never ``fcrm_case``), so it is

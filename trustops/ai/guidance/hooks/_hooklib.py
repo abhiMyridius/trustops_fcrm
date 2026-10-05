@@ -114,11 +114,11 @@ def find_uv() -> Optional[str]:
 
 
 def tool_command(root: Path, tool: str) -> Optional[list[str]]:
-    """Command prefix for a Python dev tool: uv run, then src/.venv, then PATH."""
+    """Command prefix for a dev tool: uv run, then src/backend/.venv, then PATH."""
     uv = find_uv()
-    if uv and (root / "src" / "pyproject.toml").exists():
-        return [uv, "run", "--project", str(root / "src"), "--quiet", tool]
-    venv_tool = root / "src" / ".venv" / "bin" / tool
+    if uv and (root / "src" / "backend" / "pyproject.toml").exists():
+        return [uv, "run", "--project", str(root / "src" / "backend"), "--quiet", tool]
+    venv_tool = root / "src" / "backend" / ".venv" / "bin" / tool
     if venv_tool.exists():
         return [str(venv_tool)]
     on_path = shutil.which(tool)

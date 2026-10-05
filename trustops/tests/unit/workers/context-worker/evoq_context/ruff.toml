@@ -1,6 +1,6 @@
 # Lint overrides for the cloned evoq_context test suite (moved here from
 # AEO aeocontextjob/evoq_context/tests/ under ADR-21; see
-# src/workers/context-worker/UPSTREAM.md). Everything else comes from the
+# src/backend/workers/context-worker/UPSTREAM.md). Everything else comes from the
 # repository's root ruff.toml. Upstream wrote these tests at line length 100
 # and ran them unlinted; the lead may hoist these into the root ruff.toml.
 extend = "../../../../../ruff.toml"

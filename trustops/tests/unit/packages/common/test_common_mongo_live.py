@@ -6,7 +6,7 @@ single-node set started with ``mongod --replSet rs0 --port 27117`` and
 initiated with ``rs.initiate()``::
 
     export FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:27117/?replicaSet=rs0'
-    uv run --project src --package fcrm-common pytest \\
+    uv run --project src/backend --package fcrm-common pytest \\
         tests/unit/packages/common/test_common_mongo_live.py
 
 The testcontainers-based integration lane will run the same scenarios

@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 # PostToolUse hook for Edit|Write|MultiEdit on *.ts, *.tsx, *.css (design C §5.4).
 #
-# For a file under src/web:
+# For a file under src/frontend:
 #   1. oxlint --fix <file> (ts/tsx only; oxlint does not lint CSS)
 #   2. tsc -b --incremental for the web project (ts/tsx only)
 # Errors left after --fix, or type errors, -> exit 2 with the first 40 lines
-# on stderr. Tools resolve from src/web/node_modules/.bin, then PATH; if
+# on stderr. Tools resolve from src/frontend/node_modules/.bin, then PATH; if
 # neither has them (no Node on the host yet), the step is skipped with a note.
 #
-# Standalone: echo '{"tool_name":"Edit","tool_input":{"file_path":"src/web/src/app/App.tsx"}}' | ai/guidance/hooks/fmt_ts.sh
+# Standalone: echo '{"tool_name":"Edit","tool_input":{"file_path":"src/frontend/src/app/App.tsx"}}' | ai/guidance/hooks/fmt_ts.sh
 set -u
 
 payload="$(cat)"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="${CLAUDE_PROJECT_DIR:-$(cd "$here/../../.." && pwd)}"
-web="$root/src/web"
+web="$root/src/frontend"
 
 file="$(printf '%s' "$payload" | python3 -c '
 import json, sys
@@ -69,7 +69,7 @@ if [ -n "$tsc" ] && [ -f "$web/tsconfig.json" ]; then
 tsc -b:
 $out"
 else
-  echo "fmt_ts: tsc or src/web/tsconfig.json not available; skipped type check" >&2
+  echo "fmt_ts: tsc or src/frontend/tsconfig.json not available; skipped type check" >&2
 fi
 
 if [ -n "$problems" ]; then

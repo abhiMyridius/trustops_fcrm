@@ -1,0 +1,62 @@
+[tool.uv.workspace]
+members = ["services/*", "workers/*", "packages/*"]
+
+[tool.uv.sources]
+fcrm-contracts   = { workspace = true }
+fcrm-common      = { workspace = true }
+fcrm-guardrails  = { workspace = true }
+fcrm-agents      = { workspace = true }
+fcrm-tools       = { workspace = true }
+fcrm-prompts     = { workspace = true }
+fcrm-seed        = { workspace = true }
+fcrm-case-service  = { workspace = true }
+fcrm-audit-service = { workspace = true }
+fcrm-caseflow    = { workspace = true }
+fcrm-evals       = { workspace = true }
+fcrm-policy-service = { workspace = true }
+# fcrm-policy-service (S3) imports fcrm-context-worker (H4) as a library
+# (fcrm_policy/search/vector.py docstring explains why).
+fcrm-context-worker = { workspace = true }
+
+[tool.uv]
+package = false
+# fcrm-context-worker's s3vectors extra (aioboto3, which pins an aiobotocore
+# chain capping boto3<1.40.62) and fcrm-agents (pydantic-ai-slim[bedrock],
+# boto3>=1.42.63 on every published version) can never resolve together --
+# see src/backend/workers/context-worker/UPSTREAM.md's "Post-merge fix" note. Marking
+# them conflicting lets uv fork the lock instead of refusing to resolve at
+# all; nothing in this workspace installs both at once (the extra is opt-in,
+# for a host that sets VECTOR_BACKEND=s3vectors). fcrm-agent-worker (H2)
+# pulls in fcrm-agents too, so it inherits the same incompatibility and
+# needs its own pair here -- uv's conflict markers are not transitive
+# across workspace packages, only declared per pair.
+conflicts = [
+  [
+    { package = "fcrm-context-worker", extra = "s3vectors" },
+    { package = "fcrm-agents" },
+  ],
+  [
+    { package = "fcrm-context-worker", extra = "s3vectors" },
+    { package = "fcrm-agent-worker" },
+  ],
+]
+
+[dependency-groups]
+dev = [
+  "ruff>=0.12",
+  "mypy>=1.14",
+  "pytest>=8.3",
+  "pytest-asyncio>=0.25",
+  "pytest-cov>=6.0",
+  "hypothesis>=6.123",
+  "pre-commit>=4.0",
+  "httpx>=0.28",
+  "respx>=0.22",
+  "testcontainers[mongodb,rabbitmq]>=4.9",
+]
+
+[project]
+name = "trustops-workspace"
+version = "0.0.0"
+requires-python = ">=3.13"
+dependencies = []

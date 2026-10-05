@@ -49,7 +49,7 @@ def test_login_with_seed_id_succeeds(client: TestClient):
 
 def test_login_with_bare_username_succeeds(client: TestClient):
     """``u-riyer``'s id without the ``u-`` prefix (the web login form's
-    "username", ``src/web/src/mocks/users.ts``) also logs in.
+    "username", ``src/frontend/src/mocks/users.ts``) also logs in.
     """
     response = client.post("/login", json={"email": "riyer", "password": DEMO_PASSWORD})
     assert response.status_code == 200

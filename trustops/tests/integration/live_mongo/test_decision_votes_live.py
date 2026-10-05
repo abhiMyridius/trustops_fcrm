@@ -9,7 +9,8 @@ three votes, it is tallied exactly once, and a decided pack cannot be
 unlocked.
 
     export FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:27217/?replicaSet=rs0'
-    uv run --project src --all-packages pytest tests/integration/live_mongo -m integration
+    uv run --project src/backend --all-packages \\
+        pytest tests/integration/live_mongo -m integration
 """
 
 from __future__ import annotations

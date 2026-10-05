@@ -15,7 +15,7 @@ Every build subagent gets a brief in this shape. A brief that names the files to
 ## Read first (in this order)
 1. CLAUDE.md, and the CLAUDE.md of every package you touch
 2. <design section, e.g. docs/architecture/design/B-ai-layer.md §2.3>
-3. <contracts you must import, e.g. src/packages/contracts/fcrm_contracts/proposals/research.py>
+3. <contracts you must import, e.g. src/backend/packages/contracts/fcrm_contracts/proposals/research.py>
 4. <seed values the work must reproduce, e.g. docs/requirements/research/06-walkthrough-seed-extraction.md §3.5>
 
 ## Outputs
@@ -25,7 +25,7 @@ Every build subagent gets a brief in this shape. A brief that names the files to
 
 ## Forbidden changes
 - Anything outside the paths listed in Outputs.
-- `src/packages/seed/fcrm_seed/seed.json` (generated), `src/web/src/api/generated/**` (generated), any `.env*`, existing rows in `docs/governance/*.md`.
+- `src/backend/packages/seed/fcrm_seed/seed.json` (generated), `src/frontend/src/api/generated/**` (generated), any `.env*`, existing rows in `docs/governance/*.md`.
 - Contract shapes in `fcrm_contracts`, unless this task is the contracts task. If a contract is wrong, report it in Failed or Decided; do not define a local copy.
 - Model ids outside `ai/models/tiers.yaml`; committed prompt files (add a new version instead).
 

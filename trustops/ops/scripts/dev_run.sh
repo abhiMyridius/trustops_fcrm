@@ -6,8 +6,8 @@
 #                                           restarted on change when
 #                                           watchfiles is installed
 #
-# The repo's src/ is bind-mounted at /workspace/src. Every unit folder
-# (services/*, workers/*, packages/*) is put on PYTHONPATH ahead of the
+# The repo's src/backend is bind-mounted at /workspace/src. Every unit folder
+# (services/*, workers/*, packages/*, apps/*) is put on PYTHONPATH ahead of the
 # image's site-packages, so the mounted source shadows the copy baked into
 # /app/.venv and an edit on the host is picked up without a rebuild. New
 # third-party dependencies still need `docker compose build <svc>`.
@@ -17,7 +17,7 @@ SRC_ROOT="${DEV_SRC_ROOT:-/workspace/src}"
 PYTHON="${DEV_PYTHON:-python}"
 
 pythonpath=""
-for unit in "${SRC_ROOT}"/services/* "${SRC_ROOT}"/workers/* "${SRC_ROOT}"/packages/*; do
+for unit in "${SRC_ROOT}"/services/* "${SRC_ROOT}"/workers/* "${SRC_ROOT}"/packages/* "${SRC_ROOT}"/apps/*; do
   [ -d "${unit}" ] || continue
   pythonpath="${pythonpath:+${pythonpath}:}${unit}"
 done

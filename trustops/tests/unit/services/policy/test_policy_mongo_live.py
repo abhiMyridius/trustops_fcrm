@@ -5,7 +5,7 @@ real MongoDB 8 replica set (mirrors ``fcrm_scoring``'s own
 Skipped unless ``FCRM_TEST_MONGO_URI`` points at a replica set::
 
     export FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:27117/?replicaSet=rs0'
-    uv run --project src --package fcrm-policy-service pytest \\
+    uv run --project src/backend --package fcrm-policy-service pytest \\
         tests/unit/services/policy/test_mongo_live.py
 """
 
@@ -19,16 +19,16 @@ from pathlib import Path
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
-#: ``tests/conftest.py``'s ``live_client``: real lifespan, real HS256
-#: service token, allow-all OPA stub.
-LiveClient = Callable[..., AbstractContextManager[TestClient]]
 from fcrm_common.errors import install_error_handlers
 from fcrm_common.health import ReadinessProbe, build_health_router
 from fcrm_policy.lifespan import lifespan
 from fcrm_policy.routes import router
 from fcrm_policy.store import POLICY_CLAUSES, PRECEDENT_CASES
 from pymongo import AsyncMongoClient
+
+#: ``tests/conftest.py``'s ``live_client``: real lifespan, real HS256
+#: service token, allow-all OPA stub.
+LiveClient = Callable[..., AbstractContextManager[TestClient]]
 
 URI = os.environ.get("FCRM_TEST_MONGO_URI", "")
 pytestmark = [

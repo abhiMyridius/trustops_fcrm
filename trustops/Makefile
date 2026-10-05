@@ -15,7 +15,7 @@ export PATH := $(HOME)/.local/bin:$(PATH)
 WHICH = $(shell PATH="$(HOME)/.local/bin:$$PATH" command -v $(1) 2>/dev/null)
 
 UV        ?= $(or $(call WHICH,uv),uv)
-UV_RUN    := $(UV) run --project src --all-packages
+UV_RUN    := $(UV) run --project src/backend --all-packages
 PYTHON    ?= python3
 
 COMPOSE_FILES := -f docker-compose.yaml -f compose.obs.yaml
@@ -44,9 +44,9 @@ OPA_DIR := ops/opa
 endif
 
 # Every Python import package in the workspace (fcrm_* and the evoq_* clones).
-PY_PACKAGES := $(sort $(foreach d,$(wildcard src/services/*/fcrm_* src/workers/*/fcrm_* src/workers/*/evoq_* src/packages/*/fcrm_*),$(if $(wildcard $(d)/__init__.py),$(notdir $(d)))))
+PY_PACKAGES := $(sort $(foreach d,$(wildcard src/backend/services/*/fcrm_* src/backend/workers/*/fcrm_* src/backend/workers/*/evoq_* src/backend/packages/*/fcrm_*),$(if $(wildcard $(d)/__init__.py),$(notdir $(d)))))
 MYPY_ARGS   := $(foreach p,$(PY_PACKAGES),-p $(p))
-LINT_PATHS  := src ops/scripts
+LINT_PATHS  := src/backend ops/scripts
 
 # Pending-lane helper: prints to stderr and fails (exit 1).
 pending = printf '%s\n' "make $@: not yet wired — pending $(1)" >&2; exit 1
@@ -60,9 +60,9 @@ help: ## list targets
 # ── setup ────────────────────────────────────────────────────────────────
 .PHONY: bootstrap tools env keys pull
 bootstrap: tools ## uv sync the workspace, install git hooks, pull images
-	@if [ -f src/pyproject.toml ]; then $(UV) sync --project src --all-packages; else echo "bootstrap: no src/pyproject.toml, skipping uv sync"; fi
+	@if [ -f src/backend/pyproject.toml ]; then $(UV) sync --project src/backend --all-packages; else echo "bootstrap: no src/backend/pyproject.toml, skipping uv sync"; fi
 	@if [ -f .pre-commit-config.yaml ] && git rev-parse --git-dir >/dev/null 2>&1 && [ -z "$(SKIP_HOOKS)" ]; then \
-		$(UV) run --project src pre-commit install -c .pre-commit-config.yaml --hook-type pre-commit --hook-type commit-msg; \
+		$(UV) run --project src/backend pre-commit install -c .pre-commit-config.yaml --hook-type pre-commit --hook-type commit-msg; \
 	else echo "bootstrap: skipping pre-commit install"; fi
 	@$(MAKE) --no-print-directory pull
 
@@ -103,7 +103,7 @@ up-infra: env ## infra + observability only (mongo, rabbitmq, redis, minio, opa,
 		--url otel-collector=http://$$($(COMPOSE) port otel-collector 13133)/
 
 up: env keys ## the full stack, 24 containers (needs every lane's Dockerfile)
-	@missing=""; for f in $(foreach s,$(SERVICES),src/services/$(s)/Dockerfile) $(foreach w,$(WORKERS),src/workers/$(w)/Dockerfile) src/web/Dockerfile; do \
+	@missing=""; for f in $(foreach s,$(SERVICES),src/backend/services/$(s)/Dockerfile) $(foreach w,$(WORKERS),src/backend/workers/$(w)/Dockerfile) src/frontend/Dockerfile; do \
 		[ -f "$$f" ] || missing="$$missing $$f"; done; \
 	if [ -n "$$missing" ]; then echo "up: not buildable yet, missing:$$missing" >&2; echo "up: use 'make up-infra' until those lanes land" >&2; exit 1; fi
 	$(COMPOSE) up -d --build
@@ -131,7 +131,7 @@ logs: ## follow logs: make logs svc=case (all services when svc is empty)
 # ── seed and demo ────────────────────────────────────────────────────────
 .PHONY: gen-seed seed seed-verify demo demo-reset verify
 gen-seed: ## regenerate seed.json and assert it is byte-stable (P7, ADR-16)
-	cd src/packages/seed && $(UV) run --project ../.. --package fcrm-seed python -m fcrm_seed.gen_seed
+	cd src/backend/packages/seed && $(UV) run --project ../.. --package fcrm-seed python -m fcrm_seed.gen_seed
 
 seed: ## force-reload the seed into every fcrm_* database (refuses ENV=prod)
 	@$(call pending,the per-service fcrm_seed loader wiring in S1–S5 and X1 (design A §11.3))
@@ -153,10 +153,10 @@ verify: ## verify one case's audit chain: make verify case=FCRM-2026-0118
 check: lint format-check typecheck opa-check opa-test test-unit compose-check ## commit gate (< 90 s): ruff, format, mypy, OPA, unit tests, env contract
 	@echo "check: green"
 
-lint: ## ruff over src/ and ops/scripts
+lint: ## ruff over src/backend and ops/scripts
 	$(UV_RUN) ruff check $(LINT_PATHS)
 
-format-check: ## ruff format --check over src/ and ops/scripts
+format-check: ## ruff format --check over src/backend and ops/scripts
 	$(UV_RUN) ruff format --check $(LINT_PATHS)
 
 typecheck: ## mypy over every workspace package (strictness per mypy.ini)
@@ -207,7 +207,7 @@ nightly: ## gate · test-int · e2e · resilience · evals · token-report → o
 contracts: ## export OpenAPI per service and event JSON Schemas; must leave a clean diff
 	@$(call pending,the contracts lane (stub apps in fcrm_contracts.stubs → docs/architecture/openapi and events))
 
-api-gen: ## regenerate src/web/src/api/generated from the OpenAPI exports
+api-gen: ## regenerate src/frontend/src/api/generated from the OpenAPI exports
 	@$(call pending,the web-shell lane)
 
 locks: ## regenerate ai/registry.lock after a change under /ai

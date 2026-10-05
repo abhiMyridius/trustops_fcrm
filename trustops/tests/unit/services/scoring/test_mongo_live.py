@@ -5,7 +5,7 @@ Skipped unless ``FCRM_TEST_MONGO_URI`` points at a replica set, exactly
 like ``fcrm_common``'s own live tests::
 
     export FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:27117/?replicaSet=rs0'
-    uv run --project src --package fcrm-scoring-service pytest \\
+    uv run --project src/backend --package fcrm-scoring-service pytest \\
         tests/unit/services/scoring/test_mongo_live.py
 """
 
@@ -18,16 +18,16 @@ from contextlib import AbstractContextManager
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
-#: ``tests/conftest.py``'s ``live_client``: real lifespan, real HS256
-#: service token, allow-all OPA stub.
-LiveClient = Callable[..., AbstractContextManager[TestClient]]
 from fcrm_common.errors import install_error_handlers
 from fcrm_common.health import ReadinessProbe, build_health_router
 from fcrm_contracts.enums import Band
 from fcrm_scoring.lifespan import lifespan
 from fcrm_scoring.routes import router
 from pymongo import AsyncMongoClient
+
+#: ``tests/conftest.py``'s ``live_client``: real lifespan, real HS256
+#: service token, allow-all OPA stub.
+LiveClient = Callable[..., AbstractContextManager[TestClient]]
 
 URI = os.environ.get("FCRM_TEST_MONGO_URI", "")
 pytestmark = [

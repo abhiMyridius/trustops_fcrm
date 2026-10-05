@@ -32,7 +32,7 @@ Parallel subagents work in separate git worktrees so that two lanes never edit t
 
 | Shared file | Owner | Others |
 |---|---|---|
-| `src/packages/contracts/**` | contracts lane | report needed changes; never edit |
+| `src/backend/packages/contracts/**` | contracts lane | report needed changes; never edit |
 | `ai/policies/tool_permits.json` (source) → `ops/opa/data/tool_permits.json` (copy) | ai lane writes the source; ops lane owns the copy step | keep the data shape `{"tool_permits": {...}}` |
 | `.claude/settings.json` (hook registration) | lead | lanes ship scripts under `ai/guidance/hooks/`, not registrations |
 | `docs/governance/*.md` | anyone may append a row | nobody edits an existing row (the hook refuses) |

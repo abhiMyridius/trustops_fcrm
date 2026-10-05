@@ -268,7 +268,7 @@ services:
     <<: *service
     build:
       context: .
-      dockerfile: src/services/identity/Dockerfile
+      dockerfile: src/backend/services/identity/Dockerfile
     image: trustops/identity:local
     depends_on:
       mongo-init:
@@ -301,7 +301,7 @@ services:
     <<: *service
     build:
       context: .
-      dockerfile: src/services/scoring/Dockerfile
+      dockerfile: src/backend/services/scoring/Dockerfile
     image: trustops/scoring:local
     depends_on:
       mongo-init:
@@ -329,7 +329,7 @@ services:
     <<: *service
     build:
       context: .
-      dockerfile: src/services/audit/Dockerfile
+      dockerfile: src/backend/services/audit/Dockerfile
     image: trustops/audit:local
     depends_on:
       mongo-init:
@@ -360,7 +360,7 @@ services:
     <<: *service
     build:
       context: .
-      dockerfile: src/services/case/Dockerfile
+      dockerfile: src/backend/services/case/Dockerfile
     image: trustops/case:local
     depends_on:
       mongo-init:
@@ -396,7 +396,7 @@ services:
     <<: *service
     build:
       context: .
-      dockerfile: src/services/policy/Dockerfile
+      dockerfile: src/backend/services/policy/Dockerfile
     image: trustops/policy:local
     depends_on:
       mongo-init:
@@ -429,7 +429,7 @@ services:
     <<: *service
     build:
       context: .
-      dockerfile: src/services/decision/Dockerfile
+      dockerfile: src/backend/services/decision/Dockerfile
     image: trustops/decision:local
     depends_on:
       mongo-init:
@@ -459,7 +459,7 @@ services:
     <<: *worker
     build:
       context: .
-      dockerfile: src/workers/caseflow/Dockerfile
+      dockerfile: src/backend/workers/caseflow/Dockerfile
     image: trustops/caseflow:local
     depends_on:
       mongo-init:
@@ -502,7 +502,7 @@ services:
     <<: *worker
     build:
       context: .
-      dockerfile: src/workers/agent-worker/Dockerfile
+      dockerfile: src/backend/workers/agent-worker/Dockerfile
     image: trustops/agent-worker:local
     deploy:
       replicas: 2
@@ -551,7 +551,7 @@ services:
     <<: *worker
     build:
       context: .
-      dockerfile: src/workers/ingestion-worker/Dockerfile
+      dockerfile: src/backend/workers/ingestion-worker/Dockerfile
     image: trustops/ingestion-worker:local
     depends_on:
       rabbitmq:
@@ -585,7 +585,7 @@ services:
     <<: *worker
     build:
       context: .
-      dockerfile: src/workers/context-worker/Dockerfile
+      dockerfile: src/backend/workers/context-worker/Dockerfile
     image: trustops/context-worker:local
     depends_on:
       rabbitmq:
@@ -645,7 +645,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: src/web/Dockerfile
+      dockerfile: src/frontend/Dockerfile
     image: trustops/web:local
     restart: unless-stopped
     depends_on:
