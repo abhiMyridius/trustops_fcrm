@@ -81,3 +81,23 @@ The governance tables are append-only, so these are left for the owner to supers
 
 - The build was done by AI lanes under an operator-approved plan. Operator gates (G-R1, G-D1, G-D2, G-C2, G-T2, G-P1, G-O1) were recorded as "passed pending operator review" and did not block; see `docs/governance/sdlc-evidence.md`.
 - `/code-review` (G-C2) on each merge is the plan; the repository does not hold a record that proves it ran on each one.
+
+
+## G. Changes of 6 October evening (appended)
+
+Closed since the sections above were written:
+
+- Handoff resume, end to end (ADR-51): raw inputs on the gate, an analyst route and workbench control, `human.handoff` in the chain.
+- `evals.events` is bounded and its dead-letter queues keep parked messages (ADR-54); `BEDROCK_REGION_FALLBACK` is wired as the last fallback of every chain.
+- `make test-int` runs every integration-marked test and `make check` runs the `ai/` validators (prompt, model-id and lock checks).
+- S1 pins the versions S3 holds in force and loads published field sets by version (ADR-52).
+- Model prices are verified against the AWS Price List (ADR-53).
+- The per-case token cap is enforced by a ledger: 160,000 enforced, 120,000 target (ADR-50). The web examiner handles the 202 and polls the answer.
+- The full 21-scene run passes live (about 4 minutes), the live Playwright scenes and the live black-box tests passed on the previous build; `make demo`, `seed-verify`, `verify` and `e2e` are wired.
+
+Still open:
+
+- The eight resilience drills have not run on the live stack (D-66).
+- Handoff resume has no end-to-end run against a real Bedrock failure (D-67); no per-call runtime cost metric (D-68); H1's `DEFAULT_PINS` for oversight pseudo-runs (D-69).
+- The assessment eval gate (`li_within_one` 0.70 against 0.85) is capped by the dataset (D-56).
+- Three branches from other sessions are unmerged (D-57); `docs/governance/known-gaps.md` section B rows for `make test-int`, `validate_ai` and the compose text are closed by the items above.
