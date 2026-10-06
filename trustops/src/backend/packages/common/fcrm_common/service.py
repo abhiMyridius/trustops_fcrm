@@ -47,6 +47,9 @@ class ServiceDeps:
             consumes (``fcrm_common.broker.wire_consumer_running`` adds its
             subscribers to it). ``None`` (what :func:`standalone_deps` builds)
             means the service runs without consuming.
+        evals_mongo: A read-only client on the eval results (``fcrm_evals``),
+            for S4's agent-quality routes. ``None`` means the host has no such
+            credential and those routes answer 503.
     """
 
     mongo: AsyncMongoClient[Document]
@@ -55,6 +58,7 @@ class ServiceDeps:
     publisher: Optional[Publisher] = None
     lease_holder: str = ""
     broker: Optional[RabbitBroker] = None
+    evals_mongo: Optional[AsyncMongoClient[Document]] = None
 
 
 @asynccontextmanager

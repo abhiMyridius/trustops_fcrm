@@ -34,6 +34,11 @@ ensureIndex("fcrm_audit", "proposals", { case_id: 1, seq: 1 }, { unique: true })
 ensureIndex("fcrm_audit", "proposals", { case_id: 1, run_id: 1, agent: 1, kind: 1 });
 ensureIndex("fcrm_audit", "proposals", { case_id: 1, supersedes: 1 }, { sparse: true });
 ensureIndex("fcrm_audit", "verify_runs", { case_id: 1, at: -1 });
+// The override list and rates read human.override records newest first, and the
+// "what is current" read takes the newest workflow.started: both by type then time.
+ensureIndex("fcrm_audit", "audit_records", { type: 1, created_at: -1 });
+// The rates group the ledger by agent.
+ensureIndex("fcrm_audit", "proposals", { agent: 1 });
 // Examiner questions (the answers' _id is the question's id, so the built-in
 // unique _id index is the "one answer per question" guarantee).
 ensureIndex("fcrm_audit", "examiner_questions", { case_id: 1, asked_at: -1 });

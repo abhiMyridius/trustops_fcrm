@@ -46,6 +46,14 @@ const AUDIT_APPEND_ONLY = [
   "examiner_answers",
 ];
 
+// fcrm_evals_reader: how S4 reads the agents' eval results (`make evals`
+// publishes them into fcrm_evals). `find` on the two result collections and
+// nothing else, on that database only, so S4's insert-only audit credential
+// never has to reach beyond fcrm_audit and the evals reader can read no case.
+const EVALS_DB = "fcrm_evals";
+const EVALS_ROLE = "fcrmEvalsReadOnly";
+const EVALS_COLLECTIONS = ["eval_runs", "eval_dashboards"];
+
 const APP_DATABASES = [
   "fcrm_case",
   "fcrm_scoring",
@@ -99,6 +107,20 @@ upsertUser("fcrm_audit_writer", requireEnv("MONGO_AUDIT_WRITER_PASSWORD"), [
   { role: AUDIT_ROLE, db: AUDIT_DB },
 ]);
 
+// ── read-only evals user (S4's agent-quality routes) ──────────────────────
+upsertRole(
+  EVALS_DB,
+  EVALS_ROLE,
+  EVALS_COLLECTIONS.map((collection) => ({
+    resource: { db: EVALS_DB, collection },
+    actions: ["find"],
+  })),
+);
+
+upsertUser("fcrm_evals_reader", requireEnv("MONGO_EVALS_READER_PASSWORD"), [
+  { role: EVALS_ROLE, db: EVALS_DB },
+]);
+
 // ── application user (everything except the audit database) ──────────────
 upsertUser(
   "fcrm_app",
@@ -116,3 +138,13 @@ if (unexpected.length > 0) {
   throw new Error(`audit role carries unexpected actions: ${unexpected}`);
 }
 print(`02-users: ${AUDIT_ROLE} verified (find, insert only)`);
+
+const evalsGranted = db
+  .getSiblingDB(EVALS_DB)
+  .getRole(EVALS_ROLE, { showPrivileges: true })
+  .privileges.flatMap((p) => p.actions);
+const evalsUnexpected = evalsGranted.filter((a) => a !== "find");
+if (evalsUnexpected.length > 0) {
+  throw new Error(`evals role carries unexpected actions: ${evalsUnexpected}`);
+}
+print(`02-users: ${EVALS_ROLE} verified (find only)`);

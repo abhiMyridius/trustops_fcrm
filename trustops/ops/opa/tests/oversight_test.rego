@@ -79,3 +79,42 @@ test_the_internal_reflag_routes_are_the_services if {
 		not authz.allow with input as req(role, "case", "GET", "/internal/reflags/candidates")
 	}
 }
+
+# ── the assurance reads (S4) ───────────────────────────────────────────────
+
+test_overrides_and_versions_are_the_analysts_alone if {
+	authz.allow with input as req("fcrm_analyst", "audit", "GET", "/overrides")
+	authz.allow with input as req("fcrm_analyst", "audit", "GET", "/versions/{case_id}")
+	every role in ["fcrm_po", "fcrm_committee", "fcrm_observer"] {
+		not authz.allow with input as req(role, "audit", "GET", "/overrides")
+		not authz.allow with input as req(role, "audit", "GET", "/versions/{case_id}")
+	}
+}
+
+test_agent_quality_is_for_analyst_committee_and_observer_never_the_po if {
+	every route in ["/agent-quality", "/agent-quality/dashboard"] {
+		every role in ["fcrm_analyst", "fcrm_committee", "fcrm_observer"] {
+			authz.allow with input as req(role, "audit", "GET", route)
+		}
+		not authz.allow with input as req("fcrm_po", "audit", "GET", route)
+		not authz.allow with input as req("fcrm_po", "audit", "POST", route)
+	}
+}
+
+test_nothing_the_lane_added_is_open_to_the_po if {
+	every r in [
+		["audit", "POST", "/examiner/ask"],
+		["audit", "POST", "/examiner/answers"],
+		["audit", "GET", "/examiner/answers/{question_id}"],
+		["audit", "GET", "/overrides"],
+		["audit", "GET", "/versions/{case_id}"],
+		["audit", "GET", "/agent-quality"],
+		["audit", "GET", "/agent-quality/dashboard"],
+		["case", "GET", "/reflags"],
+		["case", "POST", "/reflags/{reflag_id}/acknowledge"],
+		["case", "POST", "/internal/reflags"],
+		["case", "GET", "/internal/reflags/candidates"],
+	] {
+		not authz.allow with input as req("fcrm_po", r[0], r[1], r[2])
+	}
+}

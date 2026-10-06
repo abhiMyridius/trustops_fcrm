@@ -11,8 +11,11 @@ import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from fcrm_audit.analytics import InMemoryAnalyticsStore
 from fcrm_audit.examiner import ExaminerService, InMemoryExaminerStore
+from fcrm_audit.quality import InMemoryEvalsReader
 from fcrm_audit.routes import router
+from fcrm_audit.routes_analytics import router as analytics_router
 from fcrm_audit.routes_examiner import router as examiner_router
 from fcrm_audit.store import InMemoryAuditStore
 from fcrm_common.errors import install_error_handlers
@@ -193,3 +196,29 @@ def examiner_app(
 ) -> FastAPI:
     """The examiner over a recording publisher with a short wait."""
     return build_examiner_app(recording_publisher)
+
+
+@pytest.fixture
+def build_analytics_app(
+    audit_store: InMemoryAuditStore, wire_test_auth: Callable[[FastAPI], FastAPI]
+) -> Callable[..., FastAPI]:
+    """``build_analytics_app(analytics=None, evals=None)``: S4's assurance routes
+    over the given in-memory analytics store and eval reader (either ``None``
+    leaves it unwired, as a deployment without that credential would be).
+    """
+
+    def _build(
+        analytics: Optional[InMemoryAnalyticsStore] = None,
+        evals: Optional[InMemoryEvalsReader] = None,
+    ) -> FastAPI:
+        application = FastAPI()
+        install_error_handlers(application)
+        application.include_router(analytics_router)
+        application.state.store = audit_store
+        if analytics is not None:
+            application.state.analytics = analytics
+        if evals is not None:
+            application.state.evals = evals
+        return wire_test_auth(application)
+
+    return _build

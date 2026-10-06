@@ -32,10 +32,15 @@ class AuditSettings(BaseServiceSettings):
     ``EXAMINER_WAIT_S`` (default 60): how long ``POST /examiner/ask`` waits for
     the examiner's answer before answering 202. ``EXAMINER_POLL_S`` (default
     0.5): how often it re-reads the store while it waits.
+
+    ``EVALS_DATABASE`` (default ``fcrm_evals``): the database the agent quality
+    is read from, through the read-only client the host hands S4
+    (``MONGODB_URI_EVALS_READER``), never through the insert-only audit one.
     """
 
     app_name: str = "fcrm-audit"
     chain_verify_on_start: bool = True
     insert_only_check_on_start: bool = True
+    evals_database: str = "fcrm_evals"
     examiner_wait_s: float = Field(default=60.0, gt=0, le=120)
     examiner_poll_s: float = Field(default=0.5, gt=0, le=10)

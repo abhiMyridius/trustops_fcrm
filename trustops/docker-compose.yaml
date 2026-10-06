@@ -127,6 +127,7 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?set MONGO_INITDB_ROOT_PASSWORD in .env}
       MONGO_AUDIT_WRITER_PASSWORD: ${MONGO_AUDIT_WRITER_PASSWORD:?set MONGO_AUDIT_WRITER_PASSWORD in .env}
       MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?set MONGO_APP_PASSWORD in .env}
+      MONGO_EVALS_READER_PASSWORD: ${MONGO_EVALS_READER_PASSWORD:?set MONGO_EVALS_READER_PASSWORD in .env}
     volumes:
       - mongo_data:/data/db
       - ./ops/mongo/entrypoint.sh:/opt/fcrm/entrypoint.sh:ro
@@ -259,6 +260,8 @@ services:
       OTEL_SERVICE_NAME: fcrm-api
       OTEL_RESOURCE_ATTRIBUTES: component.id=api,service.namespace=trustops
       MONGODB_URI_AUDIT_WRITER: mongodb://fcrm_audit_writer:${MONGO_AUDIT_WRITER_PASSWORD:?set MONGO_AUDIT_WRITER_PASSWORD in .env}@mongo:27017/fcrm_audit?replicaSet=rs0&authSource=admin
+      # S4's read-only view of the eval results (find on fcrm_evals, nothing else)
+      MONGODB_URI_EVALS_READER: mongodb://fcrm_evals_reader:${MONGO_EVALS_READER_PASSWORD:?set MONGO_EVALS_READER_PASSWORD in .env}@mongo:27017/fcrm_evals?replicaSet=rs0&authSource=admin
       # X1 identity
       JWT_KEY_FILE: /keys/jwt.pem
       JWT_ACCESS_TTL_S: "900"

@@ -56,10 +56,6 @@ const PENDING_ROUTES: readonly string[] = [
   'PUT /api/fcrm/policy/config/{id}/draft',
   'POST /api/fcrm/policy/config/{id}/draft/preview',
   'POST /api/fcrm/policy/config/{id}/draft/publish',
-  // S4 audit (3)
-  'GET /api/fcrm/audit/agent-quality',
-  'GET /api/fcrm/audit/overrides',
-  'GET /api/fcrm/audit/versions/{id}',
 ];
 
 const WEB = webRoutes();

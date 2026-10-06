@@ -106,6 +106,8 @@ Every seeded demo user shares one password, `demo-password-2026`. To choose your
 
 If you created a `.env` before this change, keep it: it still works. To switch to the short form before your first `make up`, delete it and run `make env` again. If the stack has already run once, run `make down-v` first, because the databases already use the old passwords.
 
+**A `.env` older than the agent-quality screens** has no `MONGO_EVALS_READER_PASSWORD`, the password of the read-only Mongo user the audit service reads the eval results with (`find` on `fcrm_evals` and nothing else). `make up` stops at once and names it. Add a line `MONGO_EVALS_READER_PASSWORD=` followed by any URL-safe string (for example the output of `openssl rand -hex 16`); the user is created on the next start, and, unlike the other passwords, adding it needs no `make down-v`.
+
 Never commit `.env` or `jwt_keys/`.
 
 ## 2. Check the code (no stack needed)

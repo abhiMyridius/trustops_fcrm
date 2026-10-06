@@ -1067,6 +1067,54 @@
         "effect": "allow"
       },
       {
+        "id": "audit-get-overrides-analyst",
+        "description": "analyst reads the override rows and each agent's override rate",
+        "service": "audit",
+        "method": "GET",
+        "path": "/overrides",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-versions-id-analyst",
+        "description": "analyst reads the versions a case was pinned to",
+        "service": "audit",
+        "method": "GET",
+        "path": "/versions/{case_id}",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-agent-quality-assurance",
+        "description": "agent quality is about the agents, never a case: analyst, committee and the observer read it",
+        "service": "audit",
+        "method": "GET",
+        "path": "/agent-quality",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_committee",
+          "fcrm_observer"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-agent-quality-dashboard-assurance",
+        "description": "the published, self-contained agent dashboard (served under a strict CSP)",
+        "service": "audit",
+        "method": "GET",
+        "path": "/agent-quality/dashboard",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_committee",
+          "fcrm_observer"
+        ],
+        "effect": "allow"
+      },
+      {
         "id": "audit-get-records-committee",
         "description": "committee audit reads (released packs only, S4 checks)",
         "service": "audit",

@@ -37,6 +37,82 @@
         "title": "ActivityEventPO",
         "type": "object"
       },
+      "AgentQualityOut": {
+        "additionalProperties": false,
+        "description": "``GET /agent-quality``: the web's ``AgentQuality``.",
+        "properties": {
+          "drift": {
+            "title": "Drift",
+            "type": "string"
+          },
+          "golden_cases": {
+            "minimum": 0.0,
+            "title": "Golden Cases",
+            "type": "integer"
+          },
+          "regressions": {
+            "minimum": 0.0,
+            "title": "Regressions",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/AgentQualityRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "week": {
+            "title": "Week",
+            "type": "string"
+          }
+        },
+        "required": [
+          "week",
+          "golden_cases",
+          "regressions",
+          "drift",
+          "rows"
+        ],
+        "title": "AgentQualityOut",
+        "type": "object"
+      },
+      "AgentQualityRowOut": {
+        "additionalProperties": false,
+        "description": "One agent's primary metric in the latest run of the week.",
+        "properties": {
+          "agent": {
+            "title": "Agent",
+            "type": "string"
+          },
+          "lower_is_better": {
+            "default": false,
+            "title": "Lower Is Better",
+            "type": "boolean"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "n": {
+            "minimum": 0.0,
+            "title": "N",
+            "type": "integer"
+          },
+          "pct": {
+            "title": "Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "agent",
+          "metric",
+          "n",
+          "pct"
+        ],
+        "title": "AgentQualityRowOut",
+        "type": "object"
+      },
       "AnswerItem": {
         "additionalProperties": false,
         "properties": {
@@ -2573,6 +2649,136 @@
         "title": "OutcomeSet",
         "type": "object"
       },
+      "OverrideRate": {
+        "additionalProperties": false,
+        "description": "How often analysts replaced one agent's proposals: ``overridden`` of\n``proposals`` (the evidence ledger's count for the agent).",
+        "properties": {
+          "agent": {
+            "title": "Agent",
+            "type": "string"
+          },
+          "overridden": {
+            "minimum": 0.0,
+            "title": "Overridden",
+            "type": "integer"
+          },
+          "proposals": {
+            "minimum": 0.0,
+            "title": "Proposals",
+            "type": "integer"
+          },
+          "rate": {
+            "minimum": 0.0,
+            "title": "Rate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "agent",
+          "proposals",
+          "overridden",
+          "rate"
+        ],
+        "title": "OverrideRate",
+        "type": "object"
+      },
+      "OverrideRowOut": {
+        "additionalProperties": false,
+        "description": "One analyst override of an agent's proposal, in the web's shape.\n\n``proposed`` and ``final`` are the control's rating, or for a likelihood\nand impact override the inherent product; ``agent`` is the agent whose\nproposal was replaced.",
+        "properties": {
+          "agent": {
+            "title": "Agent",
+            "type": "string"
+          },
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "final": {
+            "title": "Final",
+            "type": "number"
+          },
+          "item": {
+            "title": "Item",
+            "type": "string"
+          },
+          "proposed": {
+            "title": "Proposed",
+            "type": "number"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "item",
+          "proposed",
+          "final",
+          "by",
+          "reason",
+          "agent",
+          "date"
+        ],
+        "title": "OverrideRowOut",
+        "type": "object"
+      },
+      "OverridesPage": {
+        "additionalProperties": false,
+        "description": "``GET /overrides``: the rows the web lists, plus the per-agent rates\nthe Assurance screen shows beside them.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OverrideRowOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "rates": {
+            "items": {
+              "$ref": "#/components/schemas/OverrideRate"
+            },
+            "title": "Rates",
+            "type": "array"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "OverridesPage",
+        "type": "object"
+      },
       "PackAddendum": {
         "additionalProperties": false,
         "description": "An answered committee question, attached to the pack (R6); the pack's\ncontent and hash are untouched by it.",
@@ -4024,6 +4230,45 @@
           "items"
         ],
         "title": "Page[ReflagOut]",
+        "type": "object"
+      },
+      "Page_VersionsRowOut_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/VersionsRowOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[VersionsRowOut]",
         "type": "object"
       },
       "PolicyClauseHit": {
@@ -6514,6 +6759,42 @@
         "title": "VerifyResult",
         "type": "object"
       },
+      "VersionsRowOut": {
+        "additionalProperties": false,
+        "description": "One pinned version of a case: what it was run against, what a case\nopened now would pin, and whether they differ.\n\n``current`` is ``None`` when S4 has no newer run to compare with.",
+        "properties": {
+          "current": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current"
+          },
+          "drifted": {
+            "default": false,
+            "title": "Drifted",
+            "type": "boolean"
+          },
+          "item": {
+            "title": "Item",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item",
+          "version"
+        ],
+        "title": "VersionsRowOut",
+        "type": "object"
+      },
       "VoteIn": {
         "additionalProperties": false,
         "description": "``POST /packs/{pack_id}/votes``. The member is the caller and the round\nis the pack's current one; neither is in the body.",
@@ -6742,6 +7023,95 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/fcrm/audit/agent-quality": {
+      "get": {
+        "description": "Each agent's primary eval metric in the week's latest run (the newest\nweek when none is asked for). 404 when nothing was published: the web's\nempty state.\n\nRaises:\n    NotFoundError: No run for the week.",
+        "operationId": "S4_get_agent_quality_agent_quality_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "week",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Week"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentQualityOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "No eval run was published for the week."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Agent Quality",
+        "tags": [
+          "assurance"
+        ]
+      }
+    },
+    "/api/fcrm/audit/agent-quality/dashboard": {
+      "get": {
+        "description": "The latest published dashboard, self-contained, as ``text/html`` under a\nstrict CSP (no network, no script, no frame, no form).\n\nRaises:\n    NotFoundError: Nothing was published.",
+        "operationId": "S4_agent_quality_dashboard_agent_quality_dashboard_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "No dashboard was published yet."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Agent Quality Dashboard",
+        "tags": [
+          "assurance"
+        ]
+      }
+    },
     "/api/fcrm/audit/examiner/answers": {
       "post": {
         "description": "Store H1's answer to a question. Storing the same answer again is a\nreplay (200, nothing written); a different one for the same question is a\n409. The ``Idempotency-Key`` header is validated; the question's id and the\nbody's fingerprint are what make the call idempotent.",
@@ -6979,6 +7349,90 @@
         "summary": "Chain Head",
         "tags": [
           "audit"
+        ]
+      }
+    },
+    "/api/fcrm/audit/overrides": {
+      "get": {
+        "description": "The analyst overrides, newest first, with how often each agent's\nproposals were replaced (``overridden`` of ``proposals``). ``agent`` narrows\nboth.",
+        "operationId": "S4_list_overrides_overrides_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "agent",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Agent"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverridesPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Overrides",
+        "tags": [
+          "assurance"
         ]
       }
     },
@@ -7457,6 +7911,54 @@
         "summary": "Verify Case",
         "tags": [
           "audit"
+        ]
+      }
+    },
+    "/api/fcrm/audit/versions/{case_id}": {
+      "get": {
+        "description": "The versions ``case_id`` was pinned to when its run opened, beside what a\ncase opened now would pin. A case with no pins in its chain has no rows.",
+        "operationId": "S4_case_versions_versions__case_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_VersionsRowOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Case Versions",
+        "tags": [
+          "assurance"
         ]
       }
     },
