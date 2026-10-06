@@ -37,12 +37,14 @@ from pymongo import ASCENDING, AsyncMongoClient, IndexModel, UpdateOne
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from fcrm_case.activity_log import MongoActivityLog
+from fcrm_case.analyst_errors import RecommendationLockedError
 from fcrm_case.assessment_store import InMemoryAssessmentStore
 from fcrm_case.domain.activity import ActivityEntry
 from fcrm_case.domain.analyst_commands import (
     AnalystCommand,
     AnalystDecisionRow,
     AnalystGate,
+    RecommendationChange,
 )
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.views import ScoreSnapshotRow
@@ -107,6 +109,34 @@ class AnalystWriteStore(Protocol):
         ...
 
 
+def recommendation_update(
+    change: RecommendationChange,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The ``$set`` a recommendation change applies and the condition the stored
+    row must meet for it to apply: an edit needs the row unlocked, a lock needs
+    it unlocked, an unlock needs it locked.
+    """
+    if change.kind == "edit":
+        assert change.edits is not None
+        return {"edits": change.edits.model_dump(mode="json")}, {
+            "locked": {"$ne": True}
+        }
+    if change.kind == "lock":
+        return {
+            "locked": True,
+            "locked_at": change.at,
+            "locked_by": change.by,
+        }, {"locked": {"$ne": True}}
+    return {
+        "locked": False,
+        "locked_at": None,
+        "locked_by": None,
+        "unlock_reason": change.reason,
+        "unlocked_at": change.at,
+        "unlocked_by": change.by,
+    }, {"locked": True}
+
+
 def decision_row(
     command: AnalystCommand,
     gate_id: str,
@@ -156,6 +186,7 @@ class MongoAnalystWriteStore:
         self._decisions: Repository[AnalystDecisionRow] = Repository(
             db["analyst_decisions"], AnalystDecisionRow, id_of=lambda r: r.gate_id
         )
+        self._recommendations = db["recommendations"]
 
     async def ensure_indexes(self) -> None:
         """``analyst_decisions{case_id}`` (the open-gate read); the ledger is
@@ -182,8 +213,10 @@ class MongoAnalystWriteStore:
         fresh = await self._record_gates(session, command, now)
         if command.gates and not fresh:
             return AnalystCommitted(record, replayed=True)
-        # State first, events after: the decided items are written before any
-        # event reaches the outbox (one transaction either way).
+        # State first, events after: the decided items and the recommendation are
+        # written before any event reaches the outbox (one transaction either way).
+        if not await self._change_recommendation(session, command):
+            return AnalystCommitted(record, replayed=True)
         await self._decide_items(session, command)
         entries = await self._stage(session, command.case_id, command.activity)
         for gate in fresh:
@@ -229,6 +262,35 @@ class MongoAnalystWriteStore:
             if result.upserted_id is not None:
                 fresh.append(gate)
         return fresh
+
+    async def _change_recommendation(
+        self, session: AsyncClientSession, command: AnalystCommand
+    ) -> bool:
+        """Apply the command's change to the recommendation row, if it has one.
+        ``False`` when a lock or unlock found the row already in that state (a
+        replay: nothing else of the command is applied).
+
+        Raises:
+            RecommendationLockedError: An edit found the recommendation locked
+                (or gone) by the time the transaction ran.
+        """
+        change = command.recommendation
+        if change is None:
+            return True
+        fields, condition = recommendation_update(change)
+        result = await self._recommendations.update_one(
+            {"_id": command.case_id, **condition},
+            {"$set": to_bson(fields)},
+            session=session,
+        )
+        if result.matched_count == 1:
+            return True
+        if change.kind == "edit":
+            raise RecommendationLockedError(
+                "the recommendation is locked; unlock it with a reason to edit it",
+                case_id=command.case_id,
+            )
+        return False
 
     async def _decide_items(
         self, session: AsyncClientSession, command: AnalystCommand
@@ -339,6 +401,8 @@ class InMemoryAnalystWriteStore:
         fresh = [g for g in command.gates if g.gate_id not in self.decisions]
         if command.gates and not fresh:
             return AnalystCommitted(record, replayed=True)
+        if not self._change_recommendation(command):
+            return AnalystCommitted(record, replayed=True)
         for item in command.items:
             self._views.items[item.item_id] = self._views.items[
                 item.item_id
@@ -364,6 +428,26 @@ class InMemoryAnalystWriteStore:
             for i, event in enumerate(command.activity)
         )
         return AnalystCommitted(record, entries, frozenset(g.gate_id for g in fresh))
+
+    def _change_recommendation(self, command: AnalystCommand) -> bool:
+        """The twin of ``MongoAnalystWriteStore._change_recommendation``."""
+        change = command.recommendation
+        if change is None:
+            return True
+        row = self._assessment.recommendations.get(command.case_id)
+        fields, _ = recommendation_update(change)
+        wants_locked = change.kind == "unlock"
+        if row is None or row.locked is not wants_locked:
+            if change.kind == "edit":
+                raise RecommendationLockedError(
+                    "the recommendation is locked; unlock it with a reason to edit it",
+                    case_id=command.case_id,
+                )
+            return False
+        self._assessment.recommendations[command.case_id] = row.model_copy(
+            update=fields
+        )
+        return True
 
     def _validate(self, command: AnalystCommand) -> None:
         """Everything the Mongo transaction would refuse, checked before any

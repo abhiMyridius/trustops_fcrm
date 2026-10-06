@@ -195,7 +195,53 @@ def test_the_item_decisions_the_web_posts_are_accepted() -> None:
     assert declared <= set(typing.get_args(write.ItemDecisionName))
 
 
+ANALYST_TYPES = QUERIES.parents[1] / "types/analyst.ts"
+
+
+def interface_members(name: str) -> dict[str, bool]:
+    """``{key: optional}`` of ``export interface <name>`` in ``analyst.ts``."""
+    source = ANALYST_TYPES.read_text(encoding="utf-8")
+    match = re.search(rf"export interface {name}\s*\{{", source)
+    assert match, f"{name} not found in analyst.ts"
+    body = balanced(source, match.end() - 1)
+    optional: dict[str, bool] = {}
+    depth = 0
+    current = ""
+    for char in body + ";":
+        if char in "{[(<":
+            depth += 1
+        elif char in "}])>":
+            depth -= 1
+        if char == ";" and depth == 0:
+            found = re.match(r"\s*(\w+)(\?)?\s*:", current)
+            if found:
+                optional[found.group(1)] = bool(found.group(2))
+            current = ""
+        else:
+            current += char
+    return optional
+
+
+def test_the_recommendation_response_has_exactly_the_web_keys() -> None:
+    members = interface_members("Recommendation")
+
+    assert set(members) == set(write.Recommendation.model_fields)
+    assert not any(members.values())  # none is optional in the web type
+    assert all(f.is_required() for f in write.Recommendation.model_fields.values())
+
+
+def test_the_restricted_scan_has_exactly_the_web_keys() -> None:
+    source = ANALYST_TYPES.read_text(encoding="utf-8")
+    match = re.search(r"restricted_scan:\s*\{([^}]*)\}", source)
+    assert match
+
+    assert keys_of_type_literal(match.group(1)) == set(
+        write.RestrictedScan.model_fields
+    )
+
+
 def test_the_checker_is_not_vacuous() -> None:
+    assert set(interface_members("Recommendation")) >= {"narrative", "locked"}
     assert web_body_keys("useDecideItem") == {"decision", "value", "reason"}
     assert web_body_keys("useResolveThread") == set()
     assert web_body_keys("useRetag") == {"change_type", "reason"}

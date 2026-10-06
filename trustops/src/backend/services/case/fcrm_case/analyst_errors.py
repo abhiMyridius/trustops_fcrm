@@ -57,6 +57,22 @@ class DecisionNotAllowedError(ConflictError):
     title = "Decision not allowed"
 
 
+class RecommendationLockedError(ConflictError):
+    """The recommendation is locked: its words and numbers are frozen until it is
+    unlocked with a reason.
+    """
+
+    code = "recommendation_locked"
+    title = "Recommendation locked"
+
+
+class NotLockedError(ConflictError):
+    """There is nothing to unlock: the recommendation is not locked."""
+
+    code = "not_locked"
+    title = "Not locked"
+
+
 class RoundAlreadyOpenError(ConflictError):
     """A clarification round was already sent: there is one round (D-16)."""
 

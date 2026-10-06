@@ -2323,6 +2323,13 @@
         "title": "JurisdictionVersionOut",
         "type": "object"
       },
+      "LockBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/recommendation/lock``: nothing to say.",
+        "properties": {},
+        "title": "LockBody",
+        "type": "object"
+      },
       "LoginRequest": {
         "additionalProperties": false,
         "description": "Credentials for ``POST /login``.\n\nExactly one of ``username`` (the web form's field; the seed id without its\n``u-`` prefix) or ``email`` (the original contract field; either spelling\nof the seed id) names the account. ``password`` may be empty only for the\nlocal demo picker (see ``fcrm_identity.settings.IdentitySettings\n.demo_login_active``); everywhere else an empty password is just a wrong\none.",
@@ -4882,6 +4889,107 @@
         "title": "ProposalTokens",
         "type": "object"
       },
+      "Recommendation": {
+        "additionalProperties": false,
+        "description": "``Recommendation`` in ``analyst.ts``: the narrative agent's draft with the\nanalyst's edits applied, the conditions, the outcome the analyst recommends,\nwhether it is locked and what still blocks the lock. Analyst only.",
+        "properties": {
+          "business_summary": {
+            "title": "Business Summary",
+            "type": "string"
+          },
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/ConditionAnalyst"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "drafted_by": {
+            "title": "Drafted By",
+            "type": "string"
+          },
+          "edits_by_analyst": {
+            "title": "Edits By Analyst",
+            "type": "integer"
+          },
+          "lock_blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Lock Blockers",
+            "type": "array"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "narrative": {
+            "title": "Narrative",
+            "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/Outcome"
+          },
+          "restricted_scan": {
+            "$ref": "#/components/schemas/RestrictedScan"
+          }
+        },
+        "required": [
+          "narrative",
+          "drafted_by",
+          "edits_by_analyst",
+          "outcome",
+          "conditions",
+          "business_summary",
+          "restricted_scan",
+          "locked",
+          "lock_blockers"
+        ],
+        "title": "Recommendation",
+        "type": "object"
+      },
+      "RecommendationEditBody": {
+        "additionalProperties": false,
+        "description": "``PUT /cases/{id}/recommendation``: what the analyst changed in the draft.\nEach field is optional; an absent one is not edited (the draft stands). The\nanalyst's own edits need no reason; the lock and the unlock are separate\ngates.",
+        "properties": {
+          "business_summary": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Summary"
+          },
+          "narrative": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Narrative"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Outcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "RecommendationEditBody",
+        "type": "object"
+      },
       "RecordAppend": {
         "additionalProperties": false,
         "description": "What the caller submits; ``prev_hash``/``hash``/``seq`` are computed\nby the service, never supplied by the caller.",
@@ -5013,6 +5121,29 @@
           "completion_threshold"
         ],
         "title": "ResolvedFieldSetOut",
+        "type": "object"
+      },
+      "RestrictedScan": {
+        "additionalProperties": false,
+        "description": "What the restricted-term scan found in the PO-facing business summary\n(``restricted_scan`` in ``analyst.ts``): shown to the analyst, never the PO.",
+        "properties": {
+          "terms": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Terms",
+            "type": "array"
+          },
+          "terms_found": {
+            "title": "Terms Found",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "terms_found",
+          "terms"
+        ],
+        "title": "RestrictedScan",
         "type": "object"
       },
       "ReuseBody": {
@@ -6143,6 +6274,21 @@
           "text"
         ],
         "title": "ThreadAsk",
+        "type": "object"
+      },
+      "UnlockBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/recommendation/unlock``: reopen the numbers, with the\nreason that goes on the chain (R6).",
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "UnlockBody",
         "type": "object"
       },
       "ValidateResponse": {
@@ -8431,6 +8577,233 @@
           }
         ],
         "summary": "Decide Item",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/recommendation": {
+      "get": {
+        "description": "The narrative agent's draft with the analyst's edits applied, the outcome,\nthe conditions, the lock and what still blocks it.",
+        "operationId": "S1_get_recommendation_cases__case_id__recommendation_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recommendation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Recommendation",
+        "tags": [
+          "analyst"
+        ]
+      },
+      "put": {
+        "description": "Store the analyst's edits of the draft (narrative, outcome, business\nsummary); no reason is needed, the lock is the gate. Refused once locked.",
+        "operationId": "S1_put_recommendation_cases__case_id__recommendation_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendationEditBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recommendation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Recommendation",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/recommendation/lock": {
+      "post": {
+        "description": "Lock the recommendation (``case.locked``). 409 ``gate_required`` unless\nevery item is decided and every acknowledgement given, naming each blocker.",
+        "operationId": "S1_lock_recommendation_cases__case_id__recommendation_lock_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/LockBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recommendation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Lock Recommendation",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/recommendation/unlock": {
+      "post": {
+        "description": "Unlock with a reason of at least 20 characters (``case.unlocked``): the\npack is superseded and every item is decided again.",
+        "operationId": "S1_unlock_recommendation_cases__case_id__recommendation_unlock_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnlockBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recommendation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Unlock Recommendation",
         "tags": [
           "analyst"
         ]

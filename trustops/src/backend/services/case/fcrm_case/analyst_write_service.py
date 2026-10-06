@@ -31,7 +31,13 @@ from __future__ import annotations
 import logging
 from typing import Final, Optional
 
-from fcrm_common.errors import ForbiddenError, NotFoundError
+from fcrm_common.errors import (
+    ConflictError,
+    ForbiddenError,
+    GateRequiredError,
+    NotFoundError,
+    ValidationError,
+)
 from fcrm_common.time import utcnow
 from fcrm_contracts.api.case_analyst_write import (
     AcknowledgeBody,
@@ -40,32 +46,49 @@ from fcrm_contracts.api.case_analyst_write import (
     GateWriteResult,
     ItemDecisionBody,
     ItemDecisionResult,
+    Recommendation,
+    RecommendationEditBody,
+    UnlockBody,
 )
 from fcrm_contracts.common import Principal
 from fcrm_contracts.enums import CaseState, GateType
+from pydantic import ValidationError as PydanticValidationError
 
 from fcrm_case.analyst_errors import (
     DecisionNotAllowedError,
     GateAlreadyDecidedError,
     ItemSupersededError,
     NoOpenGateError,
+    NotLockedError,
     NotReadyError,
+    RecommendationLockedError,
     WrongStageError,
 )
 from fcrm_case.analyst_write_store import AnalystCommitted, AnalystWriteStore
 from fcrm_case.assessment_store import AssessmentStore
+from fcrm_case.domain.activity import names_a_restricted_term
 from fcrm_case.domain.analyst_commands import (
     AnalystCommand,
     ack_command,
     ack_kind_of,
     decide_item_command,
     decision_fingerprint,
+    edit_recommendation_command,
     fast_lane_command,
     item_fingerprint,
+    lock_command,
     open_ack_snapshots,
     plan_item_decision,
+    unlock_command,
 )
-from fcrm_case.domain.assessment import current_items
+from fcrm_case.domain.assessment import RecommendationRow, current_items
+from fcrm_case.domain.recommendation_edits import (
+    RecommendationState,
+    apply_edit,
+    lock_blockers,
+    state_of,
+    to_recommendation,
+)
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.views import ScoreSnapshotRow
 from fcrm_case.errors import ensure_open
@@ -329,3 +352,165 @@ class AnalystWriteService:
             decision=decision,
             replayed=committed.replayed,
         )
+
+    # -- the recommendation (scene 15) -------------------------------------------
+
+    async def _recommendation_row(self, case_id: str) -> RecommendationRow:
+        row = await self._assessment.get_recommendation(case_id)
+        if row is None:
+            raise NotReadyError(
+                "the narrative has not drafted the recommendation yet",
+                case_id=case_id,
+            )
+        return row
+
+    @staticmethod
+    def _state(case_id: str, row: RecommendationRow) -> RecommendationState:
+        try:
+            return state_of(row)
+        except PydanticValidationError as exc:
+            logger.error(
+                "stored recommendation is malformed",
+                extra={"case_id": case_id, "errors": exc.error_count()},
+            )
+            raise ConflictError(
+                "the stored recommendation does not have its expected shape",
+                case_id=case_id,
+            ) from exc
+
+    async def _blockers(self, case_id: str) -> list[str]:
+        items = await self._views.list_items(case_id)
+        snapshots, decided = await self._ack_state(case_id)
+        return lock_blockers(items, snapshots, decided)
+
+    async def _recommendation_view(self, case_id: str) -> Recommendation:
+        row = await self._recommendation_row(case_id)
+        state = self._state(case_id, row)
+        blockers = [] if state.locked else await self._blockers(case_id)
+        return to_recommendation(state, blockers)
+
+    async def recommendation(self, case_id: str) -> Recommendation:
+        """The draft with the analyst's edits applied, the lock and what blocks it.
+
+        Raises:
+            NotFoundError: No such case.
+            NotReadyError: The narrative has not drafted it yet.
+        """
+        if not await self._cases.exists(case_id):
+            raise NotFoundError(f"no such case {case_id}")
+        return await self._recommendation_view(case_id)
+
+    async def edit_recommendation(
+        self, principal: Principal, case_id: str, body: RecommendationEditBody
+    ) -> Recommendation:
+        """Store the analyst's edits of the draft. An edit that changes nothing
+        writes nothing. The business summary is what the owner reads, so one that
+        names a score, band, rating or control is refused.
+
+        Raises:
+            RecommendationLockedError: It is locked; unlock it first.
+            ValidationError: The summary names a restricted term.
+            WrongStageError: The narrative is not at the recommendation stage.
+        """
+        record = await self._own_case(case_id, principal)
+        row = await self._recommendation_row(case_id)
+        state = self._state(case_id, row)
+        if state.locked:
+            raise RecommendationLockedError(
+                "the recommendation is locked; unlock it with a reason to edit it",
+                case_id=case_id,
+            )
+        self._require_stage(
+            record, CaseState.RECOMMEND, "the recommendation is edited once drafted"
+        )
+        if body.business_summary and names_a_restricted_term(body.business_summary):
+            raise ValidationError(
+                "The business summary is read by the owner and may not name a "
+                "score, band, rating or control.",
+                errors=[{"loc": "body.business_summary", "msg": "restricted term"}],
+            )
+        edits = apply_edit(state, body)
+        if edits is not None:
+            await self._commit(
+                edit_recommendation_command(
+                    case_id=case_id,
+                    edits=edits,
+                    by=principal.sub,
+                    by_name=principal.name,
+                    now=utcnow(),
+                )
+            )
+        return await self._recommendation_view(case_id)
+
+    async def lock_recommendation(
+        self, principal: Principal, case_id: str
+    ) -> Recommendation:
+        """Lock the recommendation: ``case.locked``. Refused (409 ``gate_required``,
+        naming each blocker) unless every item is decided and every
+        acknowledgement given, judged from S1's stored state, never the client's
+        claim. Locking a locked recommendation replays.
+
+        Raises:
+            GateRequiredError: An item or an acknowledgement is still open.
+            WrongStageError: The recommendation is not at the lock stage.
+        """
+        record = await self._own_case(case_id, principal)
+        row = await self._recommendation_row(case_id)
+        if self._state(case_id, row).locked:
+            return await self._recommendation_view(case_id)
+        blockers = await self._blockers(case_id)
+        if blockers:
+            raise GateRequiredError(
+                "Not yet: " + "; ".join(blockers),
+                errors=[{"loc": "lock", "msg": b} for b in blockers],
+                gate_type="lock",
+                case_id=case_id,
+            )
+        self._require_stage(
+            record, CaseState.RECOMMEND, "the recommendation is locked once drafted"
+        )
+        await self._commit(
+            lock_command(
+                case_id=case_id,
+                run_id=self._run_id(record, row.run_id),
+                by=principal.sub,
+                by_name=principal.name,
+                now=utcnow(),
+            )
+        )
+        return await self._recommendation_view(case_id)
+
+    async def unlock_recommendation(
+        self, principal: Principal, case_id: str, body: UnlockBody
+    ) -> Recommendation:
+        """Unlock with a reason: ``case.unlocked{unlock_reason}``. Caseflow
+        supersedes the pack and gives every item a new gate. The same unlock again
+        replays.
+
+        Raises:
+            NotLockedError: It is not locked.
+            WrongStageError: The case is not at the recommendation stage (after
+                the release, a committee answer that changes a number unlocks it).
+        """
+        record = await self._own_case(case_id, principal)
+        row = await self._recommendation_row(case_id)
+        if not self._state(case_id, row).locked:
+            if row.unlock_reason == body.reason:
+                return await self._recommendation_view(case_id)
+            raise NotLockedError("the recommendation is not locked", case_id=case_id)
+        self._require_stage(
+            record,
+            CaseState.RECOMMEND,
+            "a locked recommendation is unlocked before its pack is released",
+        )
+        await self._commit(
+            unlock_command(
+                case_id=case_id,
+                run_id=self._run_id(record, row.run_id),
+                reason=body.reason,
+                by=principal.sub,
+                by_name=principal.name,
+                now=utcnow(),
+            )
+        )
+        return await self._recommendation_view(case_id)

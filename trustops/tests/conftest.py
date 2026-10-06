@@ -2001,3 +2001,81 @@ def emit_probe(
     probe = EmitProbe()
     case_store.events = _ProbedEvents(probe, view_store.items)
     return probe
+
+
+#: The demo's three conditions as the narrative agent drafts them (scene 15).
+DEMO_CONDITIONS: tuple[dict[str, str], ...] = (
+    {
+        "condition_id": "CND-1",
+        "text": "Vendor due-diligence review completed before go-live.",
+        "owner": "Priya Nair",
+        "due": "before go-live",
+        "status": "open",
+        "source": "overridden control CTL-T01",
+    },
+    {
+        "condition_id": "CND-2",
+        "text": "Enhanced monitoring of the payout agents from go-live.",
+        "owner": "FCRM Ops",
+        "due": "go-live",
+        "status": "scheduled",
+        "source": "planned control",
+    },
+    {
+        "condition_id": "CND-3",
+        "text": "Quarterly sample review of agent KYC files.",
+        "owner": "Priya Nair",
+        "due": "6 months",
+        "status": "scheduled",
+        "source": "policy gap",
+    },
+)
+
+
+@pytest.fixture
+def drafted_recommendation(
+    review_service: CaseService, assessment_store: InMemoryAssessmentStore
+) -> CaseService:
+    """:func:`review_service` with the narrative agent's recommendation draft
+    stored beside nothing the analyst did yet: two sections, the three conditions
+    and a plain business summary. The case stays in ``review``; a test moves it to
+    ``recommend`` with ``set_case_state`` (what H1's transition does).
+    """
+    from datetime import UTC, datetime
+
+    from fcrm_case.domain.assessment import RecommendationRow
+
+    def section(key: str, text: str) -> dict[str, Any]:
+        return {
+            "key": key,
+            "text": text,
+            "source_ref": {
+                "kind": "doc",
+                "doc_id": "doc_1",
+                "page": 1,
+                "line_start": 1,
+                "line_end": 2,
+            },
+            "quote": "q",
+            "confidence": 0.9,
+        }
+
+    assessment_store.recommendations["FCRM-2026-0151"] = RecommendationRow(
+        case_id="FCRM-2026-0151",
+        run_id="run_1",
+        draft={
+            "sections": [
+                section("recommendation", "Approve with three conditions."),
+                section("section_1", "The vendor review is the main residual risk."),
+            ],
+            "conditions": [dict(c) for c in DEMO_CONDITIONS],
+            "business_summary": {
+                "text": "Your change is approved with three conditions.",
+                "restricted_term_hits": 0,
+            },
+            "score_record_seq": 30,
+            "proposal_ids": ["prop_narrative"],
+        },
+        draft_at=datetime(2026, 10, 5, 14, tzinfo=UTC),
+    )
+    return review_service

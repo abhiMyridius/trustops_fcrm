@@ -22,6 +22,7 @@ from typing import Final, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from fcrm_contracts.api.case_analyst_close import ConditionAnalyst
 from fcrm_contracts.enums import ChangeType, ItemStatus, Outcome
 
 #: The shortest reason a decision that changes or removes something may carry.
@@ -386,3 +387,33 @@ class LockBody(BaseModel):
     """``POST /cases/{id}/recommendation/lock``: nothing to say."""
 
     model_config = ConfigDict(extra="forbid")
+
+
+class RestrictedScan(BaseModel):
+    """What the restricted-term scan found in the PO-facing business summary
+    (``restricted_scan`` in ``analyst.ts``): shown to the analyst, never the PO.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    terms_found: int
+    terms: list[str]
+
+
+class Recommendation(BaseModel):
+    """``Recommendation`` in ``analyst.ts``: the narrative agent's draft with the
+    analyst's edits applied, the conditions, the outcome the analyst recommends,
+    whether it is locked and what still blocks the lock. Analyst only.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    narrative: str
+    drafted_by: str
+    edits_by_analyst: int
+    outcome: Outcome
+    conditions: list[ConditionAnalyst]
+    business_summary: str
+    restricted_scan: RestrictedScan
+    locked: bool
+    lock_blockers: list[str]

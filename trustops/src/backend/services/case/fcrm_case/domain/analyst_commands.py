@@ -41,10 +41,11 @@ from fcrm_contracts.api.case_internal_assessment import (
     ControlValue,
     FactorProposed,
     FactorValue,
+    RecommendationEdits,
 )
 from fcrm_contracts.enums import GateType, ItemKind, ItemStatus, Role
 from fcrm_contracts.events.envelope import Envelope
-from fcrm_contracts.events.payloads import GateDecided
+from fcrm_contracts.events.payloads import CaseLocked, CaseUnlocked, GateDecided
 from pydantic import BaseModel, ConfigDict
 from pydantic import ValidationError as PydanticValidationError
 
@@ -120,6 +121,22 @@ class AnalystGate:
 
 
 @dataclass(frozen=True)
+class RecommendationChange:
+    """A change to the case's recommendation row.
+
+    ``kind`` ``edit`` replaces the stored ``edits`` (refused once locked);
+    ``lock`` and ``unlock`` flip the lock, and are replays (nothing else of the
+    command is applied) when the recommendation is already in that state.
+    """
+
+    kind: Literal["edit", "lock", "unlock"]
+    by: str
+    at: datetime
+    edits: Optional[RecommendationEdits] = None
+    reason: Optional[str] = None
+
+
+@dataclass(frozen=True)
 class AnalystCommand:
     """Everything one analyst action changes, applied together.
 
@@ -134,6 +151,7 @@ class AnalystCommand:
             (``case.locked``, ``case.gap_recorded``...).
         activity: Activity rows the analyst feed shows, staged in the same
             transaction.
+        recommendation: A change to the recommendation row (edit, lock, unlock).
     """
 
     case_id: str
@@ -142,6 +160,7 @@ class AnalystCommand:
     items: Sequence[ItemDecision] = ()
     events: Sequence[Envelope] = ()
     activity: Sequence[UiEventIn] = ()
+    recommendation: Optional[RecommendationChange] = None
 
 
 def decision_fingerprint(*parts: Any) -> str:
@@ -539,4 +558,89 @@ def fast_lane_command(
         actor=by,
         gates=[gate],
         activity=[activity_row(by, "screening.decided", f"{by_name} {verb}")],
+    )
+
+
+# ── the recommendation: edit, lock, unlock ──────────────────────────────────────
+
+
+def edit_recommendation_command(
+    *,
+    case_id: str,
+    edits: RecommendationEdits,
+    by: str,
+    by_name: str,
+    now: datetime,
+) -> AnalystCommand:
+    """The command that stores the analyst's edits of the draft (no reason: an
+    edit is the analyst's own text; the lock is the gate).
+    """
+    return AnalystCommand(
+        case_id=case_id,
+        actor=by,
+        recommendation=RecommendationChange("edit", by, now, edits=edits),
+        activity=[
+            activity_row(
+                by,
+                "recommendation.edited",
+                f"{by_name} edited the recommendation "
+                f"({edits.edit_count} edits in all)",
+                {"edit_count": edits.edit_count},
+            )
+        ],
+    )
+
+
+def lock_command(
+    *, case_id: str, run_id: str, by: str, by_name: str, now: datetime
+) -> AnalystCommand:
+    """The command that locks the recommendation and announces ``case.locked``;
+    Caseflow then freezes the numbers into a pack.
+    """
+    event = build_envelope(
+        "case.locked",
+        CaseLocked(case_id=case_id, actor=by).model_dump(mode="json"),
+        case_id=case_id,
+        run_id=run_id,
+    )
+    return AnalystCommand(
+        case_id=case_id,
+        actor=by,
+        events=[event],
+        recommendation=RecommendationChange("lock", by, now),
+        activity=[
+            activity_row(
+                by, "recommendation.locked", f"{by_name} locked the recommendation"
+            )
+        ],
+    )
+
+
+def unlock_command(
+    *, case_id: str, run_id: str, reason: str, by: str, by_name: str, now: datetime
+) -> AnalystCommand:
+    """The command that unlocks the recommendation with a reason and announces
+    ``case.unlocked{unlock_reason}``; Caseflow supersedes the pack and gives every
+    item a new gate.
+    """
+    event = build_envelope(
+        "case.unlocked",
+        CaseUnlocked(case_id=case_id, actor=by, unlock_reason=reason).model_dump(
+            mode="json"
+        ),
+        case_id=case_id,
+        run_id=run_id,
+    )
+    return AnalystCommand(
+        case_id=case_id,
+        actor=by,
+        events=[event],
+        recommendation=RecommendationChange("unlock", by, now, reason=reason),
+        activity=[
+            activity_row(
+                by,
+                "recommendation.unlocked",
+                f"{by_name} unlocked the recommendation · reason recorded",
+            )
+        ],
     )
