@@ -48,6 +48,7 @@ from pymongo import AsyncMongoClient
 
 from fcrm_caseflow.audit_client import AuditClient
 from fcrm_caseflow.audit_map import STEP_FOR
+from fcrm_caseflow.budget import CASE_BUDGETS_COLLECTION, CaseBudgetStore
 from fcrm_caseflow.clients.case_client import CaseClient
 from fcrm_caseflow.clients.decision_client import DecisionClient
 from fcrm_caseflow.clients.decision_votes_client import DecisionVotesClient
@@ -209,6 +210,9 @@ def build_unit(
     runs_store = CaseRunStore(db[CASE_RUNS_COLLECTION], db[RUN_EVENTS_COLLECTION])
     gate_store = GateStore(db[GATES_COLLECTION])
     results_store = AgentResultStore(db[AGENT_RESULTS_COLLECTION])
+    budget_store = CaseBudgetStore(
+        db[CASE_BUDGETS_COLLECTION], cap=settings.case_token_cap
+    )
     outbox = Outbox(outbox_collection)
 
     audit = AuditClient(audit_http)
@@ -223,6 +227,7 @@ def build_unit(
         results=results_store,
         ingest_bucket=settings.s3_bucket_canonical,
         oversight=OversightRuns(runs_store),
+        budgets=budget_store,
     )
     step_runner = StepRunner(
         runs_store,
@@ -237,7 +242,9 @@ def build_unit(
         decision=DecisionClient(decision_http),
         gates=gate_store,
         decision_votes=DecisionVotesClient(decision_http),
-        reporter=HarnessReporter(runs_store, gate_store, audit, case_client),
+        reporter=HarnessReporter(
+            runs_store, gate_store, audit, case_client, budgets=budget_store
+        ),
         oversight=OversightClients(
             examiner=ExaminerClient(audit_http), reflags=ReflagClient(case_http)
         ),

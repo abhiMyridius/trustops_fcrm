@@ -36,6 +36,7 @@ import pytest
 from fcrm_case.domain.assessment import build_score_view
 from fcrm_case.domain.views import DecisionRow, ReviewItemRow
 from fcrm_caseflow.audit_client import AuditClient
+from fcrm_caseflow.budget import CaseBudgetStore
 from fcrm_caseflow.clients.case_client import CaseClient
 from fcrm_caseflow.clients.decision_client import DecisionClient
 from fcrm_caseflow.clients.decision_votes_client import DecisionVotesClient
@@ -776,6 +777,17 @@ def gate_store(gates_collection: FakeCollection) -> GateStore:
 @pytest.fixture
 def outbox(outbox_collection: FakeCollection) -> Outbox:
     return Outbox(outbox_collection)  # type: ignore[arg-type]
+
+
+@pytest.fixture
+def case_budgets_collection() -> FakeCollection:
+    return FakeCollection("case_budgets")
+
+
+@pytest.fixture
+def budget_store(case_budgets_collection: FakeCollection) -> CaseBudgetStore:
+    """The per-case token ledger over the fake collection, at the 120k default."""
+    return CaseBudgetStore(case_budgets_collection)  # type: ignore[arg-type]
 
 
 @pytest.fixture

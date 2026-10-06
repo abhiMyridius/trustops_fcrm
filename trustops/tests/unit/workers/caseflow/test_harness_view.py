@@ -17,6 +17,7 @@ from fcrm_caseflow.audit_client import (
     RECORDS_PAGE_LIMIT,
     AuditClient,
 )
+from fcrm_caseflow.budget import CaseLedger
 from fcrm_caseflow.harness_view import (
     BLOCKED_TYPES,
     GUARD_OF_TYPE,
@@ -234,6 +235,34 @@ def test_the_snapshot_counts_from_the_run_and_the_chain() -> None:
     assert snapshot.case_id == CASE
 
 
+def ledger(spent: int, cap: int = 120_000) -> CaseLedger:
+    return CaseLedger(case_id=CASE, run_id="run_1", cap=cap, spent=spent, reserved=0)
+
+
+def test_the_tokens_come_from_the_case_ledger_not_the_runs_counter() -> None:
+    run = run_with(counters={"agents_run": 4, "tokens_used": 41_200})
+
+    snapshot = harness_snapshot(run, [], None, 0, ledger(87_654, cap=100_000))
+
+    c = snapshot.counters
+    assert (c.tokens_used, c.tokens_budget) == (87_654, 100_000)
+
+
+def test_a_ledger_that_has_spent_nothing_shows_zero_whatever_the_counter() -> None:
+    run = run_with(counters={"tokens_used": 41_200})
+
+    c = harness_snapshot(run, [], None, 0, ledger(0)).counters
+
+    assert (c.tokens_used, c.tokens_budget) == (0, 120_000)
+
+
+def test_a_budget_refusal_is_a_warning_on_the_budget_guard() -> None:
+    line = line_of(record(9, "budget.exhausted", "Guard 3 case budget exhausted"))
+    assert (line.level, line.guard) == ("warn", 3)
+    rows = guard_rows([record(9, "budget.exhausted", "critic needs 20000")])
+    assert (rows[2].last, rows[2].detail) == ("block", "critic needs 20000")
+
+
 def test_agents_run_counts_the_different_agents_the_chain_shows() -> None:
     """The run's counter said 2 for a case whose screening, research,
     assessment, critic and narrative had all run; the chain has every job.
@@ -365,6 +394,34 @@ def reporter(
         ),
         sink,
     )
+
+
+class Ledgers:
+    def __init__(self, found: Optional[CaseLedger]) -> None:
+        self._found = found
+        self.asked: list[str] = []
+
+    async def get(self, case_id: str) -> Optional[CaseLedger]:
+        self.asked.append(case_id)
+        return self._found
+
+
+async def test_the_reporter_reads_the_cases_ledger_for_the_tokens() -> None:
+    sink = Sink()
+    ledgers = Ledgers(ledger(64_000))
+    harness = HarnessReporter(
+        Runs(run_with(counters={"tokens_used": 1})),
+        Gates(),
+        Chain([record(1, "guard.input")]),
+        sink,
+        budgets=ledgers,
+    )
+
+    assert await harness.report(CASE, "run_1") is True
+
+    [(_, push)] = sink.pushed
+    assert ledgers.asked == [CASE]
+    assert push.snapshot.counters.tokens_used == 64_000
 
 
 async def test_the_reporter_pushes_the_runs_snapshot_to_s1() -> None:

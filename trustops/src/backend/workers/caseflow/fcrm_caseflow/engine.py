@@ -59,13 +59,21 @@ from fcrm_contracts.api.audit import RecordAppend
 from fcrm_contracts.common import GateDecision, Principal
 from fcrm_contracts.enums import AgentName, CaseState, GateType, Role, StepKind
 from fcrm_contracts.events.envelope import Envelope
-from fcrm_contracts.events.payloads import GateOpened, HarnessStep
+from fcrm_contracts.events.payloads import AgentFailed, GateOpened, HarnessStep
 from fcrm_guardrails.base import AUDIT_TYPES, GuardName, GuardResult, GuardStatus
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from fcrm_caseflow.audit_client import AuditClient
 from fcrm_caseflow.audit_map import RECORDS_FOR, STEP_FOR
+from fcrm_caseflow.budget import (
+    UNMETERED_AGENTS,
+    BudgetRefusal,
+    CaseBudgetStore,
+    JobRequest,
+    reservation_tokens,
+    usage_tokens,
+)
 from fcrm_caseflow.dispatch import (
     REQUIRED_ROLE,
     AgentDispatch,
@@ -121,6 +129,9 @@ logger = logging.getLogger(__name__)
 NON_CASE_EVENT_TYPES = frozenset({"index.build", "index.built", "index.failed"})
 
 _INTERNAL_PREFIX = "internal."
+
+#: The two terminal events of an agent job: each carries the whole job's usage.
+_AGENT_RESULT_TYPES = frozenset({"agent.done", "agent.failed"})
 
 #: The PO's intake gates whose decision moves nothing but is still recorded
 #: (``intake.po_action``): the wire values of their ``gate_type``.
@@ -220,6 +231,9 @@ class CaseflowEngine:
             open run (``examiner.asked``, ``jurisdiction.list_published``;
             :mod:`fcrm_caseflow.oversight_runs`). Without it those two events
             are refused rather than treated as orphans of a case.
+        budgets: The per-case token ledger (:mod:`fcrm_caseflow.budget`):
+            every job is reserved before it is published and settled when its
+            result arrives. Without it no cap is enforced.
     """
 
     def __init__(
@@ -235,6 +249,7 @@ class CaseflowEngine:
         ingest_bucket: str = "canonical",
         records_for: Mapping[StepKind, tuple[str, ...]] = RECORDS_FOR,
         oversight: Optional[OversightRuns] = None,
+        budgets: Optional[CaseBudgetStore] = None,
     ) -> None:
         self._runs = runs
         self._gates = gates
@@ -246,6 +261,7 @@ class CaseflowEngine:
         self._ingest_bucket = ingest_bucket
         self._records_for = records_for
         self._oversight = oversight
+        self._budgets = budgets
 
     async def handle(
         self, envelope: Envelope, session: Optional[AsyncClientSession]
@@ -305,6 +321,7 @@ class CaseflowEngine:
                 f"{envelope.type} for case={envelope.case_id} run={envelope.run_id} "
                 "has no open run"
             )
+        await self._settle_result(envelope, run, session)
         result_trigger = oversight_result_trigger(envelope)
         if result_trigger is not None:
             await self._handle_oversight_result(envelope, run, result_trigger, session)
@@ -732,11 +749,13 @@ class CaseflowEngine:
         if ctx.band is not None and ctx.band != run.band:
             await self._runs.set_band(run.snapshot.run_id, ctx.band, session=session)
             run = dataclasses.replace(run, band=ctx.band)
-        await self._dispatch(run, trigger, ctx, payload, session)
+        refusal = await self._dispatch(run, trigger, ctx, payload, session)
         run = await self._enqueue_step_for(
             run, trigger, message_id, origin, payload, session
         )
         await self._write_audit(run, trigger, result)
+        if refusal is not None:
+            run = await self._hand_off(run, refusal, origin, session)
         return run
 
     async def _dispatch(
@@ -746,14 +765,20 @@ class CaseflowEngine:
         ctx: TransitionContext,
         payload: dict[str, Any],
         session: AsyncClientSession,
-    ) -> None:
+    ) -> Optional[BudgetRefusal]:
+        """Publish what ``trigger`` dispatches, open its gate, hand a document
+        to H3. Returns the refusal when the case's token cap said no to the jobs
+        (nothing was published; the caller hands the case to the analyst), else
+        ``None``.
+        """
         plan: DispatchPlan = dispatch_for(trigger, ctx, run.snapshot.flags, payload)
         envelopes = [
             build_job_envelope(job, run, refs=dispatch_refs(job, run.refs))
             for job in plan.agents
         ]
-        for env in envelopes:
-            await self._outbox.enqueue(session, env)
+        refusal = await self._publish_jobs(run, plan.agents, envelopes, session)
+        if refusal is not None:
+            return refusal
         if len(plan.agents) > 1:
             await self._runs.set_pending_agents(
                 run.snapshot.run_id,
@@ -769,6 +794,7 @@ class CaseflowEngine:
         gate_type = gate_to_open(trigger, ctx)
         if gate_type is not None:
             await self._open_gate(run, gate_type, session)
+        return None
 
     async def _open_gate(
         self,
@@ -1012,7 +1038,7 @@ class CaseflowEngine:
             await self._open_step_gate(run, spec, session)
         for close in result.gates_to_close:
             await self._close_step_gate(run, close, session)
-        await self._dispatch_step_jobs(run, result, session)
+        refusal = await self._dispatch_step_jobs(run, result, session)
         for index, follow_up in enumerate(result.follow_up_steps):
             run = await self._enqueue_step(
                 run,
@@ -1055,6 +1081,8 @@ class CaseflowEngine:
         if result.band is not None and result.band != run.band:
             await self._runs.set_band(run.snapshot.run_id, result.band, session=session)
             run = dataclasses.replace(run, band=result.band)
+        if refusal is not None:
+            run = await self._hand_off(run, refusal, step_id, session)
         return run
 
     async def _open_step_gate(
@@ -1116,20 +1144,168 @@ class CaseflowEngine:
 
     async def _dispatch_step_jobs(
         self, run: CaseRun, result: StepResult, session: AsyncClientSession
-    ) -> None:
+    ) -> Optional[BudgetRefusal]:
+        """Publish the jobs a step asked for, or return the refusal of the case's
+        token cap (nothing published, no join recorded).
+        """
         jobs = result.agent_jobs_to_dispatch
         envelopes = [
             build_job_envelope(job.dispatch, run, refs=job.refs, pins=job.pins)
             for job in jobs
         ]
-        for env in envelopes:
-            await self._outbox.enqueue(session, env)
+        dispatches = [job.dispatch for job in jobs]
+        refusal = await self._publish_jobs(run, dispatches, envelopes, session)
+        if refusal is not None:
+            return refusal
         if len(jobs) > 1:
             await self._runs.set_pending_agents(
                 run.snapshot.run_id,
-                _joined([job.dispatch for job in jobs], envelopes),
+                _joined(dispatches, envelopes),
                 session=session,
             )
+        return None
+
+    # -- the per-case token ledger (ADR-14, ADR-27) ----------------------------
+
+    async def _publish_jobs(
+        self,
+        run: CaseRun,
+        dispatches: Sequence[AgentDispatch],
+        envelopes: Sequence[Envelope],
+        session: AsyncClientSession,
+    ) -> Optional[BudgetRefusal]:
+        """Reserve one attempt of each job's tier budget against the case's
+        ledger, then publish the jobs, in the caller's transaction. All or none:
+        if the case cannot pay for every metered job nothing is published and the
+        refusal comes back. Without a ledger every job is published.
+        """
+        requests = [
+            JobRequest(
+                job_id=str(envelope.payload["job_id"]),
+                agent=dispatch.agent,
+                tokens=reservation_tokens(dispatch.agent),
+            )
+            for dispatch, envelope in zip(dispatches, envelopes, strict=True)
+            if dispatch.agent not in UNMETERED_AGENTS
+        ]
+        if self._budgets is not None and requests:
+            outcome = await self._budgets.reserve(
+                run.snapshot.case_id, run.snapshot.run_id, requests, session=session
+            )
+            if not outcome.granted:
+                return BudgetRefusal(tuple(requests), outcome.asked, outcome.ledger)
+        for envelope in envelopes:
+            await self._outbox.enqueue(session, envelope)
+        return None
+
+    async def _settle_result(
+        self, envelope: Envelope, run: CaseRun, session: AsyncClientSession
+    ) -> None:
+        """Settle the ledger for an ``agent.done`` or ``agent.failed``: drop the
+        job's reservation and add the tokens its whole run used (refused attempts
+        included), once per job id. Any other event is left alone.
+
+        A result with no ``job_id`` cannot be matched to a reservation (H2 never
+        sends one without it): it is logged and left unsettled, and its
+        resolution goes on as before.
+
+        Raises:
+            KeyError: the payload names no ``agent``.
+            ValueError: ``agent`` is not an agent name.
+        """
+        if self._budgets is None or envelope.type not in _AGENT_RESULT_TYPES:
+            return
+        payload = envelope.payload
+        job_id = payload.get("job_id")
+        if not isinstance(job_id, str):
+            logger.warning(
+                "agent result without a job id; the case ledger is not settled",
+                extra={"case_id": run.snapshot.case_id, "type": envelope.type},
+            )
+            return
+        usage = payload.get("usage")
+        outcome = await self._budgets.settle(
+            run.snapshot.case_id,
+            run.snapshot.run_id,
+            job_id,
+            agent_done_agent(envelope),
+            usage_tokens(usage) if isinstance(usage, Mapping) else 0,
+            session=session,
+        )
+        if not outcome.applied:
+            logger.info(
+                "agent result already settled; ledger unchanged",
+                extra={"case_id": run.snapshot.case_id, "job_id": job_id},
+            )
+
+    async def _hand_off(
+        self,
+        run: CaseRun,
+        refusal: BudgetRefusal,
+        origin: str,
+        session: AsyncClientSession,
+    ) -> CaseRun:
+        """Open the human handoff for a dispatch the cap refused.
+
+        An audit record ``budget.exhausted`` (and the same facts on the ledger,
+        which outlive a down audit service), then the transition a failed job
+        takes (``AGENT_FAILED_AFTER_RETRY``: any state but CLOSED to HANDOFF)
+        with an ``agent.failed`` payload naming the first refused job, so the
+        handoff gate and its steps see the same shape as for any failed agent.
+        Results already computed are untouched: nothing here deletes or
+        supersedes one.
+        """
+        ledger = refusal.ledger
+        first = refusal.first
+        reason = (
+            f"budget_exhausted: {first.agent.value} needs {refusal.asked} tokens, "
+            f"{ledger.spent} spent and {ledger.reserved} reserved of {ledger.cap}"
+        )
+        logger.warning(
+            "case token cap refused a dispatch; handing off",
+            extra={"case_id": run.snapshot.case_id, "agent": first.agent.value},
+        )
+        if self._budgets is not None:
+            await self._budgets.record_refusal(
+                run.snapshot.case_id, refusal, session=session
+            )
+        await self._write_audit_raw(
+            case_id=run.snapshot.case_id,
+            trigger_value="budget.exhausted",
+            actor="system",
+            summary=f"Guard 3 · case token budget exhausted: {reason}",
+            data={
+                "run_id": run.snapshot.run_id,
+                "agent": first.agent.value,
+                "agents": [job.agent.value for job in refusal.jobs],
+                "job_ids": [job.job_id for job in refusal.jobs],
+                "requested": refusal.asked,
+                "spent": ledger.spent,
+                "reserved": ledger.reserved,
+                "cap": ledger.cap,
+            },
+        )
+        trigger = Trigger.AGENT_FAILED_AFTER_RETRY
+        ctx = TransitionContext(flags=run.snapshot.flags, band=run.band)
+        try:
+            result = apply(run.state, trigger, ctx)
+        except IllegalTransition:
+            logger.error(
+                "budget refusal in a state with no handoff; the run stays put",
+                extra={"case_id": run.snapshot.case_id, "state": run.state.value},
+            )
+            return run
+        failed = AgentFailed(
+            job_id=first.job_id,
+            case_id=run.snapshot.case_id,
+            run_id=run.snapshot.run_id,
+            agent=first.agent,
+            attempt=0,
+            reason=reason,
+        ).model_dump(mode="json")
+        return await self._persist_and_dispatch(
+            run, trigger, ctx, result, None, origin, failed, session
+        )
 
     @staticmethod
     def _first_internal_trigger(
