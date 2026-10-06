@@ -44,6 +44,24 @@ def query(prometheus: str, promql: str) -> list[Row]:
     return [(r["metric"], float(r["value"][1])) for r in body["data"]["result"]]
 
 
+def price_footnote() -> str:
+    """What the cost lines say about their prices (``ai/models/tiers.yaml``).
+
+    Needs the evals package, so it answers only under ``uv run`` (``make
+    token-report`` does); elsewhere it says it could not read the status.
+    """
+    try:
+        from fcrm_agents.models import load_tiers_config
+        from fcrm_evals.instructions import DEFAULT_AI_ROOT
+        from fcrm_evals.usage import PriceTable
+    except ImportError:
+        return (
+            "price status not read (run it through `uv run --project src/backend "
+            "--all-packages python ops/scripts/token_report.py`)"
+        )
+    return PriceTable.from_tiers(load_tiers_config(DEFAULT_AI_ROOT)).note()
+
+
 def table(rows: list[Row], keys: list[str], value: str, fmt: str) -> str:
     """Render rows as a Markdown table sorted by value, largest first."""
     if not rows:
@@ -89,6 +107,8 @@ def build(prometheus: str, window: str) -> str:
         "",
         f"- Total tokens: **{total_tokens:,.0f}**",
         f"- Total cost: **${total_cost:,.4f}**",
+        "- Cost is an estimate at the prices in `ai/models/tiers.yaml`: "
+        f"{price_footnote()}",
         f"- Cases with spend: **{len(cost_case)}**",
     ]
     if busiest is not None:

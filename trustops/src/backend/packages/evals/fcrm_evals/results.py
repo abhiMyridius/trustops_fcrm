@@ -32,7 +32,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from fcrm_evals.pipeline import tolerance_for
 from fcrm_evals.runner import EvalResult, GateResult, GateStatus, gate_detail
-from fcrm_evals.usage import RunUsage
+from fcrm_evals.usage import PriceTable, RunUsage
 
 logger = logging.getLogger(__name__)
 
@@ -117,9 +117,18 @@ class RunIndex(BaseModel):
     cost_usd_total: float
     tokens_total: int
     price_status: str
+    price_note: str = ""
+    """The footnote of every cost in this run (``PriceTable.note``); empty in a
+    result file written before prices were verified."""
     baseline_run_id: Optional[str] = None
     agents: list[AgentSummary]
     files: dict[str, str] = Field(default_factory=dict)
+
+    @property
+    def price_footnote(self) -> str:
+        """What a cost line says about its prices: the run's own note, or, for
+        a result file written before the note existed, its status."""
+        return self.price_note or f"prices {self.price_status.replace('_', ' ')}"
 
 
 class TrendPoint(BaseModel):
@@ -338,6 +347,7 @@ def build_index(
     baseline_run_id: Optional[str] = None,
 ) -> RunIndex:
     """The :class:`RunIndex` of a finished run."""
+    prices = PriceTable.from_tiers(tiers)
     agents = [
         agent_summary(r, gates[r.agent], REGISTRY[r.agent].tier.value) for r in results
     ]
@@ -366,7 +376,8 @@ def build_index(
         judge_usage=judged,
         cost_usd_total=round(usage.cost_usd + judged.cost_usd, 6),
         tokens_total=usage.total_tokens + judged.total_tokens,
-        price_status=str(tiers.get("prices_usd_per_mtok", {}).get("status", "unknown")),
+        price_status=prices.status,
+        price_note=prices.note(),
         baseline_run_id=baseline_run_id,
         agents=agents,
         files={r.agent.value: f"{r.agent.value}.{RESULT_SUFFIX}" for r in results},

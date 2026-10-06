@@ -379,7 +379,22 @@ async def test_a_partial_run_still_shows_nine_tiles(
 async def test_cost_is_labelled_an_estimate(dashboard: Callable[..., Any]) -> None:
     html, index, _results = await dashboard()
     assert "est." in html
-    assert index.price_status.replace("_", " ") in html
+    assert index.price_note
+    assert index.price_note in html
+    assert "verified AWS list prices, us-east-1, retrieved" in html
+    assert "placeholder" not in html
+
+
+async def test_a_result_file_without_a_price_note_shows_its_status(
+    dashboard: Callable[..., Any],
+) -> None:
+    """A result written before the note existed still says what its prices were."""
+    _html, index, results = await dashboard()
+    old = index.model_copy(
+        update={"price_note": "", "price_status": "placeholder_confirm_before_go_live"}
+    )
+    html = render_dashboard(old, results, [trend_point(old)])
+    assert "prices placeholder confirm before go live" in html
 
 
 async def test_the_header_says_which_prompts_the_agents_ran_with(

@@ -22,6 +22,7 @@ model_string_prefix: "bedrock:"  # Pydantic AI model string form is "bedrock:<id
 
 embeddings:
   model: amazon.titan-embed-text-v2:0
+  label: "Titan Text Embeddings V2"   # the name a report prints (fcrm_evals.usage.PriceTable.label)
   dims: 1024
   normalize: true
   invocation: on_demand
@@ -177,25 +178,119 @@ models:
     forced_tool_choice: unverified
     thinking: none
 
-# USD per 1M tokens, used only for ModelCallRecord.cost_usd and the token
-# report. AWS sets Bedrock prices for partner models and they can differ from
-# the vendor's own list price.
-#  - Anthropic rows are the Anthropic first-party list rates (Claude API, Sept
-#    2026): Haiku 4.5 $1/$5, Sonnet 5.5 $2/$10, Opus 5.5 $4/$20; cache read =
-#    0.1x input (Sonnet 5.5 and Opus 5.5 list $0.20), 5-minute cache write =
-#    1.25x input. They stand in for Bedrock pricing (placeholder: confirm
-#    against the AWS Bedrock pricing page before go-live).
-#  - Nova and Titan rows are the public Bedrock on-demand rates last
-#    published (placeholder: confirm against the AWS Bedrock pricing page
-#    before go-live). No cache pricing is recorded for Nova.
+# USD per 1M tokens, on-demand standard tier, used only for the cost estimate
+# (ModelCallRecord.cost_usd, the eval RunUsage and dashboard, the token reports).
+# AWS sets Bedrock prices for partner models; they differ from the vendor's own
+# list price.
+#
+# VERIFIED on 6 Oct 2026 from the AWS Price List API (`aws pricing get-products`,
+# region us-east-1, list versions 20260930001912 for the Claude models and
+# 20261005210410 for Nova and Titan). Every row carries its own `status`,
+# `source` and `retrieved_on`; a report prints "verified" only when every row is.
+#  - Rate card: the ids above are `us.` GEOGRAPHIC cross-Region inference
+#    profiles. AWS bills those at the standard (Regional) rate; a `global.`
+#    profile is about 10% cheaper and is not used (Amazon Bedrock User Guide,
+#    "Route model inference requests across AWS Regions": Cost, Geographic
+#    "Standard pricing", Global "Approximately 10% savings"; Anthropic's pricing
+#    page: "Regional and multi-region endpoints include a 10% premium over
+#    global endpoints"). For Haiku 4.5, Sonnet 5.5 and Opus 5.5 every Regional
+#    row of the Price List is exactly 1.10x its Global row, and the Global row is
+#    Anthropic's list price, so the Anthropic rows below are the list price x 1.10.
+#  - cache_write is the 5-minute write, which a cachePoint without a ttl uses;
+#    1-hour writes (2x the Global input price) are not used.
+#  - Nova: input and output are the on-demand rows, cache_read the cached-input
+#    row, cache_write 0.00 (AWS lists the cache write at no charge). The Price
+#    List has one Nova rate for in-Region and the US geographic profile.
+#  - Titan Text Embeddings V2: the on-demand input row. Output and cache are
+#    null: it returns a vector, and it has no cache.
+#  - Batch, flex, priority, provisioned-throughput and custom-model rows are not
+#    used by this stack and are not recorded.
+# `status` is verified | unverified. An unverified row keeps its earlier figure
+# and carries a `reason`; a model with no price row is a test failure. The
+# table's own `status` rolls the rows up: verified, partly_verified or
+# unverified (tests/unit/packages/evals/test_price_table_verified.py).
 # Reconcile against the AWS bill weekly (07-runtime-facts.md).
 prices_usd_per_mtok:
   currency: USD
-  status: placeholder_confirm_before_go_live
+  status: verified
+  region: us-east-1
+  rate_card: Regional (geographic cross-Region), on-demand standard
+  retrieved_on: "2026-10-06"
   rows:
-    us.anthropic.claude-haiku-4-5-20251001-v1:0: {input: 1.00, output: 5.00, cache_read: 0.10, cache_write: 1.25}
-    us.anthropic.claude-sonnet-5-5: {input: 2.00, output: 10.00, cache_read: 0.20, cache_write: 2.50}
-    us.anthropic.claude-opus-5-5: {input: 4.00, output: 20.00, cache_read: 0.20, cache_write: 5.00}
-    us.amazon.nova-lite-v1:0: {input: 0.06, output: 0.24, cache_read: null, cache_write: null}
-    us.amazon.nova-pro-v1:0: {input: 0.80, output: 3.20, cache_read: null, cache_write: null}
-    amazon.titan-embed-text-v2:0: {input: 0.02, output: null, cache_read: null, cache_write: null}
+    us.anthropic.claude-haiku-4-5-20251001-v1:0:
+      input: 1.10
+      output: 5.50
+      cache_read: 0.11
+      cache_write: 1.375
+      status: verified
+      retrieved_on: "2026-10-06"
+      source: >-
+        AWS Price List API, service code AmazonBedrockFoundationModels,
+        servicename "Claude Haiku 4.5 (Amazon Bedrock Edition)", regionCode
+        us-east-1, Regional usagetypes USE1-MP:USE1_InputTokenCount,
+        _OutputTokenCount, _CacheReadInputTokenCount, _CacheWriteInputTokenCount,
+        list 20260930001912, effective 2026-09-01; the same five rates appear
+        under service code AmazonBedrockService "Claude Haiku 4.5" (list
+        20260930223049).
+    us.anthropic.claude-sonnet-5-5:
+      input: 2.20
+      output: 11.00
+      cache_read: 0.22
+      cache_write: 2.75
+      status: verified
+      retrieved_on: "2026-10-06"
+      source: >-
+        AWS Price List API, service code AmazonBedrockFoundationModels,
+        servicename "Claude Sonnet 5.5 (Amazon Bedrock Edition)", regionCode
+        us-east-1, usagetypes USE1-MP:USE1_input_tokens_standard,
+        output_tokens_standard, cache_read_tokens_standard,
+        cache_write_tokens_standard, list 20260930001912, effective 2026-09-01.
+    us.anthropic.claude-opus-5-5:
+      input: 4.40
+      output: 22.00
+      cache_read: 0.22
+      cache_write: 5.50
+      status: verified
+      retrieved_on: "2026-10-06"
+      source: >-
+        AWS Price List API, service code AmazonBedrockFoundationModels,
+        servicename "Claude Opus 5.5 (Amazon Bedrock Edition)", regionCode
+        us-east-1, usagetypes USE1-MP:USE1_input_tokens_standard,
+        output_tokens_standard, cache_read_tokens_standard,
+        cache_write_tokens_standard, list 20260930001912, effective 2026-09-01.
+    us.amazon.nova-lite-v1:0:
+      input: 0.06
+      output: 0.24
+      cache_read: 0.015
+      cache_write: 0.00
+      status: verified
+      retrieved_on: "2026-10-06"
+      source: >-
+        AWS Price List API, service code AmazonBedrock, model "Nova Lite",
+        regionCode us-east-1, feature "On-demand Inference", usagetypes
+        USE1-NovaLite-input-tokens, -output-tokens, -cache-read-input-token-count,
+        -cache-write-input-token-count, list 20261005210410, effective 2026-10-01.
+    us.amazon.nova-pro-v1:0:
+      input: 0.80
+      output: 3.20
+      cache_read: 0.20
+      cache_write: 0.00
+      status: verified
+      retrieved_on: "2026-10-06"
+      source: >-
+        AWS Price List API, service code AmazonBedrock, model "Nova Pro",
+        regionCode us-east-1, feature "On-demand Inference", usagetypes
+        USE1-NovaPro-input-tokens, -output-tokens, -cache-read-input-token-count,
+        -cache-write-input-token-count, list 20261005210410, effective 2026-10-01.
+    amazon.titan-embed-text-v2:0:
+      input: 0.02
+      output: null
+      cache_read: null
+      cache_write: null
+      status: verified
+      retrieved_on: "2026-10-06"
+      source: >-
+        AWS Price List API, service code AmazonBedrock, regionCode us-east-1,
+        feature "On-demand Inference", usagetype
+        USE1-TitanEmbeddingV2-Text-input-tokens (0.00002 USD per 1K tokens),
+        list 20261005210410, effective 2026-10-01.

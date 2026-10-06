@@ -111,7 +111,7 @@ def _note(index: RunIndex) -> str:
         f"{index.gates_pass}/"
         f"{index.gates_total} gates PASS. Estimated cost "
         f"${index.cost_usd_total:.2f} ({index.tokens_total:,} tokens) at the list "
-        f"prices in `ai/models/tiers.yaml` (`{index.price_status}`). A gate is the "
+        f"prices in `ai/models/tiers.yaml` ({index.price_footnote}). A gate is the "
         "agent's primary metric against its threshold, on the sampled rows only; "
         "the dashboard's per-metric table shows the rest." + lifted
     )

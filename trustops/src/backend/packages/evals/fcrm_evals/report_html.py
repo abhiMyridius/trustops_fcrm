@@ -27,8 +27,9 @@ Colours are the dataviz skill's validated reference palette; PASS and FAIL use
 its reserved status colours, always beside an icon and a word. Dark mode follows
 ``prefers-color-scheme`` and a ``data-theme`` stamp.
 
-Cost is an estimate at the list prices in ``ai/models/tiers.yaml`` (a
-placeholder table until confirmed against the AWS bill) and says so.
+Cost is an estimate at the list prices in ``ai/models/tiers.yaml`` and says
+whether those prices are verified (``RunIndex.price_note``: "verified ... us-east-1,
+retrieved <date>", or "unverified for: <models>").
 """
 
 from __future__ import annotations
@@ -356,7 +357,7 @@ def _header(index: RunIndex) -> str:
         '<div class="cap">gates PASS</div>'
         f'<div class="totals">{_fmt_tokens(index.tokens_total)} tokens · '
         f"{_fmt_cost(index.cost_usd_total)} est. (judge {_fmt_cost(judge_cost)}) · "
-        f"{escape(index.price_status.replace('_', ' '))}</div></div></header>"
+        f"{escape(index.price_footnote)}</div></div></header>"
     )
 
 
