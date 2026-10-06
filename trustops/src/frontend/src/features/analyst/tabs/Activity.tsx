@@ -47,7 +47,7 @@ export function AnalystActivityTab() {
               >
                 Verify chain
               </Button>
-              <Button variant="ghost" onClick={() => toast.info('Export case record', 'Server-side JSON + PDF-ready HTML to MinIO; not available in mock mode.')}>
+              <Button variant="ghost" onClick={() => toast.info('Export case record', 'Server-side JSON + PDF-ready HTML to MinIO; not available in this build.')}>
                 Export case record
               </Button>
             </div>

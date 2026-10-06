@@ -40,7 +40,7 @@ export function OverridesTab() {
           ]}
           wrapperClassName="w-48"
         />
-        <Button variant="ghost" onClick={() => toast.info('CSV export', 'Generated server-side and audited; not available in mock mode.')}>
+        <Button variant="ghost" onClick={() => toast.info('CSV export', 'Generated server-side and audited; not available in this build.')}>
           Export CSV
         </Button>
       </div>

@@ -68,7 +68,7 @@ function AreaCard({
   return (
     <Card
       title={`${area.label}`}
-      subtitle={`Area weight ${formatFixed(area.weight, 2)} (renormalised over the in-scope domains) · ${area.matched_caption}${area.lock_blocking ? '' : ' · optional before lock in mock mode'}`}
+      subtitle={`Area weight ${formatFixed(area.weight, 2)} (renormalised over the in-scope domains) · ${area.matched_caption}${area.lock_blocking ? '' : ' · optional before lock'}`}
     >
       <div className="flex flex-col gap-4">
         <FactorBlock
