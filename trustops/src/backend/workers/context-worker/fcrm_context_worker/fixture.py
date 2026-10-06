@@ -28,7 +28,6 @@ from evoq_context.vector.interface import VectorChunk
 
 logger = logging.getLogger(__name__)
 
-FIXTURE_VERSION: Final = 1
 FIXTURE_CONTENT_TYPE: Final = "application/json"
 _INDEX_NAME: Final = re.compile(r"^[a-z][a-z_]{0,40}$")
 
