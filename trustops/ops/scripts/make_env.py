@@ -54,7 +54,7 @@ SECRETS = (
 LOCAL_DEFAULTS = {
     "ENV": "local",
     "VECTOR_BACKEND": "memory",
-    "EMBEDDING_PROVIDER": "dummy",
+    "EMBEDDING_PROVIDER": "bedrock",
 }
 #: The live-mode block, always written so there is one obvious place to add
 #: keys: the three standard boto3 / AWS CLI names, with the region pre-filled.
