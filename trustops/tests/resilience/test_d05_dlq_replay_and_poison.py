@@ -62,7 +62,7 @@ def test_d5b_poison_messages_land_in_the_dlq_and_other_work_is_unaffected(
     shown = outcome.shown
     assert len(shown) == 2, shown
     attempts = sorted(m["attempt"] for m in shown.values())
-    assert attempts == [0, 3], attempts
+    assert attempts == [0, drills.STEP_ATTEMPTS], attempts
     assert outcome.other_work_s < 120, outcome.other_work_s
     assert outcome.purge_refused_status != 0
     assert outcome.depth_after_refusal >= 2, "a purge without CONFIRM deleted"

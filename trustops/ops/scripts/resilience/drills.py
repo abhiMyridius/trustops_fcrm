@@ -798,7 +798,10 @@ def replay_a_finished_step(stack: Stack, case_id: str) -> ReplayOutcome:
             exchange="dlx",
             message_id=event_id,
             message_type="harness.step",
-            headers={"x-attempt": 3, "x-last-error": "UpstreamUnavailableError"},
+            headers={
+                "x-attempt": STEP_ATTEMPTS,
+                "x-last-error": "UpstreamUnavailableError",
+            },
         )
         wait_for_depth(stack, STEPS_DLQ, base + 1, timeout_s=30.0)
         shown = next(
