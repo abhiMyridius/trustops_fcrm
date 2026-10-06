@@ -379,7 +379,9 @@ class AgentJobConsumer(Consumer):
                 await self._write_audit_entries(job, audit_entries(result, spec))
                 return
             reason = self._failure_reason(result)
-            await self._publish_failed(job, attempt=attempt_count, reason=reason)
+            await self._publish_failed(
+                job, attempt=attempt_count, reason=reason, usage=usage
+            )
             await self._write_audit_entries(
                 job, audit_entries(result, spec, failed_reason=reason)
             )
@@ -460,7 +462,12 @@ class AgentJobConsumer(Consumer):
         )
 
     async def _publish_failed(
-        self, job: JobPayload, *, attempt: int, reason: str
+        self,
+        job: JobPayload,
+        *,
+        attempt: int,
+        reason: str,
+        usage: Optional[dict[str, int]] = None,
     ) -> None:
         payload = AgentFailed(
             job_id=job.job_id,
@@ -469,6 +476,7 @@ class AgentJobConsumer(Consumer):
             agent=job.agent,
             attempt=attempt,
             reason=reason,
+            usage=dict(usage or {}),
         )
         env = build_envelope(
             "agent.failed",

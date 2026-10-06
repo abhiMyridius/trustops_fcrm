@@ -104,6 +104,12 @@ class AgentFailed(BaseModel):
     attempt: int
     reason: str
     raw_inputs_ref: Optional[str] = None
+    # What the job spent before it failed: input_tokens, output_tokens, and the
+    # cache keys, as in ``AgentDone.usage`` (every attempt included). Empty when
+    # no model call was made (a context pack that could not be built, a budget
+    # refusal). H1 settles the case token ledger from it, so a job that fails
+    # after two attempts is charged for both.
+    usage: dict[str, int] = Field(default_factory=dict)
 
 
 class GateOpened(BaseModel):
