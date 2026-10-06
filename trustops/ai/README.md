@@ -52,7 +52,7 @@ Running cases keep the set they pinned. New cases get the new set.
 
 ## Model ids live in one file
 
-Model ids appear only in `models/tiers.yaml`. Every other file names a tier. A lock test elsewhere (`tests/registry/test_locks.py::test_no_model_ids_outside_tiers`, owned by the loader lane) greps the repository for model-id shapes and fails on any hit outside that file. `ai/_tools/validate_ai.py` runs the same check over `ai/` today. To change a model: re-verify the id against the Bedrock account, edit `tiers.yaml`, add a decision-log row, and re-run the evals for every agent on that tier.
+Model ids appear only in `models/tiers.yaml`. Every other file names a tier. A lock test elsewhere (`tests/registry/test_locks.py::test_no_model_ids_outside_tiers`, owned by the loader lane) greps the repository for model-id shapes and fails on any hit outside that file. `ai/_tools/validate_ai.py` runs the same check over `ai/`, `src/backend`, `src/frontend/src`, `evals` and `ops` (the few files that may name an id, each with its reason, are `MODEL_ID_ALLOWED` there), and `make check` runs it through `make ai-check`. To change a model: re-verify the id against the Bedrock account, edit `tiers.yaml`, add a decision-log row, and re-run the evals for every agent on that tier.
 
 ## Checking this folder
 

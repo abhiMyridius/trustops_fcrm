@@ -161,6 +161,12 @@ class CaseRun:
     """Running totals (``agents_run``, ``tokens_used``...) bumped atomically by
     :meth:`CaseRunStore.bump_counters`.
     """
+    suspended_from: Optional[CaseState] = None
+    """The state the run was in when an agent failed after its retry and it moved
+    to HANDOFF. Set by the transition into HANDOFF, kept while the run stays there
+    (a second failed job), and cleared by the one that leaves it: the run resumes
+    to this state when the analyst completes the step by hand.
+    """
 
     @property
     def state(self) -> CaseState:
@@ -194,6 +200,7 @@ def new_case_run_document(
         "pending_steps": [],
         "refs": {},
         "counters": {},
+        "suspended_from": None,
     }
 
 
@@ -231,6 +238,9 @@ def case_run_from_document(doc: Document) -> CaseRun:
         pending_steps=tuple(doc.get("pending_steps") or ()),
         refs=dict(doc.get("refs") or {}),
         counters={str(k): int(v) for k, v in (doc.get("counters") or {}).items()},
+        suspended_from=(
+            CaseState(doc["suspended_from"]) if doc.get("suspended_from") else None
+        ),
     )
 
 
@@ -242,6 +252,8 @@ def context_to_document(context: TransitionContext) -> dict[str, Any]:
     """
     document = {f.name: getattr(context, f.name) for f in dataclasses.fields(context)}
     document["flags"] = context.flags.model_dump(mode="json")
+    if context.resume_state is not None:
+        document["resume_state"] = CaseState(context.resume_state).value
     return document
 
 
@@ -254,6 +266,8 @@ def context_from_document(document: Mapping[str, Any]) -> TransitionContext:
     flags = document.get("flags")
     if flags is not None:
         data["flags"] = RunFlags.model_validate(flags)
+    if data.get("resume_state") is not None:
+        data["resume_state"] = CaseState(data["resume_state"])
     return TransitionContext(**data)
 
 
@@ -322,6 +336,18 @@ def step_done_document(
         "action": f"step {step} done",
         "data": {"step_id": step_id, "step": step},
     }
+
+
+def _suspended_from(run: CaseRun, to_state: CaseState) -> Optional[CaseState]:
+    """What ``suspended_from`` holds after ``run`` moves to ``to_state``: the state
+    it leaves when it enters HANDOFF, the same one while it stays there, none
+    otherwise.
+    """
+    if to_state is not CaseState.HANDOFF:
+        return None
+    if run.state is CaseState.HANDOFF:
+        return run.suspended_from
+    return run.state
 
 
 def _check_key(key: str) -> str:
@@ -488,6 +514,10 @@ class CaseRunStore:
             },
             "$inc": {"version": 1},
         }
+        suspended_from = _suspended_from(run, to_state)
+        update["$set"]["suspended_from"] = (
+            suspended_from.value if suspended_from is not None else None
+        )
         if to_state is CaseState.CLOSED:
             update["$set"]["closed_at"] = now
         await self._case_runs.update_one(
@@ -514,6 +544,7 @@ class CaseRunStore:
             pending_steps=run.pending_steps,
             refs=run.refs,
             counters=run.counters,
+            suspended_from=suspended_from,
         )
 
     async def set_band(

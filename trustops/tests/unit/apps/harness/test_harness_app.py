@@ -273,3 +273,13 @@ def test_build_app_raises_a_clear_error_when_the_ai_root_has_no_tiers_file(
     (tmp_path / "models" / "tiers.yaml").unlink()
     with pytest.raises(ModelConfigError, match="tiers.yaml"):
         build_app(settings)
+
+
+def test_both_bedrock_regions_reach_h2(tmp_path: Path):
+    """H2 decides whether a second region adds anything by comparing the two, so
+    the harness hands it the primary region as well as the fallback."""
+    agent = _settings(
+        tmp_path, aws_region="us-east-1", bedrock_region_fallback="us-west-2"
+    ).agent_worker_settings()
+    assert agent.aws_region == "us-east-1"
+    assert agent.bedrock_region_fallback == "us-west-2"

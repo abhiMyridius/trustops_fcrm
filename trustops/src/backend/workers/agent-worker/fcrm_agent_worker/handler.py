@@ -71,6 +71,7 @@ from fcrm_agent_worker.live_runtime import (
     live_model_for_slot,
     run_agent_live,
 )
+from fcrm_agent_worker.raw_inputs import RawInputsSink
 from fcrm_agent_worker.topology import (
     AGENT_WORKER_RUN_QUEUE,
     ROUTING_KEY_AGENT_DONE,
@@ -288,6 +289,7 @@ class AgentJobConsumer(Consumer):
         tool_call_cap: Optional[int] = None,
         client: Optional[AsyncMongoClient[Document]] = None,
         max_attempts: int = 3,
+        raw_inputs: Optional[RawInputsSink] = None,
     ) -> None:
         """Wire one job's dependencies.
 
@@ -316,6 +318,9 @@ class AgentJobConsumer(Consumer):
                 (see ``fcrm_common.events.Consumer``).
             max_attempts: Broker-level retries before the DLQ (distinct
                 from the guard chain's own attempt budget).
+            raw_inputs: Where a failed job's inputs are kept for the
+                human handoff; ``None`` keeps none (a failure then names
+                no ``raw_inputs_ref``).
         """
         super().__init__(
             AGENT_WORKER_RUN_QUEUE,
@@ -325,6 +330,7 @@ class AgentJobConsumer(Consumer):
             max_attempts=max_attempts,
         )
         self._registry = registry
+        self._raw_inputs = raw_inputs
         self._permit = PermitGuard(permit_client)
         self._audit = audit
         self._tiers_config = tiers_config
@@ -379,7 +385,10 @@ class AgentJobConsumer(Consumer):
                 await self._write_audit_entries(job, audit_entries(result, spec))
                 return
             reason = self._failure_reason(result)
-            await self._publish_failed(job, attempt=attempt_count, reason=reason)
+            ref = await self._keep_inputs(job, pack)
+            await self._publish_failed(
+                job, attempt=attempt_count, reason=reason, raw_inputs_ref=ref
+            )
             await self._write_audit_entries(
                 job, audit_entries(result, spec, failed_reason=reason)
             )
@@ -400,8 +409,12 @@ class AgentJobConsumer(Consumer):
                 "context pack build failed; reporting agent.failed",
                 extra={"agent": job.agent.value, "error": type(exc).__name__},
             )
+            ref = await self._keep_inputs(job, None, error=str(exc))
             await self._publish_failed(
-                job, attempt=job.attempt, reason=f"context_pack_error: {exc}"
+                job,
+                attempt=job.attempt,
+                reason=f"context_pack_error: {exc}",
+                raw_inputs_ref=ref,
             )
             await self._write_audit_entries(
                 job,
@@ -459,8 +472,27 @@ class AgentJobConsumer(Consumer):
             self._publisher, default_exchange("agent.done"), ROUTING_KEY_AGENT_DONE, env
         )
 
+    async def _keep_inputs(
+        self,
+        job: JobPayload,
+        pack: Optional[ContextPack],
+        *,
+        error: Optional[str] = None,
+    ) -> Optional[str]:
+        """Keep what the failed job was given, for the person who finishes it:
+        the reference to name in ``agent.failed``, or ``None``.
+        """
+        if self._raw_inputs is None:
+            return None
+        return await self._raw_inputs.save(job, pack, error=error)
+
     async def _publish_failed(
-        self, job: JobPayload, *, attempt: int, reason: str
+        self,
+        job: JobPayload,
+        *,
+        attempt: int,
+        reason: str,
+        raw_inputs_ref: Optional[str] = None,
     ) -> None:
         payload = AgentFailed(
             job_id=job.job_id,
@@ -469,6 +501,7 @@ class AgentJobConsumer(Consumer):
             agent=job.agent,
             attempt=attempt,
             reason=reason,
+            raw_inputs_ref=raw_inputs_ref,
         )
         env = build_envelope(
             "agent.failed",

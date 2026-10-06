@@ -47,8 +47,10 @@ if TYPE_CHECKING:
     from fcrm_case.analyst_write_store import InMemoryAnalystWriteStore
     from fcrm_case.assessment_store import InMemoryAssessmentStore
     from fcrm_case.directory import AnalystLoadService, StaticIdentityDirectory
+    from fcrm_case.domain.analyst_handoff import HandoffGateRow
     from fcrm_case.domain.record import CaseRecord
     from fcrm_case.domain.views import ReviewItemRow
+    from fcrm_case.handoff_store import InMemoryHandoffGateStore
     from fcrm_case.outcome_store import InMemoryOutcomeStore
     from fcrm_case.po_followup_store import InMemoryPoFollowupStore
     from fcrm_case.po_store import InMemoryPoStore
@@ -807,12 +809,13 @@ def case_service(
     """
     from fastapi.testclient import TestClient
     from fcrm_case.directory import AnalystLoadService, StaticIdentityDirectory
-    from fcrm_case.fieldset_provider import active_type_domains, field_set_for
+    from fcrm_case.fieldset_provider import active_type_domains
     from fcrm_case.main import create_app
     from fcrm_case.outcome_store import InMemoryOutcomeStore
     from fcrm_case.po_documents import DirectoryFixtures
     from fcrm_case.po_store import InMemoryPoStore
     from fcrm_case.po_uploads import DocumentIntake
+    from fcrm_case.policy_config import seed_policy_config
     from fcrm_case.settings import CaseSettings
     from fcrm_common.auth import current_user
     from fcrm_common.authz import install_authz
@@ -840,10 +843,13 @@ def case_service(
     app.state.loads = loads
     settings = CaseSettings(sse_heartbeat_s=0.01, sse_max_lifetime_s=0.05)
     app.state.settings = settings
+    app.state.policy_config = seed_policy_config()
+    # Late-bound: ``case_service_on_policy`` swaps ``app.state.policy_config`` for
+    # one that reads a fake S3, and the store must follow it.
     po = InMemoryPoStore(
         case_store,
         view_store,
-        field_sets=field_set_for,
+        field_sets=lambda version: app.state.policy_config.field_set(version),
         type_domains=active_type_domains(),
     )
     objects = FakeObjectStore()
@@ -1330,11 +1336,22 @@ class LiveCase:
 
 
 @pytest.fixture
+def live_policy_client() -> Any:
+    """The client S1's live lifespan reads S3's versions in force and field sets
+    through. ``None`` leaves it to ``POLICY_SERVICE_URL`` (unset here, so S1 knows
+    only the seed); ``tests/integration/services/case/conftest.py`` overrides this
+    for a module that declares ``ON_POLICY = True`` with a client to a live S3.
+    """
+    return None
+
+
+@pytest.fixture
 async def live_case(
     live_db: Any,
     recording_publisher: RecordingPublisher,
     bearer_for: Callable[..., dict[str, str]],
     allow_all_opa: OPAClient,
+    live_policy_client: Any,
 ) -> AsyncIterator[LiveCase]:
     """The S1 lifespan on a real Mongo: indexes ensured, the seed loaded
     (``SEED_ON_EMPTY``), the outbox relay running under the case lease with
@@ -1374,7 +1391,7 @@ async def live_case(
     )
     app = create_app(standalone=False)
     try:
-        async with register(app, settings, deps):
+        async with register(app, settings, deps, policy_client=live_policy_client):
             directory = StaticIdentityDirectory(
                 [
                     RosterUser(id=uid, name=name, roles=[Role.ANALYST])
@@ -1910,13 +1927,14 @@ def analyst_store(
     decided items, the staged activity), over the same stores the routes read.
     """
     from fcrm_case.analyst_write_store import InMemoryAnalystWriteStore
-    from fcrm_case.fieldset_provider import active_type_domains, field_set_for
+    from fcrm_case.fieldset_provider import active_type_domains
+    from fcrm_case.policy_config import seed_policy_config
 
     return InMemoryAnalystWriteStore(
         case_store,
         view_store,
         assessment_store,
-        field_sets=field_set_for,
+        field_sets=seed_policy_config().field_set,
         type_domains=active_type_domains(),
     )
 
@@ -1949,6 +1967,84 @@ def review_service(
     )
     for row in demo_review_items:
         case_service.views.items[row.item_id] = row
+    act_as(Role.ANALYST, ANALYST_SUB)
+    return case_service
+
+
+@pytest.fixture
+def handoff_store() -> InMemoryHandoffGateStore:
+    """S1's in-memory record of the ``handoff`` gates Caseflow opened."""
+    from fcrm_case.handoff_store import InMemoryHandoffGateStore
+
+    return InMemoryHandoffGateStore()
+
+
+@pytest.fixture
+def make_handoff_gate(
+    handoff_store: InMemoryHandoffGateStore,
+) -> Callable[..., HandoffGateRow]:
+    """``make_handoff_gate(agent="research", gate_id="gate_h1", case_id=...)``: a
+    handoff gate S1 was told of (what ``gate.opened`` makes it hold).
+    """
+    from datetime import UTC, datetime
+
+    from fcrm_case.domain.analyst_handoff import HandoffGateRow
+
+    def _make(
+        agent: str = "research",
+        gate_id: str = "gate_h1",
+        job_id: str = "job_r1",
+        case_id: str = "FCRM-2026-0151",
+        run_id: str = "run_1",
+        opened_at: Any = None,
+    ) -> HandoffGateRow:
+        row = HandoffGateRow(
+            gate_id=gate_id,
+            case_id=case_id,
+            run_id=run_id,
+            agent=agent,
+            job_id=job_id,
+            step="assess",
+            reason="guard4_rejected: schema mismatch",
+            attempt=2,
+            raw_inputs_ref=f"agent_raw_inputs/{job_id}",
+            raw_inputs="## Case\nRemittances to Mexico",
+            raw_inputs_sha256="ab" * 32,
+            raw_inputs_bytes=27,
+            opened_at=opened_at or datetime(2026, 10, 6, 9, tzinfo=UTC),
+        )
+        handoff_store.rows[row.gate_id] = row
+        return row
+
+    return _make
+
+
+@pytest.fixture
+def handoff_service(
+    case_service: CaseService,
+    assessment_store: InMemoryAssessmentStore,
+    analyst_store: InMemoryAnalystWriteStore,
+    handoff_store: InMemoryHandoffGateStore,
+    act_as: Callable[[Role, str], None],
+    stored_case: CaseRecord,
+) -> CaseService:
+    """The S1 app with the handoff gates wired, the demo case held by Rahul Iyer
+    in ``handoff`` (run ``run_1``: an agent failed twice), called as Rahul.
+    """
+    from fcrm_contracts.enums import CaseState, Role
+
+    app = case_service.client.app
+    app.state.assessment = assessment_store  # type: ignore[attr-defined]
+    app.state.analyst_store = analyst_store  # type: ignore[attr-defined]
+    app.state.handoffs = handoff_store  # type: ignore[attr-defined]
+    case_service.store._cases[stored_case.case_id] = stored_case.model_copy(
+        update={
+            "state": CaseState.HANDOFF,
+            "analyst_id": ANALYST_SUB,
+            "analyst_name": "Rahul Iyer",
+            "run_id": "run_1",
+        }
+    )
     act_as(Role.ANALYST, ANALYST_SUB)
     return case_service
 
@@ -2808,3 +2904,149 @@ async def live_analyst(
     )
     async with live_caller(principal) as client:
         yield client
+
+
+# ── S3's versions in force and field sets, as S1 reads them (lane I6-E) ───────
+class FakePolicy:
+    """The two reads S1 makes of S3, answered over ``httpx.MockTransport``: the
+    versions in force (``GET /internal/config/pins``) and a field set by version
+    (``GET /field-sets/{version}``). It starts as the seed (every pin and field
+    set v6); ``publish_*`` moves what is in force the way a configuration publish
+    does, and ``failure`` makes every call fail (an exception is raised by the
+    transport, a response is returned).
+    """
+
+    def __init__(self) -> None:
+        from fcrm_case.fieldset_provider import (
+            active_field_set,
+            active_pinned_versions,
+        )
+        from fcrm_contracts.api.policy import FieldDef, FieldSetOut
+
+        seed = active_field_set()
+        self.pins = active_pinned_versions()
+        self.field_sets: dict[str, dict[str, Any]] = {
+            f"v{seed.version}": FieldSetOut(
+                version=f"v{seed.version}",
+                active=True,
+                max_required=seed.max_required,
+                completion_threshold=seed.completion_threshold,
+                always_required=[
+                    FieldDef(field_id=f["id"], label=f["label"], always_required=True)
+                    for f in seed.always_required
+                ],
+                per_type={
+                    t: [
+                        FieldDef(
+                            field_id=f["id"],
+                            label=f["label"],
+                            always_required=False,
+                            change_type=t,
+                        )
+                        for f in fields
+                    ]
+                    for t, fields in seed.per_type.items()
+                },
+            ).model_dump(mode="json")
+        }
+        self.requests: list[tuple[str, Optional[str]]] = []
+        self.failure: Optional[Any] = None
+
+    def publish_pins(self, **changes: Any) -> None:
+        """Put new versions in force (``controls_v=10``...)."""
+        self.pins = self.pins.model_copy(update=changes)
+
+    def publish_field_set(
+        self,
+        version: int,
+        extra_always_required: tuple[dict[str, str], ...] = (),
+        **changes: Any,
+    ) -> None:
+        """Publish field set ``version`` (the seed's v6 with ``changes``, and
+        ``extra_always_required`` fields added to the always-required set) and put
+        it in force.
+        """
+        body = {**self.field_sets["v6"], "version": f"v{version}", **changes}
+        body["always_required"] = [
+            *body["always_required"],
+            *[
+                {
+                    "field_id": f["id"],
+                    "label": f["label"],
+                    "always_required": True,
+                    "change_type": None,
+                }
+                for f in extra_always_required
+            ],
+        ]
+        self.field_sets[f"v{version}"] = body
+        self.publish_pins(fieldset_v=version)
+
+    def handle(self, request: Any) -> Any:
+        """The transport: records the call, then answers or fails."""
+        import httpx
+
+        self.requests.append((request.url.path, request.headers.get("authorization")))
+        if isinstance(self.failure, Exception):
+            raise self.failure
+        if self.failure is not None:
+            return self.failure
+        if request.url.path.endswith("/internal/config/pins"):
+            return httpx.Response(200, json=self.pins.model_dump(mode="json"))
+        label = request.url.path.rsplit("/", 1)[-1]
+        body = self.field_sets.get(label)
+        if body is None:
+            return httpx.Response(404, json={"detail": f"No field set {label!r}."})
+        return httpx.Response(200, json=body)
+
+    def paths(self) -> list[str]:
+        """The paths asked, in order."""
+        return [path for path, _ in self.requests]
+
+    def config(self, **kwargs: Any) -> Any:
+        """A :class:`~fcrm_case.policy_config.PolicyConfig` over this fake (one
+        attempt per call, so a failure is immediate).
+        """
+        import httpx
+        from fcrm_case.fieldset_provider import (
+            active_field_set,
+            active_pinned_versions,
+        )
+        from fcrm_case.policy_config import PolicyConfig
+        from fcrm_common.http import ServiceClient
+
+        client = ServiceClient(
+            "http://policy.test/api/fcrm/policy",
+            dependency="policy",
+            caller="fcrm-case",
+            token_secret="x" * 32,
+            transport=httpx.MockTransport(self.handle),
+            retries=0,
+        )
+        return PolicyConfig(
+            seed_field_set=active_field_set(),
+            seed_pins=active_pinned_versions(),
+            client=client,
+            **kwargs,
+        )
+
+
+@pytest.fixture
+def fake_policy() -> FakePolicy:
+    """A fake S3 for S1's reads of the versions in force and the field sets; it
+    serves the seed until a test publishes.
+    """
+    return FakePolicy()
+
+
+@pytest.fixture
+def case_service_on_policy(
+    case_service: CaseService, fake_policy: FakePolicy
+) -> CaseService:
+    """:func:`case_service` reading the versions in force and the field sets from
+    :func:`fake_policy` instead of the seed alone. The versions in force are not
+    cached (TTL 0), so a ``publish_*`` shows on the next case.
+    """
+    app = case_service.client.app
+    app.state.policy_config = fake_policy.config(pins_ttl_s=0)  # type: ignore[attr-defined]
+    return case_service

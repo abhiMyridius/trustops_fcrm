@@ -9,6 +9,7 @@ import { useAssessment, useCompleteness } from '@/api/queries/analystQueries';
 import { useStreamStatus } from '@/api/sse/useCaseStream';
 import { userMessage } from '@/api/errors';
 import type { ScoreBox, WorkbenchHeader } from '@/api/types/analyst';
+import { HandoffControl } from '@/features/analyst/HandoffControl';
 import { ScoreBadge } from '@/components/domain/ScoreBadge';
 import { SourceChip } from '@/components/domain/SourceChip';
 import { AuditRecordChip } from '@/components/domain/AuditRecordChip';
@@ -76,9 +77,10 @@ export function SummaryTab() {
             <div className="flex flex-col gap-5">
               {a.agent_failed && (
                 <Banner tone="danger" title={`${a.agent_failed.step} step handed to a person`}>
-                  {a.agent_failed.reason}. Re-run from the harness panel.
+                  {a.agent_failed.reason}. Nothing was skipped: complete the step by hand below.
                 </Banner>
               )}
+              {a.agent_failed && <HandoffControl caseId={id} />}
               {a.critic_findings.length > 0 && (
                 <Banner tone="danger" title={`Critic · ${a.critic_findings.length} findings (${a.critic_findings[0]?.severity})`}>
                   <ul className="flex flex-col gap-1">

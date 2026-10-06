@@ -34,6 +34,13 @@ class CaseSettings(BaseServiceSettings, S3Settings):
     set it is derived from ``IDENTITY_JWKS_URL`` or ``IDENTITY_VALIDATE_URL``,
     which already point at X1 (the ``api`` container is not handed the
     harness's service URLs).
+
+    ``POLICY_SERVICE_URL`` is S3's base URL including its prefix (compose:
+    ``http://api:8000/api/fcrm/policy``, same process, reached by URL with S1's
+    service token): the versions in force a new case pins and the field-set
+    versions a pinned case resolves its fields against
+    (:mod:`fcrm_case.policy_config`). Unset, S1 pins the seed's versions and
+    knows only the seed's field set, and says so at startup.
     """
 
     required_settings: ClassVar[tuple[str, ...]] = (
@@ -50,6 +57,7 @@ class CaseSettings(BaseServiceSettings, S3Settings):
     sse_max_lifetime_s: float = Field(default=3600.0, gt=0)
     sse_queue_size: int = Field(default=256, ge=1)
     identity_service_url: Optional[str] = None
+    policy_service_url: Optional[str] = None
 
     @property
     def upload_allowed_extensions_list(self) -> list[str]:

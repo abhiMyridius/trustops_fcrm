@@ -757,6 +757,8 @@ test_po_denied_every_analyst_route if {
 		["POST", "/cases/{case_id}/recommendation/unlock"],
 		["POST", "/cases/{case_id}/close"],
 		["POST", "/cases/{case_id}/items/{item_id}"],
+		["POST", "/cases/{case_id}/handoff/{gate_id}/complete"],
+		["GET", "/cases/{case_id}/handoff/gates"],
 		["PUT", "/cases/{case_id}/recommendation"],
 		["GET", "/conditions"],
 		["PATCH", "/conditions/{cnd_id}"],
@@ -884,6 +886,7 @@ analyst_write_routes := {
 	["PUT", "/cases/{case_id}/recommendation"],
 	["POST", "/cases/{case_id}/recommendation/lock"],
 	["POST", "/cases/{case_id}/recommendation/unlock"],
+	["POST", "/cases/{case_id}/handoff/{gate_id}/complete"],
 }
 
 test_the_analyst_may_call_every_analyst_write_route if {
@@ -905,6 +908,16 @@ test_the_committee_may_not_call_an_analyst_write_route if denied_every_analyst_w
 test_the_observer_may_not_call_an_analyst_write_route if denied_every_analyst_write("fcrm_observer")
 
 test_the_service_account_may_not_call_an_analyst_write_route if denied_every_analyst_write("fcrm_service")
+
+# The handoff gates are an analyst read: the committee, the observer and the PO have no
+# allow row for it (a failed step is the analyst's to see and finish, the PO is told
+# the stage and nothing of why).
+test_only_the_analyst_reads_the_handoff_gates if {
+	authz.allow with input as req("fcrm_analyst", "case", "GET", "/cases/{case_id}/handoff/gates")
+	every role in {"fcrm_po", "fcrm_committee", "fcrm_observer"} {
+		not authz.allow with input as req(role, "case", "GET", "/cases/{case_id}/handoff/gates")
+	}
+}
 
 # The PO's follow-up routes (fcrm_case.routes_po_followup): the PO only; the
 # analyst has no allow row and the service account is denied (Guard 7).

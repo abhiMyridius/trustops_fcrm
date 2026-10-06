@@ -134,6 +134,39 @@ export interface AssessmentSummary {
   agent_failed: { step: string; reason: string } | null;
 }
 
+/** A job an agent failed twice on, waiting for the analyst (`GET /cases/{id}/handoff/gates`). */
+export interface HandoffGate {
+  gate_id: string;
+  agent: string;
+  job_id: string;
+  step: string | null;
+  reason: string;
+  attempt: number;
+  raw_inputs_ref: string | null;
+  /** What the agent was given, while the gate is open; cut when `raw_inputs_truncated`. */
+  raw_inputs: string | null;
+  raw_inputs_sha256: string | null;
+  raw_inputs_truncated: boolean;
+  raw_inputs_error: string | null;
+  opened_at: string;
+  status: 'open' | 'decided';
+}
+
+export interface HandoffGates {
+  case_id: string;
+  gates: HandoffGate[];
+}
+
+export interface HandoffCompleted {
+  case_id: string;
+  gate_id: string;
+  agent: string;
+  job_id: string;
+  items: number;
+  decided_by: string;
+  replayed: boolean;
+}
+
 export interface SubmissionField {
   field_id: string;
   label: string;

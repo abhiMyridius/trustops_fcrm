@@ -109,11 +109,6 @@ from fcrm_case.domain.views import (
     IntakeViewRow,
     ReviewItemRow,
 )
-from fcrm_case.fieldset_provider import (
-    active_field_set,
-    active_pinned_versions,
-    field_set_for,
-)
 from fcrm_case.po_documents import IncomingFile
 from fcrm_case.po_errors import (
     NotReadyError,
@@ -142,6 +137,7 @@ from fcrm_case.po_views import (
     review_view,
     submit_result,
 )
+from fcrm_case.policy_config import PolicyConfig
 from fcrm_case.sse import ActivityWriter
 from fcrm_case.store import CaseStore
 from fcrm_case.views_store import ViewStore
@@ -326,6 +322,9 @@ class PoService:
         po: The PO store (atomic writes, bulk summaries).
         writer: Publishes committed activity rows to the case stream.
         intake: Validates and stores uploaded documents.
+        config: The versions in force and the field sets (S3, seed as the
+            fallback): a new case pins what is in force now, and a case resolves
+            its fields against the field set it pinned.
     """
 
     def __init__(
@@ -336,12 +335,14 @@ class PoService:
         po: PoStore,
         writer: ActivityWriter,
         intake: DocumentIntake,
+        config: PolicyConfig,
     ) -> None:
         self._cases = cases
         self._views = views
         self._po = po
         self._writer = writer
         self._intake = intake
+        self._config = config
 
     # -- plumbing ----------------------------------------------------------------
 
@@ -355,6 +356,7 @@ class PoService:
             if write:
                 raise ForbiddenError("Only the owner of a case may change it.")
             raise NotFoundError(f"no such case {case_id}")
+        await self._config.load_field_set(record.fieldset_v)
         return record
 
     def _publish(self, committed: PoCommitted) -> None:
@@ -377,7 +379,7 @@ class PoService:
     def _intake_dto(self, record: CaseRecord, data: IntakeData) -> IntakeViewPO:
         return intake_view(
             record,
-            field_set_for(record.fieldset_v),
+            self._config.field_set(record.fieldset_v),
             rows=data.rows,
             categories=data.categories,
             gaps=data.gaps,
@@ -399,12 +401,15 @@ class PoService:
         closed; ``open_conditions`` counts the owner's conditions still open.
         """
         cases = await self._po.owner_cases(principal.sub)
+        await self._config.load_field_sets({c.fieldset_v for c in cases})
         summaries, average = await asyncio.gather(
             self._po.summaries([c.case_id for c in cases]),
             self._po.average_days_to_decision(),
         )
         items = {
-            c.case_id: list_item(c, summaries[c.case_id], field_set_for(c.fieldset_v))
+            c.case_id: list_item(
+                c, summaries[c.case_id], self._config.field_set(c.fieldset_v)
+            )
             for c in cases
         }
         mine = [
@@ -439,10 +444,11 @@ class PoService:
             limit=limit,
             cursor=cursor,
         )
+        await self._config.load_field_sets({r.fieldset_v for r in page.items})
         summaries = await self._po.summaries([r.case_id for r in page.items])
         return Page[CasePOListItem](
             items=[
-                list_item(r, summaries[r.case_id], field_set_for(r.fieldset_v))
+                list_item(r, summaries[r.case_id], self._config.field_set(r.fieldset_v))
                 for r in page.items
             ],
             next_cursor=page.next_cursor,
@@ -459,9 +465,9 @@ class PoService:
         reject_reserved_terms(title, "The title", loc="body.title")
         reject_reserved_terms(unit, "The unit", loc="body.unit")
         now = utcnow()
-        field_set = active_field_set()
-        pins = active_pinned_versions()
         case_id = await self._cases.next_case_id(now.year)
+        pinned = await self._config.for_new_case(case_id)
+        field_set, pins = pinned.field_set, pinned.pins
         record = CaseRecord(
             case_id=case_id,
             title=title,
@@ -496,7 +502,9 @@ class PoService:
         """The case header, its stage, what to do next and its figures."""
         record = await self._record(case_id, principal, write=False)
         return case_po(
-            record, await self._summary(case_id), field_set_for(record.fieldset_v)
+            record,
+            await self._summary(case_id),
+            self._config.field_set(record.fieldset_v),
         )
 
     # -- documents ---------------------------------------------------------------
@@ -516,7 +524,7 @@ class PoService:
             data.docs,
             data.intake,
             data.categories,
-            completion_for(record, summary, field_set_for(record.fieldset_v)),
+            completion_for(record, summary, self._config.field_set(record.fieldset_v)),
             sharepoint_connected=status != "not_connected",
         )
 
@@ -679,7 +687,7 @@ class PoService:
         self, record: CaseRecord, data: IntakeData
     ) -> dict[str, FieldDef]:
         required = effective_required(
-            record, data.pending_types, field_set_for(record.fieldset_v)
+            record, data.pending_types, self._config.field_set(record.fieldset_v)
         )
         return {d.field_id: d for d in required}
 
@@ -1027,7 +1035,7 @@ class PoService:
         data = await self._load(case_id)
         return review_view(
             record,
-            field_set_for(record.fieldset_v),
+            self._config.field_set(record.fieldset_v),
             rows=data.rows,
             pending_types=data.pending_types,
             docs=data.docs,
@@ -1051,7 +1059,7 @@ class PoService:
     def _evaluate(
         self, record: CaseRecord, data: IntakeData
     ) -> tuple[SubmitChecks, CompletionResult, list[FieldDef]]:
-        field_set = field_set_for(record.fieldset_v)
+        field_set = self._config.field_set(record.fieldset_v)
         required = effective_required(record, data.pending_types, field_set)
         result = completion_result(required, _filled_ids(data.rows))
         checks = evaluate_submit_checks(

@@ -4088,6 +4088,211 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HandoffCompleteBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/handoff/{gate_id}/complete``: the proposals to stand in\nfor the failed job's output, and why a person is supplying them.\n\n``output`` is the JSON an agent's ``accepted`` list carries: each item is one\nof the proposal models the failed agent may emit. An empty list is accepted\nonly for an agent whose contract allows an empty result (the critic, the\nwatchlist, the policy-gap agent); the check says which.",
+        "properties": {
+          "output": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "maxItems": 200,
+            "title": "Output",
+            "type": "array"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 20,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "output",
+          "reason"
+        ],
+        "title": "HandoffCompleteBody",
+        "type": "object"
+      },
+      "HandoffCompleteResult": {
+        "additionalProperties": false,
+        "description": "What completing a handoff answers (202): the gate, the job it finished, how\nmany proposals were accepted and whether this call changed nothing because the\nsame output had already been recorded.",
+        "properties": {
+          "agent": {
+            "title": "Agent",
+            "type": "string"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "decided_by": {
+            "title": "Decided By",
+            "type": "string"
+          },
+          "gate_id": {
+            "title": "Gate Id",
+            "type": "string"
+          },
+          "items": {
+            "title": "Items",
+            "type": "integer"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "case_id",
+          "gate_id",
+          "agent",
+          "job_id",
+          "items",
+          "decided_by"
+        ],
+        "title": "HandoffCompleteResult",
+        "type": "object"
+      },
+      "HandoffGateView": {
+        "additionalProperties": false,
+        "description": "One failed job waiting for the analyst: what failed, how, and where the run\nstood. ``reason`` is the failure code and text H2 reported. ``raw_inputs`` is\nwhat the agent was given (the context pack as the model received it; cut,\n``raw_inputs_truncated`` says so) while the gate is open, ``raw_inputs_ref``\nnames the stored copy and ``raw_inputs_sha256`` is the digest the audit record\ncarries; ``raw_inputs_error`` says why there are none.",
+        "properties": {
+          "agent": {
+            "title": "Agent",
+            "type": "string"
+          },
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "gate_id": {
+            "title": "Gate Id",
+            "type": "string"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "opened_at": {
+            "format": "date-time",
+            "title": "Opened At",
+            "type": "string"
+          },
+          "raw_inputs": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Inputs"
+          },
+          "raw_inputs_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Inputs Error"
+          },
+          "raw_inputs_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Inputs Ref"
+          },
+          "raw_inputs_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Inputs Sha256"
+          },
+          "raw_inputs_truncated": {
+            "default": false,
+            "title": "Raw Inputs Truncated",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "decided"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          }
+        },
+        "required": [
+          "gate_id",
+          "agent",
+          "job_id",
+          "reason",
+          "attempt",
+          "opened_at",
+          "status"
+        ],
+        "title": "HandoffGateView",
+        "type": "object"
+      },
+      "HandoffGatesView": {
+        "additionalProperties": false,
+        "description": "``GET /cases/{id}/handoff/gates``: the case's handoff gates, oldest first,\nopen ones and decided ones, so the page can show what was finished by hand.",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "gates": {
+            "items": {
+              "$ref": "#/components/schemas/HandoffGateView"
+            },
+            "title": "Gates",
+            "type": "array"
+          }
+        },
+        "required": [
+          "case_id",
+          "gates"
+        ],
+        "title": "HandoffGatesView",
+        "type": "object"
+      },
       "HandoffView": {
         "additionalProperties": false,
         "properties": {
@@ -15035,6 +15240,121 @@
           }
         ],
         "summary": "Handoff",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/handoff/gates": {
+      "get": {
+        "description": "The jobs an agent failed twice on and that wait for the analyst, with the\nones already completed by hand.",
+        "operationId": "S1_get_handoff_gates_cases__case_id__handoff_gates_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoffGatesView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Handoff Gates",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/handoff/{gate_id}/complete": {
+      "post": {
+        "description": "Finish a failed job by hand: the proposals the agent should have produced\nand a reason of at least 20 characters. The output is checked like an agent's\n(422 names each problem), stored, then ``gate.decided handoff`` carries it to\nCaseflow, which resumes the run as if the agent had finished.",
+        "operationId": "S1_complete_handoff_cases__case_id__handoff__gate_id__complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "gate_id",
+            "required": true,
+            "schema": {
+              "title": "Gate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandoffCompleteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoffCompleteResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Complete Handoff",
         "tags": [
           "analyst"
         ]

@@ -436,6 +436,28 @@
         "effect": "allow"
       },
       {
+        "id": "case-get-cases-id-handoff-gates-analyst",
+        "description": "analyst read: the handoff gates (jobs an agent failed twice on)",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/handoff/gates",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-post-cases-id-handoff-gate-id-complete-analyst",
+        "description": "gate handoff: the analyst completes a failed step by hand",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/handoff/{gate_id}/complete",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
         "id": "case-post-cases-id-clarifications-analyst",
         "description": "open a clarification round",
         "service": "case",
@@ -1623,6 +1645,17 @@
         "service": "case",
         "method": "POST",
         "path": "/cases/{id}/completeness",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-handoff-gate-id-complete",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/handoff/{gate_id}/complete",
         "roles": [
           "fcrm_service"
         ],

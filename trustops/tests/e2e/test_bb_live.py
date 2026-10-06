@@ -101,17 +101,16 @@ def test_bb_09_the_owners_answer_makes_v2_and_v1_stays_what_it_was(
 ) -> None:
     versions = analyst.json(analyst.get(_case("/submissions")))["items"]
     assert [v["version"] for v in versions] == [1, 2]
-    assert all(f["was"] is None for f in versions[0]["fields"]), (
-        "v1 holds the originals"
-    )
     diff = analyst.json(
         analyst.get(_case("/submissions/diff"), params={"from": 1, "to": 2})
     )
     assert diff["added_documents"], "v2 names what the owner added"
 
-    body: dict[str, Any] = {"decision": "correct", "value": "x", "reason": "y"}
+    body: dict[str, Any] = {"decision": "correct", "value": "x", "reason": "y" * 12}
     assert analyst.post(_case("/intake/values/F03"), body).status_code == 403
     assert po.post(_case("/intake/values/F03"), body).status_code == 409
+    again = analyst.json(analyst.get(_case("/submissions")))["items"]
+    assert again[0] == versions[0], "v1 is what it was after every attempt to change it"
 
 
 def test_bb_13_nothing_is_released_before_the_acknowledgements(chain: Chain) -> None:

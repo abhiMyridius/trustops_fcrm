@@ -181,29 +181,50 @@ def bedrock_chain(
     model_ids: Sequence[str],
     *,
     provider: Optional[BedrockProvider] = None,
+    region_fallback: Optional[BedrockProvider] = None,
 ) -> FallbackModel:
     """``FallbackModel`` of ``BedrockConverseModel``s for ``model_ids``, each with
     its own :func:`model_defaults`. ``provider`` defaults to the AWS default
-    credential chain and region."""
+    credential chain and region.
+
+    ``region_fallback`` (a provider for a second Bedrock region) adds one last
+    entry: the chain's first model id, served from that region. It is tried only
+    after every model in the first region failed, so a regional outage ends in
+    the model this slot meant to use rather than in the cheapest fallback. The
+    id is the one ``tiers.yaml`` gave; no id is written here (ADR-04).
+    """
     bedrock: Union[BedrockProvider, Literal["bedrock"]] = (
         provider if provider is not None else "bedrock"
     )
-    return FallbackModel(
-        *(
-            BedrockConverseModel(
-                model_id, provider=bedrock, settings=model_defaults(models, model_id)
-            )
-            for model_id in model_ids
+    children = [
+        BedrockConverseModel(
+            model_id, provider=bedrock, settings=model_defaults(models, model_id)
         )
-    )
+        for model_id in model_ids
+    ]
+    if region_fallback is not None and model_ids:
+        children.append(
+            BedrockConverseModel(
+                model_ids[0],
+                provider=region_fallback,
+                settings=model_defaults(models, model_ids[0]),
+            )
+        )
+    return FallbackModel(*children)
 
 
 def build_model(
-    models: TierModels, *, provider: Optional[BedrockProvider] = None
+    models: TierModels,
+    *,
+    provider: Optional[BedrockProvider] = None,
+    region_fallback: Optional[BedrockProvider] = None,
 ) -> FallbackModel:
     """``FallbackModel(primary, *fallbacks)`` of ``BedrockConverseModel``s
-    (design B §5.2, attempt 1)."""
-    return bedrock_chain(models, models.chain, provider=provider)
+    (design B §5.2, attempt 1), ending with the primary in the second region when
+    ``region_fallback`` is given (:func:`bedrock_chain`)."""
+    return bedrock_chain(
+        models, models.chain, provider=provider, region_fallback=region_fallback
+    )
 
 
 def build_agent(

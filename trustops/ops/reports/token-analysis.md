@@ -1,6 +1,8 @@
 # Token analysis
 
-How many tokens the nine agents use, what was wrong with the first design's budgets, what changed, and what is left. Every number below is read from a committed file; the file is named next to it. Cost is an estimate: tokens times the list prices in `ai/models/tiers.yaml`, which that file marks `placeholder_confirm_before_go_live`. Reconcile against the AWS bill.
+How many tokens the nine agents use, what was wrong with the first design's budgets, what changed, and what is left. Every number below is read from a committed file; the file is named next to it. Cost is an estimate: tokens times the list prices in `ai/models/tiers.yaml`, which are verified (AWS Price List API, us-east-1, Regional rate card, retrieved 2026-10-06; each row names its source). Reconcile against the AWS bill.
+
+**Dollar figures are recomputed.** The committed `index.json` files of the runs below were written at the earlier placeholder rates, so they show lower dollars (`price_status` in each). Every figure on this page is the run's recorded tokens at the verified prices. Every Anthropic rate is exactly 1.10x its placeholder (input, output, cache read, cache write), so an Anthropic call costs 1.10x what its file records, whichever models split a row. Rows that include Nova Lite (the cheap tier's fallback) are within USD 0.01 of that rule per run. The demo case's figure comes from the script's own total (no committed file records its per-call models), so it is the earlier figure of about 0.45 times 1.10, rounded. Tokens are unchanged.
 
 Sources used throughout:
 
@@ -40,20 +42,20 @@ Run 2 (`make evals` at `7249d2a`: 5 rows per agent, 1 for policy_gap, seed 7, Be
 
 | Agent | Rows | Model calls | Agent tokens | Per row | Cache read | Cache write | Agent cost (USD) |
 |---|---|---|---|---|---|---|---|
-| screening | 5 | 5 | 17,801 | 3,560 | 0 | 0 | 0.031 |
-| intake | 5 | 5 | 28,739 | 5,748 | 0 | 0 | 0.048 |
-| watchlist | 5 | 5 | 15,948 | 3,190 | 0 | 0 | 0.019 |
-| narrative | 5 | 5 | 24,781 | 4,956 | 20,790 | 0 | 0.032 |
-| examiner | 5 | 6 | 25,513 | 5,103 | 7,698 | 0 | 0.052 |
-| policy_gap | 1 | 1 | 6,526 | 6,526 | 5,595 | 0 | 0.007 |
-| research | 5 | 10 | 86,397 | 17,279 | 61,074 | 8,826 | 0.134 |
-| assessment | 5 | 6 | 53,605 | 10,721 | 35,004 | 0 | 0.132 |
-| critic | 5 | 5 | 30,240 | 6,048 | 20,385 | 0 | 0.108 |
-| **Agents, total** | 41 | 48 | **289,550** | | 150,546 | 8,826 | **0.563** |
-| Judge (Opus 5.5, 132 calls, grades narrative, examiner and critic) | | 132 | 235,700 | | 0 | 0 | 2.296 |
-| **Run total** | | | **525,250** | | | | **2.859** |
+| screening | 5 | 5 | 17,801 | 3,560 | 0 | 0 | 0.034 |
+| intake | 5 | 5 | 28,739 | 5,748 | 0 | 0 | 0.053 |
+| watchlist | 5 | 5 | 15,948 | 3,190 | 0 | 0 | 0.021 |
+| narrative | 5 | 5 | 24,781 | 4,956 | 20,790 | 0 | 0.035 |
+| examiner | 5 | 6 | 25,513 | 5,103 | 7,698 | 0 | 0.057 |
+| policy_gap | 1 | 1 | 6,526 | 6,526 | 5,595 | 0 | 0.008 |
+| research | 5 | 10 | 86,397 | 17,279 | 61,074 | 8,826 | 0.147 |
+| assessment | 5 | 6 | 53,605 | 10,721 | 35,004 | 0 | 0.145 |
+| critic | 5 | 5 | 30,240 | 6,048 | 20,385 | 0 | 0.119 |
+| **Agents, total** | 41 | 48 | **289,550** | | 150,546 | 8,826 | **0.619** |
+| Judge (Opus 5.5, 132 calls, grades narrative, examiner and critic) | | 132 | 235,700 | | 0 | 0 | 2.525 |
+| **Run total** | | | **525,250** | | | | **3.145** |
 
-Reading it: the cheap tier is cheap in tokens as well as in price (screening and watchlist about 3.2 to 3.6k a row, no cache because their prompts stay under the Haiku cache minimum of 4,096 tokens, tiers `cache_min_prefix_tokens`). Research is the most expensive agent (it makes a tool call, so it sends its request twice; its one retry is in the 10 calls). Cache reads are 150,546 tokens, billed at a tenth of the input rate or less (tiers prices: 0.1x for Haiku and Sonnet, 0.05x for Opus). **The judge is 80% of an eval run's cost** (2.30 of 2.86 USD): it grades every row on faithfulness, relevancy and hallucination, three votes on the narrative.
+Reading it: the cheap tier is cheap in tokens as well as in price (screening and watchlist about 3.2 to 3.6k a row, no cache because their prompts stay under the Haiku cache minimum of 4,096 tokens, tiers `cache_min_prefix_tokens`). Research is the most expensive agent (it makes a tool call, so it sends its request twice; its one retry is in the 10 calls). Cache reads are 150,546 tokens, billed at a tenth of the input rate or less (tiers prices: 0.1x for Haiku and Sonnet, 0.05x for Opus). **The judge is 80% of an eval run's cost** (2.53 of 3.14 USD): it grades every row on faithfulness, relevancy and hallucination, three votes on the narrative.
 
 ## 3. What was wrong before
 
@@ -68,7 +70,7 @@ The first live run (run 1, `make evals` at `4c715bb`, the system as shipped) pas
 | 5 | **A refused attempt's tokens were not charged.** `AgentDone.usage`, which H1 sums into the case total, held the last successful attempt only; a retried narrative row reported `[0, 8386]` | evals README fix 10 |
 | 6 | **Guard 4 failed closed on empty answers and citations did not resolve**, so rows were retried or blocked for contract reasons rather than model ones | evals README findings 2 to 4 |
 
-Run 1 spent 608,534 agent tokens and about USD 1.96 on agents (730,715 tokens and USD 3.14 with the judge) and completed 7 of its 41 rows (screening 0 of 5, intake 0, research 0, assessment 1, critic 0, narrative 1, examiner 5, watchlist 0, policy_gap 0 of 1).
+Run 1 spent 608,534 agent tokens and about USD 2.16 on agents (730,715 tokens and USD 3.46 with the judge) and completed 7 of its 41 rows (screening 0 of 5, intake 0, research 0, assessment 1, critic 0, narrative 1, examiner 5, watchlist 0, policy_gap 0 of 1).
 
 ## 4. What changed
 
@@ -81,7 +83,7 @@ Run 1 spent 608,534 agent tokens and about USD 1.96 on agents (730,715 tokens an
 | **Prompt-cache points per model** | Anthropic models cache the system prompt and tool definitions; run 2 read 150,546 tokens from cache and wrote 8,826. Nova rejects a cache point in the tool list, so it gets none | `8aed1d4` |
 | **A retry keeps the tier's whole output allowance, and thinking effort is low** | `max_tokens_factor` is 1.0 on every attempt; effort `low` on the thinking tiers. A live probe measured 12 to 51% fewer output tokens and no reasoning block; on the gate sample medium against low cost the critic 8 to 14k tokens an attempt against 5 to 7k and moved no metric | `756ea06`, `1e09d01` |
 | **A refused attempt's tokens are charged to the job** | `AgentDone.usage` holds every attempt | `176358c` |
-| **Screening applies R4 itself** | a quality fix that cost 0.62 USD to measure on 100 rows | `176358c` |
+| **Screening applies R4 itself** | a quality fix that cost 0.68 USD to measure on 100 rows | `176358c` |
 
 Result (run 2 against run 1, same command, same seed):
 
@@ -90,10 +92,10 @@ Result (run 2 against run 1, same command, same seed):
 | Gates passing | 1 of 9 | 8 of 9 |
 | Rows completed | 7 of 41 | 41 of 41 |
 | Agent tokens | 608,534 | 289,550 (down 52%) |
-| Agent cost | USD 1.96 | USD 0.56 (down 71%) |
+| Agent cost | USD 2.16 | USD 0.62 (down 71%) |
 | Agent tokens per completed row | about 86,900 | about 7,060 |
-| Judge cost | USD 1.18 over 54 calls | USD 2.30 over 132 calls |
-| Total | 730,715 tokens, USD 3.14 | 525,250 tokens, USD 2.86 |
+| Judge cost | USD 1.30 over 54 calls | USD 2.53 over 132 calls |
+| Total | 730,715 tokens, USD 3.46 | 525,250 tokens, USD 3.14 |
 
 The agents' own cost fell because they stopped being blocked and retried; the judge's rose because it now grades every row instead of the one that completed (evals README). The per-completed-row line is arithmetic from the two columns above it: run 1 mostly bought refusals.
 
@@ -122,12 +124,12 @@ Three honest points:
 
 | Run | Tokens | USD | Source |
 |---|---|---|---|
-| `make evals` (5 rows per agent, Bedrock judge), run 2 | 525,250 | 2.86 (agents 0.56, judge 2.30) | `evals/results/2026-10-06/index.json` |
-| The same, run 1 | 730,715 | 3.14 | `evals/results/2026-10-05/index.json` |
-| Diagnostic: budget lifted five times, prompts rendered, stand-in judge | about 1.4M | 4.26 | evals README |
-| Demo case, eleven agent jobs, no judge | 114,626 | about 0.45 | demo sum |
-| One agent over its whole dataset, no judge: screening (100 rows) | | 0.54 to 0.62 | evals README |
-| One agent over its whole dataset, no judge: watchlist (29 rows) | | 0.10 | evals README |
+| `make evals` (5 rows per agent, Bedrock judge), run 2 | 525,250 | 3.14 (agents 0.62, judge 2.53) | `evals/results/2026-10-06/index.json` |
+| The same, run 1 | 730,715 | 3.46 | `evals/results/2026-10-05/index.json` |
+| Diagnostic: budget lifted five times, prompts rendered, stand-in judge | about 1.4M | about 4.7 | evals README |
+| Demo case, eleven agent jobs, no judge | 114,626 | about 0.50 | demo sum |
+| One agent over its whole dataset, no judge: screening (100 rows) | | 0.59 to 0.68 | evals README |
+| One agent over its whole dataset, no judge: watchlist (29 rows) | | 0.11 | evals README |
 
 `make evals` is "about 7 minutes, USD 3" in the evals README, "about USD 4 and 10 minutes" in the Makefile comment, and took 11 minutes in run 1. `make evals-full` runs every row of every dataset and costs several times as much. Use `EVALS_ARGS="--judge fake"` while iterating on a prompt: it makes no judge calls, and every output says FAKE.
 
@@ -138,14 +140,14 @@ Three honest points:
 3. **A judge cache.** A re-grade pays the judge again. The judge is 80% of an eval run.
 4. **Cache the cheap tier.** Its prompts are under the 4,096-token Haiku minimum, so no cache point is emitted and screening, intake and watchlist read nothing from cache (tiers, run 2). A longer shared prefix would qualify; whether it pays is unmeasured.
 5. **Re-measure the demo case after `research.system` v3**, and measure the second intake window instead of estimating it.
-6. **Reconcile the price table with the AWS bill.** Every cost above uses placeholder list prices (tiers).
+6. **Reconcile the price table with the AWS bill.** The prices are verified against the AWS Price List (6 Oct 2026), not against an invoice; the first month's bill is the check on the rate card (a `global.` inference profile would be about 10% cheaper, at the cost of data residency).
 7. **Wire the runtime and build-time reports.** `make token-report` reads Prometheus (needs `make up-obs`) and writes `ops/token-analysis/runtime/`; no report has been committed. `make build-usage` (Claude Code session logs) is not wired.
 
 ## How to reproduce
 
 ```bash
 make evals                                                                    # about USD 3, 7 to 11 minutes; writes evals/results/<date>/
-uv run --project src/backend --all-packages python ops/scripts/demo_case_tokens.py   # about USD 0.45; add --only research,assessment for a subset
+uv run --project src/backend --all-packages python ops/scripts/demo_case_tokens.py   # about USD 0.50; add --only research,assessment for a subset
 make up-obs && make token-report                                              # runtime per-agent report from Prometheus
 ```
 

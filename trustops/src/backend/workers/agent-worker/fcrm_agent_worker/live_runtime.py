@@ -107,17 +107,66 @@ ModelFactory = Callable[[TierModels, AttemptPlan], Model]
 
 
 def live_model_for_slot(
-    models: TierModels, plan: AttemptPlan, *, provider: Optional[BedrockProvider] = None
+    models: TierModels,
+    plan: AttemptPlan,
+    *,
+    provider: Optional[BedrockProvider] = None,
+    region_fallback: Optional[BedrockProvider] = None,
 ) -> Model:
     """The real model for one attempt (design B §5.2, ``ModelSlot``):
     attempt 1 runs the tier's full ``FallbackModel(primary, *fallbacks)``
     (:func:`fcrm_agents.models.build_model`); attempt 2 runs a
     ``FallbackModel`` of the fallback models alone, so a Guard 4 retry
     never lands back on the model whose output it just rejected.
+
+    With ``region_fallback`` each chain ends with its first model in the second
+    region (``BEDROCK_REGION_FALLBACK``): attempt 1's primary, attempt 2's first
+    fallback, so the retry still never returns to the rejected model.
     """
     if plan.slot is ModelSlot.PRIMARY_WITH_FALLBACK:
-        return build_model(models, provider=provider)
-    return bedrock_chain(models, models.fallbacks, provider=provider)
+        return build_model(models, provider=provider, region_fallback=region_fallback)
+    return bedrock_chain(
+        models, models.fallbacks, provider=provider, region_fallback=region_fallback
+    )
+
+
+def _bedrock_provider(region: str) -> BedrockProvider:
+    """A Bedrock provider for ``region`` over the default credential chain."""
+    return BedrockProvider(region_name=region)
+
+
+def model_factory_for(
+    region_fallback: Optional[str],
+    primary_region: Optional[str] = None,
+    *,
+    provider_for: Callable[[str], BedrockProvider] = _bedrock_provider,
+) -> ModelFactory:
+    """The :data:`ModelFactory` H2 runs with: :func:`live_model_for_slot`, with a
+    second Bedrock region as the last fallback of every chain when
+    ``BEDROCK_REGION_FALLBACK`` names one that is not the primary region.
+
+    Args:
+        region_fallback: ``settings.bedrock_region_fallback``; empty or ``None``
+            means no second region.
+        primary_region: The region the default credential chain resolves
+            (``settings.aws_region``); a fallback equal to it adds nothing and is
+            ignored.
+        provider_for: Builds the provider for a region (a fake in tests). boto3
+            builds its client lazily, so this makes no network call.
+
+    Returns:
+        A factory with the ``(TierModels, AttemptPlan)`` signature.
+    """
+    region = (region_fallback or "").strip()
+    if not region or region == (primary_region or "").strip():
+        return live_model_for_slot
+    provider = provider_for(region)
+    logger.info("model chains end with a second Bedrock region: %s", region)
+
+    def factory(models: TierModels, plan: AttemptPlan) -> Model:
+        return live_model_for_slot(models, plan, region_fallback=provider)
+
+    return factory
 
 
 def _drop(

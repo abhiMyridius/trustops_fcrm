@@ -72,7 +72,7 @@ Run the init once per environment as a one-off ECS task with an admin URI: users
 | `harness` | `bedrock:InvokeModel` (the Converse calls) on the inference profiles and the foundation models behind them in every region the profiles span, and on the embedding model; S3 on the same buckets; its secrets |
 | execution role | pull from ECR, write to CloudWatch Logs, read the secrets it injects |
 
-Scope the Bedrock resource ARNs to exactly the profiles and models in `ai/models/tiers.yaml`; a cross-region profile needs the foundation-model permission in each region it routes to. The `us-west-2` region in `BEDROCK_REGION_FALLBACK` is read by no code.
+Scope the Bedrock resource ARNs to exactly the profiles and models in `ai/models/tiers.yaml`; a cross-region profile needs the foundation-model permission in each region it routes to. The second region in `BEDROCK_REGION_FALLBACK` (`us-west-2` by default) needs the same profile enabled and the same permission; H2 tries it last, after every model in the first region failed.
 
 - **Secrets Manager and KMS** hold what `.env` holds locally: the three Mongo URIs, `RABBITMQ_URL`, `SERVICE_TOKEN_SECRET` and the JWT private key. ECS injects them as environment variables. Identity reads its signing key from a **file** (`JWT_KEY_FILE`), and, as far as I know, Fargate cannot mount a secret as a file, so a start-up step must write the secret to a shared volume, or identity must be changed to take the PEM from the environment. Not built. There is one keypair and no overlap window (see [../runbooks/secrets-and-keys.md](../runbooks/secrets-and-keys.md)); a KMS-backed signing key is a better target.
 - **People.** Identity authenticates its own seeded users against one shared demo password hash. That is a demo device (`DEMO_USERS_ENABLED`, honoured only while `ENV` is `local`, `test` or `ci`). A real deployment needs an OIDC identity provider (for example Cognito) behind identity or in place of it. Not built.
@@ -132,7 +132,7 @@ Assumptions, all mine and none checked against the AWS pricing pages: `us-east-1
 | MongoDB Atlas | M10-class replica set | tens of USD; a production tier is hundreds |
 | Amazon MQ for RabbitMQ | smallest instance, or a three-node cluster for HA | tens of USD, or several hundred |
 | S3, Secrets Manager, KMS, ECR, CloudWatch Logs, X-Ray | demo volumes | tens of USD together |
-| **Bedrock** | **from the repo**: one demo case through all eleven agent jobs costs about USD 0.45 (`ops/scripts/demo_case_tokens.py`, `evals/README.md`); a sampled `make evals` run costs about USD 2.86 (`evals/results/2026-10-06/index.json`) | 100 cases is about USD 45; an eval run every night is about USD 85 |
+| **Bedrock** | **from the repo**: one demo case through all eleven agent jobs costs about USD 0.50 (`ops/scripts/demo_case_tokens.py`, `evals/README.md`); a sampled `make evals` run costs about USD 3.14 at the verified Bedrock prices (`evals/results/2026-10-06/index.json` records 2.86, at the earlier placeholder rates; `ops/reports/token-analysis.md` recomputes it) | 100 cases is about USD 50; an eval run every night is about USD 94 |
 
 Shape, not a quote: fixed infrastructure dominates. At a hundred cases a month the model spend is a small fraction of the bill, and what moves the total is the broker, the NATs and endpoints, and whether the database is a production tier. Token cost per case is the lever the repository actually optimises (`ops/reports/token-analysis.md`). The prices in `ai/models/tiers.yaml` are placeholders to be confirmed against the Bedrock pricing page.
 

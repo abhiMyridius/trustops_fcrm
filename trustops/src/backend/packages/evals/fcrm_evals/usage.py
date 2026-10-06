@@ -4,8 +4,9 @@ Three layers, all plain data so a result file can carry them:
 
 - :class:`PriceTable`: the USD-per-million-token rows of
   ``ai/models/tiers.yaml`` (``prices_usd_per_mtok``), plus a *label* for every
-  model. The price table is a placeholder until confirmed against the AWS
-  bill (the file says so); every cost here is therefore an estimate at those
+  model. Each row says whether it is ``verified`` against an AWS source (and
+  where, and when) or ``unverified``; :meth:`PriceTable.note` turns that into
+  the footnote every cost line carries. Every cost here is an estimate at
   list prices, never an invoice figure.
 - :class:`RowRun`: what one dataset row cost and how its run ended (status,
   attempts, tokens, guard trail). A blocked or failed row carries an empty
@@ -35,10 +36,19 @@ logger = logging.getLogger(__name__)
 TOKENS_PER_PRICE_UNIT: Final[float] = 1_000_000.0
 """``tiers.yaml`` prices are USD per this many tokens."""
 UNKNOWN_MODEL_LABEL: Final[str] = "unlabelled model"
+STATUS_VERIFIED: Final[str] = "verified"
+"""A price row read from an official AWS (or provider) source."""
+STATUS_UNVERIFIED: Final[str] = "unverified"
+"""A price row that keeps an earlier figure and says why (its ``reason``)."""
+STATUS_PARTLY_VERIFIED: Final[str] = "partly_verified"
+"""The table roll-up when some rows are verified and some are not."""
+STATUS_UNKNOWN: Final[str] = "unknown"
+"""The roll-up of a table that carries no status at all."""
 
 
 class ModelPrice(BaseModel):
-    """USD per million tokens for one model (``None``: not published)."""
+    """USD per million tokens for one model (``None``: not published), and
+    where the figures came from."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -46,6 +56,10 @@ class ModelPrice(BaseModel):
     output: float = Field(default=0.0, ge=0.0)
     cache_read: Optional[float] = Field(default=None, ge=0.0)
     cache_write: Optional[float] = Field(default=None, ge=0.0)
+    status: str = STATUS_UNKNOWN
+    source: str = ""
+    retrieved_on: str = ""
+    reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -60,12 +74,15 @@ class PriceTable:
     prices: Mapping[str, ModelPrice]
     labels: Mapping[str, str]
     slots: Mapping[str, str] = field(default_factory=dict)
+    region: str = ""
 
     @classmethod
     def from_tiers(cls, config: Mapping[str, Any]) -> PriceTable:
-        """Read ``prices_usd_per_mtok.rows``, ``models.<id>.label`` and the
-        tier chains out of a parsed ``tiers.yaml``."""
-        rows: Mapping[str, Any] = config.get("prices_usd_per_mtok", {}).get("rows", {})
+        """Read ``prices_usd_per_mtok`` (rows and region),
+        ``models.<id>.label``, the embeddings label and the tier chains out of a
+        parsed ``tiers.yaml``."""
+        table: Mapping[str, Any] = config.get("prices_usd_per_mtok", {})
+        rows: Mapping[str, Any] = table.get("rows", {})
         prices = {
             model_id: ModelPrice.model_validate(
                 {k: v for k, v in row.items() if v is not None}
@@ -78,6 +95,9 @@ class PriceTable:
             for model_id, entry in models.items()
             if isinstance(entry, Mapping) and entry.get("label")
         }
+        embeddings = config.get("embeddings")
+        if isinstance(embeddings, Mapping) and embeddings.get("label"):
+            labels[str(embeddings["model"])] = str(embeddings["label"])
         slots: dict[str, list[str]] = {}
         for tier, entry in config.get("tiers", {}).items():
             chain = [("primary", entry["primary"])] + [
@@ -86,7 +106,61 @@ class PriceTable:
             ]
             for slot, model_id in chain:
                 slots.setdefault(model_id, []).append(f"{tier}.{slot}")
-        return cls(prices, labels, {k: "+".join(v) for k, v in slots.items()})
+        return cls(
+            prices,
+            labels,
+            {k: "+".join(v) for k, v in slots.items()},
+            region=str(table.get("region", "")),
+        )
+
+    @property
+    def unverified(self) -> list[str]:
+        """Labels (never ids) of the models whose price is not verified."""
+        return sorted(
+            self.label(model_id)
+            for model_id, price in self.prices.items()
+            if price.status != STATUS_VERIFIED
+        )
+
+    @property
+    def status(self) -> str:
+        """The roll-up of the rows: ``verified`` when every row is,
+        ``unverified`` when none is, ``partly_verified`` otherwise
+        (``unknown`` for a table with no rows)."""
+        if not self.prices:
+            return STATUS_UNKNOWN
+        verified = [p.status == STATUS_VERIFIED for p in self.prices.values()]
+        if all(verified):
+            return STATUS_VERIFIED
+        return STATUS_PARTLY_VERIFIED if any(verified) else STATUS_UNVERIFIED
+
+    @property
+    def retrieved_on(self) -> str:
+        """The date the verified rows were read (the latest, when they differ)."""
+        return max(
+            (
+                p.retrieved_on
+                for p in self.prices.values()
+                if p.status == STATUS_VERIFIED
+            ),
+            default="",
+        )
+
+    def note(self) -> str:
+        """The footnote a cost line carries: what the prices are and how far
+        they can be trusted. Names the models that are not verified."""
+        where = f", {self.region}" if self.region else ""
+        if self.status == STATUS_VERIFIED:
+            return f"verified AWS list prices{where}, retrieved {self.retrieved_on}"
+        if self.status == STATUS_UNKNOWN:
+            return "prices not recorded in tiers.yaml (every cost is 0)"
+        listed = ", ".join(self.unverified)
+        if self.status == STATUS_UNVERIFIED:
+            return f"unverified for: {listed} (every model){where}"
+        return (
+            f"unverified for: {listed}; the others are verified AWS list prices"
+            f"{where}, retrieved {self.retrieved_on}"
+        )
 
     def label(self, model_id: str) -> str:
         """The reportable name of ``model_id`` (never the id itself)."""

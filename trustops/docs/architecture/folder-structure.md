@@ -55,7 +55,7 @@ trustops/
 │   ├── conftest.py                    all shared fixtures: role tokens, seed accessors, fakes, the throwaway live-Mongo fixture
 │   ├── unit/                          mirrors src/: apps  services  workers  packages  ops
 │   └── integration/                   blackbox  contract  cross_package  live_mongo  packages  services  workers
-│                                      (464 tests; need Docker or FCRM_TEST_MONGO_URI. 74 more integration-marked tests sit in tests/unit/**/*_live.py)
+│                                      (464 tests; need Docker or FCRM_TEST_MONGO_URI. 74 more integration-marked tests sit in tests/unit/**/*_live.py and need FCRM_TEST_MONGO_URI; make test-int runs both)
 │
 ├── ops/
 │   ├── nginx/                         default.conf (the gateway), snippets/

@@ -1,13 +1,17 @@
-# TrustOps base stack (design A §11; ports ADR-20). 22 containers with
-# compose.obs.yaml (on by default in `make up`):
-#   infra   mongo, mongo-init*, rabbitmq, redis, minio, minio-init*, opa
-#   obs     otel-collector, jaeger, prometheus, grafana        (compose.obs.yaml)
-#   S1–S5   case, scoring, policy, audit, decision; X1 identity
-#   H1–H4   caseflow, agent-worker ×2, ingestion-worker, context-worker
-#   edge    gateway (G1), web (W1)                             (* one-shot)
+# TrustOps base stack (design A §11; ports ADR-20). Two Python processes from
+# one image (ADR-26) and eight containers by default (`make up`):
+#   infra   mongo, rabbitmq, minio, opa
+#   apps    api (X1 identity and S1–S5 as sub-apps), harness (H1–H4 as workers)
+#   edge    gateway (G1), web (W1)
+# Two opt-in profiles, off unless asked for:
+#   obs     otel-collector, jaeger, prometheus, grafana   (`make up-obs`, 12 in all)
+#   cache   redis                                          (`make up-cache`; the api
+#           does not fan out over it yet, SSE is in process, see known-gaps)
+# The system is live-only (ADR-27): agents call Amazon Bedrock, there is no
+# replay or mock mode.
 #
-#   make up-infra   infra + obs only (works today)
-#   make up         everything (needs the service/worker/web Dockerfiles)
+#   make up-infra   the four infrastructure containers
+#   make up         the eight
 #
 # Secrets and per-machine values come from the root .env (compose reads it
 # for ${...} interpolation; `make env` creates it from .env.example with
@@ -60,7 +64,9 @@ x-s3-env: &s3-env
   S3_BUCKET_VECTORS: vectors
   S3_BUCKET_JOBS: jobs
 
-# Bedrock / S3 Vectors credentials (live mode only; empty = replay/memory).
+# Bedrock credentials. The system is live-only (ADR-27): there is no replay or
+# memory mode, and an agent call with no credentials fails (the run goes to
+# handoff). Empty keys fall through to boto3's default credential chain.
 # One region setting, AWS_DEFAULT_REGION, passed under both names: boto3 and
 # Pydantic AI's BedrockProvider read AWS_DEFAULT_REGION (without it, live mode
 # fails with "You must provide a region_name"), and the cloned context
@@ -277,6 +283,11 @@ services:
       UPLOAD_MAX_BYTES: "52428800"
       UPLOAD_ALLOWED_EXTENSIONS: .pdf,.docx,.xlsx,.pptx,.csv,.md,.txt
       SSE_HEARTBEAT_S: "15"
+      # A new case pins the versions S3 holds in force (GET /internal/config/pins)
+      # and reads a pinned field-set version from S3 (same process, called by URL
+      # with S1's service token). S3 down: the case pins the seed's versions and
+      # S1 logs a warning; raising a case never fails on it.
+      POLICY_SERVICE_URL: http://api:8000/api/fcrm/policy
       # S2 scoring
       SEED_RECOMPUTE_ON_START: ${SEED_RECOMPUTE_ON_START:-true}
       # POST /simulate reads S1's score-request (same process, called by URL so

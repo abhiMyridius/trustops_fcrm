@@ -26,6 +26,7 @@ import argparse
 import logging
 import os
 import sys
+import time
 from collections.abc import Sequence
 from typing import Any, Final, Optional
 
@@ -37,6 +38,8 @@ API: Final = "/api/fcrm"
 DEMO_CASE: Final = "FCRM-2026-0151"
 CHAIN_CASE: Final = "FCRM-2026-0118"
 TIMEOUT_S: Final = 20.0
+LOGIN_ATTEMPTS: Final = 6
+LOGIN_WAIT_S: Final = 10.0
 PAGE_LIMIT: Final = 200
 #: ``stage`` as the analyst queue names it, by the seed's own words.
 EXPECTED_OPEN: Final = {"review": 8, "awaiting_business": 4, "committee": 2}
@@ -56,15 +59,24 @@ class Client:
         self._tokens: dict[str, str] = {}
 
     def login(self, username: str, password: str) -> None:
-        """Sign ``username`` in; later calls as that user carry the token."""
-        try:
-            response = self._http.post(
-                f"{API}/auth/login", json={"username": username, "password": password}
-            )
-        except httpx.HTTPError as exc:
-            raise StackUnreachable(str(exc)) from exc
-        response.raise_for_status()
-        self._tokens[username] = str(response.json()["access_token"])
+        """Sign ``username`` in; later calls as that user carry the token. The
+        gateway allows ten logins a minute from one address, so a rate-limited
+        login waits out the window and tries again.
+        """
+        for attempt in range(LOGIN_ATTEMPTS):
+            try:
+                response = self._http.post(
+                    f"{API}/auth/login",
+                    json={"username": username, "password": password},
+                )
+            except httpx.HTTPError as exc:
+                raise StackUnreachable(str(exc)) from exc
+            if response.status_code == 429 and attempt + 1 < LOGIN_ATTEMPTS:
+                time.sleep(LOGIN_WAIT_S)
+                continue
+            response.raise_for_status()
+            self._tokens[username] = str(response.json()["access_token"])
+            return
 
     def get(self, user: str, path: str, **params: Any) -> Any:
         """``GET`` ``path`` as ``user``; the decoded body."""
