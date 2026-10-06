@@ -532,12 +532,6 @@ def add_gate_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) ->
     gate.add_argument("--results-root", type=Path, default=DEFAULT_RESULTS_ROOT)
 
 
-def timestamp_of(args: argparse.Namespace) -> Optional[datetime]:
-    """The pinned ``--timestamp``, if any."""
-    stamp: Optional[datetime] = args.timestamp
-    return stamp
-
-
 __all__ = [
     "DEFAULT_RESULTS_ROOT",
     "add_gate_parser",
