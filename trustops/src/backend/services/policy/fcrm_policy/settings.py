@@ -14,6 +14,8 @@ broker is present to tell it a fixture is ready.
 
 from __future__ import annotations
 
+from typing import Optional
+
 from fcrm_common.settings import BaseServiceSettings, S3Settings
 
 
@@ -27,3 +29,8 @@ class PolicySettings(BaseServiceSettings, S3Settings):
     rrf_k: int = 60
     search_top_k_max: int = 30
     search_candidate_multiplier: int = 3
+    scoring_service_url: Optional[str] = None
+    """S2's base URL, including its mount prefix (``.../api/fcrm/scoring``): the
+    one call S3 makes, to put a published scoring model or routing rule into
+    force. Unset, publishing those two sections answers 503 rather than record
+    a version S2 does not know."""

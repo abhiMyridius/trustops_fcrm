@@ -69,21 +69,13 @@ test_service_may_call_every_internal_case_route if {
 	}
 }
 
-no_internal_case_route(role) if {
-	every r in internal_case_routes {
-		not authz.allow with input as req(role, "case", r[0], r[1])
+test_no_person_role_may_call_an_internal_case_route if {
+	every role in {"fcrm_po", "fcrm_analyst", "fcrm_committee", "fcrm_observer"} {
+		every r in internal_case_routes {
+			not authz.allow with input as req(role, "case", r[0], r[1])
+		}
 	}
 }
-
-# One test per role: each evaluation walks the whole rule table, so a single loop
-# over every role and route runs into OPA's per-test time limit as the table grows.
-test_the_po_may_not_call_an_internal_case_route if no_internal_case_route("fcrm_po")
-
-test_the_analyst_may_not_call_an_internal_case_route if no_internal_case_route("fcrm_analyst")
-
-test_the_committee_may_not_call_an_internal_case_route if no_internal_case_route("fcrm_committee")
-
-test_the_observer_may_not_call_an_internal_case_route if no_internal_case_route("fcrm_observer")
 
 # The delegated close and the condition tracker (R1; fcrm_case.routes_analyst_close):
 # the analyst only. The service account never decides a human gate (Guard 7), and
@@ -722,6 +714,82 @@ test_response_reports_deny_rule if {
 	r.allow == false
 	count(r.denied_by) == 1
 	r.reason == "explicitly denied by policy"
+}
+
+# ── configuration screens (D-03: the analyst owns configuration) ───────────
+
+config_routes := [
+	["GET", "/config/{section}"],
+	["PUT", "/config/{section}/draft"],
+	["DELETE", "/config/{section}/draft"],
+	["POST", "/config/{section}/draft/preview"],
+	["POST", "/config/{section}/draft/publish"],
+]
+
+test_analyst_owns_every_configuration_route if {
+	every r in config_routes {
+		authz.allow with input as req("fcrm_analyst", "policy", r[0], r[1])
+	}
+}
+
+test_nobody_but_the_analyst_reaches_configuration if {
+	# the web shows no configuration page to the committee, the PO or the
+	# observer; the service account inherits the analyst's grants for reads, so
+	# the data denies it every configuration route by name, reads included
+	every role in ["fcrm_committee", "fcrm_po", "fcrm_observer", "fcrm_service"] {
+		every r in config_routes {
+			not authz.allow with input as req(role, "policy", r[0], r[1])
+		}
+	}
+}
+
+test_the_service_denial_of_configuration_is_by_rule_not_by_omission if {
+	every r in config_routes {
+		denied := authz.response with input as req("fcrm_service", "policy", r[0], r[1])
+		count(denied.denied_by) == 1
+	}
+}
+
+test_unknown_configuration_verbs_are_denied_to_every_role if {
+	every role in ["fcrm_committee", "fcrm_po", "fcrm_observer", "fcrm_service"] {
+		not authz.allow with input as req(role, "policy", "PATCH", "/config/{section}/draft")
+		not authz.allow with input as req(role, "policy", "PUT", "/config/{section}/draft/publish")
+	}
+}
+
+test_the_pinned_versions_are_the_service_accounts_alone if {
+	authz.allow with input as req("fcrm_service", "policy", "GET", "/internal/config/pins")
+	every role in ["fcrm_analyst", "fcrm_committee", "fcrm_po", "fcrm_observer"] {
+		not authz.allow with input as req(role, "policy", "GET", "/internal/config/pins")
+	}
+}
+
+test_routing_rules_read_matrix if {
+	every role in ["fcrm_analyst", "fcrm_committee", "fcrm_service"] {
+		authz.allow with input as req(role, "scoring", "GET", "/routing-rules/{version}")
+	}
+	every role in ["fcrm_po", "fcrm_observer"] {
+		not authz.allow with input as req(role, "scoring", "GET", "/routing-rules/{version}")
+	}
+
+	# the committee reads there and writes nothing (the analyst's wildcard is
+	# the analyst's own business)
+	every role in ["fcrm_committee", "fcrm_po", "fcrm_observer"] {
+		not authz.allow with input as req(role, "scoring", "POST", "/routing-rules/{version}")
+	}
+}
+
+test_scoring_internal_publish_is_the_service_accounts_alone if {
+	every r in [
+		["POST", "/internal/models"],
+		["POST", "/internal/routing-rules"],
+	] {
+		authz.allow with input as req("fcrm_service", "scoring", r[0], r[1])
+		not authz.allow with input as req("fcrm_analyst", "scoring", r[0], r[1])
+		not authz.allow with input as req("fcrm_committee", "scoring", r[0], r[1])
+		not authz.allow with input as req("fcrm_po", "scoring", r[0], r[1])
+		not authz.allow with input as req("fcrm_observer", "scoring", r[0], r[1])
+	}
 }
 
 # ── the analyst's write routes (lane I3-B2: fcrm_case.routes_analyst_write) ──

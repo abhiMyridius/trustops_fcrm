@@ -66,7 +66,9 @@ The owner's reads are cut at the data layer: the plain outcome reads `outcomes` 
 | Collection | Shape | Notes |
 |---|---|---|
 | `scoring_model_versions` | `ScoringModelVersion` | One active version at a time (`active: true`); built from the seed via `fcrm_scoring.seedmodel.scoring_model_from_seed` |
-| `routing_rules_versions` | `RoutingRulesVersion` | R1–R6 as data, versioned the same way |
+| `routing_rules_versions` | `RoutingRulesVersion` | R1–R6 as data, versioned the same way; a published version also carries the parameter table (`parameters`, `committee_quorum`) |
+
+Both version collections have a partial unique index on `active: true` (`single_active`). A new version arrives only through S3's configuration publish (`POST /internal/models`, `/internal/routing-rules`, service account only): one transaction deactivates the old version and inserts the next, guarded by `base_version`, and an existing version is never edited. The startup self-test replays the 80 seeded cases against the model the seed was scored with, not the active one, so a published model never makes S2 unready.
 
 ## `fcrm_policy` (S3)
 
@@ -77,8 +79,14 @@ The owner's reads are cut at the data layer: the plain outcome reads `outcomes` 
 | `jurisdiction_list_versions` | `JurisdictionListOut` | `v2026-06` (active) and the watchlist-demo fixture `v2026-10-fixture` (`fixture: true`, inactive); `_id` = `version` |
 | `field_set_versions` | mirrors `fcrm_case.domain.fieldset.FieldSetData` | `v6`; the one source both S1's resolution logic and this service's `/field-sets/{v}/resolve` read (a test pins them equal for every combination of change types) |
 | `precedents` | `PrecedentOut` | Closed-case summaries for precedent matching |
+| `config_snapshots` | `fcrm_policy.config.Snapshot` | The configuration screens' history: one **append-only** document per published version of each of the eight sections, `_id` = `"<section>@<version>"`, `{section, seq, version, body, published_by, published_at, reason, previous_version}`. Unique `(section, version)` and unique `(section, seq desc)`; the store reaches it through a collection that refuses every write but insert, and a test and a live test attempt an update and a delete and assert they fail |
+| `config_drafts` | `fcrm_policy.config.DraftState` | At most one working set per section, `_id` = section: `{base_version, rev, changes[{path, before, after}], updated_by, updated_at}`. Written by compare-and-swap on `rev`; its ETag is `W/"<section>:<base_version>:<rev>"` |
+| `config_changes` | change record | One insert-only record per publish (`_id` = `"<section>@<version>"`): who, when, why, the changes and which effect ran |
+| `config_idempotency` | `KeyRow` | `_id` = the `Idempotency-Key` of a publish; `{fingerprint, section, version, at}`, inserted in the publish transaction. The same body replays, another body is a 409 |
 
 Each of the three versioned collections has a unique `version` index and a partial unique index on `active: true`, so at most one version is active (`fcrm_policy.reference`). They are seeded per collection under `SEED_ON_EMPTY`.
+
+**Configuration publish** (`policy/config/{section}/draft/publish`): one Mongo transaction appends the snapshot, runs the section's effect (a new active `field_set_versions` or `control_inventory_versions` document, or the jurisdiction activation with its `jurisdiction.list_published` outbox row, the same transaction body as the activate route), deletes the draft and writes the change record and the idempotency key. The scoring model and routing rules are put into force in S2 first (guarded by `base_version`; 503 when `SCORING_SERVICE_URL` is unset). The policy corpus and the agent table are read-only sections. Cases pin a version by label and read it by that label for ever; a later publish is only what `latest` answers.
 
 **Vector indexes** (S3 Vectors, not Mongo): `policy_clauses`, `precedent_cases`, `controls`, each with the Index Contract metadata keys in `fcrm_policy.search.filters.ALLOWED_METADATA_KEYS`.
 

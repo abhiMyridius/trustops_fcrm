@@ -161,4 +161,8 @@ class RoutingRulesVersion(BaseModel):
     version: int
     rules: list[RoutingRule]
     committee_quorum: int = 3
+    #: The routing parameter table published with the rules (key to value text,
+    #: e.g. ``{"quorum": "3"}``); empty for a version seeded before the
+    #: configuration screens existed.
+    parameters: dict[str, str] = Field(default_factory=dict)
     active: bool = False
