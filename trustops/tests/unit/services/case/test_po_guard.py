@@ -173,9 +173,19 @@ def test_the_metric_is_a_real_counter_with_the_right_name() -> None:
 
 
 def test_every_route_of_the_po_router_is_guarded() -> None:
+    from fcrm_case.routes_analyst_read import shared_router
+
     routes = [r for r in po_router.routes if hasattr(r, "methods")]
-    assert len(routes) >= 18
+    # 17 routes: the activity feed moved to the shared router, where the same
+    # guard wraps it (it lets staff through and scans an owner's answer).
+    assert len(routes) >= 17
     assert all(isinstance(r, PoGuardedRoute) for r in routes)
+    shared = [r for r in shared_router.routes if hasattr(r, "methods")]
+    assert {r.path for r in shared} == {  # type: ignore[attr-defined]
+        "/cases/{case_id}/activity",
+        "/cases/{case_id}/outcome",
+    }
+    assert all(isinstance(r, PoGuardedRoute) for r in shared)
 
 
 # -- on the real router ------------------------------------------------------------

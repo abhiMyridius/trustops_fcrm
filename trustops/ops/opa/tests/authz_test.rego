@@ -61,6 +61,10 @@ internal_case_routes := {
 	["GET", "/internal/cases/{case_id}/score-request"],
 	["GET", "/internal/cases/{case_id}/evidence"],
 	["GET", "/internal/cases/{case_id}/recommendation"],
+	["GET", "/internal/cases/{case_id}/submissions/diff"],
+	["GET", "/internal/cases/search"],
+	["PUT", "/internal/cases/{case_id}/harness"],
+	["GET", "/internal/cases/{case_id}/harness"],
 }
 
 test_service_may_call_every_internal_case_route if {
@@ -262,6 +266,76 @@ test_observer_is_monitor_only if {
 	authz.allow with input as req("fcrm_observer", "case", "GET", "/monitor/{case_id}")
 	not authz.allow with input as req("fcrm_observer", "case", "GET", "/cases/{id}/workbench")
 	not authz.allow with input as req("fcrm_observer", "audit", "GET", "/records")
+}
+
+# The analyst read routes (fcrm_case.routes_analyst_read): the analyst only, except
+# the harness monitor (analyst, committee and observer: ADR-19) and the recorded
+# outcome (analyst and committee). The PO reaches none of them, and the observer
+# reaches the monitor and nothing else.
+analyst_read_routes := {
+	["GET", "/queue"],
+	["GET", "/dashboard/analyst"],
+	["GET", "/cases/{case_id}/workbench"],
+	["GET", "/cases/{case_id}/assessment"],
+	["GET", "/cases/{case_id}/risk"],
+	["GET", "/cases/{case_id}/policy"],
+	["GET", "/cases/{case_id}/handoff"],
+	["GET", "/cases/{case_id}/submissions"],
+	["GET", "/cases/{case_id}/submissions/diff"],
+}
+
+test_analyst_may_read_every_analyst_read_route if {
+	every r in analyst_read_routes {
+		authz.allow with input as req("fcrm_analyst", "case", r[0], r[1])
+	}
+}
+
+test_po_committee_and_observer_may_not_read_an_analyst_read_route if {
+	every role in {"fcrm_po", "fcrm_committee", "fcrm_observer"} {
+		every r in analyst_read_routes {
+			not authz.allow with input as req(role, "case", r[0], r[1])
+		}
+	}
+}
+
+# The Inbox read is the analyst's; the same path takes the analyst's POST (open a
+# round), so it is not in the read-only set above.
+test_only_the_analyst_reads_the_clarification_round if {
+	authz.allow with input as req("fcrm_analyst", "case", "GET", "/cases/{case_id}/clarifications")
+	every role in {"fcrm_po", "fcrm_committee", "fcrm_observer"} {
+		not authz.allow with input as req(role, "case", "GET", "/cases/{case_id}/clarifications")
+	}
+}
+
+test_analyst_read_routes_are_read_only if {
+	every r in analyst_read_routes {
+		not authz.allow with input as req("fcrm_analyst", "case", "POST", r[1])
+		not authz.allow with input as req("fcrm_analyst", "case", "DELETE", r[1])
+	}
+}
+
+test_the_harness_monitor_is_for_analyst_committee_and_observer_never_the_po if {
+	every role in {"fcrm_analyst", "fcrm_committee", "fcrm_observer"} {
+		authz.allow with input as req(role, "case", "GET", "/cases/{case_id}/harness")
+	}
+	not authz.allow with input as req("fcrm_po", "case", "GET", "/cases/{case_id}/harness")
+	not authz.allow with input as req("fcrm_po", "case", "GET", "/monitor/{case_id}")
+}
+
+test_the_outcome_is_read_by_the_po_analyst_and_committee_not_the_observer if {
+	every role in {"fcrm_po", "fcrm_analyst", "fcrm_committee"} {
+		authz.allow with input as req(role, "case", "GET", "/cases/{case_id}/outcome")
+	}
+	not authz.allow with input as req("fcrm_observer", "case", "GET", "/cases/{case_id}/outcome")
+}
+
+test_the_activity_feed_is_read_by_the_po_and_the_analyst_only if {
+	every role in {"fcrm_po", "fcrm_analyst"} {
+		authz.allow with input as req(role, "case", "GET", "/cases/{case_id}/activity")
+	}
+	every role in {"fcrm_committee", "fcrm_observer"} {
+		not authz.allow with input as req(role, "case", "GET", "/cases/{case_id}/activity")
+	}
 }
 
 # ── S2-S5 route matrix (the routes fcrm_*/routes.py actually serve) ────────
@@ -855,11 +929,16 @@ test_no_other_role_may_answer_or_evidence if {
 	}
 }
 
-test_only_the_po_reads_the_inbox_and_the_outcome if {
+test_only_the_po_reads_the_inbox if {
 	every role in {"fcrm_analyst", "fcrm_committee", "fcrm_observer"} {
 		not authz.allow with input as req(role, "case", "GET", "/cases/{case_id}/inbox")
-		not authz.allow with input as req(role, "case", "GET", "/cases/{case_id}/outcome")
 	}
+}
+
+# The outcome is one path with two shapes: the owner's plain one and the analyst's and
+# committee's full one (fcrm_case.routes_analyst_read); the observer reads neither.
+test_the_outcome_is_not_read_by_the_observer if {
+	not authz.allow with input as req("fcrm_observer", "case", "GET", "/cases/{case_id}/outcome")
 }
 
 # ── data hygiene ───────────────────────────────────────────────────────────

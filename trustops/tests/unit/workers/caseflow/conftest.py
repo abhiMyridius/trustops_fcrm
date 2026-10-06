@@ -970,6 +970,7 @@ class FakeCaseService(FakePeer):
         self.write_keys: dict[tuple[str, str], tuple[str, dict[str, Any]]] = {}
         self.recommendation_edits: Optional[dict[str, Any]] = None
         self.locked = False
+        self.harness_pushes: list[dict[str, Any]] = []
         self._item_counter = 0
 
     # -- seeding ----------------------------------------------------------
@@ -1092,6 +1093,16 @@ class FakeCaseService(FakePeer):
             return self._items_route(call)
         if call.method == "PUT" and leaf in VIEW_LEAVES:
             return self._put_view(call, leaf)
+        if (call.method, leaf) == ("PUT", "harness"):
+            self.harness_pushes.append(call.body)
+            return httpx.Response(
+                200,
+                json={
+                    "case_id": case_id,
+                    "lines": len(call.body["snapshot"]["log"]),
+                    "replayed": False,
+                },
+            )
         if (call.method, leaf) == ("GET", "score-request"):
             return self._score_request()
         if (call.method, leaf) == ("GET", "recommendation"):

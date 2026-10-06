@@ -130,6 +130,10 @@ class CaseRecord(BaseModel):
     discarded_at: Optional[datetime] = None
     discard_reason: Optional[str] = None
     current_submission_v: Optional[int] = None
+    # When, and by whom, the analyst first opened the risk view: the score is
+    # withheld from the analyst until then (walkthrough scene 9). Set once.
+    review_started_at: Optional[datetime] = None
+    review_started_by: Optional[str] = None
     # Highest ``activity.seq`` allocated for this case; bumped in the same
     # write that inserts the activity row, so seqs are gap-free per case.
     activity_seq: int = 0

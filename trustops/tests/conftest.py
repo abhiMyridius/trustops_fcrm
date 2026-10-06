@@ -853,7 +853,21 @@ def case_service(
         objects, DirectoryFixtures(DEMO_DOCUMENTS_DIR), settings
     )
     install_authz(app.state, allow_all_opa)
-    app.dependency_overrides[current_user] = lambda: acting_principal["principal"]
+    from starlette.requests import Request
+
+    def caller(request: Request) -> Principal:
+        """What the real ``current_user`` does after verifying a token: store the
+        principal on the request (the PO response guard reads it to tell staff
+        from an owner) and return it.
+        """
+        principal = acting_principal["principal"]
+        request.state.principal = principal
+        return principal
+
+    # A real class, not the string ``from __future__`` makes, so FastAPI injects
+    # the request.
+    caller.__annotations__ = {"request": Request}
+    app.dependency_overrides[current_user] = caller
     return CaseService(
         client=TestClient(app),
         store=case_store,
@@ -2180,3 +2194,617 @@ def clarification_service(
     )
     act_as(Role.ANALYST, ANALYST_SUB)
     return case_service
+
+
+# ── S1 analyst read surface (lane I3-B1) ────────────────────────────────────────
+@dataclass
+class AnalystRead:
+    """The S1 app with the analyst read stores wired over in-memory twins:
+    ``client`` calls as whoever ``act_as`` last set (the demo analyst, Rahul
+    Iyer, to begin with).
+    """
+
+    service: CaseService
+    assessment: InMemoryAssessmentStore
+    reads: Any
+    decisions: InMemoryAnalystWriteStore
+
+    @property
+    def client(self) -> TestClient:
+        """The HTTP client of the wrapped service."""
+        return self.service.client
+
+
+@pytest.fixture
+def analyst_read(
+    case_service: CaseService,
+    assessment_store: InMemoryAssessmentStore,
+    analyst_store: InMemoryAnalystWriteStore,
+    act_as: Callable[[Role, str], None],
+) -> AnalystRead:
+    """The S1 app with the assessment store, the analyst's ledger and the analyst
+    read store wired (all in memory), acting as Rahul Iyer, the analyst of the
+    demo case.
+    """
+    from fcrm_case.analyst_read_store import InMemoryAnalystReadStore
+    from fcrm_contracts.enums import Role
+
+    def critic_count(case_id: str) -> int:
+        view = assessment_store.critic.get(case_id)
+        return len(view.findings) if view is not None else 0
+
+    reads = InMemoryAnalystReadStore(
+        case_service.store.records,
+        lambda: assessment_store.snapshots,
+        critic_count,
+        lambda: case_service.store.activity.entries,
+        lambda: case_service.po.submissions.values(),
+        lambda case_id: any(
+            r.case_id == case_id
+            and r.gate_type == "fast_lane_confirm"
+            and r.decision == "confirm"
+            for r in analyst_store.decisions.values()
+        ),
+    )
+    app = case_service.client.app
+    app.state.assessment = assessment_store  # type: ignore[attr-defined]
+    app.state.analyst_store = analyst_store  # type: ignore[attr-defined]
+    app.state.analyst_reads = reads  # type: ignore[attr-defined]
+    act_as(Role.ANALYST, ANALYST_SUB)
+    return AnalystRead(case_service, assessment_store, reads, analyst_store)
+
+
+@pytest.fixture
+def decide_gate(analyst_store: InMemoryAnalystWriteStore) -> Callable[..., None]:
+    """``decide_gate(gate_id, gate_type, decision, case_id=...)``: put a row in the
+    analyst's ledger, as the analyst's write routes do when a gate is decided.
+    """
+    from datetime import UTC, datetime
+
+    from fcrm_case.domain.analyst_commands import AnalystDecisionRow
+
+    def _decide(
+        gate_id: str,
+        gate_type: str,
+        decision: str,
+        case_id: str = "FCRM-2026-0151",
+    ) -> None:
+        analyst_store.decisions[gate_id] = AnalystDecisionRow(
+            gate_id=gate_id,
+            case_id=case_id,
+            gate_type=gate_type,
+            decision=decision,
+            fingerprint="f" * 16,
+            decided_by=ANALYST_SUB,
+            decided_at=datetime(2026, 10, 5, 13, tzinfo=UTC),
+        )
+
+    return _decide
+
+
+@pytest.fixture
+def make_snapshot() -> Callable[..., Any]:
+    """``make_snapshot(case_id, band=2, composite=9.8, purpose="proposed", ...)``:
+    a stored score snapshot row, as H1's push (or the seed) leaves it.
+    """
+    from datetime import UTC, datetime
+
+    from fcrm_case.domain.views import ScoreSnapshotRow
+    from fcrm_common.ids import deterministic_id
+
+    def _make(
+        case_id: str = "FCRM-2026-0151",
+        band: int = 2,
+        composite: float = 9.8,
+        purpose: str = "proposed",
+        **overrides: Any,
+    ) -> ScoreSnapshotRow:
+        fields: dict[str, Any] = {
+            "snapshot_id": deterministic_id(
+                "snap", case_id, purpose, str(composite), str(band)
+            ),
+            "case_id": case_id,
+            "computed_at": datetime(2026, 10, 5, 12, tzinfo=UTC),
+            "purpose": purpose,
+            "composite": composite,
+            "band": band,
+            "route": "committee" if band >= 3 else "analyst",
+            "boundary_flag": False,
+            "boundary_distance": None,
+            "domains": {},
+        }
+        return ScoreSnapshotRow(**{**fields, **overrides})
+
+    return _make
+
+
+@pytest.fixture
+def seeded_analyst_read(
+    analyst_read: AnalystRead,
+    seeded_service: CaseService,
+    assessment_store: InMemoryAssessmentStore,
+) -> AnalystRead:
+    """:func:`analyst_read` over the real seed's S1 slice: the 80 cases, the
+    items, and the 79 score snapshots the startup seed stores (the demo case, at
+    intake, has none).
+    """
+    from fcrm_case.seedmodel import (
+        build_case_seed,
+        field_set_from_seed,
+        pinned_versions_from_seed,
+    )
+
+    raw = load_raw()
+    rows = build_case_seed(
+        raw,
+        field_set_from_seed(raw["field_set"]),
+        pinned_versions_from_seed(raw["demo"]["versions"]),
+    )
+    for snapshot in rows.score_snapshots:
+        assessment_store.snapshots[snapshot.snapshot_id] = snapshot
+    return analyst_read
+
+
+#: The clause the demo's research agent proposes for the channel domain, as the
+#: stored item carries it (verbatim quote, the corpus's own id).
+DEMO_CLAUSE_ID = "FFIEC-TPPP-04"
+DEMO_CLAUSE_QUOTE = (
+    "…banks should assess the risks of the processor’s customer base, "
+    "transaction volumes and geographic reach…"
+)
+
+
+@dataclass
+class AssessedCase:
+    """The demo case in review with everything the assessment core pushes: the
+    items (factors, controls, a clause, a research gap, a critic finding), the
+    score of record (9.8, Band 2, boundary flag), the completeness report and the
+    critic's view. ``read`` calls as Rahul Iyer, who holds it; review has *not*
+    started, so the score is withheld until he opens the risk view.
+    """
+
+    read: AnalystRead
+    case_id: str
+    items: dict[str, ReviewItemRow]
+    snapshot_id: str
+    finding_item: ReviewItemRow
+    clause_item: ReviewItemRow
+    control_item: ReviewItemRow
+
+    @property
+    def client(self) -> TestClient:
+        """The HTTP client of the wrapped service."""
+        return self.read.client
+
+    def record(self) -> CaseRecord:
+        """The case as stored now."""
+        return self.read.service.store.records[self.case_id]
+
+    def update_record(self, **changes: Any) -> None:
+        """Change fields of the stored case."""
+        records = self.read.service.store.records
+        records[self.case_id] = records[self.case_id].model_copy(update=changes)
+
+    def put_item(self, row: ReviewItemRow) -> None:
+        """Store (or replace) a review item."""
+        self.read.service.views.items[row.item_id] = row
+        self.items[row.item_id] = row
+
+
+@pytest.fixture
+def assessed_case(
+    analyst_read: AnalystRead,
+    stored_case: CaseRecord,
+    demo_review_items: list[ReviewItemRow],
+    make_review_item: Callable[..., ReviewItemRow],
+    make_score_push: Callable[..., Any],
+) -> AssessedCase:
+    """See :class:`AssessedCase`."""
+    from datetime import UTC, datetime, timedelta
+
+    from fcrm_case.assessment_store import body_fingerprint, score_snapshot_for
+    from fcrm_case.domain.assessment import CompletenessViewRow, CriticViewRow
+    from fcrm_contracts.enums import CaseState, ItemKind
+
+    case_id = stored_case.case_id
+    clause = make_review_item(
+        ItemKind.CLAUSE,
+        {"clause_id": DEMO_CLAUSE_ID, "domain": "channel", "corpus_v": 14},
+        {
+            "quote": DEMO_CLAUSE_QUOTE,
+            "applicability": "Partner agents",
+            "confidence": 0.9,
+        },
+    )
+    gap = make_review_item(
+        ItemKind.GAP,
+        {
+            "origin": "research",
+            "domain": "channel",
+            "description": "No clause covers cash pickup at partner agents.",
+            "searched_query": "cash pickup agent",
+            "searched_indexes": ["policy_clauses"],
+            "searched_hits": 0,
+        },
+        {},
+    )
+    finding = make_review_item(
+        ItemKind.CRITIC_FINDING,
+        {
+            "finding_type": "precedent_deviation",
+            "severity": "high",
+            "record_refs": ["#34"],
+            "text": "CTL-T01 rating 7.6 is above the precedent average.",
+            "confidence": 0.8,
+            "quote": "q",
+        },
+        {},
+    )
+    rows = [*demo_review_items, clause, gap, finding]
+    store = analyst_read.service.views
+    for row in rows:
+        store.items[row.item_id] = row
+    push = make_score_push(demo_review_items)
+    snapshot = score_snapshot_for(
+        case_id,
+        push,
+        "key-proposed",
+        body_fingerprint(push),
+        datetime(2026, 10, 5, 12, tzinfo=UTC),
+    )
+    analyst_read.assessment.snapshots[snapshot.snapshot_id] = snapshot
+    analyst_read.assessment.critic[case_id] = CriticViewRow(
+        case_id=case_id,
+        run_id="run_1",
+        findings=[
+            {
+                "finding_id": finding.item_id,
+                "gate_id": finding.gate_id,
+                "finding_type": "precedent_deviation",
+                "severity": "high",
+                "record_refs": ["#34"],
+                "text": "CTL-T01 rating 7.6 is above the precedent average.",
+                "source_ref": {
+                    "kind": "control",
+                    "control_id": "CTL-T01",
+                    "controls_v": 9,
+                },
+                "quote": "q",
+                "confidence": 0.8,
+            }
+        ],
+        counts={"total": 1, "high": 1},
+        updated_at=datetime(2026, 10, 5, 12, tzinfo=UTC),
+    )
+    analyst_read.assessment.completeness[case_id] = CompletenessViewRow(
+        case_id=case_id,
+        run_id="run_1",
+        report={
+            "missing": ["F11"],
+            "stale": ["CTL-T01 evidence"],
+            "contradictory": [],
+            "questions_drafted": 3,
+            "questions_kept": 2,
+        },
+        questions=[],
+        gate_id="gate_completeness",
+        updated_at=datetime(2026, 10, 5, 12, tzinfo=UTC),
+    )
+    held = stored_case.model_copy(
+        update={
+            "state": CaseState.REVIEW,
+            "analyst_id": ANALYST_SUB,
+            "analyst_name": "Rahul Iyer",
+            "run_id": "run_1",
+            "submitted_at": datetime(2026, 10, 1, 9, tzinfo=UTC)
+            + timedelta(minutes=40),
+            "current_submission_v": 2,
+            "change_types": [],
+            "domains": ["channel", "geography", "product"],
+        }
+    )
+    analyst_read.service.store.records[case_id] = held
+    return AssessedCase(
+        read=analyst_read,
+        case_id=case_id,
+        items={r.item_id: r for r in rows},
+        snapshot_id=snapshot.snapshot_id,
+        finding_item=finding,
+        clause_item=clause,
+        control_item=next(
+            r
+            for r in demo_review_items
+            if r.subject.get("control_id") == "CTL-T01" and not r.subject.get("planned")
+        ),
+    )
+
+
+@pytest.fixture
+def make_submission() -> Callable[..., Any]:
+    """``make_submission(version, values, ...)``: a frozen submission row of the
+    demo case. ``values`` maps a field id to the ``SnapshotValue`` fields
+    (``{"F11": {"value": "x", "origin": "answered"}}``); a field not named is
+    ``open``.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from fcrm_case.domain.po_rows import (
+        CapturedBy,
+        SnapshotCompletion,
+        SnapshotValue,
+        SubmissionVersionRow,
+        submission_version_id,
+    )
+
+    def _make(
+        version: int = 1,
+        values: Optional[dict[str, dict[str, Any]]] = None,
+        *,
+        case_id: str = "FCRM-2026-0151",
+        reason: str = "submit",
+        round_no: Optional[int] = None,
+        document_ids: tuple[str, ...] = (),
+        captured_by: str = "u-pnair",
+    ) -> SubmissionVersionRow:
+        frozen = {
+            field_id: SnapshotValue.model_validate(spec)
+            for field_id, spec in (values or {}).items()
+        }
+        return SubmissionVersionRow(
+            version_id=submission_version_id(case_id, version),
+            case_id=case_id,
+            version=version,
+            captured_at=datetime(2026, 10, 1, 9, 40, tzinfo=UTC)
+            + timedelta(hours=5 * (version - 1)),
+            captured_by=CapturedBy(sub=captured_by, role="fcrm_po"),
+            reason=reason,  # type: ignore[arg-type]
+            round=round_no,
+            field_values=frozen,
+            document_ids=list(document_ids),
+            changed_field_ids=[],
+            completion=SnapshotCompletion(filled=len(frozen), required=len(frozen)),
+        )
+
+    return _make
+
+
+@pytest.fixture
+def make_document() -> Callable[..., Any]:
+    """``make_document(doc_id, name)``: a stored document row of the demo case."""
+    from datetime import UTC, datetime
+
+    from fcrm_case.domain.views import DocumentRow
+
+    def _make(doc_id: str, name: str, case_id: str = "FCRM-2026-0151") -> DocumentRow:
+        return DocumentRow(
+            doc_id=doc_id,
+            case_id=case_id,
+            name=name,
+            status="extracted",
+            bucket="uploads",
+            key=f"{case_id}/{doc_id}/{name}",
+            size_bytes=1000,
+            content_type="application/pdf",
+            uploaded_at=datetime(2026, 10, 1, 9, tzinfo=UTC),
+        )
+
+    return _make
+
+
+@pytest.fixture
+def submitted_case(
+    assessed_case: AssessedCase,
+    make_submission: Callable[..., Any],
+    make_document: Callable[..., Any],
+) -> AssessedCase:
+    """:func:`assessed_case` with two frozen submissions and three documents: v1 as
+    submitted (an extracted value, an owner-corrected one, an open one, two
+    documents) and v2 after round 1 (the open one answered, the extracted one
+    re-answered, one more document).
+    """
+    service = assessed_case.read.service
+    for doc in (
+        make_document("doc_1", "business_case.pdf"),
+        make_document("doc_2", "partner_contract.pdf"),
+        make_document("doc_3", "audit_scope_letter.pdf"),
+    ):
+        service.views.documents[doc.doc_id] = doc
+    v1 = make_submission(
+        1,
+        {
+            "F01": {
+                "value": "Priya Nair",
+                "origin": "extracted",
+                "source": {
+                    "doc_id": "doc_1",
+                    "page": 1,
+                    "line_start": 4,
+                    "line_end": 4,
+                },
+            },
+            "F03": {
+                "value": "February 2027",
+                "origin": "owner_declared",
+                "source": {"label": "owner declared"},
+                "original": {
+                    "value": "Q1 2027",
+                    "source": {
+                        "doc_id": "doc_1",
+                        "page": 1,
+                        "line_start": 9,
+                        "line_end": 9,
+                    },
+                },
+            },
+            "F11": {"origin": "open"},
+        },
+        document_ids=("doc_1", "doc_2"),
+    )
+    v2 = make_submission(
+        2,
+        {
+            "F01": {
+                "value": "Priya Nair",
+                "origin": "extracted",
+                "source": {
+                    "doc_id": "doc_1",
+                    "page": 1,
+                    "line_start": 4,
+                    "line_end": 4,
+                },
+            },
+            "F03": {"value": "March 2027", "origin": "answered"},
+            "F11": {"value": "Licence MX-114", "origin": "answered"},
+        },
+        reason="round",
+        round_no=1,
+        document_ids=("doc_1", "doc_2", "doc_3"),
+    )
+    service.po.submissions[v1.version_id] = v1
+    service.po.submissions[v2.version_id] = v2
+    return assessed_case
+
+
+@pytest.fixture
+def add_activity(case_service: CaseService) -> Callable[..., list[Any]]:
+    """``add_activity(case_id, type, visibility, summary, detail=None, actor=...)
+    -> ActivityEntry``: append one row to the in-memory activity log with the next
+    ``seq`` of the case; the actor is ``(id, role, component)``, H1's by default.
+    """
+    from fcrm_contracts.api.case_internal import UiActor, UiEventIn
+
+    def _add(
+        case_id: str,
+        type: str,
+        visibility: str,
+        summary: str,
+        detail: Optional[dict[str, Any]] = None,
+        actor: tuple[str, str, str] = ("svc:caseflow", "fcrm_service", "caseflow"),
+        record_seq: Optional[int] = None,
+    ) -> Any:
+        seq = case_service.store._bump_activity_seq(case_id)
+        assert seq is not None
+        return case_service.store.activity.stage(
+            case_id,
+            seq,
+            UiEventIn(
+                type=type,
+                visibility=visibility,  # type: ignore[arg-type]
+                summary=summary,
+                detail=detail or {},
+                actor=UiActor(id=actor[0], role=actor[1], component=actor[2]),
+                record_seq=record_seq,
+            ),
+        )
+
+    return _add
+
+
+@pytest.fixture
+def make_harness_push() -> Callable[..., Any]:
+    """``make_harness_push(case_id, lines=3, trace_id=..., audit_records=67)``: the
+    snapshot Caseflow would push after a step (the demo case's, by default).
+    """
+    from fcrm_contracts.api.case_analyst_read import HarnessPush
+
+    def _make(
+        case_id: str = "FCRM-2026-0151",
+        lines: int = 3,
+        trace_id: str = "trace-9f3a77c1",
+        audit_records: int = 67,
+        verified: bool = True,
+    ) -> HarnessPush:
+        return HarnessPush.model_validate(
+            {
+                "run_id": "run_1",
+                "snapshot": {
+                    "case_id": case_id,
+                    "trace_id": trace_id,
+                    "status": "running",
+                    "core": "assessment core",
+                    "counters": {
+                        "agents_run": 4,
+                        "agents_total": 9,
+                        "guards_passed": 12,
+                        "guards_blocked": 1,
+                        "audit_records": audit_records,
+                        "chain_verified": verified,
+                        "tokens_used": 41200,
+                        "tokens_budget": 120000,
+                    },
+                    "guards": [
+                        {"n": 1, "name": "input scan", "last": "pass", "detail": "ok"},
+                        {
+                            "n": 4,
+                            "name": "output shape",
+                            "last": "block",
+                            "detail": "x",
+                        },
+                    ],
+                    "log": [
+                        {
+                            "seq": n,
+                            "at": "2026-10-05T12:00:00Z",
+                            "who": "assessment agent",
+                            "text": f"agent line {n} secret-agent-output",
+                            "sub": f"#{n} · proposal.assessment",
+                            "level": "info",
+                            "guard": None,
+                            "progress": None,
+                        }
+                        for n in range(1, lines + 1)
+                    ],
+                    "jaeger_url": f"http://localhost:16686/trace/{trace_id}",
+                    "tokens_note": "Counts come from the agents' recorded usage.",
+                },
+            }
+        )
+
+    return _make
+
+
+@pytest.fixture
+def live_caller(live_case: LiveCase) -> Callable[[Principal], Any]:
+    """``async with live_caller(principal) as client:`` calls the live S1 app as
+    ``principal``, a person: it replaces the service token with a verified caller
+    stored on the request exactly as the real ``current_user`` leaves it (the PO
+    response guard reads it to tell staff from an owner).
+    """
+    from contextlib import asynccontextmanager
+
+    import httpx
+    from fcrm_common.auth import current_user
+    from starlette.requests import Request
+
+    @asynccontextmanager
+    async def _caller(principal: Principal) -> AsyncIterator[httpx.AsyncClient]:
+        def caller(request: Request) -> Principal:
+            request.state.principal = principal
+            return principal
+
+        # A real class, not the string ``from __future__`` makes, so FastAPI
+        # injects the request.
+        caller.__annotations__ = {"request": Request}
+        live_case.app.dependency_overrides[current_user] = caller
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=live_case.app),
+            base_url="http://case.test",
+        ) as client:
+            yield client
+
+    return _caller
+
+
+@pytest.fixture
+async def live_analyst(
+    live_caller: Callable[[Principal], Any],
+) -> AsyncIterator[Any]:
+    """An HTTP client of the live S1 app, calling as Rahul Iyer, the analyst."""
+    from fcrm_contracts.common import Principal
+    from fcrm_contracts.enums import Role
+
+    principal = Principal(
+        sub=ANALYST_SUB, roles=[Role.ANALYST], name="Rahul Iyer", typ="access"
+    )
+    async with live_caller(principal) as client:
+        yield client

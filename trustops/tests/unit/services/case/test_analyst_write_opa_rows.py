@@ -57,7 +57,9 @@ PO_ROUTES = routes_of(po_router)
 
 def test_the_routers_are_not_empty() -> None:
     assert len(ANALYST_ROUTES) == 14
-    assert len(PO_ROUTES) == 4
+    # inbox, answer, evidence: the outcome is one path with two shapes and lives in
+    # the shared router of the analyst read module.
+    assert len(PO_ROUTES) == 3
 
 
 @pytest.mark.parametrize(("method", "path"), ANALYST_ROUTES)

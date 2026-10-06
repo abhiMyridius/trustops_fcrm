@@ -619,7 +619,7 @@ async def demo_peers(
     peers.on(POLICY_HOST, "GET", "/jurisdictions", jurisdictions)
     peers.on(POLICY_HOST, "POST", "/search", search)
     peers.on(POLICY_HOST, "GET", "/controls", inventory)
-    peers.on(CASE_HOST, "GET", f"/cases/{DEMO_CASE_ID}/versions/diff", diff)
+    peers.on(CASE_HOST, "GET", f"/internal/cases/{DEMO_CASE_ID}/submissions/diff", diff)
 
     http = build_http_registry(tool_clients, object_store)
     return SimpleNamespace(oracle=oracle, http=http, peers=peers)

@@ -13,6 +13,10 @@ it finds one.
 ``GET /cases/{id}/conditions`` is not here: it is one route with an analyst's and an
 owner's shape (:mod:`fcrm_case.routes_analyst_close`), whose owner branch is
 :meth:`fcrm_case.po_followup_service.PoFollowupService.conditions_page`.
+``GET /cases/{id}/outcome`` is not here either, for the same reason: the owner's plain
+outcome and the analyst's and committee's full one are one route
+(:mod:`fcrm_case.routes_analyst_read`, ``shared_router``), whose owner branch is
+:meth:`fcrm_case.po_followup_service.PoFollowupService.outcome`.
 """
 
 from __future__ import annotations
@@ -21,7 +25,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from fcrm_common.auth import require_roles
-from fcrm_contracts.api.case_po import ConditionPO, InboxPO, OutcomePO
+from fcrm_contracts.api.case_po import ConditionPO, InboxPO
 from fcrm_contracts.api.case_po_followup import (
     ConditionEvidenceBody,
     ThreadAnswerBody,
@@ -62,14 +66,6 @@ async def answer_question(
     changed and which documents were added.
     """
     return await service.answer(principal, case_id, thread_id, body)
-
-
-@router.get("/cases/{case_id}/outcome")
-async def get_outcome(case_id: str, principal: Owner, service: Service) -> OutcomePO:
-    """The plain outcome: the label, the owner-facing summary, the date and the
-    conditions in words. No score, band, rating, vote or rationale.
-    """
-    return await service.outcome(principal, case_id)
 
 
 @router.post("/cases/{case_id}/conditions/{condition_id}/evidence")

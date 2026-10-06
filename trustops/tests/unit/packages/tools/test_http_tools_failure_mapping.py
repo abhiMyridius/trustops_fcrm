@@ -60,7 +60,7 @@ ROUTES: dict[str, tuple[str, str, str, Any]] = {
     "submission_diff": (
         "case.test",
         "GET",
-        f"/cases/{CASE}/versions/diff",
+        f"/internal/cases/{CASE}/submissions/diff",
         SubmissionDiffInput(case_id=CASE, from_version=1, to_version=2),
     ),
     "case_search": (

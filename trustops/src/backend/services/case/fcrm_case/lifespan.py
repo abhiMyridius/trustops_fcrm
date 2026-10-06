@@ -41,6 +41,7 @@ from fcrm_common.tracing import init_otel
 from pymongo.asynchronous.collection import AsyncCollection
 
 from fcrm_case.activity_log import MongoActivityLog
+from fcrm_case.analyst_read_store import MongoAnalystReadStore
 from fcrm_case.analyst_write_store import MongoAnalystWriteStore
 from fcrm_case.assessment_store import MongoAssessmentStore
 from fcrm_case.consumer import start_consumer
@@ -189,6 +190,8 @@ async def register(
     await assessment.ensure_indexes()
     await activity.ensure_indexes()
     await outcomes.ensure_indexes()
+    analyst_reads = MongoAnalystReadStore(deps.mongo, db, cases_repo)
+    await analyst_reads.ensure_indexes()
     reflags = MongoReflagStore(deps.mongo, db, outbox)
     await reflags.ensure_indexes()
     if settings.seed_on_empty:
@@ -235,6 +238,7 @@ async def register(
         objects, _build_fixtures(settings, objects), settings
     )
     app.state.assessment = assessment
+    app.state.analyst_reads = analyst_reads
     app.state.outcomes = outcomes
     app.state.reflags = reflags
     app.state.hub = EventHub(settings.sse_queue_size)

@@ -460,6 +460,18 @@ class StepCompleter(Protocol):
         ...
 
 
+class StepReporter(Protocol):
+    """What :class:`StepRunner` calls after a step has committed: the harness
+    monitor's push. It must not raise for a failure to send (the decision path
+    does not wait on an observability feature); see
+    :class:`fcrm_caseflow.harness_view.HarnessReporter`.
+    """
+
+    async def report(self, case_id: str, run_id: str) -> bool:
+        """Send the monitor's snapshot of the run; ``False`` when it was not sent."""
+        ...
+
+
 class _CaseLocks:
     """One :class:`asyncio.Lock` per case, forgotten when nobody uses it, so
     a long-lived process does not keep a lock for every case it ever saw.
@@ -505,6 +517,8 @@ class StepRunner:
         decision: The S5 client, likewise.
         gates: Read access to the gates, likewise.
         decision_votes: The S5 client for the decision core, likewise.
+        reporter: Pushes the harness monitor's snapshot after each step (best
+            effort: a failure to send never fails the step).
         oversight: The oversight core's S4 and S1 clients, likewise.
     """
 
@@ -523,6 +537,7 @@ class StepRunner:
         decision: Optional[DecisionClient] = None,
         gates: Optional[GateStore] = None,
         decision_votes: Optional[DecisionVotesClient] = None,
+        reporter: Optional[StepReporter] = None,
         oversight: Optional[OversightClients] = None,
     ) -> None:
         """Wire the runner's collaborators; it holds no other state."""
@@ -538,6 +553,7 @@ class StepRunner:
         self._decision = decision
         self._gates = gates
         self._decision_votes = decision_votes
+        self._reporter = reporter
         self._oversight = oversight
         self._locks = _CaseLocks()
 
@@ -592,6 +608,8 @@ class StepRunner:
             )
             raise
         logger.info("step done")
+        if self._reporter is not None:
+            await self._reporter.report(step.case_id, step.run_id)
 
     async def _call_handler(
         self, handler: StepHandler, step: HarnessStep, run: CaseRun

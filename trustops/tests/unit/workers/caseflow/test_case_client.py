@@ -239,3 +239,51 @@ async def test_ids_are_escaped_as_one_path_segment(
     with pytest.raises(NotFoundError):
         await case_client.get_document("../etc/passwd")
     assert case_service.calls[0].path.count("/") == 3  # /internal/documents/<one>
+
+
+async def test_put_harness_sends_the_snapshot_as_a_put_and_returns_the_count(
+    case_client: CaseClient, case_service: FakeCaseService
+) -> None:
+    from fcrm_contracts.api.case_analyst_read import HarnessPush
+
+    push = HarnessPush.model_validate(
+        {
+            "run_id": "run_1",
+            "snapshot": {
+                "case_id": CASE,
+                "trace_id": "t1",
+                "status": "idle",
+                "core": "assessment core",
+                "counters": {
+                    "agents_run": 1,
+                    "agents_total": 9,
+                    "guards_passed": 0,
+                    "guards_blocked": 0,
+                    "audit_records": 2,
+                    "chain_verified": True,
+                    "tokens_used": 10,
+                    "tokens_budget": 120000,
+                },
+                "guards": [],
+                "log": [
+                    {
+                        "seq": 1,
+                        "at": "2026-10-05T12:00:00Z",
+                        "who": "H1 core",
+                        "text": "started",
+                        "sub": None,
+                        "level": "info",
+                        "guard": None,
+                        "progress": None,
+                    }
+                ],
+                "jaeger_url": "http://localhost:16686/trace/t1",
+                "tokens_note": "n",
+            },
+        }
+    )
+    result = await case_client.put_harness(CASE, push)
+    assert (result.case_id, result.lines) == (CASE, 1)
+    [call] = case_service.calls
+    assert (call.method, call.path) == ("PUT", f"/internal/cases/{CASE}/harness")
+    assert case_service.harness_pushes[0]["snapshot"]["trace_id"] == "t1"

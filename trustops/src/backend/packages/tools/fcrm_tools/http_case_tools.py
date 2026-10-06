@@ -4,17 +4,18 @@
 
 **Which S1 routes, and how sure we are of them**
 
-* ``submission_diff`` reads ``GET /cases/{id}/versions/diff?from_version=&to_version=``,
-  which S1 already serves in the tool's own output shape
+* ``submission_diff`` reads the service route
+  ``GET /internal/cases/{id}/submissions/diff?from_version=&to_version=``, which
+  S1 serves in the tool's own output shape
   (:class:`~fcrm_contracts.tools.submission_diff.SubmissionDiffOutput`).
-* ``evidence_store`` reads ``GET /internal/cases/{id}/evidence?control_id=`` and
-  ``case_search`` reads ``GET /internal/cases/search?q=``. Neither route exists
-  yet (the assessment lane adds them), so both are coded against an *assumed*
-  shape: :class:`~fcrm_contracts.api.case_evidence.CaseEvidenceOut` for the
-  first and the tool's own :class:`~fcrm_contracts.tools.case_search.CaseSearchOutput`
-  for the second, each read tolerantly and tested with ``httpx.MockTransport``.
-  When S1's route lands with another shape, this module is the one place that
-  changes.
+* ``case_search`` reads the service route ``GET /internal/cases/search?q=``, which
+  S1 serves in the tool's own
+  :class:`~fcrm_contracts.tools.case_search.CaseSearchOutput`.
+* ``evidence_store`` reads ``GET /internal/cases/{id}/evidence?control_id=``,
+  coded against an *assumed* shape,
+  :class:`~fcrm_contracts.api.case_evidence.CaseEvidenceOut`, read tolerantly and
+  tested with ``httpx.MockTransport``. When S1's route lands with another shape,
+  this module is the one place that changes.
 
 Nothing here falls back to seed data: a peer that cannot answer is an error the
 model sees as a tool failure.
@@ -58,7 +59,7 @@ MAX_QUERY_CHARS: Final = 1000
 #: routes are assumed (see the module docstring), so a change of S1's route is a
 #: change of one line here. ``{case_id}`` is filled with an escaped path segment.
 EVIDENCE_PATH: Final = "/internal/cases/{case_id}/evidence"
-SUBMISSION_DIFF_PATH: Final = "/cases/{case_id}/versions/diff"
+SUBMISSION_DIFF_PATH: Final = "/internal/cases/{case_id}/submissions/diff"
 CASE_SEARCH_PATH: Final = "/internal/cases/search"
 _ACTIVE_CONTROLS_KEY: Final = "evidence_store:active_controls"
 

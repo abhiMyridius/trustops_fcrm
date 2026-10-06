@@ -101,13 +101,17 @@ def test_only_the_owner_reads_or_answers_the_followup(
         client.post(
             f"/cases/{CASE}/clarifications/{first}/answer", json={"text": "x"}
         ).status_code,
-        client.get(f"/cases/{CASE}/outcome").status_code,
         client.post(
             f"/cases/{CASE}/conditions/cnd_x/evidence", json={"note": "x"}
         ).status_code,
     ]
 
-    assert statuses == [403, 403, 403, 403]
+    assert statuses == [403, 403, 403]
+    # The outcome is one path with two shapes (the owner's plain one here, the
+    # analyst's and the committee's full one in ``test_analyst_read_feed``): the
+    # observer and the service account read neither.
+    if role in (Role.OBSERVER, Role.SERVICE):
+        assert client.get(f"/cases/{CASE}/outcome").status_code == 403
 
 
 def test_another_owners_case_does_not_exist_to_them(

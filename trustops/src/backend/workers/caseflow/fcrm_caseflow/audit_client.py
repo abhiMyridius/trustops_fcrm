@@ -13,7 +13,7 @@ ledger; S4 is the chain-hashed one a human sees).
 from __future__ import annotations
 
 import logging
-from typing import Final, Optional
+from typing import Any, Final, Optional
 from urllib.parse import quote
 
 from fcrm_common.http import ServiceClient
@@ -24,6 +24,7 @@ from fcrm_contracts.api.audit import (
     RecordAppend,
     VerifyResult,
 )
+from fcrm_contracts.common import Page
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,12 @@ RECORDS_PATH: Final = "/records"
 PROPOSALS_PATH: Final = "/proposals"
 
 VERIFY_PATH: Final = "/verify/{case_id}"
+RECORD_LIST_PATH: Final = "/records/{case_id}"
+
+#: One page of a case's records and how many pages are read: a case's chain is
+#: about seventy records, so this reads up to a thousand and no more.
+RECORDS_PAGE_LIMIT: Final = 200
+RECORDS_MAX_PAGES: Final = 5
 
 
 class AuditClient:
@@ -111,3 +118,26 @@ class AuditClient:
             "GET", VERIFY_PATH.format(case_id=quote(case_id, safe=""))
         )
         return VerifyResult.model_validate(body)
+
+    async def list_records(self, case_id: str) -> list[AuditRecord]:
+        """``GET /records/{case_id}``: the case's chain, oldest first, at most
+        :data:`RECORDS_PAGE_LIMIT` times :data:`RECORDS_MAX_PAGES` records (the
+        harness monitor's log).
+
+        Raises:
+            fcrm_common.errors.FcrmError: S4 refused or was unreachable.
+        """
+        path = RECORD_LIST_PATH.format(case_id=quote(case_id, safe=""))
+        found: list[AuditRecord] = []
+        cursor: Optional[str] = None
+        for _ in range(RECORDS_MAX_PAGES):
+            params: dict[str, Any] = {"limit": RECORDS_PAGE_LIMIT}
+            if cursor is not None:
+                params["cursor"] = cursor
+            body = await self._client.request_json("GET", path, params=params)
+            page = Page[AuditRecord].model_validate(body)
+            found.extend(page.items)
+            cursor = page.next_cursor
+            if cursor is None:
+                break
+        return found
