@@ -32,6 +32,7 @@ from fcrm_contracts.api.scoring_simulate import SimulateRequest, SimulateRespons
 from fcrm_contracts.common import Principal
 from fcrm_contracts.enums import Role
 
+from fcrm_scoring import routes_routing
 from fcrm_scoring.engine import compute_score
 from fcrm_scoring.simulate import CaseInputs, simulate
 from fcrm_scoring.store import ConfigStore
@@ -146,3 +147,6 @@ async def _model_for(store: ConfigStore, version: int) -> ScoringModelVersion:
     if model is None:
         raise NotFoundError(f"no scoring model version {version}")
     return model
+
+
+router.include_router(routes_routing.router)

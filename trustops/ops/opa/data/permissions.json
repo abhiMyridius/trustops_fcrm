@@ -1636,6 +1636,105 @@
         "effect": "deny"
       },
       {
+        "id": "policy-get-config-analyst",
+        "description": "analyst reads a configuration section (D-03: the analyst owns configuration); named so narrowing the analyst wildcard cannot drop it",
+        "service": "policy",
+        "method": "GET",
+        "path": "/config/{section}",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "policy-put-draft-config-analyst",
+        "description": "analyst edits a section's draft (D-03: the analyst owns configuration); named so narrowing the analyst wildcard cannot drop it",
+        "service": "policy",
+        "method": "PUT",
+        "path": "/config/{section}/draft",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "policy-delete-draft-config-analyst",
+        "description": "analyst discards a draft (D-03: the analyst owns configuration); named so narrowing the analyst wildcard cannot drop it",
+        "service": "policy",
+        "method": "DELETE",
+        "path": "/config/{section}/draft",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "policy-post-preview-config-analyst",
+        "description": "analyst previews what a publish would change (D-03: the analyst owns configuration); named so narrowing the analyst wildcard cannot drop it",
+        "service": "policy",
+        "method": "POST",
+        "path": "/config/{section}/draft/preview",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "policy-post-publish-config-analyst",
+        "description": "analyst publishes a section's draft as the next snapshot (D-03: the analyst owns configuration); named so narrowing the analyst wildcard cannot drop it",
+        "service": "policy",
+        "method": "POST",
+        "path": "/config/{section}/draft/publish",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "scoring-get-routing-rules-version-committee",
+        "description": "committee reads the routing rules a pack was routed by (R1-R6)",
+        "service": "scoring",
+        "method": "GET",
+        "path": "/routing-rules/{version}",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "scoring-any-internal-all-service",
+        "description": "S3's configuration publish puts a model or routing rules into force through /internal/*",
+        "service": "scoring",
+        "method": "*",
+        "path": "/internal/*",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "deny-scoring-any-internal-analyst",
+        "description": "the internal publish routes are for the service account alone, whatever the analyst wildcard allows",
+        "service": "scoring",
+        "method": "*",
+        "path": "/internal/*",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-policy-any-config-service",
+        "description": "configuration is the analyst's (D-03): the service account reads and writes none of it, whatever it inherits from the analyst wildcard, for any method",
+        "service": "policy",
+        "method": "*",
+        "path": "/config/*",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
         "id": "case-get-dashboard-analyst",
         "description": "analyst dashboard (computed from the stored cases and scores)",
         "service": "case",
