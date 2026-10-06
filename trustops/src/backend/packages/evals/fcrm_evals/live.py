@@ -851,11 +851,11 @@ class RowPackBuilder:
 def lifted_token_budgets(factor: float) -> Iterator[None]:
     """Scale every attempt's token limit by ``factor`` while the block runs.
 
-    **A diagnostic, never the shipped path.** The tier budgets (cheap 6k, mid
-    12k, strong 20k tokens an attempt) are hard rules of the runtime, and a run
-    under them says whether the system as built can finish. When the budget is
-    what blocks a row, the agent's own quality cannot be seen behind it; one
-    run with the limit lifted shows it, and the run says so everywhere
+    **A diagnostic, never the shipped path.** The tier budgets of
+    ``ai/models/tiers.yaml`` (tokens an attempt) are hard rules of the runtime,
+    and a run under them says whether the system as built can finish. When the
+    budget is what blocks a row, the agent's own quality cannot be seen behind
+    it; one run with the limit lifted shows it, and the run says so everywhere
     (``token_budget_factor`` in the index, a chip on the dashboard, a line in
     the report). ``1.0`` changes nothing.
     """
