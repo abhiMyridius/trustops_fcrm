@@ -226,6 +226,20 @@ async def test_validate_fallback_rejection_is_401():
         await verifier.verify(token())
 
 
+async def test_validate_fallback_with_a_body_that_is_not_json_is_unavailable():
+    """Identity answering 200 with HTML is identity being unusable (503, fail
+    closed), not an unhandled ``JSONDecodeError`` (a bare 500).
+    """
+    verifier = TokenVerifier(
+        validate_url="http://identity/core/validate",
+        client=httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, text="<html>"))
+        ),
+    )
+    with pytest.raises(UpstreamUnavailableError):
+        await verifier.verify(token())
+
+
 def make_app(verifier: TokenVerifier) -> FastAPI:
     app = FastAPI()
     install_error_handlers(app)

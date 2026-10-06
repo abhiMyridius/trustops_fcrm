@@ -263,7 +263,19 @@ class ServiceClient:
         raise_for_problem(response, self.dependency)
         if response.status_code == 204 or not response.content:
             return None
-        return response.json()
+        try:
+            return response.json()
+        except ValueError as exc:
+            logger.error(
+                "peer answered %s with a body that is not JSON",
+                response.status_code,
+                extra={"dependency": self.dependency, "path": path},
+            )
+            raise UpstreamUnavailableError(
+                f"{self.dependency} returned a body that is not JSON.",
+                dependency=self.dependency,
+                upstream_status=response.status_code,
+            ) from exc
 
     async def get(self, path: str, **kwargs: Any) -> httpx.Response:
         """GET ``path``."""

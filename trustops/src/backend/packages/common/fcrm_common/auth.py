@@ -390,7 +390,17 @@ class TokenVerifier:
             raise UpstreamUnavailableError(
                 f"Identity answered {response.status_code}.", dependency="identity"
             )
-        principal = _principal_from_validate(response.json())
+        try:
+            body = response.json()
+        except ValueError as exc:
+            logger.error(
+                "identity answered 200 with a body that is not JSON",
+                extra={"dependency": "identity"},
+            )
+            raise UpstreamUnavailableError(
+                "Identity returned a body that is not JSON.", dependency="identity"
+            ) from exc
+        principal = _principal_from_validate(body)
         await cache_set(
             self._cache, cache_key, principal.model_dump_json(), VALIDATE_CACHE_TTL_S
         )
