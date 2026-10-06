@@ -6,7 +6,8 @@ model to reproduce); the one startup check worth making is that the
 seed-backed field set and pinned-versions providers
 (``fcrm_case.fieldset_provider``) parse cleanly, so a corrupted seed file
 fails the container at boot rather than on a caller's first ``POST
-/cases``.
+/cases``. They are the fallback of :class:`~fcrm_case.policy_config.PolicyConfig`,
+which reads the versions in force and the published field sets from S3.
 
 **The relay.** What S1 writes to its ``outbox`` (``case.created``,
 ``case.submitted``, ``case.document_stored``...) leaves for the bus through an
@@ -24,6 +25,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI
 from fcrm_common.auth import install_auth
@@ -55,13 +57,13 @@ from fcrm_case.fieldset_provider import (
     active_field_set,
     active_pinned_versions,
     active_type_domains,
-    field_set_for,
 )
 from fcrm_case.outcome_store import MongoOutcomeStore
 from fcrm_case.po_documents import DemoFixtures, DirectoryFixtures, ObjectFixtures
 from fcrm_case.po_followup_store import MongoPoFollowupStore
 from fcrm_case.po_store import MongoPoStore
 from fcrm_case.po_uploads import DocumentIntake
+from fcrm_case.policy_config import build_policy_config
 from fcrm_case.reflag_store import MongoReflagStore
 from fcrm_case.seeding import seed_case_service
 from fcrm_case.settings import CaseSettings
@@ -157,12 +159,21 @@ def start_relay(
 
 @asynccontextmanager
 async def register(
-    app: FastAPI, settings: CaseSettings, deps: ServiceDeps
+    app: FastAPI,
+    settings: CaseSettings,
+    deps: ServiceDeps,
+    *,
+    policy_client: Optional[ServiceClient] = None,
 ) -> AsyncIterator[None]:
     """Wire S1 onto ``app`` from injected dependencies: parse the seed-backed
     providers, ensure the indexes, seed an empty database (``SEED_ON_EMPTY``),
     set the stores, hub, directory and auth/authz on ``app.state``, start the
     outbox relay and add the readiness checks.
+
+    ``policy_client`` is the client S1 reads S3's versions in force and field sets
+    through; left out, it is built from ``POLICY_SERVICE_URL`` (a test passes one
+    over an ASGI transport to a live S3). S3 is not a readiness check: S1 raises
+    cases with the seed's versions while S3 is down.
 
     The host owns logging, tracing and the Mongo, verifier, OPA and broker
     clients (``fcrm_common.service``); this never opens or closes them.
@@ -200,6 +211,7 @@ async def register(
         )
 
     store = MongoCaseStore(deps.mongo, cases_repo, counters, outbox, activity)
+    policy = build_policy_config(settings, client=policy_client)
     po_store = MongoPoStore(
         deps.mongo,
         db,
@@ -207,7 +219,7 @@ async def register(
         views.repos,
         outbox,
         activity,
-        field_sets=field_set_for,
+        field_sets=policy.field_set,
         type_domains=active_type_domains(),
     )
     await po_store.ensure_indexes()
@@ -218,7 +230,7 @@ async def register(
         views.repos,
         outbox,
         activity,
-        field_sets=field_set_for,
+        field_sets=policy.field_set,
         type_domains=active_type_domains(),
     )
     await analyst_store.ensure_indexes()
@@ -230,6 +242,7 @@ async def register(
     directory, closable = _build_directory(settings)
     app.state.store = store
     app.state.views = views
+    app.state.policy_config = policy
     app.state.po_store = po_store
     app.state.analyst_store = analyst_store
     app.state.po_followup_store = po_followup_store
@@ -251,6 +264,7 @@ async def register(
     probe.add(_uploads_check(objects, settings.s3_bucket_uploads))
 
     async with AsyncExitStack() as stack:
+        stack.push_async_callback(policy.aclose)
         if closable is not None:
             stack.push_async_callback(closable.aclose)
         start_relay(stack, probe, outbox, db["leases"], deps)

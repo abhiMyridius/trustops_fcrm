@@ -20,6 +20,7 @@ from fcrm_case.directory import AnalystLoadService, IdentityDirectory
 from fcrm_case.outcome_store import OutcomeStore
 from fcrm_case.po_followup_service import PoFollowupService
 from fcrm_case.po_service import PoService
+from fcrm_case.policy_config import PolicyConfig
 from fcrm_case.reflag_store import ReflagStore
 from fcrm_case.settings import CaseSettings
 from fcrm_case.sse import ActivityWriter, EventHub
@@ -101,6 +102,14 @@ def get_writer(request: Request) -> ActivityWriter:
     return ActivityWriter(get_store(request).activity, get_hub(request))
 
 
+def get_policy_config(request: Request) -> PolicyConfig:
+    """The versions in force and field sets (S3, the seed as the fallback)
+    ``lifespan.py``/a test fixture wired onto ``app.state``.
+    """
+    config: PolicyConfig = _wired(request, "policy_config")
+    return config
+
+
 def get_po_service(request: Request) -> PoService:
     """The product owner's use cases over the stores ``lifespan.py`` wired: one
     cheap object per request, built from what is on ``app.state``.
@@ -111,6 +120,7 @@ def get_po_service(request: Request) -> PoService:
         po=_wired(request, "po_store"),
         writer=get_writer(request),
         intake=_wired(request, "intake"),
+        config=get_policy_config(request),
     )
 
 
@@ -137,4 +147,5 @@ def get_analyst_write_service(request: Request) -> AnalystWriteService:
         assessment=_wired(request, "assessment"),
         store=_wired(request, "analyst_store"),
         writer=get_writer(request),
+        config=get_policy_config(request),
     )

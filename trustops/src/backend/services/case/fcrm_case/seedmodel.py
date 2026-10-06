@@ -87,11 +87,8 @@ def pinned_versions_from_seed(raw: dict[str, Any]) -> PinnedVersions:
     "v6", "jurisdictions": "v2026-06", "routing": "v4", "prompts":
     "2026-09-28"}``).
 
-    A stand-in for the live "ask every owning service for its active
-    version" lookup H1 will eventually make at run start (design A §3.1):
-    until those services expose that, every case this one creates pins
-    whatever the seed says is current, which is correct for the demo and
-    every seeded figure but not yet a live read of another service's state.
+    These are the versions the seeded cases pin, and what a new case pins only
+    when S3 cannot say what is in force (:mod:`fcrm_case.policy_config`).
     ``jurisdictions`` and ``prompts`` are kept as the seed's own string
     form (``PinnedVersions`` declares them ``str``); the rest are ``vN``
     integers with the leading ``v`` stripped, matching

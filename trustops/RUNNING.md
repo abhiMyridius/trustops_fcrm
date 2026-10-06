@@ -282,7 +282,7 @@ The full list, each item with its evidence, is `docs/governance/known-gaps.md`. 
 
 - `make demo`, `make seed-verify`, `make verify`, `make e2e`, `make resilience`, `make nightly`, `make backup` and `make restore` print "not yet wired". The demo is driven by hand (section 4); the golden numbers are unit tests.
 - **A run that hits `handoff` (an agent failed twice) cannot be resumed.** No route decides the gate and the web has no re-run control.
-- **S1 pins versions from the seed**, not from a configuration publish.
+- **S1 pins the versions S3 holds in force** (`GET /internal/config/pins`, cached 5 s) and reads a published field set from S3; when S3 does not answer in a few seconds it pins the seed's versions and logs a warning naming the case. Proved on a real replica set, not yet in the composed stack.
 - **The 120,000-token case cap is reported, not enforced across jobs.**
 - **Redis does nothing** (`make up-cache`); **S3 Vectors is not in the image** (vectors are in memory; each `api` start embeds the corpus).
 - **The web examiner does not handle a 202**, and `BEDROCK_REGION_FALLBACK` is read by no code.
