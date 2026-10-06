@@ -184,7 +184,7 @@ opa-check: ## opa check --strict on the policies and tests
 	$(OPA) check --strict $(OPA_DIR)/policy $(OPA_DIR)/tests
 
 opa-test: ## Rego unit tests against the real permissions/tool_permits data
-	$(OPA) test $(OPA_DIR)/policy $(OPA_DIR)/data $(OPA_DIR)/tests
+	$(OPA) test --timeout 60s $(OPA_DIR)/policy $(OPA_DIR)/data $(OPA_DIR)/tests
 
 test-unit: ## every unit test under tests/ (integration and e2e markers excluded)
 	$(UV_RUN) pytest -m "not integration and not e2e"

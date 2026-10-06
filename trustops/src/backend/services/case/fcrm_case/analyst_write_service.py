@@ -42,16 +42,22 @@ from fcrm_common.time import utcnow
 from fcrm_contracts.api.case_analyst_write import (
     AcknowledgeBody,
     AcknowledgeResult,
+    CompletenessBody,
+    CompletenessResult,
     FastLaneBody,
     GateWriteResult,
     ItemDecisionBody,
     ItemDecisionResult,
     Recommendation,
     RecommendationEditBody,
+    ResolveThreadBody,
+    RoundBody,
+    RoundQuestion,
+    ThreadResolveResult,
     UnlockBody,
 )
 from fcrm_contracts.common import Principal
-from fcrm_contracts.enums import CaseState, GateType
+from fcrm_contracts.enums import CaseState, GateType, ItemKind
 from pydantic import ValidationError as PydanticValidationError
 
 from fcrm_case.analyst_errors import (
@@ -62,6 +68,7 @@ from fcrm_case.analyst_errors import (
     NotLockedError,
     NotReadyError,
     RecommendationLockedError,
+    RoundAlreadyOpenError,
     WrongStageError,
 )
 from fcrm_case.analyst_write_store import AnalystCommitted, AnalystWriteStore
@@ -71,6 +78,7 @@ from fcrm_case.domain.analyst_commands import (
     AnalystCommand,
     ack_command,
     ack_kind_of,
+    ask_round_command,
     decide_item_command,
     decision_fingerprint,
     edit_recommendation_command,
@@ -79,9 +87,17 @@ from fcrm_case.domain.analyst_commands import (
     lock_command,
     open_ack_snapshots,
     plan_item_decision,
+    proceed_command,
+    resolve_thread_command,
+    round_fingerprint,
     unlock_command,
 )
-from fcrm_case.domain.assessment import RecommendationRow, current_items
+from fcrm_case.domain.assessment import (
+    CompletenessViewRow,
+    RecommendationRow,
+    current_items,
+)
+from fcrm_case.domain.clarifications import anchor_parts, is_field_id
 from fcrm_case.domain.recommendation_edits import (
     RecommendationState,
     apply_edit,
@@ -92,6 +108,7 @@ from fcrm_case.domain.recommendation_edits import (
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.views import ScoreSnapshotRow
 from fcrm_case.errors import ensure_open
+from fcrm_case.po_text import reject_reserved_terms
 from fcrm_case.sse import ActivityWriter
 from fcrm_case.store import CaseStore
 from fcrm_case.views_store import ViewStore
@@ -99,6 +116,8 @@ from fcrm_case.views_store import ViewStore
 logger = logging.getLogger(__name__)
 
 _NO_RUN: Final = "The assistant has not opened this case yet. Try again in a moment."
+#: The one clarification round of a case (D-16).
+FIRST_ROUND: Final = 1
 
 
 class AnalystWriteService:
@@ -514,3 +533,223 @@ class AnalystWriteService:
             )
         )
         return await self._recommendation_view(case_id)
+
+    # -- completeness and the one clarification round (scene 10) -----------------
+
+    async def _completeness_view(self, case_id: str) -> CompletenessViewRow:
+        view = await self._assessment.get_completeness(case_id)
+        if view is None:
+            raise NotReadyError(
+                "the completeness report is still being drafted", case_id=case_id
+            )
+        return view
+
+    async def decide_completeness(
+        self, principal: Principal, case_id: str, body: CompletenessBody
+    ) -> CompletenessResult:
+        """Ask the owner one round of questions or proceed to review.
+
+        ``ask`` opens round 1 (the questions in the body, else the narrative
+        agent's kept ones), pauses the analyst clock (Caseflow's flag) and emits
+        ``gate.decided completeness{ask}`` and ``case.clarification_sent``;
+        ``proceed`` emits the gate decision only.
+
+        Raises:
+            NotReadyError: The completeness report is not drafted yet.
+            RoundAlreadyOpenError: A round was already sent, with other questions.
+            GateAlreadyDecidedError: The gate was decided the other way.
+            ValidationError: There is no question to ask, an anchor is not the
+                case's, or a question names a reserved term.
+            WrongStageError: The case is not at the completeness gate.
+        """
+        record = await self._own_case(case_id, principal)
+        view = await self._completeness_view(case_id)
+        if body.decision == "proceed":
+            return await self._proceed(record, view, principal)
+        questions = self._questions(view, body.questions)
+        return await self._ask(record, view, questions, principal)
+
+    async def send_round(
+        self, principal: Principal, case_id: str, body: RoundBody
+    ) -> CompletenessResult:
+        """The composer's send: the same round as ``ask``, with the questions the
+        analyst kept, dropped and edited.
+        """
+        record = await self._own_case(case_id, principal)
+        view = await self._completeness_view(case_id)
+        questions = self._questions(view, body.questions)
+        return await self._ask(record, view, questions, principal)
+
+    @staticmethod
+    def _questions(
+        view: CompletenessViewRow, given: Optional[list[RoundQuestion]]
+    ) -> list[RoundQuestion]:
+        """The questions to ask: the body's, else the agent's kept ones; at
+        least one, each with its own id.
+        """
+        pool = given
+        if pool is None:
+            pool = [
+                RoundQuestion(
+                    id=str(q["question_id"]),
+                    text=str(q["text"]),
+                    anchor=q.get("anchored_to"),
+                    keep=q.get("dropped_reason") is None,
+                )
+                for q in view.questions
+            ]
+        kept = [q for q in pool if q.keep]
+        if not kept:
+            raise ValidationError(
+                "Ask needs at least one question; proceed if nothing is missing.",
+                errors=[{"loc": "body.questions", "msg": "no question kept"}],
+            )
+        if len({q.id for q in kept}) != len(kept):
+            raise ValidationError(
+                "Each question needs its own id.",
+                errors=[{"loc": "body.questions", "msg": "duplicate question id"}],
+            )
+        return kept
+
+    async def _proceed(
+        self, record: CaseRecord, view: CompletenessViewRow, principal: Principal
+    ) -> CompletenessResult:
+        fingerprint = decision_fingerprint("proceed")
+        replayed = await self._replayed(view.gate_id, fingerprint)
+        if not replayed:
+            self._require_stage(
+                record,
+                CaseState.COMPLETENESS,
+                "the completeness gate is decided first",
+            )
+            committed = await self._commit(
+                proceed_command(
+                    case_id=record.case_id,
+                    run_id=self._run_id(record, view.run_id),
+                    gate_id=view.gate_id,
+                    by=principal.sub,
+                    by_name=principal.name,
+                    now=utcnow(),
+                )
+            )
+            replayed = committed.replayed
+        return CompletenessResult(
+            case_id=record.case_id, decision="proceed", replayed=replayed
+        )
+
+    async def _ask(
+        self,
+        record: CaseRecord,
+        view: CompletenessViewRow,
+        questions: list[RoundQuestion],
+        principal: Principal,
+    ) -> CompletenessResult:
+        known = await self._store.get_decision(view.gate_id)
+        if known is not None and known.fingerprint != round_fingerprint(questions):
+            if known.decision == "ask":
+                raise RoundAlreadyOpenError(
+                    "one round was already sent, with other questions (D-16)",
+                    case_id=record.case_id,
+                )
+            raise GateAlreadyDecidedError(
+                f"this gate was already decided ({known.decision})",
+                gate_id=view.gate_id,
+            )
+        if known is not None:
+            thread_ids = [
+                t.thread_id for t in await self._store.threads(record.case_id)
+            ]
+            return CompletenessResult(
+                case_id=record.case_id,
+                decision="ask",
+                round=FIRST_ROUND,
+                questions=len(thread_ids),
+                thread_ids=thread_ids,
+                replayed=True,
+            )
+        self._require_stage(
+            record, CaseState.COMPLETENESS, "the completeness gate is decided first"
+        )
+        labels = {d.field_id: d.label for d in record.required_fields}
+        await self._check_questions(record, questions, labels)
+        command = ask_round_command(
+            case_id=record.case_id,
+            run_id=self._run_id(record, view.run_id),
+            gate_id=view.gate_id,
+            round_no=FIRST_ROUND,
+            questions=questions,
+            labels=labels,
+            by=principal.sub,
+            by_name=principal.name,
+            now=utcnow(),
+        )
+        committed = await self._commit(command)
+        return CompletenessResult(
+            case_id=record.case_id,
+            decision="ask",
+            round=FIRST_ROUND,
+            questions=len(command.threads),
+            thread_ids=[t.thread_id for t in command.threads],
+            replayed=committed.replayed,
+        )
+
+    async def _check_questions(
+        self,
+        record: CaseRecord,
+        questions: list[RoundQuestion],
+        labels: dict[str, str],
+    ) -> None:
+        """Each question is read by the owner, so it may not name a reserved term,
+        and each anchor must be a field of the case or one of its controls.
+        """
+        controls = {
+            str(r.subject.get("control_id"))
+            for r in await self._views.list_items(record.case_id, ItemKind.CONTROL)
+        }
+        for question in questions:
+            reject_reserved_terms(
+                question.text, f"Question {question.id}", loc="body.questions"
+            )
+            for part in anchor_parts(question.anchor):
+                if not ((is_field_id(part) and part in labels) or part in controls):
+                    raise ValidationError(
+                        f"{part} is not a field or a control of this case.",
+                        errors=[{"loc": "body.questions", "msg": "unknown anchor"}],
+                    )
+
+    async def resolve_thread(
+        self,
+        principal: Principal,
+        case_id: str,
+        thread_id: str,
+        body: ResolveThreadBody,
+    ) -> ThreadResolveResult:
+        """Resolve an answered question. Resolving it again replays.
+
+        Raises:
+            NotFoundError: No such question on the case.
+            ConflictError: The owner has not answered it yet.
+        """
+        await self._own_case(case_id, principal)
+        thread = await self._store.get_thread(case_id, thread_id)
+        if thread is None:
+            raise NotFoundError(f"no such question {thread_id}")
+        if thread.status == "resolved":
+            return ThreadResolveResult(thread_id=thread_id, replayed=True)
+        if thread.status != "answered":
+            raise ConflictError(
+                "the owner has not answered this question yet",
+                case_id=case_id,
+                thread_id=thread_id,
+            )
+        await self._commit(
+            resolve_thread_command(
+                case_id=case_id,
+                thread=thread,
+                note=body.note,
+                by=principal.sub,
+                by_name=principal.name,
+                now=utcnow(),
+            )
+        )
+        return ThreadResolveResult(thread_id=thread_id)

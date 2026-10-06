@@ -45,7 +45,9 @@ from fcrm_case.domain.analyst_commands import (
     AnalystDecisionRow,
     AnalystGate,
     RecommendationChange,
+    ThreadResolution,
 )
+from fcrm_case.domain.clarifications import ClarificationThreadRow
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.views import ScoreSnapshotRow
 from fcrm_case.errors import ensure_open
@@ -106,6 +108,16 @@ class AnalystWriteStore(Protocol):
 
     async def score_snapshots(self, case_id: str) -> list[ScoreSnapshotRow]:
         """The case's score snapshots that opened an acknowledgement gate."""
+        ...
+
+    async def threads(self, case_id: str) -> list[ClarificationThreadRow]:
+        """The case's questions, oldest round first."""
+        ...
+
+    async def get_thread(
+        self, case_id: str, thread_id: str
+    ) -> Optional[ClarificationThreadRow]:
+        """One question of the case, or ``None``."""
         ...
 
 
@@ -187,6 +199,11 @@ class MongoAnalystWriteStore:
             db["analyst_decisions"], AnalystDecisionRow, id_of=lambda r: r.gate_id
         )
         self._recommendations = db["recommendations"]
+        self._threads: Repository[ClarificationThreadRow] = Repository(
+            db["clarification_threads"],
+            ClarificationThreadRow,
+            id_of=lambda r: r.thread_id,
+        )
 
     async def ensure_indexes(self) -> None:
         """``analyst_decisions{case_id}`` (the open-gate read); the ledger is
@@ -218,6 +235,8 @@ class MongoAnalystWriteStore:
         if not await self._change_recommendation(session, command):
             return AnalystCommitted(record, replayed=True)
         await self._decide_items(session, command)
+        await self._open_round(session, command)
+        await self._resolve_threads(session, command)
         entries = await self._stage(session, command.case_id, command.activity)
         for gate in fresh:
             await self._outbox.enqueue(session, gate.event)
@@ -292,6 +311,44 @@ class MongoAnalystWriteStore:
             )
         return False
 
+    async def _open_round(
+        self, session: AsyncClientSession, command: AnalystCommand
+    ) -> None:
+        """Insert the questions of the round the command asks."""
+        await self._threads.insert_many(command.threads, session=session)
+
+    async def _resolve_threads(
+        self, session: AsyncClientSession, command: AnalystCommand
+    ) -> None:
+        """Resolve the answered questions the command names.
+
+        Raises:
+            ConflictError: A question is not answered (it changed meanwhile).
+        """
+        for resolution in command.resolutions:
+            result = await self._threads.collection.update_one(
+                {
+                    "_id": resolution.thread_id,
+                    "case_id": command.case_id,
+                    "status": "answered",
+                },
+                {
+                    "$set": {
+                        "status": "resolved",
+                        "resolved_at": resolution.at,
+                        "resolved_by": resolution.by,
+                        "resolve_note": resolution.note,
+                    }
+                },
+                session=session,
+            )
+            if result.matched_count != 1:
+                raise ConflictError(
+                    f"question {resolution.thread_id} is not an answered question "
+                    "of this case",
+                    case_id=command.case_id,
+                )
+
     async def _decide_items(
         self, session: AsyncClientSession, command: AnalystCommand
     ) -> None:
@@ -357,6 +414,20 @@ class MongoAnalystWriteStore:
         ).to_list()
         return frozenset(str(d["_id"]) for d in docs)
 
+    async def threads(self, case_id: str) -> list[ClarificationThreadRow]:
+        return await self._threads.find(
+            {"case_id": case_id},
+            sort=[("round", ASCENDING), ("question_id", ASCENDING)],
+            limit=MAX_ROWS_PER_CASE,
+        )
+
+    async def get_thread(
+        self, case_id: str, thread_id: str
+    ) -> Optional[ClarificationThreadRow]:
+        return await self._threads.find_one(
+            {"thread_id": thread_id, "case_id": case_id}
+        )
+
     async def score_snapshots(self, case_id: str) -> list[ScoreSnapshotRow]:
         return await self._views.score_snapshots.find(
             {"case_id": case_id, "gate_id": {"$ne": None}},
@@ -407,6 +478,10 @@ class InMemoryAnalystWriteStore:
             self._views.items[item.item_id] = self._views.items[
                 item.item_id
             ].model_copy(update={"status": item.status, "decided": item.decided})
+        for row in command.threads:
+            self._views.threads[row.thread_id] = row
+        for resolution in command.resolutions:
+            self._resolve(command, resolution)
         for gate in fresh:
             self.decisions[gate.gate_id] = decision_row(
                 command,
@@ -428,6 +503,28 @@ class InMemoryAnalystWriteStore:
             for i, event in enumerate(command.activity)
         )
         return AnalystCommitted(record, entries, frozenset(g.gate_id for g in fresh))
+
+    def _resolve(self, command: AnalystCommand, resolution: ThreadResolution) -> None:
+        """The twin of ``MongoAnalystWriteStore._resolve_threads`` for one question."""
+        thread = self._views.threads.get(resolution.thread_id)
+        if (
+            thread is None
+            or thread.case_id != command.case_id
+            or thread.status != "answered"
+        ):
+            raise ConflictError(
+                f"question {resolution.thread_id} is not an answered question "
+                "of this case",
+                case_id=command.case_id,
+            )
+        self._views.threads[resolution.thread_id] = thread.model_copy(
+            update={
+                "status": "resolved",
+                "resolved_at": resolution.at,
+                "resolved_by": resolution.by,
+                "resolve_note": resolution.note,
+            }
+        )
 
     def _change_recommendation(self, command: AnalystCommand) -> bool:
         """The twin of ``MongoAnalystWriteStore._change_recommendation``."""
@@ -465,6 +562,16 @@ class InMemoryAnalystWriteStore:
 
     async def decided_gate_ids(self, case_id: str) -> frozenset[str]:
         return frozenset(g for g, r in self.decisions.items() if r.case_id == case_id)
+
+    async def threads(self, case_id: str) -> list[ClarificationThreadRow]:
+        rows = [t for t in self._views.threads.values() if t.case_id == case_id]
+        return sorted(rows, key=lambda t: (t.round, t.question_id))
+
+    async def get_thread(
+        self, case_id: str, thread_id: str
+    ) -> Optional[ClarificationThreadRow]:
+        row = self._views.threads.get(thread_id)
+        return row if row is not None and row.case_id == case_id else None
 
     async def score_snapshots(self, case_id: str) -> list[ScoreSnapshotRow]:
         rows = [

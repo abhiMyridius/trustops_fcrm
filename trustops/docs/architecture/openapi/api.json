@@ -1057,7 +1057,7 @@
           "answer": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ThreadAnswer"
+                "$ref": "#/components/schemas/S5_ThreadAnswer"
               },
               {
                 "type": "null"
@@ -1089,6 +1089,92 @@
           "at"
         ],
         "title": "CommitteeThread",
+        "type": "object"
+      },
+      "CompletenessBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/completeness``: ask the owner one round of questions or\nproceed to review. ``questions`` are only read for ``ask``; without them the\nquestions the narrative agent drafted (and kept) are asked.",
+        "properties": {
+          "decision": {
+            "enum": [
+              "ask",
+              "proceed"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "questions": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RoundQuestion"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Questions"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "CompletenessBody",
+        "type": "object"
+      },
+      "CompletenessResult": {
+        "additionalProperties": false,
+        "description": "What the completeness gate and the round answer (202/201): the decision, the\nround it opened (``None`` for ``proceed``), how many questions it asked and\nwhether it was already decided so.",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "ask",
+              "proceed"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "questions": {
+            "default": 0,
+            "title": "Questions",
+            "type": "integer"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "round": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Round"
+          },
+          "thread_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Thread Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "case_id",
+          "decision"
+        ],
+        "title": "CompletenessResult",
         "type": "object"
       },
       "Completion": {
@@ -1197,6 +1283,68 @@
           "from"
         ],
         "title": "ConditionAnalyst",
+        "type": "object"
+      },
+      "ConditionEvidenceBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/conditions/{condition_id}/evidence``: the owner's evidence.\n\nThe owner says in words what evidence they attach. (A document goes through\nthe case's own document upload; evidence is not read by an agent, so it is\ntext here.)",
+        "properties": {
+          "note": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "note"
+        ],
+        "title": "ConditionEvidenceBody",
+        "type": "object"
+      },
+      "ConditionPO": {
+        "additionalProperties": false,
+        "properties": {
+          "due": {
+            "title": "Due",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "mine": {
+            "title": "Mine",
+            "type": "boolean"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "scheduled",
+              "evidence_submitted",
+              "closed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "owner",
+          "due",
+          "status",
+          "mine"
+        ],
+        "title": "ConditionPO",
         "type": "object"
       },
       "ConditionPatch": {
@@ -1928,6 +2076,68 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "InboxPO": {
+        "additionalProperties": false,
+        "properties": {
+          "banner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banner"
+          },
+          "rounds": {
+            "items": {
+              "$ref": "#/components/schemas/InboxRound"
+            },
+            "title": "Rounds",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rounds",
+          "banner"
+        ],
+        "title": "InboxPO",
+        "type": "object"
+      },
+      "InboxRound": {
+        "additionalProperties": false,
+        "description": "One round of questions. ``from`` is a Python keyword, so the attribute\nis ``from_`` and the wire name stays ``from``.",
+        "properties": {
+          "from": {
+            "title": "From",
+            "type": "string"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "sent_at": {
+            "title": "Sent At",
+            "type": "string"
+          },
+          "threads": {
+            "items": {
+              "$ref": "#/components/schemas/ThreadPO"
+            },
+            "title": "Threads",
+            "type": "array"
+          }
+        },
+        "required": [
+          "round",
+          "from",
+          "sent_at",
+          "threads"
+        ],
+        "title": "InboxRound",
+        "type": "object"
+      },
       "IntakeViewPO": {
         "additionalProperties": false,
         "properties": {
@@ -2502,6 +2712,69 @@
           "text"
         ],
         "title": "OutcomeCondition",
+        "type": "object"
+      },
+      "OutcomePO": {
+        "additionalProperties": false,
+        "properties": {
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/ConditionPO"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "decided": {
+            "title": "Decided",
+            "type": "boolean"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "outcome_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Label"
+          },
+          "plain_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plain Summary"
+          },
+          "reminder_days": {
+            "title": "Reminder Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "decided",
+          "outcome_label",
+          "plain_summary",
+          "decided_at",
+          "conditions",
+          "reminder_days"
+        ],
+        "title": "OutcomePO",
         "type": "object"
       },
       "OutcomeRecord": {
@@ -5082,6 +5355,26 @@
         "title": "RequiredCard",
         "type": "object"
       },
+      "ResolveThreadBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/clarifications/{thread_id}/resolve``: nothing to say\nbut, optionally, why it is resolved.",
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "ResolveThreadBody",
+        "type": "object"
+      },
       "ResolvedFieldSetOut": {
         "additionalProperties": false,
         "description": "``GET /field-sets/{version}/resolve?change_types=a,b``: the fields a\ncase with those change types must fill (the always-required set, then each\ntype's own fields in the order the types were given, de-duplicated by\nfield id). Each per-type field carries the change type that adds it.",
@@ -5418,6 +5711,68 @@
         "title": "RosterUser",
         "type": "object"
       },
+      "RoundBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/clarifications``: open the round with these questions.",
+        "properties": {
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/RoundQuestion"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Questions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questions"
+        ],
+        "title": "RoundBody",
+        "type": "object"
+      },
+      "RoundQuestion": {
+        "additionalProperties": false,
+        "description": "One question of the round, as the web's composer posts it (``keep``\nfalse drops it). ``anchor`` is the field or control it is about.",
+        "properties": {
+          "anchor": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor"
+          },
+          "id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "title": "Id",
+            "type": "string"
+          },
+          "keep": {
+            "default": true,
+            "title": "Keep",
+            "type": "boolean"
+          },
+          "text": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "RoundQuestion",
+        "type": "object"
+      },
       "Route": {
         "enum": [
           "analyst",
@@ -5487,6 +5842,68 @@
           "rules"
         ],
         "title": "RoutingRulesVersion",
+        "type": "object"
+      },
+      "S1_ThreadAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "documents": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "documents",
+          "at"
+        ],
+        "title": "ThreadAnswer",
+        "type": "object"
+      },
+      "S5_ThreadAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "addendum_no": {
+            "title": "Addendum No",
+            "type": "integer"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "numbers_changed": {
+            "title": "Numbers Changed",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "by",
+          "text",
+          "at",
+          "addendum_no",
+          "numbers_changed"
+        ],
+        "title": "ThreadAnswer",
         "type": "object"
       },
       "ScoreRequest": {
@@ -6193,39 +6610,37 @@
         "title": "SupersedeResult",
         "type": "object"
       },
-      "ThreadAnswer": {
+      "ThreadAnswerBody": {
         "additionalProperties": false,
+        "description": "``POST /cases/{id}/clarifications/{thread_id}/answer``: the owner's answer.\n\n``documents`` are the names of documents to add with the answer (they go\nthrough the same checks as any upload); ``field_values`` are values the\nanswer sets. Neither is required.",
         "properties": {
-          "addendum_no": {
-            "title": "Addendum No",
-            "type": "integer"
+          "documents": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Documents",
+            "type": "array"
           },
-          "at": {
-            "format": "date-time",
-            "title": "At",
-            "type": "string"
-          },
-          "by": {
-            "title": "By",
-            "type": "string"
-          },
-          "numbers_changed": {
-            "title": "Numbers Changed",
-            "type": "boolean"
+          "field_values": {
+            "items": {
+              "$ref": "#/components/schemas/ThreadFieldValue"
+            },
+            "maxItems": 20,
+            "title": "Field Values",
+            "type": "array"
           },
           "text": {
+            "maxLength": 2000,
+            "minLength": 1,
             "title": "Text",
             "type": "string"
           }
         },
         "required": [
-          "by",
-          "text",
-          "at",
-          "addendum_no",
-          "numbers_changed"
+          "text"
         ],
-        "title": "ThreadAnswer",
+        "title": "ThreadAnswerBody",
         "type": "object"
       },
       "ThreadAnswerIn": {
@@ -6274,6 +6689,104 @@
           "text"
         ],
         "title": "ThreadAsk",
+        "type": "object"
+      },
+      "ThreadFieldValue": {
+        "additionalProperties": false,
+        "description": "A value the owner sets with their answer (``F11`` is now ``...``).",
+        "properties": {
+          "field_id": {
+            "pattern": "^F\\d{2,3}$",
+            "title": "Field Id",
+            "type": "string"
+          },
+          "value": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field_id",
+          "value"
+        ],
+        "title": "ThreadFieldValue",
+        "type": "object"
+      },
+      "ThreadPO": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/S1_ThreadAnswer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "field_label": {
+            "title": "Field Label",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "answered"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "round",
+          "field_label",
+          "question",
+          "status",
+          "answer"
+        ],
+        "title": "ThreadPO",
+        "type": "object"
+      },
+      "ThreadResolveResult": {
+        "additionalProperties": false,
+        "description": "What resolving a question answers: where it stands and whether it already\nstood there.",
+        "properties": {
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "status": {
+            "const": "resolved",
+            "default": "resolved",
+            "title": "Status",
+            "type": "string"
+          },
+          "thread_id": {
+            "title": "Thread Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "thread_id"
+        ],
+        "title": "ThreadResolveResult",
         "type": "object"
       },
       "UnlockBody": {
@@ -7921,6 +8434,205 @@
         ]
       }
     },
+    "/api/fcrm/cases/{case_id}/clarifications": {
+      "post": {
+        "description": "Send the round the composer prepared: the same round as ``ask`` with the\nanalyst's own questions (one round, sent once).",
+        "operationId": "S1_send_round_cases__case_id__clarifications_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoundBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompletenessResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Send Round",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/clarifications/{thread_id}/answer": {
+      "post": {
+        "description": "Answer one question (text, optionally values and documents). The answer\nthat closes the round freezes submission v2 and tells Caseflow which fields\nchanged and which documents were added.",
+        "operationId": "S1_answer_question_cases__case_id__clarifications__thread_id__answer_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "title": "Thread Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThreadAnswerBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxPO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Answer Question",
+        "tags": [
+          "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/clarifications/{thread_id}/resolve": {
+      "post": {
+        "description": "Resolve an answered question.",
+        "operationId": "S1_resolve_thread_cases__case_id__clarifications__thread_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "title": "Thread Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ResolveThreadBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadResolveResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Resolve Thread",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
     "/api/fcrm/cases/{case_id}/close": {
       "post": {
         "description": "Ask for a delegated close (R1, Band 1-2).\n\nRefused unless the case is open, the analyst holds it, its latest score\nroutes to the analyst (Band 1-2) and its recommendation is locked; a summary\nthat names a score, band or rating is refused too, because the owner reads\nit. Asking twice with the same content is a no-op; a different second\nrequest is a 409.\n\nRaises:\n    NotFoundError: No such case.\n    ForbiddenError: The caller is not the case's analyst.\n    fcrm_case.errors.CaseClosedError: The case is closed.\n    RuleViolationError: R1: no score yet, or the band routes to committee.\n    GateRequiredError: The recommendation is not locked.\n    ValidationError: The plain summary names a restricted term.",
@@ -7979,9 +8691,67 @@
         ]
       }
     },
+    "/api/fcrm/cases/{case_id}/completeness": {
+      "post": {
+        "description": "Ask the owner one round of questions, or proceed to review (D-16). ``ask``\nopens round 1 with the questions in the body (else the drafted, kept ones),\npauses the analyst clock and emits ``gate.decided completeness`` and\n``case.clarification_sent``; ``proceed`` emits the gate decision only.",
+        "operationId": "S1_decide_completeness_cases__case_id__completeness_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompletenessBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompletenessResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Decide Completeness",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
     "/api/fcrm/cases/{case_id}/conditions": {
       "get": {
-        "description": "The case's conditions, soonest due first (one query on ``{case_id}``).",
+        "description": "The case's conditions, soonest due first (one query on ``{case_id}``).\n\nRole-shaped (ADR-30, one route, two shapes): an analyst reads\n``Page[ConditionAnalyst]`` (above); the owner of the case reads the plain\n``Page[ConditionPO]`` of :mod:`fcrm_contracts.api.case_po` (text, owner, due,\nstatus, ``mine``; nothing about where a condition came from), through the\nPO response guard. Another owner's case is a 404.",
         "operationId": "S1_list_conditions_cases__case_id__conditions_get",
         "parameters": [
           {
@@ -8024,6 +8794,73 @@
         "summary": "List Conditions",
         "tags": [
           "case"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/conditions/{condition_id}/evidence": {
+      "post": {
+        "description": "Attach evidence to one of the owner's own conditions (allowed after the\ncase is closed): its status becomes ``evidence_submitted`` and FCRM reviews it.",
+        "operationId": "S1_evidence_condition_cases__case_id__conditions__condition_id__evidence_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "condition_id",
+            "required": true,
+            "schema": {
+              "title": "Condition Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConditionEvidenceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConditionPO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Evidence Condition",
+        "tags": [
+          "po"
         ]
       }
     },
@@ -8213,6 +9050,54 @@
           }
         ],
         "summary": "Upload Documents",
+        "tags": [
+          "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/inbox": {
+      "get": {
+        "description": "The questions FCRM asked, by round, each \"Re: <field>\", with the owner's\nanswers. Nothing the analyst keeps to themselves.",
+        "operationId": "S1_get_inbox_cases__case_id__inbox_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxPO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Inbox",
         "tags": [
           "po"
         ]
@@ -8579,6 +9464,54 @@
         "summary": "Decide Item",
         "tags": [
           "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/outcome": {
+      "get": {
+        "description": "The plain outcome: the label, the owner-facing summary, the date and the\nconditions in words. No score, band, rating, vote or rationale.",
+        "operationId": "S1_get_outcome_cases__case_id__outcome_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutcomePO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Outcome",
+        "tags": [
+          "po"
         ]
       }
     },

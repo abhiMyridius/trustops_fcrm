@@ -16,6 +16,8 @@ from fcrm_common.auth import require_roles
 from fcrm_contracts.api.case_analyst_write import (
     AcknowledgeBody,
     AcknowledgeResult,
+    CompletenessBody,
+    CompletenessResult,
     FastLaneBody,
     GateWriteResult,
     ItemDecisionBody,
@@ -23,6 +25,9 @@ from fcrm_contracts.api.case_analyst_write import (
     LockBody,
     Recommendation,
     RecommendationEditBody,
+    ResolveThreadBody,
+    RoundBody,
+    ThreadResolveResult,
     UnlockBody,
 )
 from fcrm_contracts.common import Principal
@@ -105,6 +110,42 @@ async def unlock_recommendation(
     pack is superseded and every item is decided again.
     """
     return await service.unlock_recommendation(principal, case_id, body)
+
+
+@router.post("/cases/{case_id}/completeness", status_code=202)
+async def decide_completeness(
+    case_id: str, body: CompletenessBody, principal: Analyst, service: Service
+) -> CompletenessResult:
+    """Ask the owner one round of questions, or proceed to review (D-16). ``ask``
+    opens round 1 with the questions in the body (else the drafted, kept ones),
+    pauses the analyst clock and emits ``gate.decided completeness`` and
+    ``case.clarification_sent``; ``proceed`` emits the gate decision only.
+    """
+    return await service.decide_completeness(principal, case_id, body)
+
+
+@router.post("/cases/{case_id}/clarifications", status_code=201)
+async def send_round(
+    case_id: str, body: RoundBody, principal: Analyst, service: Service
+) -> CompletenessResult:
+    """Send the round the composer prepared: the same round as ``ask`` with the
+    analyst's own questions (one round, sent once).
+    """
+    return await service.send_round(principal, case_id, body)
+
+
+@router.post("/cases/{case_id}/clarifications/{thread_id}/resolve")
+async def resolve_thread(
+    case_id: str,
+    thread_id: str,
+    principal: Analyst,
+    service: Service,
+    body: Optional[ResolveThreadBody] = None,
+) -> ThreadResolveResult:
+    """Resolve an answered question."""
+    return await service.resolve_thread(
+        principal, case_id, thread_id, body or ResolveThreadBody()
+    )
 
 
 @router.post("/cases/{case_id}/screening", status_code=202)

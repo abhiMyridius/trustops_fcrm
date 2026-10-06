@@ -50,6 +50,7 @@ if TYPE_CHECKING:
     from fcrm_case.domain.record import CaseRecord
     from fcrm_case.domain.views import ReviewItemRow
     from fcrm_case.outcome_store import InMemoryOutcomeStore
+    from fcrm_case.po_followup_store import InMemoryPoFollowupStore
     from fcrm_case.po_store import InMemoryPoStore
     from fcrm_case.sse import EventHub
     from fcrm_case.store import InMemoryCaseStore
@@ -1971,18 +1972,26 @@ class EmitProbe:
 
     def __init__(self) -> None:
         self.statuses: list[dict[str, str]] = []
+        #: How many clarification questions existed when each event was enqueued.
+        self.threads: list[int] = []
 
 
 class _ProbedEvents(list):  # type: ignore[type-arg]
-    """An outbox list that notes the review items' statuses at each enqueue."""
+    """An outbox list that notes the review items' statuses and the number of
+    clarification questions at each enqueue.
+    """
 
-    def __init__(self, probe: EmitProbe, items: dict[str, Any]) -> None:
+    def __init__(
+        self, probe: EmitProbe, items: dict[str, Any], threads: dict[str, Any]
+    ) -> None:
         super().__init__()
         self._probe = probe
         self._items = items
+        self._threads = threads
 
     def append(self, event: Any) -> None:
         self._probe.statuses.append({k: v.status.value for k, v in self._items.items()})
+        self._probe.threads.append(len(self._threads))
         super().append(event)
 
     def extend(self, events: Any) -> None:
@@ -1999,7 +2008,7 @@ def emit_probe(
     emitted (``store before emit``).
     """
     probe = EmitProbe()
-    case_store.events = _ProbedEvents(probe, view_store.items)
+    case_store.events = _ProbedEvents(probe, view_store.items, view_store.threads)
     return probe
 
 
@@ -2079,3 +2088,88 @@ def drafted_recommendation(
         draft_at=datetime(2026, 10, 5, 14, tzinfo=UTC),
     )
     return review_service
+
+
+@pytest.fixture
+def followup_store(case_service: CaseService) -> InMemoryPoFollowupStore:
+    """S1's in-memory owner follow-up store over the stores the routes read: the
+    questions and answers, the frozen submissions, the outcome and the conditions.
+    """
+    from fcrm_case.po_followup_store import InMemoryPoFollowupStore
+
+    return InMemoryPoFollowupStore(
+        case_service.store, case_service.views, case_service.po, case_service.outcomes
+    )
+
+
+@pytest.fixture
+def clarification_service(
+    case_service: CaseService,
+    assessment_store: InMemoryAssessmentStore,
+    analyst_store: InMemoryAnalystWriteStore,
+    followup_store: InMemoryPoFollowupStore,
+    act_as: Callable[[Role, str], None],
+    stored_case: CaseRecord,
+    demo_review_items: list[ReviewItemRow],
+    demo: dict[str, Any],
+) -> CaseService:
+    """The demo case at the completeness gate (scene 9 done): submitted by Priya
+    with the demo's three change types and their 18 required fields, held by Rahul
+    Iyer, its completeness report drafted with the seed's three questions (one
+    dropped), the assessment items stored; called as Rahul.
+    """
+    from datetime import UTC, datetime
+
+    from fcrm_case.domain.assessment import CompletenessViewRow
+    from fcrm_case.domain.fieldset import resolve_required_fields
+    from fcrm_case.fieldset_provider import active_field_set, active_type_domains
+    from fcrm_contracts.enums import CaseState, ChangeType, Role
+
+    app = case_service.client.app
+    app.state.assessment = assessment_store  # type: ignore[attr-defined]
+    app.state.analyst_store = analyst_store  # type: ignore[attr-defined]
+    app.state.po_followup_store = followup_store  # type: ignore[attr-defined]
+    types = [ChangeType(t) for t in demo["change_types"]]
+    domains = active_type_domains()
+    case_service.store._cases[stored_case.case_id] = stored_case.model_copy(
+        update={
+            "state": CaseState.COMPLETENESS,
+            "analyst_id": ANALYST_SUB,
+            "analyst_name": "Rahul Iyer",
+            "run_id": "run_1",
+            "change_types": types,
+            "required_fields": resolve_required_fields(
+                demo["change_types"], active_field_set()
+            ),
+            "domains": sorted({d for t in types for d in domains[t.value]}),
+            "submitted_at": datetime(2026, 10, 3, 9, tzinfo=UTC),
+            "current_submission_v": 1,
+        }
+    )
+    for row in demo_review_items:
+        case_service.views.items[row.item_id] = row
+    questions = demo["questions"]
+    assessment_store.completeness[stored_case.case_id] = CompletenessViewRow(
+        case_id=stored_case.case_id,
+        run_id="run_1",
+        report={
+            "missing": [],
+            "stale": [],
+            "contradictory": [],
+            "questions_drafted": 3,
+            "questions_kept": 2,
+        },
+        questions=[
+            {
+                "question_id": f"Q{n}",
+                "anchored_to": q.get("field"),
+                "text": q["q"],
+                "dropped_reason": q.get("dropped"),
+            }
+            for n, q in enumerate(questions, start=1)
+        ],
+        gate_id="gate_completeness",
+        updated_at=datetime(2026, 10, 5, 9, tzinfo=UTC),
+    )
+    act_as(Role.ANALYST, ANALYST_SUB)
+    return case_service

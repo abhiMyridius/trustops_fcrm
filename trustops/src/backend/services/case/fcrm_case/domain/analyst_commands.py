@@ -34,7 +34,7 @@ from typing import Any, Final, Literal, Optional
 
 from fcrm_common.errors import ConflictError, ValidationError
 from fcrm_common.events import build_envelope
-from fcrm_contracts.api.case_analyst_write import ItemDecisionBody
+from fcrm_contracts.api.case_analyst_write import ItemDecisionBody, RoundQuestion
 from fcrm_contracts.api.case_internal import UiActor, UiEventIn
 from fcrm_contracts.api.case_internal_assessment import (
     ControlProposed,
@@ -45,11 +45,22 @@ from fcrm_contracts.api.case_internal_assessment import (
 )
 from fcrm_contracts.enums import GateType, ItemKind, ItemStatus, Role
 from fcrm_contracts.events.envelope import Envelope
-from fcrm_contracts.events.payloads import CaseLocked, CaseUnlocked, GateDecided
+from fcrm_contracts.events.payloads import (
+    CaseClarificationSent,
+    CaseLocked,
+    CaseUnlocked,
+    GateDecided,
+)
 from pydantic import BaseModel, ConfigDict
 from pydantic import ValidationError as PydanticValidationError
 
 from fcrm_case.analyst_errors import DecisionNotAllowedError
+from fcrm_case.domain.clarifications import (
+    ClarificationThreadRow,
+    anchored_field_ids,
+    field_label_for,
+    thread_id_for,
+)
 from fcrm_case.domain.po_commands import ItemDecision
 from fcrm_case.domain.views import DecisionRow, ReviewItemRow, ScoreSnapshotRow
 
@@ -137,6 +148,16 @@ class RecommendationChange:
 
 
 @dataclass(frozen=True)
+class ThreadResolution:
+    """The analyst resolved an answered question."""
+
+    thread_id: str
+    by: str
+    at: datetime
+    note: Optional[str] = None
+
+
+@dataclass(frozen=True)
 class AnalystCommand:
     """Everything one analyst action changes, applied together.
 
@@ -152,6 +173,9 @@ class AnalystCommand:
         activity: Activity rows the analyst feed shows, staged in the same
             transaction.
         recommendation: A change to the recommendation row (edit, lock, unlock).
+        threads: The questions of a round to open, inserted with the gate decision
+            that asks them.
+        resolutions: Answered questions the analyst resolves.
     """
 
     case_id: str
@@ -161,6 +185,8 @@ class AnalystCommand:
     events: Sequence[Envelope] = ()
     activity: Sequence[UiEventIn] = ()
     recommendation: Optional[RecommendationChange] = None
+    threads: Sequence[ClarificationThreadRow] = ()
+    resolutions: Sequence[ThreadResolution] = ()
 
 
 def decision_fingerprint(*parts: Any) -> str:
@@ -641,6 +667,187 @@ def unlock_command(
                 by,
                 "recommendation.unlocked",
                 f"{by_name} unlocked the recommendation · reason recorded",
+            )
+        ],
+    )
+
+
+# ── completeness and the clarification round (D-16) ─────────────────────────────
+
+COMPLETENESS_SUBJECT: Final = {"kind": "completeness", "id": "report"}
+
+
+def po_visible_row(
+    sub: str, type_: str, summary: str, detail: Optional[dict[str, Any]] = None
+) -> UiEventIn:
+    """An activity row the owner also sees, written by the analyst (visibility
+    ``po``; the owner's feed names the actor ``FCRM``).
+    """
+    return UiEventIn(
+        type=type_,
+        visibility="po",
+        summary=summary,
+        detail=detail or {},
+        actor=analyst_actor(sub),
+    )
+
+
+def round_fingerprint(questions: Sequence[RoundQuestion]) -> str:
+    """The identity of a round: its questions, in order."""
+    return decision_fingerprint("ask", [(q.id, q.text, q.anchor) for q in questions])
+
+
+def proceed_command(
+    *,
+    case_id: str,
+    run_id: str,
+    gate_id: str,
+    by: str,
+    by_name: str,
+    now: datetime,
+) -> AnalystCommand:
+    """The command that decides the completeness gate as ``proceed``: no round,
+    straight to review.
+    """
+    event = gate_envelope(
+        case_id=case_id,
+        run_id=run_id,
+        gate_id=gate_id,
+        gate_type=GateType.COMPLETENESS,
+        decision="proceed",
+        decided_by=by,
+        decided_at=now,
+        subject=COMPLETENESS_SUBJECT,
+    )
+    gate = AnalystGate(
+        gate_id,
+        GateType.COMPLETENESS,
+        "proceed",
+        decision_fingerprint("proceed"),
+        event,
+    )
+    return AnalystCommand(
+        case_id=case_id,
+        actor=by,
+        gates=[gate],
+        activity=[
+            activity_row(
+                by,
+                "completeness.decided",
+                f"{by_name} proceeded to review without a clarification round",
+            )
+        ],
+    )
+
+
+def ask_round_command(
+    *,
+    case_id: str,
+    run_id: str,
+    gate_id: str,
+    round_no: int,
+    questions: Sequence[RoundQuestion],
+    labels: Mapping[str, str],
+    by: str,
+    by_name: str,
+    now: datetime,
+) -> AnalystCommand:
+    """The command that asks the owner one round of questions: the threads are
+    opened, ``gate.decided completeness{ask}`` carries the round and the number
+    of questions (what Caseflow records), and ``case.clarification_sent`` names the
+    threads. All of it commits in one transaction.
+    """
+    threads = [
+        ClarificationThreadRow(
+            thread_id=thread_id_for(case_id, round_no, q.id),
+            case_id=case_id,
+            round=round_no,
+            question_id=q.id,
+            text=q.text,
+            anchor=q.anchor,
+            field_ids=anchored_field_ids(q.anchor),
+            field_label=field_label_for(q.anchor, labels),
+            opened_at=now,
+            opened_by=by,
+        )
+        for q in questions
+    ]
+    decided = gate_envelope(
+        case_id=case_id,
+        run_id=run_id,
+        gate_id=gate_id,
+        gate_type=GateType.COMPLETENESS,
+        decision="ask",
+        decided_by=by,
+        decided_at=now,
+        subject=COMPLETENESS_SUBJECT,
+        after={"round": round_no, "questions": len(threads)},
+    )
+    gate = AnalystGate(
+        gate_id,
+        GateType.COMPLETENESS,
+        "ask",
+        round_fingerprint(questions),
+        decided,
+    )
+    sent = build_envelope(
+        "case.clarification_sent",
+        CaseClarificationSent(
+            case_id=case_id,
+            actor=by,
+            round=round_no,
+            thread_ids=[t.thread_id for t in threads],
+            question_count=len(threads),
+        ).model_dump(mode="json"),
+        case_id=case_id,
+        run_id=run_id,
+    )
+    noun = "question" if len(threads) == 1 else "questions"
+    return AnalystCommand(
+        case_id=case_id,
+        actor=by,
+        gates=[gate],
+        events=[sent],
+        threads=threads,
+        activity=[
+            activity_row(
+                by,
+                "clarification.sent",
+                f"{by_name} sent round {round_no} to the owner: {len(threads)} {noun}"
+                " · analyst clock paused",
+                {"round": round_no, "questions": len(threads)},
+            ),
+            po_visible_row(
+                by,
+                "clarification.sent",
+                f"FCRM has {len(threads)} {noun} for you",
+                {"round": round_no},
+            ),
+        ],
+    )
+
+
+def resolve_thread_command(
+    *,
+    case_id: str,
+    thread: ClarificationThreadRow,
+    note: Optional[str],
+    by: str,
+    by_name: str,
+    now: datetime,
+) -> AnalystCommand:
+    """The command that resolves an answered question."""
+    return AnalystCommand(
+        case_id=case_id,
+        actor=by,
+        resolutions=[ThreadResolution(thread.thread_id, by, now, note)],
+        activity=[
+            activity_row(
+                by,
+                "thread.resolved",
+                f"{by_name} resolved question {thread.question_id} "
+                f"(round {thread.round})",
+                {"round": thread.round, "thread_id": thread.thread_id},
             )
         ],
     )

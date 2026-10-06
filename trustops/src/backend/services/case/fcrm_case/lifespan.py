@@ -58,6 +58,7 @@ from fcrm_case.fieldset_provider import (
 )
 from fcrm_case.outcome_store import MongoOutcomeStore
 from fcrm_case.po_documents import DemoFixtures, DirectoryFixtures, ObjectFixtures
+from fcrm_case.po_followup_store import MongoPoFollowupStore
 from fcrm_case.po_store import MongoPoStore
 from fcrm_case.po_uploads import DocumentIntake
 from fcrm_case.seeding import seed_case_service
@@ -208,12 +209,17 @@ async def register(
         deps.mongo, db, cases_repo, views.repos, outbox, activity
     )
     await analyst_store.ensure_indexes()
+    po_followup_store = MongoPoFollowupStore(
+        deps.mongo, db, cases_repo, views.repos, outbox, activity
+    )
+    await po_followup_store.ensure_indexes()
     objects = ObjectStore.from_settings(settings)
     directory, closable = _build_directory(settings)
     app.state.store = store
     app.state.views = views
     app.state.po_store = po_store
     app.state.analyst_store = analyst_store
+    app.state.po_followup_store = po_followup_store
     app.state.objects = objects
     app.state.intake = DocumentIntake(
         objects, _build_fixtures(settings, objects), settings

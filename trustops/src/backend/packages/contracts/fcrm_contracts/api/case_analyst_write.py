@@ -172,7 +172,7 @@ class RoundQuestion(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str = Field(min_length=1, max_length=64)
+    id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_.:-]+$")
     text: str = Field(min_length=1, max_length=MAX_TEXT_CHARS)
     anchor: Optional[str] = Field(default=None, max_length=64)
     keep: bool = True
@@ -198,12 +198,40 @@ class CompletenessBody(BaseModel):
     questions: Optional[list[RoundQuestion]] = Field(default=None, max_length=50)
 
 
+class CompletenessResult(BaseModel):
+    """What the completeness gate and the round answer (202/201): the decision, the
+    round it opened (``None`` for ``proceed``), how many questions it asked and
+    whether it was already decided so.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    decision: Literal["ask", "proceed"]
+    round: Optional[int] = None
+    questions: int = 0
+    thread_ids: list[str] = Field(default_factory=list)
+    replayed: bool = False
+
+
 class RoundBody(BaseModel):
     """``POST /cases/{id}/clarifications``: open the round with these questions."""
 
     model_config = ConfigDict(extra="forbid")
 
     questions: list[RoundQuestion] = Field(min_length=1, max_length=50)
+
+
+class ThreadResolveResult(BaseModel):
+    """What resolving a question answers: where it stands and whether it already
+    stood there.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    thread_id: str
+    status: Literal["resolved"] = "resolved"
+    replayed: bool = False
 
 
 class ResolveThreadBody(BaseModel):

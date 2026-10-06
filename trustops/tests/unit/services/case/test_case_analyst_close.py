@@ -73,11 +73,10 @@ def _problem_code(response: Any) -> str:
     ("method", "path", "body"),
     [
         ("post", CLOSE, close_body()),
-        ("get", f"/cases/{CASE}/conditions", None),
         ("patch", "/conditions/cnd_x", {"note": "seen"}),
     ],
 )
-def test_only_an_analyst_may_close_or_track_conditions(
+def test_only_an_analyst_may_close_or_update_conditions(
     case_service: CaseService,
     act_as: Callable[[Role, str], None],
     role: Role,
@@ -87,6 +86,22 @@ def test_only_an_analyst_may_close_or_track_conditions(
 ) -> None:
     act_as(role, "u-someone")
     response = case_service.client.request(method, path, json=body)
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize("role", [Role.COMMITTEE, Role.OBSERVER, Role.SERVICE])
+def test_only_the_analyst_and_the_owner_read_the_conditions(
+    case_service: CaseService,
+    act_as: Callable[[Role, str], None],
+    role: Role,
+) -> None:
+    """The owner reads the plain shape of the same route (see
+    ``test_po_followup_routes``); no other role reads it.
+    """
+    act_as(role, "u-someone")
+
+    response = case_service.client.get(f"/cases/{CASE}/conditions")
+
     assert response.status_code == 403
 
 
