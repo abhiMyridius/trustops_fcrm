@@ -5,7 +5,6 @@ import type { Outcome } from '@/api/types/common';
 import * as A from '../actions';
 import { getDB, persist, sceneTime } from '../db';
 import { body, guarded, notFound, page, problem } from '../http';
-import { seed } from '../seed';
 import { COMMITTEE_NAMES } from '../users';
 import { isDemo, seedCase } from '../views/common';
 import { canCommitteeSee, castOtherVote, caseIdForPack, committeeQueue, packView, threads, votesView } from '../views/committee';
@@ -115,13 +114,6 @@ export const decisionHandlers = [
         }
       }
       return notFound();
-    }),
-  ),
-  http.get(`${API_PREFIX}/decision/cases/:caseId/outcome`, ({ request, params }) =>
-    guarded(request, ['fcrm_analyst', 'fcrm_committee'], () => {
-      const caseId = String(params.caseId);
-      const v = votesView(caseId, '__reader__');
-      return HttpResponse.json({ case_id: caseId, outcome: v.outcome, label: v.outcome_label, source: isDemo(caseId) ? 'S5' : 'seed', seed_version: seed.meta.generator });
     }),
   ),
 ];

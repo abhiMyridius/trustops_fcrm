@@ -7,7 +7,6 @@ import type {
   ActivityEventPO,
   CasePO,
   CasePOListItem,
-  ConditionPO,
   DashboardPO,
   DocumentsViewPO,
   InboxPO,
@@ -55,10 +54,6 @@ export function useReview(id: string) {
 
 export function useInboxPO(id: string) {
   return useQuery({ queryKey: keys.caseSection(id, 'inbox'), queryFn: () => api<InboxPO>(paths.cases.inbox(id)) });
-}
-
-export function useConditionsPO(id: string) {
-  return useQuery({ queryKey: keys.caseSection(id, 'conditions'), queryFn: () => apiList<ConditionPO>(paths.cases.conditions(id)) });
 }
 
 export function useOutcomePO(id: string) {
