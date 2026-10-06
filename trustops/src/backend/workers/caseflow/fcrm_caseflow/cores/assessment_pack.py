@@ -140,7 +140,18 @@ def narrative_parts(result: AgentResult) -> NarrativeParts:
     summary: Optional[BusinessSummary] = None
     for item in result.accepted():
         if "condition_id" in item:
-            conditions.append(Condition.model_validate(item))
+            condition = Condition.model_validate(item)
+            if not condition.text.strip():
+                # Live: a condition id "BS" with no text (the model's business
+                # summary in a condition's shape). A condition with nothing to do is
+                # not one; kept, it failed S1's activation when the case closed and
+                # stalled it at the decision.
+                logger.warning(
+                    "the narrative drafted a condition with no text; left out",
+                    extra={"condition_id": condition.condition_id},
+                )
+                continue
+            conditions.append(condition)
         elif "restricted_term_hits" in item:
             summary = BusinessSummary.model_validate(item)
         elif "source_ref" in item and "text" in item:
