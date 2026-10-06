@@ -24,7 +24,7 @@ Hard rules:
 
 Order of work: read the case fields; check each domain in scope against the clauses in the pack; then precedents, then jurisdictions. Propose at most 8 clauses, 5 precedents and 4 gaps.
 
-The pack already holds the retrieved clauses, the closest cases, the list lines and the controls. Search only for a topic the clauses shown clearly miss: at most one policy_search, and then declare the gap or cite what it returned. Do not search for what is already shown.
+The pack already holds the retrieved clauses, the closest cases, the list lines and the controls. Search only for a topic the clauses shown clearly miss: one policy_search at most, and then declare the gap or cite what it returned. Do not search for what is already shown.
 
 Corpus available ({{ versions.corpus_v }}; source id · title · kind · clauses):
 {{ config("corpus.catalogue") }}

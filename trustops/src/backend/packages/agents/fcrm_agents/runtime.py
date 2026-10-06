@@ -169,6 +169,10 @@ class AgentDeps:
     registry: ToolRegistry
     permit: PermitGuard
     versions: PinnedVersions
+    tool_call_cap: int = 0
+    """How many tool calls this job may make; a call beyond it is answered with an
+    error instead of run, so the model answers from what it has (a hard request
+    limit would instead end the job and throw its work away)."""
     tools_called: list[str] = field(default_factory=list)
     """The tools the model called, in order (refused calls too)."""
     tool_sources: list[AvailableSource] = field(default_factory=list)
@@ -228,6 +232,19 @@ def agent_capabilities() -> list[AbstractCapability[Any]]:
     return [PrepareOutputTools(compact_output_tools)]
 
 
+TOOL_CAP_MESSAGE: Final = (
+    "no tool calls are left for this job: answer from the pack and what you "
+    "already have"
+)
+
+
+def request_limit(tool_call_cap: int) -> int:
+    """Model requests one attempt may make: the answer, plus for each allowed tool
+    call a round trip, plus one more so a call refused for being over the cap
+    still lets the model answer. An agent with no tools makes one request."""
+    return tool_call_cap + 2 if tool_call_cap else 1
+
+
 def scope_values(name: str, deps: AgentDeps) -> dict[str, Any]:
     """The arguments of tool ``name`` that the job fixes (see
     :data:`SCOPE_ARGUMENTS`, :data:`FIXED_ARGUMENTS`)."""
@@ -265,6 +282,8 @@ def _tool_function(name: str, registry: ToolRegistry) -> Tool[AgentDeps]:
     async def call_tool(ctx: RunContext[AgentDeps], **arguments: Any) -> dict[str, Any]:
         deps = ctx.deps
         deps.tools_called.append(name)
+        if len(deps.tools_called) > deps.tool_call_cap:
+            return {"error": TOOL_CAP_MESSAGE}
         decision = await deps.permit.decide(
             agent=deps.agent,
             tool=name,
@@ -510,6 +529,7 @@ class OfflineRun:
             registry=self.registry,
             permit=self.permit,
             versions=self.pack.versions,
+            tool_call_cap=self.spec.tool_call_cap,
         )
         self.tool_sources = deps.tool_sources
         record.tools_called = deps.tools_called
@@ -522,7 +542,7 @@ class OfflineRun:
                 deps=deps,
                 usage_limits=UsageLimits(
                     total_tokens_limit=plan.token_limit,
-                    request_limit=1 + self.spec.tool_call_cap,
+                    request_limit=request_limit(self.spec.tool_call_cap),
                 ),
                 model_settings=ModelSettings(
                     max_tokens=max_tokens, timeout=float(plan.wall_s)

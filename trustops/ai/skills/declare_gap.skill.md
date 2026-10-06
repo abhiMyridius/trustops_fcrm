@@ -11,7 +11,10 @@ changelog:
 A gap is a correct result. "The sources shown do not cover this" is useful to the analyst; a plausible sentence with nothing behind it is a defect that someone has to find later.
 
 1. When nothing in your context or your tool results supports a claim, do not make the claim. Report the absence where your output has a place for it: a PolicyGap (research), a GapQuestion for a required field (intake), or the `searched` block of a GapSuggestion (policy gap).
-2. Say what you looked at, so the next person can repeat the search, in the `searched` block: the query you ran, word for word; the indexes (with the corpus version in force); and how many hits it returned.
+2. Say what you looked at, so the next person can repeat the search, in the `searched` block:
+   - the query you ran, word for word;
+   - the indexes, with the corpus version in force;
+   - how many hits it returned.
 3. Name the topic in a few plain words ("cash-pickup agent networks"), not as a question.
 4. Do not fill a gap with general knowledge, a regulation you remember, or a clause that is only close. Close is not a match: if the clause text does not address the topic, it is a gap.
 5. Do not soften a gap into a weak claim ("the corpus may partly cover..."). Either quote the text that covers it or declare the gap.

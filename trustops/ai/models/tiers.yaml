@@ -32,10 +32,24 @@ embeddings:
 # timeout) runs fallbacks[0] alone with the validation error appended
 # (ADR-14). Exactly one retry per run (BUILD-PLAN §3.4).
 #
-# `budget` is copied into every agent spec; a lock test asserts the copy
-# equals the tier (test_budget_matches_tier). `max_tokens`, `wall_clock_s`
-# and `retries` repeat the budget fields in the flat form the runtime reads.
-# Raising any of them needs a decision-log row.
+# `budget` is copied into every agent spec; a unit test asserts the copy equals
+# the tier and Guard 3's table (tests/unit/packages/agents/test_budgets_agree.py).
+# `max_tokens`, `wall_clock_s` and `retries` repeat the budget fields in the
+# flat form the runtime reads. Raising any of them needs a decision-log row.
+#
+# `budget.tokens` is what ONE ATTEMPT may spend, every request of it included
+# (a tool round trip re-sends the whole request). It is set from measured usage,
+# about 30% over the p90 of an attempt (evals/README.md, "Budgets from measured
+# usage"), not from the first design's estimate (cheap 6k, mid 12k, strong 20k,
+# judge 20k), which the first live run showed no real run could hold:
+#   cheap  15k  real demo windows of intake: 6-12k an attempt, p90 11.5k
+#   mid    11k  narrative, examiner, policy_gap: 5-8.5k, p90 8.5k
+#   strong 26k  research and assessment with one tool round trip: p90 about 20k
+#   judge  17.5k critic: 8-13k, p90 13.4k
+# A run that would need more is blocked on its budget (agent.failed, the handoff
+# gate), never silently cut. `max_tokens` is the cap on ONE REQUEST's output,
+# thinking included; it was 2000/3500/5000/4000 and cut a critic, an assessment
+# and an intake window off mid-answer (a cut tool call arrives as {}).
 tiers:
   cheap:
     primary: us.anthropic.claude-haiku-4-5-20251001-v1:0
@@ -44,7 +58,7 @@ tiers:
     max_tokens: 4000               # output cap per request (was 2000: an intake window of 15 values is cut off at 2000, and a cut tool call arrives as {})
     wall_clock_s: 60
     retries: 1
-    budget: {tokens: 6000, wall_s: 60, retries: 1}
+    budget: {tokens: 15000, wall_s: 60, retries: 1}
     cache_min_prefix_tokens: 4096  # Haiku-class minimum; cheap system prompts stay below it, so no cache point is emitted
     used_by: [screening, intake, watchlist]
   mid:
@@ -55,7 +69,7 @@ tiers:
     max_tokens: 4000
     wall_clock_s: 120
     retries: 1
-    budget: {tokens: 12000, wall_s: 120, retries: 1}
+    budget: {tokens: 11000, wall_s: 120, retries: 1}
     cache_min_prefix_tokens: 1024
     used_by: [narrative, examiner, policy_gap]
   strong:
@@ -67,7 +81,7 @@ tiers:
     max_tokens: 8000
     wall_clock_s: 180
     retries: 1
-    budget: {tokens: 20000, wall_s: 180, retries: 1}
+    budget: {tokens: 26000, wall_s: 180, retries: 1}
     cache_min_prefix_tokens: 1024
     used_by: [research, assessment]
   judge:
@@ -80,7 +94,7 @@ tiers:
     max_tokens: 8000
     wall_clock_s: 180
     retries: 1
-    budget: {tokens: 20000, wall_s: 180, retries: 1}
+    budget: {tokens: 17500, wall_s: 180, retries: 1}
     cache_min_prefix_tokens: 1024
     used_by: [critic, eval judges]
 

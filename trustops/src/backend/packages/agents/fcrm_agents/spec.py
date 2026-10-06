@@ -138,7 +138,7 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             Tier.CHEAP,
             ("field_rules", "precedent_search"),
             ("case_record", "field_rules", "precedent_search"),
-            ("cite_verbatim",),
+            (),
             gate="fast_lane_confirm",
             eval_set="screening/fast-lane-100",
             cap=0,
@@ -168,7 +168,7 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             ("cite_verbatim", "declare_gap"),
             gate="review_item",
             eval_set="research/clauses-40",
-            cap=3,
+            cap=1,
         ),
         _spec(
             A.ASSESSMENT,
@@ -185,7 +185,7 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             ("cite_verbatim", "compare_precedent"),
             gate="review_item",
             eval_set="assessment/ratings-80",
-            cap=2,
+            cap=1,
         ),
         _spec(
             A.CRITIC,
@@ -201,7 +201,7 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             ("compare_precedent",),
             gate="review_item",
             eval_set="critic/planted-60",
-            cap=3,
+            cap=1,
             may_be_empty=True,
         ),
         _spec(
@@ -218,7 +218,7 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             ("draft_for_business_reader", "batch_questions"),
             gate="completeness",
             eval_set="narrative/completeness-30",
-            cap=2,
+            cap=1,
             users=("narrative.completeness.user", "narrative.recommendation.user"),
             modes=("completeness", "recommendation"),
         ),
@@ -230,7 +230,7 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             (),
             gate=None,
             eval_set="examiner/questions-120",
-            cap=2,
+            cap=1,
         ),
         _spec(
             A.WATCHLIST,
@@ -251,7 +251,7 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             ("declare_gap", "cite_verbatim"),
             gate=None,
             eval_set="policy_gap/suggestions-14",
-            cap=4,
+            cap=1,
             may_be_empty=True,
         ),
     )

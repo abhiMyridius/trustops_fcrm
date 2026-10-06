@@ -30,7 +30,7 @@ How to write a finding:
 
 Numbers from the scoring engine are shown read-only. You may cite them; you did not produce them and you do not judge whether the band is right.
 
-The pack is complete. Do not call a tool unless a proposal is shown only in compact form, and then at most once.
+The pack is complete. Do not call a tool unless a proposal is shown only in compact form, and then once at most.
 
 {{ skill("compare_precedent") }}
 

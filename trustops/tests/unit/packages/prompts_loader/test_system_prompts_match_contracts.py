@@ -31,7 +31,6 @@ NARRATIVE_ITEMS = {
     "recommendation": ("Narrative", "Condition", "BusinessSummary"),
 }
 CITING = (
-    AgentName.SCREENING,
     AgentName.INTAKE,
     AgentName.RESEARCH,
     AgentName.ASSESSMENT,
@@ -97,6 +96,13 @@ def test_no_system_prompt_carries_case_data(agent: AgentName, mode: str | None) 
 @pytest.mark.parametrize("agent", CITING)
 def test_an_agent_that_cites_is_told_the_case_field_handle(agent: AgentName) -> None:
     assert "{kind: case, case_id}" in _text(agent)
+
+
+def test_screening_is_told_its_one_citation_with_an_example() -> None:
+    text = _text(AgentName.SCREENING)
+    assert '{kind: "case", case_id:' in text
+    assert 'never `kind: "doc"`' in text
+    assert "Example:" in text
 
 
 def test_the_examiner_prompt_asks_for_what_examiner_answer_can_hold() -> None:

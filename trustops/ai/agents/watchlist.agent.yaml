@@ -11,7 +11,7 @@ lifecycle_state: null                 # oversight job outside the case state mac
 trigger: "jurisdiction.list_published (S3 /jurisdictions/versions/{v}/activate) -> H1 computes candidates -> one watchlist job"
 tier: cheap
 budget_tier: cheap
-budget: {tokens: 6000, wall_s: 60, retries: 1}
+budget: {tokens: 15000, wall_s: 60, retries: 1}
 tools: [jurisdiction_list, case_search]
 tool_caps: {jurisdiction_list: 1, case_search: 1}
 tool_call_cap: 0                                    # the pack is complete; no tool is offered

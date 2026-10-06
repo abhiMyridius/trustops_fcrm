@@ -53,6 +53,7 @@ from fcrm_agents.runtime import (
     AttemptRecord,
     RunVerdict,
     agent_capabilities,
+    request_limit,
     tool_functions,
 )
 from fcrm_agents.spec import AgentSpec
@@ -329,6 +330,7 @@ class LiveRun:
             registry=self.registry,
             permit=self.permit,
             versions=self.pack.versions,
+            tool_call_cap=self.tool_call_cap,
         )
         self.tool_sources = deps.tool_sources
         record.tools_called = deps.tools_called
@@ -338,7 +340,7 @@ class LiveRun:
                 deps=deps,
                 usage_limits=UsageLimits(
                     total_tokens_limit=plan.token_limit,
-                    request_limit=1 + self.tool_call_cap,
+                    request_limit=request_limit(self.tool_call_cap),
                 ),
             )
         except UsageLimitExceeded as exc:

@@ -1,6 +1,6 @@
 # ai/agents/narrative.agent.yaml  (design B §2.6; two modes)
 name: narrative
-version: 1
+version: 2
 purpose: >-
   Write for people from confirmed inputs. Completeness mode (before review,
   D-16/D-17) lists missing, stale and contradictory items and drafts the one
@@ -11,10 +11,10 @@ lifecycle_state: [completeness, recommend]
 trigger: "completeness: H1 after the critic's agent.done; recommendation: H1 when every review item is decided and the final score is returned"
 tier: mid
 budget_tier: mid
-budget: {tokens: 12000, wall_s: 120, retries: 1}
+budget: {tokens: 11000, wall_s: 120, retries: 1}
 tools: [case_record, evidence_ledger]
 tool_caps: {case_record: 1, evidence_ledger: 1}
-tool_call_cap: 2
+tool_call_cap: 1                                    # one tool call: measured, the models call tools the pack makes unnecessary and each call re-sends the request (budget in tiers.yaml)
 pack_tools: [case_record, evidence_ledger, field_rules, evidence_store, submission_diff]
 skills: [draft_for_business_reader, batch_questions]
 context_pack: narrative

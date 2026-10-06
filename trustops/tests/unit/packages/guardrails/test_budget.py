@@ -32,9 +32,11 @@ SEED_BUDGETS = load_raw()["budgets"]
         (Tier.JUDGE, "strong + judge"),
     ],
 )
-def test_tier_budgets_match_the_seed(tier: Tier, seed_key: str) -> None:
+def test_tier_wall_clock_and_retries_match_the_seed(tier: Tier, seed_key: str) -> None:
+    """The token budget is not the seed's any more: it is set from measured usage
+    (``ai/models/tiers.yaml``, kept equal to this table by
+    ``tests/unit/packages/agents/test_budgets_agree.py``)."""
     budget = TIER_BUDGETS[tier]
-    assert budget.tokens == SEED_BUDGETS[seed_key]["tokens_per_run"]
     assert budget.wall_s == SEED_BUDGETS[seed_key]["wall_s"]
     assert budget.retries == SEED_BUDGETS[seed_key]["retries"]
 
@@ -45,22 +47,23 @@ def test_case_token_cap_matches_the_seed() -> None:
 
 def test_reserve_holds_tokens_times_attempts() -> None:
     budget = CaseBudget("c1")
+    held = TIER_BUDGETS[Tier.STRONG].tokens * (1 + TIER_BUDGETS[Tier.STRONG].retries)
     reservation = budget.reserve("job-1", AgentName.RESEARCH, Tier.STRONG)
-    assert reservation.tokens == 40_000
-    assert budget.remaining() == 80_000
+    assert reservation.tokens == held
+    assert budget.remaining() == CASE_TOKEN_CAP - held
 
 
 def test_reserve_is_idempotent_per_id() -> None:
     budget = CaseBudget("c1")
     budget.reserve("job-1", AgentName.SCREENING, Tier.CHEAP)
     budget.reserve("job-1", AgentName.SCREENING, Tier.CHEAP)
-    assert budget.reserved == 12_000
+    assert budget.reserved == TIER_BUDGETS[Tier.CHEAP].reservation_tokens
 
 
 def test_reserve_past_the_cap_raises() -> None:
-    budget = CaseBudget("c1")
-    for n in range(3):
-        budget.reserve(f"job-{n}", AgentName.RESEARCH, Tier.STRONG)
+    strong = TIER_BUDGETS[Tier.STRONG].reservation_tokens
+    budget = CaseBudget("c1", cap_tokens=strong + 1_000)
+    budget.reserve("job-1", AgentName.RESEARCH, Tier.STRONG)
     assert budget.would_exceed(Tier.CHEAP)
     with pytest.raises(BudgetExceededError):
         budget.reserve("job-x", AgentName.SCREENING, Tier.CHEAP)
@@ -71,7 +74,7 @@ def test_settle_releases_and_records_actual_usage() -> None:
     budget.reserve("job-1", AgentName.RESEARCH, Tier.STRONG)
     assert budget.settle("job-1", 8_000) == 8_000
     assert budget.reserved == 0
-    assert budget.remaining() == 112_000
+    assert budget.remaining() == CASE_TOKEN_CAP - 8_000
     assert budget.snapshot().per_agent["research"].tokens == 8_000
 
 
@@ -85,9 +88,10 @@ def test_settle_unknown_or_negative_raises() -> None:
 
 
 def test_settle_overrun_is_recorded_and_blocks_further_reservations() -> None:
-    budget = CaseBudget("c1", cap_tokens=20_000)
+    cheap = TIER_BUDGETS[Tier.CHEAP].reservation_tokens
+    budget = CaseBudget("c1", cap_tokens=cheap + 10_000)
     budget.reserve("job-1", AgentName.SCREENING, Tier.CHEAP)
-    budget.settle("job-1", 19_000)
+    budget.settle("job-1", cheap + 9_000)
     assert budget.remaining() == 1_000
     assert budget.would_exceed(Tier.CHEAP)
 
@@ -121,7 +125,7 @@ def test_attempt_plan_fallback_order() -> None:
     # The retry keeps the tier's whole output allowance: a thinking model that
     # is given half of it spends it thinking and returns an empty tool call.
     assert second.max_tokens_factor == 1.0
-    assert second.token_limit == 20_000
+    assert second.token_limit == TIER_BUDGETS[Tier.STRONG].tokens
     assert second.wall_s == 180
     with pytest.raises(AttemptsExhaustedError):
         attempt_plan(Tier.STRONG, 3)
@@ -130,8 +134,9 @@ def test_attempt_plan_fallback_order() -> None:
 
 
 def test_call_exceeds_tier() -> None:
-    assert not call_exceeds_tier(Tier.CHEAP, tokens_used=6_000, elapsed_s=60)
-    assert call_exceeds_tier(Tier.CHEAP, tokens_used=6_001, elapsed_s=1)
+    limit = TIER_BUDGETS[Tier.CHEAP].tokens
+    assert not call_exceeds_tier(Tier.CHEAP, tokens_used=limit, elapsed_s=60)
+    assert call_exceeds_tier(Tier.CHEAP, tokens_used=limit + 1, elapsed_s=1)
     assert call_exceeds_tier(Tier.CHEAP, tokens_used=1, elapsed_s=60.5)
 
 

@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 from fcrm_agents.runtime import RunVerdict
 from fcrm_agents.spec import REGISTRY
-from fcrm_contracts.enums import AgentName
+from fcrm_contracts.enums import AgentName, Tier
 from fcrm_contracts.proposals.screening import ScreeningProposal
 from fcrm_evals.datasets import load
 from fcrm_evals.instructions import InstructionRenderer
@@ -23,6 +23,7 @@ from fcrm_evals.live import (
 )
 from fcrm_evals.metrics.citation import shown_sources
 from fcrm_evals.usage import RowStatus
+from fcrm_guardrails.budget import TIER_BUDGETS
 from fcrm_seed.loader import load_raw
 from fcrm_tools import build_seed_registry, seed_pins
 
@@ -267,7 +268,7 @@ async def test_the_runtimes_token_budget_blocks_an_overlong_run(
     producer_for: Callable[..., LiveProducer],
     inflate_output: Callable[..., Any],
 ) -> None:
-    """The cheap tier's budget is 6k tokens a run; a model that spends more is
+    """The cheap tier's budget is a token limit a run; a model that spends more is
     blocked by the real runtime, and the row says ``budget``."""
     row = load(AgentName.SCREENING)[0]
     producer = producer_for(AgentName.SCREENING, [row], tamper=inflate_output)
@@ -277,7 +278,7 @@ async def test_the_runtimes_token_budget_blocks_an_overlong_run(
     assert output.run is not None
     assert output.run.stopped_at == "budget"
     assert "total_tokens_limit" in (output.run.reason or "")
-    assert output.run.output_tokens > 6_000
+    assert output.run.output_tokens > TIER_BUDGETS[Tier.CHEAP].tokens
 
 
 async def test_lifted_budgets_are_a_scoped_diagnostic_and_the_limit_comes_back(

@@ -11,12 +11,12 @@ lifecycle_state: screening
 trigger: "H1 enters CaseState.SCREENING after triage"
 tier: cheap
 budget_tier: cheap
-budget: {tokens: 6000, wall_s: 60, retries: 1}     # must equal ai/models/tiers.yaml tiers.cheap.budget
+budget: {tokens: 15000, wall_s: 60, retries: 1}     # must equal ai/models/tiers.yaml tiers.cheap.budget
 tools: [field_rules, precedent_search]             # model-callable; equals ai/policies/tool_permits.json
 tool_caps: {field_rules: 1, precedent_search: 1}
 tool_call_cap: 0                                    # the pack is complete; no tool is offered (measured: Haiku called one on 2 of 3 rows, tripling the request)
 pack_tools: [case_record, field_rules, precedent_search]   # deterministic builder fetches, never exposed to the model
-skills: [cite_verbatim]
+skills: []
 context_pack: screening                             # ScreeningPackBuilder in fcrm_agents.context
 output_schema:
   model: fcrm_contracts.proposals.screening.ScreeningProposal

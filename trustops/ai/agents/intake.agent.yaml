@@ -13,7 +13,7 @@ lifecycle_state: intake
 trigger: "case.document_stored -> ingest.done (H3) -> H1 dispatches one job per document window; re-run in clarification on new documents and changed fields only"
 tier: cheap
 budget_tier: cheap
-budget: {tokens: 6000, wall_s: 60, retries: 1}
+budget: {tokens: 15000, wall_s: 60, retries: 1}
 tools: [document_reader, field_rules, jurisdiction_list, precedent_search]
 tool_caps: {document_reader: 2, field_rules: 1, jurisdiction_list: 1, precedent_search: 1}
 tool_call_cap: 0                                    # the pack is complete; no tool is offered (measured: Haiku called one on every row, 17k tokens against 6k)
