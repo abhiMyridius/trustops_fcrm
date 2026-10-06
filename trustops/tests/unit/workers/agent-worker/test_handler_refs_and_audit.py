@@ -23,6 +23,7 @@ from fcrm_common.events import build_envelope
 from fcrm_contracts.enums import AgentName, Domain
 from fcrm_contracts.events.envelope import Envelope
 from fcrm_contracts.events.payloads import AgentDone, AgentFailed, JobPayload
+from fcrm_guardrails import GuardName, GuardResult, GuardStatus
 from fcrm_guardrails.opa_client import OPAClient
 from fcrm_tools import ToolRegistry
 from pydantic_ai import UnexpectedModelBehavior
@@ -466,3 +467,50 @@ class TestAgentDonePayload:
         assert summary["dropped"] == 0
         assert done.output["attempts"] == done.attempt == 1
         assert done.fast_lane_proposed is None, "only the screening agent sets it"
+
+
+def _shape_result(status: GuardStatus, **details: Any) -> GuardResult:
+    return GuardResult(
+        guard=GuardName.OUTPUT_SHAPE,
+        status=status,
+        summary="rejected",
+        details=details,
+        audit_type="guard.output",
+    )
+
+
+class TestRejectionReasons:
+    """The first live run's narrative was rejected by Guard 4 and the record
+    said only "1 other failing item(s)": the record now says which and why.
+    """
+
+    def test_a_rejected_attempt_names_its_failing_items_and_why(self) -> None:
+        shape = _shape_result(
+            GuardStatus.RETRY,
+            failed_items=["outputs[1]", "outputs[0].source"],
+            feedback=["outputs[1]: number_grounding failed (42 is not in the pack)"],
+        )
+
+        assert handler_module._rejection(shape) == {
+            "failed_items": ["outputs[1]", "outputs[0].source"],
+            "reasons": ["outputs[1]: number_grounding failed (42 is not in the pack)"],
+        }
+
+    def test_a_passing_attempt_adds_nothing(self) -> None:
+        shape = _shape_result(GuardStatus.PASSED, failed_items=[], claims=3)
+        assert handler_module._rejection(shape) == {}
+
+    def test_the_reasons_are_capped_in_number_and_length(self) -> None:
+        shape = _shape_result(
+            GuardStatus.RETRY,
+            failed_items=[f"outputs[{i}]" for i in range(9)],
+            feedback=["x" * 900] * 9,
+        )
+
+        out = handler_module._rejection(shape)
+
+        assert len(out["failed_items"]) == handler_module.MAX_REJECTION_REASONS
+        assert len(out["reasons"]) == handler_module.MAX_REJECTION_REASONS
+        assert all(
+            len(r) == handler_module.MAX_REJECTION_REASON_CHARS for r in out["reasons"]
+        )

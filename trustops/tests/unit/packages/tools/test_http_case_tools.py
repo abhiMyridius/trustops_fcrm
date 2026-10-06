@@ -1,9 +1,9 @@
 """``evidence_store``, ``submission_diff`` and ``case_search`` over scripted S1
 and S3 answers.
 
-The evidence and case-search routes are not in S1 yet, so what these tests pin
-is the shape the tools are *coded against* (``CaseEvidenceOut`` and the tool's
-own ``CaseSearchOutput``); ``submission_diff`` reads a route S1 already serves.
+The evidence tool reads what S1 serves (``EvidenceStoreOutput``: artefact, date,
+document), read tolerantly as ``CaseEvidenceOut``; ``case_search`` reads the
+tool's own ``CaseSearchOutput`` and ``submission_diff`` a route S1 already serves.
 """
 
 from __future__ import annotations
@@ -13,7 +13,11 @@ from typing import Any
 import pytest
 from fcrm_common.errors import UpstreamUnavailableError
 from fcrm_contracts.tools.case_search import CaseSearchInput
-from fcrm_contracts.tools.evidence_store import EvidenceStoreInput
+from fcrm_contracts.tools.evidence_store import (
+    EvidenceItem,
+    EvidenceStoreInput,
+    EvidenceStoreOutput,
+)
 from fcrm_contracts.tools.submission_diff import SubmissionDiffInput
 from fcrm_tools import (
     ToolInputError,
@@ -54,17 +58,11 @@ def _controls() -> dict[str, Any]:
 
 
 def _evidence(control_id: str = "CTL-T01", **item: Any) -> dict[str, Any]:
+    """S1's answer in the shape it serves (``EvidenceStoreOutput``)."""
     first: dict[str, Any] = {
-        "evidence_id": "evd_1",
-        "kind": "document",
-        "summary": "Vendor due-diligence scope letter",
-        "source_ref": {
-            "kind": "doc",
-            "doc_id": "doc_3",
-            "page": 1,
-            "line_start": 2,
-            "line_end": 4,
-        },
+        "artifact": "Vendor due-diligence scope letter",
+        "evidence_date": "",
+        "doc_id": "doc_3",
     }
     first.update(item)
     return {"control_id": control_id, "items": [first]}
@@ -93,10 +91,30 @@ async def test_evidence_store_describes_the_artefact_and_dates_it_by_the_last_te
     [item] = out.items
     assert item.artifact == "Vendor due-diligence scope letter"
     assert item.evidence_date == "2026-03-01"  # S1 gave none: the control's last test
-    assert item.doc_id == "doc_3"  # from the structured source_ref
+    assert item.doc_id == "doc_3"
     assert dict(evidence_peers.calls(CASE_HOST, EVIDENCE_PATH)[0].url.params) == {
         "control_id": "CTL-T01"
     }
+
+
+async def test_evidence_store_reads_exactly_what_s1_serves(
+    registry: Any, peers: Any
+) -> None:
+    """S1's route answers its ``EvidenceStoreOutput`` model; the tool must read
+    that shape, not an invented one (the first live run failed here).
+    """
+    served = EvidenceStoreOutput(
+        control_id="CTL-T01",
+        items=[EvidenceItem(artifact="DD report", evidence_date="", doc_id=None)],
+    )
+    peers.respond(POLICY_HOST, "GET", CONTROLS_PATH, _controls())
+    peers.respond(CASE_HOST, "GET", EVIDENCE_PATH, served.model_dump(mode="json"))
+
+    out = await registry.get("evidence_store").call(_ask())
+
+    assert [(i.artifact, i.evidence_date) for i in out.items] == [
+        ("DD report", "2026-03-01")
+    ]
 
 
 async def test_evidence_store_prefers_the_date_and_doc_s1_gives(
@@ -115,10 +133,29 @@ async def test_evidence_store_prefers_the_date_and_doc_s1_gives(
     assert (out.items[0].evidence_date, out.items[0].doc_id) == ("2026-08-15", "doc_9")
 
 
-async def test_evidence_store_is_empty_when_the_case_has_no_evidence(
+async def test_a_case_with_no_evidence_of_its_own_gets_the_control_librarys(
     registry: Any, peers: Any
 ) -> None:
+    """The first assessment of a new case: S1 holds no evidence yet, the control
+    library does (the artefact and the date it was last tested). Reporting none
+    made the assessment agent rate every control "no evidence seen".
+    """
     peers.respond(POLICY_HOST, "GET", CONTROLS_PATH, _controls())
+    peers.respond(
+        CASE_HOST, "GET", EVIDENCE_PATH, {"control_id": "CTL-T01", "items": []}
+    )
+    out = await registry.get("evidence_store").call(_ask())
+    assert [(i.artifact, i.evidence_date, i.doc_id) for i in out.items] == [
+        ("DD report", "2026-03-01", None)
+    ]
+
+
+async def test_a_control_with_no_library_artefact_has_no_evidence_to_report(
+    registry: Any, peers: Any
+) -> None:
+    controls = _controls()
+    controls["controls"][0]["evidence_artifact"] = ""
+    peers.respond(POLICY_HOST, "GET", CONTROLS_PATH, controls)
     peers.respond(
         CASE_HOST, "GET", EVIDENCE_PATH, {"control_id": "CTL-T01", "items": []}
     )

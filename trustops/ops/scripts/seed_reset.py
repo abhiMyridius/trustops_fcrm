@@ -21,7 +21,9 @@ and the container's own shell expands them.
     Delete every document that belongs to the demo case FCRM-2026-0151 across the
     databases (``case_id`` equals the case id; S5's votes, questions and answers
     are reached through the case's packs) and every object under
-    ``uploads/FCRM-2026-0151/`` and ``canonical/FCRM-2026-0151/`` in MinIO, so the
+    ``uploads/FCRM-2026-0151/`` and ``canonical/FCRM-2026-0151/`` in MinIO, then
+    write the seed's draft of the case back (``python -m fcrm_case.demo_restore``
+    in the ``api`` container; the deletion took the case's own record too), so the
     demo can run again from the PO's first upload. The other 79 cases are not
     touched.
 
@@ -213,6 +215,12 @@ print("demo case " + caseId + ": " + total + " document(s) deleted");
 """
 
 
+#: Runs in the ``api`` container (it holds the seed and the Mongo settings): the
+#: deletion above takes the case's own record too, and only an empty collection
+#: is seeded at startup, so the draft is written back here.
+RESTORE_DEMO_SHELL: Final = "python -m fcrm_case.demo_restore"
+
+
 def minio_demo_shell(case_id: str) -> str:
     """The shell snippet for ``--demo-case``: remove the case's prefixes."""
     case = validated_case_id(case_id)
@@ -301,6 +309,10 @@ def reset_demo_case(compose: Sequence[str], case_id: str = DEMO_CASE_ID) -> None
     run_step(
         exec_command(compose, "minio", minio_demo_shell(case_id)),
         f"deleting the MinIO objects of {case_id}",
+    )
+    run_step(
+        exec_command(compose, "api", RESTORE_DEMO_SHELL),
+        f"restoring the seed's draft of {case_id}",
     )
 
 

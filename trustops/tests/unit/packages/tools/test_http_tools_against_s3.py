@@ -205,13 +205,7 @@ async def test_evidence_store_over_s3_knows_the_controls_and_dates_by_last_test(
         "/internal/cases/FCRM-2026-0151/evidence",
         {
             "control_id": "CTL-T01",
-            "items": [
-                {
-                    "evidence_id": "evd_1",
-                    "kind": "document",
-                    "summary": "Vendor due-diligence scope letter",
-                }
-            ],
+            "items": [{"artifact": "Vendor due-diligence scope letter"}],
         },
     )
     tool = real_s3_corpus.registry.get("evidence_store")

@@ -138,6 +138,27 @@ class TestOpeningARun:
                 _env("case.submitted", {}, case_id="FCRM-2026-9999"), session
             )
 
+    async def test_an_event_after_the_run_closed_is_skipped_not_dead_lettered(
+        self,
+        engine: CaseflowEngine,
+        session: FakeSession,
+        case_runs_collection: FakeCollection,
+    ) -> None:
+        """The committee's ``outcome.set`` follows the tally that closed the run:
+        the first full live run left it in ``caseflow.events.dlq``.
+        """
+        await _open_run(engine, session)
+        for doc in case_runs_collection.docs:
+            doc["closed_at"] = utcnow()
+
+        await engine.handle(
+            _env(
+                "outcome.set",
+                {"case_id": CASE_ID, "mode": "committee", "outcome": "approve"},
+            ),
+            session,
+        )
+
     @pytest.mark.parametrize(
         "event_type", ["index.build", "index.built", "index.failed"]
     )

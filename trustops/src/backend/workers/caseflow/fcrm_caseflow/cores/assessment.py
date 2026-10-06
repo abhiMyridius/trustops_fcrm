@@ -709,6 +709,22 @@ def _completeness_parts(
     return report, questions
 
 
+def _counted(
+    report: CompletenessReport, questions: Sequence[Question]
+) -> CompletenessReport:
+    """``report`` with its question counts taken from the questions the job
+    gave: the model's own counts are a claim (a live run reported six drafted and
+    five kept with no question in the answer, and the analyst was shown a round
+    to send that was empty).
+    """
+    return report.model_copy(
+        update={
+            "questions_drafted": len(questions),
+            "questions_kept": sum(1 for q in questions if q.dropped_reason is None),
+        }
+    )
+
+
 async def completeness_publish(step: HarnessStep, deps: StepDeps) -> StepResult:
     """``agent.done narrative`` (completeness mode): show the report and the
     drafted questions to the analyst, who asks the owner one round of them or
@@ -719,6 +735,7 @@ async def completeness_publish(step: HarnessStep, deps: StepDeps) -> StepResult:
     )
     result = result_for(results, step, "narrative")
     report, questions = _completeness_parts(result)
+    report = _counted(report, questions)
     entry = await post_proposal(
         deps,
         step,

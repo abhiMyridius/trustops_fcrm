@@ -28,7 +28,11 @@ from fcrm_agents.context_pack import (
 from fcrm_agents.demo import DEMO_DOCUMENT, demo_request
 from fcrm_agents.spec import get_spec
 from fcrm_contracts.enums import AgentName, Domain
-from fcrm_contracts.proposals.provenance import ClauseSourceRef, DocSourceRef
+from fcrm_contracts.proposals.provenance import (
+    ClauseSourceRef,
+    DocSourceRef,
+    RecordSourceRef,
+)
 from fcrm_contracts.tools.audit_log import AuditLogInput, AuditLogOutput
 from fcrm_contracts.tools.case_record import CaseRecordInput, CaseRecordOutput
 from fcrm_contracts.tools.control_inventory import (
@@ -329,3 +333,33 @@ async def test_scoped_tools_refuses_unpinned_controls_version() -> None:
             ControlInventoryInput(domain=Domain.CHANNEL, controls_v=8),
             ControlInventoryOutput,
         )
+
+
+async def test_the_narrative_pack_registers_the_score_record_its_line_names() -> None:
+    """The prompt has the narrative cite the record the locked-result line names;
+    a live run did, the record was not a source of the pack, Guard 4 rejected it
+    and the retry blew the budget.
+    """
+    request = demo_request(AgentName.NARRATIVE, "recommendation").model_copy(
+        update={
+            "score_summary": {
+                "composite": 10.3,
+                "band": 3,
+                "route": "committee",
+                "boundary_flag": True,
+                "score_record_seq": 153,
+            }
+        }
+    )
+
+    pack = await builder_for(AgentName.NARRATIVE).build(request, REGISTRY)
+
+    line = pack.sections["ratings"].splitlines()[0]
+    assert line.startswith('recorded in audit record #153: "locked result: ')
+    cited = {
+        s.source_ref.seq: s.text
+        for s in pack.sources
+        if isinstance(s.source_ref, RecordSourceRef)
+    }
+    assert "locked result: band 3" in cited[153]
+    assert "composite 10.3" in cited[153]

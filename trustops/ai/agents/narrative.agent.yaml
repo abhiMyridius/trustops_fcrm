@@ -11,7 +11,7 @@ lifecycle_state: [completeness, recommend]
 trigger: "completeness: H1 after the critic's agent.done; recommendation: H1 when every review item is decided and the final score is returned"
 tier: mid
 budget_tier: mid
-budget: {tokens: 11000, wall_s: 120, retries: 1}
+budget: {tokens: 15000, wall_s: 120, retries: 1}
 tools: [case_record, evidence_ledger]
 tool_caps: {case_record: 1, evidence_ledger: 1}
 tool_call_cap: 1                                    # one tool call: measured, the models call tools the pack makes unnecessary and each call re-sends the request (budget in tiers.yaml)

@@ -25,7 +25,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Final, Optional
 
 from fcrm_common.errors import ConflictError
 from fcrm_contracts.api.case_internal_assessment import (
@@ -160,6 +160,29 @@ def current_items(rows: Sequence[ReviewItemRow]) -> list[ReviewItemRow]:
 def _newest(rows: Sequence[ReviewItemRow]) -> ReviewItemRow:
     """The most recently created of ``rows`` (ties by id, so it is stable)."""
     return max(rows, key=lambda row: (row.created_at, row.item_id))
+
+
+#: The subject key a read view shows as a clause's or control's ``id``: the web
+#: posts that id to ``POST items/{id}``, not the review item's own ``itm_`` id.
+_VIEW_ID_KEYS: Final = {ItemKind.CLAUSE: "clause_id", ItemKind.CONTROL: "control_id"}
+
+
+def resolve_item(rows: Sequence[ReviewItemRow], ref: str) -> Optional[ReviewItemRow]:
+    """The review item ``ref`` names: a review item id (any row, so a replaced
+    item is still recognised as replaced), else the newest *current* clause or
+    control item whose clause or control id is ``ref``. ``None`` when neither.
+    """
+    exact = next((row for row in rows if row.item_id == ref), None)
+    if exact is not None:
+        return exact
+    named = [
+        row
+        for row in current_items(rows)
+        if row.subject.get(_VIEW_ID_KEYS.get(row.kind, "")) == ref
+    ]
+    scored = [row for row in named if not row.subject.get("planned")]
+    chosen = scored or named
+    return _newest(chosen) if chosen else None
 
 
 # ── the score request ───────────────────────────────────────────────────────────

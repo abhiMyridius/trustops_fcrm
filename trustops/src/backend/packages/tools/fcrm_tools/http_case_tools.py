@@ -12,10 +12,11 @@
   S1 serves in the tool's own
   :class:`~fcrm_contracts.tools.case_search.CaseSearchOutput`.
 * ``evidence_store`` reads ``GET /internal/cases/{id}/evidence?control_id=``,
-  coded against an *assumed* shape,
-  :class:`~fcrm_contracts.api.case_evidence.CaseEvidenceOut`, read tolerantly and
-  tested with ``httpx.MockTransport``. When S1's route lands with another shape,
-  this module is the one place that changes.
+  which S1 serves as the tool's own
+  :class:`~fcrm_contracts.tools.evidence_store.EvidenceStoreOutput` (artefact,
+  date, document); it is read tolerantly as
+  :class:`~fcrm_contracts.api.case_evidence.CaseEvidenceOut`, and a date S1 does
+  not hold is filled from the control catalogue.
 
 Nothing here falls back to seed data: a peer that cannot answer is an error the
 model sees as a tool failure.
@@ -68,10 +69,12 @@ class HttpEvidenceStoreTool(BaseTool[EvidenceStoreInput, EvidenceStoreOutput]):
     """``evidence_store``: what evidence exists for one control on one case.
 
     S1 holds the case's evidence; S3's control catalogue says whether the
-    control exists and when it was last tested, which is the date reported for
-    an item S1 gives no date for. The staleness *verdict* is not made here
-    (date arithmetic in code, elsewhere): this returns the raw date and the
-    artefact's description, and an empty list when the case has none.
+    control exists, which artefact the control library keeps as its evidence
+    and when it was last tested: the date reported for an item S1 gives no
+    date for, and the one item reported when S1 holds none for the case (the
+    evidence on file). The staleness *verdict* is not made here (date
+    arithmetic in code, elsewhere): this returns the raw date and the
+    artefact's description.
     """
 
     name = "evidence_store"
@@ -123,14 +126,10 @@ class HttpEvidenceStoreTool(BaseTool[EvidenceStoreInput, EvidenceStoreOutput]):
         description, its own date or else the control's last test date, and the
         document it came from when it is one.
         """
-        doc_id = item.doc_id
-        if doc_id is None and item.source_ref is not None:
-            ref_doc = item.source_ref.get("doc_id")
-            doc_id = ref_doc if isinstance(ref_doc, str) else None
         return EvidenceItem(
-            artifact=item.summary,
+            artifact=item.artifact,
             evidence_date=item.evidence_date or control.last_tested or "",
-            doc_id=doc_id,
+            doc_id=item.doc_id,
         )
 
     async def run(self, request: EvidenceStoreInput) -> EvidenceStoreOutput:
@@ -155,10 +154,20 @@ class HttpEvidenceStoreTool(BaseTool[EvidenceStoreInput, EvidenceStoreOutput]):
                 f"S1 answered {evidence.control_id}"
             )
             raise ToolScopeError(msg)
-        return EvidenceStoreOutput(
-            control_id=request.control_id,
-            items=[self._item(item, control) for item in evidence.items],
-        )
+        items = [self._item(item, control) for item in evidence.items]
+        if not items and control.evidence_artifact:
+            # S1 holds nothing case-specific yet (a first assessment): the
+            # evidence on file is the artefact the control library records for
+            # the control and the date it was last tested, which is what the
+            # evals' seed-backed tool reports too. Without it the assessment
+            # rated every control "no evidence seen" at 1.0.
+            items = [
+                EvidenceItem(
+                    artifact=control.evidence_artifact,
+                    evidence_date=control.last_tested or "",
+                )
+            ]
+        return EvidenceStoreOutput(control_id=request.control_id, items=items)
 
 
 class HttpSubmissionDiffTool(BaseTool[SubmissionDiffInput, SubmissionDiffOutput]):

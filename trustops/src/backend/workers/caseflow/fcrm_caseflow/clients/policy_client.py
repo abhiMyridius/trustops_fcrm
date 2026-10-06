@@ -93,9 +93,11 @@ class PolicyClient:
         self._client = client
         self._cache = cache
 
-    async def top_precedent(self, query: str) -> Optional[PrecedentHit]:
-        """The single closest closed case for ``query``, or ``None`` when S3
-        finds none.
+    async def closest_precedents(
+        self, query: str, top_k: int = 1
+    ) -> list[PrecedentHit]:
+        """The ``top_k`` closest closed cases for ``query``, closest first (an
+        empty list when S3 finds none).
 
         Raises:
             fcrm_common.errors.ValidationError: ``query`` is blank.
@@ -103,7 +105,7 @@ class PolicyClient:
         """
         if not query.strip():
             raise FcrmValidationError("a precedent search needs a non-blank query")
-        request = SearchRequest(index=PRECEDENT_INDEX, query=query, top_k=1)
+        request = SearchRequest(index=PRECEDENT_INDEX, query=query, top_k=top_k)
         body = await self._client.request_json(
             "POST",
             SEARCH_PATH,
@@ -113,16 +115,29 @@ class PolicyClient:
         response = parse_body(
             SearchResponse, body, dependency=DEPENDENCY, route=SEARCH_PATH
         )
-        if not response.hits:
-            return None
-        hit = response.hits[0]
-        closed = hit.metadata.get("closed_date")
-        return PrecedentHit(
-            case_id=hit.id,
-            title=str(hit.metadata.get("title") or hit.text),
-            similarity=similarity_of(hit),
-            closed_date=str(closed) if closed else None,
-        )
+        found: list[PrecedentHit] = []
+        for hit in response.hits:
+            closed = hit.metadata.get("closed_date")
+            found.append(
+                PrecedentHit(
+                    case_id=hit.id,
+                    title=str(hit.metadata.get("title") or hit.text),
+                    similarity=similarity_of(hit),
+                    closed_date=str(closed) if closed else None,
+                )
+            )
+        return found
+
+    async def top_precedent(self, query: str) -> Optional[PrecedentHit]:
+        """The single closest closed case for ``query``, or ``None`` when S3
+        finds none.
+
+        Raises:
+            fcrm_common.errors.ValidationError: ``query`` is blank.
+            fcrm_common.errors.FcrmError: S3 refused or was unreachable.
+        """
+        hits = await self.closest_precedents(query, 1)
+        return hits[0] if hits else None
 
     async def jurisdiction_versions(self) -> list[JurisdictionVersionOut]:
         """``GET /jurisdictions/versions``: every stored jurisdiction list version

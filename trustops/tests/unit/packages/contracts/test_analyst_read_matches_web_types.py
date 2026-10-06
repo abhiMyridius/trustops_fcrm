@@ -40,6 +40,7 @@ BACKEND_ONLY: dict[str, frozenset[str]] = {
     "CriticFinding": frozenset({"gate_id", "gate_open"}),
     "CompletenessSummary": frozenset({"gate_id", "gate_open"}),
     "RiskArea": frozenset({"factor_item_id", "factor_gate_id", "factor_gate_open"}),
+    "PlannedControl": frozenset({"gate_open"}),
     "ActivityAnalyst": frozenset({"gate_id"}),
 }
 

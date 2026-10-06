@@ -575,6 +575,12 @@ async def run_agent_live(
         run.budget.settle(run.job_id, run.result.tokens_used)
     logger.info(
         "live agent run finished",
-        extra={"agent": spec.name.value, "verdict": run.result.verdict.value},
+        extra={
+            "agent": spec.name.value,
+            "verdict": run.result.verdict.value,
+            "attempts": len(run.result.attempts),
+            "tokens": run.result.tokens_used,
+            "usage": dict(run.usage_total),
+        },
     )
     return run.result, run.model_used, run.usage_total
