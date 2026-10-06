@@ -39,7 +39,7 @@ class _RecordingAudit:
     def __init__(self) -> None:
         self.records: list[object] = []
 
-    async def append(self, record: object) -> object:
+    async def append(self, record: object, **_: object) -> object:
         self.records.append(record)
         return record
 

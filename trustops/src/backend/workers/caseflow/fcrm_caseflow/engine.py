@@ -392,6 +392,7 @@ class CaseflowEngine:
                 actor="system",
                 summary="run opened; pins recorded",
                 data={"run_id": run.snapshot.run_id},
+                origin=envelope.event_id,
             )
 
     # -- oversight (scene 20) ------------------------------------------
@@ -923,7 +924,7 @@ class CaseflowEngine:
         run = await self._enqueue_step_for(
             run, trigger, message_id, origin, payload, session
         )
-        await self._write_audit(run, trigger, result)
+        await self._write_audit(run, trigger, result, origin)
         if refusal is not None:
             run = await self._hand_off(run, refusal, origin, session)
         return run
@@ -1470,6 +1471,7 @@ class CaseflowEngine:
             )
         await self._write_audit_raw(
             case_id=run.snapshot.case_id,
+            origin=origin,
             trigger_value="budget.exhausted",
             actor="system",
             summary=f"Guard 3 · case token budget exhausted: {reason}",
@@ -1558,12 +1560,17 @@ class CaseflowEngine:
         return kind is not None and trigger.value in self._records_for.get(kind, ())
 
     async def _write_audit(
-        self, run: CaseRun, trigger: Trigger, result: TransitionResult
+        self,
+        run: CaseRun,
+        trigger: Trigger,
+        result: TransitionResult,
+        origin: str,
     ) -> None:
         if self._step_writes_record(trigger):
             return
         await self._write_audit_raw(
             case_id=run.snapshot.case_id,
+            origin=f"{origin}/{result.from_state.value}/{result.to_state.value}",
             trigger_value=trigger.value,
             actor="system",
             summary=result.action,
@@ -1578,6 +1585,7 @@ class CaseflowEngine:
         self,
         *,
         case_id: str,
+        origin: str,
         trigger_value: str,
         actor: str,
         summary: str,
@@ -1587,6 +1595,13 @@ class CaseflowEngine:
         job delivery or state progress (mirrors
         :meth:`fcrm_agent_worker.handler.AgentJobConsumer._write_audit`
         exactly, including the rationale in its docstring).
+
+        This runs inside the Mongo transaction (a known ADR-28 deviation: the
+        record must not be lost when the transaction commits), and
+        ``with_transaction`` re-runs a transaction on a transient error. The
+        ``Idempotency-Key`` is derived from ``origin`` (the message or step that
+        led here) and the record type, so a re-run sends the key it sent the
+        first time and S4 returns the record it already chained.
         """
         try:
             await self._audit.append(
@@ -1596,10 +1611,13 @@ class CaseflowEngine:
                     actor=actor,
                     summary=summary,
                     data=data,
-                )
+                ),
+                idempotency_key=deterministic_id(
+                    "idem", "engine", origin, trigger_value
+                ),
             )
         except Exception:  # noqa: BLE001 - audit must never crash the engine
             logger.exception(
                 "audit write failed; state already committed",
-                extra={"case_id": case_id, "type": trigger_value},
+                extra={"case_id": case_id, "type": trigger_value, "origin": origin},
             )
