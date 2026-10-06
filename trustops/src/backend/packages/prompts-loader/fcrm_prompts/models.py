@@ -69,11 +69,6 @@ class PromptFrontMatter(BaseModel):
     output_schema: Optional[str] = None
     changelog: list[ChangelogEntry] = Field(min_length=1)
 
-    @property
-    def variable_names(self) -> list[str]:
-        """Declared variable names, whichever form they were written in."""
-        return [v if isinstance(v, str) else v.name for v in self.variables]
-
 
 class PromptTemplate(BaseModel):
     """One loaded prompt file: its front-matter, Jinja body and hashes."""
