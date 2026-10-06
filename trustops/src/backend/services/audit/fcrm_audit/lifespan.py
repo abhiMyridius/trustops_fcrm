@@ -56,6 +56,9 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
+from fcrm_audit.analytics import MongoAnalyticsStore
+from fcrm_audit.examiner import ExaminerService, MongoExaminerStore
+from fcrm_audit.quality import MongoEvalsReader
 from fcrm_audit.seedmodel import build_closed_case_chains
 from fcrm_audit.settings import AuditSettings
 from fcrm_audit.store import MongoAuditStore
@@ -188,6 +191,20 @@ async def register(
         idempotency_keys=db["idempotency_keys"],
     )
     app.state.store = store
+    app.state.examiner = ExaminerService(
+        store,
+        MongoExaminerStore(db["examiner_questions"], db["examiner_answers"]),
+        deps.publisher,
+        wait_s=settings.examiner_wait_s,
+        poll_s=settings.examiner_poll_s,
+    )
+    app.state.analytics = MongoAnalyticsStore(records_repo.collection, db["proposals"])
+    if deps.evals_mongo is not None:
+        app.state.evals = MongoEvalsReader(deps.evals_mongo[settings.evals_database])
+    else:
+        logger.warning(
+            "no read-only credential for the eval results; agent quality answers 503"
+        )
 
     # main.py built ReadinessProbe() before this ran, so the health router
     # already holds a reference to it; add checks to that same instance

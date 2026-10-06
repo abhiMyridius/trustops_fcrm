@@ -79,6 +79,14 @@ STEP_FOR: Final[Mapping[Trigger, StepKind]] = MappingProxyType(
         Trigger.VOTE_NO_MAJORITY: K.DECIDE_NO_MAJORITY,
         Trigger.CASE_CLOSE_REQUESTED: K.DECIDE_DELEGATED,
         Trigger.CLOSED_DISPATCH: K.CLOSED_FINALIZE,
+        # oversight (scene 20)
+        Trigger.EXAMINER_ASKED: K.EXAMINER_ANSWER,
+        Trigger.AGENT_DONE_EXAMINER: K.EXAMINER_ANSWER,
+        Trigger.AGENT_FAILED_EXAMINER: K.EXAMINER_ANSWER,
+        Trigger.JURISDICTION_LIST_PUBLISHED: K.WATCHLIST_PUBLISH,
+        Trigger.AGENT_DONE_WATCHLIST: K.WATCHLIST_PUBLISH,
+        Trigger.AGENT_FAILED_WATCHLIST: K.WATCHLIST_PUBLISH,
+        Trigger.GATE_DECIDED_REFLAG_ACK: K.REFLAG_ACK,
     }
 )
 
@@ -166,8 +174,12 @@ RECORDS_FOR: Final[Mapping[StepKind, tuple[str, ...]]] = MappingProxyType(
         K.CLOSED_FINALIZE: ("outcome.delivered", "case.closed", "chain.verified"),
         K.HANDOFF_OPEN: ("agent.failed", "human.handoff"),
         # oversight (scene 20)
-        K.EXAMINER_ANSWER: ("examiner.asked",),
-        K.WATCHLIST_PUBLISH: ("reflag.proposed",),
+        K.EXAMINER_ANSWER: ("examiner.asked", "examiner.answered"),
+        K.WATCHLIST_PUBLISH: (
+            "jurisdiction.published",
+            "agent.failed",
+            "reflag.proposed",
+        ),
         K.REFLAG_ACK: ("reflag.acknowledged",),
         K.STATE_PUSH: (),  # pushes snapshots to S1's view store, no record
     }

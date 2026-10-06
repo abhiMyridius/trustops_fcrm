@@ -1012,6 +1012,109 @@
         "effect": "allow"
       },
       {
+        "id": "audit-post-examiner-ask-analyst",
+        "description": "the examiner answers an analyst's question from the audit chain",
+        "service": "audit",
+        "method": "POST",
+        "path": "/examiner/ask",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-post-examiner-ask-committee",
+        "description": "the examiner answers a committee member's question from the audit chain",
+        "service": "audit",
+        "method": "POST",
+        "path": "/examiner/ask",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "deny-audit-post-examiner-ask-service",
+        "description": "a question is a person's: the service account inherits the analyst's grants and must not ask",
+        "service": "audit",
+        "method": "POST",
+        "path": "/examiner/ask",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "audit-post-examiner-answers-service",
+        "description": "H1 posts the examiner's checked answer",
+        "service": "audit",
+        "method": "POST",
+        "path": "/examiner/answers",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-examiner-answers-committee",
+        "description": "a committee member who asked reads the answer",
+        "service": "audit",
+        "method": "GET",
+        "path": "/examiner/answers/{question_id}",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-overrides-analyst",
+        "description": "analyst reads the override rows and each agent's override rate",
+        "service": "audit",
+        "method": "GET",
+        "path": "/overrides",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-versions-id-analyst",
+        "description": "analyst reads the versions a case was pinned to",
+        "service": "audit",
+        "method": "GET",
+        "path": "/versions/{case_id}",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-agent-quality-assurance",
+        "description": "agent quality is about the agents, never a case: analyst, committee and the observer read it",
+        "service": "audit",
+        "method": "GET",
+        "path": "/agent-quality",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_committee",
+          "fcrm_observer"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-agent-quality-dashboard-assurance",
+        "description": "the published, self-contained agent dashboard (served under a strict CSP)",
+        "service": "audit",
+        "method": "GET",
+        "path": "/agent-quality/dashboard",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_committee",
+          "fcrm_observer"
+        ],
+        "effect": "allow"
+      },
+      {
         "id": "audit-get-records-committee",
         "description": "committee audit reads (released packs only, S4 checks)",
         "service": "audit",

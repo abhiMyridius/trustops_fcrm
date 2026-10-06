@@ -53,8 +53,8 @@ All nine publish to `case.events` (topic) with the event type as routing key, th
 | `committee.answered` | S5 | H1: `numbers_changed` picks `COMMITTEE_ANSWERED_CHANGED` or `…_NO_CHANGE` | `CommitteeAnswered{pack_id, thread_id, addendum_id, by, numbers_changed, committee_numbers_changed, unlock_reason}` |
 | `case.clarification_sent` | S1 | H1 (informational, no state change; the round opens on the analyst's `completeness` gate) | `CaseClarificationSent{case_id, actor, round, thread_ids, question_count}` |
 | `case.control_planned` | S1 | H1 (`CASE_CONTROL_PLANNED`, REVIEW self-loop; a planned control is never scored) | `CaseControlPlanned{case_id, actor, planned_control}` |
-| `jurisdiction.list_published` | S3 | H1 (oversight: dispatches the watchlist agent) | `JurisdictionListPublished{version, added, removed, fixture}` |
-| `examiner.asked` | S4 | H1 (oversight: dispatches the examiner agent) | `ExaminerAsked{case_id, question_id, question, asked_by}` |
+| `jurisdiction.list_published` | S3 | H1 (oversight: names no case, so it gets a harness run of its own; `watchlist.publish` asks S1 for the candidates and dispatches the watchlist agent) | `JurisdictionListPublished{version, added, removed, fixture}` |
+| `examiner.asked` | S4, published directly after the question is stored (the insert-only audit role cannot update, so it has no outbox relay) | H1 (oversight: `examiner.answer` records the question and dispatches the examiner agent on the case's run, or an oversight run) | `ExaminerAsked{case_id, question_id, question, asked_by}` |
 
 `harness.step` carries agent output in `args.payload` (H1 holds no other copy of the proposals). It is harness data: S1's SSE stream must never forward the `harness.` prefix to a PO.
 

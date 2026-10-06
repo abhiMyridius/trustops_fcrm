@@ -37,6 +37,82 @@
         "title": "ActivityEventPO",
         "type": "object"
       },
+      "AgentQualityOut": {
+        "additionalProperties": false,
+        "description": "``GET /agent-quality``: the web's ``AgentQuality``.",
+        "properties": {
+          "drift": {
+            "title": "Drift",
+            "type": "string"
+          },
+          "golden_cases": {
+            "minimum": 0.0,
+            "title": "Golden Cases",
+            "type": "integer"
+          },
+          "regressions": {
+            "minimum": 0.0,
+            "title": "Regressions",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/AgentQualityRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "week": {
+            "title": "Week",
+            "type": "string"
+          }
+        },
+        "required": [
+          "week",
+          "golden_cases",
+          "regressions",
+          "drift",
+          "rows"
+        ],
+        "title": "AgentQualityOut",
+        "type": "object"
+      },
+      "AgentQualityRowOut": {
+        "additionalProperties": false,
+        "description": "One agent's primary metric in the latest run of the week.",
+        "properties": {
+          "agent": {
+            "title": "Agent",
+            "type": "string"
+          },
+          "lower_is_better": {
+            "default": false,
+            "title": "Lower Is Better",
+            "type": "boolean"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "n": {
+            "minimum": 0.0,
+            "title": "N",
+            "type": "integer"
+          },
+          "pct": {
+            "title": "Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "agent",
+          "metric",
+          "n",
+          "pct"
+        ],
+        "title": "AgentQualityRowOut",
+        "type": "object"
+      },
       "AgentRow": {
         "additionalProperties": false,
         "properties": {
@@ -2311,6 +2387,199 @@
         "title": "EmptyBody",
         "type": "object"
       },
+      "ExaminerAnswerIn": {
+        "additionalProperties": false,
+        "description": "``POST /examiner/answers`` (service only): what H1 posts once the\nexaminer agent has answered and the citations were checked against the\nchain. The question text is not repeated: S4 holds it.",
+        "properties": {
+          "case_id": {
+            "minLength": 1,
+            "title": "Case Id",
+            "type": "string"
+          },
+          "question_id": {
+            "minLength": 1,
+            "title": "Question Id",
+            "type": "string"
+          },
+          "references": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "References",
+            "type": "array"
+          },
+          "refusal_reason": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refusal Reason"
+          },
+          "refused": {
+            "title": "Refused",
+            "type": "boolean"
+          },
+          "run_id": {
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "sentences": {
+            "items": {
+              "$ref": "#/components/schemas/ExaminerSentenceOut"
+            },
+            "maxItems": 10,
+            "title": "Sentences",
+            "type": "array"
+          }
+        },
+        "required": [
+          "question_id",
+          "case_id",
+          "run_id",
+          "refused"
+        ],
+        "title": "ExaminerAnswerIn",
+        "type": "object"
+      },
+      "ExaminerAnswerOut": {
+        "additionalProperties": false,
+        "description": "The examiner's answer, in the web's ``ExaminerAnswer`` shape.\n\n``refused`` is true when the records do not hold the answer (or the answer\ncould not be trusted): then ``sentences`` is empty and ``refusal_reason``\nsays why. An answer that is not refused has at least one sentence, and\nevery sentence cites at least one record.",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "question_id": {
+            "title": "Question Id",
+            "type": "string"
+          },
+          "references": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "References",
+            "type": "array"
+          },
+          "refusal_reason": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refusal Reason"
+          },
+          "refused": {
+            "title": "Refused",
+            "type": "boolean"
+          },
+          "sentences": {
+            "items": {
+              "$ref": "#/components/schemas/ExaminerSentenceOut"
+            },
+            "maxItems": 10,
+            "title": "Sentences",
+            "type": "array"
+          }
+        },
+        "required": [
+          "question_id",
+          "question",
+          "case_id",
+          "refused"
+        ],
+        "title": "ExaminerAnswerOut",
+        "type": "object"
+      },
+      "ExaminerAskRequest": {
+        "additionalProperties": false,
+        "description": "``POST /examiner/ask``.",
+        "properties": {
+          "case_id": {
+            "pattern": "^FCRM-\\d{4}-\\d{4}$",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "case_id"
+        ],
+        "title": "ExaminerAskRequest",
+        "type": "object"
+      },
+      "ExaminerPending": {
+        "additionalProperties": false,
+        "description": "``202``: the question is stored and announced; the answer is not here\nyet. Read it with ``GET /examiner/answers/{question_id}``.",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "question_id": {
+            "title": "Question Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "pending",
+            "default": "pending",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "case_id"
+        ],
+        "title": "ExaminerPending",
+        "type": "object"
+      },
+      "ExaminerSentenceOut": {
+        "additionalProperties": false,
+        "description": "One sentence of an answer and the audit records (by ``seq``) it rests\non; the web's ``{t, refs}``.",
+        "properties": {
+          "refs": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Refs",
+            "type": "array"
+          },
+          "t": {
+            "maxLength": 640,
+            "minLength": 1,
+            "title": "T",
+            "type": "string"
+          }
+        },
+        "required": [
+          "t",
+          "refs"
+        ],
+        "title": "ExaminerSentenceOut",
+        "type": "object"
+      },
       "FastLane": {
         "additionalProperties": false,
         "properties": {
@@ -3343,6 +3612,136 @@
           "round"
         ],
         "title": "OutcomeSet",
+        "type": "object"
+      },
+      "OverrideRate": {
+        "additionalProperties": false,
+        "description": "How often analysts replaced one agent's proposals: ``overridden`` of\n``proposals`` (the evidence ledger's count for the agent).",
+        "properties": {
+          "agent": {
+            "title": "Agent",
+            "type": "string"
+          },
+          "overridden": {
+            "minimum": 0.0,
+            "title": "Overridden",
+            "type": "integer"
+          },
+          "proposals": {
+            "minimum": 0.0,
+            "title": "Proposals",
+            "type": "integer"
+          },
+          "rate": {
+            "minimum": 0.0,
+            "title": "Rate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "agent",
+          "proposals",
+          "overridden",
+          "rate"
+        ],
+        "title": "OverrideRate",
+        "type": "object"
+      },
+      "OverrideRowOut": {
+        "additionalProperties": false,
+        "description": "One analyst override of an agent's proposal, in the web's shape.\n\n``proposed`` and ``final`` are the control's rating, or for a likelihood\nand impact override the inherent product; ``agent`` is the agent whose\nproposal was replaced.",
+        "properties": {
+          "agent": {
+            "title": "Agent",
+            "type": "string"
+          },
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "final": {
+            "title": "Final",
+            "type": "number"
+          },
+          "item": {
+            "title": "Item",
+            "type": "string"
+          },
+          "proposed": {
+            "title": "Proposed",
+            "type": "number"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "item",
+          "proposed",
+          "final",
+          "by",
+          "reason",
+          "agent",
+          "date"
+        ],
+        "title": "OverrideRowOut",
+        "type": "object"
+      },
+      "OverridesPage": {
+        "additionalProperties": false,
+        "description": "``GET /overrides``: the rows the web lists, plus the per-agent rates\nthe Assurance screen shows beside them.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OverrideRowOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "rates": {
+            "items": {
+              "$ref": "#/components/schemas/OverrideRate"
+            },
+            "title": "Rates",
+            "type": "array"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "OverridesPage",
         "type": "object"
       },
       "PackAddendum": {
@@ -4759,6 +5158,84 @@
         "title": "Page[Proposal]",
         "type": "object"
       },
+      "Page_ReflagOut_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReflagOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[ReflagOut]",
+        "type": "object"
+      },
+      "Page_VersionsRowOut_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/VersionsRowOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[VersionsRowOut]",
+        "type": "object"
+      },
       "PerTypeFields": {
         "additionalProperties": false,
         "properties": {
@@ -5809,6 +6286,161 @@
           "summary"
         ],
         "title": "RecordAppend",
+        "type": "object"
+      },
+      "ReflagAcknowledge": {
+        "additionalProperties": false,
+        "description": "``POST /reflags/{id}/acknowledge``.\n\n``reason`` is the contract's name, ``note`` the web's; exactly one need be\ngiven. ``rerun`` is the analyst's request that research (and assessment,\nwhere the case's evidence depends on list status) be run again: it is\nrecorded with the acknowledgement and never starts anything by itself.",
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "rerun": {
+            "default": true,
+            "title": "Rerun",
+            "type": "boolean"
+          }
+        },
+        "title": "ReflagAcknowledge",
+        "type": "object"
+      },
+      "ReflagOut": {
+        "additionalProperties": false,
+        "description": "One re-flag, the web's ``Reflag`` plus what an analyst needs to judge it.",
+        "properties": {
+          "ack_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ack Reason"
+          },
+          "acknowledged": {
+            "title": "Acknowledged",
+            "type": "boolean"
+          },
+          "acknowledged_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged At"
+          },
+          "acknowledged_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged By"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "case_title": {
+            "title": "Case Title",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "fixture": {
+            "title": "Fixture",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "jurisdiction": {
+            "title": "Jurisdiction",
+            "type": "string"
+          },
+          "list_change": {
+            "title": "List Change",
+            "type": "string"
+          },
+          "list_version": {
+            "title": "List Version",
+            "type": "string"
+          },
+          "proposed_by": {
+            "title": "Proposed By",
+            "type": "string"
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "rerun": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rerun",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "case_id",
+          "case_title",
+          "jurisdiction",
+          "list_version",
+          "fixture",
+          "reason",
+          "acknowledged",
+          "list_change",
+          "proposed_by",
+          "created_at"
+        ],
+        "title": "ReflagOut",
         "type": "object"
       },
       "RefreshRequest": {
@@ -7601,6 +8233,42 @@
         "title": "VerifyResult",
         "type": "object"
       },
+      "VersionsRowOut": {
+        "additionalProperties": false,
+        "description": "One pinned version of a case: what it was run against, what a case\nopened now would pin, and whether they differ.\n\n``current`` is ``None`` when S4 has no newer run to compare with.",
+        "properties": {
+          "current": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current"
+          },
+          "drifted": {
+            "default": false,
+            "title": "Drifted",
+            "type": "boolean"
+          },
+          "item": {
+            "title": "Item",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item",
+          "version"
+        ],
+        "title": "VersionsRowOut",
+        "type": "object"
+      },
       "VoteIn": {
         "additionalProperties": false,
         "description": "``POST /packs/{pack_id}/votes``. The member is the caller and the round\nis the pack's current one; neither is in the body.",
@@ -7829,6 +8497,287 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/fcrm/audit/agent-quality": {
+      "get": {
+        "description": "Each agent's primary eval metric in the week's latest run (the newest\nweek when none is asked for). 404 when nothing was published: the web's\nempty state.\n\nRaises:\n    NotFoundError: No run for the week.",
+        "operationId": "S4_get_agent_quality_agent_quality_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "week",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Week"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentQualityOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "No eval run was published for the week."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Agent Quality",
+        "tags": [
+          "assurance"
+        ]
+      }
+    },
+    "/api/fcrm/audit/agent-quality/dashboard": {
+      "get": {
+        "description": "The latest published dashboard, self-contained, as ``text/html`` under a\nstrict CSP (no network, no script, no frame, no form).\n\nRaises:\n    NotFoundError: Nothing was published.",
+        "operationId": "S4_agent_quality_dashboard_agent_quality_dashboard_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "No dashboard was published yet."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Agent Quality Dashboard",
+        "tags": [
+          "assurance"
+        ]
+      }
+    },
+    "/api/fcrm/audit/examiner/answers": {
+      "post": {
+        "description": "Store H1's answer to a question. Storing the same answer again is a\nreplay (200, nothing written); a different one for the same question is a\n409. The ``Idempotency-Key`` header is validated; the question's id and the\nbody's fingerprint are what make the call idempotent.",
+        "operationId": "S4_post_answer_examiner_answers_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExaminerAnswerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExaminerAnswerOut"
+                }
+              }
+            },
+            "description": "A replay: already stored."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExaminerAnswerOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "A different answer is already stored."
+          },
+          "422": {
+            "description": "The answer cites a record the chain does not hold."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Post Answer",
+        "tags": [
+          "examiner"
+        ]
+      }
+    },
+    "/api/fcrm/audit/examiner/answers/{question_id}": {
+      "get": {
+        "description": "The answer to a question, or 202 while it has none.",
+        "operationId": "S4_get_answer_examiner_answers__question_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "title": "Question Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExaminerAnswerOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExaminerPending"
+                }
+              }
+            },
+            "description": "Not answered yet."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Answer",
+        "tags": [
+          "examiner"
+        ]
+      }
+    },
+    "/api/fcrm/audit/examiner/ask": {
+      "post": {
+        "description": "Ask the examiner a question about one case and wait for its answer.\n\nThe examiner answers only from the case's audit chain and cites the records\nit used; when the records do not hold the answer it says so. The call waits\nup to a minute, then answers 202 with the question's id.",
+        "operationId": "S4_ask_examiner_ask_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExaminerAskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExaminerAnswerOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExaminerPending"
+                }
+              }
+            },
+            "description": "Stored and announced; the answer is not here yet."
+          },
+          "404": {
+            "description": "The case has no audit chain."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "The question could not be announced."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ask",
+        "tags": [
+          "examiner"
+        ]
+      }
+    },
     "/api/fcrm/audit/head/{case_id}": {
       "get": {
         "description": "The last ``seq`` and hash of ``case_id``'s chain (``seq=0`` and the\ngenesis hash for a case with no records): what a pack records so it can\nlater show which records it was built from.",
@@ -7874,6 +8823,90 @@
         "summary": "Chain Head",
         "tags": [
           "audit"
+        ]
+      }
+    },
+    "/api/fcrm/audit/overrides": {
+      "get": {
+        "description": "The analyst overrides, newest first, with how often each agent's\nproposals were replaced (``overridden`` of ``proposals``). ``agent`` narrows\nboth.",
+        "operationId": "S4_list_overrides_overrides_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "agent",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Agent"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverridesPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Overrides",
+        "tags": [
+          "assurance"
         ]
       }
     },
@@ -8352,6 +9385,54 @@
         "summary": "Verify Case",
         "tags": [
           "audit"
+        ]
+      }
+    },
+    "/api/fcrm/audit/versions/{case_id}": {
+      "get": {
+        "description": "The versions ``case_id`` was pinned to when its run opened, beside what a\ncase opened now would pin. A case with no pins in its chain has no rows.",
+        "operationId": "S4_case_versions_versions__case_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_VersionsRowOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Case Versions",
+        "tags": [
+          "assurance"
         ]
       }
     },
@@ -12191,6 +13272,137 @@
         "summary": "Search",
         "tags": [
           "policy"
+        ]
+      }
+    },
+    "/api/fcrm/reflags": {
+      "get": {
+        "description": "The watchlist re-flags, newest first, acknowledged ones included.",
+        "operationId": "S1_list_reflags_reflags_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ReflagOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Reflags",
+        "tags": [
+          "case"
+        ]
+      }
+    },
+    "/api/fcrm/reflags/{reflag_id}/acknowledge": {
+      "post": {
+        "description": "Acknowledge one re-flag with a reason of at least 20 characters.\n\nThe decision is stored and ``gate.decided`` (``reflag_ack``) is emitted in\nthe same transaction; H1 then records ``reflag.acknowledged``. The same\nacknowledgement again changes nothing.\n\nRaises:\n    NotFoundError: No such re-flag.\n    fcrm_case.reflag_store.ReflagAlreadyAcknowledgedError: It was\n        acknowledged with a different reason.",
+        "operationId": "S1_acknowledge_reflag_reflags__reflag_id__acknowledge_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reflag_id",
+            "required": true,
+            "schema": {
+              "title": "Reflag Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReflagAcknowledge"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReflagOut"
+                }
+              }
+            },
+            "description": "Acknowledged (or an identical acknowledgement again)."
+          },
+          "404": {
+            "description": "No such re-flag."
+          },
+          "409": {
+            "description": "Already acknowledged with another reason."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Acknowledge Reflag",
+        "tags": [
+          "case"
         ]
       }
     },

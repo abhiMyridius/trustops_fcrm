@@ -19,7 +19,7 @@ import { handlerTemplatesOutsideEndpoints, servedRoutes, webRoutes } from './rou
 
 /** Web routes the backend does not serve yet (34 after the configuration screens landed; 65 on 5 Oct). */
 const PENDING_ROUTES: readonly string[] = [
-  // S1 case: PO and analyst case routes, queues, dashboards, integrations, re-flags, harness (32)
+  // S1 case: PO and analyst case routes, queues, dashboards, integrations, harness (30)
   'POST /api/fcrm/cases/{id}/acknowledge',
   'GET /api/fcrm/cases/{id}/assessment',
   'POST /api/fcrm/cases/{id}/change-types',
@@ -48,13 +48,6 @@ const PENDING_ROUTES: readonly string[] = [
   'GET /api/fcrm/cases/{id}/workbench',
   'GET /api/fcrm/dashboard/analyst',
   'GET /api/fcrm/queue',
-  'GET /api/fcrm/reflags',
-  'POST /api/fcrm/reflags/{id}/acknowledge',
-  // S4 audit (4)
-  'GET /api/fcrm/audit/agent-quality',
-  'POST /api/fcrm/audit/examiner/ask',
-  'GET /api/fcrm/audit/overrides',
-  'GET /api/fcrm/audit/versions/{id}',
 ];
 
 const WEB = webRoutes();

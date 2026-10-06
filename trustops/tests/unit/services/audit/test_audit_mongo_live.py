@@ -55,8 +55,11 @@ import pymongo
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from fcrm_audit.analytics import MongoAnalyticsStore
 from fcrm_audit.chain import GENESIS_HASH
+from fcrm_audit.examiner import AnswerRow, MongoExaminerStore, QuestionRow
 from fcrm_audit.lifespan import InsertOnlyRoleViolatedError, lifespan
+from fcrm_audit.quality import MongoEvalsReader, agent_quality
 from fcrm_audit.routes import router
 from fcrm_audit.store import MongoAuditStore
 from fcrm_common.errors import ConflictError, install_error_handlers
@@ -383,6 +386,7 @@ def auth_enabled_mongo(
     root_user, root_pass = "root", secrets.token_urlsafe(24)
     writer_pass = secrets.token_urlsafe(24)
     app_pass = secrets.token_urlsafe(24)
+    evals_pass = secrets.token_urlsafe(24)
     admin_uri = f"mongodb://127.0.0.1:{port}/admin?directConnection=true"
 
     try:
@@ -397,6 +401,7 @@ def auth_enabled_mongo(
             "MONGO_INITDB_ROOT_PASSWORD": root_pass,
             "MONGO_AUDIT_WRITER_PASSWORD": writer_pass,
             "MONGO_APP_PASSWORD": app_pass,
+            "MONGO_EVALS_READER_PASSWORD": evals_pass,
         }
 
         # 01-replset.js first, unauthenticated: a --replSet member with no
@@ -436,6 +441,10 @@ def auth_enabled_mongo(
             f"mongodb://fcrm_audit_writer:{writer_pass}@127.0.0.1:{port}"
             "/fcrm_audit?replicaSet=rs0&authSource=admin"
         )
+        evals_uri = (
+            f"mongodb://fcrm_evals_reader:{evals_pass}@127.0.0.1:{port}"
+            "/fcrm_evals?replicaSet=rs0&authSource=admin"
+        )
         root_rw_uri = (
             f"mongodb://{root_user}:{root_pass}@127.0.0.1:{port}"
             "/fcrm_audit_control?replicaSet=rs0&authSource=admin"
@@ -447,6 +456,7 @@ def auth_enabled_mongo(
         yield {
             "port": str(port),
             "writer_uri": writer_uri,
+            "evals_uri": evals_uri,
             "root_rw_uri": root_rw_uri,
             "admin_uri": admin_uri,
             "root_admin_uri": root_admin_uri,
@@ -1056,3 +1066,228 @@ class TestTheRealAppOverTheWriterRole:
             assert head == {"seq": 1, "hash": first.json()["hash"]}
             verify = client.get("/verify/FCRM-2026-HTTP").json()
             assert (verify["ok"], verify["record_count"]) == (True, 1)
+
+
+class TestOversightUnderTheRealRoles:
+    """The examiner's collections, the analytics aggregation and the evals reader
+    against the real roles ``02-users.js`` created: the insert-only writer may
+    run exactly what S4's oversight code needs (``insert``, ``find`` and the
+    ``$unionWith`` aggregation) and nothing more, and the evals reader may
+    ``find`` the eval results and read nothing else.
+    """
+
+    pytestmark = auth_pytestmark
+
+    @pytest.fixture(autouse=True)
+    def _clean(self, auth_enabled_mongo: dict[str, str]) -> None:
+        root = pymongo.MongoClient(
+            auth_enabled_mongo["root_admin_uri"], serverSelectionTimeoutMS=5000
+        )
+        for collection in (
+            "audit_records",
+            "proposals",
+            "examiner_questions",
+            "examiner_answers",
+        ):
+            root["fcrm_audit"][collection].delete_many({})
+        for collection in ("eval_runs", "eval_dashboards"):
+            root["fcrm_evals"][collection].delete_many({})
+        root.close()
+
+    @pytest.mark.parametrize("collection", ["examiner_questions", "examiner_answers"])
+    def test_the_writer_inserts_and_finds_the_examiner_rows_but_cannot_change_them(
+        self, auth_enabled_mongo: dict[str, str], collection: str
+    ) -> None:
+        writer = pymongo.MongoClient(
+            auth_enabled_mongo["writer_uri"], serverSelectionTimeoutMS=5000
+        )
+        try:
+            target = writer["fcrm_audit"][collection]
+            probe = f"probe-{collection}"
+            target.insert_one({"_id": probe, "case_id": "X"})
+            assert target.find_one({"_id": probe}) is not None
+            with pytest.raises(OperationFailure) as updated:
+                target.update_one({"_id": probe}, {"$set": {"a": 1}})
+            assert updated.value.code == 13
+            with pytest.raises(OperationFailure) as deleted:
+                target.delete_one({"_id": probe})
+            assert deleted.value.code == 13
+        finally:
+            writer.close()
+
+    async def test_the_examiner_store_replays_and_refuses_over_the_writer_role(
+        self, auth_enabled_mongo: dict[str, str]
+    ) -> None:
+        client: AsyncMongoClient = AsyncMongoClient(
+            auth_enabled_mongo["writer_uri"], tz_aware=True
+        )
+        try:
+            db = client["fcrm_audit"]
+            store = MongoExaminerStore(db["examiner_questions"], db["examiner_answers"])
+            now = datetime.now(UTC).replace(microsecond=0)
+            question = QuestionRow("exq_live", "FCRM-2026-0151", "Why?", "u-riyer", now)
+            await store.add_question(question)
+            assert await store.get_question("exq_live") == question
+
+            def answer(fingerprint: str) -> AnswerRow:
+                return AnswerRow(
+                    question_id="exq_live",
+                    case_id="FCRM-2026-0151",
+                    run_id="run_1",
+                    refused=True,
+                    sentences=(),
+                    references=(),
+                    refusal_reason="the records do not say",
+                    request_fingerprint=fingerprint,
+                    answered_at=now,
+                )
+
+            first = await store.add_answer(answer("a"))
+            again = await store.add_answer(answer("a"))
+            assert (first.replayed, again.replayed) == (False, True)
+            with pytest.raises(ConflictError):
+                await store.add_answer(answer("b"))
+            stored = await store.get_answer("exq_live")
+            assert stored is not None
+            assert stored.request_fingerprint == "a"
+        finally:
+            await client.close()
+
+    async def test_the_override_rates_are_one_aggregation_the_insert_only_role_may_run(
+        self, auth_enabled_mongo: dict[str, str]
+    ) -> None:
+        client: AsyncMongoClient = AsyncMongoClient(
+            auth_enabled_mongo["writer_uri"], tz_aware=True
+        )
+        try:
+            store = _store_over(client)
+            case = "FCRM-2026-OVR"
+            await store.append(
+                RecordAppend(
+                    case_id=case,
+                    type="workflow.started",
+                    actor="system",
+                    summary="opened",
+                    data={"pins": {"scoring_v": 3, "corpus_v": 14}},
+                )
+            )
+            for before, after in ((7.6, 4.5), (6.0, 5.0)):
+                await store.append(
+                    RecordAppend(
+                        case_id=case,
+                        type="human.override",
+                        actor="u-riyer",
+                        summary=f"CTL-T01 {before} → {after} by u-riyer · reason",
+                        data={
+                            "before": {"rating": before},
+                            "after": {"rating": after},
+                            "reason": "The vendor review is not on file.",
+                        },
+                    )
+                )
+            for agent in ("assessment",) * 4 + ("research",) * 2:
+                await store.append_proposal(
+                    ProposalAppend(
+                        case_id=case,
+                        run_id="run_1",
+                        agent=agent,
+                        kind=agent,
+                        payload={},
+                        model="m",
+                        prompt_v="p@1",
+                        tier="strong",
+                    )
+                )
+            db = client["fcrm_audit"]
+            analytics = MongoAnalyticsStore(db["audit_records"], db["proposals"])
+
+            page = await analytics.overrides(agent=None, cursor=None, limit=1)
+            assert page.total == 2
+            assert page.next_cursor is not None
+            assert [(r.item, r.agent) for r in page.items] == [
+                ("CTL-T01", "assessment")
+            ]
+            rest = await analytics.overrides(
+                agent=None, cursor=page.next_cursor, limit=5
+            )
+            assert len(rest.items) == 1
+            assert {
+                (r.agent, r.proposals, r.overridden, r.rate) for r in page.rates
+            } == {
+                ("assessment", 4, 2, 0.5),
+                ("research", 2, 0, 0.0),
+            }
+            only = await analytics.overrides(agent="research", cursor=None, limit=5)
+            assert only.items == []
+            assert [r.agent for r in only.rates] == ["research"]
+
+            assert await analytics.pinned(case) == {"scoring_v": 3, "corpus_v": 14}
+            assert await analytics.current() == {"scoring_v": 3, "corpus_v": 14}
+            assert await analytics.pinned("FCRM-2026-NONE") is None
+        finally:
+            await client.close()
+
+    async def test_the_evals_reader_reads_the_results_and_nothing_else(
+        self, auth_enabled_mongo: dict[str, str]
+    ) -> None:
+        root = pymongo.MongoClient(
+            auth_enabled_mongo["root_admin_uri"], serverSelectionTimeoutMS=5000
+        )
+
+        def run(agent: str, week: str, day: int, score: float) -> dict[str, Any]:
+            return {
+                "_id": f"{week}-{day}:{agent}",
+                "run_id": f"{week}-{day}",
+                "agent": agent,
+                "ts": datetime(2026, 10, day, 12, tzinfo=UTC),
+                "week": week,
+                "primary_metric": "metric",
+                "n": 5,
+                "gate": {"status": "PASS", "candidate": score, "baseline": None},
+                "metrics": [],
+                "cases": [{"row_id": "r1", "tokens": 1}],
+            }
+
+        root["fcrm_evals"]["eval_runs"].insert_many(
+            [
+                run("screening", "2026-W40", 1, 0.90),
+                run("screening", "2026-W41", 6, 0.94),
+            ]
+        )
+        root["fcrm_evals"]["eval_dashboards"].insert_one(
+            {"_id": "latest", "run_id": "r", "html": "<p>one page</p>"}
+        )
+        root.close()
+        client: AsyncMongoClient = AsyncMongoClient(
+            auth_enabled_mongo["evals_uri"], tz_aware=True
+        )
+        try:
+            reader = MongoEvalsReader(client["fcrm_evals"])
+            quality = await agent_quality(reader, None)
+            assert quality is not None
+            assert quality.week == "2026-W41"
+            assert [(r.agent, r.pct) for r in quality.rows] == [("screening", 94.0)]
+            assert quality.drift == "+4.0 pts vs 2026-W40"
+            assert await reader.dashboard() == "<p>one page</p>"
+            assert await agent_quality(reader, "2026-W39") is None
+
+            runs = client["fcrm_evals"]["eval_runs"]
+            with pytest.raises(OperationFailure) as inserted:
+                await runs.insert_one({"_id": "x"})
+            assert inserted.value.code == 13
+            with pytest.raises(OperationFailure) as updated:
+                await runs.update_one(
+                    {"_id": "2026-W41-6:screening"}, {"$set": {"n": 0}}
+                )
+            assert updated.value.code == 13
+            with pytest.raises(OperationFailure) as deleted:
+                await runs.delete_one({"_id": "2026-W41-6:screening"})
+            assert deleted.value.code == 13
+            with pytest.raises(OperationFailure) as other:
+                await client["fcrm_audit"]["audit_records"].find_one({})
+            assert other.value.code == 13
+            with pytest.raises(OperationFailure) as elsewhere:
+                await client["fcrm_evals"]["something_else"].find_one({})
+            assert elsewhere.value.code == 13
+        finally:
+            await client.close()

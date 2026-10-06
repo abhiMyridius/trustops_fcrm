@@ -80,5 +80,18 @@ class Trigger(StrEnum):
 
     CLOSED_DISPATCH = "internal.closed_dispatch"
 
+    # Oversight (scene 20). Every one is step-only: no transition row exists, the
+    # run does not move, and the engine only starts the step that does the work
+    # (``audit_map.STEP_FOR``). The two events name no open run
+    # (``fcrm_caseflow.oversight_runs``); the rest come from H2's results of the
+    # examiner and the watchlist, and from an analyst's re-flag acknowledgement.
+    EXAMINER_ASKED = "examiner.asked"
+    JURISDICTION_LIST_PUBLISHED = "jurisdiction.list_published"
+    AGENT_DONE_EXAMINER = "agent.done.examiner"
+    AGENT_FAILED_EXAMINER = "agent.failed.examiner"
+    AGENT_DONE_WATCHLIST = "agent.done.watchlist"
+    AGENT_FAILED_WATCHLIST = "agent.failed.watchlist"
+    GATE_DECIDED_REFLAG_ACK = "gate.decided.reflag_ack"
+
     AGENT_FAILED_AFTER_RETRY = "agent.failed.after_retry"
     GATE_DECIDED_HANDOFF = "gate.decided.handoff"
