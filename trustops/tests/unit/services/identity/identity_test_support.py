@@ -85,10 +85,6 @@ def make_settings(**overrides: Any) -> IdentitySettings:
     return IdentitySettings(**fields)
 
 
-def _always_allow(_request: httpx.Request) -> httpx.Response:
-    return httpx.Response(200, json={"result": {"allow": True}})
-
-
 def make_opa_client(*, allow: bool = True) -> OPAClient:
     """An :class:`OPAClient` whose transport never leaves the process:
     every decision is ``allow`` (default) or always denied.

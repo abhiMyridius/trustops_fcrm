@@ -17,7 +17,6 @@ from resilience.gateway import Reply
 
 CASE = "FCRM-2026-0300"
 RUNNING = "agent.jobs | agent-worker.run | evt_01M487 - Received\n"
-FINISHED = RUNNING + "agent.jobs | agent-worker.run | evt_01M487 - Processed\n"
 PINS = {
     "scoring_v": 3,
     "corpus_v": 14,
