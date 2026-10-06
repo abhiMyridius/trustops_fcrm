@@ -38,6 +38,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 from fcrm_api.registry import MOUNTS
 from fcrm_audit.lifespan import InsertOnlyRoleViolatedError
+from fcrm_case.consumer import ROUTING_KEYS
 from fcrm_common import mongo
 from fcrm_common.authz import OPAClient, install_authz
 from fcrm_common.events import build_envelope
@@ -281,7 +282,7 @@ def test_s1_consumes_its_queue_through_the_composites_broker(
     """
     with composite_client():
         mine = _on_queue(fake_broker, "case-service.events")
-        assert len(mine) == 4  # one per key ops bound
+        assert len(mine) == len(ROUTING_KEYS)  # one per key ops bound
         assert all(sub.started for sub in mine)
     assert not any(sub.started for sub in mine)
 
