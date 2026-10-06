@@ -8,7 +8,7 @@ from typing import Final, Optional
 
 from resilience.broker import Broker
 from resilience.docker import DEFAULT_PROJECT, DockerCli
-from resilience.errors import CommandError, StackUnavailableError
+from resilience.errors import CommandError
 from resilience.gateway import DEFAULT_BASE_URL, GatewayClient
 from resilience.mongo import MongoReader
 from resilience.shell import CommandRunner, SubprocessRunner
@@ -91,13 +91,3 @@ class Stack:
             except CommandError as exc:
                 found.append(f"cannot list queues: {exc}")
         return found
-
-    def require_ready(self) -> None:
-        """Raise unless :meth:`problems` is empty.
-
-        Raises:
-            StackUnavailableError: with every problem found.
-        """
-        found = self.problems()
-        if found:
-            raise StackUnavailableError("; ".join(found))

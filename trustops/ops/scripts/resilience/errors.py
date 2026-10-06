@@ -19,10 +19,6 @@ class PollTimeoutError(DrillError):
     """A condition did not become true before its deadline."""
 
 
-class StackUnavailableError(DrillError):
-    """The stack the drills need is not reachable (containers or gateway)."""
-
-
 class BrokerAgentError(DrillError):
     """The in-container broker script reported a failure."""
 
