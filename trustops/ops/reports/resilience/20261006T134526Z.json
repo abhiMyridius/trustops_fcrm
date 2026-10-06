@@ -1,0 +1,23 @@
+{
+  "run": "20261006T134526Z",
+  "commit": "6a53446",
+  "passed": 2,
+  "failed": 0,
+  "skipped": 0,
+  "drills": [
+    {
+      "drill": "D6",
+      "title": "a job that cannot run ends in a handoff, nothing invented",
+      "outcome": "PASS",
+      "seconds": 37.523511084145866,
+      "detail": ""
+    },
+    {
+      "drill": "D6b",
+      "title": "a case whose token cap is spent is refused into a handoff",
+      "outcome": "PASS",
+      "seconds": 32.19643183390144,
+      "detail": ""
+    }
+  ]
+}

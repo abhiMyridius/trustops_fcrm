@@ -36,7 +36,7 @@ make bootstrap     # opa binary, uv sync, git hooks, pull images
 make env && make keys   # .env with generated secrets, the JWT keypair (never overwrite); add AWS keys to .env yourself
 make up / down     # the stack: 8 containers (make up-obs adds 4 observability containers, make up-debug publishes the infrastructure ports); make down-v also deletes the data
 make seed          # reload the 80-case seed and stage the demo PDFs; make demo-reset re-runs only case 0151
-make check         # commit gate: ruff, format, mypy, OPA check and 120 Rego tests, ai/ registry and model-id guards, 7,659 unit tests, env contract, web tsc and 164 vitest tests (about 6 minutes)
+make check         # commit gate: ruff, format, mypy, OPA check and 121 Rego tests, ai/ registry and model-id guards, 7,705 unit tests, env contract, web tsc and 164 vitest tests (about 6 minutes)
 make test-int      # every integration-marked test under tests/: tests/integration on Docker or FCRM_TEST_MONGO_URI, plus the *_live.py tests under tests/unit, which skip (loudly announced) without FCRM_TEST_MONGO_URI; make gate = check + test-int + eval dataset and self-check
 make evals         # LIVE agent evals on Bedrock, about USD 3 and 7-11 minutes; writes evals/results/<date>/. Do not run it casually
 make economy-profile / up-economy / evals-economy   # the same live checks with no Sonnet or Opus (Haiku and Nova, ADR-56); a result from it is never a baseline; `make up` puts the shipped tiers back

@@ -91,6 +91,8 @@ The demo needs five people (Priya, Rahul, Ana, Joseph, Lin) across three working
 
 ## 4. Drive the demo by hand
 
+`make demo` drives the same case through the 21 scenes by itself, as the five users through the gateway, and prints the live numbers; it calls Bedrock (100k to 160k tokens), so ask the operator first (ADR-59). What follows is the same flow by hand.
+
 The case is **FCRM-2026-0151**: consumer remittances US to Mexico through a payout partner (Remesas del Norte S.A.). It is seeded as Priya's draft at intake, unassigned, with no documents. You play all five people. Use a different browser profile or a private window per person, or sign out between steps.
 
 Read this first:
@@ -165,10 +167,10 @@ If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks
 | `check` | the commit gate: ruff, format, mypy, OPA check and tests, `ai-check`, unit tests, env contract, web typecheck and vitest | no (needs Docker for `compose config`) | no | 355 s measured (unit tests 288 s) |
 | `lint`, `format-check`, `typecheck` | ruff, ruff format, mypy over every package | no | no | under 2 s warm |
 | `opa-check`, `opa-test` | Rego check and 120 Rego tests | no | no | 0.1 s, 12 s |
-| `test-unit`, `test` | the 7,094 unit tests (`-m "not integration and not e2e"`) | no | no | about 290 s |
+| `test-unit`, `test` | the 7705 unit tests (`-m "not integration and not e2e"`) | no | no | about 290 s |
 | `compose-check` | `.env.example` against the compose files, `compose config` of each file set | no (needs Docker) | no | 1.4 s |
 | `web-install` | `npm ci` in `src/frontend` | no | no | not timed |
-| `web-check` | web typecheck and 144 vitest tests | no | no | 17 s |
+| `web-check` | web typecheck and 164 vitest tests | no | no | 17 s |
 | `gate` | `check`, `test-int`, `fcrm_evals build --check`, `selfcheck` | needs Docker | no | more than `check` (not timed) |
 | `test-int`, `test-integration` | every integration-marked test under `tests/` (`pytest -m integration tests`): the 464 under `tests/integration` on testcontainers or on `FCRM_TEST_MONGO_URI`, and the 74 `*_live.py` tests under `tests/unit`, which need `FCRM_TEST_MONGO_URI` and skip without it (the target says so) | needs Docker, not the stack | no | not timed through make; all of them took 192 to 225 s on a throwaway replica set |
 | `ai-check` | `ai/_tools/validate_ai.py` (registry, tool permits, OPA decisions, and the rule that no model id appears outside `ai/models/tiers.yaml` in `ai/`, `src/`, `evals/` or `ops/`) and `compute_locks.py --check` | no | no | under 10 s |
@@ -177,10 +179,20 @@ If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks
 | `evals-gate AGENT=<a>` | the promotion gate for one agent on the newest run | no | no | seconds |
 | `openapi` | export the merged OpenAPI to `docs/architecture/openapi/api.json` | no | no | seconds |
 | `dlq` | list the dead-letter queues with depth | yes | no | instant |
-| `dlq-replay q=<queue>` | move `<queue>.dlq` back onto `<queue>` with a shovel | yes | no | seconds |
+| `dlq-inspect q=<queue>` | show what is parked in `<queue>.dlq` (type, error, attempt, preview) | yes | no | seconds |
+| `dlq-replay q=<queue>` | move `<queue>.dlq` back onto `<queue>` (`ops/scripts/dlq.py`) | yes | no | seconds |
+| `dlq-purge q=<queue> CONFIRM=1` | delete the parked messages of `<queue>.dlq` (refused without `CONFIRM=1`) | yes | no | seconds |
 | `token-report` | per-agent tokens and cost from Prometheus into `ops/token-analysis/runtime/` | needs `up-obs` | no | seconds |
 | `rotate-keys` | `keys FORCE=1`, then restart `api`; everyone signs in again | yes | no | the `api` restart, about 85 s |
-| `seed-verify`, `demo`, `verify`, `e2e`, `resilience`, `nightly`, `contracts`, `api-gen`, `locks`, `build-usage`, `backup`, `restore` | **not wired**: print "not yet wired" and exit 1 | | | |
+| `seed-verify` | the live stack holds the seed: 80 cases, the stage distribution, the demo case untouched, a chain that verifies | yes | no | seconds |
+| `verify case=<id>` | verify one case's audit chain through S4 | yes | no | seconds |
+| `demo` | `demo-reset`, then the 21 scenes of case 0151 through the gateway as the five users, printing the live numbers | yes | **yes**: 100k to 160k tokens, about USD 0.6 to 1.0 on the shipped chain (ask first, ADR-59) | 4 to 5 minutes |
+| `e2e` | `demo`, then the live black-box rules (BB-03, 06, 08, 09, 13, 14) and the Playwright live scenes | yes | **yes**: the demo's | the demo plus a few minutes |
+| `resilience` | kill and restart drills; the ones that restart a container need `DISRUPTIVE=1`, the ones that call AWS or restart the api need `AWS=1` (`docs/architecture/resilience.md`) | yes | with `AWS=1`: 3 to 5 intake calls (Haiku, under USD 0.10) and api restarts (Titan embeddings, cents) | about 15 to 18 minutes for all twelve |
+| `economy-profile` | write `.economy/`: a copy of `ai/` with no Opus and no Sonnet 5 in any tier chain, and a compose override | no | no | seconds |
+| `up-economy` | the default stack with api and harness on the economy profile (`make up` puts the shipped tiers back); restarts the api, which embeds the clauses on Titan | no | cents (embeddings) | about 2 minutes |
+| `evals-economy` | live evals on the economy profile into `.economy/evals-results`; never a baseline and never in `evals/results`; `EVALS_ARGS="--sample 1"` for one row per agent | no | **yes**: about USD 0.44 for one row per agent | minutes |
+| `nightly`, `contracts`, `api-gen`, `locks`, `build-usage`, `backup`, `restore` | **not wired**: print "not yet wired" and exit 1 | | | |
 
 `make -n <target>` prints what a target would run without running it.
 
@@ -220,7 +232,7 @@ Every route is in `docs/architecture/openapi/api.json` (110 paths); the roles ar
 ## 7. Check the code (no stack)
 
 ```bash
-make check         # about 6 minutes: ruff, format, mypy over 606 files, OPA, 7,094 unit tests, env contract, web typecheck and 144 vitest tests
+make check         # about 8 minutes: ruff, format, mypy over 618 files, OPA, 7705 unit tests, env contract, web typecheck and 164 vitest tests
 make test-int      # every integration-marked test: tests/integration on testcontainers (needs Docker), the *_live.py tests under tests/unit when FCRM_TEST_MONGO_URI is set
 make gate          # check, test-int, datasets and eval self-check
 ```
@@ -240,7 +252,7 @@ On 6 October the whole integration-marked set (464 plus 74) run this way, with n
 
 Web checks on their own: `cd src/frontend && npm ci && npm test && npm run typecheck && npm run lint`. Playwright scenes against the mock: `npm run test:e2e` (4 specs, not run by the lane that wrote this file).
 
-On 6 October 2026 `make check` was green on `5a02c09`: 7,094 passed, 4 skipped, 538 integration-marked tests deselected, 120 of 120 Rego tests, 144 web tests.
+On 6 October 2026 `make check` was green on `bed771a`: 7705 passed, 4 skipped, 590 deselected (integration, e2e and resilience marks), 121 of 121 Rego tests, 164 web tests.
 
 ## 8. Troubleshooting
 
@@ -281,10 +293,11 @@ More: `ops/runbooks/README.md` indexes one short page per task (start, stop, res
 
 The full list, each item with its evidence, is `docs/governance/known-gaps.md`. The ones that change what you can do:
 
-- `make demo`, `make seed-verify`, `make verify`, `make e2e`, `make resilience`, `make nightly`, `make backup` and `make restore` print "not yet wired". The demo is driven by hand (section 4); the golden numbers are unit tests.
+- `make nightly`, `make contracts`, `make api-gen`, `make locks`, `make build-usage`, `make backup` and `make restore` print "not yet wired". `make demo`, `make e2e`, `make seed-verify`, `make verify` and `make resilience` are wired; the golden numbers (9.8 to 10.4, 2-1, 67 records) are unit tests, and a live run prints its own.
+- **No complete live acceptance pass on the final build.** The last 21-scene pass is 21 of 21 on the shipped chain before the clean-up merges; on cheaper chains (`make up-economy`: no Opus, no Sonnet 5) runs stopped at scene 3, 8 or 9, because the shipped prompts and budgets were measured on Sonnet 5.5 and Opus 5.5 (D-95).
 - **A manual output (a run completed from `handoff`) is less machine-verified than an agent's:** its claims are not matched against their sources; the record says so.
 - **S1 pins the versions S3 holds in force** (`GET /internal/config/pins`, cached 5 s) and reads a published field set from S3; when S3 does not answer in a few seconds it pins the seed's versions and logs a warning naming the case. Proved on a real replica set, not yet in the composed stack.
-- **The 120,000-token case cap is reported, not enforced across jobs.**
+- **The per-case token cap is enforced across jobs by a ledger: 160,000 enforced, 120,000 target** (ADR-50); a run that needs retries can use most of the cap.
 - **Redis does nothing** (`make up-cache`); **S3 Vectors is not in the image** (vectors are in memory; each `api` start embeds the corpus).
 - **The web examiner does not handle a 202.**
 - **Two integration mismatches are open defects:** the `evidence_store` agent tool reads a different shape than S1 answers (D-52), and the web's decide call for a clause or control may not resolve the item id (D-53). If a review decision errors on the first item, that is D-53.

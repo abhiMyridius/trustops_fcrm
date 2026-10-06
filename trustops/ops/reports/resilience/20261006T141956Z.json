@@ -1,0 +1,16 @@
+{
+  "run": "20261006T141956Z",
+  "commit": "f2b9a2f",
+  "passed": 1,
+  "failed": 0,
+  "skipped": 0,
+  "drills": [
+    {
+      "drill": "D5b",
+      "title": "poison messages are parked, other work goes on, purge drains",
+      "outcome": "PASS",
+      "seconds": 279.1603945840616,
+      "detail": ""
+    }
+  ]
+}

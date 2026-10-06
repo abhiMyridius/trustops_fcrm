@@ -1,0 +1,93 @@
+{
+  "run": "20261006T140722Z",
+  "commit": "34c63b7",
+  "passed": 9,
+  "failed": 3,
+  "skipped": 0,
+  "drills": [
+    {
+      "drill": "D1a",
+      "title": "harness restarted (SIGTERM) mid agent run",
+      "outcome": "PASS",
+      "seconds": 121.31320008297917,
+      "detail": ""
+    },
+    {
+      "drill": "D1b",
+      "title": "harness killed (SIGKILL) mid agent run",
+      "outcome": "PASS",
+      "seconds": 90.6915559580084,
+      "detail": ""
+    },
+    {
+      "drill": "D1c",
+      "title": "second agent.done for a finished job is ignored",
+      "outcome": "PASS",
+      "seconds": 59.95754029206,
+      "detail": ""
+    },
+    {
+      "drill": "D2",
+      "title": "RabbitMQ stopped and started; an outbox event survives",
+      "outcome": "PASS",
+      "seconds": 39.300480915931985,
+      "detail": ""
+    },
+    {
+      "drill": "D3",
+      "title": "MongoDB stopped and started; requests fail clean",
+      "outcome": "PASS",
+      "seconds": 68.14133633405436,
+      "detail": ""
+    },
+    {
+      "drill": "D4",
+      "title": "api restarted under an open case stream; resume has no gap",
+      "outcome": "PASS",
+      "seconds": 139.2764324179152,
+      "detail": ""
+    },
+    {
+      "drill": "D5a",
+      "title": "a parked finished step is replayed with make dlq-replay",
+      "outcome": "PASS",
+      "seconds": 38.62022308295127,
+      "detail": ""
+    },
+    {
+      "drill": "D5b",
+      "title": "poison messages are parked, other work goes on, purge drains",
+      "outcome": "FAIL",
+      "seconds": 213.76008329191245,
+      "detail": "resilience.errors.PollTimeoutError: timed out after 180s waiting for caseflow.steps.dlq to hold 2"
+    },
+    {
+      "drill": "D6",
+      "title": "a job that cannot run ends in a handoff, nothing invented",
+      "outcome": "PASS",
+      "seconds": 32.49111574993003,
+      "detail": ""
+    },
+    {
+      "drill": "D6b",
+      "title": "a case whose token cap is spent is refused into a handoff",
+      "outcome": "FAIL",
+      "seconds": 32.01543649996165,
+      "detail": "AssertionError: {'caseflow.steps.dlq': 1}"
+    },
+    {
+      "drill": "D7",
+      "title": "api stopped under an issued token; same token works after",
+      "outcome": "PASS",
+      "seconds": 95.92914654198103,
+      "detail": ""
+    },
+    {
+      "drill": "D8",
+      "title": "every chain verifies and every DLQ is empty afterwards",
+      "outcome": "FAIL",
+      "seconds": 41.227316375938244,
+      "detail": "dead-letter queues are not empty: {'caseflow.steps.dlq': 1}"
+    }
+  ]
+}

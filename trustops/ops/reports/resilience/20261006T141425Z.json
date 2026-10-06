@@ -1,0 +1,30 @@
+{
+  "run": "20261006T141425Z",
+  "commit": "20c5622",
+  "passed": 2,
+  "failed": 1,
+  "skipped": 0,
+  "drills": [
+    {
+      "drill": "D5b",
+      "title": "poison messages are parked, other work goes on, purge drains",
+      "outcome": "FAIL",
+      "seconds": 282.1164380009286,
+      "detail": "AssertionError: [0, 8]"
+    },
+    {
+      "drill": "D6b",
+      "title": "a case whose token cap is spent is refused into a handoff",
+      "outcome": "PASS",
+      "seconds": 32.10207008407451,
+      "detail": ""
+    },
+    {
+      "drill": "D8",
+      "title": "every chain verifies and every DLQ is empty afterwards",
+      "outcome": "PASS",
+      "seconds": 1.3148642490850762,
+      "detail": ""
+    }
+  ]
+}

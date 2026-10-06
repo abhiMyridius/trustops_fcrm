@@ -116,3 +116,16 @@ Still open:
 - Findings of the audit and the sweep: the outbox poison row (D-86), the web logout (D-87), H2's audit key (D-88), the low findings (D-89), guards that may be unwired (D-90), a live 1-1-1 and R6 run (D-91).
 - Two chart insights in the web hard-code a count ("12 of 80 reached the Risk Committee", "38 of 212 proposals"); four buttons have no backend route (export case record, export and import CSV, upload source).
 - Everything listed as open in section G, including the eight resilience drills (D-66) until they are run.
+
+## I. After the live checks of 6 October night (appended)
+
+Closed:
+
+- The twelve resilience drills have run live and pass (D-97). They found two product defects, an OPA that was never reloaded and a step retry window shorter than an api restart, both fixed (D-92, D-93, ADR-61).
+- The economy profile (ADR-56, ADR-60) exists and was used: `make up-economy` runs the stack with no Opus and no Sonnet 5, `make evals-economy` runs the evals on it. The eval pipeline ran end to end on it at one row per agent (7 of 9 gates, about USD 0.44, the Sonnet 4.5 price unverified); that result is not comparable with the committed baseline and is not kept in the repository.
+
+Still open:
+
+- **No complete live acceptance pass on the final build.** The last 21-scene pass is 21 of 21 on the shipped chain at 18:25 IST, before the clean-up merges; on cheaper chains the run stopped at scene 3, 8 or 9 (D-95). The live black-box rules and the Playwright scenes need a completed demo and were not run on the final build. A run on the shipped chain would cost about USD 0.6 to 1.0 at the verified prices and needs the operator's approval (ADR-59).
+- The Guard 4 retry model for the cheap tier (D-96).
+- The stack was left running the economy profile, not the shipped tiers, until `make up` is run (it restarts the api, which embeds the clauses on Titan).

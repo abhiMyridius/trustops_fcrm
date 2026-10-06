@@ -63,6 +63,8 @@ make bootstrap && make env && make keys   # tools, .env from the template, JWT k
 make check                                # lint, types, OPA, unit tests, env contract, web tests (about 6 min)
 make up                                   # the 8-container stack
 make seed                                 # reload the 80-case seed and stage the demo PDFs
+make demo                                 # LIVE: case 0151 through the 21 scenes (Bedrock, 100k to 160k tokens; ask first, ADR-59)
+make resilience DISRUPTIVE=1 AWS=1        # LIVE: twelve kill and restart drills, about 15 minutes (see docs/architecture/resilience.md)
 make evals                                # live agent evals on Bedrock (about USD 3), writes evals/results/<date>/
 ```
 
@@ -78,19 +80,21 @@ Agents call live Amazon Bedrock only; there is no replay or mock mode. AWS crede
 
 ## Status
 
-A snapshot taken on 6 October 2026, read from commands and committed files, not from memory. It is brought up to date at each merge and finalised at the release freeze (`ops/runbooks/release-checklist.md`). `RUNNING.md` says how to run it; `docs/governance/known-gaps.md` says what is not done.
+A snapshot taken on the night of 6 October 2026, read from commands and committed files, not from memory. It is finalised at the release freeze (`ops/runbooks/release-checklist.md`). `RUNNING.md` says how to run it; `docs/governance/known-gaps.md` says what is not done.
 
 | What | Result | Where it comes from |
 |---|---|---|
-| `make check` (the commit gate) | green in 5 min 55 s: ruff clean, 925 files formatted, mypy on 606 files, **7,094 unit tests passed, 4 skipped**, 120 of 120 Rego tests, 144 web tests, env contract ok (55 interpolated variables, 89 documented) | run on 6 Oct, code as of `5a02c09`; the commits after it are documentation |
-| Integration tests | 538 are marked `integration` and deselected by `make check`: 464 under `tests/integration` and 74 under `tests/unit/**/*_live.py`; `make test-int` selects all 538 (the live ones skip without `FCRM_TEST_MONGO_URI`). All of them, run by hand on a throwaway Mongo replica set with no stack: **525 passed, 14 skipped** in 192 to 225 s | run on 6 Oct; skips: 7 need `FCRM_TEST_RABBITMQ_URL`, 6 are named black-box skips, 1 is a missing real-document fixture |
-| Live agent evals | **8 of 9 gates pass**; the assessment agent fails (`li_within_one` 0.70 against 0.85) and is reported failing. All 41 sampled rows completed. The run cost 525,250 tokens and about USD 2.86 (agents 0.56, judge 2.30) | `evals/results/2026-10-06/gate.json`, `index.json` |
-| One demo case against the 120,000-token cap | 114,626 tokens with one retry, about 91,000 clean, measured before `research.system` v3 | `evals/README.md`; `ops/reports/token-analysis.md` |
-| The stack | eight containers, booted healthy from empty volumes by the integration lane, which also ran the intake leg live (both demo PDFs read, intake proposals in about 50 s); `api` takes about 85 s to become healthy. No full-case run is recorded | `docs/governance/defect-trail.md` D-41, D-54; commit `5a02c09`. The documentation lane did not start the stack |
-| The demo | driven by hand through the web UI (`RUNNING.md`); the golden figures (9.8 to 10.4, 2-1, 67 records) are unit tests. No live full-case run is committed | `make demo` is not wired |
-| Decisions, defects, build failures | 49 ADRs (13 accepted by the operator, 19 by the orchestrator or lead, 17 still proposed); 57 defect rows; 5 failure-log rows | `docs/governance/` |
-| API | 110 paths in the committed OpenAPI export; every route the web calls is in it | `docs/architecture/openapi/api.json`; `make openapi` leaves no diff |
-| Not wired (print "not yet wired") | `make demo`, `seed-verify`, `verify`, `e2e`, `resilience`, `nightly`, `contracts`, `api-gen`, `locks`, `build-usage`, `backup`, `restore` | `Makefile` |
-| What is not done | the 120k case cap is reported, not enforced across jobs; the web examiner does not handle a 202; S3 Vectors is not in the image and Redis does nothing; no live end-to-end suite or resilience drills; no OCR; identity is a demo directory; the AWS path is a design | `docs/governance/known-gaps.md` |
+| `make check` (the commit gate) | green on `bed771a`: ruff clean, 1003 files formatted, mypy on 618 files, **7705 unit tests passed, 4 skipped**, 121 of 121 Rego tests, 164 web tests, 816 `ai/` checks, env contract ok (54 interpolated variables, 87 documented) | run on the final tree |
+| Integration tests | about 540 are marked `integration` and deselected by `make check` (590 deselected counting the e2e and resilience marks); `make test-int` selects them. The last run of all of them, on a throwaway Mongo replica set, was before the clean-up lanes: 525 passed, 14 skipped. The clean-up lanes re-ran the live-Mongo caseflow, common and audit tests (all passed); the whole suite was not repeated on the final build | run on 6 Oct; skips: 7 need `FCRM_TEST_RABBITMQ_URL`, 6 are named black-box skips, 1 is a missing real-document fixture |
+| Resilience drills | **all twelve pass live**, in six sessions: the first found two product defects (an OPA that was never reloaded, a step retry window shorter than an api restart), both fixed, and a drill-side assumption. Every run's report is committed | `docs/architecture/resilience.md`, `ops/reports/resilience/`; D-92 to D-94, D-97 |
+| The live pipeline (`make demo`) | the last complete run: **21 of 21 scenes** on the shipped model chain at 18:25 IST, 5.3 minutes, 197 audit records with a verifying chain, every dead-letter queue empty, composite 15.9 in Band 3, approve with conditions 2-1, five conditions, 157,345 of the 160,000 enforced token cap (the 120,000 target was not met: four Guard 4 retries; a clean run is 110k to 115k). The live figures are the agents' and S2's own; 9.8 to 10.4 are unit-test goldens. **Not repeated on the final build**: on cheaper chains (no Opus, no Sonnet 5) four runs stopped at scene 3, 8 or 9 | the integration lane's run on `e4c14f6` plus `4e156a1`; D-95 |
+| Live black-box rules and Playwright scenes | 6 of 6 and 12 of 12 on an earlier build; not run on the final build, because they read a completed demo | D-95 |
+| Live agent evals (committed baseline) | **8 of 9 gates pass** on the shipped chain; the assessment agent fails (`li_within_one` 0.70 against 0.85) and is reported failing. All 41 sampled rows completed. The run cost 525,250 tokens and about USD 2.86 (agents 0.56, judge 2.30). A run of the eval pipeline on the economy profile (one row per agent, 7 of 9 gates, about USD 0.44) shows the runner, the Nova Pro judge and the dashboard work; it is not comparable with the baseline | `evals/results/2026-10-06/gate.json`, `index.json`; D-56 |
+| Models | the shipped chain is Haiku 4.5, Sonnet 5.5, Opus 5.5 and Nova (`ai/models/tiers.yaml`). `make up-economy` runs the stack with no Opus and no Sonnet 5 for cost-capped checks (`ai/models/economy.yaml`, ADR-56, ADR-60); the stack was left on it until `make up` is run | D-95, D-96 |
+| The stack | eight containers, healthy; `api` takes about 85 s to become healthy (it embeds the 197 clauses on Titan) | `docker compose ps` |
+| Decisions, defects, build failures | 61 ADRs; 97 defect rows; failure-log rows in `docs/governance/failure-log.md` | `docs/governance/` |
+| API | 112 paths in the committed OpenAPI export; every route the web calls is in it | `docs/architecture/openapi/api.json`; `make openapi` leaves no diff |
+| Not wired (print "not yet wired") | `nightly`, `contracts`, `api-gen`, `locks`, `build-usage`, `backup`, `restore` | `Makefile` |
+| What is not done | no complete live acceptance pass on the final build and no run of the full eval gate since the clean-up (D-95); the Guard 4 retry model for the cheap tier (D-96); the outbox poison row, the web logout and H2's audit key (D-86 to D-88); S3 Vectors is not in the image and Redis does nothing; no OCR; identity is a demo directory; the AWS path is a design | `docs/governance/known-gaps.md` |
 
 How the build was done with AI across the six stages, with the `git log` queries that check it: `docs/governance/sdlc-evidence.md`. The AWS production path: `ops/aws/README.md`. Operational procedures: `ops/runbooks/`.

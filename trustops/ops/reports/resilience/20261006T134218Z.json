@@ -1,0 +1,93 @@
+{
+  "run": "20261006T134218Z",
+  "commit": "6a53446",
+  "passed": 9,
+  "failed": 3,
+  "skipped": 0,
+  "drills": [
+    {
+      "drill": "D1a",
+      "title": "harness restarted (SIGTERM) mid agent run",
+      "outcome": "PASS",
+      "seconds": 124.10346183285583,
+      "detail": ""
+    },
+    {
+      "drill": "D1b",
+      "title": "harness killed (SIGKILL) mid agent run",
+      "outcome": "PASS",
+      "seconds": 114.62895275081974,
+      "detail": ""
+    },
+    {
+      "drill": "D1c",
+      "title": "second agent.done for a finished job is ignored",
+      "outcome": "PASS",
+      "seconds": 62.591567958006635,
+      "detail": ""
+    },
+    {
+      "drill": "D2",
+      "title": "RabbitMQ stopped and started; an outbox event survives",
+      "outcome": "PASS",
+      "seconds": 39.27041108405683,
+      "detail": ""
+    },
+    {
+      "drill": "D3",
+      "title": "MongoDB stopped and started; requests fail clean",
+      "outcome": "PASS",
+      "seconds": 68.15515429200605,
+      "detail": ""
+    },
+    {
+      "drill": "D4",
+      "title": "api restarted under an open case stream; resume has no gap",
+      "outcome": "PASS",
+      "seconds": 140.47715408401564,
+      "detail": ""
+    },
+    {
+      "drill": "D5a",
+      "title": "a parked finished step is replayed with make dlq-replay",
+      "outcome": "PASS",
+      "seconds": 37.20258174906485,
+      "detail": ""
+    },
+    {
+      "drill": "D5b",
+      "title": "poison messages are parked, other work goes on, purge drains",
+      "outcome": "PASS",
+      "seconds": 120.97833324992098,
+      "detail": ""
+    },
+    {
+      "drill": "D6",
+      "title": "a job that cannot run ends in a handoff, nothing invented",
+      "outcome": "FAIL",
+      "seconds": 31.892212625942193,
+      "detail": "resilience.errors.GatewayError: expected (200,), got 403: {'type': 'https://trustops.local/errors/forbidden', 'title': 'Forbidden', 'status': 403, 'detail': 'Not permitted: GET /cases/{case_id}/handof"
+    },
+    {
+      "drill": "D6b",
+      "title": "a case whose token cap is spent is refused into a handoff",
+      "outcome": "FAIL",
+      "seconds": 31.618951709009707,
+      "detail": "resilience.errors.GatewayError: expected (200,), got 403: {'type': 'https://trustops.local/errors/forbidden', 'title': 'Forbidden', 'status': 403, 'detail': 'Not permitted: GET /cases/{case_id}/handof"
+    },
+    {
+      "drill": "D7",
+      "title": "api stopped under an issued token; same token works after",
+      "outcome": "PASS",
+      "seconds": 93.91270408395212,
+      "detail": ""
+    },
+    {
+      "drill": "D8",
+      "title": "every chain verifies and every DLQ is empty afterwards",
+      "outcome": "FAIL",
+      "seconds": 35.1868134168908,
+      "detail": "dead-letter queues are not empty: {'caseflow.steps.dlq': 1}"
+    }
+  ]
+}
