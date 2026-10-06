@@ -44,8 +44,14 @@ embeddings:
 # judge 20k), which the first live run showed no real run could hold:
 #   cheap  15k  real demo windows of intake: 6-12k an attempt, p90 11.5k
 #   mid    11k  narrative, examiner, policy_gap: 5-8.5k, p90 8.5k
-#   strong 26k  research and assessment with one tool round trip: p90 about 20k
-#   judge  17.5k critic: 8-13k, p90 13.4k
+#   strong 24k  research and assessment, effort low, one tool round trip: p90 18k
+#   judge  15k  critic, effort low: 5-7k an attempt, 11-12k with a tool round trip
+#
+# `effort` (output_config.effort) is low on every tier that thinks. Measured on the
+# gate sample, medium against low: the critic spent 8-14k tokens an attempt against
+# 5-7k, assessment 19k against 11k on the demo case, and the gate metrics did not
+# move (critic planted_error_detection 1.0 both, research clause_recall 1.0 both,
+# assessment li_within_one 0.6 against 0.7, which is label noise, evals/README.md).
 # A run that would need more is blocked on its budget (agent.failed, the handoff
 # gate), never silently cut. `max_tokens` is the cap on ONE REQUEST's output,
 # thinking included; it was 2000/3500/5000/4000 and cut a critic, an assessment
@@ -77,11 +83,11 @@ tiers:
     fallbacks:
       - us.anthropic.claude-opus-5-5
       - us.amazon.nova-pro-v1:0
-    effort: medium
+    effort: low
     max_tokens: 8000
     wall_clock_s: 180
     retries: 1
-    budget: {tokens: 26000, wall_s: 180, retries: 1}
+    budget: {tokens: 24000, wall_s: 180, retries: 1}
     cache_min_prefix_tokens: 1024
     used_by: [research, assessment]
   judge:
@@ -90,11 +96,11 @@ tiers:
     primary: us.anthropic.claude-opus-5-5
     fallbacks:
       - us.anthropic.claude-sonnet-5-5
-    effort: medium
+    effort: low
     max_tokens: 8000
     wall_clock_s: 180
     retries: 1
-    budget: {tokens: 17500, wall_s: 180, retries: 1}
+    budget: {tokens: 15000, wall_s: 180, retries: 1}
     cache_min_prefix_tokens: 1024
     used_by: [critic, eval judges]
 
