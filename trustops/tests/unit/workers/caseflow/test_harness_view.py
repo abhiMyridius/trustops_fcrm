@@ -22,6 +22,7 @@ from fcrm_caseflow.harness_view import (
     GUARD_OF_TYPE,
     GUARDS,
     HarnessReporter,
+    agents_seen,
     guard_rows,
     harness_snapshot,
     line_of,
@@ -45,14 +46,14 @@ CASE = "FCRM-2026-0151"
 NOW = datetime(2026, 10, 5, 12, tzinfo=UTC)
 
 
-def record(seq: int, type_: str, summary: str = "x") -> AuditRecord:
+def record(seq: int, type_: str, summary: str = "x", **data: Any) -> AuditRecord:
     return AuditRecord(
         case_id=CASE,
         seq=seq,
         type=type_,
         actor="system",
         summary=summary,
-        data={},
+        data=data,
         prev_hash="0" * 64,
         hash="1" * 64,
         created_at=NOW + timedelta(seconds=seq),
@@ -143,6 +144,30 @@ def test_each_guard_reads_its_last_act_or_idle() -> None:
     assert rows[6].last == "idle"
 
 
+def test_guard_two_reads_pass_after_a_permit_and_block_after_a_refusal() -> None:
+    """Each job writes a ``guard.permit`` record; the monitor showed Guard 2 as
+    idle through a whole case because the mapping said it left none.
+    """
+    allowed = {
+        r.n: r
+        for r in guard_rows(
+            [record(1, "guard.permit", "Guard 2 · research permitted", allowed=True)]
+        )
+    }
+    refused = {
+        r.n: r
+        for r in guard_rows(
+            [record(2, "guard.permit", "Guard 2 · critic denied", allowed=False)]
+        )
+    }
+    assert (allowed[2].last, allowed[2].detail) == (
+        "pass",
+        "Guard 2 · research permitted",
+    )
+    assert (refused[2].last, refused[2].detail) == ("block", "Guard 2 · critic denied")
+    assert line_of(record(3, "guard.permit", "x", allowed=False)).level == "warn"
+
+
 # ── the snapshot ────────────────────────────────────────────────────────────────
 
 
@@ -194,17 +219,35 @@ def test_the_snapshot_counts_from_the_run_and_the_chain() -> None:
         record(3, "guard.output"),
         record(4, "agent.failed"),
         record(5, "gate.decided"),
+        record(6, "guard.permit", agent="research"),
+        record(7, "guard.permit", agent="assessment"),
     ]
     verify = VerifyResult(case_id=CASE, record_count=67, ok=True)
     snapshot = harness_snapshot(run, records, verify, 0)
     c = snapshot.counters
-    assert (c.agents_run, c.agents_total) == (4, 9)
+    assert (c.agents_run, c.agents_total) == (2, 9)
     assert (c.tokens_used, c.tokens_budget) == (41_200, 120_000)
-    assert (c.guards_passed, c.guards_blocked) == (3, 1)
+    assert (c.guards_passed, c.guards_blocked) == (5, 1)
     assert (c.audit_records, c.chain_verified) == (67, True)
     assert snapshot.trace_id == "trace-abc"
     assert snapshot.jaeger_url.endswith("/trace/trace-abc")
     assert snapshot.case_id == CASE
+
+
+def test_agents_run_counts_the_different_agents_the_chain_shows() -> None:
+    """The run's counter said 2 for a case whose screening, research,
+    assessment, critic and narrative had all run; the chain has every job.
+    """
+    records = [
+        record(1, "guard.permit", agent="screening"),
+        record(2, "guard.permit", agent="research"),
+        record(3, "guard.permit", agent="assessment"),
+        record(4, "guard.permit", agent="assessment"),  # its retry: the same agent
+        record(5, "guard.permit", agent="critic"),
+        record(6, "guard.input"),
+    ]
+    assert agents_seen(records) == 4
+    assert agents_seen([]) == 0
 
 
 def test_an_unanswered_or_broken_chain_is_never_reported_verified() -> None:

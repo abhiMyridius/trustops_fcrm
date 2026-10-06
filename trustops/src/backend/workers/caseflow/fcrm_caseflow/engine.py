@@ -294,6 +294,13 @@ class CaseflowEngine:
             return
         run = await self._load_run(envelope, session)
         if run is None:
+            if await self._run_is_closed(envelope, session):
+                logger.info(
+                    "skipped %s: the case's run is closed",
+                    envelope.type,
+                    extra={"case_id": envelope.case_id, "run_id": envelope.run_id},
+                )
+                return
             raise OrphanEventError(
                 f"{envelope.type} for case={envelope.case_id} run={envelope.run_id} "
                 "has no open run"
@@ -442,6 +449,19 @@ class CaseflowEngine:
         if envelope.case_id is not None:
             return await self._runs.get_by_case_id(envelope.case_id, session=session)
         return None
+
+    async def _run_is_closed(
+        self, envelope: Envelope, session: AsyncClientSession
+    ) -> bool:
+        """Whether the case has a run and it is closed: an event that arrives
+        after the close (the committee's ``outcome.set`` follows the tally that
+        closed the run) can never apply, so it is acknowledged, not retried and
+        dead-lettered as if the run were still to come.
+        """
+        if envelope.case_id is None:
+            return False
+        run = await self._runs.get_any_by_case_id(envelope.case_id, session=session)
+        return run is not None and run.snapshot.closed_at is not None
 
     # -- resolving a trigger ------------------------------------------
 

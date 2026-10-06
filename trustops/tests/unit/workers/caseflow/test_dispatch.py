@@ -5,6 +5,7 @@ builder.
 
 from __future__ import annotations
 
+import pytest
 from fcrm_caseflow.dispatch import (
     AGENT_TIERS,
     AgentDispatch,
@@ -84,21 +85,19 @@ class TestDispatchFor:
             AgentDispatch(AgentName.NARRATIVE, scope="recommendation"),
         )
 
-    def test_po_confirm_category_all_dispatches_intake_only_if_gaps_open(self) -> None:
-        with_gaps = dispatch_for(
+    @pytest.mark.parametrize("gaps_open", [True, False])
+    def test_po_confirm_category_all_always_asks_the_questions_round(
+        self, gaps_open: bool
+    ) -> None:
+        """The first live run: the first pass raised no question, no round ran
+        and the PO had twelve empty required fields and nobody asking.
+        """
+        plan = dispatch_for(
             Trigger.GATE_DECIDED_PO_CONFIRM_CATEGORY_ALL,
-            TransitionContext(gaps_open=True),
+            TransitionContext(gaps_open=gaps_open),
             RunFlags(),
         )
-        assert with_gaps.agents == (
-            AgentDispatch(AgentName.INTAKE, scope="questions_only"),
-        )
-        without_gaps = dispatch_for(
-            Trigger.GATE_DECIDED_PO_CONFIRM_CATEGORY_ALL,
-            TransitionContext(gaps_open=False),
-            RunFlags(),
-        )
-        assert without_gaps.agents == ()
+        assert plan.agents == (AgentDispatch(AgentName.INTAKE, scope="questions_only"),)
 
     def test_an_unrelated_trigger_dispatches_nothing(self) -> None:
         plan = dispatch_for(Trigger.VOTE_CAST, TransitionContext(), RunFlags())

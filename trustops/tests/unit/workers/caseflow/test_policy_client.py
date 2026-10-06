@@ -62,6 +62,20 @@ async def test_top_precedent_searches_the_precedent_index_for_one_hit(
     }
 
 
+async def test_closest_precedents_asks_for_k_and_keeps_s3_order(
+    policy_client: PolicyClient, policy_service: FakePolicyService
+) -> None:
+    policy_service.hits = [
+        _hit("FCRM-2026-0099", text=0.98),
+        _hit("FCRM-2026-0118", text=0.81),
+    ]
+
+    found = await policy_client.closest_precedents("remittances", 5)
+
+    assert [h.case_id for h in found] == ["FCRM-2026-0099", "FCRM-2026-0118"]
+    assert policy_service.calls[0].body["top_k"] == 5
+
+
 async def test_no_hit_is_none(
     policy_client: PolicyClient, policy_service: FakePolicyService
 ) -> None:

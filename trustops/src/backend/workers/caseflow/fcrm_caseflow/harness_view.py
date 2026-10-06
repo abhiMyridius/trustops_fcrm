@@ -59,10 +59,11 @@ GUARDS: Final[tuple[tuple[int, str, str], ...]] = (
     (7, "human gate", "a person accepted or overrode each item"),
 )
 
-#: Which guard an audit record is the trace of. The permit guard (2) leaves no
-#: record: OPA's decisions are in its own log, so it reads ``idle`` here.
+#: Which guard an audit record is the trace of. Each agent job writes a
+#: ``guard.permit`` record (H2), with ``allowed`` false when OPA refused it.
 GUARD_OF_TYPE: Final[dict[str, int]] = {
     "guard.input": 1,
+    "guard.permit": 2,
     "agent.failed": 3,
     "guard.output": 4,
     "gate.validation": 5,
@@ -73,6 +74,16 @@ GUARD_OF_TYPE: Final[dict[str, int]] = {
 }
 #: Records that mean a guard stopped something.
 BLOCKED_TYPES: Final = frozenset({"agent.failed"})
+
+
+def is_blocked(record: AuditRecord) -> bool:
+    """Whether ``record`` says a guard stopped something: an ``agent.failed``, or
+    a ``guard.permit`` that OPA refused.
+    """
+    if record.type in BLOCKED_TYPES:
+        return True
+    return record.type == "guard.permit" and record.data.get("allowed") is False
+
 
 _AGENT_OF_TYPE: Final[dict[str, str]] = {
     "proposal.extraction": "intake",
@@ -148,7 +159,7 @@ def line_of(record: AuditRecord) -> HarnessLine:
         who=who_of(record.type),
         text=record.summary,
         sub=f"#{record.seq} · {record.type}",
-        level="warn" if record.type in BLOCKED_TYPES else "info",
+        level="warn" if is_blocked(record) else "info",
         guard=GUARD_OF_TYPE.get(record.type),
         progress=None,
     )
@@ -170,7 +181,7 @@ def guard_rows(records: Sequence[AuditRecord]) -> list[GuardStatus]:
         if record is None:
             rows.append(GuardStatus(n=number, name=name, last="idle", detail=what))
             continue
-        blocked = record.type in BLOCKED_TYPES
+        blocked = is_blocked(record)
         rows.append(
             GuardStatus(
                 n=number,
@@ -193,6 +204,22 @@ def status_of(run: CaseRun, open_gates: int) -> str:
     return "idle"
 
 
+def agents_seen(records: Sequence[AuditRecord]) -> int:
+    """How many different agents have run on the case: each job writes one
+    ``guard.permit`` record naming its agent. The run's own ``agents_run``
+    counter is bumped by only some steps (the first live run showed 2 for a case
+    whose screening, research, assessment, critic and narrative had all run), so
+    the monitor counts from the chain, which has every job.
+    """
+    return len(
+        {
+            str(r.data["agent"])
+            for r in records
+            if r.type == "guard.permit" and r.data.get("agent")
+        }
+    )
+
+
 def harness_snapshot(
     run: CaseRun,
     records: Sequence[AuditRecord],
@@ -203,7 +230,7 @@ def harness_snapshot(
     guards from its audit ``records``, the chain check from ``verify`` (``None``
     when S4 could not answer: reported as not verified, never as verified).
     """
-    blocked = sum(1 for r in records if r.type in BLOCKED_TYPES)
+    blocked = sum(1 for r in records if is_blocked(r))
     guarded = sum(1 for r in records if r.type in GUARD_OF_TYPE)
     trace = run.trace_id or ""
     return HarnessSnapshot(
@@ -212,7 +239,7 @@ def harness_snapshot(
         status=status_of(run, open_gates),  # type: ignore[arg-type]
         core=_CORE_OF_STATE.get(run.state, "assessment core"),  # type: ignore[arg-type]
         counters=HarnessCounters(
-            agents_run=run.counters.get("agents_run", 0),
+            agents_run=agents_seen(records),
             agents_total=len(AgentName),
             guards_passed=guarded - blocked,
             guards_blocked=blocked,
