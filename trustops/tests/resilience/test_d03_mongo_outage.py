@@ -12,7 +12,7 @@ import pytest
 from resilience import drills
 from resilience.stack import Stack
 
-pytestmark = pytest.mark.resilience
+pytestmark = [pytest.mark.resilience, pytest.mark.disruptive]
 
 
 @pytest.mark.drill("D3", "MongoDB stopped and started; requests fail clean")

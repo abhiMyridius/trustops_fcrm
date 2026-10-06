@@ -13,7 +13,7 @@ import pytest
 from resilience import drills
 from resilience.stack import Stack
 
-pytestmark = pytest.mark.resilience
+pytestmark = [pytest.mark.resilience, pytest.mark.disruptive, pytest.mark.aws]
 
 
 @pytest.mark.drill("D4", "api restarted under an open case stream; resume has no gap")

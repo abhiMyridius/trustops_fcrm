@@ -23,6 +23,7 @@ from resilience.docker import ContainerState, DockerCli
 from resilience.errors import (
     BrokerAgentError,
     CommandError,
+    DrillError,
     PollTimeoutError,
 )
 from resilience.gateway import Reply
@@ -157,6 +158,15 @@ def settled_chain(
     return records, problems, verify_chain(stack.gateway, case_id)
 
 
+def case_ledger(stack: Stack, case_id: str) -> Optional[dict[str, Any]]:
+    """The case's token ledger (``case_budgets/<case_id>`` in H1's database):
+    ``cap``, ``spent``, ``reserved`` and ``jobs`` by job id. ``None`` when the
+    case has none.
+    """
+    rows = stack.mongo.find("fcrm_harness", "case_budgets", {"_id": case_id}, limit=1)
+    return rows[0] if rows else None
+
+
 def names_message(shown: Mapping[str, Any], wanted: str) -> bool:
     """Whether a peeked message is the one published as ``wanted``: by its AMQP
     message id or by the ``event_id`` of its envelope (a retry hop on an adapter
@@ -225,6 +235,7 @@ class MidRunOutcome:
         problems: Sequence and duplicate problems in it.
         verify: ``GET audit/verify`` of the case.
         new_dead_letters: Dead-letter queues that grew during the drill.
+        ledger: The case's token ledger once the run finished.
     """
 
     case_id: str
@@ -238,6 +249,7 @@ class MidRunOutcome:
     problems: list[str]
     verify: Mapping[str, Any]
     new_dead_letters: dict[str, int]
+    ledger: Optional[dict[str, Any]]
 
 
 def interrupt(
@@ -305,6 +317,7 @@ def interrupt_harness_midrun(stack: Stack, case_id: str, *, mode: str) -> MidRun
         problems=problems,
         verify=verify,
         new_dead_letters=new_dead_letters(dead_before, broker.dead_letter_depths()),
+        ledger=case_ledger(stack, case_id),
     )
 
 
@@ -319,6 +332,8 @@ class DuplicateDoneOutcome:
         problems: Sequence and duplicate problems in the chain afterwards.
         verify: ``GET audit/verify`` of the case.
         new_dead_letters: Dead-letter queues that grew.
+        ledger_before: The case's token ledger before the duplicate.
+        ledger_after: The same after it (a settled job settles once).
     """
 
     case_id: str
@@ -327,6 +342,8 @@ class DuplicateDoneOutcome:
     problems: list[str]
     verify: Mapping[str, Any]
     new_dead_letters: dict[str, int]
+    ledger_before: Optional[dict[str, Any]]
+    ledger_after: Optional[dict[str, Any]]
 
 
 def inject_duplicate_agent_done(stack: Stack, case_id: str) -> DuplicateDoneOutcome:
@@ -342,6 +359,7 @@ def inject_duplicate_agent_done(stack: Stack, case_id: str) -> DuplicateDoneOutc
     wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
     dead_before = baseline_dead_letters(broker)
     before = audit_records(gateway, case_id)
+    ledger_before = case_ledger(stack, case_id)
     permit = next(
         r
         for r in before
@@ -371,6 +389,8 @@ def inject_duplicate_agent_done(stack: Stack, case_id: str) -> DuplicateDoneOutc
         problems=problems,
         verify=verify,
         new_dead_letters=new_dead_letters(dead_before, broker.dead_letter_depths()),
+        ledger_before=ledger_before,
+        ledger_after=case_ledger(stack, case_id),
     )
 
 
@@ -944,6 +964,10 @@ class HandoffOutcome:
         job_id: The job published.
         failed_record: H2's ``agent.failed`` audit record for it.
         transition_record: H1's ``agent.failed.after_retry`` record.
+        handoff_record: H1's ``human.handoff`` record (phase ``opened``).
+        gate_view: What the analyst's ``GET handoff/gates`` shows for the job.
+        raw_inputs: What H2 kept of the job's inputs (``agent_raw_inputs``).
+        ledger: The case's token ledger afterwards.
         run_state: The run's state in H1's database.
         open_handoff_gates: Open ``handoff`` gates of the run.
         results_for_job: Agent results H1 holds for the job (must be none).
@@ -956,6 +980,10 @@ class HandoffOutcome:
     job_id: str
     failed_record: dict[str, Any]
     transition_record: dict[str, Any]
+    handoff_record: dict[str, Any]
+    gate_view: Optional[dict[str, Any]]
+    raw_inputs: Optional[dict[str, Any]]
+    ledger: Optional[dict[str, Any]]
     run_state: Optional[str]
     open_handoff_gates: int
     results_for_job: int
@@ -993,6 +1021,9 @@ def fail_a_job_into_handoff(stack: Stack, case_id: str) -> HandoffOutcome:
     transition = wait_for_record(
         gateway, case_id, "agent.failed.after_retry", timeout_s=RECORD_TIMEOUT_S
     )
+    handoff = wait_for_record(
+        gateway, case_id, "human.handoff", timeout_s=RECORD_TIMEOUT_S
+    )
     wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
     runs = mongo.find(
         "fcrm_harness", "case_runs", {"_id": run_id}, projection={"state": 1}
@@ -1006,14 +1037,128 @@ def fail_a_job_into_handoff(stack: Stack, case_id: str) -> HandoffOutcome:
     results = mongo.find(
         "fcrm_harness", "agent_results", {"_id": job_id}, projection={"_id": 1}
     )
+    kept = mongo.find("fcrm_harness", "agent_raw_inputs", {"_id": job_id}, limit=1)
+    shown = gateway.get("analyst", f"/cases/{case_id}/handoff/gates").require(200)
+    views = shown.body.get("gates", []) if isinstance(shown.body, Mapping) else []
     records, problems, verify = settled_chain(stack, case_id, CREATED_ONCE_TYPES)
     return HandoffOutcome(
         job_id=job_id,
         failed_record=failed,
         transition_record=transition,
+        handoff_record=handoff,
+        gate_view=next((g for g in views if g.get("job_id") == job_id), None),
+        raw_inputs=kept[0] if kept else None,
+        ledger=case_ledger(stack, case_id),
         run_state=str(runs[0]["state"]) if runs else None,
         open_handoff_gates=len(gates),
         results_for_job=len(results),
+        proposals=[
+            str(r["type"]) for r in records if str(r["type"]).startswith("proposal.")
+        ],
+        problems=problems,
+        verify=verify,
+        new_dead_letters=new_dead_letters(dead_before, broker.dead_letter_depths()),
+    )
+
+
+# ------------------------------------------- D6b: the case token cap, refused
+
+
+#: The cap a scratch case's ledger is seeded with: far below one intake job's
+#: reservation, so Guard 3 refuses the first dispatch.
+SEEDED_CAP: Final = 1_000
+
+
+@dataclass(frozen=True)
+class BudgetHandoffOutcome:
+    """What a case whose token cap cannot pay for its first job did.
+
+    Attributes:
+        seeded: Whether the scratch ledger was created (it had none).
+        exhausted_record: The ``budget.exhausted`` audit record.
+        handoff_record: H1's ``human.handoff`` record (phase ``opened``).
+        gate_view: What the analyst's ``GET handoff/gates`` shows.
+        run_state: The run's state in H1's database.
+        open_handoff_gates: Open ``handoff`` gates of the run.
+        agent_deliveries: Agent jobs the harness received since the upload.
+        ledger: The case's ledger afterwards.
+        proposals: ``proposal.*`` records in the chain (must be none).
+        problems: Sequence and duplicate problems in the chain.
+        verify: ``audit/verify`` afterwards.
+        new_dead_letters: Dead-letter queues that grew.
+    """
+
+    seeded: bool
+    exhausted_record: dict[str, Any]
+    handoff_record: dict[str, Any]
+    gate_view: Optional[dict[str, Any]]
+    run_state: Optional[str]
+    open_handoff_gates: int
+    agent_deliveries: int
+    ledger: Optional[dict[str, Any]]
+    proposals: list[str]
+    problems: list[str]
+    verify: Mapping[str, Any]
+    new_dead_letters: dict[str, int]
+
+
+def exhaust_the_case_budget(stack: Stack, case_id: str) -> BudgetHandoffOutcome:
+    """Give a scratch case a ledger that cannot pay for one intake job, upload
+    its document, and follow the refusal to the run's handoff. No agent job is
+    published, so nothing reaches Bedrock.
+    """
+    docker, broker, gateway, mongo = (
+        stack.docker,
+        stack.broker,
+        stack.gateway,
+        stack.mongo,
+    )
+    started = wait_for_record(
+        gateway, case_id, "workflow.started", timeout_s=RECORD_TIMEOUT_S
+    )
+    run_id, _ = run_and_step_ids(started)
+    wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
+    dead_before = baseline_dead_letters(broker)
+    seeded = mongo.seed_scratch_ledger(case_id, SEEDED_CAP)
+    ledger = case_ledger(stack, case_id)
+    if not seeded or ledger is None or ledger.get("cap") != SEEDED_CAP:
+        # Without the tiny cap in place the upload would end in a real intake
+        # call on Bedrock: this drill promises it makes none, so it stops here.
+        raise DrillError(
+            f"the case ledger of {case_id} does not have the seeded cap of "
+            f"{SEEDED_CAP}; not uploading the document (it would call a model)"
+        )
+    since = rfc3339(datetime.now(UTC) - timedelta(seconds=5))
+    upload_document(gateway, case_id)
+    exhausted = wait_for_record(
+        gateway, case_id, "budget.exhausted", timeout_s=IN_FLIGHT_TIMEOUT_S
+    )
+    handoff = wait_for_record(
+        gateway, case_id, "human.handoff", timeout_s=RECORD_TIMEOUT_S
+    )
+    wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
+    received, _ = deliveries(docker.logs_since("harness", since), IN_FLIGHT_QUEUE)
+    runs = mongo.find(
+        "fcrm_harness", "case_runs", {"_id": run_id}, projection={"state": 1}
+    )
+    gates = mongo.find(
+        "fcrm_harness",
+        "gates",
+        {"case_id": case_id, "gate_type": "handoff", "status": "open"},
+        projection={"_id": 1},
+    )
+    shown = gateway.get("analyst", f"/cases/{case_id}/handoff/gates").require(200)
+    views = shown.body.get("gates", []) if isinstance(shown.body, Mapping) else []
+    records, problems, verify = settled_chain(stack, case_id, CREATED_ONCE_TYPES)
+    return BudgetHandoffOutcome(
+        seeded=seeded,
+        exhausted_record=exhausted,
+        handoff_record=handoff,
+        gate_view=views[0] if views else None,
+        run_state=str(runs[0]["state"]) if runs else None,
+        open_handoff_gates=len(gates),
+        agent_deliveries=sum(received.values()),
+        ledger=case_ledger(stack, case_id),
         proposals=[
             str(r["type"]) for r in records if str(r["type"]).startswith("proposal.")
         ],
