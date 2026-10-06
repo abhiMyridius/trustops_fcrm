@@ -162,7 +162,7 @@ If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks
 | `gen-seed` | regenerate `seed.json` and assert it is byte-stable | no | no | seconds (not timed) |
 | `seed` | reload the seed, restart `api` and `harness`, stage the demo PDFs; refuses `ENV=prod` | yes | corpus embedding on restart | not timed as a whole; includes one `api` restart (about 85 s) |
 | `demo-reset` | delete case 0151's documents, uploads, audit records and run | yes | no | seconds |
-| `check` | the commit gate: ruff, format, mypy, OPA check and tests, unit tests, env contract, web typecheck and vitest | no (needs Docker for `compose config`) | no | 355 s measured (unit tests 288 s) |
+| `check` | the commit gate: ruff, format, mypy, OPA check and tests, `ai-check`, unit tests, env contract, web typecheck and vitest | no (needs Docker for `compose config`) | no | 355 s measured (unit tests 288 s) |
 | `lint`, `format-check`, `typecheck` | ruff, ruff format, mypy over every package | no | no | under 2 s warm |
 | `opa-check`, `opa-test` | Rego check and 120 Rego tests | no | no | 0.1 s, 12 s |
 | `test-unit`, `test` | the 7,094 unit tests (`-m "not integration and not e2e"`) | no | no | about 290 s |
@@ -170,7 +170,8 @@ If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks
 | `web-install` | `npm ci` in `src/frontend` | no | no | not timed |
 | `web-check` | web typecheck and 144 vitest tests | no | no | 17 s |
 | `gate` | `check`, `test-int`, `fcrm_evals build --check`, `selfcheck` | needs Docker | no | more than `check` (not timed) |
-| `test-int`, `test-integration` | the 464 tests under `tests/integration`, on testcontainers or on `FCRM_TEST_MONGO_URI` | needs Docker, not the stack | no | not timed through make; the same tests plus the 74 in `tests/unit` took 192 to 225 s on a throwaway replica set |
+| `test-int`, `test-integration` | every integration-marked test under `tests/` (`pytest -m integration tests`): the 464 under `tests/integration` on testcontainers or on `FCRM_TEST_MONGO_URI`, and the 74 `*_live.py` tests under `tests/unit`, which need `FCRM_TEST_MONGO_URI` and skip without it (the target says so) | needs Docker, not the stack | no | not timed through make; all of them took 192 to 225 s on a throwaway replica set |
+| `ai-check` | `ai/_tools/validate_ai.py` (registry, tool permits, OPA decisions, and the rule that no model id appears outside `ai/models/tiers.yaml` in `ai/`, `src/`, `evals/` or `ops/`) and `compute_locks.py --check` | no | no | under 10 s |
 | `evals` | live agent evals, 5 rows per agent, Bedrock judge; writes `evals/results/<date>/` | no | **yes**, about USD 3 | 7 to 11 minutes |
 | `evals-full` | every row of every dataset | no | **yes**, several times `evals` | slow |
 | `evals-gate AGENT=<a>` | the promotion gate for one agent on the newest run | no | no | seconds |
@@ -220,7 +221,7 @@ Every route is in `docs/architecture/openapi/api.json` (110 paths); the roles ar
 
 ```bash
 make check         # about 6 minutes: ruff, format, mypy over 606 files, OPA, 7,094 unit tests, env contract, web typecheck and 144 vitest tests
-make test-int      # the 464 tests under tests/integration (testcontainers, needs Docker)
+make test-int      # every integration-marked test: tests/integration on testcontainers (needs Docker), the *_live.py tests under tests/unit when FCRM_TEST_MONGO_URI is set
 make gate          # check, test-int, datasets and eval self-check
 ```
 
@@ -230,8 +231,8 @@ To point the integration tests at a Mongo replica set you started yourself (neve
 docker run -d --rm --name scratch-mongo -p 127.0.0.1:28999:28999 mongo:8.0 mongod --replSet rs0 --bind_ip_all --port 28999
 docker exec scratch-mongo mongosh --quiet --port 28999 --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:28999"}]}).ok'
 FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:28999/?replicaSet=rs0' make test-int
-# the 74 integration-marked tests under tests/unit are not in make test-int:
-FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:28999/?replicaSet=rs0' uv run --project src/backend --all-packages pytest -m integration tests/unit
+# with the variable set, make test-int also runs the 74 *_live.py tests under tests/unit; one path on its own:
+FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:28999/?replicaSet=rs0' uv run --project src/backend --all-packages pytest -m integration tests/unit/workers/caseflow
 docker rm -f scratch-mongo
 ```
 

@@ -14,7 +14,9 @@ A bootstrap until fcrm_prompts_loader and tests/registry/test_locks.py exist
   permitted_agents / builder_agents match the agents; gates are GateType
   values; no tool backed by S2 (scoring) is reachable (ADR-07);
 * output_schema parts marked `contract` import from fcrm_contracts;
-* no model id appears anywhere under ai/ except ai/models/tiers.yaml;
+* no model id appears anywhere under ai/ except ai/models/tiers.yaml, and none
+  in src/backend, src/frontend/src, evals or ops except the files named in
+  MODEL_ID_ALLOWED (each with its reason);
 * guard pattern files compile, and the restricted-terms list accepts the
   skill's compliant example and rejects the non-compliant one;
 * optionally (OPA_BIN set or `opa` on PATH): opa check --strict, opa test,
@@ -66,6 +68,31 @@ MODEL_ID_RE = re.compile(
     rf"(?:{_PROVIDERS})\.(?:{_FAMILIES})[a-z0-9.\-]*(?::\d+)?"
     r"|\bclaude-(?:haiku|sonnet|opus|fable)-\d"
 )
+# Trees outside ai/ that must not name a model id (ADR-03, ADR-04). Tests are
+# not scanned: a fixture may carry a literal id to exercise a loader.
+MODEL_ID_SCAN_ROOTS = ("src/backend", "src/frontend/src", "evals", "ops")
+MODEL_ID_SCAN_SUFFIXES = frozenset(
+    {".py", ".yaml", ".yml", ".json", ".toml", ".ts", ".tsx", ".js", ".sh"}
+)
+MODEL_ID_SKIP_DIRS = frozenset(
+    {"node_modules", ".venv", "__pycache__", ".mypy_cache", ".ruff_cache", "dist"}
+)
+# The only files outside ai/models/tiers.yaml that may carry a model id, each
+# with the reason. Adding a row needs a decision-log row.
+MODEL_ID_ALLOWED = {
+    "src/backend/packages/seed/fcrm_seed/clauses.json": (
+        "provenance: records the model that generated each synthetic clause (ADR-29)"
+    ),
+    "src/backend/packages/seed/fcrm_seed/seed.json": (
+        "provenance: records the model that generated the synthetic clauses (ADR-29)"
+    ),
+    "src/backend/workers/context-worker/evoq_context/core/config.py": (
+        "AEO clone default; fcrm_context_worker overrides the model from tiers.yaml"
+    ),
+    "src/backend/workers/context-worker/evoq_context/llm/client.py": (
+        "AEO clone default and token-limit table (UPSTREAM.md)"
+    ),
+}
 SYSTEM_ALLOWED_NAMES = {
     "versions",
     "thresholds",
@@ -425,6 +452,64 @@ def check_model_ids(report: Report) -> None:
     )
 
 
+def scan_for_model_ids(
+    repo: Path,
+    roots: tuple[str, ...] = MODEL_ID_SCAN_ROOTS,
+    allowed: Optional[dict[str, str]] = None,
+) -> dict[str, list[str]]:
+    """Return ``{relative path: model ids}`` for every scanned file naming one.
+
+    Walks ``roots`` under ``repo``, pruning dependency and cache folders, and
+    reads only the suffixes in ``MODEL_ID_SCAN_SUFFIXES``. Files named in
+    ``allowed`` (relative POSIX paths) are skipped.
+
+    Args:
+        repo: The repository root (the folder that holds ``ai/``).
+        roots: Folders under ``repo`` to scan.
+        allowed: Relative paths that may carry an id; defaults to
+            ``MODEL_ID_ALLOWED``.
+
+    Returns:
+        A mapping from each offending file to the sorted ids found in it.
+    """
+    skip = MODEL_ID_ALLOWED if allowed is None else allowed
+    found: dict[str, list[str]] = {}
+    for root in roots:
+        base = repo / root
+        if not base.is_dir():
+            continue
+        for folder, dirs, files in os.walk(base):
+            dirs[:] = sorted(d for d in dirs if d not in MODEL_ID_SKIP_DIRS)
+            for name in sorted(files):
+                path = Path(folder) / name
+                rel = path.relative_to(repo).as_posix()
+                if path.suffix not in MODEL_ID_SCAN_SUFFIXES or rel in skip:
+                    continue
+                text = path.read_text(encoding="utf-8", errors="ignore")
+                hits = sorted({m.group(0) for m in MODEL_ID_RE.finditer(text)})
+                if hits:
+                    found[rel] = hits
+    return found
+
+
+def check_model_ids_in_source(report: Report) -> None:
+    """No model id in src, evals or ops outside the documented allow-list."""
+    for rel, reason in MODEL_ID_ALLOWED.items():
+        path = REPO / rel
+        report.check(path.is_file(), f"MODEL_ID_ALLOWED names a missing file: {rel}")
+        if path.is_file():
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            report.check(
+                bool(MODEL_ID_RE.search(text)),
+                f"MODEL_ID_ALLOWED row is stale, {rel} names no id ({reason})",
+            )
+    offenders = scan_for_model_ids(REPO)
+    report.check(
+        not offenders,
+        f"model id outside ai/models/tiers.yaml (name the tier instead): {offenders}",
+    )
+
+
 def load_patterns(path: Path) -> list[tuple[float, re.Pattern[str]]]:
     """Parse injection_patterns.txt into (weight, compiled pattern)."""
     patterns = []
@@ -617,6 +702,7 @@ def main() -> int:
     check_prompts(report, agents)
     check_agents(report, agents, tools, skills)
     check_model_ids(report)
+    check_model_ids_in_source(report)
     check_guards(report)
     check_opa(report)
     for failure in report.failures:
