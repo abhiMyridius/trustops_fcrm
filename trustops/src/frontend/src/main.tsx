@@ -30,4 +30,9 @@ async function start(): Promise<void> {
   );
 }
 
-void start();
+start().catch((error: unknown) => {
+  // Nothing has rendered yet, so there is no error boundary: say so on the page instead of leaving it blank.
+  console.error('the app could not start', error);
+  const root = document.getElementById('root');
+  if (root) root.textContent = 'TrustOps could not start. Reload the page; if it persists, tell support.';
+});
