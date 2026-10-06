@@ -26,6 +26,13 @@ from fcrm_prompts.errors import (
     TemplateRenderError,
 )
 from fcrm_prompts.frontmatter import split_front_matter
+from fcrm_prompts.instructions import (
+    DEFAULT_NARRATIVE_MODE,
+    NARRATIVE_MODES,
+    InstructionRenderer,
+    RenderedInstructions,
+    schema_text,
+)
 from fcrm_prompts.loader import DEFAULT_AI_ROOT, PromptLibrary, sha256_text
 from fcrm_prompts.locks import (
     LockEntry,
@@ -47,10 +54,13 @@ from fcrm_prompts.sandbox import TEMPLATE_FUNCTIONS, resolve_model, schema_summa
 
 __all__ = [
     "DEFAULT_AI_ROOT",
+    "DEFAULT_NARRATIVE_MODE",
+    "NARRATIVE_MODES",
     "TEMPLATE_FUNCTIONS",
     "AgentSpecFile",
     "ConfigKeyError",
     "FrontMatterError",
+    "InstructionRenderer",
     "LockEntry",
     "LockFormatError",
     "Manifest",
@@ -59,6 +69,7 @@ __all__ = [
     "PromptNotFoundError",
     "PromptTemplate",
     "PromptsError",
+    "RenderedInstructions",
     "RenderedPrompt",
     "SchemaResolutionError",
     "SectionNotFoundError",
@@ -72,6 +83,7 @@ __all__ = [
     "render_lock",
     "resolve_model",
     "schema_summary",
+    "schema_text",
     "sha256_text",
     "split_front_matter",
     "write_lock",

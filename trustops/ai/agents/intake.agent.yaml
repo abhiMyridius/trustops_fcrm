@@ -1,6 +1,6 @@
 # ai/agents/intake.agent.yaml  (design B §2.2)
 name: intake
-version: 1
+version: 3
 purpose: >-
   Read one window of pages of one uploaded document (canonical Markdown with
   page:line anchors) and propose field values with sources, change types with
@@ -13,10 +13,10 @@ lifecycle_state: intake
 trigger: "case.document_stored -> ingest.done (H3) -> H1 dispatches one job per document window; re-run in clarification on new documents and changed fields only"
 tier: cheap
 budget_tier: cheap
-budget: {tokens: 6000, wall_s: 60, retries: 1}
+budget: {tokens: 15000, wall_s: 60, retries: 1}
 tools: [document_reader, field_rules, jurisdiction_list, precedent_search]
 tool_caps: {document_reader: 2, field_rules: 1, jurisdiction_list: 1, precedent_search: 1}
-tool_call_cap: 2
+tool_call_cap: 0                                    # the pack is complete; no tool is offered (measured: Haiku called one on every row, 17k tokens against 6k)
 pack_tools: [case_record, document_reader, field_rules, jurisdiction_list]
 skills: [cite_verbatim, declare_gap]
 context_pack: intake
@@ -27,7 +27,7 @@ output_schema:
     extraction: {model: fcrm_contracts.proposals.intake.ExtractionProposal, many: false, status: contract}
     categories: {model: fcrm_contracts.proposals.intake.CategoryProposal, many: true, max_items: 6, status: contract}
     gaps: {model: fcrm_contracts.proposals.intake.GapQuestion, many: true, max_items: 8, status: contract}
-    facts_flagged: {model: fcrm_contracts.proposals.intake.FactFlag, many: true, max_items: 5, status: pending_contract, design_ref: "B §2.2 FactFlag(statement, provenance, conflicts_with)"}
+    facts_flagged: {model: fcrm_contracts.proposals.intake.FactFlag, many: true, max_items: 5, status: contract}
     not_found: {type: "list[str]", status: primitive, description: field ids searched for in this window and not present}
     notes_for_analyst: {type: "list[str]", max_items: 5, status: primitive}
   notes: >-

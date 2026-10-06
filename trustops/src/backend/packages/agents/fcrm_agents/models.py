@@ -25,10 +25,11 @@ from fcrm_contracts.enums import Tier
 from fcrm_prompts import PromptLibrary
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai import Agent, ModelSettings, Tool, ToolOutput
-from pydantic_ai.models.bedrock import BedrockConverseModel
+from pydantic_ai.models.bedrock import BedrockConverseModel, BedrockModelSettings
 from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.providers.bedrock import BedrockProvider
 
+from fcrm_agents.runtime import agent_capabilities
 from fcrm_agents.spec import AgentSpec
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,20 @@ class TierModels(BaseModel):
     max_tokens: int = Field(gt=0)
     wall_clock_s: int = Field(gt=0)
     send_temperature: bool
+    effort: Optional[str] = None
+    """``tiers.<tier>.effort``: how hard the chain's adaptively-thinking models
+    are asked to think (``output_config.effort``), or ``None`` to leave their
+    default. Thinking tokens come out of ``max_tokens``, so a model left at its
+    default can spend the whole allowance before it calls the output tool."""
+    effort_models: tuple[str, ...] = ()
+    """The chain's models that take ``output_config.effort`` (``tiers.yaml
+    models.<id>.effort_param``); a model that does not (Haiku, Nova) is never
+    sent it, because Bedrock rejects the field on them."""
+    cache_models: tuple[str, ...] = ()
+    """The chain's models that take a ``cachePoint`` after the system prompt and
+    after the tool definitions (``tiers.yaml models.<id>.prompt_cache``). Nova
+    rejects one in the tool list, so it is a per-model default, never chain-wide.
+    A prefix under the model's cache minimum is simply not cached (no error)."""
 
     @property
     def chain(self) -> tuple[str, ...]:
@@ -95,6 +110,17 @@ def tier_models(tier: Tier, tiers_config: Mapping[str, Any]) -> TierModels:
         per_model.get(model_id, {}).get("temperature") != TEMPERATURE_OMIT
         for model_id in chain
     )
+    effort = entry.get("effort")
+    effort_models = tuple(
+        model_id
+        for model_id in chain
+        if per_model.get(model_id, {}).get("effort_param")
+    )
+    cache_models = tuple(
+        model_id
+        for model_id in chain
+        if per_model.get(model_id, {}).get("prompt_cache")
+    )
     return TierModels(
         tier=tier,
         primary=entry["primary"],
@@ -102,6 +128,9 @@ def tier_models(tier: Tier, tiers_config: Mapping[str, Any]) -> TierModels:
         max_tokens=int(entry["max_tokens"]),
         wall_clock_s=int(entry["wall_clock_s"]),
         send_temperature=send_temperature,
+        effort=str(effort) if effort else None,
+        effort_models=effort_models,
+        cache_models=cache_models,
     )
 
 
@@ -119,18 +148,62 @@ def model_settings_for(
     return settings
 
 
-def build_model(
-    models: TierModels, *, provider: Optional[BedrockProvider] = None
+def model_defaults(models: TierModels, model_id: str) -> Optional[BedrockModelSettings]:
+    """The settings one model of the chain always runs with, or ``None``.
+
+    A model that thinks adaptively and cannot switch it off (Sonnet 5.5, Opus
+    5.5) is asked for the tier's ``effort``: left at its default it spends
+    hidden reasoning out of ``max_tokens`` before the forced tool call and
+    returns an empty call (the first live run lost four rows that way). The
+    field goes to **that model only**, never into the chain-wide settings,
+    because Bedrock rejects ``output_config`` on Haiku and Nova.
+
+    A model that takes cache points gets one after the system prompt and one
+    after the tool definitions: the prompt prefix is identical for every run of
+    an agent version (design B §3.4), so a second request in a run (a tool round
+    trip, a retry) and the next job within the cache's five minutes read it at a
+    tenth of the price. Nova rejects a cache point in the tool list, so it gets
+    none.
+    """
+    settings = BedrockModelSettings()
+    if models.effort is not None and model_id in models.effort_models:
+        settings["bedrock_additional_model_requests_fields"] = {
+            "output_config": {"effort": models.effort}
+        }
+    if model_id in models.cache_models:
+        settings["bedrock_cache_instructions"] = True
+        settings["bedrock_cache_tool_definitions"] = True
+    return settings or None
+
+
+def bedrock_chain(
+    models: TierModels,
+    model_ids: Sequence[str],
+    *,
+    provider: Optional[BedrockProvider] = None,
 ) -> FallbackModel:
-    """``FallbackModel(primary, *fallbacks)`` of ``BedrockConverseModel``s
-    (design B §5.2, attempt 1). ``provider`` defaults to the AWS default
+    """``FallbackModel`` of ``BedrockConverseModel``s for ``model_ids``, each with
+    its own :func:`model_defaults`. ``provider`` defaults to the AWS default
     credential chain and region."""
     bedrock: Union[BedrockProvider, Literal["bedrock"]] = (
         provider if provider is not None else "bedrock"
     )
     return FallbackModel(
-        *(BedrockConverseModel(model_id, provider=bedrock) for model_id in models.chain)
+        *(
+            BedrockConverseModel(
+                model_id, provider=bedrock, settings=model_defaults(models, model_id)
+            )
+            for model_id in model_ids
+        )
     )
+
+
+def build_model(
+    models: TierModels, *, provider: Optional[BedrockProvider] = None
+) -> FallbackModel:
+    """``FallbackModel(primary, *fallbacks)`` of ``BedrockConverseModel``s
+    (design B §5.2, attempt 1)."""
+    return bedrock_chain(models, models.chain, provider=provider)
 
 
 def build_agent(
@@ -159,5 +232,6 @@ def build_agent(
         model_settings=model_settings_for(models),
         retries=0,
         tools=list(tools),
+        capabilities=agent_capabilities(),
         name=spec.name.value,
     )

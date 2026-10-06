@@ -1,0 +1,98 @@
+{
+ "run_id": "2026-10-06T07-05Z-ac4b7d3",
+ "timestamp": "2026-10-06T07:05:46.005791Z",
+ "git_sha": "ac4b7d3",
+ "producer": "live",
+ "judge": "fake",
+ "judge_votes": 3,
+ "instructions": "rendered",
+ "token_budget_factor": 1.0,
+ "sample_n": null,
+ "seed": 7,
+ "concurrency": 4,
+ "models": [
+  "Haiku 4.5",
+  "Nova Lite"
+ ],
+ "judge_models": [],
+ "gates_pass": 0,
+ "gates_total": 1,
+ "usage": {
+  "calls": 110,
+  "retries": 10,
+  "blocked_rows": 0,
+  "failed_rows": 0,
+  "input_tokens": 288657,
+  "output_tokens": 58009,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.538278,
+  "latency_p50_s": 5.055,
+  "latency_max_s": 10.672,
+  "models": [
+   "Haiku 4.5",
+   "Nova Lite"
+  ]
+ },
+ "judge_usage": {
+  "calls": 0,
+  "retries": 0,
+  "blocked_rows": 0,
+  "failed_rows": 0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.0,
+  "latency_p50_s": null,
+  "latency_max_s": null,
+  "models": []
+ },
+ "cost_usd_total": 0.538278,
+ "tokens_total": 346666,
+ "price_status": "placeholder_confirm_before_go_live",
+ "baseline_run_id": null,
+ "agents": [
+  {
+   "agent": "screening",
+   "tier": "cheap",
+   "dataset": "screening/fast-lane-100",
+   "n": 100,
+   "of": 100,
+   "primary_metric": "fast_lane_precision",
+   "score": 0.5833333333333334,
+   "threshold": 0.9,
+   "status": "FAIL",
+   "measured": true,
+   "metrics_pass": 1,
+   "metrics_total": 3,
+   "tokens": 346666,
+   "cost_usd": 0.538278,
+   "judge_cost_usd": 0.0,
+   "latency_p50_s": 5.055,
+   "blocked_rows": 0,
+   "failed_rows": 0,
+   "completed": 100,
+   "reasons": [
+    "fast_lane_precision 0.583 is below its threshold 0.90"
+   ],
+   "others": [
+    {
+     "name": "fast_lane_recall",
+     "score": 0.3888888888888889,
+     "threshold": 0.9,
+     "passed": false
+    },
+    {
+     "name": "citation_validity",
+     "score": 1.0,
+     "threshold": 0.95,
+     "passed": true
+    }
+   ]
+  }
+ ],
+ "files": {
+  "screening": "screening.live.json"
+ }
+}

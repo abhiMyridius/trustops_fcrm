@@ -103,7 +103,7 @@ class RunIndex(BaseModel):
     producer: str
     judge: str
     judge_votes: int
-    instructions: str = "raw"
+    instructions: str = "rendered"
     token_budget_factor: float = 1.0
     sample_n: Optional[int]
     seed: Optional[int]
@@ -333,7 +333,7 @@ def build_index(
     sample_n: Optional[int],
     seed: Optional[int],
     concurrency: int,
-    instructions: str = "raw",
+    instructions: str = "rendered",
     token_budget_factor: float = 1.0,
     baseline_run_id: Optional[str] = None,
 ) -> RunIndex:

@@ -32,29 +32,50 @@ embeddings:
 # timeout) runs fallbacks[0] alone with the validation error appended
 # (ADR-14). Exactly one retry per run (BUILD-PLAN §3.4).
 #
-# `budget` is copied into every agent spec; a lock test asserts the copy
-# equals the tier (test_budget_matches_tier). `max_tokens`, `wall_clock_s`
-# and `retries` repeat the budget fields in the flat form the runtime reads.
-# Raising any of them needs a decision-log row.
+# `budget` is copied into every agent spec; a unit test asserts the copy equals
+# the tier and Guard 3's table (tests/unit/packages/agents/test_budgets_agree.py).
+# `max_tokens`, `wall_clock_s` and `retries` repeat the budget fields in the
+# flat form the runtime reads. Raising any of them needs a decision-log row.
+#
+# `budget.tokens` is what ONE ATTEMPT may spend, every request of it included
+# (a tool round trip re-sends the whole request). It is set from measured usage,
+# about 30% over the p90 of an attempt (evals/README.md, "Budgets from measured
+# usage"), not from the first design's estimate (cheap 6k, mid 12k, strong 20k,
+# judge 20k), which the first live run showed no real run could hold:
+#   cheap  15k  real demo windows of intake: 6-12k an attempt, p90 11.5k
+#   mid    11k  narrative, examiner, policy_gap: 5-8.5k, p90 8.5k
+#   strong 24k  research and assessment, effort low, one tool round trip: p90 18k
+#   judge  15k  critic, effort low: 5-7k an attempt, 11-12k with a tool round trip
+#
+# `effort` (output_config.effort) is low on every tier that thinks. Measured on the
+# gate sample, medium against low: the critic spent 8-14k tokens an attempt against
+# 5-7k, assessment 19k against 11k on the demo case, and the gate metrics did not
+# move (critic planted_error_detection 1.0 both, research clause_recall 1.0 both,
+# assessment li_within_one 0.6 against 0.7, which is label noise, evals/README.md).
+# A run that would need more is blocked on its budget (agent.failed, the handoff
+# gate), never silently cut. `max_tokens` is the cap on ONE REQUEST's output,
+# thinking included; it was 2000/3500/5000/4000 and cut a critic, an assessment
+# and an intake window off mid-answer (a cut tool call arrives as {}).
 tiers:
   cheap:
     primary: us.anthropic.claude-haiku-4-5-20251001-v1:0
     fallbacks:
       - us.amazon.nova-lite-v1:0
-    max_tokens: 2000               # output cap per request
+    max_tokens: 4000               # output cap per request (was 2000: an intake window of 15 values is cut off at 2000, and a cut tool call arrives as {})
     wall_clock_s: 60
     retries: 1
-    budget: {tokens: 6000, wall_s: 60, retries: 1}
+    budget: {tokens: 15000, wall_s: 60, retries: 1}
     cache_min_prefix_tokens: 4096  # Haiku-class minimum; cheap system prompts stay below it, so no cache point is emitted
     used_by: [screening, intake, watchlist]
   mid:
     primary: us.anthropic.claude-sonnet-5-5
     fallbacks:
       - us.anthropic.claude-haiku-4-5-20251001-v1:0
-    max_tokens: 3500
+    effort: low                    # output_config.effort for the chain's thinking models; see the models block
+    max_tokens: 4000
     wall_clock_s: 120
     retries: 1
-    budget: {tokens: 12000, wall_s: 120, retries: 1}
+    budget: {tokens: 11000, wall_s: 120, retries: 1}
     cache_min_prefix_tokens: 1024
     used_by: [narrative, examiner, policy_gap]
   strong:
@@ -62,10 +83,11 @@ tiers:
     fallbacks:
       - us.anthropic.claude-opus-5-5
       - us.amazon.nova-pro-v1:0
-    max_tokens: 5000
+    effort: low
+    max_tokens: 8000
     wall_clock_s: 180
     retries: 1
-    budget: {tokens: 20000, wall_s: 180, retries: 1}
+    budget: {tokens: 24000, wall_s: 180, retries: 1}
     cache_min_prefix_tokens: 1024
     used_by: [research, assessment]
   judge:
@@ -74,10 +96,11 @@ tiers:
     primary: us.anthropic.claude-opus-5-5
     fallbacks:
       - us.anthropic.claude-sonnet-5-5
-    max_tokens: 4000
+    effort: low
+    max_tokens: 8000
     wall_clock_s: 180
     retries: 1
-    budget: {tokens: 20000, wall_s: 180, retries: 1}
+    budget: {tokens: 15000, wall_s: 180, retries: 1}
     cache_min_prefix_tokens: 1024
     used_by: [critic, eval judges]
 
@@ -89,13 +112,26 @@ per_case_budget_tokens: 120000
 # confirms with one live call per model before relying on it.
 #  - temperature: Sonnet 5.5 rejects non-default sampling values and Opus 5.5
 #    rejects sampling parameters entirely, so the runtime OMITS temperature
-#    for those ids. Determinism for demos and E2E comes from replay mode
-#    (ADR-12), not from temperature 0.
+#    for those ids (there is no replay mode, ADR-27).
 #  - forced_tool_choice: Sonnet 5.5 and Opus 5.5 reject tool_choice any/tool.
 #    If Pydantic AI's ToolOutput forces the output tool, use tool_choice auto
 #    plus the prompt's "output exactly one object" line (or PromptedOutput)
 #    and let Guard 4 reject a missing output.
-#  - thinking: neither model can switch thinking off; it is adaptive.
+#  - thinking: neither model can switch thinking off; it is adaptive, and its
+#    tokens come out of max_tokens. Measured live on Bedrock (6 Oct 2026, a
+#    forced-style tool call with max_tokens 2000): at the default effort Sonnet
+#    5.5 spent 795 output tokens and Opus 5.5 1134, both with a reasoning block;
+#    with output_config.effort low, 594 and 497, none. Bedrock accepts the
+#    field on both (additionalModelRequestFields); it rejects thinking
+#    between_tools on Opus and thinking disabled on both.
+#  - effort_param: the model takes output_config.effort. The runtime sends it,
+#    at the tier's `effort`, to that model only (fcrm_agents.models.model_defaults);
+#    Bedrock rejects the field on Haiku and Nova, so it is never chain-wide.
+#  - prompt_cache: the model takes a cachePoint after the system prompt and after
+#    the tool definitions (probed live, 6 Oct 2026: Haiku 4.5, Sonnet 5.5 and
+#    Opus 5.5 accept both; the Nova models reject one in the tool list). A prefix
+#    under the model's minimum is not cached and is not an error (Haiku wrote
+#    nothing at about 1k tokens, Sonnet and Opus cached 856).
 #  - label: the name a report may print for the model. Committed result files
 #    live under /evals, where no model id may appear (ADR-04), so the evals
 #    report every model by this label (fcrm_evals.usage.PriceTable.label).
@@ -106,12 +142,15 @@ models:
     temperature: 0
     forced_tool_choice: allowed
     thinking: off_by_default
+    prompt_cache: true
   us.anthropic.claude-sonnet-5-5:
     family: anthropic
     label: "Sonnet 5.5"
     temperature: omit
     forced_tool_choice: rejected
     thinking: adaptive_always
+    effort_param: true
+    prompt_cache: true
   us.anthropic.claude-opus-5-5:
     family: anthropic
     label: "Opus 5.5"
@@ -119,6 +158,8 @@ models:
     forced_tool_choice: rejected
     thinking: adaptive_always
     effort_default: medium
+    effort_param: true
+    prompt_cache: true
   us.amazon.nova-lite-v1:0:
     family: amazon
     label: "Nova Lite"

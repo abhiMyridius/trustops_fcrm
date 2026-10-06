@@ -1,0 +1,6736 @@
+{
+ "agent": "screening",
+ "dataset": "screening/fast-lane-100",
+ "dataset_sha256": "0d6e57ee922128e830a0c456edbbe6eedd684877eac0c6d7ef963cf9c2403e36",
+ "producer": "live",
+ "n": 100,
+ "primary_metric": "fast_lane_precision",
+ "metrics": {
+  "fast_lane_precision": 0.5833333333333334,
+  "fast_lane_recall": 0.3888888888888889,
+  "citation_validity": 1.0
+ },
+ "summaries": [
+  {
+   "name": "fast_lane_precision",
+   "kind": "deterministic",
+   "score": 0.5833333333333334,
+   "numerator": 7.0,
+   "denominator": 12.0,
+   "rows_scored": 12,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": true,
+   "description": "TP/(TP+FP) vs the R4 predicate",
+   "flags": [
+    "FCRM-2026-0089~vol-5.0M: false positive",
+    "FCRM-2026-0106~vol-5.0M: false positive",
+    "FCRM-2026-0126~vol-5.0M: false positive",
+    "FCRM-2026-0148~vol-5.0M: false positive",
+    "FCRM-2026-0149~vol-5.0M: false positive"
+   ]
+  },
+  {
+   "name": "fast_lane_recall",
+   "kind": "deterministic",
+   "score": 0.3888888888888889,
+   "numerator": 7.0,
+   "denominator": 18.0,
+   "rows_scored": 18,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": false,
+   "description": "TP/(TP+FN) vs the R4 predicate",
+   "flags": [
+    "FCRM-2026-0088: missed",
+    "FCRM-2026-0091: missed",
+    "FCRM-2026-0110: missed",
+    "FCRM-2026-0123: missed",
+    "FCRM-2026-0129: missed",
+    "FCRM-2026-0133: missed",
+    "FCRM-2026-0139: missed",
+    "FCRM-2026-0140: missed",
+    "FCRM-2026-0089~vol-4.2M: missed",
+    "FCRM-2026-0136~vol-4.2M: missed",
+    "FCRM-2026-0149~vol-4.2M: missed"
+   ]
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 495.0,
+   "denominator": 495.0,
+   "rows_scored": 99,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "FCRM-2026-0072",
+   "case_id": "FCRM-2026-0072",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0072",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2659,
+    "output_tokens": 567,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005494,
+    "latency_s": 4.974,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3226
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0073",
+   "case_id": "FCRM-2026-0073",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0073",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2669,
+    "output_tokens": 565,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005494,
+    "latency_s": 4.919,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3234
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0074",
+   "case_id": "FCRM-2026-0074",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0074",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2662,
+    "output_tokens": 549,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005407,
+    "latency_s": 4.789,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3211
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0075",
+   "case_id": "FCRM-2026-0075",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0075",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2657,
+    "output_tokens": 506,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005187,
+    "latency_s": 5.587,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3163
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0076",
+   "case_id": "FCRM-2026-0076",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0076",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2671,
+    "output_tokens": 556,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005451,
+    "latency_s": 6.448,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3227
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0077",
+   "case_id": "FCRM-2026-0077",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0077",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2659,
+    "output_tokens": 568,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005499,
+    "latency_s": 7.009,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3227
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0078",
+   "case_id": "FCRM-2026-0078",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0078",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2654,
+    "output_tokens": 508,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005194,
+    "latency_s": 6.448,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3162
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0079",
+   "case_id": "FCRM-2026-0079",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0079",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2657,
+    "output_tokens": 537,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005342,
+    "latency_s": 5.644,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3194
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0080",
+   "case_id": "FCRM-2026-0080",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0080",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2662,
+    "output_tokens": 520,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005262,
+    "latency_s": 5.704,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3182
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0081",
+   "case_id": "FCRM-2026-0081",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0081",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2659,
+    "output_tokens": 566,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005489,
+    "latency_s": 5.064,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3225
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0082",
+   "case_id": "FCRM-2026-0082",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0082",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2660,
+    "output_tokens": 520,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.00526,
+    "latency_s": 5.24,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3180
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0083",
+   "case_id": "FCRM-2026-0083",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0083",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2666,
+    "output_tokens": 527,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005301,
+    "latency_s": 4.424,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3193
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0084",
+   "case_id": "FCRM-2026-0084",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0084",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2670,
+    "output_tokens": 554,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.00544,
+    "latency_s": 5.69,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3224
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0085",
+   "case_id": "FCRM-2026-0085",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0085",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2660,
+    "output_tokens": 531,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005315,
+    "latency_s": 4.831,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3191
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0086",
+   "case_id": "FCRM-2026-0086",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0086",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2658,
+    "output_tokens": 562,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005468,
+    "latency_s": 6.218,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3220
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0087",
+   "case_id": "FCRM-2026-0087",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0087",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2659,
+    "output_tokens": 559,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005454,
+    "latency_s": 4.682,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3218
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0088",
+   "case_id": "FCRM-2026-0088",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "fast_lane_recall: FCRM-2026-0088: missed"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0088",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2664,
+    "output_tokens": 551,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005419,
+    "latency_s": 5.287,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3215
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0089",
+   "case_id": "FCRM-2026-0089",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0089",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2656,
+    "output_tokens": 518,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005246,
+    "latency_s": 6.08,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3174
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0090",
+   "case_id": "FCRM-2026-0090",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0090",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2657,
+    "output_tokens": 565,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005482,
+    "latency_s": 6.414,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3222
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0091",
+   "case_id": "FCRM-2026-0091",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "fast_lane_recall: FCRM-2026-0091: missed"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0091",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2665,
+    "output_tokens": 563,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.00548,
+    "latency_s": 6.277,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3228
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0092",
+   "case_id": "FCRM-2026-0092",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0092",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2663,
+    "output_tokens": 556,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005443,
+    "latency_s": 4.939,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3219
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0093",
+   "case_id": "FCRM-2026-0093",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0093",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2661,
+    "output_tokens": 560,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005461,
+    "latency_s": 5.616,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3221
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0094",
+   "case_id": "FCRM-2026-0094",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0094",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2671,
+    "output_tokens": 541,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005376,
+    "latency_s": 5.441,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3212
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0095",
+   "case_id": "FCRM-2026-0095",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0095",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2663,
+    "output_tokens": 564,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005483,
+    "latency_s": 5.487,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3227
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0096",
+   "case_id": "FCRM-2026-0096",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0096",
+    "status": "ok",
+    "verdict": "pass_with_drops",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 2,
+    "calls": 2,
+    "input_tokens": 4870,
+    "output_tokens": 936,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005669,
+    "latency_s": 8.008,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 1,
+    "claims_attempt1": 5,
+    "verified_attempt1": 4,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 2
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[3]: quote_verbatim failed (none: quote shorter than 12 characters after normalisation; quote was 'new_segment'); fix it from the sources shown or drop any item you cannot source"
+    ],
+    "attempt_tokens": [
+     3213,
+     2593
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0097",
+   "case_id": "FCRM-2026-0097",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0097",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2670,
+    "output_tokens": 541,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005375,
+    "latency_s": 4.712,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3211
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0098",
+   "case_id": "FCRM-2026-0098",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0098",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2665,
+    "output_tokens": 529,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.00531,
+    "latency_s": 4.844,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3194
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0099",
+   "case_id": "FCRM-2026-0099",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0099",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2674,
+    "output_tokens": 556,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005454,
+    "latency_s": 6.463,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3230
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0100",
+   "case_id": "FCRM-2026-0100",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0100",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2660,
+    "output_tokens": 539,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005355,
+    "latency_s": 5.163,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3199
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0101",
+   "case_id": "FCRM-2026-0101",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0101",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2671,
+    "output_tokens": 543,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005386,
+    "latency_s": 4.834,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3214
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0102",
+   "case_id": "FCRM-2026-0102",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0102",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2664,
+    "output_tokens": 524,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005284,
+    "latency_s": 5.164,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3188
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0103",
+   "case_id": "FCRM-2026-0103",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0103",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2654,
+    "output_tokens": 565,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005479,
+    "latency_s": 4.813,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3219
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0104",
+   "case_id": "FCRM-2026-0104",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0104",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2662,
+    "output_tokens": 523,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005277,
+    "latency_s": 4.866,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3185
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0105",
+   "case_id": "FCRM-2026-0105",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0105",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2659,
+    "output_tokens": 565,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005484,
+    "latency_s": 4.82,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3224
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0106",
+   "case_id": "FCRM-2026-0106",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0106",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2657,
+    "output_tokens": 517,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005242,
+    "latency_s": 4.084,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3174
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0107",
+   "case_id": "FCRM-2026-0107",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0107",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2664,
+    "output_tokens": 522,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005274,
+    "latency_s": 4.621,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3186
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0108",
+   "case_id": "FCRM-2026-0108",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0108",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2667,
+    "output_tokens": 525,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005292,
+    "latency_s": 4.62,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3192
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0109",
+   "case_id": "FCRM-2026-0109",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0109",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2671,
+    "output_tokens": 558,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005461,
+    "latency_s": 4.902,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3229
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0110",
+   "case_id": "FCRM-2026-0110",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "fast_lane_recall: FCRM-2026-0110: missed"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0110",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2662,
+    "output_tokens": 535,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005337,
+    "latency_s": 4.847,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3197
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0111",
+   "case_id": "FCRM-2026-0111",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0111",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2665,
+    "output_tokens": 529,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.00531,
+    "latency_s": 6.17,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3194
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0112",
+   "case_id": "FCRM-2026-0112",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0112",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2659,
+    "output_tokens": 566,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005489,
+    "latency_s": 4.665,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3225
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0113",
+   "case_id": "FCRM-2026-0113",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0113",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2661,
+    "output_tokens": 564,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005481,
+    "latency_s": 5.27,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3225
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0114",
+   "case_id": "FCRM-2026-0114",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0114",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2654,
+    "output_tokens": 513,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005219,
+    "latency_s": 5.055,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3167
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0115",
+   "case_id": "FCRM-2026-0115",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0115",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2669,
+    "output_tokens": 563,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005484,
+    "latency_s": 4.94,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3232
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0116",
+   "case_id": "FCRM-2026-0116",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0116",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2655,
+    "output_tokens": 552,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005415,
+    "latency_s": 5.179,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3207
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0117",
+   "case_id": "FCRM-2026-0117",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0117",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2667,
+    "output_tokens": 579,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005562,
+    "latency_s": 5.164,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3246
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0118",
+   "case_id": "FCRM-2026-0118",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0118",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2672,
+    "output_tokens": 532,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005332,
+    "latency_s": 4.72,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3204
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0119",
+   "case_id": "FCRM-2026-0119",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0119",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2664,
+    "output_tokens": 533,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005329,
+    "latency_s": 5.308,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3197
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0120",
+   "case_id": "FCRM-2026-0120",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0120",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 2,
+    "calls": 2,
+    "input_tokens": 4902,
+    "output_tokens": 980,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005596,
+    "latency_s": 10.672,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 4,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 2
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[2]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types new_geography, vendor_onboarding · domains in scope geography, channel'); fix it from the sources shown or drop any item you "
+    ],
+    "attempt_tokens": [
+     3204,
+     2678
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0121",
+   "case_id": "FCRM-2026-0121",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0121",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2658,
+    "output_tokens": 555,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005433,
+    "latency_s": 5.636,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3213
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0122",
+   "case_id": "FCRM-2026-0122",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0122",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2670,
+    "output_tokens": 549,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005415,
+    "latency_s": 5.17,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3219
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0123",
+   "case_id": "FCRM-2026-0123",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "fast_lane_recall: FCRM-2026-0123: missed"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0123",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2664,
+    "output_tokens": 553,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005429,
+    "latency_s": 4.891,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3217
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0124",
+   "case_id": "FCRM-2026-0124",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0124",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2660,
+    "output_tokens": 535,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005335,
+    "latency_s": 4.672,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3195
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0125",
+   "case_id": "FCRM-2026-0125",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0125",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2661,
+    "output_tokens": 569,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005506,
+    "latency_s": 4.802,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3230
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0126",
+   "case_id": "FCRM-2026-0126",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0126",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2654,
+    "output_tokens": 499,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005149,
+    "latency_s": 4.828,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3153
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0127",
+   "case_id": "FCRM-2026-0127",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0127",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2657,
+    "output_tokens": 538,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005347,
+    "latency_s": 5.047,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3195
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0128",
+   "case_id": "FCRM-2026-0128",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0128",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2657,
+    "output_tokens": 546,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005387,
+    "latency_s": 4.54,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3203
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0129",
+   "case_id": "FCRM-2026-0129",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "fast_lane_recall: FCRM-2026-0129: missed"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0129",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2665,
+    "output_tokens": 574,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005535,
+    "latency_s": 5.735,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3239
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0130",
+   "case_id": "FCRM-2026-0130",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0130",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2655,
+    "output_tokens": 566,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005485,
+    "latency_s": 4.994,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3221
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0131",
+   "case_id": "FCRM-2026-0131",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0131",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2660,
+    "output_tokens": 531,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005315,
+    "latency_s": 5.232,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3191
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0132",
+   "case_id": "FCRM-2026-0132",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0132",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2661,
+    "output_tokens": 519,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005256,
+    "latency_s": 5.87,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3180
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0133",
+   "case_id": "FCRM-2026-0133",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "fast_lane_recall: FCRM-2026-0133: missed"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0133",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2658,
+    "output_tokens": 581,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005563,
+    "latency_s": 4.829,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3239
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0134",
+   "case_id": "FCRM-2026-0134",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0134",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2660,
+    "output_tokens": 524,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.00528,
+    "latency_s": 4.528,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3184
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0135",
+   "case_id": "FCRM-2026-0135",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0135",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2661,
+    "output_tokens": 562,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005471,
+    "latency_s": 4.603,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3223
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0136",
+   "case_id": "FCRM-2026-0136",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0136",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2656,
+    "output_tokens": 562,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005466,
+    "latency_s": 5.912,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3218
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0137",
+   "case_id": "FCRM-2026-0137",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0137",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2657,
+    "output_tokens": 530,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005307,
+    "latency_s": 4.737,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3187
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0138",
+   "case_id": "FCRM-2026-0138",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0138",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2661,
+    "output_tokens": 511,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005216,
+    "latency_s": 5.823,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3172
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0139",
+   "case_id": "FCRM-2026-0139",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "fast_lane_recall: FCRM-2026-0139: missed"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0139",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2658,
+    "output_tokens": 584,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005578,
+    "latency_s": 5.083,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3242
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0140",
+   "case_id": "FCRM-2026-0140",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "fast_lane_recall: FCRM-2026-0140: missed"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0140",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2658,
+    "output_tokens": 563,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005473,
+    "latency_s": 4.52,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3221
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0141",
+   "case_id": "FCRM-2026-0141",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0141",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2656,
+    "output_tokens": 572,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005516,
+    "latency_s": 5.488,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3228
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0142",
+   "case_id": "FCRM-2026-0142",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0142",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2665,
+    "output_tokens": 574,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005535,
+    "latency_s": 5.285,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3239
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0143",
+   "case_id": "FCRM-2026-0143",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0143",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2655,
+    "output_tokens": 516,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005235,
+    "latency_s": 4.711,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3171
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0144",
+   "case_id": "FCRM-2026-0144",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0144",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2658,
+    "output_tokens": 519,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005253,
+    "latency_s": 4.382,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3177
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0145",
+   "case_id": "FCRM-2026-0145",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0145",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2658,
+    "output_tokens": 523,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005273,
+    "latency_s": 4.859,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3181
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0146",
+   "case_id": "FCRM-2026-0146",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0146",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2657,
+    "output_tokens": 538,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005347,
+    "latency_s": 4.711,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3195
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0147",
+   "case_id": "FCRM-2026-0147",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0147",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2668,
+    "output_tokens": 528,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005308,
+    "latency_s": 4.685,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3196
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0148",
+   "case_id": "FCRM-2026-0148",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0148",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2654,
+    "output_tokens": 503,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005169,
+    "latency_s": 4.298,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3157
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0149",
+   "case_id": "FCRM-2026-0149",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0149",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2655,
+    "output_tokens": 572,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005515,
+    "latency_s": 4.559,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3227
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0150",
+   "case_id": "FCRM-2026-0150",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0150",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2659,
+    "output_tokens": 516,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005239,
+    "latency_s": 5.386,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3175
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0151",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0151",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2679,
+    "output_tokens": 600,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005679,
+    "latency_s": 4.881,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3279
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0089~vol-4.2M",
+   "case_id": "FCRM-2026-0089",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "fast_lane_recall: FCRM-2026-0089~vol-4.2M: missed"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0089~vol-4.2M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2659,
+    "output_tokens": 529,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005304,
+    "latency_s": 5.371,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3188
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0089~vol-5.0M",
+   "case_id": "FCRM-2026-0089",
+   "metrics": {
+    "fast_lane_precision": 0.0,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "fast_lane_precision: FCRM-2026-0089~vol-5.0M: false positive"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0089~vol-5.0M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2659,
+    "output_tokens": 514,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005229,
+    "latency_s": 5.8,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3173
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0106~vol-4.2M",
+   "case_id": "FCRM-2026-0106",
+   "metrics": {
+    "fast_lane_precision": 1.0,
+    "fast_lane_recall": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0106~vol-4.2M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2660,
+    "output_tokens": 521,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005265,
+    "latency_s": 4.579,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3181
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0106~vol-5.0M",
+   "case_id": "FCRM-2026-0106",
+   "metrics": {
+    "fast_lane_precision": 0.0,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "fast_lane_precision: FCRM-2026-0106~vol-5.0M: false positive"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0106~vol-5.0M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2660,
+    "output_tokens": 520,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.00526,
+    "latency_s": 4.665,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3180
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0126~vol-4.2M",
+   "case_id": "FCRM-2026-0126",
+   "metrics": {
+    "fast_lane_precision": 1.0,
+    "fast_lane_recall": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0126~vol-4.2M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2657,
+    "output_tokens": 519,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005252,
+    "latency_s": 4.846,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3176
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0126~vol-5.0M",
+   "case_id": "FCRM-2026-0126",
+   "metrics": {
+    "fast_lane_precision": 0.0,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "fast_lane_precision: FCRM-2026-0126~vol-5.0M: false positive"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0126~vol-5.0M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2657,
+    "output_tokens": 519,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005252,
+    "latency_s": 4.685,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3176
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0130~vol-4.2M",
+   "case_id": "FCRM-2026-0130",
+   "metrics": {
+    "fast_lane_precision": 1.0,
+    "fast_lane_recall": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0130~vol-4.2M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 2,
+    "calls": 2,
+    "input_tokens": 4937,
+    "output_tokens": 943,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005477,
+    "latency_s": 8.58,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 3,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 2
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[1]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types new_feature · domains in scope product'); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[4]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types new_feature · domains in scope product'); fix it from the sources shown or drop any item you cannot source"
+    ],
+    "attempt_tokens": [
+     3174,
+     2706
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0130~vol-5.0M",
+   "case_id": "FCRM-2026-0130",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0130~vol-5.0M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 2,
+    "calls": 2,
+    "input_tokens": 4937,
+    "output_tokens": 900,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005467,
+    "latency_s": 8.151,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 3,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 2
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[1]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types new_feature · domains in scope product'); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[4]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types new_feature · domains in scope product'); fix it from the sources shown or drop any item you cannot source"
+    ],
+    "attempt_tokens": [
+     3174,
+     2663
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0136~vol-4.2M",
+   "case_id": "FCRM-2026-0136",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "fast_lane_recall: FCRM-2026-0136~vol-4.2M: missed"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0136~vol-4.2M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2659,
+    "output_tokens": 515,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005234,
+    "latency_s": 5.047,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3174
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0136~vol-5.0M",
+   "case_id": "FCRM-2026-0136",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0136~vol-5.0M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2659,
+    "output_tokens": 546,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005389,
+    "latency_s": 4.697,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3205
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0137~vol-4.2M",
+   "case_id": "FCRM-2026-0137",
+   "metrics": {
+    "fast_lane_precision": 1.0,
+    "fast_lane_recall": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0137~vol-4.2M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 2,
+    "calls": 2,
+    "input_tokens": 4940,
+    "output_tokens": 907,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005461,
+    "latency_s": 9.187,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 3,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 2
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[1]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types new_feature · domains in scope product'); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[4]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types new_feature · domains in scope product'); fix it from the sources shown or drop any item you cannot source"
+    ],
+    "attempt_tokens": [
+     3174,
+     2673
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0137~vol-5.0M",
+   "case_id": "FCRM-2026-0137",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0137~vol-5.0M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 2,
+    "calls": 2,
+    "input_tokens": 4885,
+    "output_tokens": 904,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005481,
+    "latency_s": 8.603,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 4,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 2
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[1]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types new_feature · domains in scope product'); fix it from the sources shown or drop any item you cannot source"
+    ],
+    "attempt_tokens": [
+     3179,
+     2610
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0143~vol-4.2M",
+   "case_id": "FCRM-2026-0143",
+   "metrics": {
+    "fast_lane_precision": 1.0,
+    "fast_lane_recall": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0143~vol-4.2M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 2,
+    "calls": 2,
+    "input_tokens": 4882,
+    "output_tokens": 896,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005425,
+    "latency_s": 8.11,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 4,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 2
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[1]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types new_feature · domains in scope product'); fix it from the sources shown or drop any item you cannot source"
+    ],
+    "attempt_tokens": [
+     3166,
+     2612
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0143~vol-5.0M",
+   "case_id": "FCRM-2026-0143",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0143~vol-5.0M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 2,
+    "calls": 2,
+    "input_tokens": 4933,
+    "output_tokens": 944,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005453,
+    "latency_s": 8.486,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 3,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 2
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[1]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types new_feature · domains in scope product'); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[4]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'domains in scope product'); fix it from the sources shown or drop any item you cannot source"
+    ],
+    "attempt_tokens": [
+     3169,
+     2708
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0146~vol-4.2M",
+   "case_id": "FCRM-2026-0146",
+   "metrics": {
+    "fast_lane_precision": 1.0,
+    "fast_lane_recall": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0146~vol-4.2M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 2,
+    "calls": 2,
+    "input_tokens": 4985,
+    "output_tokens": 962,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005572,
+    "latency_s": 8.296,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 2,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 2
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[1]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types new_feature · domains in scope product'); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[2]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'domains in scope product'); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[3]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'domains in scope product'); fix it from the sources shown or drop any item you cannot source"
+    ],
+    "attempt_tokens": [
+     3194,
+     2753
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0146~vol-5.0M",
+   "case_id": "FCRM-2026-0146",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0146~vol-5.0M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2660,
+    "output_tokens": 533,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005325,
+    "latency_s": 4.443,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3193
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0148~vol-4.2M",
+   "case_id": "FCRM-2026-0148",
+   "metrics": {
+    "fast_lane_precision": 1.0,
+    "fast_lane_recall": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0148~vol-4.2M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 2,
+    "calls": 2,
+    "input_tokens": 4880,
+    "output_tokens": 885,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005411,
+    "latency_s": 8.387,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 4,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 2
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[1]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types new_feature · domains in scope product'); fix it from the sources shown or drop any item you cannot source"
+    ],
+    "attempt_tokens": [
+     3163,
+     2602
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0148~vol-5.0M",
+   "case_id": "FCRM-2026-0148",
+   "metrics": {
+    "fast_lane_precision": 0.0,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "fast_lane_precision: FCRM-2026-0148~vol-5.0M: false positive"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0148~vol-5.0M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2657,
+    "output_tokens": 529,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005302,
+    "latency_s": 5.018,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3186
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0149~vol-4.2M",
+   "case_id": "FCRM-2026-0149",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "fast_lane_recall: FCRM-2026-0149~vol-4.2M: missed"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0149~vol-4.2M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2658,
+    "output_tokens": 504,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005178,
+    "latency_s": 5.282,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3162
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0149~vol-5.0M",
+   "case_id": "FCRM-2026-0149",
+   "metrics": {
+    "fast_lane_precision": 0.0,
+    "fast_lane_recall": null,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "fast_lane_precision: FCRM-2026-0149~vol-5.0M: false positive"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0149~vol-5.0M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2658,
+    "output_tokens": 505,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005183,
+    "latency_s": 5.135,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3163
+    ],
+    "tools_called": []
+   }
+  }
+ ],
+ "timestamp": "2026-10-06T07:05:46.005791Z",
+ "usage": {
+  "calls": 110,
+  "retries": 10,
+  "blocked_rows": 0,
+  "failed_rows": 0,
+  "input_tokens": 288657,
+  "output_tokens": 58009,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.538278,
+  "latency_p50_s": 5.055,
+  "latency_max_s": 10.672,
+  "models": [
+   "Haiku 4.5",
+   "Nova Lite"
+  ]
+ },
+ "judge_usage": null,
+ "sampled": {
+  "n": 100,
+  "of": 100,
+  "seed": null,
+  "strategy": "all",
+  "row_ids": [
+   "FCRM-2026-0072",
+   "FCRM-2026-0073",
+   "FCRM-2026-0074",
+   "FCRM-2026-0075",
+   "FCRM-2026-0076",
+   "FCRM-2026-0077",
+   "FCRM-2026-0078",
+   "FCRM-2026-0079",
+   "FCRM-2026-0080",
+   "FCRM-2026-0081",
+   "FCRM-2026-0082",
+   "FCRM-2026-0083",
+   "FCRM-2026-0084",
+   "FCRM-2026-0085",
+   "FCRM-2026-0086",
+   "FCRM-2026-0087",
+   "FCRM-2026-0088",
+   "FCRM-2026-0089",
+   "FCRM-2026-0090",
+   "FCRM-2026-0091",
+   "FCRM-2026-0092",
+   "FCRM-2026-0093",
+   "FCRM-2026-0094",
+   "FCRM-2026-0095",
+   "FCRM-2026-0096",
+   "FCRM-2026-0097",
+   "FCRM-2026-0098",
+   "FCRM-2026-0099",
+   "FCRM-2026-0100",
+   "FCRM-2026-0101",
+   "FCRM-2026-0102",
+   "FCRM-2026-0103",
+   "FCRM-2026-0104",
+   "FCRM-2026-0105",
+   "FCRM-2026-0106",
+   "FCRM-2026-0107",
+   "FCRM-2026-0108",
+   "FCRM-2026-0109",
+   "FCRM-2026-0110",
+   "FCRM-2026-0111",
+   "FCRM-2026-0112",
+   "FCRM-2026-0113",
+   "FCRM-2026-0114",
+   "FCRM-2026-0115",
+   "FCRM-2026-0116",
+   "FCRM-2026-0117",
+   "FCRM-2026-0118",
+   "FCRM-2026-0119",
+   "FCRM-2026-0120",
+   "FCRM-2026-0121",
+   "FCRM-2026-0122",
+   "FCRM-2026-0123",
+   "FCRM-2026-0124",
+   "FCRM-2026-0125",
+   "FCRM-2026-0126",
+   "FCRM-2026-0127",
+   "FCRM-2026-0128",
+   "FCRM-2026-0129",
+   "FCRM-2026-0130",
+   "FCRM-2026-0131",
+   "FCRM-2026-0132",
+   "FCRM-2026-0133",
+   "FCRM-2026-0134",
+   "FCRM-2026-0135",
+   "FCRM-2026-0136",
+   "FCRM-2026-0137",
+   "FCRM-2026-0138",
+   "FCRM-2026-0139",
+   "FCRM-2026-0140",
+   "FCRM-2026-0141",
+   "FCRM-2026-0142",
+   "FCRM-2026-0143",
+   "FCRM-2026-0144",
+   "FCRM-2026-0145",
+   "FCRM-2026-0146",
+   "FCRM-2026-0147",
+   "FCRM-2026-0148",
+   "FCRM-2026-0149",
+   "FCRM-2026-0150",
+   "FCRM-2026-0151",
+   "FCRM-2026-0089~vol-4.2M",
+   "FCRM-2026-0089~vol-5.0M",
+   "FCRM-2026-0106~vol-4.2M",
+   "FCRM-2026-0106~vol-5.0M",
+   "FCRM-2026-0126~vol-4.2M",
+   "FCRM-2026-0126~vol-5.0M",
+   "FCRM-2026-0130~vol-4.2M",
+   "FCRM-2026-0130~vol-5.0M",
+   "FCRM-2026-0136~vol-4.2M",
+   "FCRM-2026-0136~vol-5.0M",
+   "FCRM-2026-0137~vol-4.2M",
+   "FCRM-2026-0137~vol-5.0M",
+   "FCRM-2026-0143~vol-4.2M",
+   "FCRM-2026-0143~vol-5.0M",
+   "FCRM-2026-0146~vol-4.2M",
+   "FCRM-2026-0146~vol-5.0M",
+   "FCRM-2026-0148~vol-4.2M",
+   "FCRM-2026-0148~vol-5.0M",
+   "FCRM-2026-0149~vol-4.2M",
+   "FCRM-2026-0149~vol-5.0M"
+  ],
+  "demo_row_ids": [
+   "FCRM-2026-0151"
+  ]
+ },
+ "judge": "fake"
+}

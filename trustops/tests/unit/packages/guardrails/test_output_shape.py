@@ -375,9 +375,37 @@ async def test_check_numbers_must_be_grounded_when_given() -> None:
     assert "4.5" in (invented.ledger_items[-1].detail or "")
 
 
+async def test_a_failed_quote_is_named_in_the_feedback_the_retry_is_shown() -> None:
+    """The retry is told which quote failed, not only that one did."""
+    result = await GUARD.check(_ctx(AgentName.RESEARCH, [PARAPHRASE]))
+    assert result.status is GuardStatus.RETRY
+    feedback = result.details["feedback"][0]
+    assert "quote was" in feedback
+    assert "banks must evaluate the processor" in feedback
+
+
 async def test_check_no_output_fails_closed() -> None:
     result = await GUARD.check(_ctx(AgentName.RESEARCH, []))
     assert result.status is GuardStatus.BLOCKED
+
+
+async def test_check_no_output_fails_closed_unless_the_contract_allows_it() -> None:
+    """The watchlist's "no candidate needs a re-flag" is a correct answer."""
+    closed = await GUARD.check(_ctx(AgentName.WATCHLIST, []))
+    assert closed.status is GuardStatus.BLOCKED
+    assert "failing closed" in closed.summary
+    allowed = await GUARD.check(_ctx(AgentName.WATCHLIST, [], may_be_empty=True))
+    assert allowed.status is GuardStatus.PASSED
+    assert allowed.details["claims"] == 0
+    assert allowed.details["empty"] is True
+
+
+async def test_check_may_be_empty_does_not_loosen_a_non_empty_check() -> None:
+    """Emptiness is the only thing the flag changes: a bad item still fails."""
+    result = await GUARD.check(
+        _ctx(AgentName.RESEARCH, [PARAPHRASE], may_be_empty=True)
+    )
+    assert result.status is GuardStatus.RETRY
 
 
 async def test_check_category_proposal_quotes_the_page() -> None:

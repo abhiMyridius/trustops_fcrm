@@ -24,3 +24,14 @@ Append-only. One row per prompt file version, newest last. The same entry appear
 | 2026-10-03 | policy_gap.system | 1 | 2026-10-03.1 | initial; scope suggestion prefixed "Suggested scope (not policy): " | — | baseline pending |
 | 2026-10-03 | policy_gap.user | 1 | 2026-10-03.1 | initial | — | baseline pending |
 | 2026-10-05 | narrative.judge | 1 | 2026-10-05 | initial; the rubric judge behind the narrative_faithfulness eval metric, judge tier, evals only | — | baseline pending |
+| 2026-10-06 | screening.system | 2 | 2026-10-06 | case-field citation stated; pack declared complete; cite_verbatim replaces declare_gap; no pasted schema | see `evals/README.md` | see `evals/README.md` |
+| 2026-10-06 | intake.system | 2 | 2026-10-06 | written to the contract (no not_found, facts_flagged, notes); doc id and window id stated; pack declared complete | see `evals/README.md` | see `evals/README.md` |
+| 2026-10-06 | research.system | 2 | 2026-10-06 | gap and jurisdiction items mapped to their fields; search is the exception; compare_precedent dropped | see `evals/README.md` | see `evals/README.md` |
+| 2026-10-06 | assessment.system | 2 | 2026-10-06 | citation of factors and controls stated; fields mapped to the contract; pack declared complete | see `evals/README.md` | see `evals/README.md` |
+| 2026-10-06 | critic.system | 2 | 2026-10-06 | record_refs are sequence numbers only; a finding cites an audit record; empty list is valid | see `evals/README.md` | see `evals/README.md` |
+| 2026-10-06 | narrative.system | 2 | 2026-10-06 | written to the contract; the Narrative cites the case; numbers only from the pack; a thin pack still gets a recommendation | see `evals/README.md` | see `evals/README.md` |
+| 2026-10-06 | examiner.system | 2 | 2026-10-06 | written to ExaminerAnswer: a refusal is no sentences; no answered, records_read or refusal reason | see `evals/README.md` | see `evals/README.md` |
+| 2026-10-06 | watchlist.system | 2 | 2026-10-06 | aligned to ReflagProposal (rerun boolean); list handle stated; empty list is the right answer when no candidate | see `evals/README.md` | see `evals/README.md` |
+| 2026-10-06 | policy_gap.system | 2 | 2026-10-06 | written to GapSuggestion; the gap id is printed in the pack and copied; empty list when every gap is covered | see `evals/README.md` | see `evals/README.md` |
+| 2026-10-06 | screening.system | 3 | 2026-10-06.1 | R4 stated as the vendor case and the feature case; change types read from the identity line, the volume from F05 (EMPTY or at least $5M is no); six facts; a described new corridor, segment or product vetoes both cases | see `evals/README.md` | see `evals/README.md` |
+| 2026-10-06 | research.system | 3 | 2026-10-06.2 | a clause proposal's clause_id and its source_ref name the same clause | see `evals/README.md` | see `evals/README.md` |

@@ -163,14 +163,43 @@ def field_items(
     return items
 
 
-def cite_case(draft: PackDraft, record: CaseRecordOutput) -> None:
-    """Register the case's own fields as a citable source."""
+def cite_case(
+    draft: PackDraft,
+    record: CaseRecordOutput,
+    labels: Optional[Mapping[str, str]] = None,
+) -> None:
+    """Register the case's own fields as a citable source.
+
+    The text holds each field twice: as ``<id>: <value>`` and as the very line the
+    pack's ``fields`` section shows (``labels`` as that section shows them), so a
+    model that copies a whole line it was shown has quoted the source, and a value
+    too short to stand as a quote (``US \u2192 Mexico`` is 11 characters) can be
+    quoted with its id and label around it. A field the owner left empty is
+    quotable as the line the pack shows (``F05 · Expected annual volume · EMPTY
+    · -``), which is how a reason says a volume is not recorded. The text also
+    holds the identity line's case facts (submission version and change types):
+    the fast-lane rule turns on the change types, the pack prints them there, and
+    the screening agent quotes them. The source text is never sent to the model,
+    only checked against.
+    """
+    shown = dict(field_items(record, labels))
     lines = [
         f"{fid}: {field_value(record, fid)}"
         for fid in sorted(record.fields)
         if field_value(record, fid) is not None
     ]
+    lines += [shown[fid] for fid in sorted(shown)]
+    lines.append(identity_head(f"Case {record.case_id}", record))
     draft.cite(CaseSourceRef(case_id=record.case_id), source_text_lines(lines))
+
+
+def identity_head(label: str, record: CaseRecordOutput) -> str:
+    """``label`` with the case's submission version and change types: the head of
+    the pack's identity line, and a line of the case's citable source."""
+    return (
+        f"{label} · submission v{record.submission_version}"
+        f" · types {', '.join(record.change_types) or '-'}"
+    )
 
 
 def add_prelude(
@@ -184,10 +213,7 @@ def add_prelude(
     replaces the case line for cross-case oversight jobs."""
     identity = subject or f"Case {request.case_id}"
     if record is not None:
-        identity += (
-            f" · submission v{record.submission_version}"
-            f" · types {', '.join(record.change_types) or '-'}"
-        )
+        identity = identity_head(identity, record)
     if request.domains:
         identity += f" · domains in scope {', '.join(d.value for d in request.domains)}"
     if request.mode:
@@ -351,6 +377,18 @@ async def fetch_list(tools: ScopedTools, version: str) -> JurisdictionListOut:
     return out.list
 
 
+def gap_ids(gaps: Sequence[tuple[str, int, str]]) -> list[str]:
+    """``GAP-<case id>-<n>`` for each ``(case, seq, text)`` gap, ``n`` counting
+    that case's gaps from 1 in the order given: the id the pack prints at the
+    start of a gap line and the policy-gap agent copies into ``gap_id``."""
+    counts: dict[str, int] = {}
+    ids = []
+    for case, _seq, _text in gaps:
+        counts[case] = counts.get(case, 0) + 1
+        ids.append(f"GAP-{case}-{counts[case]}")
+    return ids
+
+
 def destinations(record: CaseRecordOutput) -> list[str]:
     """Destination countries from the corridor field (``US → Mexico``)."""
     corridor = field_value(record, CORRIDOR_FIELD) or ""
@@ -414,7 +452,7 @@ class ScreeningPackBuilder(ContextPackBuilder):
                 for h in hits.hits
             ],
         )
-        cite_case(draft, record)
+        cite_case(draft, record, labels)
         cite_precedents(draft, hits)
 
 
@@ -462,7 +500,10 @@ class IntakePackBuilder(ContextPackBuilder):
         items = [
             (
                 f"p.{page}",
-                "\n".join(f"p.{page} l.{n}: {t}" for n, t in enumerate(lines, start=1)),
+                f"Document {doc.doc_id}\n"
+                + "\n".join(
+                    f"p.{page} l.{n}: {t}" for n, t in enumerate(lines, start=1)
+                ),
             )
             for page, lines in pages.items()
         ]
@@ -572,7 +613,14 @@ class ResearchPackBuilder(ContextPackBuilder):
         listing = await fetch_list(tools, request.versions.jurisdictions_v)
         countries = destinations(record)
         lines = [list_line(listing, c) for c in countries]
-        draft.add("jurisdictions", list(zip(countries, lines, strict=True)))
+        handle = f"{FATF_LIST_ID}@{listing.version}"
+        draft.add(
+            "jurisdictions",
+            [
+                (country, dot(country, handle, f"line: {line}"))
+                for country, line in zip(countries, lines, strict=True)
+            ],
+        )
         if lines:
             draft.cite(
                 ListSourceRef(list_id=FATF_LIST_ID, version=listing.version),
@@ -919,7 +967,18 @@ class WatchlistPackBuilder(ContextPackBuilder):
         )
         draft.add(
             "list_diff",
-            [(c, f"{c} · {kind} · {list_line(new, c)}") for c, kind in changes],
+            [
+                (
+                    c,
+                    dot(
+                        c,
+                        kind,
+                        f"{FATF_LIST_ID}@{new.version}",
+                        f"line: {list_line(new, c)}",
+                    ),
+                )
+                for c, kind in changes
+            ],
         )
         draft.cite(
             ListSourceRef(list_id=FATF_LIST_ID, version=new.version),
@@ -977,7 +1036,10 @@ class PolicyGapPackBuilder(ContextPackBuilder):
         add_prelude(draft, request, None)
         draft.add(
             "gaps",
-            [(f"#{seq}", f"#{seq} · {case} · {text}") for case, seq, text in gaps],
+            [
+                (f"#{seq}", f"{gap_id} · #{seq} · {case} · {text}")
+                for gap_id, (case, seq, text) in zip(gap_ids(gaps), gaps, strict=True)
+            ],
         )
         nearest: list[Item] = []
         for case_id, seq, text in gaps:

@@ -174,6 +174,16 @@ class RowRun(BaseModel):
     verified_attempt1: Optional[int] = None
     guards: list[GuardTrace] = Field(default_factory=list)
     feedback: list[str] = Field(default_factory=list)
+    attempt_tokens: list[int] = Field(default_factory=list)
+    """Tokens (input plus output, every request) each attempt used: what the
+    tier's per-run budget limits. A budget is set from the p90 of these."""
+    tools_called: list[str] = Field(default_factory=list)
+    """The tools the model called, over every attempt, in order."""
+
+    @property
+    def peak_attempt_tokens(self) -> int:
+        """The largest single attempt, the figure a per-run budget must hold."""
+        return max(self.attempt_tokens, default=0)
 
     @property
     def retries(self) -> int:

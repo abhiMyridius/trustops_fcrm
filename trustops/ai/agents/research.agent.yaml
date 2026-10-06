@@ -1,6 +1,6 @@
 # ai/agents/research.agent.yaml  (design B §2.3)
 name: research
-version: 1
+version: 4
 purpose: >-
   Find the policy clauses that apply to the submitted change and quote them
   verbatim from the pinned corpus version, find the closest closed cases,
@@ -11,12 +11,12 @@ lifecycle_state: assess
 trigger: "H1 enters CaseState.ASSESS (parallel with assessment); CaseState.CLARIFICATION re-run with payload.changed_fields; watchlist re-flag acknowledgement"
 tier: strong
 budget_tier: strong
-budget: {tokens: 20000, wall_s: 180, retries: 1}
+budget: {tokens: 24000, wall_s: 180, retries: 1}
 tools: [policy_search, precedent_search, jurisdiction_list]
 tool_caps: {policy_search: 3, precedent_search: 1, jurisdiction_list: 1}
-tool_call_cap: 3
+tool_call_cap: 1                                    # one tool call: measured, the models call tools the pack makes unnecessary and each call re-sends the request (budget in tiers.yaml)
 pack_tools: [case_record, submission_diff, policy_search, precedent_search, jurisdiction_list, control_inventory]
-skills: [cite_verbatim, declare_gap, compare_precedent]
+skills: [cite_verbatim, declare_gap]
 context_pack: research
 output_schema:
   envelope: ResearchOutput
@@ -24,8 +24,8 @@ output_schema:
   fields:
     clauses: {model: fcrm_contracts.proposals.research.ClauseProposal, many: true, max_items: 8, status: contract}
     precedents: {model: fcrm_contracts.proposals.research.PrecedentMatch, many: true, max_items: 5, status: contract}
-    gaps: {model: fcrm_contracts.proposals.research.PolicyGap, many: true, max_items: 4, status: pending_contract, design_ref: "B §2.3 PolicyGap(topic, statement, searched: Searched, domain)"}
-    jurisdiction_notes: {model: fcrm_contracts.proposals.research.JurisdictionNote, many: true, max_items: 6, status: pending_contract, design_ref: "B §2.3 JurisdictionNote(country, status, provenance)"}
+    gaps: {model: fcrm_contracts.proposals.research.PolicyGap, many: true, max_items: 4, status: contract}
+    jurisdiction_notes: {model: fcrm_contracts.proposals.research.JurisdictionNote, many: true, max_items: 6, status: contract}
     notes_for_analyst: {type: "list[str]", max_items: 5, status: primitive}
   notes: >-
     ClauseProposal in the committed contract has no implies_controls list.

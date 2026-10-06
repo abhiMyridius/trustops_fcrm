@@ -22,11 +22,12 @@ from typing import Any, Optional
 import pytest
 from fcrm_agent_worker.live_runtime import ModelFactory
 from fcrm_agents.models import load_tiers_config
-from fcrm_contracts.enums import AgentName
+from fcrm_contracts.enums import AgentName, Tier
 from fcrm_evals.datasets import load
 from fcrm_evals.live import LiveProducer
 from fcrm_evals.rows import EvalRow
 from fcrm_evals.usage import PriceTable
+from fcrm_guardrails.budget import TIER_BUDGETS
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -37,6 +38,7 @@ from pydantic_ai.messages import (
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 REPO_AI = Path(__file__).parents[4] / "ai"
+CHEAP_BUDGET_TOKENS = TIER_BUDGETS[Tier.CHEAP].tokens
 STAMP = datetime(2026, 10, 5, 14, 22, tzinfo=UTC)
 
 
@@ -151,12 +153,12 @@ def price_table(tiers_config: Any) -> PriceTable:
 
 @pytest.fixture
 def inflate_output() -> Callable[[list[dict[str, Any]]], list[dict[str, Any]]]:
-    """Rewrites a screening payload so one reason is 7,000 words long: schema
-    valid, but more tokens than the cheap tier's 6,000 a run."""
+    """Rewrites a screening payload so one reason is longer than the cheap tier's
+    token budget a run: schema valid, but more tokens than it may spend."""
 
     def inflate(payload: list[dict[str, Any]]) -> list[dict[str, Any]]:
         copy = deepcopy(payload)
-        copy[0]["reasons"][0]["text"] = "word " * 7_000
+        copy[0]["reasons"][0]["text"] = "word " * (CHEAP_BUDGET_TOKENS + 1_000)
         return copy
 
     return inflate

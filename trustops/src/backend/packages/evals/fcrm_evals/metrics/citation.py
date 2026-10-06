@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fcrm_guardrails.context import GuardContext
+from fcrm_guardrails.context import AvailableSource, GuardContext
 from fcrm_guardrails.output_shape import QUOTE_CHECK, verify_outputs
 
 from fcrm_evals.context import EvalContext
@@ -27,6 +27,20 @@ from fcrm_evals.rows import EvalRow
 
 SOURCE_CHECK = "source_resolves"
 SCHEMA_CHECK = "schema"
+
+
+def shown_sources(row: EvalRow) -> list[AvailableSource]:
+    """The sources the agent was shown for ``row``: the list the live pack
+    carries (:func:`fcrm_evals.live.shown_sources`). The row's own, except that
+    the critic's assessment record is widened to its summary plus the compact
+    ledger payload, and the case source to the field lines and the identity line
+    the pack printed, exactly as production's ``cite_records`` and ``cite_case``
+    register them. The metric must check a quote against the text the model could
+    read, or a finding that quotes the rating it is about, or a case's change
+    types, reads as unsourced although Guard 4 accepted it."""
+    from fcrm_evals.live import shown_sources as pack_sources  # heavy import
+
+    return pack_sources(row)
 
 
 def citation_validity(
@@ -41,7 +55,7 @@ def citation_validity(
         run_id=f"eval:{row.row_id}",
         agent=row.agent,
         outputs=list(output.items),
-        sources=row.sources(),
+        sources=shown_sources(row),
     )
     annotations = verify_outputs(guard_ctx)
     claims = [a for a in annotations if a.check == SOURCE_CHECK]

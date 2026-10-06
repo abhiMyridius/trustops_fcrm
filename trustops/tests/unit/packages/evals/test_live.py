@@ -11,12 +11,19 @@ from typing import Any
 import pytest
 from fcrm_agents.runtime import RunVerdict
 from fcrm_agents.spec import REGISTRY
-from fcrm_contracts.enums import AgentName
+from fcrm_contracts.enums import AgentName, Tier
 from fcrm_contracts.proposals.screening import ScreeningProposal
 from fcrm_evals.datasets import load
 from fcrm_evals.instructions import InstructionRenderer
-from fcrm_evals.live import LiveProducer, RowPackBuilder, lifted_token_budgets
+from fcrm_evals.live import (
+    LiveProducer,
+    RowPackBuilder,
+    lifted_token_budgets,
+    with_field_lines,
+)
+from fcrm_evals.metrics.citation import shown_sources
 from fcrm_evals.usage import RowStatus
+from fcrm_guardrails.budget import TIER_BUDGETS
 from fcrm_seed.loader import load_raw
 from fcrm_tools import build_seed_registry, seed_pins
 
@@ -80,14 +87,18 @@ async def test_every_row_of_every_dataset_builds_a_pack_under_its_cap(
 
 
 @pytest.mark.parametrize("agent", [a for a in AgentName if a is not AgentName.CRITIC])
-async def test_pack_sources_are_the_rows_own(
+async def test_pack_sources_are_the_rows_own_widened_by_the_lines_the_pack_printed(
     agent: AgentName, pack_builder: RowPackBuilder
 ) -> None:
     row = load(agent)[0]
     pack = await pack_builder.build(row)
-    assert [s.model_dump() for s in pack.sources] == [
-        s.model_dump() for s in row.sources()
-    ]
+    own = with_field_lines(
+        row.sources(),
+        row.case_id,
+        pack.sections.get("fields"),
+        pack.sections["identity"].split(" · domains in scope")[0],
+    )
+    assert [s.model_dump() for s in pack.sources] == [s.model_dump() for s in own]
 
 
 async def test_critic_pack_widens_only_the_assessment_record(
@@ -100,6 +111,41 @@ async def test_critic_pack_widens_only_the_assessment_record(
     assert changed == ["record:FCRM-2026-0151#31"]
     widened = next(s for s in pack.sources if s.key in changed)
     assert '"controls"' in widened.text
+
+
+@pytest.mark.parametrize("agent", list(AgentName))
+async def test_citation_validity_checks_every_agent_against_what_it_was_shown(
+    agent: AgentName, pack_builder: RowPackBuilder
+) -> None:
+    """A finding quotes the rating it is about, which only the widened
+    assessment record (production's ``cite_records``) contains; a screening
+    reason quotes a whole field line or the change types, which only the widened
+    case source (``cite_case``) contains. The metric uses the pack's sources, or
+    a quote Guard 4 accepted would read as unsourced."""
+    for row in load(agent):
+        pack = await pack_builder.build(row)
+        assert [s.model_dump() for s in shown_sources(row)] == [
+            s.model_dump() for s in pack.sources
+        ], row.row_id
+
+
+async def test_the_change_types_the_identity_line_prints_are_a_quotable_case_fact(
+    pack_builder: RowPackBuilder,
+) -> None:
+    """The screening agent quotes ``types vendor_onboarding, new_geography``
+    (the fast-lane rule turns on the change types and the pack prints them in
+    its identity line). The first live run's case source lacked the line, so
+    four of five rows spent a retry on a quote that was in the pack."""
+    row = next(r for r in load(AgentName.SCREENING) if r.case_id == "FCRM-2026-0151")
+    pack = await pack_builder.build(row)
+    identity = pack.sections["identity"]
+    types_line = re.search(r"types [a-z_, ]+", identity)
+    assert types_line is not None
+    case = next(s for s in pack.sources if s.key == "case:FCRM-2026-0151")
+    assert types_line.group(0).strip() in case.text
+    assert f"Case FCRM-2026-0151 · submission v1 · {types_line.group(0).strip()}" in (
+        case.text
+    )
 
 
 async def test_screening_fields_are_real_builder_lines_whose_values_a_quote_can_verify(
@@ -117,6 +163,27 @@ async def test_screening_fields_are_real_builder_lines_whose_values_a_quote_can_
     for line in lines:
         value = line.split(" · ")[2]
         assert value in case_text
+
+
+async def test_a_whole_field_line_the_pack_printed_is_a_quotable_case_source(
+    pack_builder: RowPackBuilder,
+) -> None:
+    """A value shorter than 12 characters cannot stand as a quote; the whole
+    line (id and label around it) can, so the case source holds the lines the
+    pack printed, as production's ``cite_case`` does."""
+    demo = next(r for r in load(AgentName.SCREENING) if r.case_id == "FCRM-2026-0151")
+    pack = await pack_builder.build(demo)
+    case = next(s for s in pack.sources if s.key == "case:FCRM-2026-0151")
+    for line in pack.sections["fields"].split("\n"):
+        assert line in case.text
+    assert case.text.startswith(demo.sources()[0].text)
+
+
+def test_with_field_lines_leaves_other_sources_and_pack_without_fields_alone() -> None:
+    row = load(AgentName.SCREENING)[0]
+    assert [
+        s.model_dump() for s in with_field_lines(row.sources(), row.case_id, None)
+    ] == [s.model_dump() for s in row.sources()]
 
 
 async def test_a_volume_the_case_does_not_record_is_an_empty_field(
@@ -224,7 +291,7 @@ async def test_the_runtimes_token_budget_blocks_an_overlong_run(
     producer_for: Callable[..., LiveProducer],
     inflate_output: Callable[..., Any],
 ) -> None:
-    """The cheap tier's budget is 6k tokens a run; a model that spends more is
+    """The cheap tier's budget is a token limit a run; a model that spends more is
     blocked by the real runtime, and the row says ``budget``."""
     row = load(AgentName.SCREENING)[0]
     producer = producer_for(AgentName.SCREENING, [row], tamper=inflate_output)
@@ -234,7 +301,7 @@ async def test_the_runtimes_token_budget_blocks_an_overlong_run(
     assert output.run is not None
     assert output.run.stopped_at == "budget"
     assert "total_tokens_limit" in (output.run.reason or "")
-    assert output.run.output_tokens > 6_000
+    assert output.run.output_tokens > TIER_BUDGETS[Tier.CHEAP].tokens
 
 
 async def test_lifted_budgets_are_a_scoped_diagnostic_and_the_limit_comes_back(
@@ -268,3 +335,62 @@ def test_every_agent_has_a_system_prompt_the_producer_can_load(repo_ai: Path) ->
         producer = LiveProducer.for_agent(agent, ai_root=repo_ai)
         assert producer.packs is not None
         assert REGISTRY[agent].name is agent
+
+
+async def test_the_watchlist_pack_prints_the_list_handle_and_the_verbatim_line(
+    pack_builder: RowPackBuilder,
+) -> None:
+    """The first live run found the model citing ``list:jurisdiction_list@...``
+    because the pack never showed the ``list_id``, and quoting a line the
+    pack did not print."""
+    row = next(
+        r
+        for r in load(AgentName.WATCHLIST)
+        if r.input["added"] and any(c["geographies"] for c in r.input["open_cases"])
+    )
+    pack = await pack_builder.build(row)
+    source = row.sources()[0]
+    for line in pack.sections["list_diff"].split("\n"):
+        country = line.split(" · ")[0]
+        assert f"{source.source_ref.list_id}@{source.source_ref.version}" in line  # type: ignore[union-attr]
+        assert line.split("line: ")[1] in source.text
+        assert country in line.split("line: ")[1]
+
+
+async def test_the_policy_gap_pack_prints_the_gap_id_the_agent_must_copy(
+    pack_builder: RowPackBuilder,
+) -> None:
+    row = load(AgentName.POLICY_GAP)[0]
+    pack = await pack_builder.build(row)
+    gap_id = row.input["gap"]["gap_id"]
+    assert pack.sections["gaps"].startswith(f"{gap_id} · #")
+
+
+async def test_a_narrative_pack_shows_the_locked_result_of_every_row(
+    pack_builder: RowPackBuilder,
+) -> None:
+    """Only the demo row has a result before and after the override; the
+    others carry one (``composite`` and ``band``), which the pack used to print
+    as ``None``."""
+    for row in load(AgentName.NARRATIVE):
+        pack = await pack_builder.build(row)
+        assert "None" not in pack.sections["ratings"], row.row_id
+        assert (
+            f"composite {row.input.get('composite_after', row.input.get('composite'))}"
+            in pack.sections["ratings"]
+        )
+
+
+async def test_every_narrative_pack_gives_a_source_the_recommendation_can_quote(
+    pack_builder: RowPackBuilder,
+) -> None:
+    """Either the locked-result line names the audit record that holds it and
+    prints that record's text, or the pack gives the case's title: the two
+    things a ``Narrative`` can cite and have its quote verify."""
+    for row in load(AgentName.NARRATIVE):
+        pack = await pack_builder.build(row)
+        texts = [s.text for s in row.sources()]
+        ratings, owner_facts = pack.sections["ratings"], pack.sections["owner_facts"]
+        named = re.search(r'recorded in audit record #\d+: "([^"]+)"', ratings)
+        quoted = named.group(1) if named else owner_facts.split(" · ", 1)[1]
+        assert any(quoted in text for text in texts), row.row_id

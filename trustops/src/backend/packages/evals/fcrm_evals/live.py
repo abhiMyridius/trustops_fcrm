@@ -6,7 +6,7 @@ makes the evals real: for one dataset row it builds the agent's context pack,
 then calls H2's ``run_agent_live`` with the seed-backed tool registry and the
 Bedrock model factory, exactly as the agent-worker would. The guards are the
 real ones, the model is the tier's real ``FallbackModel``, and the budgets are
-the tier budgets (cheap 6k, mid 12k, strong 20k tokens; 120k per case).
+the tier budgets of ``ai/models/tiers.yaml`` (120k tokens per case).
 
 **A blocked or failed run is never given an output.** If a guard blocks the
 run, or the run raises, the row's :class:`~fcrm_evals.outputs.AgentOutput` is
@@ -41,7 +41,7 @@ from collections.abc import (
     Sequence,
 )
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import Any, Final, Optional, Union
@@ -75,6 +75,7 @@ from fcrm_contracts.proposals.provenance import (
     ClauseSourceRef,
     ControlSourceRef,
     DocSourceRef,
+    ListSourceRef,
     RecordSourceRef,
 )
 from fcrm_contracts.tools.field_rules import FieldRulesInput, FieldRulesOutput
@@ -126,11 +127,11 @@ SectionBuilder = Callable[["RowView", PackDraft, ToolRegistry], Awaitable[None]]
 
 
 @dataclass(frozen=True)
-class RowView:
-    """One dataset row as the section builders read it."""
+class RowSources:
+    """One dataset row and the texts its outputs may cite, as the section
+    builders read them (everything a pack's fields and identity lines need)."""
 
     row: EvalRow
-    request: BuildRequest
     sources: tuple[AvailableSource, ...]
 
     def of_kind(self, kind: str) -> list[AvailableSource]:
@@ -175,6 +176,13 @@ class RowView:
         head = f"Case {self.row.case_id} · submission v1"
         types = ", ".join(self.change_types)
         return f"{head} · types {types}" if types else head
+
+
+@dataclass(frozen=True)
+class RowView(RowSources):
+    """A :class:`RowSources` with the build request a real builder would get."""
+
+    request: BuildRequest = field(kw_only=True)
 
 
 _CASE_TITLE = re.compile(r"^Case [^:]+: (?P<title>.+)$")
@@ -233,7 +241,12 @@ def _prelude(view: RowView, draft: PackDraft) -> None:
 _CASE_VOLUME = re.compile(r"^Expected annual volume: (?P<volume>.+)$", re.MULTILINE)
 
 
-def _case_fields(view: RowView) -> list[Item]:
+def _description_field(view: RowSources) -> list[Item]:
+    """The case's change description alone (research's ``fields``)."""
+    return [("F02", dot("F02", "Change description", view.title, "-"))]
+
+
+def _case_fields(view: RowSources) -> list[Item]:
     """The case's fields in the real builder's ``id · label · value · source``
     line: F02 (the description, here the title) and F05 (the expected volume,
     ``EMPTY`` when the case records none). A row carries no other field values,
@@ -314,7 +327,7 @@ async def _research(view: RowView, draft: PackDraft, registry: ToolRegistry) -> 
     """fields, clauses, precedents, jurisdictions, controls."""
     del registry
     _prelude(view, draft)
-    draft.add("fields", [("F02", dot("F02", "Change description", view.title, "-"))])
+    draft.add("fields", _description_field(view))
     clauses = []
     for source in view.of_kind("clause"):
         ref = source.source_ref
@@ -507,20 +520,45 @@ async def _narrative(view: RowView, draft: PackDraft, registry: ToolRegistry) ->
     draft.add("gaps", [("gap", f"recorded policy gap: {gap}")] if gap else [])
     review = view.input_value("corridor_review")
     draft.add("answers", [("answer", str(review))] if review else [])
-    draft.add("owner_facts", [])
+    title = view.input_value("title") or (
+        _case_title(case.text) if (case := view.case_source()) else None
+    )
+    draft.add("owner_facts", [("F02", dot("F02", title))] if title else [])
 
 
 def _narrative_score(view: RowView) -> str:
-    """The locked engine result, read-only, as the narrative pack shows it."""
-    after = (
-        f"composite {view.input_value('composite_after')} · "
-        f"band {view.input_value('band_after')}"
-    )
-    before = (
-        f"composite {view.input_value('composite_before')} · "
-        f"band {view.input_value('band_before')}"
-    )
-    return f"locked result: {after} (before the override: {before})"
+    """The locked engine result, read-only, as the narrative pack shows it. The
+    demo row has a result before and after the override; every other row has
+    one (``composite`` and ``band``)."""
+    composite = view.input_value("composite_after", view.input_value("composite"))
+    band = view.input_value("band_after", view.input_value("band"))
+    line = f"locked result: composite {composite} · band {band}"
+    if view.input_value("composite_before") is not None:
+        before = (
+            f"composite {view.input_value('composite_before')} · "
+            f"band {view.input_value('band_before')}"
+        )
+        line = f"{line} (before the override: {before})"
+    record = _score_record(view, composite)
+    if record is None:
+        return line
+    ref, text = record
+    return f'{line} · recorded in audit record #{ref.seq}: "{text}"'
+
+
+def _score_record(
+    view: RowView, composite: Any
+) -> Optional[tuple[RecordSourceRef, str]]:
+    """The audit record that holds the locked result (its text starts
+    ``Composite <composite>``), when the row's sources include one: the line the
+    narrative cites, with the record's own text to quote."""
+    for source in view.of_kind("record"):
+        ref = source.source_ref
+        if isinstance(ref, RecordSourceRef) and source.text.startswith(
+            f"Composite {composite}"
+        ):
+            return ref, source.text
+    return None
 
 
 async def _examiner(view: RowView, draft: PackDraft, registry: ToolRegistry) -> None:
@@ -544,18 +582,37 @@ async def _examiner(view: RowView, draft: PackDraft, registry: ToolRegistry) -> 
     )
 
 
+def _list_handle(view: RowView) -> tuple[str, list[str]]:
+    """The ``list_id@version`` the row's list source is cited by, and the list's
+    verbatim lines: what the real builder prints with every list line so the
+    model copies the handle instead of guessing it."""
+    for source in view.of_kind("list"):
+        ref = source.source_ref
+        if isinstance(ref, ListSourceRef):
+            return f"{ref.list_id}@{ref.version}", source.text.split("\n")
+    return "-", []
+
+
+def _line_about(lines: Sequence[str], country: str) -> str:
+    """The list line that names ``country`` (verbatim), or a plain statement."""
+    return next((line for line in lines if country in line), f"{country}: on the list")
+
+
 async def _watchlist(view: RowView, draft: PackDraft, registry: ToolRegistry) -> None:
     """list_diff, candidates, clauses. Code selects the candidates (open cases
     whose geographies are on the diff), as the real builder does."""
     del registry
     _prelude(view, draft)
-    version = view.input_value("version")
     changes = [(c, "added") for c in view.input_value("added", [])] + [
         (c, "removed") for c in view.input_value("removed", [])
     ]
+    handle, lines = _list_handle(view)
     draft.add(
         "list_diff",
-        [(c, f"{version} · {c}: {kind} on the list") for c, kind in changes],
+        [
+            (c, dot(c, kind, handle, f"line: {_line_about(lines, c)}"))
+            for c, kind in changes
+        ],
     )
     changed = {c for c, _ in changes}
     draft.add(
@@ -584,11 +641,11 @@ async def _policy_gap(view: RowView, draft: PackDraft, registry: ToolRegistry) -
             continue
         seq = seq or ref.seq
         text = dot(
+            gap.get("gap_id", "-"),
             f"#{ref.seq}",
             ref.case_id,
             gap.get("domain", "-"),
-            gap.get("topic", "-"),
-            f"record: {source.text}",
+            source.text,
         )
         gap_lines.append((f"#{ref.seq}", text))
     draft.add("gaps", gap_lines)
@@ -620,6 +677,56 @@ NARRATIVE_MODE: Final[str] = "recommendation"
 
 
 # ---- the pack builder ----------------------------------------------------
+
+
+def with_field_lines(
+    sources: Sequence[AvailableSource],
+    case_id: str,
+    fields: Optional[str],
+    identity: Optional[str] = None,
+) -> list[AvailableSource]:
+    """``sources`` with the row's own case source widened by the lines of the
+    pack's ``fields`` section and by the head of its identity line (the case's
+    submission version and change types), as production's ``cite_case``
+    registers a case: a model that copies a whole field line it was shown has
+    quoted a source, and a value too short to stand as a quote can be quoted with
+    its id and label. Nothing else changes, and nothing is invented: every line
+    is one the pack printed."""
+    extra = "\n".join(part for part in (fields, identity) if part)
+    if not extra:
+        return list(sources)
+    widened = []
+    for source in sources:
+        ref = source.source_ref
+        if isinstance(ref, CaseSourceRef) and ref.case_id == case_id:
+            source = AvailableSource(source_ref=ref, text=f"{source.text}\n{extra}")
+        widened.append(source)
+    return widened
+
+
+FIELDS_SECTIONS: Final[Mapping[AgentName, Callable[[RowSources], list[Item]]]] = {
+    AgentName.SCREENING: _case_fields,
+    AgentName.RESEARCH: _description_field,
+    AgentName.ASSESSMENT: _case_fields,
+}
+"""The agents whose pack prints a ``fields`` section, and the lines it prints
+(every other agent's case source is widened by the identity line alone)."""
+
+
+def shown_sources(row: EvalRow) -> list[AvailableSource]:
+    """The sources the agent was shown for ``row``: the very list
+    :meth:`RowPackBuilder.build` puts on the pack (the row's own, with the
+    critic's assessment record and the case source widened as production's
+    ``cite_records`` and ``cite_case`` do). The ``citation_validity`` metric
+    checks a quote against this, the text the model could read and Guard 4
+    resolved it against, and not against a narrower copy of it."""
+    sources = tuple(row.sources())
+    if row.agent is AgentName.CRITIC:
+        sources = tuple(critic_sources(row, sources))
+    view = RowSources(row, sources)
+    lines = FIELDS_SECTIONS.get(row.agent)
+    fields = "\n".join(text for _, text in lines(view)) if lines else None
+    return with_field_lines(sources, row.case_id, fields, view.subject())
 
 
 class RowPackBuilder:
@@ -689,7 +796,7 @@ class RowPackBuilder:
         sources = tuple(row.sources())
         if row.agent is AgentName.CRITIC:
             sources = tuple(critic_sources(row, sources))
-        view = RowView(row, self.request_for(row), sources)
+        view = RowView(row, sources, request=self.request_for(row))
         spec = REGISTRY[row.agent]
         caps_key = (
             f"narrative_{NARRATIVE_MODE}"
@@ -727,7 +834,9 @@ class RowPackBuilder:
             versions=self._versions,
             sections=sections,
             section_meta=draft.sections,
-            sources=list(view.sources),
+            sources=with_field_lines(
+                view.sources, row.case_id, sections.get("fields"), view.subject()
+            ),
             tools_called=[],
             token_estimate=tokens,
             token_cap=cap,
@@ -742,11 +851,11 @@ class RowPackBuilder:
 def lifted_token_budgets(factor: float) -> Iterator[None]:
     """Scale every attempt's token limit by ``factor`` while the block runs.
 
-    **A diagnostic, never the shipped path.** The tier budgets (cheap 6k, mid
-    12k, strong 20k tokens an attempt) are hard rules of the runtime, and a run
-    under them says whether the system as built can finish. When the budget is
-    what blocks a row, the agent's own quality cannot be seen behind it; one
-    run with the limit lifted shows it, and the run says so everywhere
+    **A diagnostic, never the shipped path.** The tier budgets of
+    ``ai/models/tiers.yaml`` (tokens an attempt) are hard rules of the runtime,
+    and a run under them says whether the system as built can finish. When the
+    budget is what blocks a row, the agent's own quality cannot be seen behind
+    it; one run with the limit lifted shows it, and the run says so everywhere
     (``token_budget_factor`` in the index, a chip on the dashboard, a line in
     the report). ``1.0`` changes nothing.
     """
@@ -917,7 +1026,7 @@ class LiveProducer:
         ai_root: Union[str, Path, None] = None,
         model_factory: ModelFactory = live_model_for_slot,
         tool_call_cap: Optional[int] = None,
-        instructions: InstructionsMode = "raw",
+        instructions: InstructionsMode = "rendered",
     ) -> LiveProducer:
         """The producer with every default wired: the seed-backed registry,
         the seed's pinned versions, the system prompt of ``agent`` (``raw``:
@@ -1014,6 +1123,10 @@ class LiveProducer:
             verified_attempt1=verified,
             guards=_guard_trail(result) if result else [],
             feedback=_guard_feedback(result) if result else [],
+            attempt_tokens=[a.tokens_used for a in result.attempts] if result else [],
+            tools_called=[t for a in result.attempts for t in a.tools_called]
+            if result
+            else [],
         )
         logger.info(
             "row %s %s: %d item(s), %d call(s), %d+%d tokens, $%.4f, %.1fs%s",
@@ -1044,7 +1157,9 @@ __all__ = [
     "LiveProducer",
     "MeteredModel",
     "RowPackBuilder",
+    "RowSources",
     "RowView",
     "lifted_token_budgets",
     "metered_factory",
+    "shown_sources",
 ]

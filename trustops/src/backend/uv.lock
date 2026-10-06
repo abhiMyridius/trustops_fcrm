@@ -1815,6 +1815,8 @@ version = "0.1.0"
 source = { editable = "packages/prompts-loader" }
 dependencies = [
     { name = "fcrm-contracts" },
+    { name = "fcrm-guardrails" },
+    { name = "fcrm-seed" },
     { name = "jinja2" },
     { name = "pydantic" },
     { name = "pyyaml" },
@@ -1830,6 +1832,8 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fcrm-contracts", editable = "packages/contracts" },
+    { name = "fcrm-guardrails", editable = "packages/guardrails" },
+    { name = "fcrm-seed", editable = "packages/seed" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pyyaml", specifier = ">=6.0" },

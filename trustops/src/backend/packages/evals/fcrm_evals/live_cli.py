@@ -94,7 +94,8 @@ def _note(index: RunIndex) -> str:
     )
     models = ", ".join(index.models) or "none answered"
     prompt = (
-        "the system prompts as the H2 worker sends them (unrendered template bodies)"
+        "the system prompts unrendered (template bodies, as the H2 worker sent them "
+        "before it rendered; a diagnostic)"
         if index.instructions == "raw"
         else "fully rendered system prompts"
     )
@@ -485,9 +486,9 @@ def add_live_arguments(run: argparse.ArgumentParser) -> None:
     run.add_argument(
         "--instructions",
         choices=["raw", "rendered"],
-        default="raw",
-        help="system prompt: raw = as the H2 worker sends it; "
-        "rendered = fully rendered",
+        default="rendered",
+        help="system prompt: rendered = fully rendered, as the H2 worker sends it "
+        "(the default); raw = the unrendered template, a diagnostic",
     )
     run.add_argument(
         "--baseline", action="store_true", help="make this run the baseline"

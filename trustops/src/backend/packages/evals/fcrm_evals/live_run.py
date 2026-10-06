@@ -67,7 +67,7 @@ class LiveRunConfig:
     row_timeout_s: float = DEFAULT_ROW_TIMEOUT_S
     judge: JudgeMode = "bedrock"
     judge_votes: int = DEFAULT_JUDGE_VOTES
-    instructions: InstructionsMode = "raw"
+    instructions: InstructionsMode = "rendered"
     token_budget_factor: float = 1.0
     """Diagnostic: scale the per-attempt token limits (see
     :func:`fcrm_evals.live.lifted_token_budgets`). 1.0 is the shipped budget."""

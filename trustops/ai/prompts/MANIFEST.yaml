@@ -12,27 +12,27 @@
 # History of set versions is append-only: add a row, never edit one, so any
 # pinned prompts_v can be resolved to exact files.
 
-set_version: "2026-10-05"
+set_version: "2026-10-06.2"
 
 current:
-  screening.system: 1
+  screening.system: 3
   screening.user: 1
-  intake.system: 1
+  intake.system: 2
   intake.user: 1
-  research.system: 1
+  research.system: 3
   research.user: 1
-  assessment.system: 1
+  assessment.system: 2
   assessment.user: 1
-  critic.system: 1
+  critic.system: 2
   critic.user: 1
-  narrative.system: 1
+  narrative.system: 2
   narrative.completeness.user: 1
   narrative.recommendation.user: 1
-  examiner.system: 1
+  examiner.system: 2
   examiner.user: 1
-  watchlist.system: 1
+  watchlist.system: 2
   watchlist.user: 1
-  policy_gap.system: 1
+  policy_gap.system: 2
   policy_gap.user: 1
   narrative.judge: 1
 
@@ -70,4 +70,19 @@ history:
     date: 2026-10-05
     reason: adds the rubric judge prompt narrative.judge v1 behind the narrative_faithfulness eval metric (fcrm_evals.judge); it runs on the judge tier and is used by evals only, so no agent prompt moved
     pointers: {narrative.judge: 1}
+    eval_run: null
+  - set_version: "2026-10-06"
+    date: 2026-10-06
+    reason: "second system prompt set, written from the first live eval run (evals/results/2026-10-05/): every agent prompt is aligned to its output contract, names the citation handle of each source kind, says the pack is complete so a tool call is the exception, and no longer pastes the output schema the output tool already sends; skills cite_verbatim, declare_gap and compare_precedent move to v2"
+    pointers: {screening.system: 2, intake.system: 2, research.system: 2, assessment.system: 2, critic.system: 2, narrative.system: 2, examiner.system: 2, watchlist.system: 2, policy_gap.system: 2}
+    eval_run: null
+  - set_version: "2026-10-06.1"
+    date: 2026-10-06
+    reason: "screening.system v3, from the full 100-row screening run on v2 (fast_lane_precision 0.58, recall 0.39 against the R4 predicate): the prompt states R4 as the two cases the routing code accepts, reads the change types and the volume (F05) itself because nothing applies them to the agent's answer, and lets a described new corridor, segment or product veto both"
+    pointers: {screening.system: 3}
+    eval_run: null
+  - set_version: "2026-10-06.2"
+    date: 2026-10-06
+    reason: "research.system v3: a clause proposal's clause_id and its source_ref name the same clause (a demo-case run spent its retry on a mismatch)"
+    pointers: {research.system: 3}
     eval_run: null

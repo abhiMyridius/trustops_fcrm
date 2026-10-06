@@ -7,6 +7,11 @@ dependencies = [
   # schema() renders fcrm_contracts output models (the only modules it may
   # import by default); prompts never define a shape of their own.
   "fcrm-contracts",
+  # InstructionRenderer composes agent output envelopes from the types Guard 4
+  # enforces and resolves the pinned routing, corpus and scale excerpts from the
+  # canonical seed; both are leaf packages (neither imports fcrm_prompts).
+  "fcrm-guardrails",
+  "fcrm-seed",
   "jinja2>=3.1",
   "pydantic>=2.9",
   "pyyaml>=6.0",

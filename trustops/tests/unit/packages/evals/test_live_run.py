@@ -29,6 +29,7 @@ from fcrm_evals.results import (
 )
 from fcrm_evals.runner import GateStatus
 from fcrm_evals.sampling import sample_rows
+from fcrm_evals.usage import RowStatus
 
 AGENTS = (AgentName.SCREENING, AgentName.POLICY_GAP)
 
@@ -122,14 +123,15 @@ async def test_blocked_rows_are_counted_and_the_gate_says_not_measured(
     )
 
 
-async def test_an_empty_answer_guard_4_blocks_is_not_held_against_the_agent(
+async def test_the_watchlists_empty_answer_is_a_completed_run(
     reference_factory: Callable[..., Any], repo_ai: Path, stamp: Any
 ) -> None:
-    """Guard 4 fails closed on an empty list, so the watchlist's right answer
-    for a list change that touches no open case ("no re-flag") is a blocked run
-    today. The row is reported blocked, with the guard's reason, and
-    ``reflag_recall`` (code candidates that got a proposal) is not applicable
-    to it: the agent is not scored down for a guard's refusal."""
+    """For a list change that touches no open case the watchlist's right answer
+    is "no re-flag", an empty list. Its contract allows that
+    (``may_be_empty``), so Guard 4 passes it and the row counts as completed;
+    it used to be blocked ("failing closed") and H1 opened a handoff gate for a
+    correct answer. ``reflag_recall`` (code candidates that got a proposal) has
+    nothing to measure on it."""
     rows = load(AgentName.WATCHLIST)
     empty = next(r for r in rows if not r.expected.reference_outputs)
     outcome = await run_live(
@@ -139,11 +141,11 @@ async def test_an_empty_answer_guard_4_blocks_is_not_held_against_the_agent(
     )
     result = outcome.results[0]
     assert result.usage is not None
-    assert result.usage.blocked_rows == 1
+    assert result.usage.blocked_rows == 0
     run = result.per_case[0].run
     assert run is not None
-    assert run.stopped_at == "output_shape"
-    assert "failing closed" in (run.reason or "")
+    assert run.status is RowStatus.OK
+    assert run.items_accepted == 0
     assert result.per_case[0].metrics["reflag_recall"] is None
 
 
@@ -369,8 +371,15 @@ def test_the_cli_takes_the_live_options() -> None:
     assert (args.judge_votes, args.concurrency) == (2, 3)
     assert args.baseline
     assert args.publish
-    assert args.instructions == "raw"
+    assert args.instructions == "rendered"
     assert args.out is None
+
+
+def test_the_raw_instructions_switch_is_still_available_as_a_diagnostic() -> None:
+    args = _parser().parse_args(
+        ["run", "--producer", "live", "--instructions", "raw", "--judge", "fake"]
+    )
+    assert args.instructions == "raw"
 
 
 def test_a_non_live_run_still_requires_out() -> None:

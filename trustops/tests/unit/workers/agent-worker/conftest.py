@@ -35,7 +35,12 @@ from fcrm_guardrails import PermitGuard
 from fcrm_guardrails.opa_client import OPAClient
 from fcrm_tools import DEMO_CASE_ID, DEMO_RUN_ID, ToolRegistry, build_seed_registry
 from pydantic import BaseModel
-from pydantic_ai.messages import ModelMessage, ModelResponse
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ModelResponse,
+    UserPromptPart,
+)
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 RESEARCH_SPEC: AgentSpec = REGISTRY[AgentName.RESEARCH]
@@ -359,3 +364,62 @@ def make_model_factory_returning() -> Any:
 @pytest.fixture
 def make_model_factory_raising() -> Any:
     return model_factory_raising
+
+
+class SeenRequest(BaseModel):
+    """What one model request carried: the attempt that made it, the user
+    text, the output allowance in its settings and how many responses that
+    attempt had already received."""
+
+    attempt: int
+    user_text: str
+    max_tokens: Optional[int]
+    round_trip: int
+
+
+def model_factory_scripted(
+    per_attempt: Sequence[Sequence[Any]], seen: list[SeenRequest]
+) -> ModelFactory:
+    """A ``ModelFactory`` whose model replies from a script and records every
+    request: ``per_attempt[n]`` holds the replies of attempt ``n + 1``, one per
+    request it makes (a tool-call round trip is one request; the last reply of
+    an attempt repeats if the model is asked again). A reply is a callable
+    ``(AgentInfo, messages) -> ModelResponse``.
+    """
+    calls = {"attempt": 0}
+
+    def factory(models: Any, plan: Any) -> FunctionModel:
+        calls["attempt"] += 1
+        attempt = calls["attempt"]
+        replies = list(per_attempt[min(attempt, len(per_attempt)) - 1])
+
+        def respond(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+            responses = sum(1 for m in messages if isinstance(m, ModelResponse))
+            text = "\n".join(
+                str(part.content)
+                for message in messages
+                if isinstance(message, ModelRequest)
+                for part in message.parts
+                if isinstance(part, UserPromptPart)
+            )
+            settings = info.model_settings or {}
+            seen.append(
+                SeenRequest(
+                    attempt=attempt,
+                    user_text=text,
+                    max_tokens=settings.get("max_tokens"),
+                    round_trip=responses,
+                )
+            )
+            return replies[min(responses, len(replies) - 1)](info, messages)
+
+        return FunctionModel(respond, model_name=f"scripted-{attempt}")
+
+    return factory
+
+
+@pytest.fixture
+def make_model_factory_scripted() -> Any:
+    """``model_factory_scripted`` as a fixture (see
+    ``make_model_factory_returning`` for why)."""
+    return model_factory_scripted

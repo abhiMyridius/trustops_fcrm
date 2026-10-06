@@ -1,0 +1,527 @@
+{
+ "agent": "assessment",
+ "dataset": "assessment/ratings-80",
+ "dataset_sha256": "d03b7c0548a89ba2778c103ec5b877425078f575f49694e6dc84616f39032f76",
+ "producer": "live",
+ "n": 5,
+ "primary_metric": "li_within_one",
+ "metrics": {
+  "li_within_one": 0.7,
+  "control_match_precision": 0.7894736842105263,
+  "control_match_recall": 0.6,
+  "evidence_date_exact": 1.0,
+  "citation_validity": 1.0
+ },
+ "summaries": [
+  {
+   "name": "li_within_one",
+   "kind": "deterministic",
+   "score": 0.7,
+   "numerator": 7.0,
+   "denominator": 10.0,
+   "rows_scored": 5,
+   "threshold": 0.85,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": true,
+   "description": "|L-L*|<=1 and |I-I*|<=1 per domain",
+   "flags": [
+    "geography: 3x4 vs 4x2",
+    "customer: 2x3 vs 3x5",
+    "channel: 4x3 vs 4x5"
+   ]
+  },
+  {
+   "name": "control_match_precision",
+   "kind": "deterministic",
+   "score": 0.7894736842105263,
+   "numerator": 30.0,
+   "denominator": 38.0,
+   "rows_scored": 4,
+   "threshold": 0.9,
+   "threshold_source": "proposed",
+   "passed": false,
+   "primary": false,
+   "description": "proposed controls the analyst matched",
+   "flags": [
+    "extra ('product', 'CTL-P01')",
+    "extra ('product', 'CTL-P06')",
+    "extra ('geography', 'CTL-G03')",
+    "extra ('product', 'CTL-P02')",
+    "extra ('product', 'CTL-P03')",
+    "extra ('channel', 'CTL-T05')",
+    "extra ('geography', 'CTL-G05')",
+    "extra ('product', 'CTL-P06')"
+   ]
+  },
+  {
+   "name": "control_match_recall",
+   "kind": "deterministic",
+   "score": 0.6,
+   "numerator": 30.0,
+   "denominator": 50.0,
+   "rows_scored": 5,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": false,
+   "description": "matched controls the agent proposed",
+   "flags": [
+    "missed ('customer', 'CTL-C03')",
+    "missed ('customer', 'CTL-C05')",
+    "missed ('customer', 'CTL-C06')",
+    "missed ('customer', 'CTL-C08')",
+    "missed ('product', 'CTL-P05')",
+    "missed ('product', 'CTL-P04')",
+    "missed ('product', 'CTL-P05')",
+    "missed ('customer', 'CTL-C01')",
+    "missed ('customer', 'CTL-C02')",
+    "missed ('customer', 'CTL-C03')",
+    "missed ('customer', 'CTL-C04')",
+    "missed ('customer', 'CTL-C05')",
+    "missed ('customer', 'CTL-C06')",
+    "missed ('customer', 'CTL-C07')",
+    "missed ('customer', 'CTL-C08')",
+    "missed ('product', 'CTL-P01')",
+    "missed ('product', 'CTL-P04')",
+    "missed ('product', 'CTL-P05')",
+    "missed ('product', 'CTL-P06')",
+    "missed ('channel', 'CTL-T02')"
+   ]
+  },
+  {
+   "name": "evidence_date_exact",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 30.0,
+   "denominator": 30.0,
+   "rows_scored": 4,
+   "threshold": 0.95,
+   "threshold_source": "proposed",
+   "passed": true,
+   "primary": false,
+   "description": "evidence date equals the seed's",
+   "flags": []
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 48.0,
+   "denominator": 48.0,
+   "rows_scored": 5,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "FCRM-2026-0080",
+   "case_id": "FCRM-2026-0080",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 0.7777777777777778,
+    "control_match_recall": 0.5833333333333334,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "control_match_precision: extra ('product', 'CTL-P01')",
+    "control_match_precision: extra ('product', 'CTL-P06')",
+    "control_match_recall: missed ('customer', 'CTL-C03')",
+    "control_match_recall: missed ('customer', 'CTL-C05')",
+    "control_match_recall: missed ('customer', 'CTL-C06')",
+    "control_match_recall: missed ('customer', 'CTL-C08')",
+    "control_match_recall: missed ('product', 'CTL-P05')"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0080",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 2,
+    "input_tokens": 14720,
+    "output_tokens": 2679,
+    "cache_read_tokens": 11668,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.035228,
+    "latency_s": 18.349,
+    "models": [
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 11,
+    "items_dropped": 0,
+    "claims_attempt1": 11,
+    "verified_attempt1": 11,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     17399
+    ],
+    "tools_called": [
+     "evidence_store",
+     "evidence_store"
+    ]
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0117",
+   "case_id": "FCRM-2026-0117",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": 0.6666666666666666,
+    "control_match_recall": 0.75,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: geography: 3x4 vs 4x2",
+    "control_match_precision: extra ('geography', 'CTL-G03')",
+    "control_match_precision: extra ('product', 'CTL-P02')",
+    "control_match_precision: extra ('product', 'CTL-P03')",
+    "control_match_recall: missed ('product', 'CTL-P04')",
+    "control_match_recall: missed ('product', 'CTL-P05')"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0117",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 6920,
+    "output_tokens": 2318,
+    "cache_read_tokens": 5834,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.026519,
+    "latency_s": 15.691,
+    "models": [
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 11,
+    "items_dropped": 0,
+    "claims_attempt1": 11,
+    "verified_attempt1": 11,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     9238
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0128",
+   "case_id": "FCRM-2026-0128",
+   "metrics": {
+    "li_within_one": 0.5,
+    "control_match_precision": null,
+    "control_match_recall": 0.0,
+    "evidence_date_exact": null,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: customer: 2x3 vs 3x5",
+    "control_match_recall: missed ('customer', 'CTL-C01')",
+    "control_match_recall: missed ('customer', 'CTL-C02')",
+    "control_match_recall: missed ('customer', 'CTL-C03')",
+    "control_match_recall: missed ('customer', 'CTL-C04')",
+    "control_match_recall: missed ('customer', 'CTL-C05')",
+    "control_match_recall: missed ('customer', 'CTL-C06')",
+    "control_match_recall: missed ('customer', 'CTL-C07')",
+    "control_match_recall: missed ('customer', 'CTL-C08')",
+    "control_match_recall: missed ('product', 'CTL-P01')",
+    "control_match_recall: missed ('product', 'CTL-P04')",
+    "control_match_recall: missed ('product', 'CTL-P05')",
+    "control_match_recall: missed ('product', 'CTL-P06')"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0128",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 7149,
+    "output_tokens": 669,
+    "cache_read_tokens": 5834,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.010487,
+    "latency_s": 8.051,
+    "models": [
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 2,
+    "items_dropped": 0,
+    "claims_attempt1": 2,
+    "verified_attempt1": 2,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     7818
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0140",
+   "case_id": "FCRM-2026-0140",
+   "metrics": {
+    "li_within_one": 1.0,
+    "control_match_precision": 1.0,
+    "control_match_recall": 0.8,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "control_match_recall: missed ('channel', 'CTL-T02')"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0140",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 6488,
+    "output_tokens": 1395,
+    "cache_read_tokens": 5834,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.016425,
+    "latency_s": 10.257,
+    "models": [
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 5,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     7883
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0151",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "li_within_one": 0.6666666666666666,
+    "control_match_precision": 0.8125,
+    "control_match_recall": 1.0,
+    "evidence_date_exact": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "li_within_one: channel: 4x3 vs 4x5",
+    "control_match_precision: extra ('channel', 'CTL-T05')",
+    "control_match_precision: extra ('geography', 'CTL-G05')",
+    "control_match_precision: extra ('product', 'CTL-P06')"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0151",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 7381,
+    "output_tokens": 3886,
+    "cache_read_tokens": 5834,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.043121,
+    "latency_s": 22.758,
+    "models": [
+     "Sonnet 5.5"
+    ],
+    "items_accepted": 19,
+    "items_dropped": 0,
+    "claims_attempt1": 19,
+    "verified_attempt1": 19,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     11267
+    ],
+    "tools_called": []
+   }
+  }
+ ],
+ "timestamp": "2026-10-06T07:28:07.679531Z",
+ "usage": {
+  "calls": 6,
+  "retries": 0,
+  "blocked_rows": 0,
+  "failed_rows": 0,
+  "input_tokens": 42658,
+  "output_tokens": 10947,
+  "cache_read_tokens": 35004,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.13178,
+  "latency_p50_s": 15.691,
+  "latency_max_s": 22.758,
+  "models": [
+   "Sonnet 5.5"
+  ]
+ },
+ "judge_usage": null,
+ "sampled": {
+  "n": 5,
+  "of": 80,
+  "seed": 7,
+  "strategy": "demo+uniform",
+  "row_ids": [
+   "FCRM-2026-0080",
+   "FCRM-2026-0117",
+   "FCRM-2026-0128",
+   "FCRM-2026-0140",
+   "FCRM-2026-0151"
+  ],
+  "demo_row_ids": [
+   "FCRM-2026-0151"
+  ]
+ },
+ "judge": "bedrock"
+}

@@ -26,12 +26,42 @@ Source of each value
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
-from typing import Any, Final, Optional, Union
+from typing import Annotated, Any, Final, Optional, Union
 
 from fcrm_contracts.enums import AgentName, Tier
 from fcrm_guardrails.output_shape import AGENT_OUTPUT_TYPES
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+
+
+def _loads(value: Any) -> Any:
+    """``value`` decoded when it is text that is JSON, else unchanged."""
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return value
+    return value
+
+
+def decode_json_text(value: Any) -> Any:
+    """``value`` with JSON that a model sent as *text* decoded: the whole list, or
+    an item of it, written as a string instead of an array or an object, and a
+    single item sent without its list.
+
+    A model asked to call a tool with a list sometimes sends the list as one
+    JSON string (seen live from Sonnet 5.5: ``response`` was ``"[{...}]"``), which
+    fails validation and costs a whole retry (about 20k tokens for research).
+    The text is decoded and then validated against the contract exactly as an
+    array would have been; text that is not JSON is left alone to fail.
+    """
+    value = _loads(value)
+    if isinstance(value, dict):
+        return [value]
+    if isinstance(value, list):
+        return [_loads(item) for item in value]
+    return value
 
 
 class AgentSpec(BaseModel):
@@ -51,6 +81,11 @@ class AgentSpec(BaseModel):
     eval_set: str
     tool_call_cap: int = Field(ge=0)
     modes: tuple[str, ...] = ()
+    may_be_empty: bool = False
+    """An empty result is a correct answer (the watchlist's "no re-flag", the
+    critic's "no finding", the policy-gap agent's "every gap is closed"), so
+    Guard 4 passes it; every other agent still fails closed on empty. Mirrors
+    ``ai/agents/<name>.agent.yaml may_be_empty`` (a unit test keeps them equal)."""
 
     def output_type(self) -> Any:
         """The Pydantic AI ``output_type``: a list of the agent's proposal
@@ -60,7 +95,7 @@ class AgentSpec(BaseModel):
             if len(self.output_types) == 1
             else Union.__getitem__(self.output_types)
         )
-        return list[items]
+        return Annotated[list[items], BeforeValidator(decode_json_text)]
 
 
 def _spec(
@@ -75,6 +110,7 @@ def _spec(
     cap: int,
     users: Optional[tuple[str, ...]] = None,
     modes: tuple[str, ...] = (),
+    may_be_empty: bool = False,
 ) -> AgentSpec:
     return AgentSpec(
         name=name,
@@ -89,6 +125,7 @@ def _spec(
         eval_set=eval_set,
         tool_call_cap=cap,
         modes=modes,
+        may_be_empty=may_be_empty,
     )
 
 
@@ -101,10 +138,10 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             Tier.CHEAP,
             ("field_rules", "precedent_search"),
             ("case_record", "field_rules", "precedent_search"),
-            ("declare_gap",),
+            (),
             gate="fast_lane_confirm",
             eval_set="screening/fast-lane-100",
-            cap=1,
+            cap=0,
         ),
         _spec(
             A.INTAKE,
@@ -114,7 +151,7 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             ("cite_verbatim", "declare_gap"),
             gate="po_confirm_value",
             eval_set="intake/extraction-20",
-            cap=2,
+            cap=0,
         ),
         _spec(
             A.RESEARCH,
@@ -128,10 +165,10 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
                 "jurisdiction_list",
                 "control_inventory",
             ),
-            ("cite_verbatim", "declare_gap", "compare_precedent"),
+            ("cite_verbatim", "declare_gap"),
             gate="review_item",
             eval_set="research/clauses-40",
-            cap=3,
+            cap=1,
         ),
         _spec(
             A.ASSESSMENT,
@@ -148,7 +185,7 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             ("cite_verbatim", "compare_precedent"),
             gate="review_item",
             eval_set="assessment/ratings-80",
-            cap=2,
+            cap=1,
         ),
         _spec(
             A.CRITIC,
@@ -164,7 +201,8 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             ("compare_precedent",),
             gate="review_item",
             eval_set="critic/planted-60",
-            cap=3,
+            cap=1,
+            may_be_empty=True,
         ),
         _spec(
             A.NARRATIVE,
@@ -180,7 +218,7 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             ("draft_for_business_reader", "batch_questions"),
             gate="completeness",
             eval_set="narrative/completeness-30",
-            cap=2,
+            cap=1,
             users=("narrative.completeness.user", "narrative.recommendation.user"),
             modes=("completeness", "recommendation"),
         ),
@@ -189,10 +227,10 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             Tier.MID,
             ("audit_log",),
             ("case_record", "audit_log"),
-            ("cite_verbatim", "declare_gap"),
+            (),
             gate=None,
             eval_set="examiner/questions-120",
-            cap=2,
+            cap=1,
         ),
         _spec(
             A.WATCHLIST,
@@ -202,7 +240,8 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             ("cite_verbatim",),
             gate="reflag_ack",
             eval_set="watchlist/reflag-24",
-            cap=2,
+            cap=0,
+            may_be_empty=True,
         ),
         _spec(
             A.POLICY_GAP,
@@ -212,7 +251,8 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             ("declare_gap", "cite_verbatim"),
             gate=None,
             eval_set="policy_gap/suggestions-14",
-            cap=4,
+            cap=1,
+            may_be_empty=True,
         ),
     )
 }

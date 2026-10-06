@@ -9,15 +9,23 @@ from typing import Optional
 
 import pytest
 from fcrm_agents import BUILDERS, PackOverflowError, builder_for, estimate_tokens
-from fcrm_agents.builders import IntakePackBuilder, ResearchPackBuilder
+from fcrm_agents.builders import (
+    FATF_LIST_ID,
+    IntakePackBuilder,
+    ResearchPackBuilder,
+    cite_case,
+    gap_ids,
+)
 from fcrm_agents.context_pack import (
     CHARS_PER_TOKEN,
     ContextPackBuilder,
+    GapRecord,
     PackBuildError,
+    PackDraft,
     ScopedTools,
     fit_items,
 )
-from fcrm_agents.demo import demo_request
+from fcrm_agents.demo import DEMO_DOCUMENT, demo_request
 from fcrm_agents.spec import get_spec
 from fcrm_contracts.enums import AgentName, Domain
 from fcrm_contracts.proposals.provenance import ClauseSourceRef, DocSourceRef
@@ -104,6 +112,41 @@ async def test_builder_section_order_is_fixed(
     assert pack.section_names()[2:] == order
 
 
+async def test_the_case_source_holds_the_identity_lines_case_facts() -> None:
+    """The screening agent quotes the change types the identity line prints (the
+    fast-lane rule turns on them); the case source must hold what the line says,
+    or the quote is rejected and a retry is spent on a fact the pack showed."""
+    pack = await builder_for(AgentName.SCREENING).build(
+        demo_request(AgentName.SCREENING), REGISTRY
+    )
+    head = pack.sections["identity"].split(" · domains in scope")[0]
+    assert "· types " in head
+    case = next(s for s in pack.sources if s.key == f"case:{DEMO_CASE_ID}")
+    assert head in case.text
+    assert head.split(" · ", 2)[2] in case.text
+
+
+def test_a_field_the_owner_left_empty_is_quotable_as_the_line_the_pack_shows() -> None:
+    """A reason says "volume not recorded" by quoting ``F05 · ... · EMPTY · -``;
+    the line is in the pack, so it must be in the case source too."""
+    record = CaseRecordOutput(
+        case_id="FCRM-2026-0089",
+        change_types=["new_feature"],
+        fields={
+            "F02": {"value": "Real-time balance alerts", "source": None},
+            "F05": {"value": None, "source": None},
+        },
+        submission_version=1,
+    )
+    draft = PackDraft({})
+    cite_case(
+        draft, record, {"F02": "Change description", "F05": "Expected annual volume"}
+    )
+    (case,) = draft.sources.values()
+    assert "F05 · Expected annual volume · EMPTY · -" in case.text
+    assert "F02 · Change description · Real-time balance alerts · -" in case.text
+
+
 async def test_builder_pack_hash_is_stable_across_builds() -> None:
     request = demo_request(AgentName.RESEARCH)
     first = await ResearchPackBuilder().build(request, REGISTRY)
@@ -165,6 +208,46 @@ async def test_watchlist_candidates_are_the_two_fixture_reflag_cases() -> None:
     assert "FCRM-2026-0144" in pack.sections["candidates"]
     assert "FCRM-2026-0147" in pack.sections["candidates"]
     assert "Algeria · added" in pack.sections["list_diff"]
+
+
+async def test_watchlist_list_lines_print_the_handle_and_the_verbatim_line() -> None:
+    """The first live run found the model citing a list by an id the pack never
+    showed. Every diff line prints ``list_id@version`` and the line the source
+    holds, so the handle is copied and the quote verifies."""
+    pack = await builder_for(AgentName.WATCHLIST).build(
+        demo_request(AgentName.WATCHLIST), REGISTRY
+    )
+    source = next(s for s in pack.sources if s.key.startswith("list:"))
+    for line in pack.sections["list_diff"].split("\n"):
+        assert f"{FATF_LIST_ID}@" in line
+        assert line.split("line: ")[1] in source.text
+
+
+async def test_intake_pages_say_which_document_they_belong_to() -> None:
+    """A page cited as ``{kind: doc, doc_id, ...}`` needs its ``doc_id`` shown."""
+    pack = await IntakePackBuilder().build(demo_request(AgentName.INTAKE), REGISTRY)
+    document = pack.sections["document"]
+    assert document.count("Document ") >= 1
+    assert f"Document {DEMO_DOCUMENT}" in document
+
+
+def test_gap_ids_count_each_cases_gaps_from_one() -> None:
+    gaps = [("CASE-A", 5, "x"), ("CASE-B", 9, "y"), ("CASE-A", 12, "z")]
+    assert gap_ids(gaps) == ["GAP-CASE-A-1", "GAP-CASE-B-1", "GAP-CASE-A-2"]
+
+
+async def test_policy_gap_lines_start_with_the_gap_id_the_agent_copies() -> None:
+    request = demo_request(AgentName.POLICY_GAP).model_copy(
+        update={
+            "gap_records": [
+                GapRecord(case_id=DEMO_CASE_ID, seq=45, text="no cash-pickup clause")
+            ]
+        }
+    )
+    pack = await builder_for(AgentName.POLICY_GAP).build(request, REGISTRY)
+    lines = pack.sections["gaps"].split("\n")
+    assert lines[0].startswith(f"GAP-{DEMO_CASE_ID}-1 · #")
+    assert lines[1].startswith(f"GAP-{DEMO_CASE_ID}-2 · #45 · ")
 
 
 async def test_critic_pack_shows_code_rules_and_stale_flag() -> None:

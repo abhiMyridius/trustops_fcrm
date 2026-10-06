@@ -8,17 +8,24 @@ mirror of one ``fcrm_harness.budgets`` document; H1 loads it with
 :meth:`CaseBudget.from_snapshot`, mutates it inside the transition's Mongo
 transaction, and persists :meth:`CaseBudget.snapshot`.
 
-Budget table (seed ``budgets``; BUILD-PLAN §3.4): cheap 6k tokens / 60 s,
-mid 12k / 120 s, strong 20k / 180 s, judge 20k / 180 s (the seed's
+Budget table (BUILD-PLAN §3.4 priced it cheap 6k, mid 12k, strong 20k, judge 20k;
+the first live run showed a run costs more, and the tokens are now set from
+measured usage, about 30% over the p90 of an attempt, in ``ai/models/tiers.yaml``,
+which ``tests/unit/packages/agents/test_budgets_agree.py`` keeps equal to this
+table): cheap 15k tokens / 60 s, mid 11k / 120 s, strong 24k / 180 s, judge 15k /
+180 s (the seed's
 "strong + judge"), one retry each, 120k tokens per case. A dispatch
 reserves ``tokens x (1 + retries)`` so a Guard 4 retry can never push a case
 over its cap mid-run (design A §3.3).
 
 Fallback order (design B §4.4): attempt 1 runs the tier's
 ``FallbackModel(primary, fallback)`` (transport errors fall through to the
-fallback); attempt 2 runs the fallback model alone with a halved
-``max_tokens`` hint; there is no attempt 3: a second failure opens the human
-``handoff`` gate. Model ids are never named here (ADR-04): only slots.
+fallback); attempt 2 runs the fallback model alone with the tier's own
+``max_tokens`` (it was halved before the first live run: Sonnet 5.5 and Opus 5.5
+think adaptively and cannot switch it off, and half an allowance went on
+thinking before the forced tool call, so a retried row returned an empty call);
+there is no attempt 3: a second failure opens the human ``handoff`` gate.
+Model ids are never named here (ADR-04): only slots.
 """
 
 from __future__ import annotations
@@ -62,10 +69,10 @@ class TierBudget:
 
 
 TIER_BUDGETS: Final[Mapping[Tier, TierBudget]] = {
-    Tier.CHEAP: TierBudget(Tier.CHEAP, tokens=6_000, wall_s=60),
-    Tier.MID: TierBudget(Tier.MID, tokens=12_000, wall_s=120),
-    Tier.STRONG: TierBudget(Tier.STRONG, tokens=20_000, wall_s=180),
-    Tier.JUDGE: TierBudget(Tier.JUDGE, tokens=20_000, wall_s=180),
+    Tier.CHEAP: TierBudget(Tier.CHEAP, tokens=15_000, wall_s=60),
+    Tier.MID: TierBudget(Tier.MID, tokens=11_000, wall_s=120),
+    Tier.STRONG: TierBudget(Tier.STRONG, tokens=24_000, wall_s=180),
+    Tier.JUDGE: TierBudget(Tier.JUDGE, tokens=15_000, wall_s=180),
 }
 
 CASE_TOKEN_CAP: Final[int] = 120_000
@@ -125,7 +132,7 @@ def attempt_plan(
         slot=ModelSlot.PRIMARY_WITH_FALLBACK if first else ModelSlot.FALLBACK_ONLY,
         token_limit=budget.tokens,
         wall_s=budget.wall_s,
-        max_tokens_factor=1.0 if first else 0.5,
+        max_tokens_factor=1.0,
     )
 
 

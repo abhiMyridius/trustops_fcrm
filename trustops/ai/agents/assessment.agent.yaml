@@ -1,6 +1,6 @@
 # ai/agents/assessment.agent.yaml  (design B §2.4)
 name: assessment
-version: 1
+version: 2
 purpose: >-
   Propose likelihood and impact (1-5) per in-scope domain with a justification,
   and a strength rating (0-10) with evidence for each applicable control in
@@ -11,7 +11,7 @@ lifecycle_state: assess
 trigger: "H1 enters CaseState.ASSESS (parallel with research); CaseState.CLARIFICATION re-run with payload.changed_fields and new_doc_ids; watchlist re-flag acknowledgement when a geography control depends on list status"
 tier: strong
 budget_tier: strong
-budget: {tokens: 20000, wall_s: 180, retries: 1}
+budget: {tokens: 24000, wall_s: 180, retries: 1}
 # ADR-07 / D-20a: no scoring tool. The seed's agent row listed
 # `scoring_engine`; it is deliberately absent here, from
 # ai/policies/tool_permits.json and from every tool spec. A lock test
@@ -19,7 +19,7 @@ budget: {tokens: 20000, wall_s: 180, retries: 1}
 # whose backing service is S2 is permitted to any agent.
 tools: [control_inventory, evidence_store, precedent_search]
 tool_caps: {control_inventory: 1, evidence_store: 2, precedent_search: 1}
-tool_call_cap: 2
+tool_call_cap: 1                                    # one tool call: measured, the models call tools the pack makes unnecessary and each call re-sends the request (budget in tiers.yaml)
 pack_tools: [case_record, submission_diff, control_inventory, evidence_store, precedent_search, evidence_ledger]
 skills: [cite_verbatim, compare_precedent]
 context_pack: assessment

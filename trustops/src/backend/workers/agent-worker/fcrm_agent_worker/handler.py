@@ -56,6 +56,7 @@ from fcrm_contracts.enums import AgentName
 from fcrm_contracts.events.envelope import Envelope
 from fcrm_contracts.events.payloads import AgentDone, AgentFailed, JobPayload
 from fcrm_contracts.proposals.screening import ScreeningProposal
+from fcrm_contracts.versions import PinnedVersions
 from fcrm_guardrails import CaseBudget, GuardName, GuardResult, PermitGuard
 from fcrm_guardrails.opa_client import OPAClient
 from fcrm_tools import ToolError, ToolNotPermittedError, ToolRegistry, ToolScopeError
@@ -78,7 +79,7 @@ from fcrm_agent_worker.topology import (
 
 logger = logging.getLogger(__name__)
 
-InstructionsFor = Callable[[AgentName], Optional[str]]
+InstructionsFor = Callable[[AgentName, Optional[str], PinnedVersions], Optional[str]]
 
 #: Design A §10.6's canonical ``AgentFailed.reason`` vocabulary, by the
 #: guard that stopped the job. No table maps ``GuardName`` -> this
@@ -256,7 +257,7 @@ class AgentJobConsumer(Consumer):
         permit_client: OPAClient,
         audit: AuditClient,
         tiers_config: Mapping[str, Any],
-        instructions_for: InstructionsFor = lambda _agent: None,
+        instructions_for: InstructionsFor = lambda _agent, _mode, _versions: None,
         model_factory: ModelFactory = live_model_for_slot,
         tool_call_cap: Optional[int] = None,
         client: Optional[AsyncMongoClient[Document]] = None,
@@ -274,10 +275,10 @@ class AgentJobConsumer(Consumer):
             permit_client: Guard 2's OPA client (``fcrm_common.authz
                 .OPAClient`` in production, fails closed).
             audit: The S4 ``POST /records`` client.
-            instructions_for: The agent's rendered system prompt text
-                (``None`` runs with no system instructions -- full
-                Jinja-templated prompt rendering is a separate, not-yet-
-                built concern; see the package report).
+            instructions_for: ``(agent, mode, pinned versions)`` -> the
+                agent's rendered system prompt text (``None`` runs with no
+                system instructions; production wiring renders through
+                :class:`fcrm_prompts.InstructionRenderer`).
             tiers_config: Parsed ``ai/models/tiers.yaml`` (never a model id
                 itself -- ADR-04).
             model_factory: Builds the attempt's model
@@ -338,7 +339,9 @@ class AgentJobConsumer(Consumer):
                 registry=self._registry,
                 permit=self._permit,
                 budget=budget,
-                instructions=self._instructions_for(job.agent),
+                instructions=self._instructions_for(
+                    job.agent, pack.mode, pack.versions
+                ),
                 tiers_config=self._tiers_config,
                 model_factory=self._model_factory,
                 tool_call_cap=self._tool_call_cap,

@@ -36,16 +36,24 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Mapping, Sequence
 from re import compile as re_compile
-from typing import Any, Final, Literal, Optional, Union
+from typing import Any, Final, Optional
 
 from fcrm_agents.context_pack import ContextPack
-from fcrm_agents.models import TierModels, build_model, model_settings_for, tier_models
+from fcrm_agents.models import (
+    TierModels,
+    bedrock_chain,
+    build_model,
+    model_settings_for,
+    tier_models,
+)
 from fcrm_agents.runtime import (
     HARNESS_ROLE,
     AgentDeps,
     AgentRunResult,
     AttemptRecord,
     RunVerdict,
+    agent_capabilities,
+    request_limit,
     tool_functions,
 )
 from fcrm_agents.spec import AgentSpec
@@ -67,10 +75,12 @@ from fcrm_guardrails import (
 )
 from fcrm_guardrails.base import AUDIT_TYPES
 from fcrm_guardrails.budget import TIER_BUDGETS, AttemptPlan, ModelSlot
+from fcrm_guardrails.context import AvailableSource
 from fcrm_tools import ToolRegistry
 from pydantic import BaseModel
 from pydantic_ai import (
     Agent,
+    RunUsage,
     ToolOutput,
     UnexpectedModelBehavior,
     UsageLimitExceeded,
@@ -78,8 +88,6 @@ from pydantic_ai import (
 )
 from pydantic_ai.exceptions import FallbackExceptionGroup
 from pydantic_ai.models import Model
-from pydantic_ai.models.bedrock import BedrockConverseModel
-from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.providers.bedrock import BedrockProvider
 
 logger = logging.getLogger(__name__)
@@ -88,6 +96,12 @@ _OUTPUT_INDEX_PATTERN: Final = re_compile(r"^outputs\[(\d+)\]")
 
 #: Keys of the usage breakdown ``AgentDone.usage`` wants.
 UsageBreakdown = dict[str, int]
+USAGE_KEYS: Final = (
+    "input_tokens",
+    "output_tokens",
+    "cache_read_tokens",
+    "cache_write_tokens",
+)
 
 ModelFactory = Callable[[TierModels, AttemptPlan], Model]
 
@@ -103,15 +117,7 @@ def live_model_for_slot(
     """
     if plan.slot is ModelSlot.PRIMARY_WITH_FALLBACK:
         return build_model(models, provider=provider)
-    bedrock: Union[BedrockProvider, Literal["bedrock"]] = (
-        provider if provider is not None else "bedrock"
-    )
-    return FallbackModel(
-        *(
-            BedrockConverseModel(model_id, provider=bedrock)
-            for model_id in models.fallbacks
-        )
-    )
+    return bedrock_chain(models, models.fallbacks, provider=provider)
 
 
 def _drop(
@@ -130,6 +136,42 @@ def _drop(
     return kept, [f"outputs[{i}]" for i in sorted(indexes)]
 
 
+FEEDBACK_LINES: Final = 8
+"""Failing items a retry is shown (the first ones; the rest repeat the same
+mistake)."""
+FEEDBACK_CHARS: Final = 240
+
+RETRY_HEADER: Final = (
+    "## previous_attempt\n"
+    "Your previous answer was refused by the checks below. Answer again, "
+    "through the output tool, with the complete result. Fix each item from "
+    "the sources shown above, or leave out any item you cannot source."
+)
+
+
+def retry_text(user_text: str, feedback: Sequence[str]) -> str:
+    """``user_text`` with the reasons the previous attempt was refused
+    appended, or unchanged when there are none. The feedback is Guard 4's own
+    per-item lines (``details["feedback"]``): code, never model text."""
+    if not feedback:
+        return user_text
+    lines = "\n".join(
+        f"- {line[:FEEDBACK_CHARS]}" for line in feedback[:FEEDBACK_LINES]
+    )
+    return f"{user_text}\n\n{RETRY_HEADER}\n{lines}"
+
+
+def describe_failure(exc: BaseException) -> str:
+    """One line saying why a model call failed: the error and, when Pydantic AI
+    wrapped one (an output that failed validation is reported as "exceeded
+    maximum output retries"), what it wrapped."""
+    text = str(exc)
+    cause = exc.__cause__
+    if cause is not None:
+        text = f"{text}: {type(cause).__name__}: {cause}"
+    return " ".join(text.split())[:400]
+
+
 def _model_name(model: Model) -> str:
     """A loggable model identifier (never a raw model id outside
     ``ai/models/tiers.yaml`` per ADR-04 -- this reads the *runtime*
@@ -137,10 +179,9 @@ def _model_name(model: Model) -> str:
     return str(getattr(model, "model_name", type(model).__name__))
 
 
-def _usage_of(run: Any) -> UsageBreakdown:
+def _usage_of(usage: RunUsage) -> UsageBreakdown:
     """The four-key usage breakdown ``AgentDone.usage`` wants, from one
-    Pydantic AI ``AgentRunResult.usage()``/``.usage``."""
-    usage = run.usage
+    attempt's Pydantic AI :class:`~pydantic_ai.RunUsage`."""
     return {
         "input_tokens": usage.input_tokens,
         "output_tokens": usage.output_tokens,
@@ -183,7 +224,7 @@ class LiveRun:
             tiers_config: Parsed ``ai/models/tiers.yaml``.
             model_factory: Builds the model for one attempt
                 (:func:`live_model_for_slot` in production).
-            tool_call_cap: Overrides ``spec.tool_call_cap`` when H2's
+            tool_call_cap: Lowers ``spec.tool_call_cap`` when H2's
                 ``AGENT_MAX_TOOL_CALLS`` setting is tighter (design A
                 §10.6's "refuses tool loops beyond max_tool_calls").
             starting_attempt: Normally 1; honours ``JobPayload.attempt``
@@ -200,11 +241,15 @@ class LiveRun:
         self.max_attempts = TIER_BUDGETS[spec.tier].max_attempts
         self.model_factory = model_factory
         self.tool_call_cap = (
-            tool_call_cap if tool_call_cap is not None else spec.tool_call_cap
+            spec.tool_call_cap
+            if tool_call_cap is None
+            else min(tool_call_cap, spec.tool_call_cap)
         )
         self.starting_attempt = starting_attempt
         self.model_used = ""
-        self.last_usage: UsageBreakdown = {}
+        self.usage_total: UsageBreakdown = {}
+        self.tool_sources: list[AvailableSource] = []
+        self.feedback: list[str] = []
         self.base = GuardContext(
             case_id=pack.case_id,
             run_id=pack.run_id,
@@ -278,7 +323,10 @@ class LiveRun:
                 self.models, max_tokens_factor=plan.max_tokens_factor
             ),
             retries=0,
-            tools=tool_functions(self.spec, self.registry),
+            tools=tool_functions(self.spec, self.registry)
+            if self.tool_call_cap
+            else [],
+            capabilities=agent_capabilities(),
             name=self.spec.name.value,
         )
         deps = AgentDeps(
@@ -287,14 +335,20 @@ class LiveRun:
             agent=self.spec.name.value,
             registry=self.registry,
             permit=self.permit,
+            versions=self.pack.versions,
+            tool_call_cap=self.tool_call_cap,
         )
+        self.tool_sources = deps.tool_sources
+        record.tools_called = deps.tools_called
+        usage = RunUsage()
         try:
             run = await agent.run(
                 user_text,
                 deps=deps,
+                usage=usage,
                 usage_limits=UsageLimits(
                     total_tokens_limit=plan.token_limit,
-                    request_limit=1 + self.tool_call_cap,
+                    request_limit=request_limit(self.tool_call_cap),
                 ),
             )
         except UsageLimitExceeded as exc:
@@ -318,22 +372,46 @@ class LiveRun:
                 if attempt < self.max_attempts
                 else GuardStatus.BLOCKED
             )
+            detail = describe_failure(exc)
+            logger.warning(
+                "model call failed (%s, attempt %d): %s",
+                self.spec.name.value,
+                attempt,
+                detail,
+                extra={"agent": self.spec.name.value, "attempt": attempt},
+            )
+            if isinstance(exc, UnexpectedModelBehavior):
+                self.feedback = [
+                    "your answer was not a valid call of the output tool "
+                    f"({detail[:FEEDBACK_CHARS]}); call it once with the "
+                    "complete result"
+                ]
             record.guard_results.append(
                 GuardResult(
                     guard=GuardName.OUTPUT_SHAPE,
                     status=status,
-                    summary=f"attempt {attempt}: model call failed: {exc}",
+                    summary=f"attempt {attempt}: model call failed: {detail}",
                     details={"error": type(exc).__name__},
                     audit_type=AUDIT_TYPES[GuardName.OUTPUT_SHAPE],
                 )
             )
             return None, record
-        self.last_usage = _usage_of(run)
-        record.tokens_used = (
-            self.last_usage["input_tokens"] + self.last_usage["output_tokens"]
-        )
-        record.tool_calls = run.usage.tool_calls
+        finally:
+            self._bill(record, usage)
         return list(run.output), record
+
+    def _bill(self, record: AttemptRecord, usage: RunUsage) -> None:
+        """Charge an attempt's tokens to the job, whatever became of the attempt.
+
+        A call whose answer was refused, cut off or timed out still spent its
+        tokens; counting only the attempt that succeeded under-reported the case
+        ledger (the first live run's retried narrative showed ``[0, 8386]``).
+        """
+        spent = _usage_of(usage)
+        record.tokens_used = spent["input_tokens"] + spent["output_tokens"]
+        record.tool_calls = usage.tool_calls
+        for key in USAGE_KEYS:
+            self.usage_total[key] = self.usage_total.get(key, 0) + spent[key]
 
     async def post_guards(
         self,
@@ -351,13 +429,17 @@ class LiveRun:
             update={
                 "attempt": attempt,
                 "outputs": outputs,
-                "sources": self.pack.sources,
+                "sources": [*self.tool_sources, *self.pack.sources],
+                "may_be_empty": self.spec.may_be_empty,
             }
         )
         shape = await OutputShapeGuard().check(ctx)
         record.guard_results.append(shape)
         if shape.status is GuardStatus.RETRY:
             if not last:
+                self.feedback = [
+                    str(line) for line in shape.details.get("feedback", [])
+                ]
                 return None
             self._block(GuardName.OUTPUT_SHAPE, f"{shape.summary}; no attempt left")
             return False
@@ -381,8 +463,12 @@ class LiveRun:
     async def attempt(
         self, attempt: int, user_text: str, *, last: bool
     ) -> Optional[bool]:
-        """Run one attempt end to end (see :meth:`post_guards`)."""
-        produced, record = await self.call_model(attempt, user_text)
+        """Run one attempt end to end (see :meth:`post_guards`). A retry is
+        shown why the last answer was refused (ADR-14: "the validation error
+        appended")."""
+        produced, record = await self.call_model(
+            attempt, retry_text(user_text, self.feedback) if attempt > 1 else user_text
+        )
         self.result.attempts.append(record)
         self.result.tokens_used += record.tokens_used
         if produced is None:
@@ -412,8 +498,9 @@ async def run_agent_live(
 
     Returns ``(result, model_used, usage)``: ``result`` is exactly what
     ``run_agent_offline`` would hand H1 (same type, same verdict
-    semantics); ``model_used`` and ``usage`` are the last attempt's, for
-    ``AgentDone.model``/``AgentDone.usage``.
+    semantics); ``model_used`` is the last attempt's and ``usage`` is the whole
+    job's, every attempt included, for ``AgentDone.model``/``AgentDone.usage``
+    (H1 sums it into the case's token total).
     """
     run = LiveRun(
         spec,
@@ -441,4 +528,4 @@ async def run_agent_live(
         "live agent run finished",
         extra={"agent": spec.name.value, "verdict": run.result.verdict.value},
     )
-    return run.result, run.model_used, run.last_usage
+    return run.result, run.model_used, run.usage_total

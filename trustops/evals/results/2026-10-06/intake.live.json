@@ -1,0 +1,464 @@
+{
+ "agent": "intake",
+ "dataset": "intake/extraction-80",
+ "dataset_sha256": "1d53e364cfa7e767d744fee749473e2463ef506e4cfb39b64a00da9823df5277",
+ "producer": "live",
+ "n": 5,
+ "primary_metric": "field_extraction_accuracy",
+ "metrics": {
+  "field_extraction_accuracy": 1.0,
+  "source_span_accuracy": 1.0,
+  "category_f1": 0.6666666666666666,
+  "gap_question_precision": 1.0,
+  "citation_validity": 1.0
+ },
+ "summaries": [
+  {
+   "name": "field_extraction_accuracy",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 9.0,
+   "denominator": 9.0,
+   "rows_scored": 1,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": true,
+   "description": "normalised exact value match per expected field",
+   "flags": []
+  },
+  {
+   "name": "source_span_accuracy",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 9.0,
+   "denominator": 9.0,
+   "rows_scored": 1,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "same doc/page, overlapping lines",
+   "flags": []
+  },
+  {
+   "name": "category_f1",
+   "kind": "deterministic",
+   "score": 0.6666666666666666,
+   "numerator": 10.0,
+   "denominator": 15.0,
+   "rows_scored": 5,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": false,
+   "description": "micro-F1 over change types",
+   "flags": [
+    "fn ['new_product']",
+    "fn ['new_feature', 'process_change']",
+    "fn ['new_geography', 'vendor_onboarding']"
+   ]
+  },
+  {
+   "name": "gap_question_precision",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 4.0,
+   "denominator": 4.0,
+   "rows_scored": 1,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "gap questions about really-absent fields",
+   "flags": []
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 14.0,
+   "denominator": 14.0,
+   "rows_scored": 3,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "FCRM-2026-0151",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "field_extraction_accuracy": 1.0,
+    "source_span_accuracy": 1.0,
+    "category_f1": 0.8,
+    "gap_question_precision": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "category_f1: fn ['new_product']"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0151",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 4901,
+    "output_tokens": 1822,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.014011,
+    "latency_s": 9.587,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 7,
+    "items_dropped": 0,
+    "claims_attempt1": 11,
+    "verified_attempt1": 11,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     6723
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0080",
+   "case_id": "FCRM-2026-0080",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_feature', 'process_change']"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0080",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 4745,
+    "output_tokens": 490,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.007195,
+    "latency_s": 3.923,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 7,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     5235
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0097",
+   "case_id": "FCRM-2026-0097",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0097",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 4752,
+    "output_tokens": 725,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.008377,
+    "latency_s": 6.432,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 9,
+    "items_dropped": 0,
+    "claims_attempt1": 2,
+    "verified_attempt1": 2,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     5477
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0109",
+   "case_id": "FCRM-2026-0109",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 0.0,
+    "gap_question_precision": null,
+    "citation_validity": null
+   },
+   "flags": [
+    "category_f1: fn ['new_geography', 'vendor_onboarding']"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0109",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 4753,
+    "output_tokens": 936,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.009433,
+    "latency_s": 5.479,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 14,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     5689
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0144",
+   "case_id": "FCRM-2026-0144",
+   "metrics": {
+    "field_extraction_accuracy": null,
+    "source_span_accuracy": null,
+    "category_f1": 1.0,
+    "gap_question_precision": null,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0144",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 4747,
+    "output_tokens": 868,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.009087,
+    "latency_s": 7.428,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 12,
+    "items_dropped": 0,
+    "claims_attempt1": 1,
+    "verified_attempt1": 1,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     5615
+    ],
+    "tools_called": []
+   }
+  }
+ ],
+ "timestamp": "2026-10-06T07:28:07.679531Z",
+ "usage": {
+  "calls": 5,
+  "retries": 0,
+  "blocked_rows": 0,
+  "failed_rows": 0,
+  "input_tokens": 23898,
+  "output_tokens": 4841,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.048103,
+  "latency_p50_s": 6.432,
+  "latency_max_s": 9.587,
+  "models": [
+   "Haiku 4.5"
+  ]
+ },
+ "judge_usage": null,
+ "sampled": {
+  "n": 5,
+  "of": 80,
+  "seed": 7,
+  "strategy": "demo+uniform",
+  "row_ids": [
+   "FCRM-2026-0151",
+   "FCRM-2026-0080",
+   "FCRM-2026-0097",
+   "FCRM-2026-0109",
+   "FCRM-2026-0144"
+  ],
+  "demo_row_ids": [
+   "FCRM-2026-0151"
+  ]
+ },
+ "judge": "bedrock"
+}

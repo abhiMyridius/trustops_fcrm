@@ -10,12 +10,19 @@ from typing import Any
 
 import pytest
 from fcrm_agents import REGISTRY, ModelConfigError, build_agent, get_spec, tier_models
-from fcrm_agents.models import load_tiers_config, model_settings_for
+from fcrm_agents.models import (
+    bedrock_chain,
+    build_model,
+    load_tiers_config,
+    model_defaults,
+    model_settings_for,
+)
+from fcrm_agents.spec import decode_json_text
 from fcrm_contracts.enums import AgentName, Tier
 from fcrm_contracts.proposals.research import ClauseProposal, PrecedentMatch
 from fcrm_guardrails.output_shape import AGENT_OUTPUT_TYPES
 from fcrm_prompts import PromptLibrary
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 from pydantic_ai.models.bedrock import BedrockConverseModel
 from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.providers.bedrock import BedrockProvider
@@ -92,6 +99,47 @@ def test_output_type_validates_a_mixed_item_list() -> None:
     assert [type(i) for i in items] == [PrecedentMatch, ClauseProposal]
 
 
+PRECEDENT = {
+    "case_id": "FCRM-2026-0118",
+    "similarity": 0.7,
+    "outcome": "x",
+    "note": "y",
+}
+
+
+def test_a_list_a_model_sent_as_json_text_is_decoded_and_validated() -> None:
+    """Seen live from Sonnet 5.5: the output tool's ``response`` was the string
+    ``"[{...}]"``, which failed validation and cost a whole retry."""
+    adapter: TypeAdapter[Any] = TypeAdapter(get_spec("research").output_type())
+    items = adapter.validate_python(json.dumps([PRECEDENT]))
+    assert [type(i) for i in items] == [PrecedentMatch]
+
+
+def test_an_item_sent_as_json_text_inside_the_list_is_decoded() -> None:
+    adapter: TypeAdapter[Any] = TypeAdapter(get_spec("research").output_type())
+    items = adapter.validate_python([json.dumps(PRECEDENT), PRECEDENT])
+    assert [type(i) for i in items] == [PrecedentMatch, PrecedentMatch]
+
+
+def test_a_single_item_sent_without_its_list_is_wrapped() -> None:
+    adapter: TypeAdapter[Any] = TypeAdapter(get_spec("research").output_type())
+    assert len(adapter.validate_python(PRECEDENT)) == 1
+
+
+def test_decoding_does_not_make_an_invalid_item_valid() -> None:
+    adapter: TypeAdapter[Any] = TypeAdapter(get_spec("research").output_type())
+    with pytest.raises(ValidationError):
+        adapter.validate_python(json.dumps([{**PRECEDENT, "similarity": "high"}]))
+    with pytest.raises(ValidationError):
+        adapter.validate_python("not json at all")
+
+
+def test_decode_json_text_leaves_everything_else_alone() -> None:
+    assert decode_json_text([1, 2]) == [1, 2]
+    assert decode_json_text(None) is None
+    assert decode_json_text("plain") == "plain"
+
+
 @pytest.mark.skipif(not HAS_AI, reason="ai/ lane absent")
 @pytest.mark.parametrize("name", [a.value for a in AgentName])
 def test_registry_agrees_with_ai_agent_yaml(name: str) -> None:
@@ -104,8 +152,16 @@ def test_registry_agrees_with_ai_agent_yaml(name: str) -> None:
     assert spec.tool_call_cap == yaml_spec.tool_call_cap
     assert spec.gate == yaml_spec.gate
     assert spec.eval_set == yaml_spec.eval_set
+    assert spec.may_be_empty == yaml_spec.may_be_empty
     assert yaml_spec.prompt_id is not None
     assert spec.prompt_id == yaml_spec.prompt_id.system
+
+
+def test_only_agents_whose_contract_allows_it_may_return_nothing() -> None:
+    """Emptiness is a per-agent contract property; everything else fails
+    closed in Guard 4."""
+    allowed = {name.value for name, spec in REGISTRY.items() if spec.may_be_empty}
+    assert allowed == {"watchlist", "policy_gap", "critic"}
 
 
 @pytest.mark.skipif(not HAS_AI, reason="ai/ lane absent")
@@ -138,7 +194,7 @@ def test_load_tiers_config_absent_file_raises(tmp_path: Path) -> None:
         load_tiers_config(tmp_path / "ai")
 
 
-def test_model_settings_for_halves_max_tokens_on_retry() -> None:
+def test_model_settings_for_scales_max_tokens_by_the_factor_it_is_given() -> None:
     models = tier_models(Tier.CHEAP, FAKE_TIERS)
     first, retry = (
         model_settings_for(models),
@@ -182,3 +238,113 @@ def test_critic_runs_on_a_different_primary_than_the_assessor() -> None:
     critic = tier_models(get_spec("critic").tier, config)
     assessor = tier_models(get_spec("assessment").tier, config)
     assert critic.primary != assessor.primary
+
+
+EFFORT_TIERS: dict[str, Any] = {
+    "tiers": {
+        "strong": {
+            "primary": "thinker",
+            "fallbacks": ["plain-model"],
+            "max_tokens": 5000,
+            "wall_clock_s": 180,
+            "effort": "low",
+        },
+        "cheap": {
+            "primary": "plain-model",
+            "fallbacks": ["thinker"],
+            "max_tokens": 2000,
+            "wall_clock_s": 60,
+        },
+    },
+    "models": {
+        "thinker": {"effort_param": True, "prompt_cache": True},
+        "plain-model": {},
+    },
+}
+
+
+def test_tier_models_reads_the_effort_and_the_models_that_take_it() -> None:
+    strong = tier_models(Tier.STRONG, EFFORT_TIERS)
+    assert strong.effort == "low"
+    assert strong.effort_models == ("thinker",)
+    assert tier_models(Tier.CHEAP, EFFORT_TIERS).effort is None
+
+
+def test_effort_is_sent_only_to_the_models_that_take_it() -> None:
+    """Bedrock rejects ``output_config`` on Haiku and Nova, so the field is
+    a per-model default, never a chain-wide setting."""
+    strong = tier_models(Tier.STRONG, EFFORT_TIERS)
+    defaults = model_defaults(strong, "thinker")
+    assert defaults is not None
+    assert defaults["bedrock_additional_model_requests_fields"] == {
+        "output_config": {"effort": "low"}
+    }
+    assert model_defaults(strong, "plain-model") is None
+    assert "bedrock_additional_model_requests_fields" not in model_settings_for(strong)
+
+
+def test_cache_points_go_only_to_the_models_that_take_them() -> None:
+    """Nova rejects a cache point in the tool list, so it is per model too."""
+    strong = tier_models(Tier.STRONG, EFFORT_TIERS)
+    assert strong.cache_models == ("thinker",)
+    defaults = model_defaults(strong, "thinker")
+    assert defaults is not None
+    assert defaults["bedrock_cache_instructions"] is True
+    assert defaults["bedrock_cache_tool_definitions"] is True
+    assert model_defaults(strong, "plain-model") is None
+    assert "bedrock_cache_instructions" not in model_settings_for(strong)
+
+
+def test_a_tier_without_an_effort_still_caches_what_can_be_cached() -> None:
+    """No effort is asked of the model, but its prompt prefix is still cached."""
+    cheap = tier_models(Tier.CHEAP, EFFORT_TIERS)
+    defaults = model_defaults(cheap, "thinker")
+    assert defaults is not None
+    assert "bedrock_additional_model_requests_fields" not in defaults
+    assert defaults["bedrock_cache_instructions"] is True
+
+
+def test_the_chain_gives_each_child_its_own_defaults() -> None:
+    strong = tier_models(Tier.STRONG, EFFORT_TIERS)
+    chain = build_model(strong, provider=OFFLINE_PROVIDER)
+    by_name = {m.model_name: m for m in chain.models}
+    assert by_name["thinker"].settings == model_defaults(strong, "thinker")
+    assert by_name["plain-model"].settings is None
+
+
+def test_the_retry_chain_keeps_the_same_defaults_on_the_fallbacks() -> None:
+    strong = tier_models(Tier.STRONG, EFFORT_TIERS)
+    retry = bedrock_chain(strong, ["thinker", "plain-model"], provider=OFFLINE_PROVIDER)
+    assert [m.settings is not None for m in retry.models] == [True, False]
+
+
+@pytest.mark.skipif(not HAS_AI, reason="ai/ lane absent")
+def test_the_real_tiers_ask_the_thinking_models_for_a_bounded_effort() -> None:
+    config = load_tiers_config(REPO_AI)
+    for tier in (Tier.MID, Tier.STRONG, Tier.JUDGE):
+        chain = tier_models(tier, config)
+        assert chain.effort in {"low", "medium"}
+        assert chain.effort_models
+        assert chain.primary in chain.effort_models
+    cheap = tier_models(Tier.CHEAP, config)
+    assert cheap.effort is None
+    assert cheap.effort_models == ()
+
+
+@pytest.mark.skipif(not HAS_AI, reason="ai/ lane absent")
+def test_the_real_chains_send_cache_points_to_anthropic_models_only() -> None:
+    """Probed live: Bedrock rejects a cache point in the tool list on Nova and
+    on no Anthropic model, and rejects ``output_config`` on Haiku and Nova."""
+    config = load_tiers_config(REPO_AI)
+    families = {k: v["family"] for k, v in config["models"].items()}
+    for tier in Tier:
+        chain = tier_models(tier, config)
+        for model_id in chain.chain:
+            defaults = model_defaults(chain, model_id)
+            if families[model_id] == "amazon":
+                assert defaults is None, model_id
+            else:
+                assert defaults is not None, model_id
+                assert defaults["bedrock_cache_tool_definitions"] is True
+                has_effort = "bedrock_additional_model_requests_fields" in defaults
+                assert has_effort == (model_id in chain.effort_models)

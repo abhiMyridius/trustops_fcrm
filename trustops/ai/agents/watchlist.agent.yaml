@@ -1,6 +1,6 @@
 # ai/agents/watchlist.agent.yaml  (design B §2.8)
 name: watchlist
-version: 1
+version: 3
 purpose: >-
   When a new jurisdiction list version is published, write one re-flag
   proposal per candidate case that code selected (open cases whose
@@ -11,13 +11,14 @@ lifecycle_state: null                 # oversight job outside the case state mac
 trigger: "jurisdiction.list_published (S3 /jurisdictions/versions/{v}/activate) -> H1 computes candidates -> one watchlist job"
 tier: cheap
 budget_tier: cheap
-budget: {tokens: 6000, wall_s: 60, retries: 1}
+budget: {tokens: 15000, wall_s: 60, retries: 1}
 tools: [jurisdiction_list, case_search]
 tool_caps: {jurisdiction_list: 1, case_search: 1}
-tool_call_cap: 2
+tool_call_cap: 0                                    # the pack is complete; no tool is offered
 pack_tools: [jurisdiction_list, case_search, policy_search]
 skills: [cite_verbatim]
 context_pack: watchlist
+may_be_empty: true                  # no candidate needs a re-flag is a correct answer (Guard 4 passes an empty result)
 output_schema:
   envelope: WatchlistOutput
   envelope_module: fcrm_contracts.proposals.watchlist

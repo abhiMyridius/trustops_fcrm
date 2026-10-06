@@ -1,6 +1,6 @@
 # ai/agents/policy_gap.agent.yaml  (design B §2.9; ADR-18)
 name: policy_gap
-version: 1
+version: 3
 purpose: >-
   Group the policy gaps analysts recorded across cases, confirm with a fresh
   search that the corpus still lacks coverage, and draft a suggestion for the
@@ -11,13 +11,14 @@ lifecycle_state: null                 # oversight job outside the case state mac
 trigger: "case.gap_recorded, and weekly"
 tier: mid
 budget_tier: mid
-budget: {tokens: 12000, wall_s: 120, retries: 1}
+budget: {tokens: 11000, wall_s: 120, retries: 1}
 tools: [policy_search, case_search]
 tool_caps: {policy_search: 3, case_search: 1}
-tool_call_cap: 4
+tool_call_cap: 1                                    # one tool call: the pack already holds the fresh nearest clauses of every gap
 pack_tools: [policy_search, case_search, evidence_ledger]
 skills: [declare_gap, cite_verbatim]
 context_pack: policy_gap
+may_be_empty: true                  # every recorded gap now covered is a correct answer (Guard 4 passes an empty result)
 output_schema:
   envelope: PolicyGapOutput
   envelope_module: fcrm_contracts.proposals.policy_gap

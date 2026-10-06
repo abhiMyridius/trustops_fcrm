@@ -157,6 +157,10 @@ class AgentSpecFile(BaseModel):
     pack_tools: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
     context_pack: Optional[str] = None
+    may_be_empty: bool = False
+    """Whether an empty result is a correct answer (the watchlist's "no
+    re-flag", the critic's "no finding"). Guard 4 passes an empty output of
+    such an agent; for every other agent it still fails closed."""
     output_schema: Optional[Union[str, list[str], dict[str, Any]]] = None
     prompt_id: Optional[PromptIds] = None
     guards: list[str] = Field(default_factory=list)

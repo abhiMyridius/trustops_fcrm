@@ -1,6 +1,6 @@
 # ai/agents/critic.agent.yaml  (design B §2.5; Guard 6)
 name: critic
-version: 1
+version: 3
 purpose: >-
   After S2 has computed the first score and before anyone reviews (D-22),
   read the ledger for the run and check four things: every claim sourced,
@@ -10,13 +10,14 @@ lifecycle_state: critic
 trigger: "H1 after score.returned for the run; the state machine cannot enter completeness until the critic's agent.done lands or the job hands off"
 tier: judge                                   # a different model than the assessor (ADR-04)
 budget_tier: judge                            # judge budget = strong budget (20k / 180 s)
-budget: {tokens: 20000, wall_s: 180, retries: 1}
+budget: {tokens: 15000, wall_s: 180, retries: 1}
 tools: [evidence_ledger, precedent_search, rules_check]
 tool_caps: {evidence_ledger: 1, precedent_search: 1, rules_check: 1}
-tool_call_cap: 3
+tool_call_cap: 1                                    # one tool call: measured, the models call tools the pack makes unnecessary and each call re-sends the request (budget in tiers.yaml)
 pack_tools: [case_record, evidence_ledger, precedent_search, rules_check, evidence_store]
 skills: [compare_precedent]
 context_pack: critic
+may_be_empty: true                  # "no finding is a valid result" (critic.system); Guard 4 passes an empty result
 output_schema:
   envelope: CriticOutput
   envelope_module: fcrm_contracts.proposals.critic

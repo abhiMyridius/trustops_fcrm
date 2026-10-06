@@ -1,0 +1,138 @@
+{
+ "gates": {
+  "assessment": {
+   "agent": "assessment",
+   "baseline": 0.0,
+   "candidate": 0.7,
+   "deltas": {
+    "citation_validity": 0.0,
+    "control_match_precision": 0.7894736842105263,
+    "control_match_recall": 0.6,
+    "li_within_one": 0.7
+   },
+   "primary": "li_within_one",
+   "reasons": [
+    "li_within_one 0.700 is below its threshold 0.85"
+   ],
+   "status": "FAIL",
+   "threshold": 0.85,
+   "tolerance": 0.0
+  },
+  "critic": {
+   "agent": "critic",
+   "baseline": 0.0,
+   "candidate": 1.0,
+   "deltas": {
+    "planted_error_detection": 1.0
+   },
+   "primary": "planted_error_detection",
+   "reasons": [],
+   "status": "PASS",
+   "threshold": 0.85,
+   "tolerance": 0.0
+  },
+  "examiner": {
+   "agent": "examiner",
+   "baseline": 1.0,
+   "candidate": 1.0,
+   "deltas": {
+    "answer_relevancy": 0.0,
+    "examiner_grounding": 0.0,
+    "faithfulness": 0.0,
+    "hallucination_free": 0.0,
+    "must_cite_coverage": 0.0,
+    "refusal_rate": 1.0
+   },
+   "primary": "examiner_grounding",
+   "reasons": [],
+   "status": "PASS",
+   "threshold": 1.0,
+   "tolerance": 0.0
+  },
+  "intake": {
+   "agent": "intake",
+   "baseline": 0.0,
+   "candidate": 1.0,
+   "deltas": {
+    "category_f1": 0.6666666666666666,
+    "field_extraction_accuracy": 1.0
+   },
+   "primary": "field_extraction_accuracy",
+   "reasons": [],
+   "status": "PASS",
+   "threshold": 0.9,
+   "tolerance": 0.0
+  },
+  "narrative": {
+   "agent": "narrative",
+   "baseline": 1.0,
+   "candidate": 1.0,
+   "deltas": {
+    "answer_relevancy": 0.0,
+    "faithfulness": 0.0,
+    "hallucination_free": 0.25,
+    "narrative_restricted_terms": 0.0,
+    "number_grounding": 0.0
+   },
+   "primary": "number_grounding",
+   "reasons": [],
+   "status": "PASS",
+   "threshold": 1.0,
+   "tolerance": 0.0
+  },
+  "policy_gap": {
+   "agent": "policy_gap",
+   "baseline": null,
+   "candidate": 1.0,
+   "deltas": {},
+   "primary": "gap_targets_recorded_gap",
+   "reasons": [],
+   "status": "PASS",
+   "threshold": 1.0,
+   "tolerance": 0.0
+  },
+  "research": {
+   "agent": "research",
+   "baseline": 0.0,
+   "candidate": 1.0,
+   "deltas": {
+    "clause_recall": 1.0,
+    "precedent_top1": 0.0
+   },
+   "primary": "clause_recall",
+   "reasons": [],
+   "status": "PASS",
+   "threshold": 0.85,
+   "tolerance": 0.0
+  },
+  "screening": {
+   "agent": "screening",
+   "baseline": null,
+   "candidate": 1.0,
+   "deltas": {
+    "fast_lane_recall": 1.0
+   },
+   "primary": "fast_lane_precision",
+   "reasons": [],
+   "status": "PASS",
+   "threshold": 0.9,
+   "tolerance": 0.0
+  },
+  "watchlist": {
+   "agent": "watchlist",
+   "baseline": 0.0,
+   "candidate": 1.0,
+   "deltas": {
+    "reflag_recall": 1.0
+   },
+   "primary": "reflag_recall",
+   "reasons": [],
+   "status": "PASS",
+   "threshold": 1.0,
+   "tolerance": 0.0
+  }
+ },
+ "gates_pass": 8,
+ "gates_total": 9,
+ "run_id": "2026-10-06T07-28Z-7249d2a"
+}

@@ -1,6 +1,6 @@
 # ai/agents/examiner.agent.yaml  (design B §2.7)
 name: examiner
-version: 1
+version: 3
 purpose: >-
   Answer an examiner's or auditor's question about one case from its
   hash-chained audit records only. Every sentence cites records; the agent
@@ -10,12 +10,12 @@ lifecycle_state: null                 # oversight job outside the case state mac
 trigger: "on demand from Assurance > Ask (analyst, committee, observer); after GET /verify/{case} returns ok"
 tier: mid
 budget_tier: mid
-budget: {tokens: 12000, wall_s: 120, retries: 1}
+budget: {tokens: 11000, wall_s: 120, retries: 1}
 tools: [audit_log]
 tool_caps: {audit_log: 2}
-tool_call_cap: 2
+tool_call_cap: 1                                    # one tool call: the pack holds every record
 pack_tools: [case_record, audit_log]
-skills: [cite_verbatim, declare_gap]
+skills: []
 context_pack: examiner
 output_schema:
   envelope: ExaminerOutput

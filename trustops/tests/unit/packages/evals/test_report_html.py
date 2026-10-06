@@ -386,7 +386,8 @@ async def test_the_header_says_which_prompts_the_agents_ran_with(
     dashboard: Callable[..., Any],
 ) -> None:
     html, _index, _results = await dashboard()
-    assert "prompts: unrendered, as the H2 worker sends them" in html
+    assert "prompts: fully rendered" in html
+    assert "unrendered" not in html
 
 
 async def test_a_run_with_lifted_token_budgets_says_it_is_a_diagnostic(

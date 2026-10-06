@@ -42,6 +42,7 @@ from fcrm_common.objectstore import ObjectStore
 from fcrm_common.settings import MissingSettingsError, required_value
 from fcrm_common.worker import WorkerUnit
 from fcrm_contracts.enums import AgentName, LlmMode
+from fcrm_contracts.versions import PinnedVersions
 from fcrm_tools import ToolClients, ToolRegistry, build_http_registry
 from pymongo import AsyncMongoClient
 
@@ -58,31 +59,35 @@ logger = logging.getLogger(__name__)
 
 CONSUMED_MESSAGES_COLLECTION = "consumed_messages"
 
-InstructionsFor = Callable[[AgentName], Optional[str]]
+InstructionsFor = Callable[[AgentName, Optional[str], PinnedVersions], Optional[str]]
+"""``(agent, mode, pinned versions) -> rendered system prompt``."""
 
 
 def _instructions_for(settings: AgentWorkerSettings) -> InstructionsFor:
-    """The agent's rendered system prompt, if ``ai/`` is mounted.
+    """The agent's rendered system prompt (design B §1.5).
 
-    Only the prompt's raw body is read (``fcrm_prompts.PromptLibrary``);
-    the Jinja-templated variable substitution ``ai/prompts`` expects is a
-    separate, not-yet-built rendering concern (see the package report) --
-    this is deliberately a conservative "no instructions" fallback, not a
-    silent partial render.
+    The template is rendered by :class:`fcrm_prompts.InstructionRenderer`, the
+    same code the evals render with: ``{{ config("routing.R4") }}``, the
+    ``schema(...)`` envelopes and the skills are resolved before the model sees
+    the text, never sent as placeholders. The renderer caches a rendering per
+    ``(agent, mode, pinned versions)``.
+
+    A missing ``ai/`` root yields no instructions (the library logs it once,
+    and ``load_tiers_config`` already refuses to start without ``ai/``). A
+    template that does not render is **not** swallowed: the job raises and
+    takes the broker's retry and DLQ path, because an agent must never run
+    without the rules its prompt carries.
     """
-    from fcrm_prompts import PromptLibrary
-    from fcrm_prompts.errors import PromptNotFoundError
+    from fcrm_prompts import InstructionRenderer
 
-    library = PromptLibrary(settings.prompts_dir)
+    renderer = InstructionRenderer(ai_root=settings.prompts_dir)
 
-    def instructions_for(agent: AgentName) -> Optional[str]:
-        if not library.available:
+    def instructions_for(
+        agent: AgentName, mode: Optional[str], versions: PinnedVersions
+    ) -> Optional[str]:
+        if not renderer.library.available:
             return None
-        try:
-            return library.prompt(f"{agent.value}.system").body
-        except PromptNotFoundError:
-            logger.warning("no system prompt for %s; running with none", agent.value)
-            return None
+        return renderer.render(agent, versions, mode).text
 
     return instructions_for
 

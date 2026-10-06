@@ -37,12 +37,13 @@ import json
 import logging
 import re
 from collections.abc import Collection, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Final, Optional, Union
 
 from fcrm_contracts.enums import Tier
+from fcrm_contracts.versions import PinnedVersions
 from fcrm_guardrails import (
     BudgetExceededError,
     BudgetGuard,
@@ -61,6 +62,7 @@ from fcrm_guardrails import (
     attempt_plan,
 )
 from fcrm_guardrails.base import AUDIT_TYPES
+from fcrm_guardrails.context import AvailableSource
 from fcrm_tools import ToolError, ToolRegistry, build_seed_registry
 from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, ValidationError
 from pydantic_ai import (
@@ -73,11 +75,15 @@ from pydantic_ai import (
     UsageLimitExceeded,
     UsageLimits,
 )
+from pydantic_ai.capabilities import AbstractCapability, PrepareOutputTools
 from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
+from pydantic_ai.tools import ToolDefinition
 
+from fcrm_agents.builders import POLICY_INDEX, PRECEDENT_INDEX
 from fcrm_agents.context_pack import ContextPack
 from fcrm_agents.spec import REGISTRY, AgentSpec
+from fcrm_agents.tool_sources import sources_from_result
 
 logger = logging.getLogger(__name__)
 
@@ -89,10 +95,10 @@ HARNESS_ROLE: Final = "fcrm_service"
 DEFAULT_PERMITS_FILE: Final = Path("ai/policies/tool_permits.json")
 _OUTPUT_INDEX: Final = re.compile(r"^outputs\[(\d+)\]")
 OFFLINE_MAX_TOKENS: Final[Mapping[Tier, int]] = {
-    Tier.CHEAP: 2000,
-    Tier.MID: 3500,
-    Tier.STRONG: 5000,
-    Tier.JUDGE: 4000,
+    Tier.CHEAP: 4000,
+    Tier.MID: 4000,
+    Tier.STRONG: 8000,
+    Tier.JUDGE: 8000,
 }
 """Output caps per tier (``ai/models/tiers.yaml max_tokens``) for the
 offline ``ModelSettings``; the live path reads them from the file."""
@@ -162,13 +168,122 @@ class AgentDeps:
     agent: str
     registry: ToolRegistry
     permit: PermitGuard
+    versions: PinnedVersions
+    tool_call_cap: int = 0
+    """How many tool calls this job may make; a call beyond it is answered with an
+    error instead of run, so the model answers from what it has (a hard request
+    limit would instead end the job and throw its work away)."""
+    tools_called: list[str] = field(default_factory=list)
+    """The tools the model called, in order (refused calls too)."""
+    tool_sources: list[AvailableSource] = field(default_factory=list)
+    """What the tool results returned to *this model call* let the agent cite
+    (:func:`fcrm_agents.tool_sources.sources_from_result`). One ``AgentDeps``
+    serves one call, so the list is scoped to it: Guard 4 resolves a citation
+    against the pack and these, never against a tool the agent did not call."""
+
+
+SCOPE_ARGUMENTS: Final = ("case_id", "run_id", "controls_v", "fieldset_v")
+"""Tool arguments H2 fills from the job, never the model: the case and run it
+belongs to and the pinned versions. A model asked for them gets them wrong
+(or names another case); a tool call is scoped by construction instead of
+refused afterwards, and the model's schema is shorter."""
+
+FIXED_ARGUMENTS: Final[Mapping[str, Mapping[str, str]]] = {
+    "policy_search": {"index": POLICY_INDEX},
+    "precedent_search": {"index": PRECEDENT_INDEX},
+}
+"""Tool arguments the agent spec, not the model, pins (two tools share one
+search request shape and differ only by the index they read)."""
+
+
+def compact_schema(node: Any) -> Any:
+    """``node`` (a JSON Schema) without what costs tokens and tells a model
+    nothing: ``title`` keywords (they repeat the field name) and ``default``
+    ``null``. A *property* called ``title`` is kept: its value is a schema (a
+    mapping), where the keyword's is a string."""
+    if isinstance(node, dict):
+        return {
+            k: compact_schema(v)
+            for k, v in node.items()
+            if not (k == "title" and isinstance(v, str))
+            and not (k == "default" and v is None)
+        }
+    if isinstance(node, list):
+        return [compact_schema(v) for v in node]
+    return node
+
+
+async def compact_output_tools(
+    ctx: RunContext[Any], tool_defs: list[ToolDefinition]
+) -> list[ToolDefinition]:
+    """The output tool's definition with its JSON schema compacted
+    (:func:`compact_schema`): 200 to 300 tokens off every request of every agent.
+    Only what the model is shown changes; the output is still validated against
+    the contract's own types."""
+    return [
+        replace(td, parameters_json_schema=compact_schema(td.parameters_json_schema))
+        for td in tool_defs
+    ]
+
+
+def agent_capabilities() -> list[AbstractCapability[Any]]:
+    """The Pydantic AI capabilities every agent runs with (offline, live and
+    :func:`fcrm_agents.models.build_agent` alike)."""
+    return [PrepareOutputTools(compact_output_tools)]
+
+
+TOOL_CAP_MESSAGE: Final = (
+    "no tool calls are left for this job: answer from the pack and what you "
+    "already have"
+)
+
+
+def request_limit(tool_call_cap: int) -> int:
+    """Model requests one attempt may make: the answer, plus for each allowed tool
+    call a round trip, plus one more so a call refused for being over the cap
+    still lets the model answer. An agent with no tools makes one request."""
+    return tool_call_cap + 2 if tool_call_cap else 1
+
+
+def scope_values(name: str, deps: AgentDeps) -> dict[str, Any]:
+    """The arguments of tool ``name`` that the job fixes (see
+    :data:`SCOPE_ARGUMENTS`, :data:`FIXED_ARGUMENTS`)."""
+    values: dict[str, Any] = {
+        "case_id": deps.case_id,
+        "run_id": deps.run_id,
+        "controls_v": deps.versions.controls_v,
+        "fieldset_v": deps.versions.fieldset_v,
+    }
+    values.update(FIXED_ARGUMENTS.get(name, {}))
+    return values
+
+
+def model_schema(name: str, input_model: type[BaseModel]) -> dict[str, Any]:
+    """The input schema the model sees for tool ``name``: the input model's,
+    compacted, without the arguments the job fills in."""
+    schema = compact_schema(input_model.model_json_schema())
+    hidden = {*SCOPE_ARGUMENTS, *FIXED_ARGUMENTS.get(name, {})}
+    properties = schema.get("properties", {})
+    for key in hidden & set(properties):
+        del properties[key]
+    if "required" in schema:
+        schema["required"] = [k for k in schema["required"] if k not in hidden]
+        if not schema["required"]:
+            del schema["required"]
+    return dict(schema)
 
 
 def _tool_function(name: str, registry: ToolRegistry) -> Tool[AgentDeps]:
     tool = registry.get(name)
+    hidden = {*SCOPE_ARGUMENTS, *FIXED_ARGUMENTS.get(name, {})} & set(
+        tool.input_model.model_fields
+    )
 
     async def call_tool(ctx: RunContext[AgentDeps], **arguments: Any) -> dict[str, Any]:
         deps = ctx.deps
+        deps.tools_called.append(name)
+        if len(deps.tools_called) > deps.tool_call_cap:
+            return {"error": TOOL_CAP_MESSAGE}
         decision = await deps.permit.decide(
             agent=deps.agent,
             tool=name,
@@ -181,27 +296,45 @@ def _tool_function(name: str, registry: ToolRegistry) -> Tool[AgentDeps]:
                 "tool call denied", extra={"tool": name, "reason": decision.reason}
             )
             return {"error": f"not permitted: {decision.reason}"}
+        scoped = scope_values(name, deps)
         try:
-            request = tool.input_model.model_validate(arguments)
-            if getattr(request, "case_id", deps.case_id) != deps.case_id:
-                return {"error": "case_id is outside this job's case"}
+            request = tool.input_model.model_validate(
+                {**arguments, **{k: scoped[k] for k in hidden}}
+            )
             result = await tool.call(request)
         except (ValidationError, ToolError) as exc:
-            logger.info("tool call refused", extra={"tool": name, "error": str(exc)})
+            logger.info(
+                "tool call refused: %s: %s",
+                name,
+                str(exc)[:300],
+                extra={"tool": name, "error": str(exc)},
+            )
             return {"error": f"{type(exc).__name__}: {exc}"}
+        deps.tool_sources.extend(
+            sources_from_result(
+                name, request, result, case_id=deps.case_id, versions=deps.versions
+            )
+        )
         return result.model_dump(mode="json")
 
     return Tool.from_schema(
         call_tool,
         name=name,
         description=(tool.input_model.__doc__ or f"The read-only {name} tool.").strip(),
-        json_schema=tool.input_model.model_json_schema(),
+        json_schema=model_schema(name, tool.input_model),
         takes_ctx=True,
     )
 
 
 def tool_functions(spec: AgentSpec, registry: ToolRegistry) -> list[Tool[AgentDeps]]:
-    """The agent's model-callable tools, and only those (``spec.tools``)."""
+    """The agent's model-callable tools, and only those (``spec.tools``), or none
+    when its ``tool_call_cap`` is 0: the pack is complete by construction (design
+    B §3.2), and a model that is offered a tool it does not need calls it anyway
+    (the first live runs: Haiku on every intake row), each call re-sending the
+    whole request.
+    """
+    if spec.tool_call_cap == 0:
+        return []
     return [_tool_function(name, registry) for name in spec.tools]
 
 
@@ -240,6 +373,9 @@ class AttemptRecord(BaseModel):
     guard_results: list[GuardResult]
     tokens_used: int = 0
     tool_calls: int = 0
+    tools_called: list[str] = Field(default_factory=list)
+    """The tools the model called in this attempt, in order (a refused call
+    is listed too: it cost a request)."""
 
 
 class AgentRunResult(BaseModel):
@@ -310,6 +446,7 @@ class OfflineRun:
         self.instructions = instructions
         self.tool_calls = tool_calls
         self.reservation_id = f"{pack.run_id}:{spec.name.value}"
+        self.tool_sources: list[AvailableSource] = []
         self.base = GuardContext(
             case_id=pack.case_id,
             run_id=pack.run_id,
@@ -382,6 +519,7 @@ class OfflineRun:
             deps_type=AgentDeps,
             retries=0,
             tools=tool_functions(self.spec, self.registry),
+            capabilities=agent_capabilities(),
             name=self.spec.name.value,
         )
         deps = AgentDeps(
@@ -390,7 +528,11 @@ class OfflineRun:
             agent=self.spec.name.value,
             registry=self.registry,
             permit=self.permit,
+            versions=self.pack.versions,
+            tool_call_cap=self.spec.tool_call_cap,
         )
+        self.tool_sources = deps.tool_sources
+        record.tools_called = deps.tools_called
         max_tokens = int(
             OFFLINE_MAX_TOKENS[Tier(self.spec.tier)] * plan.max_tokens_factor
         )
@@ -400,7 +542,7 @@ class OfflineRun:
                 deps=deps,
                 usage_limits=UsageLimits(
                     total_tokens_limit=plan.token_limit,
-                    request_limit=1 + self.spec.tool_call_cap,
+                    request_limit=request_limit(self.spec.tool_call_cap),
                 ),
                 model_settings=ModelSettings(
                     max_tokens=max_tokens, timeout=float(plan.wall_s)
@@ -437,7 +579,8 @@ class OfflineRun:
             update={
                 "attempt": attempt,
                 "outputs": outputs,
-                "sources": self.pack.sources,
+                "sources": [*self.tool_sources, *self.pack.sources],
+                "may_be_empty": self.spec.may_be_empty,
             }
         )
         shape = await OutputShapeGuard().check(ctx)

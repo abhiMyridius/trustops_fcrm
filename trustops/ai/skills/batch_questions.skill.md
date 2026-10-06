@@ -1,9 +1,10 @@
 ---
 id: batch_questions
-version: 1
+version: 2
 applies_to: [narrative]
 changelog:
   - {version: 1, date: 2026-10-03, reason: initial, eval_run: null}
+  - {version: 2, date: 2026-10-06, reason: "the example named the payout partner of the demo case; a system prompt carries no case data", eval_run: null}
 ---
 ## Batching the clarification questions
 
@@ -17,6 +18,6 @@ The owner gets one round of questions (D-16). Every question costs the owner tim
 6. Write each question so the owner can answer it without knowing the assessment: ask for a fact, a date or a document. Ask "Please attach the scope and date if available", not "Is the evidence adequate?". Never mention scores, ratings, bands or ids in the text.
 7. One question per item, at most 280 characters, ending with a question mark or a request to attach something.
 
-Example: candidates (a) "Is a corridor due-diligence review planned?" (from the stale vendor audit, CTL-T01), (b) "Has Remesas del Norte provided an AML programme attestation?" (empty F11), (c) "Confirm contract AML clause coverage" (contract p.7 §9 already shows it).
+Example: candidates (a) "Is a corridor due-diligence review planned?" (from the stale vendor audit), (b) "Has the payout partner provided an AML programme attestation?" (empty F11), (c) "Confirm contract AML clause coverage" (contract p.7 §9 already shows it).
 - Merge (a) and (b): anchor F11, text "Is a corridor-specific due-diligence review of the partner planned or complete? Please attach the scope and date if available."
 - Drop (c): `dropped_reason: "already answered in contract §9"`.
