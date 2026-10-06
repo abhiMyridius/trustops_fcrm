@@ -328,7 +328,7 @@ def _header(index: RunIndex) -> str:
         else ""
     )
     prompt_chip = (
-        '<span class="chip">prompts: unrendered, as the H2 worker sends them</span>'
+        '<span class="chip">prompts: unrendered (diagnostic)</span>'
         if index.instructions == "raw"
         else '<span class="chip">prompts: fully rendered</span>'
     )

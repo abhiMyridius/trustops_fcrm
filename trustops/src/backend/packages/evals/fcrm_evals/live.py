@@ -917,7 +917,7 @@ class LiveProducer:
         ai_root: Union[str, Path, None] = None,
         model_factory: ModelFactory = live_model_for_slot,
         tool_call_cap: Optional[int] = None,
-        instructions: InstructionsMode = "raw",
+        instructions: InstructionsMode = "rendered",
     ) -> LiveProducer:
         """The producer with every default wired: the seed-backed registry,
         the seed's pinned versions, the system prompt of ``agent`` (``raw``:

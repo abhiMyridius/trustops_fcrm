@@ -198,3 +198,36 @@ async def test_audit_write_failure_does_not_crash_handle(
 
     assert len(recording_publisher.sent) == 1
     assert failing_audit.records == []
+
+
+async def test_handle_asks_for_instructions_with_the_packs_mode_and_pins(
+    demo_job_envelope: Envelope,
+    demo_job_payload: JobPayload,
+    research_outputs: list[Any],
+    seed_registry: ToolRegistry,
+    allow_all_opa_client: OPAClient,
+    fake_tiers_config: dict[str, Any],
+    recording_publisher: Any,
+    recording_audit: Any,
+    fake_consumed: Any,
+    make_model_factory_returning: Callable[..., ModelFactory],
+) -> None:
+    asked: list[tuple[Any, Any, Any]] = []
+
+    def instructions_for(agent: Any, mode: Any, versions: Any) -> str:
+        asked.append((agent, mode, versions))
+        return "rendered system prompt"
+
+    consumer = AgentJobConsumer(
+        fake_consumed,
+        recording_publisher,
+        registry=seed_registry,
+        permit_client=allow_all_opa_client,
+        audit=recording_audit,
+        tiers_config=fake_tiers_config,
+        instructions_for=instructions_for,
+        model_factory=make_model_factory_returning(research_outputs),
+    )
+    await consumer.handle(demo_job_envelope, None)
+
+    assert asked == [(demo_job_payload.agent, None, demo_job_payload.pins)]

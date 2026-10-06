@@ -369,8 +369,15 @@ def test_the_cli_takes_the_live_options() -> None:
     assert (args.judge_votes, args.concurrency) == (2, 3)
     assert args.baseline
     assert args.publish
-    assert args.instructions == "raw"
+    assert args.instructions == "rendered"
     assert args.out is None
+
+
+def test_the_raw_instructions_switch_is_still_available_as_a_diagnostic() -> None:
+    args = _parser().parse_args(
+        ["run", "--producer", "live", "--instructions", "raw", "--judge", "fake"]
+    )
+    assert args.instructions == "raw"
 
 
 def test_a_non_live_run_still_requires_out() -> None:
