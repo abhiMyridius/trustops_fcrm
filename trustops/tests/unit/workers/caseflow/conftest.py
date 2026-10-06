@@ -2022,7 +2022,7 @@ class FakeJurisdictionPolicyService(FakePolicyService):
         super().__init__()
         self.versions: list[tuple[str, str]] = [
             ("v2026-06", "2026-06-19"),
-            ("v2026-10-fixture", "2026-10-01"),
+            ("v2026-10-fixture", "fixture"),  # S3 files a fixture under the word
         ]
 
     def route(self, call: Call) -> httpx.Response:

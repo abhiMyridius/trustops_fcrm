@@ -9,10 +9,13 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from conftest import make_run
 from fcrm_caseflow.audit_map import RECORDS_FOR, STEP_FOR
+from fcrm_caseflow.clients.policy_client import PolicyClient
 from fcrm_caseflow.cores import default_handlers, oversight
 from fcrm_caseflow.cores.oversight import check_answer
 from fcrm_caseflow.cores.oversight_watchlist import (
+    _previous_list,
     build_reflags,
     code_reason,
     reflag_id_for,
@@ -24,10 +27,11 @@ from fcrm_caseflow.oversight_runs import (
     oversight_result_trigger,
     oversight_run_document,
 )
+from fcrm_caseflow.steps import StepDeps
 from fcrm_caseflow.triggers import Trigger
 from fcrm_common.time import utcnow
 from fcrm_contracts.api.case_internal_reflags import ReflagCandidate
-from fcrm_contracts.enums import GateType, StepKind
+from fcrm_contracts.enums import CaseState, GateType, StepKind
 from fcrm_contracts.events.envelope import Envelope
 from fcrm_contracts.events.payloads import HarnessStep
 
@@ -251,3 +255,35 @@ def test_an_oversight_run_is_closed_and_never_chains() -> None:
     assert document["closed_at"] is not None
     assert document["dispatched_in_state"] == ["internal.closed_dispatch"]
     assert document["refs"] == {"oversight": "examiner"}
+
+
+# ── the list a new one replaces ─────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("version", "expected"),
+    [
+        ("v2026-10-fixture", "v2026-12"),
+        ("v2026-12", "v2026-09"),
+        ("v2026-09", "v2026-06"),
+        ("v2026-06", "v2026-06"),
+    ],
+)
+async def test_the_previous_list_is_the_newest_real_list_before_it(
+    jurisdiction_policy_service: Any,
+    recording_audit: Any,
+    version: str,
+    expected: str,
+) -> None:
+    jurisdiction_policy_service.versions = [
+        ("v2026-06", "2026-06-19"),
+        ("v2026-09", "2026-09-01"),
+        ("v2026-10-fixture", "fixture"),
+        ("v2026-12", "2026-12-18"),
+    ]
+    deps = StepDeps(
+        run=make_run(state=CaseState.CLOSED),
+        audit=recording_audit,
+        policy=PolicyClient(jurisdiction_policy_service.client("policy")),
+    )
+    assert await _previous_list(deps, version) == expected

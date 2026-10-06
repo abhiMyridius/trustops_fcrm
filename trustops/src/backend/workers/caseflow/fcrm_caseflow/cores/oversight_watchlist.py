@@ -187,7 +187,10 @@ def build_reflags(
 
 
 async def _previous_list(deps: StepDeps, version: str) -> str:
-    """The list ``version`` replaced: the newest version S3 published before it.
+    """The list ``version`` replaced: the newest *real* list S3 published before
+    it (a synthetic fixture is never anyone's predecessor, and a fixture's own
+    ``published`` is the word ``fixture``, not a date, so for a fixture the
+    newest real list is the one it was derived from).
 
     When S3 knows no earlier version the list is its own predecessor (nothing to
     diff; the code candidates still stand) and that is logged.
@@ -199,7 +202,11 @@ async def _previous_list(deps: StepDeps, version: str) -> str:
             f"S3 holds no jurisdiction list {version}", list_version=version
         )
     earlier = [
-        v for v in versions if v.version != version and v.published <= target.published
+        v
+        for v in versions
+        if v.version != version
+        and not v.fixture
+        and (target.fixture or v.published <= target.published)
     ]
     if not earlier:
         logger.warning(
