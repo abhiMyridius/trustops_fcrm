@@ -68,7 +68,6 @@ logger = logging.getLogger(__name__)
 JURISDICTION_LISTS: Final = "jurisdiction_list_versions"
 FIELD_SETS: Final = "field_set_versions"
 CONTROL_INVENTORIES: Final = "control_inventory_versions"
-REFERENCE_COLLECTIONS: Final = (JURISDICTION_LISTS, FIELD_SETS, CONTROL_INVENTORIES)
 
 #: ``version`` values that mean "the active one".
 ACTIVE_ALIASES: Final = frozenset({"latest", "current", "active"})

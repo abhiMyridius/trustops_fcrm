@@ -44,7 +44,6 @@ logger = logging.getLogger(__name__)
 
 SECTION_KEYS: Final[tuple[ConfigSectionKey, ...]] = get_args(ConfigSectionKey)
 SEEDED_NOTE: Final = "Seeded version (P7 fcrm-seed)"
-SEEDED_BY: Final = "seed"
 
 Body = dict[str, Any]
 
