@@ -89,7 +89,9 @@ async def test_the_owner_lives_scenes_one_to_seven_on_a_real_replica_set(
     uploaded = await client.post(f"/cases/{CASE}/documents", json={"demo_files": []})
     assert uploaded.status_code == 201, uploaded.text
     assert len(po.objects.objects) == 2
-    assert await outbox_types(po) == ["case.document_stored"] * 2
+    # The seeded draft has no run yet, so its first write also asks H1 for one
+    # (ADR-39): case.created ahead of the two document events.
+    assert await outbox_types(po) == ["case.created", *["case.document_stored"] * 2]
     await live_h1_intake(CASE, "run_live")
     act_as(Role.PO, PO)
     intake = (await client.get(f"/cases/{CASE}/intake")).json()
@@ -137,6 +139,7 @@ async def test_the_owner_lives_scenes_one_to_seven_on_a_real_replica_set(
 
     # What the outbox holds, in commit order, and what the relay published.
     assert Counter(await outbox_types(po)) == {
+        "case.created": 1,
         "case.document_stored": 2,
         "gate.decided": 3 + 1 + 3 + 1,  # types, reuse, answers, the correction
         "case.submitted": 1,
@@ -229,8 +232,18 @@ async def test_a_document_row_and_its_outbox_event_commit_together(po: LivePo) -
     assert uploaded.status_code == 201
     rows = await po.case.db["documents"].find({"case_id": CASE}).to_list()
     events = await po.case.db["outbox"].find({"case_id": CASE}).to_list()
-    assert len(rows) == len(events) == 2
-    stored = {json.loads(e["body"])["payload"]["doc_id"] for e in events}
+    # case.created (the first write asks H1 for a run, ADR-39) and one event per row
+    assert sorted(e["type"] for e in events) == [
+        "case.created",
+        "case.document_stored",
+        "case.document_stored",
+    ]
+    assert len(rows) == 2
+    stored = {
+        json.loads(e["body"])["payload"]["doc_id"]
+        for e in events
+        if e["type"] == "case.document_stored"
+    }
     assert stored == {r["_id"] for r in rows}
     activity = (
         await po.case.db["activity"].find({"case_id": CASE}).sort("seq", 1).to_list()

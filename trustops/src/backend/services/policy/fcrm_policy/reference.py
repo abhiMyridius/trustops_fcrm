@@ -404,6 +404,28 @@ class InMemoryReferenceStore:
         self.events.append(published_envelope(result))
         return result
 
+    async def activate_jurisdiction_in(
+        self, session: object, version: str
+    ) -> Optional[JurisdictionActivateOut]:
+        """:meth:`activate_jurisdiction`, for a caller that passes a session
+        (ignored here: the twin has no transaction to share).
+        """
+        return await self.activate_jurisdiction(version)
+
+    async def add_field_set_version(self, session: object, doc: Document) -> None:
+        """Add ``doc`` as the active field set (the one in force goes inactive)."""
+        for existing in self._field_sets:
+            existing["active"] = False
+        self._field_sets.append({**doc, "_id": doc["version"], "active": True})
+
+    async def add_control_inventory_version(
+        self, session: object, doc: Document
+    ) -> None:
+        """Add ``doc`` as the active control inventory."""
+        for existing in self._controls:
+            existing["active"] = False
+        self._controls.append({**doc, "_id": doc["version"], "active": True})
+
 
 class MongoReferenceStore:
     """The real store over the three reference collections (read-only here;
@@ -546,37 +568,83 @@ class MongoReferenceStore:
             UpstreamUnavailableError: The store was built without a Mongo
                 client and outbox (it cannot announce what it changes).
         """
-        client, outbox = self._client, self._outbox
-        if client is None or outbox is None:
+        client = self._client
+        if client is None or self._outbox is None:
             raise UpstreamUnavailableError(
                 "Jurisdiction activation needs the outbox and a replica set.",
                 dependency="mongo",
             )
 
         async def txn(session: AsyncClientSession) -> Optional[JurisdictionActivateOut]:
-            target = await self._jurisdictions.find_one(
-                version_filter(version, numeric=False), session=session
-            )
-            if target is None:
-                return None
-            current = await self._jurisdictions.find_one(
-                {"active": True}, session=session
-            )
-            if current is not None and current["_id"] == target["_id"]:
-                return activation_result(target, current, already_active=True)
-            if current is not None:
-                await self._jurisdictions.update_one(
-                    {"_id": current["_id"]},
-                    {"$set": {"active": False}},
-                    session=session,
-                )
-            await self._jurisdictions.update_one(
-                {"_id": target["_id"]},
-                {"$set": {"active": True, "activated_at": utcnow()}},
-                session=session,
-            )
-            result = activation_result(target, current, already_active=False)
-            await outbox.enqueue(session, published_envelope(result))
-            return result
+            return await self.activate_jurisdiction_in(session, version)
 
         return await with_transaction(client, txn)
+
+    async def activate_jurisdiction_in(
+        self, session: AsyncClientSession, version: str
+    ) -> Optional[JurisdictionActivateOut]:
+        """The body of :meth:`activate_jurisdiction`, run inside the caller's
+        transaction: deactivate the active list, activate ``version`` and
+        enqueue ``jurisdiction.list_published`` with the same ``session``. A
+        caller that has its own writes to commit with the activation (the
+        configuration screens' publish) shares the transaction through this.
+
+        Raises:
+            UpstreamUnavailableError: The store was built without an outbox.
+        """
+        outbox = self._outbox
+        if outbox is None:
+            raise UpstreamUnavailableError(
+                "Jurisdiction activation needs the outbox.", dependency="mongo"
+            )
+        target = await self._jurisdictions.find_one(
+            version_filter(version, numeric=False), session=session
+        )
+        if target is None:
+            return None
+        current = await self._jurisdictions.find_one({"active": True}, session=session)
+        if current is not None and current["_id"] == target["_id"]:
+            return activation_result(target, current, already_active=True)
+        if current is not None:
+            await self._jurisdictions.update_one(
+                {"_id": current["_id"]},
+                {"$set": {"active": False}},
+                session=session,
+            )
+        await self._jurisdictions.update_one(
+            {"_id": target["_id"]},
+            {"$set": {"active": True, "activated_at": utcnow()}},
+            session=session,
+        )
+        result = activation_result(target, current, already_active=False)
+        await outbox.enqueue(session, published_envelope(result))
+        return result
+
+    async def add_field_set_version(
+        self, session: Optional[AsyncClientSession], doc: Document
+    ) -> None:
+        """Insert ``doc`` as the active field set, deactivating the one in
+        force, with the caller's ``session`` (a configuration publish).
+        """
+        await self._add_version(self._field_sets, session, doc)
+
+    async def add_control_inventory_version(
+        self, session: Optional[AsyncClientSession], doc: Document
+    ) -> None:
+        """Insert ``doc`` as the active control inventory, deactivating the
+        one in force, with the caller's ``session``.
+        """
+        await self._add_version(self._controls, session, doc)
+
+    @staticmethod
+    async def _add_version(
+        collection: AsyncCollection[Document],
+        session: Optional[AsyncClientSession],
+        doc: Document,
+    ) -> None:
+        await collection.update_many(
+            {"active": True}, {"$set": {"active": False}}, session=session
+        )
+        await collection.insert_one(
+            {**doc, "_id": doc["version"], "active": True}, session=session
+        )

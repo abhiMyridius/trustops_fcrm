@@ -283,6 +283,10 @@ services:
       # S2 holds no case data and the call is authorised like any other).
       CASE_SERVICE_URL: http://api:8000/api/fcrm
       # S3 policy
+      # Publishing a scoring model or routing rules puts it into force in S2
+      # through POST /internal/models and /internal/routing-rules (same process,
+      # called by URL with S3's service token, so S2 authorises it like any call).
+      SCORING_SERVICE_URL: http://api:8000/api/fcrm/scoring
       RRF_K: "60"
       SEARCH_TOP_K_MAX: "30"
       # The ai/ root: EMBEDDING_PROVIDER=bedrock reads the embedding model from

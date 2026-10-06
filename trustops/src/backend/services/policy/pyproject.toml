@@ -7,6 +7,7 @@ dependencies = [
   "fcrm-contracts",
   "fcrm-common",
   "fcrm-seed",
+  "fcrm-scoring-service",
   "fcrm-context-worker",
   "fastapi>=0.115",
   "uvicorn[standard]>=0.34",

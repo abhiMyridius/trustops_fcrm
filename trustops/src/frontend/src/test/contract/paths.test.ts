@@ -17,7 +17,7 @@
 import { describe, expect, it } from 'vitest';
 import { handlerTemplatesOutsideEndpoints, servedRoutes, webRoutes } from './routes';
 
-/** Web routes the backend does not serve yet (51 of 83 after the PO surface landed; 65 on 5 Oct). */
+/** Web routes the backend does not serve yet (34 after the configuration screens landed; 65 on 5 Oct). */
 const PENDING_ROUTES: readonly string[] = [
   // S1 case: PO and analyst case routes, queues, dashboards, integrations, harness (30)
   'POST /api/fcrm/cases/{id}/acknowledge',
@@ -48,14 +48,6 @@ const PENDING_ROUTES: readonly string[] = [
   'GET /api/fcrm/cases/{id}/workbench',
   'GET /api/fcrm/dashboard/analyst',
   'GET /api/fcrm/queue',
-  // S2 scoring (2)
-  'GET /api/fcrm/scoring/routing-rules/{id}',
-  // S3 policy (5)
-  'GET /api/fcrm/policy/config/{id}',
-  'DELETE /api/fcrm/policy/config/{id}/draft',
-  'PUT /api/fcrm/policy/config/{id}/draft',
-  'POST /api/fcrm/policy/config/{id}/draft/preview',
-  'POST /api/fcrm/policy/config/{id}/draft/publish',
 ];
 
 const WEB = webRoutes();
