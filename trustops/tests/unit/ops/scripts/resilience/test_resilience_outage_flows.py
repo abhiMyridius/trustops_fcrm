@@ -360,3 +360,44 @@ def test_the_identity_outage_uses_the_token_issued_before_it(
     tokens = {c.get("token") for c in stack.gateway.calls if c["path"] == "/auth/me"}
     assert "token-analyst" in tokens
     assert len(tokens) == 2, "the forged call must carry a different token"
+
+
+def test_the_malformed_message_is_json_typed_only_where_the_adapter_fix_is_deployed(
+    stack: Any, reply: Callable[..., Reply]
+) -> None:
+    _serve_cases(stack, reply, C1, C2)
+    stack.gateway.route("POST", "/cases", reply({"id": C2}, 201))
+    _poison_world(stack)
+    for status in (2, 0, 0):
+        stack.runner.reply("", returncode=status)
+    drills.poison_the_steps_queue(stack, C1)
+    malformed = stack.broker.published[0]
+    assert malformed["content_type"] == "application/json"
+    assert b'"event_id": "evt_drill_bad_' in malformed["body"]
+
+
+def test_without_the_adapter_fix_the_malformed_message_is_plain_text(
+    stack: Any, reply: Callable[..., Reply]
+) -> None:
+    _serve_cases(stack, reply, C1, C2)
+    stack.gateway.route("POST", "/cases", reply({"id": C2}, 201))
+    stack.docker.adapter_fixed = False
+    _poison_world(stack)
+    for status in (2, 0, 0):
+        stack.runner.reply("", returncode=status)
+    drills.poison_the_steps_queue(stack, C1)
+    assert stack.broker.published[0]["content_type"] == "text/plain"
+
+
+def test_a_harness_that_cannot_be_asked_counts_as_not_fixed(stack: Any) -> None:
+    stack.docker.exec_fails = True
+    assert drills.adapter_fix_deployed(stack) is False
+
+
+def test_a_peeked_message_is_named_by_its_amqp_id_or_its_event_id() -> None:
+    assert drills.names_message({"message_id": "evt_1"}, "evt_1")
+    assert drills.names_message({"message_id": "uuid", "event_id": "evt_1"}, "evt_1")
+    assert not drills.names_message(
+        {"message_id": "uuid", "event_id": "evt_2"}, "evt_1"
+    )
+    assert not drills.names_message({}, "evt_1")

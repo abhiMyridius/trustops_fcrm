@@ -26,10 +26,11 @@ Commands (params are one JSON object):
     onto ``<queue>`` with the retry budget reset (``x-attempt`` 0, the
     last error dropped, ``x-replayed-*`` added). A message is acknowledged on
     the dead-letter queue only after the broker confirmed its republish, so a
-    failure never loses one. ``message_id`` limits it to one message.
+    failure never loses one. ``message_id`` limits it to one message (named by
+    its AMQP id or its envelope's ``event_id``).
 ``purge``
     ``{queue, message_id}``: delete messages of a ``*.dlq`` queue (all, or the
-    one with that message id). Refuses any other queue.
+    one named like that). Refuses any other queue.
 
 This file imports nothing from the repository: it must run in a bare
 container. It is also imported by the unit tests, with a fake connection.
@@ -42,6 +43,7 @@ import base64
 import binascii
 import json
 import os
+import re
 import sys
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
@@ -51,6 +53,8 @@ from typing import Any, Optional
 STALE_HEADERS = frozenset({"x-attempt", "x-last-error", "x-death"})
 STALE_PREFIXES = ("x-first-death-", "x-last-death-")
 DLQ_SUFFIX = ".dlq"
+#: The envelope's own id, readable even from a body that is cut off or is not JSON.
+EVENT_ID = re.compile(rb'"event_id"\s*:\s*"([^"]{1,128})"')
 CONNECT_TIMEOUT_S = 10
 GET_TIMEOUT_S = 10
 PREVIEW_CHARS = 300
@@ -92,6 +96,24 @@ def _plain(value: Any) -> Any:
     return str(value)
 
 
+def event_id_of(body: bytes) -> Optional[str]:
+    """The ``event_id`` an envelope body names, or ``None``. Read with a pattern,
+    not by parsing: a poison message is often cut off or not JSON at all.
+    """
+    found = EVENT_ID.search(body[:2000])
+    return found.group(1).decode("utf-8", errors="replace") if found else None
+
+
+def matches(message: Any, wanted: str) -> bool:
+    """Whether ``message`` is the one named ``wanted``: by its AMQP message id or
+    by the envelope's ``event_id``. Both, because a message that went through a
+    retry hop on a consumer that did not carry the AMQP properties over has a
+    made-up message id, and the event id is the one in the logs and the audit
+    trail.
+    """
+    return message.message_id == wanted or event_id_of(message.body) == wanted
+
+
 def describe_message(message: Any) -> dict[str, Any]:
     """What an operator needs to recognise a message: its ids, retry
     headers and the start of its body.
@@ -99,6 +121,7 @@ def describe_message(message: Any) -> dict[str, Any]:
     headers = _plain(dict(message.headers or {}))
     return {
         "message_id": message.message_id,
+        "event_id": event_id_of(message.body),
         "type": message.type,
         "correlation_id": message.correlation_id,
         "redelivered": bool(message.redelivered),
@@ -223,7 +246,7 @@ async def replay(
     failures: list[str] = []
 
     async def move(message: Any) -> bool:
-        if wanted is not None and message.message_id != wanted:
+        if wanted is not None and not matches(message, wanted):
             return False
         headers = reset_headers(message.headers, source_queue=source, now=now)
         copy = aio_pika.Message(
@@ -268,7 +291,7 @@ async def purge(channel: Any, params: Mapping[str, Any]) -> dict[str, Any]:
         return {"purged": int(getattr(result, "message_count", result) or 0)}
 
     async def drop(message: Any) -> bool:
-        if message.message_id != wanted:
+        if not matches(message, wanted):
             return False
         await message.ack()
         return True

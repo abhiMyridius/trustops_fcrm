@@ -311,3 +311,56 @@ def test_main_reports_a_missing_broker_url_as_json(
 def test_main_reports_bad_usage_as_json(capsys: pytest.CaptureFixture[str]) -> None:
     assert broker_agent.main(["-"]) == 1
     assert json.loads(capsys.readouterr().out)["ok"] is False
+
+
+def test_event_id_of_reads_the_id_from_a_body_that_is_cut_off() -> None:
+    assert broker_agent.event_id_of(b'{"event_id": "evt_9", "oops": ') == "evt_9"
+    assert broker_agent.event_id_of(b'{"event_id":"evt_9"}') == "evt_9"
+    assert broker_agent.event_id_of(b"not even json") is None
+    assert broker_agent.event_id_of(b"") is None
+
+
+def test_describe_message_shows_the_event_id(incoming: Callable[..., Any]) -> None:
+    message = incoming(b'{"event_id": "evt_9"}', "uuid-1")
+    assert broker_agent.describe_message(message)["event_id"] == "evt_9"
+
+
+def test_matches_by_amqp_id_or_by_envelope_event_id(
+    incoming: Callable[..., Any],
+) -> None:
+    message = incoming(b'{"event_id": "evt_9"}', "made-up-uuid")
+    assert broker_agent.matches(message, "made-up-uuid")
+    assert broker_agent.matches(message, "evt_9")
+    assert not broker_agent.matches(message, "evt_1")
+
+
+async def test_replay_finds_a_message_by_its_event_id_when_its_amqp_id_was_lost(
+    make_pika: Callable[..., Any], incoming: Callable[..., Any], frozen_now: datetime
+) -> None:
+    lost = incoming(b'{"event_id": "evt_9"}', "made-up-uuid", headers={"x-attempt": 3})
+    other = incoming(b'{"event_id": "evt_8"}', "another-uuid", headers={"x-attempt": 3})
+    pika = make_pika({"caseflow.steps.dlq": [other, lost]})
+    outcome = await run_command(
+        "replay",
+        {"queue": "caseflow.steps", "message_id": "evt_9"},
+        url=URL,
+        aio_pika=pika,
+        now=frozen_now,
+    )
+    assert outcome["replayed"] == 1
+    assert (other.state, lost.state) == ("requeued", "acked")
+
+
+async def test_purge_finds_a_message_by_its_event_id(
+    make_pika: Callable[..., Any], incoming: Callable[..., Any]
+) -> None:
+    lost = incoming(b'{"event_id": "evt_9", "cut', "made-up-uuid")
+    pika = make_pika({"caseflow.steps.dlq": [lost]})
+    outcome = await run_command(
+        "purge",
+        {"queue": "caseflow.steps.dlq", "message_id": "evt_9"},
+        url=URL,
+        aio_pika=pika,
+    )
+    assert outcome == {"purged": 1}
+    assert lost.state == "acked"

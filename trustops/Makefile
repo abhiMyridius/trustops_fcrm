@@ -224,7 +224,7 @@ e2e: ## 21 live scenes + BB-01…BB-14 against the live test stack (project trus
 # intake document each). They address containers by name (trustops-<service>-1),
 # talk to the gateway on :8080 as the demo personas and never read .env.
 # FCRM_RESILIENCE_STRICT=1 makes an unreachable stack a failure, not a skip, so
-# this target cannot go green by testing nothing. Takes about 15 minutes.
+# this target cannot go green by testing nothing. Estimated 25 minutes.
 # Docs: docs/architecture/resilience.md. One drill: make resilience k=d3
 # (ids d1a d1b d2 d3 d4 d5a d5b d6 d7 d8).
 resilience: ## kill/restart drills against the running stack (harness, RabbitMQ, Mongo, api/identity, SSE, DLQ replay, handoff); PASS/FAIL table with seconds

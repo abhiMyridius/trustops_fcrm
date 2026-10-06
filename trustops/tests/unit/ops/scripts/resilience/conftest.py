@@ -417,6 +417,8 @@ class FakeDocker:
         #: Log texts handed out one per call, before ``logs`` repeats.
         self.log_script: list[str] = []
         self.ready_codes: dict[str, int] = {}
+        self.adapter_fixed = True
+        self.exec_fails = False
 
     def _note(self, what: str) -> None:
         self._world.log.append(what)
@@ -483,6 +485,17 @@ class FakeDocker:
     def logs_since(self, service: str, since: str, *, timeout_s: float = 30.0) -> str:
         """The next scripted log text, else the standing one."""
         return self.log_script.pop(0) if self.log_script else self.logs
+
+    def exec(self, service: str, argv: list[str], **kwargs: Any) -> CommandResult:
+        """Answer the adapter probe: ``True`` while ``adapter_fixed`` is set,
+        a failing command when ``exec_fails`` is.
+        """
+        self._note(f"exec {service}")
+        if self.exec_fails:
+            raise CommandError("no such container")
+        return CommandResult(
+            tuple(argv), 0, "True\n" if self.adapter_fixed else "False\n", ""
+        )
 
 
 class FakeBroker:

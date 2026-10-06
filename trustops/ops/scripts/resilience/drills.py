@@ -157,6 +157,37 @@ def settled_chain(
     return records, problems, verify_chain(stack.gateway, case_id)
 
 
+def names_message(shown: Mapping[str, Any], wanted: str) -> bool:
+    """Whether a peeked message is the one published as ``wanted``: by its AMQP
+    message id or by the ``event_id`` of its envelope (a retry hop on an adapter
+    that did not carry the AMQP properties gives the message a made-up id).
+    """
+    return wanted in (shown.get("message_id"), shown.get("event_id"))
+
+
+#: Run in the harness: does its broker adapter carry the fix (see below)?
+_ADAPTER_PROBE = "import fcrm_common.broker as b; print(hasattr(b, 'delivery_headers'))"
+
+
+def adapter_fix_deployed(stack: Stack) -> bool:
+    """Whether the running harness has the broker adapter that decodes nothing
+    and carries a message's AMQP properties over a retry (``delivery_headers``
+    in ``fcrm_common.broker``).
+
+    Without it a message whose body is not JSON but whose ``content_type`` says
+    ``application/json`` is never acknowledged, so it stays on the queue holding
+    a prefetch slot and comes back after every restart: the poison drill must
+    not plant one in a stack that cannot get rid of it.
+    """
+    try:
+        result = stack.docker.exec(
+            "harness", ["python", "-c", _ADAPTER_PROBE], timeout_s=30.0
+        )
+    except CommandError:
+        return False
+    return result.stdout.strip() == "True"
+
+
 def run_make(
     stack: Stack, args: list[str], *, timeout_s: float = 180.0
 ) -> CommandResult:
@@ -747,11 +778,7 @@ def replay_a_finished_step(stack: Stack, case_id: str) -> ReplayOutcome:
         )
         wait_for_depth(stack, STEPS_DLQ, base + 1, timeout_s=30.0)
         shown = next(
-            (
-                m
-                for m in broker.peek(STEPS_DLQ, limit=50)
-                if m["message_id"] == event_id
-            ),
+            (m for m in broker.peek(STEPS_DLQ, limit=50) if names_message(m, event_id)),
             None,
         )
         result = run_make(stack, ["dlq-replay", f"q={STEPS_QUEUE}", f"id={event_id}"])
@@ -824,12 +851,15 @@ def poison_the_steps_queue(stack: Stack, case_id: str) -> PoisonOutcome:
     base = baseline_dead_letters(broker).get(STEPS_DLQ, 0)
     stamp = utc_stamp()
     malformed_id, invalid_id = f"evt_drill_bad_{stamp}", f"evt_drill_invalid_{stamp}"
+    content_type = "application/json" if adapter_fix_deployed(stack) else "text/plain"
     try:
         broker.publish(
             STEPS_QUEUE,
-            b'{"this is": not json',
+            # cut off mid-object: the envelope's id is readable, the body is not JSON
+            f'{{"event_id": "{malformed_id}", "oops": '.encode(),
             message_id=malformed_id,
             message_type="harness.step",
+            content_type=content_type,
         )
         malformed_s, malformed_peak = wait_for_depth(
             stack, STEPS_DLQ, base + 1, timeout_s=60.0, watch=STEPS_RETRY
@@ -859,9 +889,10 @@ def poison_the_steps_queue(stack: Stack, case_id: str) -> PoisonOutcome:
         )
         invalid_s = time.monotonic() - began
         shown = {
-            m["message_id"]: m
+            wanted: m
             for m in broker.peek(STEPS_DLQ, limit=50)
-            if m["message_id"] in (malformed_id, invalid_id)
+            for wanted in (malformed_id, invalid_id)
+            if names_message(m, wanted)
         }
         refused = run_make(
             stack, ["dlq-purge", f"q={STEPS_QUEUE}", f"id={malformed_id}"]
