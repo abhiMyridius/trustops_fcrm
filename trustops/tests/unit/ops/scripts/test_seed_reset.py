@@ -78,7 +78,7 @@ def test_main_reads_the_environment_from_env_by_default(
     assert seed_reset.main(["--demo-case"]) == 1
     monkeypatch.setenv("ENV", "local")
     assert seed_reset.main(["--demo-case"]) == 0
-    assert len(calls.calls) == 2
+    assert len(calls.calls) == 3
 
 
 def test_exactly_one_mode_is_required() -> None:
@@ -225,9 +225,14 @@ def test_all_drops_through_the_mongo_container_then_replays_the_init(
     assert second_stdin is None
 
 
-def test_demo_case_clears_mongo_then_minio(calls: _Calls) -> None:
+def test_demo_case_clears_mongo_then_minio_then_restores_the_draft(
+    calls: _Calls,
+) -> None:
     seed_reset.reset_demo_case(COMPOSE)
-    (mongo, _, stdin), (minio, _, _) = calls.calls
+    (mongo, _, stdin), (minio, _, _), (restore, _, _) = calls.calls
+    assert restore == seed_reset.exec_command(
+        COMPOSE, "api", "python -m fcrm_case.demo_restore"
+    )
     assert mongo[: len(COMPOSE)] == COMPOSE
     assert mongo[len(COMPOSE) : len(COMPOSE) + 2] == ["exec", "-T"]
     assert mongo[6] == "mongo"

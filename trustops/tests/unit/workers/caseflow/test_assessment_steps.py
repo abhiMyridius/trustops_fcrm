@@ -805,11 +805,69 @@ class TestCompletenessPublish:
         record = _record(recording_audit, "completeness.report")
         assert record.summary == (
             "Narrative agent · 0 missing · 1 stale · 1 contradictory · "
-            "3 questions drafted"
+            "2 questions drafted"
         )
         assert result.gates_to_open == ()  # the engine opens the completeness gate
         [entry] = recording_audit.proposals
         assert entry.kind == "completeness"
+
+    async def test_the_counts_are_the_questions_given_not_the_models_claim(
+        self,
+        step_deps_factory: DepsFactory,
+        seed_results: Seed,
+        assessed_case: FakeCaseService,
+        recording_audit: RecordingAudit,
+    ) -> None:
+        """A live run's report said six drafted and five kept and gave no
+        question: the analyst was shown a round to send with nothing in it.
+        """
+        await seed_results(
+            "narrative", completeness_report(drafted=6, kept=5), job_id="job_n1"
+        )
+
+        await assessment.completeness_publish(
+            harness_step(StepKind.COMPLETENESS_PUBLISH, {"job_id": "job_n1"}),
+            step_deps_factory(make_run(run_id=RUN, state=CaseState.COMPLETENESS)),
+        )
+
+        [view] = assessed_case.views["completeness"]
+        assert view["questions"] == []
+        assert (
+            view["report"]["questions_drafted"],
+            view["report"]["questions_kept"],
+        ) == (0, 0)
+        assert (
+            _record(recording_audit, "completeness.report").data["questions_kept"] == 0
+        )
+
+    async def test_a_dropped_question_is_drafted_but_not_kept(
+        self,
+        step_deps_factory: DepsFactory,
+        seed_results: Seed,
+        assessed_case: FakeCaseService,
+    ) -> None:
+        dropped = {
+            **drafted_question("q2"),
+            "dropped_reason": "answered in the contract",
+        }
+        await seed_results(
+            "narrative",
+            completeness_report(drafted=2, kept=2),
+            drafted_question("q1"),
+            dropped,
+            job_id="job_n1",
+        )
+
+        await assessment.completeness_publish(
+            harness_step(StepKind.COMPLETENESS_PUBLISH, {"job_id": "job_n1"}),
+            step_deps_factory(make_run(run_id=RUN, state=CaseState.COMPLETENESS)),
+        )
+
+        [view] = assessed_case.views["completeness"]
+        assert (
+            view["report"]["questions_drafted"],
+            view["report"]["questions_kept"],
+        ) == (2, 1)
 
     async def test_a_narrative_job_without_a_report_is_refused(
         self, step_deps_factory: DepsFactory, seed_results: Seed

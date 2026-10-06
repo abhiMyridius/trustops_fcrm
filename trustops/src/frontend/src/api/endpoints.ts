@@ -88,6 +88,7 @@ export const paths = {
     records: `${API_PREFIX}/audit/records`,
     verify: (caseId: string) => `${API_PREFIX}/audit/verify/${e(caseId)}`,
     examinerAsk: `${API_PREFIX}/audit/examiner/ask`,
+    examinerAnswer: (questionId: string) => `${API_PREFIX}/audit/examiner/answers/${e(questionId)}`,
     overrides: `${API_PREFIX}/audit/overrides`,
     agentQuality: `${API_PREFIX}/audit/agent-quality`,
     versions: (caseId: string) => `${API_PREFIX}/audit/versions/${e(caseId)}`,

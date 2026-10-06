@@ -146,7 +146,12 @@ def dispatch_for(
         return DispatchPlan(
             (AgentDispatch(AgentName.NARRATIVE, scope="recommendation"),)
         )
-    if trigger is Trigger.GATE_DECIDED_PO_CONFIRM_CATEGORY_ALL and ctx.gaps_open:
+    if trigger is Trigger.GATE_DECIDED_PO_CONFIRM_CATEGORY_ALL:
+        # Always, not only when the first pass raised a question: that pass ran
+        # before the change types were confirmed, so it cannot know which
+        # required fields are still open, and a live run whose first pass raised
+        # none left the PO with twelve empty fields and nobody asking. This
+        # round is told the required set and asks only about what is unfilled.
         return DispatchPlan((AgentDispatch(AgentName.INTAKE, scope="questions_only"),))
     return DispatchPlan(())
 

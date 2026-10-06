@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import { useAddPlanned, useDecideItem, useRiskView, useSimulate } from '@/api/queries/analystQueries';
 import { userMessage } from '@/api/errors';
-import type { ControlItem, RiskArea, WorkbenchHeader } from '@/api/types/analyst';
+import type { ControlItem, PlannedControl, PlannedControlGate, RiskArea, RiskAreaGate, WorkbenchHeader } from '@/api/types/analyst';
 import { AuditRecordChip } from '@/components/domain/AuditRecordChip';
 import { ControlRow, ControlTable } from '@/components/domain/ControlRow';
 import { FactorBlock } from '@/components/domain/FactorBlock';
@@ -53,6 +53,7 @@ function AreaCard({
   readOnly,
   onConfirm,
   onOverride,
+  onConfirmFactor,
   busy,
 }: {
   area: RiskArea;
@@ -61,6 +62,7 @@ function AreaCard({
   readOnly: boolean;
   onConfirm: (c: ControlItem) => void;
   onOverride: (c: ControlItem) => void;
+  onConfirmFactor: (a: RiskArea) => void;
   busy: string | null;
 }) {
   return (
@@ -69,7 +71,13 @@ function AreaCard({
       subtitle={`Area weight ${formatFixed(area.weight, 2)} (renormalised over the in-scope domains) · ${area.matched_caption}${area.lock_blocking ? '' : ' · optional before lock in mock mode'}`}
     >
       <div className="flex flex-col gap-4">
-        <FactorBlock area={area} likelihood={likelihood} impact={impact} />
+        <FactorBlock
+          area={area}
+          likelihood={likelihood}
+          impact={impact}
+          busy={busy === (area as RiskArea & RiskAreaGate).factor_item_id}
+          onConfirm={readOnly ? undefined : () => onConfirmFactor(area)}
+        />
         <ControlTable caption={`Matched controls for ${area.label}`}>
           {area.controls.map((c) => (
             <ControlRow key={c.id} control={c} readOnly={readOnly} busy={busy === c.id} onConfirm={() => onConfirm(c)} onOverride={() => onOverride(c)} />
@@ -155,10 +163,11 @@ export function RiskControlsTab() {
   const [planning, setPlanning] = useState(false);
   const readOnly = !w.is_demo || w.closed || w.locked || !w.review_started;
 
-  async function confirm(c: ControlItem) {
-    setBusy(c.id);
+  /** Confirm one review item (a control, an area's likelihood and impact, or a planned control), one per call. */
+  async function confirmItem(itemId: string) {
+    setBusy(itemId);
     try {
-      await decide.mutateAsync({ item_id: c.id, decision: 'confirm' });
+      await decide.mutateAsync({ item_id: itemId, decision: 'confirm' });
     } catch (err) {
       toast.error('Not saved', userMessage(err));
     } finally {
@@ -195,8 +204,12 @@ export function RiskControlsTab() {
                   impact={r.impact_scale}
                   readOnly={readOnly}
                   busy={busy}
-                  onConfirm={(c) => void confirm(c)}
+                  onConfirm={(c) => void confirmItem(c.id)}
                   onOverride={(c) => setOverriding(c)}
+                  onConfirmFactor={(a) => {
+                    const id = (a as RiskArea & RiskAreaGate).factor_item_id;
+                    if (id) void confirmItem(id);
+                  }}
                 />
               ))}
               <Card
@@ -214,9 +227,16 @@ export function RiskControlsTab() {
                 ) : (
                   <ul className="flex flex-col gap-2 text-sm">
                     {r.planned.map((p) => (
-                      <li key={p.id}>
-                        <span className="font-semibold">{p.description}</span> · {p.owner} · due {p.due}
-                        {p.control_id ? ` · for ${p.control_id}` : ''}
+                      <li key={p.id} className="flex flex-wrap items-center gap-2">
+                        <span>
+                          <span className="font-semibold">{p.description}</span> · {p.owner} · due {p.due}
+                          {p.control_id ? ` · for ${p.control_id}` : ''}
+                        </span>
+                        {(p as PlannedControl & PlannedControlGate).gate_open && !readOnly && (
+                          <Button size="sm" variant="secondary" disabled={busy === p.id} onClick={() => void confirmItem(p.id)}>
+                            Confirm planned control
+                          </Button>
+                        )}
                       </li>
                     ))}
                   </ul>

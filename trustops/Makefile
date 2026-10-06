@@ -154,17 +154,21 @@ seed: ## force-reload the seed into every fcrm_* database and stage the demo PDF
 	@$(WAIT) --timeout 300 --compose "$(COMPOSE)" $(APPS)
 	$(PYTHON) ops/scripts/seed_reset.py --stage-fixtures --compose "$(COMPOSE)"
 
-seed-verify: ## recompute all 80 seed cases through POST /score and diff
-	@$(call pending,the S2 scoring service route + ops/scripts/seed_verify.py (offline today: make test-unit runs the 80-case golden test))
+seed-verify: ## the live stack holds the seed: 80 cases, the stage distribution, the demo case untouched, a chain that verifies
+	$(UV_RUN) python ops/scripts/seed_verify.py
 
-demo: ## drive FCRM-2026-0151 end to end and assert the goldens (9.8 → 10.4, 2–1, 67 records)
-	@$(call pending,S1–S5 + H1/H2 and ops/scripts/demo.py (integration lane))
+# `make demo` drives the whole case through the live stack (real Bedrock agents,
+# about 8 to 12 minutes) and prints the live numbers; the figures are whatever
+# the agents propose, the 21 scenes assert the structure (tests/e2e/test_demo_0151.py).
+demo: demo-reset ## drive FCRM-2026-0151 end to end through the live stack in 21 scenes and print the live numbers
+	$(UV_RUN) pytest tests/e2e/test_demo_0151.py -m e2e -o log_cli=true --log-cli-level=INFO
 
 demo-reset: ## delete case 0151's documents and uploads so the demo can run again, keep the other cases (refuses ENV=prod)
 	$(PYTHON) ops/scripts/seed_reset.py --demo-case --compose "$(COMPOSE)"
 
-verify: ## verify one case's audit chain: make verify case=FCRM-2026-0118
-	@$(call pending,the S4 audit service GET /verify/{case_id})
+verify: ## verify one case's audit chain through S4: make verify case=FCRM-2026-0118
+	@[ -n "$(case)" ] || { echo "usage: make verify case=<case id>, e.g. case=FCRM-2026-0118" >&2; exit 2; }
+	$(UV_RUN) python ops/scripts/seed_verify.py --case "$(case)"
 
 # ── quality gates ────────────────────────────────────────────────────────
 .PHONY: check lint format-check typecheck test test-unit opa-check opa-test compose-check web-install web-check gate
@@ -216,8 +220,10 @@ test-int: ## integration tests (testcontainers; needs Docker)
 
 test-integration: test-int ## alias of test-int
 
-e2e: ## 21 live scenes + BB-01…BB-14 against the live test stack (project trustops-test, ports +1000)
-	@$(call pending,the app containers and tests/e2e; the stack override is ready: $(COMPOSE_TEST))
+e2e: demo ## the demo, then the live black-box rules (BB-03/06/08/09/13/14), then the Playwright live scenes when the web is installed
+	$(UV_RUN) pytest tests/e2e/test_bb_live.py -m e2e -o log_cli=true --log-cli-level=INFO
+	@if [ -d src/frontend/node_modules ]; then cd src/frontend && npm run --silent test:e2e:live; \
+	else echo "e2e: SKIPPED the Playwright live scenes, src/frontend/node_modules is missing (run 'make web-install')"; fi
 
 # The drills restart, stop and kill containers of the RUNNING stack (make up
 # first; no one else may be using it) and run a few real Bedrock calls (one small

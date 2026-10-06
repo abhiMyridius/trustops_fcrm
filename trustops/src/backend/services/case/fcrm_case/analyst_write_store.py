@@ -29,7 +29,7 @@ from datetime import datetime
 from typing import Any, Optional, Protocol
 
 from fcrm_common.errors import ConflictError, NotFoundError
-from fcrm_common.mongo import Repository, to_bson, with_transaction
+from fcrm_common.mongo import Repository, from_bson, to_bson, with_transaction
 from fcrm_common.outbox import Outbox
 from fcrm_common.time import utcnow
 from fcrm_contracts.api.case_internal import UiEventIn
@@ -496,7 +496,17 @@ class MongoAnalystWriteStore:
     # -- reads -----------------------------------------------------------------
 
     async def get_decision(self, gate_id: str) -> Optional[AnalystDecisionRow]:
-        return await self._decisions.find_one({"gate_id": gate_id})
+        # The ledger row is stored under ``_id = gate_id`` without a ``gate_id``
+        # field (see ``_record_gates``), so it is read by ``_id`` and the id put
+        # back: a filter on ``gate_id`` matched nothing, every repeat looked like
+        # a first decision and a different decision on a decided gate replayed
+        # silently instead of being refused.
+        doc = await self._decisions.collection.find_one({"_id": gate_id})
+        if doc is None:
+            return None
+        data = from_bson(dict(doc))
+        data["gate_id"] = data.pop("_id")
+        return AnalystDecisionRow.model_validate(data)
 
     async def decided_gate_ids(self, case_id: str) -> frozenset[str]:
         docs = await self._decisions.collection.find(

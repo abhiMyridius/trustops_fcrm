@@ -43,9 +43,13 @@ embeddings:
 # usage"), not from the first design's estimate (cheap 6k, mid 12k, strong 20k,
 # judge 20k), which the first live run showed no real run could hold:
 #   cheap  15k  real demo windows of intake: 6-12k an attempt, p90 11.5k
-#   mid    11k  narrative, examiner, policy_gap: 5-8.5k, p90 8.5k
+#   mid    15k  narrative, examiner, policy_gap: 5-8.5k, p90 8.5k on the eval sample; the live
+#               demo case's narrative is 8k clean and 13k on its retried attempt (the pack plus
+#               Guard 4's reasons plus its first answer), which blocked it at 11k (first full live run)
 #   strong 24k  research and assessment, effort low, one tool round trip: p90 18k
-#   judge  15k  critic, effort low: 5-7k an attempt, 11-12k with a tool round trip
+#   judge  20k  critic, effort low: 5-7k an attempt, 11-12k with a tool round trip on the eval
+#               sample, 16.4k on the live demo case (16 controls: the pack and the one tool
+#               round trip re-sent), which blocked it at 15k (first full live run, 6 Oct)
 #
 # `effort` (output_config.effort) is low on every tier that thinks. Measured on the
 # gate sample, medium against low: the critic spent 8-14k tokens an attempt against
@@ -75,7 +79,7 @@ tiers:
     max_tokens: 4000
     wall_clock_s: 120
     retries: 1
-    budget: {tokens: 11000, wall_s: 120, retries: 1}
+    budget: {tokens: 15000, wall_s: 120, retries: 1}
     cache_min_prefix_tokens: 1024
     used_by: [narrative, examiner, policy_gap]
   strong:
@@ -100,7 +104,7 @@ tiers:
     max_tokens: 8000
     wall_clock_s: 180
     retries: 1
-    budget: {tokens: 15000, wall_s: 180, retries: 1}
+    budget: {tokens: 20000, wall_s: 180, retries: 1}
     cache_min_prefix_tokens: 1024
     used_by: [critic, eval judges]
 

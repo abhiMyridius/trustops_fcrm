@@ -253,6 +253,21 @@ export interface RiskArea {
   lock_blocking: boolean;
 }
 
+/**
+ * Keys the backend sends beside `RiskArea` and `PlannedControl` that the drift lock names as backend-only
+ * (tests/unit/packages/contracts/test_analyst_read_matches_web_types.py): an area's likelihood and impact are
+ * one review item, and an agent-proposed planned control is another; each is confirmed by one call
+ * (POST items/{id}), and `gate_open` says its gate is still waiting.
+ */
+export interface RiskAreaGate {
+  factor_item_id?: string | null;
+  factor_gate_open?: boolean;
+}
+
+export interface PlannedControlGate {
+  gate_open?: boolean;
+}
+
 export interface RiskView {
   areas: RiskArea[];
   score: ScoreBox;

@@ -109,6 +109,7 @@ from fcrm_case.domain.assessment import (
     CompletenessViewRow,
     RecommendationRow,
     current_items,
+    resolve_item,
 )
 from fcrm_case.domain.clarifications import anchor_parts, is_field_id
 from fcrm_case.domain.recommendation_edits import (
@@ -122,6 +123,7 @@ from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.views import ScoreSnapshotRow
 from fcrm_case.errors import ensure_open
 from fcrm_case.po_text import reject_reserved_terms
+from fcrm_case.reference import control_catalogue
 from fcrm_case.sse import ActivityWriter
 from fcrm_case.store import CaseStore
 from fcrm_case.views_store import ViewStore
@@ -235,7 +237,7 @@ class AnalystWriteService:
         """
         record = await self._own_case(case_id, principal)
         items = await self._views.list_items(case_id)
-        row = next((r for r in items if r.item_id == item_id), None)
+        row = resolve_item(items, item_id)
         if row is None:
             raise NotFoundError(f"no such item {item_id} on case {case_id}")
         if row not in current_items(items):
@@ -243,6 +245,7 @@ class AnalystWriteService:
                 f"item {item_id} was replaced by a re-run; decide its replacement",
                 item_id=item_id,
             )
+        item_id = row.item_id
         if row.gate_id is None:
             raise DecisionNotAllowedError(
                 f"item {item_id} has no gate to decide", item_id=item_id
@@ -718,6 +721,14 @@ class AnalystWriteService:
         controls = {
             str(r.subject.get("control_id"))
             for r in await self._views.list_items(record.case_id, ItemKind.CONTROL)
+        }
+        # A control of a domain in scope is the case's even when the assessment
+        # rated none of that domain (a live run proposed no channel control, and
+        # the narrative agent rightly asked about the channel's controls).
+        controls |= {
+            control_id
+            for control_id, ref in control_catalogue().items()
+            if ref.domain in record.domains
         }
         for question in questions:
             reject_reserved_terms(

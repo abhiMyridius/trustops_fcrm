@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any, Final, Optional
 
 from fcrm_common.errors import ConflictError, NotFoundError
@@ -57,6 +58,7 @@ from fcrm_contracts.events.payloads import (
 )
 
 from fcrm_caseflow import routing
+from fcrm_caseflow.clients.policy_client import PrecedentHit
 from fcrm_caseflow.cores.assessment_scope import scope_refs
 from fcrm_caseflow.cores.intake_merge import MergedIntake, merge_intake
 from fcrm_caseflow.cores.intake_records import (
@@ -70,6 +72,7 @@ from fcrm_caseflow.cores.intake_records import (
 from fcrm_caseflow.cores.refs import RERUN_PENDING_REF
 from fcrm_caseflow.cores.shared import show as _show
 from fcrm_caseflow.cores.shared import step_payload as _payload
+from fcrm_caseflow.cores.shared import tokens_of
 from fcrm_caseflow.dispatch import AgentDispatch
 from fcrm_caseflow.steps import (
     AgentJobSpec,
@@ -91,6 +94,11 @@ CASE_IDENTITY_FIELDS: Final = frozenset({"F01", "F02", "F03", "F05", "F06"})
 #: The extracted fields the precedent search is worded from ("what is this
 #: change, where, with whom"): F02 description, F20 corridor, F06 partner.
 _QUERY_FIELDS: Final = ("F02", "F20", "F06")
+
+#: How many of the closest closed cases are looked at for one that holds values
+#: the PO may reuse (the closest by words is not always the one with something
+#: to offer).
+PRECEDENT_CANDIDATES: Final = 5
 
 #: What the PO is told when a file could not be used, by failure code. Anything
 #: else gets the generic wording; the code itself stays in the audit record.
@@ -428,48 +436,101 @@ def _reusable_fields(
     return fields
 
 
+@dataclass(frozen=True)
+class _Candidate:
+    """A closed case S3 found, S1's record of it and what it offers for reuse."""
+
+    hit: PrecedentHit
+    record: CaseRecordInternal
+    fields: list[ReusableField]
+
+    @property
+    def offers_values(self) -> bool:
+        """Whether the PO may reuse at least one of its values."""
+        return any(f.reusable for f in self.fields)
+
+
+async def _closest_with_values(
+    deps: StepDeps,
+    record: CaseRecordInternal,
+    merged: MergedIntake,
+    extracted: frozenset[str],
+) -> Optional[_Candidate]:
+    """The closest closed case S1 knows that holds something the PO may reuse,
+    else the closest one S1 knows, else ``None``.
+
+    S3 ranks by similarity of the words; a closed case with nothing to offer
+    (no value of its own that this case's documents do not already give) is a
+    precedent the PO cannot use, so the first of the closest
+    :data:`PRECEDENT_CANDIDATES` that has reusable fields wins.
+    """
+    hits = await deps.require_policy().closest_precedents(
+        _precedent_query(merged, record), PRECEDENT_CANDIDATES
+    )
+    fallback: Optional[_Candidate] = None
+    for hit in hits:
+        if hit.case_id == record.case_id:
+            continue
+        try:
+            found = await deps.require_case().get_record(hit.case_id)
+        except NotFoundError:
+            logger.warning(
+                "the precedent S3 found is not a case S1 knows",
+                extra={"precedent_case_id": hit.case_id},
+            )
+            continue
+        candidate = _Candidate(hit, found, _reusable_fields(found, extracted))
+        if candidate.offers_values:
+            return candidate
+        fallback = fallback or candidate
+    return fallback
+
+
 async def _precedent(
     deps: StepDeps, record: CaseRecordInternal, merged: MergedIntake
 ) -> Optional[PrecedentMatch]:
-    """The closest closed case and what may be reused from it, or ``None``.
+    """The closest closed case with values to reuse, and what may be reused
+    from it, or ``None``.
 
-    The first publish asks S3 (``precedent_cases``, top hit) and remembers the
-    case id, similarity and closing month in the run's refs; later publishes
-    reuse that match instead of searching again, so what the PO is shown (and
-    may already have accepted) cannot change under them. A match S1 does not
-    know is left out, logged.
+    The first publish asks S3 (``precedent_cases``, the closest few) and
+    remembers the case id, similarity and closing month in the run's refs; later
+    publishes reuse that match instead of searching again, so what the PO is
+    shown (and may already have accepted) cannot change under them. A match S1
+    does not know is left out, logged.
     """
     refs = deps.run.refs
+    extracted = frozenset(v.field_id for v in merged.values)
     case_id = refs.get("precedent_case_id")
     similarity = refs.get("precedent_similarity")
     closed_month = refs.get("precedent_closed_month")
-    if not (
+    if (
         isinstance(case_id, str)
         and isinstance(similarity, float)
         and isinstance(closed_month, str)
     ):
-        hit = await deps.require_policy().top_precedent(
-            _precedent_query(merged, record)
-        )
-        if hit is None or hit.case_id == record.case_id:
+        try:
+            found = await deps.require_case().get_record(case_id)
+        except NotFoundError:
+            logger.warning(
+                "the precedent S3 found is not a case S1 knows",
+                extra={"precedent_case_id": case_id},
+            )
             return None
-        case_id, similarity = hit.case_id, hit.similarity
-        closed_month = _closed_month(hit.closed_date)
-    try:
-        found = await deps.require_case().get_record(case_id)
-    except NotFoundError:
-        logger.warning(
-            "the precedent S3 found is not a case S1 knows",
-            extra={"precedent_case_id": case_id},
-        )
-        return None
+        fields = _reusable_fields(found, extracted)
+    else:
+        chosen = await _closest_with_values(deps, record, merged, extracted)
+        if chosen is None:
+            return None
+        found, fields = chosen.record, chosen.fields
+        similarity = chosen.hit.similarity
+        closed_month = _closed_month(chosen.hit.closed_date)
     return PrecedentMatch(
         case_id=found.case_id,
         title=found.title,
         unit=found.unit or "",
         closed_month=closed_month,
         similarity=similarity,
-        fields=_reusable_fields(found, frozenset(v.field_id for v in merged.values)),
+        fields=fields,
     )
 
 
@@ -548,11 +609,8 @@ async def intake_publish(step: HarnessStep, deps: StepDeps) -> StepResult:
     labels = {f.field_id: f.label for f in record.fields}
     merged = merge_intake(results, run_id=step.run_id, labels=labels)
     published = {str(j) for j in deps.run.refs.get("intake_published_jobs") or ()}
-    fresh = merge_intake(
-        [r for r in results if r.job_id not in published],
-        run_id=step.run_id,
-        labels=labels,
-    )
+    new_results = [r for r in results if r.job_id not in published]
+    fresh = merge_intake(new_results, run_id=step.run_id, labels=labels)
 
     precedent = await _precedent(deps, record, merged)
     await case.put_intake(
@@ -595,7 +653,14 @@ async def intake_publish(step: HarnessStep, deps: StepDeps) -> StepResult:
         refs["precedent_case_id"] = precedent.case_id
         refs["precedent_similarity"] = precedent.similarity
         refs["precedent_closed_month"] = precedent.closed_month
-    return StepResult(gates_to_open=_gates_for(merged, precedent), refs_patch=refs)
+    return StepResult(
+        gates_to_open=_gates_for(merged, precedent),
+        refs_patch=refs,
+        # The intake agents' tokens count against the case's 120k like every
+        # other agent's: the first live run's monitor left them out (a replayed
+        # publish has no new results, so adds nothing).
+        counter_deltas={"tokens_used": tokens_of(new_results)},
+    )
 
 
 # --- scene 4-7: what the PO decides --------------------------------------------

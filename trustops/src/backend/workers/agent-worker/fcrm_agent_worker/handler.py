@@ -154,6 +154,31 @@ def _shape_results(result: AgentRunResult, attempt_index: int) -> list[GuardResu
     ]
 
 
+#: How many of Guard 4's reasons, and how many characters of each, the
+#: ``guard.output`` record keeps: enough for an analyst or a developer to see why
+#: an attempt was rejected (the first live run's narrative was, with nothing to
+#: say why), never the model's whole output.
+MAX_REJECTION_REASONS: Final = 5
+MAX_REJECTION_REASON_CHARS: Final = 300
+
+
+def _rejection(shape: GuardResult) -> dict[str, Any]:
+    """Why Guard 4 did not pass an attempt: the failing items and the reasons
+    it sent back, or nothing when it passed.
+    """
+    failed = shape.details.get("failed_items")
+    if shape.passed or not failed:
+        return {}
+    feedback = shape.details.get("feedback") or []
+    return {
+        "failed_items": list(failed)[:MAX_REJECTION_REASONS],
+        "reasons": [
+            str(reason)[:MAX_REJECTION_REASON_CHARS]
+            for reason in feedback[:MAX_REJECTION_REASONS]
+        ],
+    }
+
+
 def _output_summary(agent: str, attempt: int, shape: GuardResult) -> str:
     """``<agent> attempt n: k of n claims carry sources`` for a result that may
     proceed, otherwise the guard's own rejection text.
@@ -195,6 +220,7 @@ def audit_entries(
                         "status": shape.status.value,
                         "claims_total": shape.details.get("claims"),
                         "claims_with_source": shape.details.get("verified"),
+                        **_rejection(shape),
                     },
                 )
             )

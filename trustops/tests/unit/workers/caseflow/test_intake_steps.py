@@ -691,7 +691,7 @@ class TestIntakePublish:
     ) -> None:
         [search] = policy_service.calls
         assert search.body["index"] == "precedent_cases"
-        assert search.body["top_k"] == 1
+        assert search.body["top_k"] == 5
         assert search.body["query"] == (
             "Consumer remittances US to Mexico US to Mexico Remesas del Norte S.A. "
             "Vendor / third-party onboarding New geography New product"
@@ -708,6 +708,86 @@ class TestIntakePublish:
             "F34",
         ]
         assert reusable["F01"]["reason"] == "describes the other case, not this one"
+
+    async def test_the_precedent_is_the_closest_one_that_has_values_to_reuse(
+        self,
+        step_deps_factory: DepsFactory,
+        case_service: FakeCaseService,
+        policy_service: FakePolicyService,
+        agent_results: AgentResultStore,
+        session: FakeSession,
+    ) -> None:
+        """The first live run: S3's closest case held no values, so the PO was
+        offered a precedent with nothing to reuse while the closed case with
+        values ranked second.
+        """
+        _seed_round_one(case_service, policy_service)
+        case_service.add_precedent(
+            "FCRM-2026-0099", "Payout partner onboarding (Philippines corridor)", {}
+        )
+        empty = {
+            "id": "FCRM-2026-0099",
+            "score": 1.0,
+            "text": "Payout partner onboarding (Philippines corridor)",
+            "metadata": {"closed_date": "2026-04-13", "text_score": 0.98},
+        }
+        policy_service.hits = [empty, *policy_service.hits]
+        await _save_round_one(agent_results, session)
+
+        result = await intake.intake_publish(
+            _step(StepKind.INTAKE_PUBLISH, {"agent": "intake"}), step_deps_factory()
+        )
+
+        assert result.refs_patch["precedent_case_id"] == PRECEDENT
+        precedent = case_service.calls_to("PUT", "/intake")[0].body["precedent"]
+        assert precedent["case_id"] == PRECEDENT
+
+    async def test_with_no_candidate_holding_values_the_closest_is_still_offered(
+        self,
+        step_deps_factory: DepsFactory,
+        case_service: FakeCaseService,
+        policy_service: FakePolicyService,
+        agent_results: AgentResultStore,
+        session: FakeSession,
+    ) -> None:
+        _seed_round_one(case_service, policy_service)
+        case_service.other_cases[PRECEDENT]["fields"] = []
+        await _save_round_one(agent_results, session)
+
+        result = await intake.intake_publish(
+            _step(StepKind.INTAKE_PUBLISH, {"agent": "intake"}), step_deps_factory()
+        )
+
+        assert result.refs_patch["precedent_case_id"] == PRECEDENT
+        precedent = case_service.calls_to("PUT", "/intake")[0].body["precedent"]
+        assert precedent["fields"] == []
+
+    async def test_the_intake_agents_tokens_count_against_the_case(
+        self, published: StepResult
+    ) -> None:
+        """Two jobs of 1200 in and 300 out (the fixture's usage): the monitor's
+        ``tokens_used`` left intake out in the first live run.
+        """
+        assert published.counter_deltas == {"tokens_used": 3000}
+
+    async def test_a_replayed_publish_adds_no_tokens(
+        self,
+        step_deps_factory: DepsFactory,
+        case_service: FakeCaseService,
+        policy_service: FakePolicyService,
+        agent_results: AgentResultStore,
+        session: FakeSession,
+    ) -> None:
+        _seed_round_one(case_service, policy_service)
+        await _save_round_one(agent_results, session)
+        step = _step(StepKind.INTAKE_PUBLISH, {"agent": "intake"})
+        first = await intake.intake_publish(step, step_deps_factory())
+
+        again = await intake.intake_publish(
+            step, step_deps_factory(make_run(refs=first.refs_patch))
+        )
+
+        assert again.counter_deltas == {"tokens_used": 0}
 
     async def test_it_writes_the_walkthroughs_records_in_its_order(
         self, published: StepResult, recording_audit: RecordingAudit
