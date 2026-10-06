@@ -1,6 +1,6 @@
 # ai/agents/intake.agent.yaml  (design B §2.2)
 name: intake
-version: 1
+version: 2
 purpose: >-
   Read one window of pages of one uploaded document (canonical Markdown with
   page:line anchors) and propose field values with sources, change types with
@@ -16,7 +16,7 @@ budget_tier: cheap
 budget: {tokens: 6000, wall_s: 60, retries: 1}
 tools: [document_reader, field_rules, jurisdiction_list, precedent_search]
 tool_caps: {document_reader: 2, field_rules: 1, jurisdiction_list: 1, precedent_search: 1}
-tool_call_cap: 2
+tool_call_cap: 0                                    # the pack is complete; no tool is offered (measured: Haiku called one on every row, 17k tokens against 6k)
 pack_tools: [case_record, document_reader, field_rules, jurisdiction_list]
 skills: [cite_verbatim, declare_gap]
 context_pack: intake

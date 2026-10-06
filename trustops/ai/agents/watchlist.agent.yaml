@@ -1,6 +1,6 @@
 # ai/agents/watchlist.agent.yaml  (design B §2.8)
 name: watchlist
-version: 2
+version: 3
 purpose: >-
   When a new jurisdiction list version is published, write one re-flag
   proposal per candidate case that code selected (open cases whose
@@ -14,7 +14,7 @@ budget_tier: cheap
 budget: {tokens: 6000, wall_s: 60, retries: 1}
 tools: [jurisdiction_list, case_search]
 tool_caps: {jurisdiction_list: 1, case_search: 1}
-tool_call_cap: 2
+tool_call_cap: 0                                    # the pack is complete; no tool is offered
 pack_tools: [jurisdiction_list, case_search, policy_search]
 skills: [cite_verbatim]
 context_pack: watchlist

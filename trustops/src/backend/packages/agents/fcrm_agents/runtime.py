@@ -287,7 +287,14 @@ def _tool_function(name: str, registry: ToolRegistry) -> Tool[AgentDeps]:
 
 
 def tool_functions(spec: AgentSpec, registry: ToolRegistry) -> list[Tool[AgentDeps]]:
-    """The agent's model-callable tools, and only those (``spec.tools``)."""
+    """The agent's model-callable tools, and only those (``spec.tools``), or none
+    when its ``tool_call_cap`` is 0: the pack is complete by construction (design
+    B §3.2), and a model that is offered a tool it does not need calls it anyway
+    (the first live runs: Haiku on every intake row), each call re-sending the
+    whole request.
+    """
+    if spec.tool_call_cap == 0:
+        return []
     return [_tool_function(name, registry) for name in spec.tools]
 
 

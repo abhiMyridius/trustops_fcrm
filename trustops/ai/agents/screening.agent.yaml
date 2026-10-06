@@ -1,6 +1,6 @@
 # ai/agents/screening.agent.yaml  (design B §2.1)
 name: screening
-version: 2
+version: 3
 purpose: >-
   After triage, read the free-text description and say whether it matches the
   text conditions of routing rule R4 (vendor renewal, or a feature with no new
@@ -14,7 +14,7 @@ budget_tier: cheap
 budget: {tokens: 6000, wall_s: 60, retries: 1}     # must equal ai/models/tiers.yaml tiers.cheap.budget
 tools: [field_rules, precedent_search]             # model-callable; equals ai/policies/tool_permits.json
 tool_caps: {field_rules: 1, precedent_search: 1}
-tool_call_cap: 1
+tool_call_cap: 0                                    # the pack is complete; no tool is offered (measured: Haiku called one on 2 of 3 rows, tripling the request)
 pack_tools: [case_record, field_rules, precedent_search]   # deterministic builder fetches, never exposed to the model
 skills: [cite_verbatim]
 context_pack: screening                             # ScreeningPackBuilder in fcrm_agents.context

@@ -205,7 +205,7 @@ class LiveRun:
             tiers_config: Parsed ``ai/models/tiers.yaml``.
             model_factory: Builds the model for one attempt
                 (:func:`live_model_for_slot` in production).
-            tool_call_cap: Overrides ``spec.tool_call_cap`` when H2's
+            tool_call_cap: Lowers ``spec.tool_call_cap`` when H2's
                 ``AGENT_MAX_TOOL_CALLS`` setting is tighter (design A
                 §10.6's "refuses tool loops beyond max_tool_calls").
             starting_attempt: Normally 1; honours ``JobPayload.attempt``
@@ -222,7 +222,9 @@ class LiveRun:
         self.max_attempts = TIER_BUDGETS[spec.tier].max_attempts
         self.model_factory = model_factory
         self.tool_call_cap = (
-            tool_call_cap if tool_call_cap is not None else spec.tool_call_cap
+            spec.tool_call_cap
+            if tool_call_cap is None
+            else min(tool_call_cap, spec.tool_call_cap)
         )
         self.starting_attempt = starting_attempt
         self.model_used = ""
@@ -302,7 +304,9 @@ class LiveRun:
                 self.models, max_tokens_factor=plan.max_tokens_factor
             ),
             retries=0,
-            tools=tool_functions(self.spec, self.registry),
+            tools=tool_functions(self.spec, self.registry)
+            if self.tool_call_cap
+            else [],
             name=self.spec.name.value,
         )
         deps = AgentDeps(
@@ -344,6 +348,13 @@ class LiveRun:
                 GuardStatus.RETRY
                 if attempt < self.max_attempts
                 else GuardStatus.BLOCKED
+            )
+            logger.warning(
+                "model call failed (%s, attempt %d): %s",
+                self.spec.name.value,
+                attempt,
+                str(exc)[:300],
+                extra={"agent": self.spec.name.value, "attempt": attempt},
             )
             if isinstance(exc, UnexpectedModelBehavior):
                 self.feedback = [

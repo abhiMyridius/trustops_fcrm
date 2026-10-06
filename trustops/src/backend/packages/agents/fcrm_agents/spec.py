@@ -111,7 +111,7 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             ("cite_verbatim",),
             gate="fast_lane_confirm",
             eval_set="screening/fast-lane-100",
-            cap=1,
+            cap=0,
         ),
         _spec(
             A.INTAKE,
@@ -121,7 +121,7 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             ("cite_verbatim", "declare_gap"),
             gate="po_confirm_value",
             eval_set="intake/extraction-20",
-            cap=2,
+            cap=0,
         ),
         _spec(
             A.RESEARCH,
@@ -210,7 +210,7 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             ("cite_verbatim",),
             gate="reflag_ack",
             eval_set="watchlist/reflag-24",
-            cap=2,
+            cap=0,
             may_be_empty=True,
         ),
         _spec(
