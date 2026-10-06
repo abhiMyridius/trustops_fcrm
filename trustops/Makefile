@@ -177,8 +177,9 @@ lint: ## ruff over src/backend, ops/scripts and tests (what the commit hook lint
 format-check: ## ruff format --check over src/backend, ops/scripts and tests
 	$(UV_RUN) ruff format --check $(LINT_PATHS)
 
-typecheck: ## mypy over every workspace package (strictness per mypy.ini)
+typecheck: ## mypy over every workspace package (strictness per mypy.ini) and, --strict, the drill helpers and the DLQ tool
 	@if [ -z "$(MYPY_ARGS)" ]; then echo "typecheck: no packages"; else $(UV_RUN) mypy $(MYPY_ARGS); fi
+	MYPYPATH=ops/scripts:src/backend $(UV_RUN) mypy --strict --explicit-package-bases -p resilience -m dlq
 
 opa-check: ## opa check --strict on the policies and tests
 	$(OPA) check --strict $(OPA_DIR)/policy $(OPA_DIR)/tests
@@ -187,7 +188,7 @@ opa-test: ## Rego unit tests against the real permissions/tool_permits data (30 
 	$(OPA) test --timeout 30s $(OPA_DIR)/policy $(OPA_DIR)/data $(OPA_DIR)/tests
 
 test-unit: ## every unit test under tests/ (integration and e2e markers excluded)
-	$(UV_RUN) pytest -m "not integration and not e2e"
+	$(UV_RUN) pytest -m "not integration and not e2e and not resilience"
 
 test: test-unit ## alias of test-unit
 
@@ -218,8 +219,16 @@ test-integration: test-int ## alias of test-int
 e2e: ## 21 live scenes + BB-01…BB-14 against the live test stack (project trustops-test, ports +1000)
 	@$(call pending,the app containers and tests/e2e; the stack override is ready: $(COMPOSE_TEST))
 
-resilience: ## kill/restart drills (agent-worker, RabbitMQ, Mongo, identity, DLQ replay, budget)
-	@$(call pending,tests/resilience (tests lane))
+# The drills restart, stop and kill containers of the RUNNING stack (make up
+# first; no one else may be using it) and run a few real Bedrock calls (one small
+# intake document each). They address containers by name (trustops-<service>-1),
+# talk to the gateway on :8080 as the demo personas and never read .env.
+# FCRM_RESILIENCE_STRICT=1 makes an unreachable stack a failure, not a skip, so
+# this target cannot go green by testing nothing. Takes about 15 minutes.
+# Docs: docs/architecture/resilience.md. One drill: make resilience k=d3
+# (ids d1a d1b d2 d3 d4 d5a d5b d6 d7 d8).
+resilience: ## kill/restart drills against the running stack (harness, RabbitMQ, Mongo, api/identity, SSE, DLQ replay, handoff); PASS/FAIL table with seconds
+	FCRM_RESILIENCE_STRICT=1 $(UV_RUN) pytest -m resilience tests/resilience -p no:cacheprovider $(if $(k),-k "$(k)")
 
 # The X6 evals (src/backend/packages/evals; evals/README.md). `evals` calls Bedrock
 # with the AWS credentials in the shell's environment (about USD 4 and 10 minutes);
@@ -256,16 +265,28 @@ openapi: ## export the api process's merged OpenAPI (every service under its pre
 	$(UV_RUN) python ops/scripts/export_openapi.py
 
 # ── operations ───────────────────────────────────────────────────────────
-.PHONY: dlq dlq-replay token-report build-usage backup restore rotate-keys
-dlq: ## list dead-letter queues with their depth
-	@$(COMPOSE) exec -T rabbitmq rabbitmqctl -q list_queues name messages consumers | awk 'NR==1 || $$1 ~ /\.dlq$$/'
+.PHONY: dlq dlq-inspect dlq-replay dlq-purge token-report build-usage backup restore rotate-keys
+# The DLQ tool (ops/scripts/dlq.py) needs only the docker CLI and the stack's
+# container names (trustops-<service>-1): no .env and no `docker compose`. A
+# replayed message gets its retry budget back (x-attempt reset), which the
+# shovel this replaced did not do, so a replay of a failing message parked at
+# once. --project <name> if the compose project is not "trustops".
+DLQ := $(PYTHON) ops/scripts/dlq.py
 
-dlq-replay: ## move every message of <q>.dlq back onto <q>: make dlq-replay q=agent-worker.run
-	@[ -n "$(q)" ] || { echo "usage: make dlq-replay q=<work queue>, e.g. q=agent-worker.run" >&2; exit 2; }
-	@$(COMPOSE) exec -T rabbitmq rabbitmqctl -q list_queues name | grep -qx '$(q).dlq' || { echo "dlq-replay: no queue $(q).dlq" >&2; exit 2; }
-	$(COMPOSE) exec -T rabbitmq rabbitmqctl set_parameter shovel 'dlq-replay-$(q)' \
-		'{"src-protocol":"amqp091","src-uri":"amqp://","src-queue":"$(q).dlq","dest-protocol":"amqp091","dest-uri":"amqp://","dest-queue":"$(q)","ack-mode":"on-confirm","src-delete-after":"queue-length"}'
-	@echo "dlq-replay: shovel dlq-replay-$(q) moves the current backlog of $(q).dlq to $(q), then deletes itself"
+dlq: ## list dead-letter queues with their depth
+	@$(DLQ) list
+
+dlq-inspect: ## show the parked messages of <q>.dlq: make dlq-inspect q=caseflow.steps
+	@[ -n "$(q)" ] || { echo "usage: make dlq-inspect q=<work queue>, e.g. q=caseflow.steps" >&2; exit 2; }
+	@$(DLQ) inspect "$(q)"
+
+dlq-replay: ## move messages of <q>.dlq back onto <q> with a fresh retry budget: make dlq-replay q=caseflow.steps [id=<message id>]
+	@[ -n "$(q)" ] || { echo "usage: make dlq-replay q=<work queue>, e.g. q=caseflow.steps [id=<message id>]" >&2; exit 2; }
+	@$(DLQ) replay "$(q)" $(if $(id),--message-id "$(id)")
+
+dlq-purge: ## delete the parked messages of <q>.dlq (CONFIRM=1 to really do it): make dlq-purge q=caseflow.steps CONFIRM=1
+	@[ -n "$(q)" ] || { echo "usage: make dlq-purge q=<work queue> CONFIRM=1 [id=<message id>]" >&2; exit 2; }
+	@$(DLQ) purge "$(q)" $(if $(id),--message-id "$(id)") $(if $(CONFIRM),--confirm)
 
 token-report: ## (needs `make up-obs`) tokens and cost per agent, model and case from Prometheus → ops/token-analysis/runtime/
 	$(PYTHON) ops/scripts/token_report.py --prometheus http://$$($(COMPOSE_OBS) port prometheus 9090)
