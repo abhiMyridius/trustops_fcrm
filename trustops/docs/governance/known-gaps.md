@@ -101,3 +101,18 @@ Still open:
 - Handoff resume has no end-to-end run against a real Bedrock failure (D-67); no per-call runtime cost metric (D-68); H1's `DEFAULT_PINS` for oversight pseudo-runs (D-69).
 - The assessment eval gate (`li_within_one` 0.70 against 0.85) is capped by the dataset (D-56).
 - Three branches from other sessions are unmerged (D-57); `docs/governance/known-gaps.md` section B rows for `make test-int`, `validate_ai` and the compose text are closed by the items above.
+
+## H. Changes of 6 October night (appended)
+
+Closed since section G:
+
+- The full 21-scene run passes live on the final build (21 of 21; 197 audit records, the chain verifies, every dead-letter queue empty). Its first run on that build found a case stuck at the decision, fixed in `4e156a1` (D-70).
+- The exception and loop audit fixed nine defects (D-77 to D-83, ADR-57); the backend and frontend sweeps removed dead code and mock-era screen copy (D-84, D-85, ADR-58). The row of section E about mock-era web copy is closed by D-84.
+- An economy profile (ADR-56) lets the live checks run with no Sonnet or Opus: `make up-economy`, `make evals-economy`.
+- Live calls need the operator's approval first (ADR-59).
+
+Still open:
+
+- Findings of the audit and the sweep: the outbox poison row (D-86), the web logout (D-87), H2's audit key (D-88), the low findings (D-89), guards that may be unwired (D-90), a live 1-1-1 and R6 run (D-91).
+- Two chart insights in the web hard-code a count ("12 of 80 reached the Risk Committee", "38 of 212 proposals"); four buttons have no backend route (export case record, export and import CSV, upload source).
+- Everything listed as open in section G, including the eight resilience drills (D-66) until they are run.

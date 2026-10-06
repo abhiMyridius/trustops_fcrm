@@ -11,7 +11,7 @@ npm run lint       # oxlint (correctness + jsx-a11y) then eslint (jsx-a11y, hook
 npm run test       # vitest + Testing Library + MSW node + vitest-axe; specs live in src/test/** only
 npm run build      # tsc -b && vite build
 npm run test:e2e       # Playwright scenes in e2e/scenes against `dev:msw`
-npm run test:e2e:live  # Playwright against the gateway on :8080 (e2e/playwright.live.config.ts; no scenes yet)
+npm run test:e2e:live  # Playwright against the gateway on :8080 (e2e/playwright.live.config.ts; five scenes in e2e/scenes-live/)
 ```
 
 Live is the default and the only mode a production build has: anything but an explicit `VITE_API_MODE=msw` is live, and the Dockerfile deletes `mockServiceWorker.js` from the image. MSW is the vitest backend and the `dev:msw` backend; the web's route names are the API contract and the backend adopts them.

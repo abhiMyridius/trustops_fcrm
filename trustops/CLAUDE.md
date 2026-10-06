@@ -25,6 +25,7 @@ The brief (`docs/requirements/source/Genius Hacks Q3 2026.html`) for rubric and 
 - Commit small and often: `type(scope): summary [D-xx, ADR-nn]` with `Stage:` and `Gate:` trailers (`ai/guidance/commit-convention.md`). `make check` must be green before a commit; the git `pre-commit` and `commit-msg` hooks that `make bootstrap` installs lint, type-check and unit-test what you changed and refuse a message without a decision and a stage. Never `--no-verify`. Write the message to a file through a quoted heredoc and commit with `-F`, never `-m` with backticks (F-03). Stage with `git add -u` plus the new files you mean; never commit `.env`, `jwt_keys/` or `Hackathon.code-workspace`. Tables under `docs/governance` are append-only: the pre-commit hook rejects any change that rewrites or removes an existing `|` table row in any file there, including the rows of `known-gaps.md` and `sdlc-evidence.md` once committed, so add a row rather than edit one.
 - Coding standards are `ai/guidance/coding-standards.md` (ADR-21) and are enforced by ruff, mypy and the hooks: Python 3.13, uv workspace at `src/backend/` (frontend in `src/frontend/`), Pydantic 2 with `extra="forbid"` DTOs, type hints on every signature, docstrings on public symbols, `logging` never `print`, specific exceptions only. Tests never sit beside source: `tests/unit/<src path>` and `tests/integration/<src path>` with fixtures only in `tests/conftest.py`; config never inside `src/`. TypeScript strict, no business arithmetic in the client.
 - Do not state a capability in a document that does not run. A target that prints "not yet wired" is listed as such, and a gap goes in `docs/governance/known-gaps.md`.
+- **A live model call is a human gate (ADR-59).** Never run anything that calls Bedrock (`make evals`, `make demo`, `make e2e`, a resilience drill that runs an agent, an api restart that re-embeds the corpus) without the operator's approval, asked first with what it is, how many calls and an estimate at the verified prices; put the rule in every subagent brief. Unit tests with fakes, the throwaway-Mongo suite and read-only requests need no approval.
 
 ## Commands
 
@@ -35,15 +36,16 @@ make bootstrap     # opa binary, uv sync, git hooks, pull images
 make env && make keys   # .env with generated secrets, the JWT keypair (never overwrite); add AWS keys to .env yourself
 make up / down     # the stack: 8 containers (make up-obs adds 4 observability containers, make up-debug publishes the infrastructure ports); make down-v also deletes the data
 make seed          # reload the 80-case seed and stage the demo PDFs; make demo-reset re-runs only case 0151
-make check         # commit gate: ruff, format, mypy, OPA check and 120 Rego tests, ai/ registry and model-id guards, 7,094 unit tests, env contract, web tsc and 144 vitest tests (about 6 minutes)
+make check         # commit gate: ruff, format, mypy, OPA check and 120 Rego tests, ai/ registry and model-id guards, 7,659 unit tests, env contract, web tsc and 164 vitest tests (about 6 minutes)
 make test-int      # every integration-marked test under tests/: tests/integration on Docker or FCRM_TEST_MONGO_URI, plus the *_live.py tests under tests/unit, which skip (loudly announced) without FCRM_TEST_MONGO_URI; make gate = check + test-int + eval dataset and self-check
 make evals         # LIVE agent evals on Bedrock, about USD 3 and 7-11 minutes; writes evals/results/<date>/. Do not run it casually
+make economy-profile / up-economy / evals-economy   # the same live checks with no Sonnet or Opus (Haiku and Nova, ADR-56); a result from it is never a baseline; `make up` puts the shipped tiers back
 make openapi       # export docs/architecture/openapi/api.json; run it after ANY route change and commit the diff
 make dlq-replay q=caseflow.steps   # move <q>.dlq back onto <q>; make dlq lists the DLQs
 uv run --project src/backend --package fcrm-scoring-service pytest tests/unit/services/scoring -k golden   # one unit, one selection (the 9.8 to 10.4 goldens)
 ```
 
-Not wired, print "not yet wired": `make demo`, `seed-verify`, `verify`, `e2e`, `resilience`, `nightly`, `contracts`, `api-gen`, `locks`, `build-usage`, `backup`, `restore`. The demo is driven by hand (`RUNNING.md`).
+Not wired, print "not yet wired": `nightly`, `contracts`, `api-gen`, `locks`, `build-usage`, `backup`, `restore`. `make demo` drives case 0151 through all 21 scenes on the live stack and `make e2e` adds the live black-box rules and the Playwright scenes; both call Bedrock and cost money, so ask the operator first (ADR-59).
 
 `pytest.ini`'s `testpaths = tests` means an unscoped `pytest` call collects every unit's tests in one process. `--package <dist-name>` installs only that unit's dependencies, so a bare `pytest` under `--package` fails collection on another unit's imports: pass the specific `tests/unit/<...>` (or `tests/integration/...`) path with it. The distribution name is the `name` in the unit's `pyproject.toml` (`fcrm-scoring-service`, not `fcrm-scoring`). For the whole suite use `make test-unit` (`--all-packages`), which is what `make check` and `make gate` use.
 

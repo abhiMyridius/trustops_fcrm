@@ -34,7 +34,7 @@ Conventions: "(proposed)" marks a decision made here that no approved document h
 
 ```
 src/web/
-  package.json            react 19 · react-router 7 · @tanstack/react-query 5 · openapi-fetch · zod · react-hook-form
+  package.json            react 19 · react-router 7 · @tanstack/react-query 5 · openapi-fetch · zod
                           lucide-react · recharts 3 · msw 2 · vitest · @testing-library/react · vitest-axe · oxlint · eslint (a11y plugin only)
   vite.config.ts          proxy /api → http://localhost:8080 in dev; env VITE_API_MODE=live|msw
   tsconfig.json           strict, noUncheckedIndexedAccess, verbatimModuleSyntax
@@ -154,14 +154,14 @@ Gateway: nginx (G1) at `:8080`, prefix `/api/fcrm/`. Service prefixes: `cases` �
 2. Invalidate, don't patch: SSE and mutations call `invalidateQueries`. The one exception is per-item gate decisions, which update the item optimistically and roll back on error (so a row of four Accept buttons feels instant).
 3. URL is the state for tabs, filters, selected version, config section (`?tab=`, `#section`). Refresh must land on the same view.
 4. Local UI state (open modal, draft reason text) is component state. Config drafts are server-side (`…/draft`), so a reload keeps the working set and two analysts see the same draft (prototype's WorkingSetContext moves to the server).
-5. Forms use react-hook-form + zod; the reason field schema `z.string().trim().min(20)` is shared by every ReasonDialog.
+5. Forms use zod schemas (react-hook-form was dropped as unused, ADR-58); the reason field schema `z.string().trim().min(20)` is shared by every ReasonDialog.
 6. `staleTime` 10 s by default, 0 for gates/votes, 5 min for config versions and scoring models. SSE keeps data fresh; no `refetchInterval` except the polling fallback.
 7. No global store library. Two contexts: `AuthContext`, `MonitorContext` (ring buffer of 200 log lines).
 
 ### 1.6 Component library
 
 Primitives (`components/ui`, ~25, all with ARIA roles, keyboard support and vitest-axe tests):
-Button · IconButton · Card · Badge (tones: neutral, success, info, warning, danger) · Pill (count) · Tag · StatusDot · Tabs (roving tabindex, `?tab=` sync) · Modal (focus trap, Esc, `aria-labelledby`) · Drawer · Toast (`aria-live=polite`) · Tooltip · Input · Textarea · Select · Checkbox · Switch · SegmentedControl · Table (sortable headers, sticky head, row actions, empty/loading rows) · EmptyState · Skeleton · ProgressBar · Banner (info/warn/danger with optional action) · Stepper · Breadcrumb · Avatar · Icon (lucide).
+Button · IconButton · Card · Badge (tones: neutral, success, info, warning, danger) · Pill (count) · Tag · StatusDot · RouteTabs (roving tabindex, `?tab=` sync) · Modal (focus trap, Esc, `aria-labelledby`) · Drawer · Toast (`aria-live=polite`) · Input · Textarea · Select · Checkbox · SegmentedControl · Table (sortable headers, sticky head, row actions, empty/loading rows) · EmptyState · Skeleton · ProgressBar · Banner (info/warn/danger with optional action) · Stepper · Breadcrumb · Avatar · Icon (lucide).
 
 Domain components (`components/domain`):
 - `SourceChip` — "case p.4 l.12" style chip; click opens the document viewer at page:line. Renders nothing when a value has no source (rule: no source, no claim).
