@@ -314,6 +314,7 @@ class LiveRun:
             versions=self.pack.versions,
         )
         self.tool_sources = deps.tool_sources
+        record.tools_called = deps.tools_called
         try:
             run = await agent.run(
                 user_text,

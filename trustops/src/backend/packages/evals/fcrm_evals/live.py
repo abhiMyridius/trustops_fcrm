@@ -75,6 +75,7 @@ from fcrm_contracts.proposals.provenance import (
     ClauseSourceRef,
     ControlSourceRef,
     DocSourceRef,
+    ListSourceRef,
     RecordSourceRef,
 )
 from fcrm_contracts.tools.field_rules import FieldRulesInput, FieldRulesOutput
@@ -507,20 +508,45 @@ async def _narrative(view: RowView, draft: PackDraft, registry: ToolRegistry) ->
     draft.add("gaps", [("gap", f"recorded policy gap: {gap}")] if gap else [])
     review = view.input_value("corridor_review")
     draft.add("answers", [("answer", str(review))] if review else [])
-    draft.add("owner_facts", [])
+    title = view.input_value("title") or (
+        _case_title(case.text) if (case := view.case_source()) else None
+    )
+    draft.add("owner_facts", [("F02", dot("F02", title))] if title else [])
 
 
 def _narrative_score(view: RowView) -> str:
-    """The locked engine result, read-only, as the narrative pack shows it."""
-    after = (
-        f"composite {view.input_value('composite_after')} · "
-        f"band {view.input_value('band_after')}"
-    )
-    before = (
-        f"composite {view.input_value('composite_before')} · "
-        f"band {view.input_value('band_before')}"
-    )
-    return f"locked result: {after} (before the override: {before})"
+    """The locked engine result, read-only, as the narrative pack shows it. The
+    demo row has a result before and after the override; every other row has
+    one (``composite`` and ``band``)."""
+    composite = view.input_value("composite_after", view.input_value("composite"))
+    band = view.input_value("band_after", view.input_value("band"))
+    line = f"locked result: composite {composite} · band {band}"
+    if view.input_value("composite_before") is not None:
+        before = (
+            f"composite {view.input_value('composite_before')} · "
+            f"band {view.input_value('band_before')}"
+        )
+        line = f"{line} (before the override: {before})"
+    record = _score_record(view, composite)
+    if record is None:
+        return line
+    ref, text = record
+    return f'{line} · recorded in audit record #{ref.seq}: "{text}"'
+
+
+def _score_record(
+    view: RowView, composite: Any
+) -> Optional[tuple[RecordSourceRef, str]]:
+    """The audit record that holds the locked result (its text starts
+    ``Composite <composite>``), when the row's sources include one: the line the
+    narrative cites, with the record's own text to quote."""
+    for source in view.of_kind("record"):
+        ref = source.source_ref
+        if isinstance(ref, RecordSourceRef) and source.text.startswith(
+            f"Composite {composite}"
+        ):
+            return ref, source.text
+    return None
 
 
 async def _examiner(view: RowView, draft: PackDraft, registry: ToolRegistry) -> None:
@@ -544,18 +570,37 @@ async def _examiner(view: RowView, draft: PackDraft, registry: ToolRegistry) -> 
     )
 
 
+def _list_handle(view: RowView) -> tuple[str, list[str]]:
+    """The ``list_id@version`` the row's list source is cited by, and the list's
+    verbatim lines: what the real builder prints with every list line so the
+    model copies the handle instead of guessing it."""
+    for source in view.of_kind("list"):
+        ref = source.source_ref
+        if isinstance(ref, ListSourceRef):
+            return f"{ref.list_id}@{ref.version}", source.text.split("\n")
+    return "-", []
+
+
+def _line_about(lines: Sequence[str], country: str) -> str:
+    """The list line that names ``country`` (verbatim), or a plain statement."""
+    return next((line for line in lines if country in line), f"{country}: on the list")
+
+
 async def _watchlist(view: RowView, draft: PackDraft, registry: ToolRegistry) -> None:
     """list_diff, candidates, clauses. Code selects the candidates (open cases
     whose geographies are on the diff), as the real builder does."""
     del registry
     _prelude(view, draft)
-    version = view.input_value("version")
     changes = [(c, "added") for c in view.input_value("added", [])] + [
         (c, "removed") for c in view.input_value("removed", [])
     ]
+    handle, lines = _list_handle(view)
     draft.add(
         "list_diff",
-        [(c, f"{version} · {c}: {kind} on the list") for c, kind in changes],
+        [
+            (c, dot(c, kind, handle, f"line: {_line_about(lines, c)}"))
+            for c, kind in changes
+        ],
     )
     changed = {c for c, _ in changes}
     draft.add(
@@ -584,6 +629,7 @@ async def _policy_gap(view: RowView, draft: PackDraft, registry: ToolRegistry) -
             continue
         seq = seq or ref.seq
         text = dot(
+            gap.get("gap_id", "-"),
             f"#{ref.seq}",
             ref.case_id,
             gap.get("domain", "-"),
@@ -1014,6 +1060,10 @@ class LiveProducer:
             verified_attempt1=verified,
             guards=_guard_trail(result) if result else [],
             feedback=_guard_feedback(result) if result else [],
+            attempt_tokens=[a.tokens_used for a in result.attempts] if result else [],
+            tools_called=[t for a in result.attempts for t in a.tools_called]
+            if result
+            else [],
         )
         logger.info(
             "row %s %s: %d item(s), %d call(s), %d+%d tokens, $%.4f, %.1fs%s",

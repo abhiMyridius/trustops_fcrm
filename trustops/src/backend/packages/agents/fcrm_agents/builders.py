@@ -351,6 +351,18 @@ async def fetch_list(tools: ScopedTools, version: str) -> JurisdictionListOut:
     return out.list
 
 
+def gap_ids(gaps: Sequence[tuple[str, int, str]]) -> list[str]:
+    """``GAP-<case id>-<n>`` for each ``(case, seq, text)`` gap, ``n`` counting
+    that case's gaps from 1 in the order given: the id the pack prints at the
+    start of a gap line and the policy-gap agent copies into ``gap_id``."""
+    counts: dict[str, int] = {}
+    ids = []
+    for case, _seq, _text in gaps:
+        counts[case] = counts.get(case, 0) + 1
+        ids.append(f"GAP-{case}-{counts[case]}")
+    return ids
+
+
 def destinations(record: CaseRecordOutput) -> list[str]:
     """Destination countries from the corridor field (``US → Mexico``)."""
     corridor = field_value(record, CORRIDOR_FIELD) or ""
@@ -462,7 +474,10 @@ class IntakePackBuilder(ContextPackBuilder):
         items = [
             (
                 f"p.{page}",
-                "\n".join(f"p.{page} l.{n}: {t}" for n, t in enumerate(lines, start=1)),
+                f"Document {doc.doc_id}\n"
+                + "\n".join(
+                    f"p.{page} l.{n}: {t}" for n, t in enumerate(lines, start=1)
+                ),
             )
             for page, lines in pages.items()
         ]
@@ -919,7 +934,18 @@ class WatchlistPackBuilder(ContextPackBuilder):
         )
         draft.add(
             "list_diff",
-            [(c, f"{c} · {kind} · {list_line(new, c)}") for c, kind in changes],
+            [
+                (
+                    c,
+                    dot(
+                        c,
+                        kind,
+                        f"{FATF_LIST_ID}@{new.version}",
+                        f"line: {list_line(new, c)}",
+                    ),
+                )
+                for c, kind in changes
+            ],
         )
         draft.cite(
             ListSourceRef(list_id=FATF_LIST_ID, version=new.version),
@@ -977,7 +1003,10 @@ class PolicyGapPackBuilder(ContextPackBuilder):
         add_prelude(draft, request, None)
         draft.add(
             "gaps",
-            [(f"#{seq}", f"#{seq} · {case} · {text}") for case, seq, text in gaps],
+            [
+                (f"#{seq}", f"{gap_id} · #{seq} · {case} · {text}")
+                for gap_id, (case, seq, text) in zip(gap_ids(gaps), gaps, strict=True)
+            ],
         )
         nearest: list[Item] = []
         for case_id, seq, text in gaps:

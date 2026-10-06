@@ -268,3 +268,62 @@ def test_every_agent_has_a_system_prompt_the_producer_can_load(repo_ai: Path) ->
         producer = LiveProducer.for_agent(agent, ai_root=repo_ai)
         assert producer.packs is not None
         assert REGISTRY[agent].name is agent
+
+
+async def test_the_watchlist_pack_prints_the_list_handle_and_the_verbatim_line(
+    pack_builder: RowPackBuilder,
+) -> None:
+    """The first live run found the model citing ``list:jurisdiction_list@...``
+    because the pack never showed the ``list_id``, and quoting a line the
+    pack did not print."""
+    row = next(
+        r
+        for r in load(AgentName.WATCHLIST)
+        if r.input["added"] and any(c["geographies"] for c in r.input["open_cases"])
+    )
+    pack = await pack_builder.build(row)
+    source = row.sources()[0]
+    for line in pack.sections["list_diff"].split("\n"):
+        country = line.split(" · ")[0]
+        assert f"{source.source_ref.list_id}@{source.source_ref.version}" in line  # type: ignore[union-attr]
+        assert line.split("line: ")[1] in source.text
+        assert country in line.split("line: ")[1]
+
+
+async def test_the_policy_gap_pack_prints_the_gap_id_the_agent_must_copy(
+    pack_builder: RowPackBuilder,
+) -> None:
+    row = load(AgentName.POLICY_GAP)[0]
+    pack = await pack_builder.build(row)
+    gap_id = row.input["gap"]["gap_id"]
+    assert pack.sections["gaps"].startswith(f"{gap_id} · #")
+
+
+async def test_a_narrative_pack_shows_the_locked_result_of_every_row(
+    pack_builder: RowPackBuilder,
+) -> None:
+    """Only the demo row has a result before and after the override; the
+    others carry one (``composite`` and ``band``), which the pack used to print
+    as ``None``."""
+    for row in load(AgentName.NARRATIVE):
+        pack = await pack_builder.build(row)
+        assert "None" not in pack.sections["ratings"], row.row_id
+        assert (
+            f"composite {row.input.get('composite_after', row.input.get('composite'))}"
+            in pack.sections["ratings"]
+        )
+
+
+async def test_every_narrative_pack_gives_a_source_the_recommendation_can_quote(
+    pack_builder: RowPackBuilder,
+) -> None:
+    """Either the locked-result line names the audit record that holds it and
+    prints that record's text, or the pack gives the case's title: the two
+    things a ``Narrative`` can cite and have its quote verify."""
+    for row in load(AgentName.NARRATIVE):
+        pack = await pack_builder.build(row)
+        texts = [s.text for s in row.sources()]
+        ratings, owner_facts = pack.sections["ratings"], pack.sections["owner_facts"]
+        named = re.search(r'recorded in audit record #\d+: "([^"]+)"', ratings)
+        quoted = named.group(1) if named else owner_facts.split(" · ", 1)[1]
+        assert any(quoted in text for text in texts), row.row_id

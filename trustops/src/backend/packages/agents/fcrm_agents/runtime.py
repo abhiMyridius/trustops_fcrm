@@ -78,6 +78,7 @@ from pydantic_ai import (
 from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
+from fcrm_agents.builders import POLICY_INDEX, PRECEDENT_INDEX
 from fcrm_agents.context_pack import ContextPack
 from fcrm_agents.spec import REGISTRY, AgentSpec
 from fcrm_agents.tool_sources import sources_from_result
@@ -166,6 +167,8 @@ class AgentDeps:
     registry: ToolRegistry
     permit: PermitGuard
     versions: PinnedVersions
+    tools_called: list[str] = field(default_factory=list)
+    """The tools the model called, in order (refused calls too)."""
     tool_sources: list[AvailableSource] = field(default_factory=list)
     """What the tool results returned to *this model call* let the agent cite
     (:func:`fcrm_agents.tool_sources.sources_from_result`). One ``AgentDeps``
@@ -173,11 +176,74 @@ class AgentDeps:
     against the pack and these, never against a tool the agent did not call."""
 
 
+SCOPE_ARGUMENTS: Final = ("case_id", "run_id", "controls_v", "fieldset_v")
+"""Tool arguments H2 fills from the job, never the model: the case and run it
+belongs to and the pinned versions. A model asked for them gets them wrong
+(or names another case); a tool call is scoped by construction instead of
+refused afterwards, and the model's schema is shorter."""
+
+FIXED_ARGUMENTS: Final[Mapping[str, Mapping[str, str]]] = {
+    "policy_search": {"index": POLICY_INDEX},
+    "precedent_search": {"index": PRECEDENT_INDEX},
+}
+"""Tool arguments the agent spec, not the model, pins (two tools share one
+search request shape and differ only by the index they read)."""
+
+
+def compact_schema(node: Any) -> Any:
+    """``node`` (a JSON Schema) without what costs tokens and tells a model
+    nothing: ``title`` keywords (they repeat the field name) and ``default``
+    ``null``. A *property* called ``title`` is kept: its value is a schema (a
+    mapping), where the keyword's is a string."""
+    if isinstance(node, dict):
+        return {
+            k: compact_schema(v)
+            for k, v in node.items()
+            if not (k == "title" and isinstance(v, str))
+            and not (k == "default" and v is None)
+        }
+    if isinstance(node, list):
+        return [compact_schema(v) for v in node]
+    return node
+
+
+def scope_values(name: str, deps: AgentDeps) -> dict[str, Any]:
+    """The arguments of tool ``name`` that the job fixes (see
+    :data:`SCOPE_ARGUMENTS`, :data:`FIXED_ARGUMENTS`)."""
+    values: dict[str, Any] = {
+        "case_id": deps.case_id,
+        "run_id": deps.run_id,
+        "controls_v": deps.versions.controls_v,
+        "fieldset_v": deps.versions.fieldset_v,
+    }
+    values.update(FIXED_ARGUMENTS.get(name, {}))
+    return values
+
+
+def model_schema(name: str, input_model: type[BaseModel]) -> dict[str, Any]:
+    """The input schema the model sees for tool ``name``: the input model's,
+    compacted, without the arguments the job fills in."""
+    schema = compact_schema(input_model.model_json_schema())
+    hidden = {*SCOPE_ARGUMENTS, *FIXED_ARGUMENTS.get(name, {})}
+    properties = schema.get("properties", {})
+    for key in hidden & set(properties):
+        del properties[key]
+    if "required" in schema:
+        schema["required"] = [k for k in schema["required"] if k not in hidden]
+        if not schema["required"]:
+            del schema["required"]
+    return dict(schema)
+
+
 def _tool_function(name: str, registry: ToolRegistry) -> Tool[AgentDeps]:
     tool = registry.get(name)
+    hidden = {*SCOPE_ARGUMENTS, *FIXED_ARGUMENTS.get(name, {})} & set(
+        tool.input_model.model_fields
+    )
 
     async def call_tool(ctx: RunContext[AgentDeps], **arguments: Any) -> dict[str, Any]:
         deps = ctx.deps
+        deps.tools_called.append(name)
         decision = await deps.permit.decide(
             agent=deps.agent,
             tool=name,
@@ -190,13 +256,19 @@ def _tool_function(name: str, registry: ToolRegistry) -> Tool[AgentDeps]:
                 "tool call denied", extra={"tool": name, "reason": decision.reason}
             )
             return {"error": f"not permitted: {decision.reason}"}
+        scoped = scope_values(name, deps)
         try:
-            request = tool.input_model.model_validate(arguments)
-            if getattr(request, "case_id", deps.case_id) != deps.case_id:
-                return {"error": "case_id is outside this job's case"}
+            request = tool.input_model.model_validate(
+                {**arguments, **{k: scoped[k] for k in hidden}}
+            )
             result = await tool.call(request)
         except (ValidationError, ToolError) as exc:
-            logger.info("tool call refused", extra={"tool": name, "error": str(exc)})
+            logger.info(
+                "tool call refused: %s: %s",
+                name,
+                str(exc)[:300],
+                extra={"tool": name, "error": str(exc)},
+            )
             return {"error": f"{type(exc).__name__}: {exc}"}
         deps.tool_sources.extend(
             sources_from_result(
@@ -209,7 +281,7 @@ def _tool_function(name: str, registry: ToolRegistry) -> Tool[AgentDeps]:
         call_tool,
         name=name,
         description=(tool.input_model.__doc__ or f"The read-only {name} tool.").strip(),
-        json_schema=tool.input_model.model_json_schema(),
+        json_schema=model_schema(name, tool.input_model),
         takes_ctx=True,
     )
 
@@ -254,6 +326,9 @@ class AttemptRecord(BaseModel):
     guard_results: list[GuardResult]
     tokens_used: int = 0
     tool_calls: int = 0
+    tools_called: list[str] = Field(default_factory=list)
+    """The tools the model called in this attempt, in order (a refused call
+    is listed too: it cost a request)."""
 
 
 class AgentRunResult(BaseModel):
@@ -408,6 +483,7 @@ class OfflineRun:
             versions=self.pack.versions,
         )
         self.tool_sources = deps.tool_sources
+        record.tools_called = deps.tools_called
         max_tokens = int(
             OFFLINE_MAX_TOKENS[Tier(self.spec.tier)] * plan.max_tokens_factor
         )

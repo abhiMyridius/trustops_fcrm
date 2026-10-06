@@ -1,6 +1,6 @@
 # ai/agents/examiner.agent.yaml  (design B §2.7)
 name: examiner
-version: 1
+version: 2
 purpose: >-
   Answer an examiner's or auditor's question about one case from its
   hash-chained audit records only. Every sentence cites records; the agent
@@ -15,7 +15,7 @@ tools: [audit_log]
 tool_caps: {audit_log: 2}
 tool_call_cap: 2
 pack_tools: [case_record, audit_log]
-skills: [cite_verbatim, declare_gap]
+skills: []
 context_pack: examiner
 output_schema:
   envelope: ExaminerOutput

@@ -1,6 +1,6 @@
 # ai/agents/screening.agent.yaml  (design B §2.1)
 name: screening
-version: 1
+version: 2
 purpose: >-
   After triage, read the free-text description and say whether it matches the
   text conditions of routing rule R4 (vendor renewal, or a feature with no new
@@ -16,7 +16,7 @@ tools: [field_rules, precedent_search]             # model-callable; equals ai/p
 tool_caps: {field_rules: 1, precedent_search: 1}
 tool_call_cap: 1
 pack_tools: [case_record, field_rules, precedent_search]   # deterministic builder fetches, never exposed to the model
-skills: [declare_gap]
+skills: [cite_verbatim]
 context_pack: screening                             # ScreeningPackBuilder in fcrm_agents.context
 output_schema:
   model: fcrm_contracts.proposals.screening.ScreeningProposal

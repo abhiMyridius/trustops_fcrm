@@ -1,9 +1,10 @@
 ---
 id: compare_precedent
-version: 1
-applies_to: [research, assessment, critic]
+version: 2
+applies_to: [assessment, critic]
 changelog:
   - {version: 1, date: 2026-10-03, reason: initial, eval_run: null}
+  - {version: 2, date: 2026-10-06, reason: "research no longer includes it (it compares ratings with precedent ratings, which research never rates); the example names no case ids", eval_run: null}
 ---
 ## Comparing with precedent cases
 
@@ -21,5 +22,5 @@ Precedents are closed cases that a person already decided. They tell you what wa
 6. If fewer than two precedents rated the same control, say "no precedent comparison possible" instead of comparing with one case.
 
 Example: five closest cases rated CTL-T01 at 4.5, 5.2, 4.0, 5.5 and 5.3 (mean 4.9 as given). The proposal is 7.6.
-- Correct: "CTL-T01 at 7.6 is 2.7 above the 4.9 mean of FCRM-2026-0118, -0097, -0084, -0109, -0076 (range 4.0-5.5)."
+- Correct: "CTL-T01 at 7.6 is 2.7 above the 4.9 mean of the five closest cases (range 4.0-5.5)."
 - Wrong: "rated 5.0 to align with precedent" (adjusting to match) or "about 3 points higher than usual" (inexact, no ids).
