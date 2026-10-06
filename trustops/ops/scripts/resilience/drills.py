@@ -66,9 +66,13 @@ IDLE_TIMEOUT_S: Final = 120.0
 #: The workers' ``stop_grace_period`` in compose; the api's is 30 s.
 HARNESS_GRACE_S: Final = 70
 API_GRACE_S: Final = 30
-#: How long a message sits in a ``*.retry`` queue (``x-message-ttl`` 30 s) times
-#: the three attempts, plus slack.
-RETRY_CYCLE_TIMEOUT_S: Final = 180.0
+#: How long a message sits in a ``*.retry`` queue (``x-message-ttl``, 30 s).
+RETRY_DELAY_S: Final = 30.0
+#: Attempts a ``caseflow.steps`` message gets: ``STEP_MAX_ATTEMPTS`` of
+#: ``fcrm_caseflow.consumers`` (a unit test keeps the two equal).
+STEP_ATTEMPTS: Final = 8
+#: A message that fails on every attempt reaches the DLQ after this long, plus slack.
+RETRY_CYCLE_TIMEOUT_S: Final = STEP_ATTEMPTS * RETRY_DELAY_S + 90.0
 #: A request that gets no answer within this is a hang, not a clean failure.
 CLEAN_FAILURE_LIMIT_S: Final = 40.0
 STEPS_QUEUE: Final = "caseflow.steps"

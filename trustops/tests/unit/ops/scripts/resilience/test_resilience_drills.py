@@ -6,11 +6,14 @@ when, what is waited for, what is reported); the live behaviour is what
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import pytest
+from fcrm_caseflow.consumers import STEP_MAX_ATTEMPTS
 from resilience import drills
 from resilience.errors import DrillError, PollTimeoutError
 from resilience.gateway import Reply
@@ -648,3 +651,17 @@ def test_run_make_runs_make_in_the_project_root_without_raising(
     assert argv[3:] == ["DLQ_PROJECT=trustops", "dlq-purge", "q=caseflow.steps"]
     assert stack.runner.calls[0]["check"] is False
     assert result.returncode == 2
+
+
+def test_the_retry_cycle_deadline_covers_every_attempt_of_a_step() -> None:
+    root = Path(__file__).resolve().parents[5]
+    definitions = json.loads(
+        (root / "ops" / "rabbitmq" / "definitions.json").read_text(encoding="utf-8")
+    )
+    retry = next(
+        q for q in definitions["queues"] if q["name"] == "caseflow.steps.retry"
+    )
+
+    assert drills.STEP_ATTEMPTS == STEP_MAX_ATTEMPTS
+    assert retry["arguments"]["x-message-ttl"] / 1000 == drills.RETRY_DELAY_S
+    assert drills.RETRY_CYCLE_TIMEOUT_S >= STEP_MAX_ATTEMPTS * drills.RETRY_DELAY_S
