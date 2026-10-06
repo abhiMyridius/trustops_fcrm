@@ -141,6 +141,12 @@ class FakeGateway:
             raise AssertionError(f"unrouted call: {method} {path}")
         return replies.pop(0) if len(replies) > 1 else replies[0]
 
+    base_url = "http://gateway.invalid/api/fcrm"
+
+    def healthz(self) -> Reply:
+        """The gateway's own health: always answering."""
+        return Reply(200, "application/json", {"status": "ok"}, 0.01)
+
     def login(self, persona: str) -> str:
         """A token named for the persona."""
         return f"token-{persona}"
@@ -562,6 +568,12 @@ class FakeMongo:
     def __init__(self) -> None:
         self.rows: dict[str, list[dict[str, Any]]] = {}
         self.queries: list[tuple[str, str, dict[str, Any]]] = []
+        self.seeded: list[tuple[str, int]] = []
+
+    def seed_scratch_ledger(self, case_id: str, cap: int) -> bool:
+        """Record the seeding; the ledger is always new."""
+        self.seeded.append((case_id, cap))
+        return True
 
     def find(
         self,

@@ -215,23 +215,78 @@ def test_the_duplicate_carries_the_job_and_run_of_the_real_one(
 # --------------------------------------------------------------- D6: handoff
 
 
-def test_a_job_that_cannot_run_ends_in_a_handoff_with_nothing_fabricated(
-    stack: Any, reply: Callable[..., Reply]
-) -> None:
+def _job_of(entry: dict[str, Any]) -> str:
+    """The job id inside a published ``agent.run`` body."""
+    import json
+
+    return str(json.loads(entry["body"])["payload"]["job_id"])
+
+
+def _handoff_world(stack: Any, reply: Callable[..., Reply]) -> list[dict[str, Any]]:
+    """A chain that grows the records H2 and H1 write when a published job fails,
+    and the analyst's gate list, H2's kept inputs and the ledger to match.
+    """
     chain = _intake_chain()[:2]
     _serve(stack, reply, chain, idle=True)
 
     def fail(entry: dict[str, Any]) -> None:
-        job_id = entry["message_id"]
-        chain.append(_record(3, "agent.failed", job_id=job_id, agent="intake"))
+        job_id = _job_of(entry)
+        ref = f"agent_raw_inputs/{job_id}"
+        chain.append(
+            _record(3, "agent.failed", job_id=job_id, agent="intake")
+            | {"summary": "intake context pack failed: no doc_id"}
+        )
         chain.append(_record(4, "agent.failed.after_retry", state_to="handoff"))
+        chain.append(
+            _record(
+                5,
+                "human.handoff",
+                phase="opened",
+                job_id=job_id,
+                raw_inputs_ref=ref,
+                reason="context_pack_error: no doc_id",
+            )
+        )
+        stack.gateway.route(
+            "GET",
+            f"/cases/{CASE}/handoff/gates",
+            reply(
+                {
+                    "case_id": CASE,
+                    "gates": [
+                        {
+                            "gate_id": "gate_1",
+                            "agent": "intake",
+                            "job_id": job_id,
+                            "reason": "context_pack_error: no doc_id",
+                            "attempt": 1,
+                            "raw_inputs_ref": ref,
+                            "raw_inputs": None,
+                            "raw_inputs_error": "no doc_id",
+                            "status": "open",
+                        }
+                    ],
+                }
+            ),
+        )
+        stack.mongo.rows["agent_raw_inputs"] = [
+            {"_id": job_id, "job": {"job_id": job_id}, "error": "no doc_id"}
+        ]
 
     stack.broker.on_publish = fail
     stack.mongo.rows = {
         "case_runs": [{"_id": "run_1", "state": "handoff"}],
         "gates": [{"_id": "gate_1"}],
         "agent_results": [],
+        "case_budgets": [{"_id": CASE, "reserved": 0, "spent": 0, "jobs": {}}],
     }
+    return chain
+
+
+def test_a_job_that_cannot_run_ends_in_a_handoff_with_nothing_fabricated(
+    stack: Any, reply: Callable[..., Reply]
+) -> None:
+    _handoff_world(stack, reply)
     outcome = drills.fail_a_job_into_handoff(stack, CASE)
     published = stack.broker.published[0]
     assert (published["exchange"], published["routing_key"]) == (
@@ -243,21 +298,34 @@ def test_a_job_that_cannot_run_ends_in_a_handoff_with_nothing_fabricated(
     assert outcome.results_for_job == 0
     assert outcome.proposals == []
     assert outcome.failed_record["type"] == "agent.failed"
+    assert outcome.handoff_record["data"]["phase"] == "opened"
+    assert outcome.ledger == {"_id": CASE, "reserved": 0, "spent": 0, "jobs": {}}
+
+
+def test_the_handoff_carries_what_the_analyst_is_shown_and_what_h2_kept(
+    stack: Any, reply: Callable[..., Reply]
+) -> None:
+    _handoff_world(stack, reply)
+    outcome = drills.fail_a_job_into_handoff(stack, CASE)
+    ref = f"agent_raw_inputs/{outcome.job_id}"
+    assert outcome.gate_view is not None
+    assert outcome.gate_view["raw_inputs_ref"] == ref
+    assert outcome.gate_view["job_id"] == outcome.job_id
+    assert outcome.raw_inputs is not None
+    assert outcome.raw_inputs["job"]["job_id"] == outcome.job_id
 
 
 def test_the_handoff_flow_reads_the_harness_database_only(
     stack: Any, reply: Callable[..., Reply]
 ) -> None:
-    chain = _intake_chain()[:2]
-    _serve(stack, reply, chain, idle=True)
-    stack.broker.on_publish = lambda entry: chain.extend(
-        [_record(3, "agent.failed"), _record(4, "agent.failed.after_retry")]
-    )
+    _handoff_world(stack, reply)
     drills.fail_a_job_into_handoff(stack, CASE)
     assert {q[:2] for q in stack.mongo.queries} == {
         ("fcrm_harness", "case_runs"),
         ("fcrm_harness", "gates"),
         ("fcrm_harness", "agent_results"),
+        ("fcrm_harness", "agent_raw_inputs"),
+        ("fcrm_harness", "case_budgets"),
     }
 
 
@@ -266,15 +334,142 @@ def test_the_run_job_has_no_refs_so_h2_cannot_build_its_pack(
 ) -> None:
     import json
 
-    chain = _intake_chain()[:2]
-    _serve(stack, reply, chain, idle=True)
-    stack.broker.on_publish = lambda entry: chain.extend(
-        [_record(3, "agent.failed"), _record(4, "agent.failed.after_retry")]
-    )
+    _handoff_world(stack, reply)
     drills.fail_a_job_into_handoff(stack, CASE)
     payload = json.loads(stack.broker.published[0]["body"])["payload"]
     assert payload["refs"] == {}
     assert payload["pins"] == PINS
+
+
+# ------------------------------------------------- D6b: the case token cap
+
+
+def _budget_world(stack: Any, reply: Callable[..., Reply]) -> list[dict[str, Any]]:
+    """What a refused dispatch leaves: a ``budget.exhausted`` record, the handoff
+    record and gate, a ledger that kept the refusal and reserved nothing.
+    """
+    chain = _intake_chain()[:2]
+    _serve(stack, reply, chain, idle=True)
+    stack.mongo.rows = {
+        "case_runs": [{"_id": "run_1", "state": "handoff"}],
+        "gates": [{"_id": "gate_1"}],
+        "case_budgets": [
+            {
+                "_id": CASE,
+                "cap": drills.SEEDED_CAP,
+                "reserved": 0,
+                "spent": 0,
+                "last_refusal": {"asked": 15000},
+            }
+        ],
+    }
+    stack.mongo.seeded = []
+
+    def refuse() -> None:
+        chain.append(
+            _record(
+                3,
+                "budget.exhausted",
+                cap=drills.SEEDED_CAP,
+                requested=15000,
+                agent="intake",
+            )
+        )
+        chain.append(
+            _record(
+                4,
+                "human.handoff",
+                phase="opened",
+                reason="budget_exhausted: intake needs 15000 tokens",
+            )
+        )
+
+    stack.gateway.route(
+        "POST",
+        f"/cases/{CASE}/documents",
+        reply({}, 201),
+    )
+    original = stack.gateway.call
+
+    def call(persona: Any, method: str, path: str, **kwargs: Any) -> Reply:
+        answer = original(persona, method, path, **kwargs)
+        if path.endswith("/documents"):
+            refuse()
+        return answer
+
+    stack.gateway.call = call
+    stack.gateway.route(
+        "GET",
+        f"/cases/{CASE}/handoff/gates",
+        reply(
+            {
+                "case_id": CASE,
+                "gates": [
+                    {
+                        "gate_id": "gate_1",
+                        "agent": "intake",
+                        "job_id": "job_x",
+                        "reason": "budget_exhausted: intake needs 15000 tokens",
+                        "attempt": 0,
+                        "raw_inputs_ref": None,
+                        "status": "open",
+                    }
+                ],
+            }
+        ),
+    )
+    return chain
+
+
+def test_a_case_whose_cap_is_spent_is_refused_into_a_handoff_without_a_job(
+    stack: Any, reply: Callable[..., Reply]
+) -> None:
+    _budget_world(stack, reply)
+    outcome = drills.exhaust_the_case_budget(stack, CASE)
+    assert stack.mongo.seeded == [(CASE, drills.SEEDED_CAP)]
+    assert outcome.seeded is True
+    assert outcome.exhausted_record["data"]["cap"] == drills.SEEDED_CAP
+    assert outcome.handoff_record["data"]["reason"].startswith("budget_exhausted")
+    assert outcome.run_state == "handoff"
+    assert outcome.open_handoff_gates == 1
+    assert outcome.gate_view is not None
+    assert outcome.gate_view["raw_inputs_ref"] is None
+    assert outcome.agent_deliveries == 0
+    assert outcome.proposals == []
+    assert outcome.problems == []
+
+
+def test_the_ledger_is_seeded_before_the_document_is_uploaded(
+    stack: Any, reply: Callable[..., Reply]
+) -> None:
+    _budget_world(stack, reply)
+    order: list[str] = []
+    seed = stack.mongo.seed_scratch_ledger
+
+    def seeding(case_id: str, cap: int) -> bool:
+        order.append("seed")
+        return bool(seed(case_id, cap))
+
+    stack.mongo.seed_scratch_ledger = seeding
+    call = stack.gateway.call
+
+    def watching(persona: Any, method: str, path: str, **kwargs: Any) -> Reply:
+        if path.endswith("/documents"):
+            order.append("upload")
+        return call(persona, method, path, **kwargs)
+
+    stack.gateway.call = watching
+    drills.exhaust_the_case_budget(stack, CASE)
+    assert order == ["seed", "upload"]
+
+
+def test_agent_jobs_the_harness_received_after_the_refusal_are_counted(
+    stack: Any, reply: Callable[..., Reply]
+) -> None:
+    _budget_world(stack, reply)
+    stack.docker.logs = "agent.jobs | agent-worker.run | evt_01M487 - Received\n"
+    outcome = drills.exhaust_the_case_budget(stack, CASE)
+    assert outcome.agent_deliveries == 1
 
 
 # --------------------------------------------------------------- D5a: replay

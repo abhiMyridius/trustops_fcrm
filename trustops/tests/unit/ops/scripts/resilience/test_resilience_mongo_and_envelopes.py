@@ -17,7 +17,14 @@ from resilience import scenarios
 from resilience.docker import DockerCli
 from resilience.errors import CommandError, DrillError
 from resilience.gateway import Reply
-from resilience.mongo import MONGOSH_SHELL, MongoReader, find_script, parse_rows
+from resilience.mongo import (
+    MAX_SEEDED_CAP,
+    MONGOSH_SHELL,
+    MongoReader,
+    find_script,
+    parse_rows,
+    seed_ledger_script,
+)
 from resilience.report import git_commit
 
 NOW = datetime(2026, 10, 6, 12, 0, tzinfo=UTC)
@@ -78,6 +85,50 @@ def test_parse_rows_reads_the_last_line_only() -> None:
 def test_parse_rows_rejects_anything_but_an_array_of_objects(text: str) -> None:
     with pytest.raises(DrillError):
         parse_rows(text)
+
+
+def test_the_ledger_script_only_inserts_and_names_its_one_collection() -> None:
+    script = seed_ledger_script("FCRM-2026-0400", 1000)
+    assert 'db.getSiblingDB("fcrm_harness").getCollection("case_budgets")' in script
+    assert '{_id: "FCRM-2026-0400"}' in script
+    assert "$setOnInsert" in script
+    assert "$set:" not in script
+    assert "{upsert: true}" in script
+    assert "cap: 1000" in script
+    assert "deleteOne" not in script
+    assert "drop" not in script
+
+
+def test_seeding_a_ledger_says_whether_it_created_one(
+    docker: DockerCli, runner: Any
+) -> None:
+    runner.reply('[{"upserted": 1, "matched": 0}]\n')
+    runner.reply('[{"upserted": 0, "matched": 1}]\n')
+    reader = MongoReader(docker)
+    assert reader.seed_scratch_ledger("FCRM-2026-0400", 1000) is True
+    assert reader.seed_scratch_ledger("FCRM-2026-0400", 1000) is False
+    call = runner.calls[0]
+    assert call["argv"][:5] == ["docker", "exec", "-i", "trustops-mongo-1", "sh"]
+    assert "case_budgets" in call["input_text"]
+
+
+@pytest.mark.parametrize(
+    ("case_id", "cap"),
+    [
+        ("FCRM-2026-0151x", 1000),
+        ("not-a-case", 1000),
+        ('FCRM-2026-0400"); x(); ("', 1000),
+        ("FCRM-2026-0400", 0),
+        ("FCRM-2026-0400", MAX_SEEDED_CAP + 1),
+        ("FCRM-2026-0400", 160_000),
+    ],
+)
+def test_seeding_refuses_anything_that_is_not_a_small_ledger_for_a_case(
+    docker: DockerCli, runner: Any, case_id: str, cap: int
+) -> None:
+    with pytest.raises(DrillError, match="refusing to seed"):
+        MongoReader(docker).seed_scratch_ledger(case_id, cap)
+    assert runner.calls == []
 
 
 # -------------------------------------------------------------- envelopes

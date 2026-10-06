@@ -240,7 +240,7 @@ e2e: demo ## the demo, then the live black-box rules (BB-03/06/08/09/13/14), the
 # FCRM_RESILIENCE_STRICT=1 makes an unreachable stack a failure, not a skip, so
 # this target cannot go green by testing nothing. Estimated 25 minutes.
 # Docs: docs/architecture/resilience.md. One drill: make resilience k=d3
-# (ids d1a d1b d2 d3 d4 d5a d5b d6 d7 d8).
+# (ids d1a d1b d1c d2 d3 d4 d5a d5b d6 d6b d7 d8).
 resilience: ## kill/restart drills against the running stack (harness, RabbitMQ, Mongo, api/identity, SSE, DLQ replay, handoff); PASS/FAIL table with seconds
 	FCRM_RESILIENCE_STRICT=1 $(UV_RUN) pytest -m resilience tests/resilience -p no:cacheprovider $(if $(k),-k "$(k)")
 

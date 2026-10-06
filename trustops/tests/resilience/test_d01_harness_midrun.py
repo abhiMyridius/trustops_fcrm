@@ -23,6 +23,11 @@ def _assert_run_finished_cleanly(outcome: drills.MidRunOutcome) -> None:
     assert outcome.verify["ok"] is True, outcome.verify
     assert outcome.verify["record_count"] == len(outcome.records)
     assert outcome.new_dead_letters == {}, outcome.new_dead_letters
+    ledger = outcome.ledger
+    assert ledger is not None, "H1 holds no token ledger for the case"
+    assert ledger["reserved"] == 0, ledger
+    assert ledger["spent"] > 0, ledger
+    assert {job["status"] for job in ledger["jobs"].values()} == {"settled"}, ledger
 
 
 @pytest.mark.drill("D1a", "harness restarted (SIGTERM) mid agent run")
@@ -33,7 +38,9 @@ def test_d1a_harness_restart_mid_run_finishes_once(
     drain) while the intake job of a scratch case is on ``agent-worker.run``
     unacknowledged. Observable: the case's chain reaches ``proposal.extraction``
     with gapless unique ``seq``, one ``case.created``, one record per step,
-    ``audit/verify`` ok, and no dead-letter queue grew.
+    ``audit/verify`` ok, no dead-letter queue grew, and the case's token ledger
+    holds nothing reserved with every job settled (the tokens of a job that was
+    cut off are not counted twice).
     """
     outcome = drills.interrupt_harness_midrun(
         stack, scratch_case("harness restart"), mode="graceful"
@@ -65,10 +72,15 @@ def test_d1c_a_duplicate_agent_done_changes_nothing(
     for the same job under a fresh event id: what the second run of a
     redelivered job would publish if the first had already reported before it
     died. Observable: no audit record appears (no second ``agent.done.intake``,
-    no second ``proposal.*``), the chain still verifies, no dead letter.
+    no second ``proposal.*``), the chain still verifies, no dead letter, and the
+    token ledger is exactly as it was (a job settles once).
     """
     outcome = drills.inject_duplicate_agent_done(stack, scratch_case("duplicate done"))
     assert outcome.new_records == [], [r["type"] for r in outcome.new_records]
     assert outcome.problems == [], outcome.problems
     assert outcome.verify["ok"] is True, outcome.verify
     assert outcome.new_dead_letters == {}
+    assert outcome.ledger_before is not None
+    assert outcome.ledger_after is not None
+    assert outcome.ledger_after["spent"] == outcome.ledger_before["spent"]
+    assert outcome.ledger_after["reserved"] == 0

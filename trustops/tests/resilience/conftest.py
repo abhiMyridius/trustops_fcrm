@@ -23,10 +23,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 import pytest
-from resilience.docker import DEFAULT_PROJECT
 from resilience.drills import restore
 from resilience.errors import PollTimeoutError
-from resilience.gateway import DEFAULT_BASE_URL
 from resilience.polling import poll_until
 from resilience.report import (
     FAIL,
@@ -173,10 +171,7 @@ def stack() -> Iterator[Stack]:
     ``FCRM_GATEWAY_URL`` (default ``http://localhost:8080/api/fcrm``) point it at
     another stack.
     """
-    handles = Stack.connect(
-        project=os.environ.get("FCRM_COMPOSE_PROJECT", DEFAULT_PROJECT),
-        base_url=os.environ.get("FCRM_GATEWAY_URL", DEFAULT_BASE_URL),
-    )
+    handles = Stack.from_environment(os.environ)
     problems = handles.problems()
     if problems:
         shown = "; ".join(problems[:_PROBLEMS_SHOWN])

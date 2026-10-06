@@ -2,8 +2,9 @@
 
 Property: the hash-chained, append-only trail survives the failures above, and
 the retry machinery leaves nothing behind. This drill runs last (the file name
-sorts it so) and checks every scratch case the earlier drills raised, plus two
-cases the drills never touch (a seeded closed case and the demo case, read only).
+sorts it so) and checks every scratch case the earlier drills raised, plus one
+case the drills never touch (a seeded closed case, read only; the demo case is
+left alone).
 """
 
 from __future__ import annotations
@@ -20,9 +21,9 @@ from resilience.stack import Stack
 
 pytestmark = pytest.mark.resilience
 
-#: Cases that exist whatever the drills did: a seeded closed case (9 records) and
-#: the canonical demo case. Only read.
-UNTOUCHED_CASES = ("FCRM-2026-0118", "FCRM-2026-0151")
+#: A case that exists whatever the drills did: a seeded closed case (9 records).
+#: Only read. The demo case 0151 is left alone: the demo may be running on it.
+UNTOUCHED_CASES = ("FCRM-2026-0118",)
 
 
 @pytest.mark.drill("D8", "every chain verifies and every DLQ is empty afterwards")

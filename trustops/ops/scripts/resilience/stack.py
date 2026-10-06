@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Final, Optional
 
@@ -14,6 +15,10 @@ from resilience.mongo import MongoReader
 from resilience.shell import CommandRunner, SubprocessRunner
 
 logger = logging.getLogger(__name__)
+
+#: The variables that point the drills at another stack.
+ENV_PROJECT: Final = "FCRM_COMPOSE_PROJECT"
+ENV_GATEWAY_URL: Final = "FCRM_GATEWAY_URL"
 
 #: The containers every drill expects to find healthy before it starts.
 REQUIRED_SERVICES: Final[tuple[str, ...]] = (
@@ -61,6 +66,23 @@ class Stack:
             broker=Broker(docker),
             gateway=gateway or GatewayClient(base_url),
             mongo=MongoReader(docker),
+            runner=runner,
+        )
+
+    @classmethod
+    def from_environment(
+        cls, environ: Mapping[str, str], *, runner: Optional[CommandRunner] = None
+    ) -> Stack:
+        """Handles on the stack ``environ`` names: ``FCRM_COMPOSE_PROJECT`` (the
+        compose project, ``trustops`` by default, so containers are
+        ``<project>-<service>-1``) and ``FCRM_GATEWAY_URL`` (the gateway's API
+        root, ``http://localhost:8080/api/fcrm`` by default). Another stack run
+        under its own project name and gateway port is how the drills run next
+        to one someone else is using.
+        """
+        return cls.connect(
+            project=environ.get(ENV_PROJECT) or DEFAULT_PROJECT,
+            base_url=environ.get(ENV_GATEWAY_URL) or DEFAULT_BASE_URL,
             runner=runner,
         )
 
