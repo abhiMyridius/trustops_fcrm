@@ -16,6 +16,7 @@ acknowledges one, and nothing about a score, a stage or a lock changes).
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from typing import Any, Optional
 
@@ -673,3 +674,23 @@ async def test_a_redelivered_list_event_finds_the_same_harness_run(
     first = await run_store.get(HARNESS_RUN)
     assert first is not None
     assert len({s.run_id for s in scene.steps()}) == 1
+
+
+async def test_logging_a_whole_oversight_round_never_collides_with_log_record_fields(
+    scene: Scene, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    run_id = await scene.open_closed_run()
+    await scene.fill_chain()
+    await scene.ask()
+    await scene.drain()
+    [job] = scene.jobs()
+    await scene.agent_done(job, examiner_answer(("Band 3.", [3, 99])), run_id=run_id)
+    await scene.drain()
+    _two_candidates(scene)
+    await scene.publish_list(["Algeria", "Namibia"])
+    await scene.drain()
+    watchlist = scene.jobs()[-1]
+    await scene.agent_failed(watchlist, "guard4_rejected: x", HARNESS_RUN)
+    await scene.drain()
+    assert "re-flags proposed" in caplog.text

@@ -115,7 +115,7 @@ async def post_reflags(
         "re-flags posted",
         extra={
             "list_version": body.list_version,
-            "created": posted.created,
+            "reflags_created": posted.created,
             "replayed": posted.replayed,
             "caller": principal.sub,
         },

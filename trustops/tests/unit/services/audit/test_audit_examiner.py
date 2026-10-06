@@ -6,6 +6,7 @@ answers and the refusal of a citation the chain does not hold.
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Callable
 from typing import Any
 
@@ -320,3 +321,22 @@ def test_ask_without_a_broker_is_503_not_a_silent_drop(
     client = _client(app, act_as, Role.ANALYST)
     response = client.post(ASK, json={"question": QUESTION, "case_id": chained_case})
     assert response.status_code == 503
+
+
+def test_logging_an_ask_and_an_answer_never_collides_with_log_record_fields(
+    examiner_app: FastAPI,
+    act_as: Callable[[Role, str], None],
+    chained_case: str,
+    recording_publisher: Any,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    _client(examiner_app, act_as, Role.ANALYST).post(
+        ASK, json={"question": QUESTION, "case_id": chained_case}
+    )
+    service = _client(examiner_app, act_as, Role.SERVICE)
+    response = service.post(
+        ANSWERS, json=_answer_body(_question_id(recording_publisher))
+    )
+    assert response.status_code == 201
+    assert "examiner question answered" in caplog.text

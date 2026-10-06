@@ -535,7 +535,10 @@ class MongoReflagStore:
         created = await with_transaction(self._client, _do)
         logger.info(
             "re-flags held",
-            extra={"created": created, "replayed": len(proposed) - created},
+            extra={
+                "reflags_created": created,
+                "reflags_replayed": len(proposed) - created,
+            },
         )
         return ReflagsPosted(
             created=created,

@@ -6,6 +6,7 @@ idempotent create H1 drives, the analyst's paged list and the acknowledgement
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from typing import Any, Optional
 
@@ -418,3 +419,24 @@ def test_case_search_is_service_only(
     assert (
         _as(reflag_app, act_as, role).get(SEARCH, params={"q": "x"}).status_code == 403
     )
+
+
+def test_logging_a_post_and_an_acknowledgement_never_collides_with_log_record_fields(
+    reflag_app: FastAPI,
+    act_as: Callable[[Role, str], None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """``created`` is a ``LogRecord`` attribute: a logging extra of that name made
+    every first post fail with ``KeyError`` once INFO logging was on.
+    """
+    caplog.set_level(logging.DEBUG)
+    _seed_two(reflag_app, act_as)
+    analyst = _as(reflag_app, act_as, Role.ANALYST)
+    assert (
+        analyst.post(
+            ACK.format(rid="rf_0144_algeria"), json={"reason": REASON}
+        ).status_code
+        == 200
+    )
+    assert "re-flags posted" in caplog.text
+    assert "re-flag acknowledged" in caplog.text
