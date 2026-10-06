@@ -103,6 +103,10 @@ def _mongo_safe_now() -> datetime:
     return now.replace(microsecond=(now.microsecond // _MICROS_PER_MS) * _MICROS_PER_MS)
 
 
+mongo_safe_now = _mongo_safe_now
+"""The public name other S4 modules write timestamps with."""
+
+
 @dataclass(frozen=True)
 class Stored(Generic[T]):
     """What a write returns: the stored value, and whether it was already

@@ -32,7 +32,19 @@ const AUDIT_ROLE = "fcrmAuditInsertOnly";
 // collections is exactly what its POST /records and POST /proposals need; no
 // update or remove is ever granted, and the live test in
 // tests/unit/services/audit/test_audit_mongo_live.py proves it.
-const AUDIT_APPEND_ONLY = ["audit_records", "proposals", "verify_runs", "idempotency_keys"];
+//
+// `examiner_questions` and `examiner_answers` are the examiner's questions and
+// the answers H1 posts back (S4's examiner routes): each is inserted once and
+// never changed (an answer's `_id` is its question's id, so a second post is a
+// duplicate key that S4 reads back to replay or refuse).
+const AUDIT_APPEND_ONLY = [
+  "audit_records",
+  "proposals",
+  "verify_runs",
+  "idempotency_keys",
+  "examiner_questions",
+  "examiner_answers",
+];
 
 const APP_DATABASES = [
   "fcrm_case",

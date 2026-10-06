@@ -1659,6 +1659,199 @@
         "title": "EmptyBody",
         "type": "object"
       },
+      "ExaminerAnswerIn": {
+        "additionalProperties": false,
+        "description": "``POST /examiner/answers`` (service only): what H1 posts once the\nexaminer agent has answered and the citations were checked against the\nchain. The question text is not repeated: S4 holds it.",
+        "properties": {
+          "case_id": {
+            "minLength": 1,
+            "title": "Case Id",
+            "type": "string"
+          },
+          "question_id": {
+            "minLength": 1,
+            "title": "Question Id",
+            "type": "string"
+          },
+          "references": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "References",
+            "type": "array"
+          },
+          "refusal_reason": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refusal Reason"
+          },
+          "refused": {
+            "title": "Refused",
+            "type": "boolean"
+          },
+          "run_id": {
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "sentences": {
+            "items": {
+              "$ref": "#/components/schemas/ExaminerSentenceOut"
+            },
+            "maxItems": 10,
+            "title": "Sentences",
+            "type": "array"
+          }
+        },
+        "required": [
+          "question_id",
+          "case_id",
+          "run_id",
+          "refused"
+        ],
+        "title": "ExaminerAnswerIn",
+        "type": "object"
+      },
+      "ExaminerAnswerOut": {
+        "additionalProperties": false,
+        "description": "The examiner's answer, in the web's ``ExaminerAnswer`` shape.\n\n``refused`` is true when the records do not hold the answer (or the answer\ncould not be trusted): then ``sentences`` is empty and ``refusal_reason``\nsays why. An answer that is not refused has at least one sentence, and\nevery sentence cites at least one record.",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "question_id": {
+            "title": "Question Id",
+            "type": "string"
+          },
+          "references": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "References",
+            "type": "array"
+          },
+          "refusal_reason": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refusal Reason"
+          },
+          "refused": {
+            "title": "Refused",
+            "type": "boolean"
+          },
+          "sentences": {
+            "items": {
+              "$ref": "#/components/schemas/ExaminerSentenceOut"
+            },
+            "maxItems": 10,
+            "title": "Sentences",
+            "type": "array"
+          }
+        },
+        "required": [
+          "question_id",
+          "question",
+          "case_id",
+          "refused"
+        ],
+        "title": "ExaminerAnswerOut",
+        "type": "object"
+      },
+      "ExaminerAskRequest": {
+        "additionalProperties": false,
+        "description": "``POST /examiner/ask``.",
+        "properties": {
+          "case_id": {
+            "pattern": "^FCRM-\\d{4}-\\d{4}$",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "case_id"
+        ],
+        "title": "ExaminerAskRequest",
+        "type": "object"
+      },
+      "ExaminerPending": {
+        "additionalProperties": false,
+        "description": "``202``: the question is stored and announced; the answer is not here\nyet. Read it with ``GET /examiner/answers/{question_id}``.",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "question_id": {
+            "title": "Question Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "pending",
+            "default": "pending",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "case_id"
+        ],
+        "title": "ExaminerPending",
+        "type": "object"
+      },
+      "ExaminerSentenceOut": {
+        "additionalProperties": false,
+        "description": "One sentence of an answer and the audit records (by ``seq``) it rests\non; the web's ``{t, refs}``.",
+        "properties": {
+          "refs": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Refs",
+            "type": "array"
+          },
+          "t": {
+            "maxLength": 640,
+            "minLength": 1,
+            "title": "T",
+            "type": "string"
+          }
+        },
+        "required": [
+          "t",
+          "refs"
+        ],
+        "title": "ExaminerSentenceOut",
+        "type": "object"
+      },
       "FieldDef": {
         "additionalProperties": false,
         "properties": {
@@ -6355,6 +6548,198 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/fcrm/audit/examiner/answers": {
+      "post": {
+        "description": "Store H1's answer to a question. Storing the same answer again is a\nreplay (200, nothing written); a different one for the same question is a\n409. The ``Idempotency-Key`` header is validated; the question's id and the\nbody's fingerprint are what make the call idempotent.",
+        "operationId": "S4_post_answer_examiner_answers_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExaminerAnswerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExaminerAnswerOut"
+                }
+              }
+            },
+            "description": "A replay: already stored."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExaminerAnswerOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "A different answer is already stored."
+          },
+          "422": {
+            "description": "The answer cites a record the chain does not hold."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Post Answer",
+        "tags": [
+          "examiner"
+        ]
+      }
+    },
+    "/api/fcrm/audit/examiner/answers/{question_id}": {
+      "get": {
+        "description": "The answer to a question, or 202 while it has none.",
+        "operationId": "S4_get_answer_examiner_answers__question_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "title": "Question Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExaminerAnswerOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExaminerPending"
+                }
+              }
+            },
+            "description": "Not answered yet."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Answer",
+        "tags": [
+          "examiner"
+        ]
+      }
+    },
+    "/api/fcrm/audit/examiner/ask": {
+      "post": {
+        "description": "Ask the examiner a question about one case and wait for its answer.\n\nThe examiner answers only from the case's audit chain and cites the records\nit used; when the records do not hold the answer it says so. The call waits\nup to a minute, then answers 202 with the question's id.",
+        "operationId": "S4_ask_examiner_ask_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExaminerAskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExaminerAnswerOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExaminerPending"
+                }
+              }
+            },
+            "description": "Stored and announced; the answer is not here yet."
+          },
+          "404": {
+            "description": "The case has no audit chain."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "The question could not be announced."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ask",
+        "tags": [
+          "examiner"
+        ]
+      }
+    },
     "/api/fcrm/audit/head/{case_id}": {
       "get": {
         "description": "The last ``seq`` and hash of ``case_id``'s chain (``seq=0`` and the\ngenesis hash for a case with no records): what a pack records so it can\nlater show which records it was built from.",

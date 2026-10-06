@@ -19,6 +19,7 @@ from starlette.types import ASGIApp
 
 from fcrm_audit.lifespan import __version__, lifespan
 from fcrm_audit.routes import router
+from fcrm_audit.routes_examiner import router as examiner_router
 
 
 def create_app(*, standalone: bool = True) -> FastAPI:
@@ -43,6 +44,7 @@ def create_app(*, standalone: bool = True) -> FastAPI:
     app.state.probe = ReadinessProbe()
     install_error_handlers(app)
     app.include_router(router)
+    app.include_router(examiner_router)
     app.include_router(build_health_router(app.state.probe))
     return app
 

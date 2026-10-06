@@ -8,6 +8,7 @@ against the startup self-test it gates.
 from __future__ import annotations
 
 from fcrm_common.settings import BaseServiceSettings
+from pydantic import Field
 
 
 class AuditSettings(BaseServiceSettings):
@@ -27,8 +28,14 @@ class AuditSettings(BaseServiceSettings):
     ``Unauthorized`` (code 13) -- proof that the ``fcrmAuditInsertOnly``
     role (``ops/mongo/init/02-users.js``) is actually in force, not just
     assumed.
+
+    ``EXAMINER_WAIT_S`` (default 60): how long ``POST /examiner/ask`` waits for
+    the examiner's answer before answering 202. ``EXAMINER_POLL_S`` (default
+    0.5): how often it re-reads the store while it waits.
     """
 
     app_name: str = "fcrm-audit"
     chain_verify_on_start: bool = True
     insert_only_check_on_start: bool = True
+    examiner_wait_s: float = Field(default=60.0, gt=0, le=120)
+    examiner_poll_s: float = Field(default=0.5, gt=0, le=10)

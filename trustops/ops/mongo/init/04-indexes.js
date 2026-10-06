@@ -34,6 +34,9 @@ ensureIndex("fcrm_audit", "proposals", { case_id: 1, seq: 1 }, { unique: true })
 ensureIndex("fcrm_audit", "proposals", { case_id: 1, run_id: 1, agent: 1, kind: 1 });
 ensureIndex("fcrm_audit", "proposals", { case_id: 1, supersedes: 1 }, { sparse: true });
 ensureIndex("fcrm_audit", "verify_runs", { case_id: 1, at: -1 });
+// Examiner questions (the answers' _id is the question's id, so the built-in
+// unique _id index is the "one answer per question" guarantee).
+ensureIndex("fcrm_audit", "examiner_questions", { case_id: 1, asked_at: -1 });
 // Idempotency-Key replay window: 24 h (design A §2). _id is the key itself, so
 // uniqueness is the collection's built-in _id index; the row is inserted once,
 // with its result, in the same transaction as the record or proposal it made.

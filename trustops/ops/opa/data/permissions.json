@@ -1012,6 +1012,61 @@
         "effect": "allow"
       },
       {
+        "id": "audit-post-examiner-ask-analyst",
+        "description": "the examiner answers an analyst's question from the audit chain",
+        "service": "audit",
+        "method": "POST",
+        "path": "/examiner/ask",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-post-examiner-ask-committee",
+        "description": "the examiner answers a committee member's question from the audit chain",
+        "service": "audit",
+        "method": "POST",
+        "path": "/examiner/ask",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "deny-audit-post-examiner-ask-service",
+        "description": "a question is a person's: the service account inherits the analyst's grants and must not ask",
+        "service": "audit",
+        "method": "POST",
+        "path": "/examiner/ask",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "audit-post-examiner-answers-service",
+        "description": "H1 posts the examiner's checked answer",
+        "service": "audit",
+        "method": "POST",
+        "path": "/examiner/answers",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "audit-get-examiner-answers-committee",
+        "description": "a committee member who asked reads the answer",
+        "service": "audit",
+        "method": "GET",
+        "path": "/examiner/answers/{question_id}",
+        "roles": [
+          "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
         "id": "audit-get-records-committee",
         "description": "committee audit reads (released packs only, S4 checks)",
         "service": "audit",
