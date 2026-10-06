@@ -272,9 +272,9 @@ More: `ops/runbooks/README.md` indexes one short page per task (start, stop, res
 ## 9. Cost and tokens
 
 - **Per agent run:** tokens per attempt are capped by tier: 15,000 (cheap), 11,000 (mid), 24,000 (strong), 15,000 (judge), with one retry; a run that needs more is blocked and handed to a person, never silently cut (`ai/models/tiers.yaml`).
-- **Per case:** 120,000 tokens. One measured run of the demo case's eleven agent jobs used 114,626 tokens (about USD 0.45), 91,000 when every job answered first time, before `research.system` v3 (`evals/README.md`). H1 sums the total; it does not yet stop a case at the cap. The static walkthrough's "16.9k" is a script, not a measurement.
+- **Per case:** 120,000 tokens. One measured run of the demo case's eleven agent jobs used 114,626 tokens (about USD 0.50), 91,000 when every job answered first time, before `research.system` v3 (`evals/README.md`). H1 sums the total; it does not yet stop a case at the cap. The static walkthrough's "16.9k" is a script, not a measurement.
 - **An eval run:** `make evals` is about USD 3 and 7 to 11 minutes (USD 2.86 on 6 October: agents 0.56, judge 2.30). `make evals-full` is several times that. The judge is 80% of the cost; `EVALS_ARGS="--judge fake"` skips it and says FAKE on every output.
-- **Hand-driving the demo** costs roughly the agents' share of one case, plus the corpus embedding at each `api` start. The prices in `ai/models/tiers.yaml` are placeholders to confirm against the AWS bill.
+- **Hand-driving the demo** costs roughly the agents' share of one case, plus the corpus embedding at each `api` start. The prices in `ai/models/tiers.yaml` are verified AWS list prices (AWS Price List API, us-east-1, 6 Oct 2026; each row names its source); confirm them against the AWS bill.
 - Full analysis: `ops/reports/token-analysis.md`.
 
 ## 10. What is not done and not verified

@@ -304,7 +304,7 @@ dlq-purge: ## delete the parked messages of <q>.dlq (CONFIRM=1 to really do it):
 	@$(DLQ) purge "$(q)" $(if $(id),--message-id "$(id)") $(if $(CONFIRM),--confirm)
 
 token-report: ## (needs `make up-obs`) tokens and cost per agent, model and case from Prometheus → ops/token-analysis/runtime/
-	$(PYTHON) ops/scripts/token_report.py --prometheus http://$$($(COMPOSE_OBS) port prometheus 9090)
+	$(UV_RUN) python ops/scripts/token_report.py --prometheus http://$$($(COMPOSE_OBS) port prometheus 9090)
 
 build-usage: ## build-time Claude Code token analysis → ops/token-analysis/build/
 	@$(call pending,ops/scripts/claude_usage.py (SDLC harness lane))

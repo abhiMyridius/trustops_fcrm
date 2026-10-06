@@ -12,7 +12,7 @@ The eleven jobs are the case's own chain (intake on its two documents,
 screening, research, assessment, critic, narrative in both modes) and the
 three oversight agents (examiner, watchlist, policy_gap), which run on demand.
 A job that is retried counts both attempts. It calls Bedrock with the AWS
-credentials of the shell's environment and costs about USD 0.45.
+credentials of the shell's environment and costs about USD 0.50.
 
 Usage::
 
@@ -158,13 +158,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     for row in rows:
         logger.info("%s", json.dumps(row))
     total = sum(r["tokens"] for r in rows)
+    note = PriceTable.from_tiers(load_tiers_config(DEFAULT_AI_ROOT)).note()
     logger.info(
         "TOTAL %d of %d tokens (input + output, what H1 sums); %d counting cache "
-        "reads and writes; cost USD %.3f",
+        "reads and writes; estimated cost USD %.3f (%s)",
         total,
         CASE_CAP_TOKENS,
         sum(r["tokens_incl_cache"] for r in rows),
         sum(r["cost_usd"] for r in rows),
+        note,
     )
     return 0
 

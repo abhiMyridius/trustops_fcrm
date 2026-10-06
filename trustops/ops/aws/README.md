@@ -132,7 +132,7 @@ Assumptions, all mine and none checked against the AWS pricing pages: `us-east-1
 | MongoDB Atlas | M10-class replica set | tens of USD; a production tier is hundreds |
 | Amazon MQ for RabbitMQ | smallest instance, or a three-node cluster for HA | tens of USD, or several hundred |
 | S3, Secrets Manager, KMS, ECR, CloudWatch Logs, X-Ray | demo volumes | tens of USD together |
-| **Bedrock** | **from the repo**: one demo case through all eleven agent jobs costs about USD 0.45 (`ops/scripts/demo_case_tokens.py`, `evals/README.md`); a sampled `make evals` run costs about USD 2.86 (`evals/results/2026-10-06/index.json`) | 100 cases is about USD 45; an eval run every night is about USD 85 |
+| **Bedrock** | **from the repo**: one demo case through all eleven agent jobs costs about USD 0.50 (`ops/scripts/demo_case_tokens.py`, `evals/README.md`); a sampled `make evals` run costs about USD 3.14 at the verified Bedrock prices (`evals/results/2026-10-06/index.json` records 2.86, at the earlier placeholder rates; `ops/reports/token-analysis.md` recomputes it) | 100 cases is about USD 50; an eval run every night is about USD 94 |
 
 Shape, not a quote: fixed infrastructure dominates. At a hundred cases a month the model spend is a small fraction of the bill, and what moves the total is the broker, the NATs and endpoints, and whether the database is a production tier. Token cost per case is the lever the repository actually optimises (`ops/reports/token-analysis.md`). The prices in `ai/models/tiers.yaml` are placeholders to be confirmed against the Bedrock pricing page.
 
