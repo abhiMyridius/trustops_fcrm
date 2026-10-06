@@ -3987,6 +3987,45 @@
         "title": "Page[Proposal]",
         "type": "object"
       },
+      "Page_ReflagOut_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReflagOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[ReflagOut]",
+        "type": "object"
+      },
       "PolicyClauseHit": {
         "additionalProperties": false,
         "description": "One clause hit of a policy search: the verbatim text under the web's\nname (``quote``), both citations, its place in ``corpus/<source>.md`` and\nits scores. ``similarity`` is the fused rank-agreement score in (0, 1];\n``vector_score`` and ``text_score`` are the two rankers' own numbers.",
@@ -4873,6 +4912,161 @@
           "summary"
         ],
         "title": "RecordAppend",
+        "type": "object"
+      },
+      "ReflagAcknowledge": {
+        "additionalProperties": false,
+        "description": "``POST /reflags/{id}/acknowledge``.\n\n``reason`` is the contract's name, ``note`` the web's; exactly one need be\ngiven. ``rerun`` is the analyst's request that research (and assessment,\nwhere the case's evidence depends on list status) be run again: it is\nrecorded with the acknowledgement and never starts anything by itself.",
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "rerun": {
+            "default": true,
+            "title": "Rerun",
+            "type": "boolean"
+          }
+        },
+        "title": "ReflagAcknowledge",
+        "type": "object"
+      },
+      "ReflagOut": {
+        "additionalProperties": false,
+        "description": "One re-flag, the web's ``Reflag`` plus what an analyst needs to judge it.",
+        "properties": {
+          "ack_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ack Reason"
+          },
+          "acknowledged": {
+            "title": "Acknowledged",
+            "type": "boolean"
+          },
+          "acknowledged_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged At"
+          },
+          "acknowledged_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged By"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "case_title": {
+            "title": "Case Title",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "fixture": {
+            "title": "Fixture",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "jurisdiction": {
+            "title": "Jurisdiction",
+            "type": "string"
+          },
+          "list_change": {
+            "title": "List Change",
+            "type": "string"
+          },
+          "list_version": {
+            "title": "List Version",
+            "type": "string"
+          },
+          "proposed_by": {
+            "title": "Proposed By",
+            "type": "string"
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "rerun": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rerun",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "case_id",
+          "case_title",
+          "jurisdiction",
+          "list_version",
+          "fixture",
+          "reason",
+          "acknowledged",
+          "list_change",
+          "proposed_by",
+          "created_at"
+        ],
+        "title": "ReflagOut",
         "type": "object"
       },
       "RefreshRequest": {
@@ -10591,6 +10785,137 @@
         "summary": "Search",
         "tags": [
           "policy"
+        ]
+      }
+    },
+    "/api/fcrm/reflags": {
+      "get": {
+        "description": "The watchlist re-flags, newest first, acknowledged ones included.",
+        "operationId": "S1_list_reflags_reflags_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ReflagOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Reflags",
+        "tags": [
+          "case"
+        ]
+      }
+    },
+    "/api/fcrm/reflags/{reflag_id}/acknowledge": {
+      "post": {
+        "description": "Acknowledge one re-flag with a reason of at least 20 characters.\n\nThe decision is stored and ``gate.decided`` (``reflag_ack``) is emitted in\nthe same transaction; H1 then records ``reflag.acknowledged``. The same\nacknowledgement again changes nothing.\n\nRaises:\n    NotFoundError: No such re-flag.\n    fcrm_case.reflag_store.ReflagAlreadyAcknowledgedError: It was\n        acknowledged with a different reason.",
+        "operationId": "S1_acknowledge_reflag_reflags__reflag_id__acknowledge_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reflag_id",
+            "required": true,
+            "schema": {
+              "title": "Reflag Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReflagAcknowledge"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReflagOut"
+                }
+              }
+            },
+            "description": "Acknowledged (or an identical acknowledgement again)."
+          },
+          "404": {
+            "description": "No such re-flag."
+          },
+          "409": {
+            "description": "Already acknowledged with another reason."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Acknowledge Reflag",
+        "tags": [
+          "case"
         ]
       }
     },

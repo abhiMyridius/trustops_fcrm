@@ -18,6 +18,7 @@ from fcrm_common.errors import UpstreamUnavailableError
 from fcrm_case.directory import AnalystLoadService, IdentityDirectory
 from fcrm_case.outcome_store import OutcomeStore
 from fcrm_case.po_service import PoService
+from fcrm_case.reflag_store import ReflagStore
 from fcrm_case.settings import CaseSettings
 from fcrm_case.sse import ActivityWriter, EventHub
 from fcrm_case.store import CaseStore
@@ -83,6 +84,12 @@ def get_outcomes(request: Request) -> OutcomeStore:
     """The outcome, close-request and condition store."""
     outcomes: OutcomeStore = _wired(request, "outcomes")
     return outcomes
+
+
+def get_reflags(request: Request) -> ReflagStore:
+    """The watchlist re-flag store."""
+    reflags: ReflagStore = _wired(request, "reflags")
+    return reflags
 
 
 def get_writer(request: Request) -> ActivityWriter:

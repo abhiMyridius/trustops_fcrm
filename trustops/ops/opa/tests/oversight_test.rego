@@ -50,3 +50,32 @@ test_ask_deny_names_the_service_rule if {
 	r.allow == false
 	"deny-audit-post-examiner-ask-service" in r.denied_by
 }
+
+# ── watchlist re-flags (S1) ────────────────────────────────────────────────
+
+test_reflags_are_the_analysts if {
+	authz.allow with input as req("fcrm_analyst", "case", "GET", "/reflags")
+	authz.allow with input as req("fcrm_analyst", "case", "POST", "/reflags/{reflag_id}/acknowledge")
+}
+
+test_reflags_are_denied_to_every_other_person_role if {
+	every role in ["fcrm_po", "fcrm_committee", "fcrm_observer"] {
+		not authz.allow with input as req(role, "case", "GET", "/reflags")
+		not authz.allow with input as req(role, "case", "POST", "/reflags/{reflag_id}/acknowledge")
+	}
+}
+
+test_the_service_account_never_acknowledges if {
+	not authz.allow with input as req("fcrm_service", "case", "POST", "/reflags/{reflag_id}/acknowledge")
+	r := authz.response with input as req("fcrm_service", "case", "POST", "/reflags/{reflag_id}/acknowledge")
+	"deny-case-post-reflags-id-acknowledge" in r.denied_by
+}
+
+test_the_internal_reflag_routes_are_the_services if {
+	authz.allow with input as req("fcrm_service", "case", "POST", "/internal/reflags")
+	authz.allow with input as req("fcrm_service", "case", "GET", "/internal/reflags/candidates")
+	every role in ["fcrm_analyst", "fcrm_committee", "fcrm_po", "fcrm_observer"] {
+		not authz.allow with input as req(role, "case", "POST", "/internal/reflags")
+		not authz.allow with input as req(role, "case", "GET", "/internal/reflags/candidates")
+	}
+}
