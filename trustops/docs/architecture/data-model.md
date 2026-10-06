@@ -149,7 +149,7 @@ S4 also **reads** `audit_records` and `proposals` for the Assurance screens (`GE
 | `run_events` | `fcrm_caseflow.eventstore.RecordedTransition` (persisted form) | Append-only; `eventstore.rebuild` folds these back to a state and must equal the snapshot |
 | `agent_jobs` | — | Idempotency key = `sha256(case_id\|run_id\|agent\|step_key\|input_hash)`, unique |
 | `gates` | — | One per open-or-decided gate; `GateDecision` is what closes one |
-| `budgets` | — | Per-run token/wall-clock accounting against the tier budgets in `ai/models/tiers.yaml` |
+| `case_budgets` | `fcrm_caseflow.budget.CaseLedger` | The per-case token ledger, `_id` = `case_id`: `{cap, spent, reserved, jobs{job_id: {agent, reserved, spent, status}}, last_refusal?}`. H1 reserves one attempt of a job's tier budget in the transaction that publishes it and settles the job's real usage once when its result is applied; one ledger per case, so a re-run continues it (`docs/architecture/sequences/token-ledger.md`) |
 | `outbox` | — | Written in the same transaction as the state change it accompanies; relayed to RabbitMQ by a leader-elected relay |
 | `consumed_messages` | — | Dedup by `message_id`, TTL 7 days |
 | `model_calls` | — | One row per Bedrock call attempt: model, prompt_v, tokens, cost, latency |

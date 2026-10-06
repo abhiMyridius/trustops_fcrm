@@ -9,6 +9,7 @@ One sequence document per stage of the case flow. Each names the real transition
 | [assessment-and-override.md](assessment-and-override.md) | The override and the recompute (the demo's central moment) | 9, 14 | the shorter picture of scoring and the CTL-T01 override with a reason, R3 acknowledgement | ADR-07, ADR-13 |
 | [committee-decide.md](committee-decide.md) | Pack release, committee question, hidden votes, tally | 15 to 18 | the pack freeze and content hash, the four release checks, the tally table, the no-majority path, R6 (a number changes), delegated close | ADR-08, ADR-31, ADR-36, ADR-37 |
 | [close.md](close.md) | Tally to outcome, conditions, close, chain verification | 18, 19 | the steps `vote.record`, `decide.outcome`, `closed.finalize`, how pack conditions become tracked rows, S1's single transaction, failure semantics | ADR-28, ADR-37, ADR-42 |
+| [token-ledger.md](token-ledger.md) | The per-case 120,000-token cap across agent jobs | all (every dispatch) | reserve one attempt in the transaction that publishes a job, settle once per job when its result is applied, refuse at the cap with `budget.exhausted` and a handoff, re-runs continue the same ledger | ADR-14, ADR-27, ADR-28 |
 | [oversight.md](oversight.md) | After a decision: examiner, watchlist re-flags, assurance reads | 20 | the examiner answering from the chain only, a jurisdiction list re-flagging open cases for an analyst, override rates, version pins and agent quality | ADR-07, ADR-19, ADR-28, ADR-33 |
 
 ## Scene by scene
