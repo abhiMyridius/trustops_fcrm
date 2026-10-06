@@ -20,7 +20,7 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Final, Protocol
+from typing import Any, Final, Optional, Protocol
 
 from fcrm_common.errors import FcrmError
 from fcrm_common.events import build_envelope
@@ -122,8 +122,11 @@ class DocumentIntake:
         *,
         actor: str,
         now: datetime,
+        raised_in_round: Optional[int] = None,
     ) -> StoredUpload:
         """Check ``files``, store their objects and describe the records.
+        ``raised_in_round`` marks documents an owner added with the answer to a
+        clarification round (``None`` for an upload at intake).
 
         Raises:
             FileRefusedError: A file is not allowed, is empty or is not what its
@@ -154,7 +157,9 @@ class DocumentIntake:
         bucket = self._settings.s3_bucket_uploads
         await self._put_all(record.case_id, bucket, planned)
         rows = [
-            self._row(record, f, ctype, digest, doc_id, bucket, actor, now)
+            self._row(
+                record, f, ctype, digest, doc_id, bucket, actor, now, raised_in_round
+            )
             for f, ctype, digest, doc_id in planned
         ]
         return StoredUpload(
@@ -207,6 +212,7 @@ class DocumentIntake:
         bucket: str,
         actor: str,
         now: datetime,
+        raised_in_round: Optional[int] = None,
     ) -> DocumentRow:
         return DocumentRow(
             doc_id=doc_id,
@@ -220,6 +226,7 @@ class DocumentIntake:
             uploaded_at=now,
             sha256=digest,
             uploaded_by=actor,
+            raised_in_round=raised_in_round,
             keep_terms=keep_terms_for(record),
         )
 

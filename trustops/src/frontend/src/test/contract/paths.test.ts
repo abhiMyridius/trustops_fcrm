@@ -19,30 +19,13 @@ import { handlerTemplatesOutsideEndpoints, servedRoutes, webRoutes } from './rou
 
 /** Web routes the backend does not serve yet (34 after the configuration screens landed; 65 on 5 Oct). */
 const PENDING_ROUTES: readonly string[] = [
-  // S1 case: PO and analyst case routes, queues, dashboards, integrations, harness (30)
-  'POST /api/fcrm/cases/{id}/acknowledge',
+  // S1 case: PO and analyst case routes, queues, dashboards, integrations, harness
   'GET /api/fcrm/cases/{id}/assessment',
-  'POST /api/fcrm/cases/{id}/change-types',
   'GET /api/fcrm/cases/{id}/clarifications',
-  'POST /api/fcrm/cases/{id}/clarifications',
-  'POST /api/fcrm/cases/{id}/clarifications/{id}/answer',
-  'POST /api/fcrm/cases/{id}/clarifications/{id}/resolve',
-  'POST /api/fcrm/cases/{id}/completeness',
-  'POST /api/fcrm/cases/{id}/conditions/{id}/evidence',
-  'POST /api/fcrm/cases/{id}/controls/planned',
-  'POST /api/fcrm/cases/{id}/gaps',
   'GET /api/fcrm/cases/{id}/handoff',
   'GET /api/fcrm/cases/{id}/harness',
-  'GET /api/fcrm/cases/{id}/inbox',
-  'POST /api/fcrm/cases/{id}/items/{id}',
-  'GET /api/fcrm/cases/{id}/outcome',
   'GET /api/fcrm/cases/{id}/policy',
-  'GET /api/fcrm/cases/{id}/recommendation',
-  'PUT /api/fcrm/cases/{id}/recommendation',
-  'POST /api/fcrm/cases/{id}/recommendation/lock',
-  'POST /api/fcrm/cases/{id}/recommendation/unlock',
   'GET /api/fcrm/cases/{id}/risk',
-  'POST /api/fcrm/cases/{id}/screening',
   'GET /api/fcrm/cases/{id}/submissions',
   'GET /api/fcrm/cases/{id}/submissions/diff',
   'GET /api/fcrm/cases/{id}/workbench',

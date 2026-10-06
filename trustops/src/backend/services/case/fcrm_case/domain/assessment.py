@@ -124,6 +124,9 @@ class RecommendationRow(BaseModel):
     locked: bool = False
     locked_at: Optional[datetime] = None
     locked_by: Optional[str] = None
+    unlock_reason: Optional[str] = None
+    unlocked_at: Optional[datetime] = None
+    unlocked_by: Optional[str] = None
 
 
 class HandoffViewRow(BaseModel):

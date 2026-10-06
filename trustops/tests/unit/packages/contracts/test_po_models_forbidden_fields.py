@@ -16,7 +16,7 @@ import inspect
 from typing import Any
 
 import pytest
-from fcrm_contracts.api import case_po
+from fcrm_contracts.api import case_po, case_po_followup
 from fcrm_guardrails.restricted_terms import RESTRICTED_KEYS
 from fcrm_guardrails.rules.r3_po_no_restricted import key_tokens, restricted_key
 from pydantic import BaseModel
@@ -80,13 +80,18 @@ EXTRA_FORBIDDEN = frozenset(
 )
 
 
+#: The contract modules a product owner's request or response is built from.
+PO_CONTRACT_MODULES = (case_po, case_po_followup)
+
+
 def po_models() -> list[type[BaseModel]]:
     return [
         model
-        for _, model in inspect.getmembers(case_po, inspect.isclass)
+        for module in PO_CONTRACT_MODULES
+        for _, model in inspect.getmembers(module, inspect.isclass)
         if issubclass(model, BaseModel)
         and model is not BaseModel
-        and model.__module__ == case_po.__name__
+        and model.__module__ == module.__name__
     ]
 
 

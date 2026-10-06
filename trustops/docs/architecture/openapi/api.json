@@ -1,6 +1,66 @@
 {
   "components": {
     "schemas": {
+      "AcknowledgeBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/acknowledge``: R3, the analyst acknowledges a boundary\nflag or a band change. ``note`` says what was checked.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "boundary",
+              "band_change"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "AcknowledgeBody",
+        "type": "object"
+      },
+      "AcknowledgeResult": {
+        "additionalProperties": false,
+        "description": "What an acknowledgement answers (202): how many open gates of that kind\nit decided; zero with ``replayed`` when they were all decided before.",
+        "properties": {
+          "acknowledged": {
+            "title": "Acknowledged",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "boundary",
+              "band_change"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "acknowledged"
+        ],
+        "title": "AcknowledgeResult",
+        "type": "object"
+      },
       "ActivityEventPO": {
         "additionalProperties": false,
         "properties": {
@@ -1042,6 +1102,58 @@
         "title": "ChangeType",
         "type": "string"
       },
+      "ChangeTypeBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/change-types``: the analyst adds a change type (adds\nonly, D-03). The reason is recorded and needs 20 characters.",
+        "properties": {
+          "change_type": {
+            "$ref": "#/components/schemas/ChangeType"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "change_type",
+          "reason"
+        ],
+        "title": "ChangeTypeBody",
+        "type": "object"
+      },
+      "ChangeTypeResult": {
+        "additionalProperties": false,
+        "description": "What a re-tag answers: the case's change types and required-field count\nafterwards, and whether it was already tagged (nothing changed).",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "change_types": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeType"
+            },
+            "title": "Change Types",
+            "type": "array"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "required_fields": {
+            "title": "Required Fields",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "case_id",
+          "change_types",
+          "required_fields"
+        ],
+        "title": "ChangeTypeResult",
+        "type": "object"
+      },
       "ClauseDetailOut": {
         "additionalProperties": false,
         "description": "One policy clause as the system of record holds it: ``GET /clauses/{id}``\nand each item of ``GET /internal/clauses`` (H4's input).\n\n``text`` is verbatim from ``clauses.json`` (never generated, never\nrewritten); ``source_ref`` is the structured citation an agent claim carries\nand ``ref`` the human-readable one. ``provenance_kind`` says whether the text\nis a seed verbatim quote or a declared synthetic stand-in (ADR-29).",
@@ -1348,7 +1460,7 @@
           "answer": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ThreadAnswer"
+                "$ref": "#/components/schemas/S5_ThreadAnswer"
               },
               {
                 "type": "null"
@@ -1380,6 +1492,92 @@
           "at"
         ],
         "title": "CommitteeThread",
+        "type": "object"
+      },
+      "CompletenessBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/completeness``: ask the owner one round of questions or\nproceed to review. ``questions`` are only read for ``ask``; without them the\nquestions the narrative agent drafted (and kept) are asked.",
+        "properties": {
+          "decision": {
+            "enum": [
+              "ask",
+              "proceed"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "questions": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RoundQuestion"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Questions"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "CompletenessBody",
+        "type": "object"
+      },
+      "CompletenessResult": {
+        "additionalProperties": false,
+        "description": "What the completeness gate and the round answer (202/201): the decision, the\nround it opened (``None`` for ``proceed``), how many questions it asked and\nwhether it was already decided so.",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "ask",
+              "proceed"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "questions": {
+            "default": 0,
+            "title": "Questions",
+            "type": "integer"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "round": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Round"
+          },
+          "thread_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Thread Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "case_id",
+          "decision"
+        ],
+        "title": "CompletenessResult",
         "type": "object"
       },
       "Completion": {
@@ -1488,6 +1686,68 @@
           "from"
         ],
         "title": "ConditionAnalyst",
+        "type": "object"
+      },
+      "ConditionEvidenceBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/conditions/{condition_id}/evidence``: the owner's evidence.\n\nThe owner says in words what evidence they attach. (A document goes through\nthe case's own document upload; evidence is not read by an agent, so it is\ntext here.)",
+        "properties": {
+          "note": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "note"
+        ],
+        "title": "ConditionEvidenceBody",
+        "type": "object"
+      },
+      "ConditionPO": {
+        "additionalProperties": false,
+        "properties": {
+          "due": {
+            "title": "Due",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "mine": {
+            "title": "Mine",
+            "type": "boolean"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "scheduled",
+              "evidence_submitted",
+              "closed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "owner",
+          "due",
+          "status",
+          "mine"
+        ],
+        "title": "ConditionPO",
         "type": "object"
       },
       "ConditionPatch": {
@@ -2602,6 +2862,37 @@
         "title": "FastLane",
         "type": "object"
       },
+      "FastLaneBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/screening``: the analyst confirms or declines the fast\nlane the screening agent proposed (R4). Declining needs a reason.",
+        "properties": {
+          "decision": {
+            "enum": [
+              "confirm_fast_lane",
+              "decline"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "FastLaneBody",
+        "type": "object"
+      },
       "FieldDef": {
         "additionalProperties": false,
         "properties": {
@@ -2786,6 +3077,23 @@
         "title": "FieldSetsSection",
         "type": "object"
       },
+      "GapBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/gaps``: the analyst searched the corpus by hand and\nfound nothing for something the case needs.",
+        "properties": {
+          "text": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "GapBody",
+        "type": "object"
+      },
       "GapQuestionPO": {
         "additionalProperties": false,
         "properties": {
@@ -2835,6 +3143,36 @@
           "value"
         ],
         "title": "GapQuestionPO",
+        "type": "object"
+      },
+      "GateWriteResult": {
+        "additionalProperties": false,
+        "description": "What a gate-deciding route without a richer answer returns (202).",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "decision": {
+            "title": "Decision",
+            "type": "string"
+          },
+          "gate_type": {
+            "title": "Gate Type",
+            "type": "string"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "case_id",
+          "gate_type",
+          "decision"
+        ],
+        "title": "GateWriteResult",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -2888,6 +3226,68 @@
           "non_retroactive"
         ],
         "title": "ImpactPreview",
+        "type": "object"
+      },
+      "InboxPO": {
+        "additionalProperties": false,
+        "properties": {
+          "banner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banner"
+          },
+          "rounds": {
+            "items": {
+              "$ref": "#/components/schemas/InboxRound"
+            },
+            "title": "Rounds",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rounds",
+          "banner"
+        ],
+        "title": "InboxPO",
+        "type": "object"
+      },
+      "InboxRound": {
+        "additionalProperties": false,
+        "description": "One round of questions. ``from`` is a Python keyword, so the attribute\nis ``from_`` and the wire name stays ``from``.",
+        "properties": {
+          "from": {
+            "title": "From",
+            "type": "string"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "sent_at": {
+            "title": "Sent At",
+            "type": "string"
+          },
+          "threads": {
+            "items": {
+              "$ref": "#/components/schemas/ThreadPO"
+            },
+            "title": "Threads",
+            "type": "array"
+          }
+        },
+        "required": [
+          "round",
+          "from",
+          "sent_at",
+          "threads"
+        ],
+        "title": "InboxRound",
         "type": "object"
       },
       "IntakeViewPO": {
@@ -3044,6 +3444,121 @@
         },
         "title": "IntegrationActionBody",
         "type": "object"
+      },
+      "ItemDecisionBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/items/{item_id}``: one decision on one item.\n\n``value`` is a control's replacement rating (0 to 10); a factor's\nreplacement is the pair ``likelihood`` and ``impact`` (1 to 5 each, an\nextension the web does not send yet). Which decisions an item kind accepts\nis the service's rule (clauses are accepted or removed, controls confirmed,\noverridden or removed, ratings confirmed or overridden, critic findings\nexplained), because the kind is on the stored item, not in the body.",
+        "properties": {
+          "decision": {
+            "enum": [
+              "accept",
+              "confirm",
+              "remove",
+              "override",
+              "explain",
+              "adjust"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "impact": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Impact"
+          },
+          "likelihood": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Likelihood"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "maximum": 10.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "ItemDecisionBody",
+        "type": "object"
+      },
+      "ItemDecisionResult": {
+        "additionalProperties": false,
+        "description": "What an item decision answers: the item, where it stands now and whether\nthis call changed nothing because the same decision was already recorded.",
+        "properties": {
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "ok": {
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ItemStatus"
+          }
+        },
+        "required": [
+          "item_id",
+          "status"
+        ],
+        "title": "ItemDecisionResult",
+        "type": "object"
+      },
+      "ItemStatus": {
+        "enum": [
+          "proposed",
+          "confirmed",
+          "overridden",
+          "removed",
+          "explained",
+          "adjusted"
+        ],
+        "title": "ItemStatus",
+        "type": "string"
       },
       "JurisdictionActivateOut": {
         "additionalProperties": false,
@@ -3321,6 +3836,13 @@
         "title": "JurisdictionVersionOut",
         "type": "object"
       },
+      "LockBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/recommendation/lock``: nothing to say.",
+        "properties": {},
+        "title": "LockBody",
+        "type": "object"
+      },
       "LoginRequest": {
         "additionalProperties": false,
         "description": "Credentials for ``POST /login``.\n\nExactly one of ``username`` (the web form's field; the seed id without its\n``u-`` prefix) or ``email`` (the original contract field; either spelling\nof the seed id) names the account. ``password`` may be empty only for the\nlocal demo picker (see ``fcrm_identity.settings.IdentitySettings\n.demo_login_active``); everywhere else an empty password is just a wrong\none.",
@@ -3493,6 +4015,69 @@
           "text"
         ],
         "title": "OutcomeCondition",
+        "type": "object"
+      },
+      "OutcomePO": {
+        "additionalProperties": false,
+        "properties": {
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/ConditionPO"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "decided": {
+            "title": "Decided",
+            "type": "boolean"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "outcome_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Label"
+          },
+          "plain_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plain Summary"
+          },
+          "reminder_days": {
+            "title": "Reminder Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "decided",
+          "outcome_label",
+          "plain_summary",
+          "decided_at",
+          "conditions",
+          "reminder_days"
+        ],
+        "title": "OutcomePO",
         "type": "object"
       },
       "OutcomeRecord": {
@@ -5307,6 +5892,49 @@
         "title": "PinnedVersions",
         "type": "object"
       },
+      "PlannedControlBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/controls/planned``: a control the business plans but\nhas not built. It is recorded and shown and never scored (rule 7).",
+        "properties": {
+          "control_id": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Control Id"
+          },
+          "description": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "due": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Due",
+            "type": "string"
+          },
+          "owner": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Owner",
+            "type": "string"
+          }
+        },
+        "required": [
+          "description",
+          "owner",
+          "due"
+        ],
+        "title": "PlannedControlBody",
+        "type": "object"
+      },
       "PolicyClauseHit": {
         "additionalProperties": false,
         "description": "One clause hit of a policy search: the verbatim text under the web's\nname (``quote``), both citations, its place in ``corpus/<source>.md`` and\nits scores. ``similarity`` is the fused rank-agreement score in (0, 1];\n``vector_score`` and ``text_score`` are the two rankers' own numbers.",
@@ -6252,6 +6880,107 @@
         "title": "PublishedVersionOut",
         "type": "object"
       },
+      "Recommendation": {
+        "additionalProperties": false,
+        "description": "``Recommendation`` in ``analyst.ts``: the narrative agent's draft with the\nanalyst's edits applied, the conditions, the outcome the analyst recommends,\nwhether it is locked and what still blocks the lock. Analyst only.",
+        "properties": {
+          "business_summary": {
+            "title": "Business Summary",
+            "type": "string"
+          },
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/ConditionAnalyst"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "drafted_by": {
+            "title": "Drafted By",
+            "type": "string"
+          },
+          "edits_by_analyst": {
+            "title": "Edits By Analyst",
+            "type": "integer"
+          },
+          "lock_blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Lock Blockers",
+            "type": "array"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "narrative": {
+            "title": "Narrative",
+            "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/Outcome"
+          },
+          "restricted_scan": {
+            "$ref": "#/components/schemas/RestrictedScan"
+          }
+        },
+        "required": [
+          "narrative",
+          "drafted_by",
+          "edits_by_analyst",
+          "outcome",
+          "conditions",
+          "business_summary",
+          "restricted_scan",
+          "locked",
+          "lock_blockers"
+        ],
+        "title": "Recommendation",
+        "type": "object"
+      },
+      "RecommendationEditBody": {
+        "additionalProperties": false,
+        "description": "``PUT /cases/{id}/recommendation``: what the analyst changed in the draft.\nEach field is optional; an absent one is not edited (the draft stands). The\nanalyst's own edits need no reason; the lock and the unlock are separate\ngates.",
+        "properties": {
+          "business_summary": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Summary"
+          },
+          "narrative": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Narrative"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Outcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "RecommendationEditBody",
+        "type": "object"
+      },
       "RecordAppend": {
         "additionalProperties": false,
         "description": "What the caller submits; ``prev_hash``/``hash``/``seq`` are computed\nby the service, never supplied by the caller.",
@@ -6286,6 +7015,31 @@
           "summary"
         ],
         "title": "RecordAppend",
+        "type": "object"
+      },
+      "RecordedWrite": {
+        "additionalProperties": false,
+        "description": "What recording a planned control or a gap answers (201): its id and\nwhether the same one was already recorded.",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "case_id"
+        ],
+        "title": "RecordedWrite",
         "type": "object"
       },
       "ReflagAcknowledge": {
@@ -6499,6 +7253,80 @@
         "title": "RequiredCard",
         "type": "object"
       },
+      "RerunBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/runs``: re-run research and assessment, with a reason.",
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "scope": {
+            "default": "full",
+            "enum": [
+              "changed_fields",
+              "full"
+            ],
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "RerunBody",
+        "type": "object"
+      },
+      "RerunResult": {
+        "additionalProperties": false,
+        "description": "The re-run was requested (202); H1 starts it.",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "requested": {
+            "default": true,
+            "title": "Requested",
+            "type": "boolean"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "scope"
+        ],
+        "title": "RerunResult",
+        "type": "object"
+      },
+      "ResolveThreadBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/clarifications/{thread_id}/resolve``: nothing to say\nbut, optionally, why it is resolved.",
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "ResolveThreadBody",
+        "type": "object"
+      },
       "ResolvedFieldSetOut": {
         "additionalProperties": false,
         "description": "``GET /field-sets/{version}/resolve?change_types=a,b``: the fields a\ncase with those change types must fill (the always-required set, then each\ntype's own fields in the order the types were given, de-duplicated by\nfield id). Each per-type field carries the change type that adds it.",
@@ -6538,6 +7366,29 @@
           "completion_threshold"
         ],
         "title": "ResolvedFieldSetOut",
+        "type": "object"
+      },
+      "RestrictedScan": {
+        "additionalProperties": false,
+        "description": "What the restricted-term scan found in the PO-facing business summary\n(``restricted_scan`` in ``analyst.ts``): shown to the analyst, never the PO.",
+        "properties": {
+          "terms": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Terms",
+            "type": "array"
+          },
+          "terms_found": {
+            "title": "Terms Found",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "terms_found",
+          "terms"
+        ],
+        "title": "RestrictedScan",
         "type": "object"
       },
       "ReuseBody": {
@@ -6812,6 +7663,68 @@
         "title": "RosterUser",
         "type": "object"
       },
+      "RoundBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/clarifications``: open the round with these questions.",
+        "properties": {
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/RoundQuestion"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Questions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questions"
+        ],
+        "title": "RoundBody",
+        "type": "object"
+      },
+      "RoundQuestion": {
+        "additionalProperties": false,
+        "description": "One question of the round, as the web's composer posts it (``keep``\nfalse drops it). ``anchor`` is the field or control it is about.",
+        "properties": {
+          "anchor": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor"
+          },
+          "id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "title": "Id",
+            "type": "string"
+          },
+          "keep": {
+            "default": true,
+            "title": "Keep",
+            "type": "boolean"
+          },
+          "text": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "RoundQuestion",
+        "type": "object"
+      },
       "Route": {
         "enum": [
           "analyst",
@@ -7066,6 +7979,68 @@
           "rules"
         ],
         "title": "RoutingRulesVersion",
+        "type": "object"
+      },
+      "S1_ThreadAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "documents": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "documents",
+          "at"
+        ],
+        "title": "ThreadAnswer",
+        "type": "object"
+      },
+      "S5_ThreadAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "addendum_no": {
+            "title": "Addendum No",
+            "type": "integer"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "numbers_changed": {
+            "title": "Numbers Changed",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "by",
+          "text",
+          "at",
+          "addendum_no",
+          "numbers_changed"
+        ],
+        "title": "ThreadAnswer",
         "type": "object"
       },
       "ScaleAnchor": {
@@ -7932,39 +8907,37 @@
         "title": "SupersedeResult",
         "type": "object"
       },
-      "ThreadAnswer": {
+      "ThreadAnswerBody": {
         "additionalProperties": false,
+        "description": "``POST /cases/{id}/clarifications/{thread_id}/answer``: the owner's answer.\n\n``documents`` are the names of documents to add with the answer (they go\nthrough the same checks as any upload); ``field_values`` are values the\nanswer sets. Neither is required.",
         "properties": {
-          "addendum_no": {
-            "title": "Addendum No",
-            "type": "integer"
+          "documents": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Documents",
+            "type": "array"
           },
-          "at": {
-            "format": "date-time",
-            "title": "At",
-            "type": "string"
-          },
-          "by": {
-            "title": "By",
-            "type": "string"
-          },
-          "numbers_changed": {
-            "title": "Numbers Changed",
-            "type": "boolean"
+          "field_values": {
+            "items": {
+              "$ref": "#/components/schemas/ThreadFieldValue"
+            },
+            "maxItems": 20,
+            "title": "Field Values",
+            "type": "array"
           },
           "text": {
+            "maxLength": 2000,
+            "minLength": 1,
             "title": "Text",
             "type": "string"
           }
         },
         "required": [
-          "by",
-          "text",
-          "at",
-          "addendum_no",
-          "numbers_changed"
+          "text"
         ],
-        "title": "ThreadAnswer",
+        "title": "ThreadAnswerBody",
         "type": "object"
       },
       "ThreadAnswerIn": {
@@ -8013,6 +8986,119 @@
           "text"
         ],
         "title": "ThreadAsk",
+        "type": "object"
+      },
+      "ThreadFieldValue": {
+        "additionalProperties": false,
+        "description": "A value the owner sets with their answer (``F11`` is now ``...``).",
+        "properties": {
+          "field_id": {
+            "pattern": "^F\\d{2,3}$",
+            "title": "Field Id",
+            "type": "string"
+          },
+          "value": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field_id",
+          "value"
+        ],
+        "title": "ThreadFieldValue",
+        "type": "object"
+      },
+      "ThreadPO": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/S1_ThreadAnswer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "field_label": {
+            "title": "Field Label",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "answered"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "round",
+          "field_label",
+          "question",
+          "status",
+          "answer"
+        ],
+        "title": "ThreadPO",
+        "type": "object"
+      },
+      "ThreadResolveResult": {
+        "additionalProperties": false,
+        "description": "What resolving a question answers: where it stands and whether it already\nstood there.",
+        "properties": {
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "status": {
+            "const": "resolved",
+            "default": "resolved",
+            "title": "Status",
+            "type": "string"
+          },
+          "thread_id": {
+            "title": "Thread Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "thread_id"
+        ],
+        "title": "ThreadResolveResult",
+        "type": "object"
+      },
+      "UnlockBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/recommendation/unlock``: reopen the numbers, with the\nreason that goes on the chain (R6).",
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "UnlockBody",
         "type": "object"
       },
       "ValidateResponse": {
@@ -9960,6 +11046,64 @@
         ]
       }
     },
+    "/api/fcrm/cases/{case_id}/acknowledge": {
+      "post": {
+        "description": "Acknowledge a boundary flag or a band change (R3): ``gate.decided ack`` for\nevery open gate of that kind, read from the score that opened it.",
+        "operationId": "S1_acknowledge_cases__case_id__acknowledge_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcknowledgeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcknowledgeResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Acknowledge",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
     "/api/fcrm/cases/{case_id}/activity": {
       "get": {
         "description": "The owner's activity feed, newest first, in plain words.",
@@ -10036,6 +11180,263 @@
         ]
       }
     },
+    "/api/fcrm/cases/{case_id}/change-types": {
+      "post": {
+        "description": "Add a change type with a reason (adds only): the fields and domains that\nfollow are stored with it, then ``case.retagged`` is emitted.",
+        "operationId": "S1_retag_case_cases__case_id__change_types_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeTypeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeTypeResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Retag Case",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/clarifications": {
+      "post": {
+        "description": "Send the round the composer prepared: the same round as ``ask`` with the\nanalyst's own questions (one round, sent once).",
+        "operationId": "S1_send_round_cases__case_id__clarifications_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoundBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompletenessResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Send Round",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/clarifications/{thread_id}/answer": {
+      "post": {
+        "description": "Answer one question (text, optionally values and documents). The answer\nthat closes the round freezes submission v2 and tells Caseflow which fields\nchanged and which documents were added.",
+        "operationId": "S1_answer_question_cases__case_id__clarifications__thread_id__answer_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "title": "Thread Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThreadAnswerBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxPO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Answer Question",
+        "tags": [
+          "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/clarifications/{thread_id}/resolve": {
+      "post": {
+        "description": "Resolve an answered question.",
+        "operationId": "S1_resolve_thread_cases__case_id__clarifications__thread_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "title": "Thread Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ResolveThreadBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadResolveResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Resolve Thread",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
     "/api/fcrm/cases/{case_id}/close": {
       "post": {
         "description": "Ask for a delegated close (R1, Band 1-2).\n\nRefused unless the case is open, the analyst holds it, its latest score\nroutes to the analyst (Band 1-2) and its recommendation is locked; a summary\nthat names a score, band or rating is refused too, because the owner reads\nit. Asking twice with the same content is a no-op; a different second\nrequest is a 409.\n\nRaises:\n    NotFoundError: No such case.\n    ForbiddenError: The caller is not the case's analyst.\n    fcrm_case.errors.CaseClosedError: The case is closed.\n    RuleViolationError: R1: no score yet, or the band routes to committee.\n    GateRequiredError: The recommendation is not locked.\n    ValidationError: The plain summary names a restricted term.",
@@ -10094,9 +11495,67 @@
         ]
       }
     },
+    "/api/fcrm/cases/{case_id}/completeness": {
+      "post": {
+        "description": "Ask the owner one round of questions, or proceed to review (D-16). ``ask``\nopens round 1 with the questions in the body (else the drafted, kept ones),\npauses the analyst clock and emits ``gate.decided completeness`` and\n``case.clarification_sent``; ``proceed`` emits the gate decision only.",
+        "operationId": "S1_decide_completeness_cases__case_id__completeness_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompletenessBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompletenessResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Decide Completeness",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
     "/api/fcrm/cases/{case_id}/conditions": {
       "get": {
-        "description": "The case's conditions, soonest due first (one query on ``{case_id}``).",
+        "description": "The case's conditions, soonest due first (one query on ``{case_id}``).\n\nRole-shaped (ADR-30, one route, two shapes): an analyst reads\n``Page[ConditionAnalyst]`` (above); the owner of the case reads the plain\n``Page[ConditionPO]`` of :mod:`fcrm_contracts.api.case_po` (text, owner, due,\nstatus, ``mine``; nothing about where a condition came from), through the\nPO response guard. Another owner's case is a 404.",
         "operationId": "S1_list_conditions_cases__case_id__conditions_get",
         "parameters": [
           {
@@ -10139,6 +11598,131 @@
         "summary": "List Conditions",
         "tags": [
           "case"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/conditions/{condition_id}/evidence": {
+      "post": {
+        "description": "Attach evidence to one of the owner's own conditions (allowed after the\ncase is closed): its status becomes ``evidence_submitted`` and FCRM reviews it.",
+        "operationId": "S1_evidence_condition_cases__case_id__conditions__condition_id__evidence_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "condition_id",
+            "required": true,
+            "schema": {
+              "title": "Condition Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConditionEvidenceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConditionPO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Evidence Condition",
+        "tags": [
+          "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/controls/planned": {
+      "post": {
+        "description": "Record a planned control (``case.control_planned``): shown and recorded,\nnever scored (rule 7): it is not a review item, so no score request holds it.",
+        "operationId": "S1_add_planned_control_cases__case_id__controls_planned_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlannedControlBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordedWrite"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Add Planned Control",
+        "tags": [
+          "analyst"
         ]
       }
     },
@@ -10328,6 +11912,112 @@
           }
         ],
         "summary": "Upload Documents",
+        "tags": [
+          "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/gaps": {
+      "post": {
+        "description": "Record a policy gap found by searching the corpus by hand\n(``case.gap_recorded``).",
+        "operationId": "S1_record_gap_cases__case_id__gaps_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GapBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordedWrite"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Record Gap",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/inbox": {
+      "get": {
+        "description": "The questions FCRM asked, by round, each \"Re: <field>\", with the owner's\nanswers. Nothing the analyst keeps to themselves.",
+        "operationId": "S1_get_inbox_cases__case_id__inbox_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxPO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Inbox",
         "tags": [
           "po"
         ]
@@ -10630,6 +12320,348 @@
         ]
       }
     },
+    "/api/fcrm/cases/{case_id}/items/{item_id}": {
+      "post": {
+        "description": "Decide ONE review item (Gate A, rule 2): accept or remove a clause, confirm,\noverride or remove a control, confirm or override a rating, explain a critic\nfinding. An override, a removal and an explanation need a reason of at least\n20 characters. The decision is stored, then ``gate.decided review_item`` is\nemitted; Caseflow re-scores from the stored value when it changed an input.",
+        "operationId": "S1_decide_item_cases__case_id__items__item_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemDecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemDecisionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Decide Item",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/outcome": {
+      "get": {
+        "description": "The plain outcome: the label, the owner-facing summary, the date and the\nconditions in words. No score, band, rating, vote or rationale.",
+        "operationId": "S1_get_outcome_cases__case_id__outcome_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutcomePO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Outcome",
+        "tags": [
+          "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/recommendation": {
+      "get": {
+        "description": "The narrative agent's draft with the analyst's edits applied, the outcome,\nthe conditions, the lock and what still blocks it.",
+        "operationId": "S1_get_recommendation_cases__case_id__recommendation_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recommendation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Recommendation",
+        "tags": [
+          "analyst"
+        ]
+      },
+      "put": {
+        "description": "Store the analyst's edits of the draft (narrative, outcome, business\nsummary); no reason is needed, the lock is the gate. Refused once locked.",
+        "operationId": "S1_put_recommendation_cases__case_id__recommendation_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendationEditBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recommendation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Recommendation",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/recommendation/lock": {
+      "post": {
+        "description": "Lock the recommendation (``case.locked``). 409 ``gate_required`` unless\nevery item is decided and every acknowledgement given, naming each blocker.",
+        "operationId": "S1_lock_recommendation_cases__case_id__recommendation_lock_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/LockBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recommendation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Lock Recommendation",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/recommendation/unlock": {
+      "post": {
+        "description": "Unlock with a reason of at least 20 characters (``case.unlocked``): the\npack is superseded and every item is decided again.",
+        "operationId": "S1_unlock_recommendation_cases__case_id__recommendation_unlock_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnlockBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recommendation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Unlock Recommendation",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
     "/api/fcrm/cases/{case_id}/review": {
       "get": {
         "description": "The Review & submit tab.",
@@ -10675,6 +12707,122 @@
         "summary": "Get Review",
         "tags": [
           "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/runs": {
+      "post": {
+        "description": "Ask for research and assessment to run again, with a reason\n(``case.rerun_requested``).",
+        "operationId": "S1_request_rerun_cases__case_id__runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RerunBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RerunResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Request Rerun",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/screening": {
+      "post": {
+        "description": "Confirm or decline the fast lane the screening agent proposed (R4):\n``gate.decided fast_lane_confirm``. Declining needs a reason.",
+        "operationId": "S1_decide_screening_cases__case_id__screening_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FastLaneBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GateWriteResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Decide Screening",
+        "tags": [
+          "analyst"
         ]
       }
     },
