@@ -402,3 +402,41 @@ def _index(outcome: LiveRunOutcome, gates: Any, tiers: Any, *, hours: int = 0) -
         concurrency=3,
         instructions="rendered",
     )
+
+
+def _run_args(*extra: str) -> Any:
+    return _parser().parse_args(
+        ["run", "--producer", "live", "--judge", "fake", *extra]
+    )
+
+
+def test_the_shipped_ai_root_is_the_default_and_needs_no_refusal() -> None:
+    args = _run_args()
+    assert args.ai_root == live_cli.DEFAULT_AI_ROOT
+    assert live_cli.ai_root_refusal(args) is None
+    assert live_cli.ai_root_refusal(_run_args("--baseline")) is None
+
+
+def test_a_run_on_another_ai_root_is_never_a_baseline(tmp_path: Path) -> None:
+    args = _run_args(
+        "--ai-root", str(tmp_path), "--results-root", str(tmp_path), "--baseline"
+    )
+    assert "baseline" in str(live_cli.ai_root_refusal(args))
+
+
+def test_a_run_on_another_ai_root_needs_its_own_results_root(tmp_path: Path) -> None:
+    refused = live_cli.ai_root_refusal(_run_args("--ai-root", str(tmp_path)))
+    assert "--results-root" in str(refused)
+    own = _run_args("--ai-root", str(tmp_path), "--results-root", str(tmp_path / "r"))
+    assert live_cli.ai_root_refusal(own) is None
+
+
+def test_the_command_refuses_before_any_model_call(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    async def _never(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("a model call was attempted")
+
+    monkeypatch.setattr(live_cli, "run_live", _never)
+    args = _run_args("--ai-root", str(tmp_path), "--baseline")
+    assert asyncio.run(live_cli.run_live_command(args)) == 2

@@ -22,3 +22,6 @@ src/backend/uv.lock.bak
 
 # personal direnv files
 .envrc*
+
+# the economy model profile (make economy-profile): generated, never committed
+.economy/

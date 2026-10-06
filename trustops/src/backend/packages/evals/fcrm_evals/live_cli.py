@@ -184,9 +184,33 @@ def _mongo_uri(args: argparse.Namespace) -> Optional[str]:
     return args.mongo_uri or os.environ.get(MONGO_URI_VARIABLE)
 
 
+def ai_root_refusal(args: argparse.Namespace) -> Optional[str]:
+    """Why a run on a non-shipped ``ai/`` root may not go ahead, or ``None``.
+
+    A run on another root (the economy profile of ``make economy-profile``)
+    measures other models than the ones that ship, so it may not become the
+    baseline and may not write into the shipped results folder, whose trend line
+    and ``latest`` link every later gate reads.
+    """
+    if args.ai_root.resolve() == DEFAULT_AI_ROOT.resolve():
+        return None
+    if args.baseline:
+        return "--baseline needs the shipped ai/ root: another root is not a baseline"
+    if args.results_root.resolve() == DEFAULT_RESULTS_ROOT.resolve():
+        return (
+            "a run on another ai/ root needs its own --results-root, not "
+            f"{DEFAULT_RESULTS_ROOT}"
+        )
+    return None
+
+
 async def run_live_command(args: argparse.Namespace) -> int:
     """``run --producer live`` (module docstring)."""
     root: Path = args.results_root
+    refusal = ai_root_refusal(args)
+    if refusal is not None:
+        logger.error("%s", refusal)
+        return 2
     agents = (AgentName(args.agent),) if args.agent else tuple(AgentName)
     stamp = args.timestamp or datetime.now(UTC)
     out: Path = args.out or root / stamp.strftime("%Y-%m-%d")
@@ -201,6 +225,7 @@ async def run_live_command(args: argparse.Namespace) -> int:
         judge_votes=args.judge_votes,
         instructions=args.instructions,
         token_budget_factor=args.token_budget_factor,
+        ai_root=args.ai_root,
         spool=out,
     )
     baseline = load_baseline(root)
@@ -489,6 +514,14 @@ def add_live_arguments(run: argparse.ArgumentParser) -> None:
         default="rendered",
         help="system prompt: rendered = fully rendered, as the H2 worker sends it "
         "(the default); raw = the unrendered template, a diagnostic",
+    )
+    run.add_argument(
+        "--ai-root",
+        type=Path,
+        default=DEFAULT_AI_ROOT,
+        help="the ai/ folder whose tiers.yaml and prompts the run uses; "
+        "`make economy-profile` writes a copy with no Sonnet or Opus (needs its "
+        "own --results-root, and is never a baseline)",
     )
     run.add_argument(
         "--baseline", action="store_true", help="make this run the baseline"
