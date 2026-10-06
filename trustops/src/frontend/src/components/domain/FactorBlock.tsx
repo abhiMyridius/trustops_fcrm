@@ -1,5 +1,6 @@
 /** Likelihood and impact for one area with the anchor definitions from the pinned scoring model. */
-import type { FactorAnchor, RiskArea } from '@/api/types/analyst';
+import type { FactorAnchor, RiskArea, RiskAreaGate } from '@/api/types/analyst';
+import { Button } from '@/components/ui/Button';
 
 function Scale({ name, value, anchors }: { name: string; value: number; anchors: FactorAnchor[] }) {
   const anchor = anchors.find((a) => a.value === value);
@@ -28,7 +29,20 @@ function Scale({ name, value, anchors }: { name: string; value: number; anchors:
   );
 }
 
-export function FactorBlock({ area, likelihood, impact }: { area: RiskArea; likelihood: FactorAnchor[]; impact: FactorAnchor[] }) {
+export function FactorBlock({
+  area,
+  likelihood,
+  impact,
+  onConfirm,
+  busy = false,
+}: {
+  area: RiskArea;
+  likelihood: FactorAnchor[];
+  impact: FactorAnchor[];
+  /** Given when the analyst may decide this area's likelihood and impact (its gate is open). */
+  onConfirm?: () => void;
+  busy?: boolean;
+}) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-tertiary p-4">
       <div className="flex flex-wrap gap-6">
@@ -42,6 +56,13 @@ export function FactorBlock({ area, likelihood, impact }: { area: RiskArea; like
       <p className="text-[13px] text-text-secondary">
         <span className="font-semibold">Assessment agent justification:</span> {area.justification}
       </p>
+      {onConfirm && (area as RiskArea & RiskAreaGate).factor_gate_open && (
+        <div>
+          <Button size="sm" variant="secondary" disabled={busy} onClick={onConfirm}>
+            Confirm likelihood and impact
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

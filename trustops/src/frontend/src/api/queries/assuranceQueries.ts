@@ -21,9 +21,37 @@ export function useVerifyChain(caseId: string, enabled = true) {
   });
 }
 
+/** The ask answers in one call when the examiner is quick, or 202 {question_id, status: "pending"} after a minute. */
+type ExaminerPending = { question_id: string; case_id: string; status: 'pending' };
+type ExaminerReply = ExaminerAnswer | ExaminerPending;
+
+const EXAMINER_POLL_MS = 3000;
+const EXAMINER_POLL_LIMIT = 40;
+
+function isPending(reply: ExaminerReply): reply is ExaminerPending {
+  return 'status' in reply && reply.status === 'pending';
+}
+
+/** Poll GET audit/examiner/answers/{id} until the answer is stored (it never invents one). */
+export async function awaitExaminerAnswer(
+  questionId: string,
+  pollMs: number = EXAMINER_POLL_MS,
+  limit: number = EXAMINER_POLL_LIMIT,
+): Promise<ExaminerAnswer> {
+  for (let i = 0; i < limit; i += 1) {
+    const reply = await api<ExaminerReply>(paths.audit.examinerAnswer(questionId));
+    if (!isPending(reply)) return reply;
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
+  throw new Error('The examiner has not answered yet. Ask again in a moment.');
+}
+
 export function useExaminerAsk() {
   return useMutation({
-    mutationFn: (v: { question: string; case_id: string }) => api<ExaminerAnswer>(paths.audit.examinerAsk, { method: 'POST', body: v }),
+    mutationFn: async (v: { question: string; case_id: string }): Promise<ExaminerAnswer> => {
+      const reply = await api<ExaminerReply>(paths.audit.examinerAsk, { method: 'POST', body: v });
+      return isPending(reply) ? awaitExaminerAnswer(reply.question_id) : reply;
+    },
   });
 }
 
