@@ -862,16 +862,20 @@ class NarrativePackBuilder(ContextPackBuilder):
             for c in e.payload.get("controls", [])
         ]
         if request.score_summary:
-            ratings.insert(
-                0,
-                (
-                    "score",
-                    "locked result: "
-                    + " · ".join(
-                        f"{k} {v}" for k, v in sorted(request.score_summary.items())
-                    ),
-                ),
+            locked = "locked result: " + " · ".join(
+                f"{k} {v}" for k, v in sorted(request.score_summary.items())
             )
+            seq = request.score_summary.get("score_record_seq")
+            if isinstance(seq, int):
+                # The prompt has the model cite the record the line names, quoting
+                # it: the record is registered so that citation resolves (a live
+                # run cited it, found it unresolved, and the retry blew the budget).
+                draft.cite(
+                    RecordSourceRef(case_id=request.case_id, seq=seq),
+                    source_text_lines([locked]),
+                )
+                locked = f'recorded in audit record #{seq}: "{locked}"'
+            ratings.insert(0, ("score", locked))
         draft.add("ratings", ratings)
         draft.add(
             "clauses",
