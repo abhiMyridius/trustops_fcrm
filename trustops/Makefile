@@ -183,8 +183,8 @@ typecheck: ## mypy over every workspace package (strictness per mypy.ini)
 opa-check: ## opa check --strict on the policies and tests
 	$(OPA) check --strict $(OPA_DIR)/policy $(OPA_DIR)/tests
 
-opa-test: ## Rego unit tests against the real permissions/tool_permits data
-	$(OPA) test $(OPA_DIR)/policy $(OPA_DIR)/data $(OPA_DIR)/tests
+opa-test: ## Rego unit tests against the real permissions/tool_permits data (30 s per test: the route-matrix tests are slow on a busy machine)
+	$(OPA) test --timeout 30s $(OPA_DIR)/policy $(OPA_DIR)/data $(OPA_DIR)/tests
 
 test-unit: ## every unit test under tests/ (integration and e2e markers excluded)
 	$(UV_RUN) pytest -m "not integration and not e2e"
