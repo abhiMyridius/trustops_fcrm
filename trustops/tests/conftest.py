@@ -44,6 +44,7 @@ os.environ.setdefault("DEEPEVAL_DISABLE_DOTENV", "1")
 if TYPE_CHECKING:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+    from fcrm_case.analyst_write_store import InMemoryAnalystWriteStore
     from fcrm_case.assessment_store import InMemoryAssessmentStore
     from fcrm_case.directory import AnalystLoadService, StaticIdentityDirectory
     from fcrm_case.domain.record import CaseRecord
@@ -1881,3 +1882,122 @@ def stub_case_inputs(demo_score_view: Any) -> Callable[..., Any]:
         return _Stub(view, error)
 
     return _make
+
+
+# ── S1 analyst write routes (lane I3-B2) ────────────────────────────────────────
+@pytest.fixture
+def analyst_store(
+    case_store: InMemoryCaseStore,
+    view_store: InMemoryViewStore,
+    assessment_store: InMemoryAssessmentStore,
+) -> InMemoryAnalystWriteStore:
+    """S1's in-memory analyst write store (the ledger of gates decided, the
+    decided items, the staged activity), over the same stores the routes read.
+    """
+    from fcrm_case.analyst_write_store import InMemoryAnalystWriteStore
+
+    return InMemoryAnalystWriteStore(case_store, view_store, assessment_store)
+
+
+@pytest.fixture
+def review_service(
+    case_service: CaseService,
+    assessment_store: InMemoryAssessmentStore,
+    analyst_store: InMemoryAnalystWriteStore,
+    act_as: Callable[[Role, str], None],
+    stored_case: CaseRecord,
+    demo_review_items: list[ReviewItemRow],
+) -> CaseService:
+    """The S1 app with the analyst write store wired, the demo case held by Rahul
+    Iyer in ``review`` (run ``run_1``) with its assessment items stored (each with
+    its gate id), called as Rahul.
+    """
+    from fcrm_contracts.enums import CaseState, Role
+
+    app = case_service.client.app
+    app.state.assessment = assessment_store  # type: ignore[attr-defined]
+    app.state.analyst_store = analyst_store  # type: ignore[attr-defined]
+    case_service.store._cases[stored_case.case_id] = stored_case.model_copy(
+        update={
+            "state": CaseState.REVIEW,
+            "analyst_id": ANALYST_SUB,
+            "analyst_name": "Rahul Iyer",
+            "run_id": "run_1",
+        }
+    )
+    for row in demo_review_items:
+        case_service.views.items[row.item_id] = row
+    act_as(Role.ANALYST, ANALYST_SUB)
+    return case_service
+
+
+@pytest.fixture
+def make_ack_snapshot(
+    assessment_store: InMemoryAssessmentStore,
+) -> Callable[..., Any]:
+    """``make_ack_snapshot(gate_id, band_changed=False, n=1)``: a score snapshot
+    of the demo case that opened the acknowledgement gate ``gate_id`` (what H1's
+    ``PUT score`` records), stored in the in-memory assessment store.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from fcrm_case.domain.views import ScoreSnapshotRow
+
+    def _make(gate_id: str, band_changed: bool = False, n: int = 1) -> Any:
+        row = ScoreSnapshotRow(
+            snapshot_id=f"snap_{n}",
+            case_id="FCRM-2026-0151",
+            computed_at=datetime(2026, 10, 5, 10, tzinfo=UTC) + timedelta(minutes=n),
+            purpose="confirmed" if band_changed else "proposed",
+            composite=10.4 if band_changed else 9.8,
+            band=3 if band_changed else 2,
+            route="committee" if band_changed else "analyst",
+            boundary_flag=True,
+            boundary_distance=0.3,
+            run_id="run_1",
+            band_changed=band_changed,
+            gate_id=gate_id,
+        )
+        assessment_store.snapshots[row.snapshot_id] = row
+        return row
+
+    return _make
+
+
+class EmitProbe:
+    """What the case store looked like at the moment each event was enqueued: the
+    status of every review item, read when an event reached the outbox.
+    """
+
+    def __init__(self) -> None:
+        self.statuses: list[dict[str, str]] = []
+
+
+class _ProbedEvents(list):  # type: ignore[type-arg]
+    """An outbox list that notes the review items' statuses at each enqueue."""
+
+    def __init__(self, probe: EmitProbe, items: dict[str, Any]) -> None:
+        super().__init__()
+        self._probe = probe
+        self._items = items
+
+    def append(self, event: Any) -> None:
+        self._probe.statuses.append({k: v.status.value for k, v in self._items.items()})
+        super().append(event)
+
+    def extend(self, events: Any) -> None:
+        for event in events:
+            self.append(event)
+
+
+@pytest.fixture
+def emit_probe(
+    case_store: InMemoryCaseStore, view_store: InMemoryViewStore
+) -> EmitProbe:
+    """Records, for every event the in-memory outbox receives, the status of each
+    review item at that moment: the proof that a decision is stored before it is
+    emitted (``store before emit``).
+    """
+    probe = EmitProbe()
+    case_store.events = _ProbedEvents(probe, view_store.items)
+    return probe

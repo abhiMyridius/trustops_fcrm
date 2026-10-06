@@ -1,6 +1,66 @@
 {
   "components": {
     "schemas": {
+      "AcknowledgeBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/acknowledge``: R3, the analyst acknowledges a boundary\nflag or a band change. ``note`` says what was checked.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "boundary",
+              "band_change"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "AcknowledgeBody",
+        "type": "object"
+      },
+      "AcknowledgeResult": {
+        "additionalProperties": false,
+        "description": "What an acknowledgement answers (202): how many open gates of that kind\nit decided; zero with ``replayed`` when they were all decided before.",
+        "properties": {
+          "acknowledged": {
+            "title": "Acknowledged",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "boundary",
+              "band_change"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "acknowledged"
+        ],
+        "title": "AcknowledgeResult",
+        "type": "object"
+      },
       "ActivityEventPO": {
         "additionalProperties": false,
         "properties": {
@@ -1659,6 +1719,37 @@
         "title": "EmptyBody",
         "type": "object"
       },
+      "FastLaneBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/screening``: the analyst confirms or declines the fast\nlane the screening agent proposed (R4). Declining needs a reason.",
+        "properties": {
+          "decision": {
+            "enum": [
+              "confirm_fast_lane",
+              "decline"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "FastLaneBody",
+        "type": "object"
+      },
       "FieldDef": {
         "additionalProperties": false,
         "properties": {
@@ -1792,6 +1883,36 @@
           "value"
         ],
         "title": "GapQuestionPO",
+        "type": "object"
+      },
+      "GateWriteResult": {
+        "additionalProperties": false,
+        "description": "What a gate-deciding route without a richer answer returns (202).",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "decision": {
+            "title": "Decision",
+            "type": "string"
+          },
+          "gate_type": {
+            "title": "Gate Type",
+            "type": "string"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "case_id",
+          "gate_type",
+          "decision"
+        ],
+        "title": "GateWriteResult",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1961,6 +2082,121 @@
         },
         "title": "IntegrationActionBody",
         "type": "object"
+      },
+      "ItemDecisionBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/items/{item_id}``: one decision on one item.\n\n``value`` is a control's replacement rating (0 to 10); a factor's\nreplacement is the pair ``likelihood`` and ``impact`` (1 to 5 each, an\nextension the web does not send yet). Which decisions an item kind accepts\nis the service's rule (clauses are accepted or removed, controls confirmed,\noverridden or removed, ratings confirmed or overridden, critic findings\nexplained), because the kind is on the stored item, not in the body.",
+        "properties": {
+          "decision": {
+            "enum": [
+              "accept",
+              "confirm",
+              "remove",
+              "override",
+              "explain",
+              "adjust"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "impact": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Impact"
+          },
+          "likelihood": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Likelihood"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "maximum": 10.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "ItemDecisionBody",
+        "type": "object"
+      },
+      "ItemDecisionResult": {
+        "additionalProperties": false,
+        "description": "What an item decision answers: the item, where it stands now and whether\nthis call changed nothing because the same decision was already recorded.",
+        "properties": {
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "ok": {
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ItemStatus"
+          }
+        },
+        "required": [
+          "item_id",
+          "status"
+        ],
+        "title": "ItemDecisionResult",
+        "type": "object"
+      },
+      "ItemStatus": {
+        "enum": [
+          "proposed",
+          "confirmed",
+          "overridden",
+          "removed",
+          "explained",
+          "adjusted"
+        ],
+        "title": "ItemStatus",
+        "type": "string"
       },
       "JurisdictionActivateOut": {
         "additionalProperties": false,
@@ -7405,6 +7641,64 @@
         ]
       }
     },
+    "/api/fcrm/cases/{case_id}/acknowledge": {
+      "post": {
+        "description": "Acknowledge a boundary flag or a band change (R3): ``gate.decided ack`` for\nevery open gate of that kind, read from the score that opened it.",
+        "operationId": "S1_acknowledge_cases__case_id__acknowledge_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcknowledgeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcknowledgeResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Acknowledge",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
     "/api/fcrm/cases/{case_id}/activity": {
       "get": {
         "description": "The owner's activity feed, newest first, in plain words.",
@@ -8075,6 +8369,73 @@
         ]
       }
     },
+    "/api/fcrm/cases/{case_id}/items/{item_id}": {
+      "post": {
+        "description": "Decide ONE review item (Gate A, rule 2): accept or remove a clause, confirm,\noverride or remove a control, confirm or override a rating, explain a critic\nfinding. An override, a removal and an explanation need a reason of at least\n20 characters. The decision is stored, then ``gate.decided review_item`` is\nemitted; Caseflow re-scores from the stored value when it changed an input.",
+        "operationId": "S1_decide_item_cases__case_id__items__item_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemDecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemDecisionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Decide Item",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
     "/api/fcrm/cases/{case_id}/review": {
       "get": {
         "description": "The Review & submit tab.",
@@ -8120,6 +8481,64 @@
         "summary": "Get Review",
         "tags": [
           "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/screening": {
+      "post": {
+        "description": "Confirm or decline the fast lane the screening agent proposed (R4):\n``gate.decided fast_lane_confirm``. Declining needs a reason.",
+        "operationId": "S1_decide_screening_cases__case_id__screening_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FastLaneBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GateWriteResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Decide Screening",
+        "tags": [
+          "analyst"
         ]
       }
     },

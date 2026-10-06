@@ -41,6 +41,7 @@ from fcrm_common.tracing import init_otel
 from pymongo.asynchronous.collection import AsyncCollection
 
 from fcrm_case.activity_log import MongoActivityLog
+from fcrm_case.analyst_write_store import MongoAnalystWriteStore
 from fcrm_case.assessment_store import MongoAssessmentStore
 from fcrm_case.consumer import start_consumer
 from fcrm_case.directory import (
@@ -203,11 +204,16 @@ async def register(
         type_domains=active_type_domains(),
     )
     await po_store.ensure_indexes()
+    analyst_store = MongoAnalystWriteStore(
+        deps.mongo, db, cases_repo, views.repos, outbox, activity
+    )
+    await analyst_store.ensure_indexes()
     objects = ObjectStore.from_settings(settings)
     directory, closable = _build_directory(settings)
     app.state.store = store
     app.state.views = views
     app.state.po_store = po_store
+    app.state.analyst_store = analyst_store
     app.state.objects = objects
     app.state.intake = DocumentIntake(
         objects, _build_fixtures(settings, objects), settings

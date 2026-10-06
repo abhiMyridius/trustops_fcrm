@@ -69,13 +69,21 @@ test_service_may_call_every_internal_case_route if {
 	}
 }
 
-test_no_person_role_may_call_an_internal_case_route if {
-	every role in {"fcrm_po", "fcrm_analyst", "fcrm_committee", "fcrm_observer"} {
-		every r in internal_case_routes {
-			not authz.allow with input as req(role, "case", r[0], r[1])
-		}
+no_internal_case_route(role) if {
+	every r in internal_case_routes {
+		not authz.allow with input as req(role, "case", r[0], r[1])
 	}
 }
+
+# One test per role: each evaluation walks the whole rule table, so a single loop
+# over every role and route runs into OPA's per-test time limit as the table grows.
+test_the_po_may_not_call_an_internal_case_route if no_internal_case_route("fcrm_po")
+
+test_the_analyst_may_not_call_an_internal_case_route if no_internal_case_route("fcrm_analyst")
+
+test_the_committee_may_not_call_an_internal_case_route if no_internal_case_route("fcrm_committee")
+
+test_the_observer_may_not_call_an_internal_case_route if no_internal_case_route("fcrm_observer")
 
 # The delegated close and the condition tracker (R1; fcrm_case.routes_analyst_close):
 # the analyst only. The service account never decides a human gate (Guard 7), and
@@ -714,6 +722,76 @@ test_response_reports_deny_rule if {
 	r.allow == false
 	count(r.denied_by) == 1
 	r.reason == "explicitly denied by policy"
+}
+
+# ── the analyst's write routes (lane I3-B2: fcrm_case.routes_analyst_write) ──
+# Every human gate of scenes 8-16: the analyst only. The service account inherits
+# the analyst's grants through role_hierarchy, so a deny row names each route
+# (Guard 7); the PO, the committee and the observer have no allow row at all.
+analyst_write_routes := {
+	["POST", "/cases/{case_id}/items/{item_id}"],
+	["POST", "/cases/{case_id}/acknowledge"],
+	["POST", "/cases/{case_id}/screening"],
+	["POST", "/cases/{case_id}/completeness"],
+	["POST", "/cases/{case_id}/clarifications"],
+	["POST", "/cases/{case_id}/clarifications/{thread_id}/resolve"],
+	["POST", "/cases/{case_id}/change-types"],
+	["POST", "/cases/{case_id}/controls/planned"],
+	["POST", "/cases/{case_id}/gaps"],
+	["POST", "/cases/{case_id}/runs"],
+	["PUT", "/cases/{case_id}/recommendation"],
+	["POST", "/cases/{case_id}/recommendation/lock"],
+	["POST", "/cases/{case_id}/recommendation/unlock"],
+}
+
+test_the_analyst_may_call_every_analyst_write_route if {
+	every r in analyst_write_routes {
+		authz.allow with input as req("fcrm_analyst", "case", r[0], r[1])
+	}
+}
+
+denied_every_analyst_write(role) if {
+	every r in analyst_write_routes {
+		not authz.allow with input as req(role, "case", r[0], r[1])
+	}
+}
+
+test_the_po_may_not_call_an_analyst_write_route if denied_every_analyst_write("fcrm_po")
+
+test_the_committee_may_not_call_an_analyst_write_route if denied_every_analyst_write("fcrm_committee")
+
+test_the_observer_may_not_call_an_analyst_write_route if denied_every_analyst_write("fcrm_observer")
+
+test_the_service_account_may_not_call_an_analyst_write_route if denied_every_analyst_write("fcrm_service")
+
+# The PO's follow-up routes (fcrm_case.routes_po_followup): the PO only; the
+# analyst has no allow row and the service account is denied (Guard 7).
+po_followup_writes := {
+	["POST", "/cases/{case_id}/clarifications/{thread_id}/answer"],
+	["POST", "/cases/{case_id}/conditions/{condition_id}/evidence"],
+}
+
+test_the_po_may_answer_and_evidence_its_own_case if {
+	every r in po_followup_writes {
+		authz.allow with input as req("fcrm_po", "case", r[0], r[1])
+	}
+	authz.allow with input as req("fcrm_po", "case", "GET", "/cases/{case_id}/inbox")
+	authz.allow with input as req("fcrm_po", "case", "GET", "/cases/{case_id}/outcome")
+}
+
+test_no_other_role_may_answer_or_evidence if {
+	every role in {"fcrm_analyst", "fcrm_committee", "fcrm_observer", "fcrm_service"} {
+		every r in po_followup_writes {
+			not authz.allow with input as req(role, "case", r[0], r[1])
+		}
+	}
+}
+
+test_only_the_po_reads_the_inbox_and_the_outcome if {
+	every role in {"fcrm_analyst", "fcrm_committee", "fcrm_observer"} {
+		not authz.allow with input as req(role, "case", "GET", "/cases/{case_id}/inbox")
+		not authz.allow with input as req(role, "case", "GET", "/cases/{case_id}/outcome")
+	}
 }
 
 # ── data hygiene ───────────────────────────────────────────────────────────

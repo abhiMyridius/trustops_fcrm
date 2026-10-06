@@ -20,7 +20,6 @@ import { handlerTemplatesOutsideEndpoints, servedRoutes, webRoutes } from './rou
 /** Web routes the backend does not serve yet (51 of 83 after the PO surface landed; 65 on 5 Oct). */
 const PENDING_ROUTES: readonly string[] = [
   // S1 case: PO and analyst case routes, queues, dashboards, integrations, re-flags, harness (32)
-  'POST /api/fcrm/cases/{id}/acknowledge',
   'GET /api/fcrm/cases/{id}/assessment',
   'POST /api/fcrm/cases/{id}/change-types',
   'GET /api/fcrm/cases/{id}/clarifications',
@@ -34,7 +33,6 @@ const PENDING_ROUTES: readonly string[] = [
   'GET /api/fcrm/cases/{id}/handoff',
   'GET /api/fcrm/cases/{id}/harness',
   'GET /api/fcrm/cases/{id}/inbox',
-  'POST /api/fcrm/cases/{id}/items/{id}',
   'GET /api/fcrm/cases/{id}/outcome',
   'GET /api/fcrm/cases/{id}/policy',
   'GET /api/fcrm/cases/{id}/recommendation',
@@ -42,7 +40,6 @@ const PENDING_ROUTES: readonly string[] = [
   'POST /api/fcrm/cases/{id}/recommendation/lock',
   'POST /api/fcrm/cases/{id}/recommendation/unlock',
   'GET /api/fcrm/cases/{id}/risk',
-  'POST /api/fcrm/cases/{id}/screening',
   'GET /api/fcrm/cases/{id}/submissions',
   'GET /api/fcrm/cases/{id}/submissions/diff',
   'GET /api/fcrm/cases/{id}/workbench',
