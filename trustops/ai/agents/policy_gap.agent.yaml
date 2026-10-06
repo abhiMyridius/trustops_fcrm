@@ -11,7 +11,7 @@ lifecycle_state: null                 # oversight job outside the case state mac
 trigger: "case.gap_recorded, and weekly"
 tier: mid
 budget_tier: mid
-budget: {tokens: 11000, wall_s: 120, retries: 1}
+budget: {tokens: 15000, wall_s: 120, retries: 1}
 tools: [policy_search, case_search]
 tool_caps: {policy_search: 3, case_search: 1}
 tool_call_cap: 1                                    # one tool call: the pack already holds the fresh nearest clauses of every gap

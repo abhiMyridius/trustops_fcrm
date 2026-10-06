@@ -10,7 +10,7 @@ lifecycle_state: null                 # oversight job outside the case state mac
 trigger: "on demand from Assurance > Ask (analyst, committee, observer); after GET /verify/{case} returns ok"
 tier: mid
 budget_tier: mid
-budget: {tokens: 11000, wall_s: 120, retries: 1}
+budget: {tokens: 15000, wall_s: 120, retries: 1}
 tools: [audit_log]
 tool_caps: {audit_log: 2}
 tool_call_cap: 1                                    # one tool call: the pack holds every record
