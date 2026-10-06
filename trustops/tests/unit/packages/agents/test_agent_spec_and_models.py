@@ -104,8 +104,16 @@ def test_registry_agrees_with_ai_agent_yaml(name: str) -> None:
     assert spec.tool_call_cap == yaml_spec.tool_call_cap
     assert spec.gate == yaml_spec.gate
     assert spec.eval_set == yaml_spec.eval_set
+    assert spec.may_be_empty == yaml_spec.may_be_empty
     assert yaml_spec.prompt_id is not None
     assert spec.prompt_id == yaml_spec.prompt_id.system
+
+
+def test_only_agents_whose_contract_allows_it_may_return_nothing() -> None:
+    """Emptiness is a per-agent contract property; everything else fails
+    closed in Guard 4."""
+    allowed = {name.value for name, spec in REGISTRY.items() if spec.may_be_empty}
+    assert allowed == {"watchlist", "policy_gap", "critic"}
 
 
 @pytest.mark.skipif(not HAS_AI, reason="ai/ lane absent")

@@ -1,6 +1,6 @@
 # ai/agents/critic.agent.yaml  (design B §2.5; Guard 6)
 name: critic
-version: 1
+version: 2
 purpose: >-
   After S2 has computed the first score and before anyone reviews (D-22),
   read the ledger for the run and check four things: every claim sourced,
@@ -17,6 +17,7 @@ tool_call_cap: 3
 pack_tools: [case_record, evidence_ledger, precedent_search, rules_check, evidence_store]
 skills: [compare_precedent]
 context_pack: critic
+may_be_empty: true                  # "no finding is a valid result" (critic.system); Guard 4 passes an empty result
 output_schema:
   envelope: CriticOutput
   envelope_module: fcrm_contracts.proposals.critic

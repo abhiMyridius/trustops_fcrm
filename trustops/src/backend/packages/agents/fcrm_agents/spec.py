@@ -51,6 +51,11 @@ class AgentSpec(BaseModel):
     eval_set: str
     tool_call_cap: int = Field(ge=0)
     modes: tuple[str, ...] = ()
+    may_be_empty: bool = False
+    """An empty result is a correct answer (the watchlist's "no re-flag", the
+    critic's "no finding", the policy-gap agent's "every gap is closed"), so
+    Guard 4 passes it; every other agent still fails closed on empty. Mirrors
+    ``ai/agents/<name>.agent.yaml may_be_empty`` (a unit test keeps them equal)."""
 
     def output_type(self) -> Any:
         """The Pydantic AI ``output_type``: a list of the agent's proposal
@@ -75,6 +80,7 @@ def _spec(
     cap: int,
     users: Optional[tuple[str, ...]] = None,
     modes: tuple[str, ...] = (),
+    may_be_empty: bool = False,
 ) -> AgentSpec:
     return AgentSpec(
         name=name,
@@ -89,6 +95,7 @@ def _spec(
         eval_set=eval_set,
         tool_call_cap=cap,
         modes=modes,
+        may_be_empty=may_be_empty,
     )
 
 
@@ -165,6 +172,7 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             gate="review_item",
             eval_set="critic/planted-60",
             cap=3,
+            may_be_empty=True,
         ),
         _spec(
             A.NARRATIVE,
@@ -203,6 +211,7 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             gate="reflag_ack",
             eval_set="watchlist/reflag-24",
             cap=2,
+            may_be_empty=True,
         ),
         _spec(
             A.POLICY_GAP,
@@ -213,6 +222,7 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             gate=None,
             eval_set="policy_gap/suggestions-14",
             cap=4,
+            may_be_empty=True,
         ),
     )
 }

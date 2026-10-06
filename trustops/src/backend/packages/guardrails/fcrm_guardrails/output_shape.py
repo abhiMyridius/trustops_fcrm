@@ -25,6 +25,12 @@ All checks are deterministic:
    restricted term; and, when ``GuardContext.grounding_numbers`` is given,
    every number in narrative/summary text appears in the inputs.
 
+An **empty** output fails closed (``blocked``: a model that produced nothing is
+indistinguishable from one that failed) unless the agent's contract says an
+empty result is a correct answer (``GuardContext.may_be_empty``, from
+``ai/agents/<name>.agent.yaml``): the watchlist's "no candidate needs a
+re-flag", the critic's "no finding". Then it passes with zero claims.
+
 Outcome: all pass -> ``passed`` (``annotated`` when low-confidence items are
 present). Any failure on attempt 1 -> ``retry`` with ``details["feedback"]``,
 one line per failing item, for H2's retry prompt on the fallback model. On
@@ -371,6 +377,21 @@ class OutputShapeGuard(Guard):
         """Verify ``ctx.outputs`` against ``ctx.sources`` (see module doc)."""
         started = time.perf_counter()
         if not ctx.outputs:
+            if ctx.may_be_empty:
+                return self._result(
+                    GuardStatus.PASSED,
+                    "no items: this agent's contract allows an empty result",
+                    started=started,
+                    details={
+                        "claims": 0,
+                        "verified": 0,
+                        "fuzzy": 0,
+                        "failed_items": [],
+                        "low_confidence": [],
+                        "attempt": ctx.attempt,
+                        "empty": True,
+                    },
+                )
             return self._result(
                 GuardStatus.BLOCKED,
                 "no agent output to check; failing closed",

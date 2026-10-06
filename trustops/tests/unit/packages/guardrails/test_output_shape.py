@@ -380,6 +380,25 @@ async def test_check_no_output_fails_closed() -> None:
     assert result.status is GuardStatus.BLOCKED
 
 
+async def test_check_no_output_fails_closed_unless_the_contract_allows_it() -> None:
+    """The watchlist's "no candidate needs a re-flag" is a correct answer."""
+    closed = await GUARD.check(_ctx(AgentName.WATCHLIST, []))
+    assert closed.status is GuardStatus.BLOCKED
+    assert "failing closed" in closed.summary
+    allowed = await GUARD.check(_ctx(AgentName.WATCHLIST, [], may_be_empty=True))
+    assert allowed.status is GuardStatus.PASSED
+    assert allowed.details["claims"] == 0
+    assert allowed.details["empty"] is True
+
+
+async def test_check_may_be_empty_does_not_loosen_a_non_empty_check() -> None:
+    """Emptiness is the only thing the flag changes: a bad item still fails."""
+    result = await GUARD.check(
+        _ctx(AgentName.RESEARCH, [PARAPHRASE], may_be_empty=True)
+    )
+    assert result.status is GuardStatus.RETRY
+
+
 async def test_check_category_proposal_quotes_the_page() -> None:
     from fcrm_contracts.proposals.intake import CategoryProposal
 

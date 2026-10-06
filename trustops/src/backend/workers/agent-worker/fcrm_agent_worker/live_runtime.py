@@ -352,6 +352,7 @@ class LiveRun:
                 "attempt": attempt,
                 "outputs": outputs,
                 "sources": self.pack.sources,
+                "may_be_empty": self.spec.may_be_empty,
             }
         )
         shape = await OutputShapeGuard().check(ctx)

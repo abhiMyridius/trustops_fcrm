@@ -133,6 +133,10 @@ class GuardContext(BaseModel):
     outputs: list[BaseModel] = Field(default_factory=list)
     sources: list[AvailableSource] = Field(default_factory=list)
     grounding_numbers: Optional[frozenset[str]] = None
+    may_be_empty: bool = False
+    """The agent's contract (``ai/agents/<name>.agent.yaml may_be_empty``)
+    allows an empty result, so Guard 4 passes an empty ``outputs`` list for
+    it. ``False`` (the default) keeps Guard 4 failing closed on empty."""
     # Guard 5 in H1 (state-change inputs)
     rules: Optional[RulesContext] = None
 
