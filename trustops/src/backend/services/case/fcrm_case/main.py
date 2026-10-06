@@ -24,12 +24,14 @@ from fcrm_case.routes import router
 from fcrm_case.routes_analyst_close import router as analyst_close_router
 from fcrm_case.routes_analyst_read import router as analyst_read_router
 from fcrm_case.routes_analyst_read import shared_router as shared_read_router
+from fcrm_case.routes_analyst_write import router as analyst_write_router
 from fcrm_case.routes_internal import router as internal_router
 from fcrm_case.routes_internal_assessment import router as internal_assessment_router
 from fcrm_case.routes_internal_outcome import router as internal_outcome_router
 from fcrm_case.routes_internal_read import router as internal_read_router
 from fcrm_case.routes_internal_reflags import router as internal_reflags_router
 from fcrm_case.routes_po import router as po_router
+from fcrm_case.routes_po_followup import router as po_followup_router
 from fcrm_case.routes_reflags import router as reflags_router
 from fcrm_case.sse import EventHub
 
@@ -59,6 +61,7 @@ def create_app(*, standalone: bool = True) -> FastAPI:
     app.state.hub = EventHub()
     install_error_handlers(app)
     app.include_router(po_router)
+    app.include_router(po_followup_router)
     app.include_router(router)
     app.include_router(internal_router)
     app.include_router(internal_assessment_router)
@@ -69,6 +72,7 @@ def create_app(*, standalone: bool = True) -> FastAPI:
     app.include_router(shared_read_router)
     app.include_router(internal_reflags_router)
     app.include_router(reflags_router)
+    app.include_router(analyst_write_router)
     app.include_router(build_health_router(app.state.probe))
     return app
 

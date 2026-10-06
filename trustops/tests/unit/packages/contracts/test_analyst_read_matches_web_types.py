@@ -51,6 +51,8 @@ ANALYST_INTERFACES = (
     "Flag",
     "CriticFinding",
     "DraftQuestion",
+    "ThreadAnalyst",
+    "ClarificationsView",
     "AssessmentSummary",
     "SubmissionField",
     "SubmissionVersion",

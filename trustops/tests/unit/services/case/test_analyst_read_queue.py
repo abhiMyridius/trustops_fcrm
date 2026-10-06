@@ -12,7 +12,6 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from fcrm_case.domain.analyst_views import Acknowledgement
 from fcrm_case.routes_analyst_read import get_clock
 from fcrm_contracts.api.case_analyst_read import (
     DashboardAnalyst,
@@ -351,7 +350,11 @@ def test_a_live_header_withholds_the_route_until_review_started(
     )
     analyst_read.service.store.records[record.case_id] = record
     snap = make_snapshot(
-        band=3, composite=10.4, boundary_flag=True, boundary_distance=0.3
+        band=3,
+        composite=10.4,
+        boundary_flag=True,
+        boundary_distance=0.3,
+        gate_id="gate_ack",
     )
     analyst_read.assessment.snapshots[snap.snapshot_id] = snap
     before = header(analyst_read.client, record.case_id)
@@ -370,10 +373,11 @@ def test_a_live_header_withholds_the_route_until_review_started(
     assert after.ack_message is not None
 
 
-def test_a_band_change_and_a_boundary_flag_are_owed_until_acknowledged(
+def test_a_band_change_and_a_boundary_flag_are_owed_until_the_ledger_decides_them(
     analyst_read: AnalystRead,
     make_case_record: Callable[..., Any],
     make_snapshot: Callable[..., Any],
+    decide_gate: Callable[..., None],
 ) -> None:
     record = make_case_record(
         state=CaseState.REVIEW,
@@ -382,7 +386,14 @@ def test_a_band_change_and_a_boundary_flag_are_owed_until_acknowledged(
         review_started_at=TODAY,
     )
     analyst_read.service.store.records[record.case_id] = record
-    snap = make_snapshot(
+    first = make_snapshot(
+        composite=9.8,
+        boundary_flag=True,
+        boundary_distance=0.3,
+        gate_id="gate_boundary",
+        computed_at=TODAY - timedelta(hours=2),
+    )
+    second = make_snapshot(
         band=3,
         composite=10.4,
         boundary_flag=True,
@@ -390,26 +401,79 @@ def test_a_band_change_and_a_boundary_flag_are_owed_until_acknowledged(
         previous_band=2,
         previous_composite=9.8,
         band_changed=True,
+        gate_id="gate_band",
+        computed_at=TODAY - timedelta(hours=1),
     )
-    analyst_read.assessment.snapshots[snap.snapshot_id] = snap
+    for snap in (first, second):
+        analyst_read.assessment.snapshots[snap.snapshot_id] = snap
     owed = header(analyst_read.client, record.case_id)
     assert owed.pending_acknowledgements == ["band_change", "boundary"]
     assert owed.ack_message is not None
     assert "2 → 3" in owed.ack_message
-    analyst_read.reads.acks.extend(
-        [
-            (
-                record.case_id,
-                Acknowledgement("band_change", snap.computed_at + timedelta(minutes=1)),
-            ),
-            (
-                record.case_id,
-                Acknowledgement("boundary", snap.computed_at + timedelta(minutes=1)),
-            ),
-        ]
-    )
+    decide_gate("gate_band", "ack", "band_change", record.case_id)
+    half = header(analyst_read.client, record.case_id)
+    assert half.pending_acknowledgements == ["boundary"]
+    assert half.ack_message is not None
+    decide_gate("gate_boundary", "ack", "boundary", record.case_id)
     cleared = header(analyst_read.client, record.case_id)
     assert cleared.pending_acknowledgements == []
+    assert cleared.ack_message is None
+
+
+def test_the_completeness_decision_is_the_one_the_ledger_holds(
+    analyst_read: AnalystRead,
+    make_case_record: Callable[..., Any],
+    decide_gate: Callable[..., None],
+) -> None:
+    from datetime import UTC
+
+    from fcrm_case.domain.assessment import CompletenessViewRow
+
+    record = make_case_record(
+        state=CaseState.REVIEW,
+        analyst_id=RAHUL,
+        submitted_at=TODAY - timedelta(hours=3),
+        current_submission_v=1,
+    )
+    analyst_read.service.store.records[record.case_id] = record
+    analyst_read.assessment.completeness[record.case_id] = CompletenessViewRow(
+        case_id=record.case_id,
+        run_id="run_1",
+        report={"missing": [], "stale": [], "contradictory": []},
+        gate_id="gate_completeness",
+        updated_at=datetime(2026, 10, 5, tzinfo=UTC),
+    )
+    # Nothing decided yet: the heuristic for a case with no ledger row.
+    assert (
+        header(analyst_read.client, record.case_id).completeness_decision == "proceed"
+    )
+    decide_gate("gate_completeness", "completeness", "ask", record.case_id)
+    assert header(analyst_read.client, record.case_id).completeness_decision == "ask"
+
+
+def test_a_fast_lane_the_analyst_confirmed_reads_confirmed_in_the_queue(
+    analyst_read: AnalystRead,
+    make_case_record: Callable[..., Any],
+    decide_gate: Callable[..., None],
+) -> None:
+    from fcrm_case.domain.record import StageFlags
+
+    record = make_case_record(
+        state=CaseState.SCREENING,
+        analyst_id=RAHUL,
+        submitted_at=TODAY - timedelta(hours=1),
+        stage_flags=StageFlags(fast_lane_proposed=True),
+    )
+    analyst_read.service.store.records[record.case_id] = record
+    client = analyst_read.client
+    proposed = client.get("/queue").json()["items"][0]["fast_lane"]
+    assert proposed == {"proposed": True, "confirmed": False}
+    decide_gate("gate_fast", "fast_lane_confirm", "decline", record.case_id)
+    declined = client.get("/queue").json()["items"][0]["fast_lane"]
+    assert declined == {"proposed": True, "confirmed": False}
+    decide_gate("gate_fast_2", "fast_lane_confirm", "confirm", record.case_id)
+    confirmed = client.get("/queue").json()["items"][0]["fast_lane"]
+    assert confirmed == {"proposed": True, "confirmed": True}
 
 
 def test_the_analyst_clock_pauses_while_a_round_is_with_the_owner(

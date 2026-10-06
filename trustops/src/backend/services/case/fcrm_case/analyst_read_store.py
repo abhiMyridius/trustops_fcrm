@@ -49,7 +49,6 @@ from fcrm_case.domain.analyst_views import (
     FAST_LANE_STAGE,
     NEEDS_RANK,
     STAGE_STATES,
-    Acknowledgement,
     PortfolioFigures,
     QueueRow,
     StageSpan,
@@ -113,10 +112,6 @@ class AnalystReadStore(Protocol):
         started; returns the time review started (the earlier one on a repeat),
         or ``None`` when no such case.
         """
-        ...
-
-    async def acknowledgements(self, case_id: str) -> list[Acknowledgement]:
-        """The case's stored acknowledgements (R3), oldest first."""
         ...
 
     async def stage_spans(self, case_id: str) -> list[StageSpan]:
@@ -211,6 +206,24 @@ def queue_pipeline(query: QueueQuery) -> list[dict[str, Any]]:
         },
         {
             "$lookup": {
+                "from": "analyst_decisions",
+                "localField": "_id",
+                "foreignField": "case_id",
+                "pipeline": [
+                    {
+                        "$match": {
+                            "gate_type": "fast_lane_confirm",
+                            "decision": "confirm",
+                        }
+                    },
+                    {"$limit": 1},
+                    {"$project": {"_id": 1}},
+                ],
+                "as": "fast",
+            }
+        },
+        {
+            "$lookup": {
                 "from": "critic_views",
                 "localField": "_id",
                 "foreignField": "_id",
@@ -248,6 +261,7 @@ def queue_pipeline(query: QueueQuery) -> list[dict[str, Any]]:
                                 "stage_flags.locked": 1,
                                 "snap": 1,
                                 "critic": 1,
+                                "fast": 1,
                             }
                         },
                     ],
@@ -277,6 +291,7 @@ def queue_row_from_document(doc: dict[str, Any]) -> QueueRow:
         submitted_at=doc.get("submitted_at"),
         review_started=doc.get("review_started_at") is not None,
         fast_lane_proposed=bool(flags.get("fast_lane_proposed")),
+        fast_lane_confirmed=bool(doc.get("fast")),
         locked=bool(flags.get("locked")),
         band=int(snap["band"]) if "band" in snap else None,
         composite=float(snap["composite"]) if "composite" in snap else None,
@@ -311,7 +326,6 @@ class MongoAnalystReadStore:
     ) -> None:
         self._cases = cases
         self._snapshots: AsyncCollection[Any] = db["score_snapshots"]
-        self._acks: AsyncCollection[Any] = db["acknowledgements"]
         self._activity: AsyncCollection[Any] = db["activity"]
         self._harness: AsyncCollection[Any] = db["harness_views"]
         self._submissions: Repository[SubmissionVersionRow] = Repository(
@@ -332,9 +346,6 @@ class MongoAnalystReadStore:
                     name="state_submitted_idx",
                 ),
             ]
-        )
-        await self._acks.create_indexes(
-            [IndexModel([("case_id", ASCENDING), ("at", ASCENDING)], name="case_at")]
         )
 
     async def queue(self, query: QueueQuery) -> QueuePage:
@@ -442,15 +453,6 @@ class MongoAnalystReadStore:
         started: Optional[datetime] = doc.get("review_started_at")
         return started
 
-    async def acknowledgements(self, case_id: str) -> list[Acknowledgement]:
-        docs = await self._acks.find(
-            {"case_id": case_id},
-            projection={"kind": 1, "at": 1},
-            sort=[("at", ASCENDING)],
-            limit=MAX_ACKNOWLEDGEMENTS,
-        ).to_list()
-        return [Acknowledgement(kind=str(d["kind"]), at=d["at"]) for d in docs]
-
     async def stage_spans(self, case_id: str) -> list[StageSpan]:
         docs = await self._activity.find(
             {"case_id": case_id, "type": "case.stage_changed"},
@@ -523,6 +525,7 @@ class InMemoryAnalystReadStore:
         critic_counts: A callable giving a case's critic finding count.
         activity: ``InMemoryActivityLog.entries``.
         submissions: The in-memory PO store's frozen submissions.
+        fast_confirmed: Whether the analyst confirmed a case's fast lane.
     """
 
     def __init__(
@@ -532,14 +535,15 @@ class InMemoryAnalystReadStore:
         critic_counts: Callable[[str], int],
         activity: Callable[[], list[ActivityEntry]],
         submissions: Callable[[], Iterable[SubmissionVersionRow]] = lambda: (),
+        fast_confirmed: Callable[[str], bool] = lambda _case_id: False,
     ) -> None:
         self._records = records
         self._snapshots = snapshots
         self._critic_counts = critic_counts
         self._activity = activity
         self._submissions = submissions
+        self._fast_confirmed = fast_confirmed
         self.harness: dict[str, HarnessPush] = {}
-        self.acks: list[tuple[str, Acknowledgement]] = []
 
     async def ensure_indexes(self) -> None:
         """Nothing to create."""
@@ -579,6 +583,7 @@ class InMemoryAnalystReadStore:
             submitted_at=record.submitted_at,
             review_started=record.review_started_at is not None,
             fast_lane_proposed=record.stage_flags.fast_lane_proposed,
+            fast_lane_confirmed=self._fast_confirmed(record.case_id),
             locked=record.stage_flags.locked,
             band=snap.band if snap else None,
             composite=snap.composite if snap else None,
@@ -644,9 +649,6 @@ class InMemoryAnalystReadStore:
             )
             self._records[case_id] = record
         return record.review_started_at
-
-    async def acknowledgements(self, case_id: str) -> list[Acknowledgement]:
-        return sorted((a for cid, a in self.acks if cid == case_id), key=lambda a: a.at)
 
     async def stage_spans(self, case_id: str) -> list[StageSpan]:
         changes = [

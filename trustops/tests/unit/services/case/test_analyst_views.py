@@ -23,7 +23,6 @@ from fcrm_case.domain.analyst_views import (
     QUEUE_STAGES,
     STAGE_STATES,
     WITHHELD_REASON,
-    Acknowledgement,
     QueueRow,
     StageSpan,
     ack_message,
@@ -34,6 +33,7 @@ from fcrm_case.domain.analyst_views import (
     hm,
     is_approaching_due,
     lifecycle,
+    owed_kinds,
     pending_acknowledgements,
     queue_item,
     score_box,
@@ -59,6 +59,7 @@ def row(**overrides: Any) -> QueueRow:
         "submitted_at": AT,
         "review_started": False,
         "fast_lane_proposed": False,
+        "fast_lane_confirmed": False,
         "locked": False,
         "band": None,
         "composite": None,
@@ -141,12 +142,13 @@ def test_the_queue_is_one_pipeline_with_the_lookups_inside_it() -> None:
         "$match",
         "$lookup",
         "$lookup",
+        "$lookup",
         "$addFields",
         "$sort",
         "$facet",
     ]
     lookups = [s["$lookup"]["from"] for s in pipeline if "$lookup" in s]
-    assert lookups == ["score_snapshots", "critic_views"]
+    assert lookups == ["score_snapshots", "analyst_decisions", "critic_views"]
     assert set(pipeline[-1]["$facet"]) == {"items", "total"}
 
 
@@ -168,11 +170,11 @@ def test_the_band_filter_adds_one_match_after_the_lookups() -> None:
     plain = stage_names(queue_pipeline(query()))
     banded = queue_pipeline(query(band=3))
     assert stage_names(banded).count("$match") == plain.count("$match") + 1
-    assert banded[3] == {"$match": {"snap.0.band": 3}}
+    assert banded[4] == {"$match": {"snap.0.band": 3}}
 
 
 def test_the_sort_puts_rank_first_then_oldest_submission() -> None:
-    sort = queue_pipeline(query())[4]["$sort"]
+    sort = queue_pipeline(query())[5]["$sort"]
     assert list(sort) == ["rank", "submitted_at", "_id"]
 
 
@@ -212,13 +214,15 @@ def test_a_queue_document_becomes_a_row() -> None:
             {"band": 1, "composite": 3.2, "boundary_flag": False, "purpose": "seed"}
         ],
         "critic": [{"n": 2}],
+        "fast": [{"_id": "gate_fast"}],
     }
     parsed = queue_row_from_document(doc)
     assert (parsed.band, parsed.composite, parsed.critic_count) == (1, 3.2, 2)
     assert parsed.fast_lane_proposed
+    assert parsed.fast_lane_confirmed
     assert not parsed.review_started
-    bare = queue_row_from_document({**doc, "snap": [], "critic": []})
-    assert (bare.band, bare.critic_count) == (None, 0)
+    bare = queue_row_from_document({**doc, "snap": [], "critic": [], "fast": []})
+    assert (bare.band, bare.critic_count, bare.fast_lane_confirmed) == (None, 0, False)
 
 
 # ── the score box ───────────────────────────────────────────────────────────────
@@ -379,24 +383,29 @@ def test_spans_run_from_one_stage_change_to_the_next() -> None:
     assert spans[1].ended is None
 
 
-def test_a_band_change_is_owed_until_an_acknowledgement_after_that_score(
+def test_a_score_whose_gate_the_ledger_has_not_decided_is_owed(
     make_snapshot: Callable[..., Any],
 ) -> None:
-    snap = make_snapshot(band=3, band_changed=True, previous_band=2)
-    assert pending_acknowledgements(snap, []) == ["band_change"]
-    before = Acknowledgement("band_change", snap.computed_at - timedelta(hours=1))
-    assert pending_acknowledgements(snap, [before]) == ["band_change"]
-    after = Acknowledgement("band_change", snap.computed_at + timedelta(minutes=1))
-    assert pending_acknowledgements(snap, [after]) == []
-
-
-def test_a_boundary_flag_is_owed_until_it_is_acknowledged_once(
-    make_snapshot: Callable[..., Any],
-) -> None:
-    snap = make_snapshot(boundary_flag=True, boundary_distance=0.3)
-    assert pending_acknowledgements(snap, []) == ["boundary"]
-    assert pending_acknowledgements(snap, [Acknowledgement("boundary", AT)]) == []
-    assert pending_acknowledgements(None, []) == []
+    boundary = make_snapshot(
+        composite=9.8, boundary_flag=True, gate_id="gate_a", computed_at=AT
+    )
+    changed = make_snapshot(
+        band=3,
+        composite=10.4,
+        band_changed=True,
+        previous_band=2,
+        gate_id="gate_b",
+        computed_at=AT + timedelta(hours=1),
+    )
+    quiet = make_snapshot(composite=9.0, gate_id=None)
+    snapshots = [boundary, changed, quiet]
+    owed = pending_acknowledgements(snapshots, frozenset())
+    assert [s.gate_id for s in owed] == ["gate_a", "gate_b"]
+    assert owed_kinds(owed) == ["band_change", "boundary"]
+    after_boundary = pending_acknowledgements(snapshots, frozenset({"gate_a"}))
+    assert owed_kinds(after_boundary) == ["band_change"]
+    assert pending_acknowledgements(snapshots, frozenset({"gate_a", "gate_b"})) == []
+    assert owed_kinds([]) == []
 
 
 def test_the_banner_names_what_is_owed(make_snapshot: Callable[..., Any]) -> None:

@@ -283,7 +283,7 @@ async def test_the_clock_pauses_from_the_stage_change_log(
     assert head.clocks.analyst_paused is True
 
 
-async def test_an_acknowledgement_clears_what_is_owed(
+async def test_an_acknowledgement_in_the_ledger_clears_what_is_owed(
     live_case: LiveCase, live_analyst: httpx.AsyncClient
 ) -> None:
     case_id = "FCRM-2026-0146"
@@ -303,6 +303,7 @@ async def test_an_acknowledgement_clears_what_is_owed(
             "previous_composite": 4.0,
             "previous_band": 1,
             "band_changed": True,
+            "gate_id": "gate_ack_live",
         }
     )
     await live_case.db["cases"].update_one(
@@ -312,18 +313,110 @@ async def test_an_acknowledgement_clears_what_is_owed(
     owed = WorkbenchHeader.model_validate(
         (await live_analyst.get(f"/cases/{case_id}/workbench")).json()
     )
-    assert owed.pending_acknowledgements == ["band_change", "boundary"]
-    when = datetime(2026, 10, 6, 1, tzinfo=UTC)
-    await live_case.db["acknowledgements"].insert_many(
-        [
-            {"case_id": case_id, "kind": "band_change", "at": when},
-            {"case_id": case_id, "kind": "boundary", "at": when},
-        ]
+    assert owed.pending_acknowledgements == ["band_change"]
+    await live_case.db["analyst_decisions"].insert_one(
+        {
+            "_id": "gate_ack_live",
+            "gate_id": "gate_ack_live",
+            "case_id": case_id,
+            "gate_type": "ack",
+            "decision": "band_change",
+            "fingerprint": "f" * 16,
+            "decided_by": RAHUL,
+            "decided_at": datetime(2026, 10, 6, 1, tzinfo=UTC),
+        }
     )
     cleared = WorkbenchHeader.model_validate(
         (await live_analyst.get(f"/cases/{case_id}/workbench")).json()
     )
     assert cleared.pending_acknowledgements == []
+
+
+async def test_the_queue_reads_a_confirmed_fast_lane_from_the_ledger(
+    live_case: LiveCase, live_analyst: httpx.AsyncClient
+) -> None:
+    first = (await live_analyst.get("/queue")).json()["items"][0]
+    assert first["id"] == "FCRM-2026-0140"
+    assert first["fast_lane"] == {"proposed": True, "confirmed": False}
+    await live_case.db["analyst_decisions"].insert_one(
+        {
+            "_id": "gate_fast_live",
+            "gate_id": "gate_fast_live",
+            "case_id": "FCRM-2026-0140",
+            "gate_type": "fast_lane_confirm",
+            "decision": "confirm",
+            "fingerprint": "f" * 16,
+            "decided_by": RAHUL,
+            "decided_at": datetime(2026, 10, 6, tzinfo=UTC),
+        }
+    )
+    again = (await live_analyst.get("/queue")).json()["items"][0]
+    assert again["fast_lane"] == {"proposed": True, "confirmed": True}
+
+
+async def test_the_completeness_decision_and_the_recorded_rows_come_from_the_ledger(
+    live_case: LiveCase, live_analyst: httpx.AsyncClient
+) -> None:
+    case_id = "FCRM-2026-0146"
+    db = live_case.db
+    await db["completeness_views"].insert_one(
+        {
+            "_id": case_id,
+            "case_id": case_id,
+            "run_id": "run_1",
+            "report": {"missing": [], "stale": [], "contradictory": []},
+            "questions": [],
+            "gate_id": "gate_completeness_live",
+            "proposal_id": None,
+            "updated_at": datetime(2026, 10, 6, tzinfo=UTC),
+        }
+    )
+    await db["analyst_decisions"].insert_one(
+        {
+            "_id": "gate_completeness_live",
+            "gate_id": "gate_completeness_live",
+            "case_id": case_id,
+            "gate_type": "completeness",
+            "decision": "ask",
+            "fingerprint": "f" * 16,
+            "decided_by": RAHUL,
+            "decided_at": datetime(2026, 10, 6, tzinfo=UTC),
+        }
+    )
+    await db["planned_controls"].insert_one(
+        {
+            "_id": "pc_live",
+            "planned_id": "pc_live",
+            "case_id": case_id,
+            "control_id": "CTL-T01",
+            "description": "Corridor review",
+            "owner": "FCRM Ops",
+            "due": "2026-11-30",
+            "created_at": datetime(2026, 10, 6, tzinfo=UTC),
+            "created_by": RAHUL,
+        }
+    )
+    await db["gaps"].insert_one(
+        {
+            "_id": "gap_live",
+            "gap_id": "gap_live",
+            "case_id": case_id,
+            "text": "no clause",
+            "scope": None,
+            "created_at": datetime(2026, 10, 6, tzinfo=UTC),
+            "created_by": RAHUL,
+        }
+    )
+    head = (await live_analyst.get(f"/cases/{case_id}/workbench")).json()
+    assert head["completeness_decision"] == "ask"
+    summary = (await live_analyst.get(f"/cases/{case_id}/assessment")).json()
+    assert summary["completeness"]["gate_open"] is False
+    risk = (await live_analyst.get(f"/cases/{case_id}/risk")).json()
+    assert [p["id"] for p in risk["planned"]] == ["pc_live"]
+    assert (risk["planned"][0]["owner"], risk["planned"][0]["due"]) == (
+        "FCRM Ops",
+        "2026-11-30",
+    )
 
 
 # ── the tabs ────────────────────────────────────────────────────────────────────
@@ -443,10 +536,6 @@ async def test_the_queue_uses_its_indexes(live_case: LiveCase) -> None:
         i["name"] async for i in await live_case.db["score_snapshots"].list_indexes()
     }
     assert "case_computed" in snaps
-    acks = {
-        i["name"] async for i in await live_case.db["acknowledgements"].list_indexes()
-    }
-    assert "case_at" in acks
 
 
 # ── the activity feed and the outcome ───────────────────────────────────────────

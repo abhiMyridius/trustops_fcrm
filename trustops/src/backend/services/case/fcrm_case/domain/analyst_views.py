@@ -48,6 +48,7 @@ from fcrm_contracts.api.case_po import StageStep
 from fcrm_contracts.enums import CaseState, ChangeType, Domain
 from fcrm_contracts.versions import PinnedVersions
 
+from fcrm_case.domain.analyst_commands import ack_kind_of, open_ack_snapshots
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.views import ScoreSnapshotRow
 from fcrm_case.reference import (
@@ -310,6 +311,7 @@ class QueueRow:
     submitted_at: Optional[datetime]
     review_started: bool
     fast_lane_proposed: bool
+    fast_lane_confirmed: bool
     locked: bool
     band: Optional[int]
     composite: Optional[float]
@@ -365,7 +367,7 @@ def queue_item(row: QueueRow, viewer_id: str) -> QueueItem:
         band=band,  # type: ignore[arg-type]
         band_label=band_table()[band].label if band is not None else None,
         composite=row.composite if visible else None,
-        fast_lane=FastLane(proposed=True, confirmed=False)
+        fast_lane=FastLane(proposed=True, confirmed=row.fast_lane_confirmed)
         if row.fast_lane_proposed
         else None,
         boundary_flag=bool(visible and row.boundary_flag),
@@ -524,35 +526,25 @@ def pins_web(pins: PinnedVersions) -> PinnedVersionsWeb:
     )
 
 
-@dataclass(frozen=True)
-class Acknowledgement:
-    """One stored analyst acknowledgement (R3): its kind and when it was made."""
-
-    kind: str
-    at: datetime
-
-
 def pending_acknowledgements(
-    snapshot: Optional[ScoreSnapshotRow], acks: Sequence[Acknowledgement]
-) -> list[str]:
-    """The acknowledgements still owed on the latest score (R3).
-
-    A band change is owed until an acknowledgement made *after* that score; a
-    boundary flag is owed until one acknowledgement of that kind exists (an
-    acknowledgement covers the flag until the case is re-scored into a different
-    band). Read from stored rows; H1 opens the matching gates and refuses the pack
-    release while one is open, so this only tells the analyst what is owed.
+    snapshots: Sequence[ScoreSnapshotRow], decided_gate_ids: frozenset[str]
+) -> list[ScoreSnapshotRow]:
+    """The score snapshots whose acknowledgement gate is still open (R3): the ones
+    that opened a gate (H1 records its id on the snapshot) and for which the
+    analyst's ledger holds no decision, oldest first. The same rule the
+    acknowledge route applies (:func:`fcrm_case.domain.analyst_commands.
+    open_ack_snapshots`), so what the header says is owed is exactly what the
+    route will accept.
     """
-    if snapshot is None:
-        return []
-    owed: list[str] = []
-    if snapshot.band_changed and not any(
-        a.kind == "band_change" and a.at >= snapshot.computed_at for a in acks
-    ):
-        owed.append("band_change")
-    if snapshot.boundary_flag and not any(a.kind == "boundary" for a in acks):
-        owed.append("boundary")
-    return owed
+    return open_ack_snapshots(snapshots, decided_gate_ids)
+
+
+def owed_kinds(open_snapshots: Sequence[ScoreSnapshotRow]) -> list[str]:
+    """The acknowledgements owed, band change first: one gate per snapshot, of
+    the kind :func:`fcrm_case.domain.analyst_commands.ack_kind_of` names.
+    """
+    kinds = {ack_kind_of(s) for s in open_snapshots}
+    return [kind for kind in ("band_change", "boundary") if kind in kinds]
 
 
 def ack_message(
@@ -582,12 +574,17 @@ def ack_message(
     )
 
 
-def completeness_decision(record: CaseRecord) -> Optional[str]:
-    """What the analyst decided at the completeness gate, as far as the case shows:
-    nothing yet before it; ``ask`` when a round of questions was sent (the case went
-    to clarification, or came back from it as a later submission version); else
-    ``proceed``.
+def completeness_decision(
+    record: CaseRecord, decided: Optional[str] = None
+) -> Optional[str]:
+    """What the analyst decided at the completeness gate: the decision the ledger
+    holds (``ask`` or ``proceed``) when there is one; for a case that has none (a
+    seeded one) as far as the case shows: nothing yet before the gate, ``ask`` when
+    a round of questions was sent (the case went to clarification, or came back as
+    a later submission version), else ``proceed``.
     """
+    if decided in ("ask", "proceed"):
+        return decided
     state = record.state
     if state in (
         CaseState.INTAKE,
@@ -628,7 +625,8 @@ class HeaderInputs:
     snapshot: Optional[ScoreSnapshotRow]
     review_started: bool
     has_completeness_view: bool
-    acks: Sequence[Acknowledgement]
+    open_acks: Sequence[ScoreSnapshotRow]
+    completeness_decided: Optional[str]
     spans: Sequence[StageSpan]
     audit_count: int
     audit_verified: bool
@@ -649,7 +647,8 @@ def workbench_header(inputs: HeaderInputs) -> WorkbenchHeader:
         assessment_ready=ready,
     )
     shown = isinstance(box, ScoreShown)
-    owed = pending_acknowledgements(inputs.snapshot, inputs.acks) if shown else []
+    owed = owed_kinds(inputs.open_acks) if shown else []
+    newest = inputs.open_acks[-1] if inputs.open_acks else None
     started = inputs.review_started or (
         inputs.snapshot is not None and inputs.snapshot.purpose == SEED_PURPOSE
     )
@@ -667,11 +666,13 @@ def workbench_header(inputs: HeaderInputs) -> WorkbenchHeader:
         clocks=clocks(record.submitted_at, record.closed_at, inputs.spans, inputs.now),
         pins=pins_web(record.pinned_versions),
         pending_acknowledgements=owed,  # type: ignore[arg-type]
-        ack_message=ack_message(owed, inputs.snapshot),
+        ack_message=ack_message(owed, newest),
         closed=record.state is CaseState.CLOSED,
         submitted=record.submitted_at is not None,
         review_started=started,
-        completeness_decision=completeness_decision(record),  # type: ignore[arg-type]
+        completeness_decision=completeness_decision(
+            record, inputs.completeness_decided
+        ),  # type: ignore[arg-type]
         submission_version=record.current_submission_v or 0,
         locked=record.stage_flags.locked,
         route=box.route if isinstance(box, ScoreShown) else None,

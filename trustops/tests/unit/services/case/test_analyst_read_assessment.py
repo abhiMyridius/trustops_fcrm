@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from conftest import AnalystRead, AssessedCase
 
 CASE = "FCRM-2026-0151"
-PATHS = ["assessment", "risk", "policy", "handoff"]
+PATHS = ["assessment", "risk", "policy", "handoff", "clarifications"]
 WITHHELD = "No score is shown yet"
 
 
@@ -239,16 +239,21 @@ def test_a_superseded_clause_is_hidden_and_its_replacement_shown(
     assert clauses[0].quote == "the newer quote"
 
 
-def test_a_recorded_gap_reads_as_recorded(
-    assessed_case: AssessedCase, make_review_item: Callable[..., Any]
+def test_a_gap_the_analyst_recorded_reads_as_recorded(
+    assessed_case: AssessedCase,
 ) -> None:
-    assessed_case.put_item(
-        make_review_item(
-            ItemKind.GAP,
-            {"origin": "analyst", "domain": "channel", "description": "recorded"},
-            {},
-        )
-    )
+    from datetime import UTC
+
+    from fcrm_case.domain.analyst_records import GapRow
+
+    text = "No clause covers cash pickup at partner agents."
+    assessed_case.read.decisions.recorded.setdefault("gaps", {})["gap_1"] = GapRow(
+        gap_id="gap_1",
+        case_id=CASE,
+        text=f"  {text} ",
+        created_at=datetime(2026, 10, 5, tzinfo=UTC),
+        created_by="u-riyer",
+    ).model_dump(mode="python")
     view = PolicyView.model_validate(get(assessed_case, "policy"))
     assert view.gap is not None
     assert view.gap.recorded is True
@@ -730,3 +735,152 @@ def test_the_demo_case_at_intake_has_nothing_to_show(
     risk = RiskView.model_validate(client.get(f"/cases/{CASE}/risk").json())
     assert risk.areas == []
     assert risk.score.withheld is True
+
+
+def test_the_planned_controls_the_analyst_recorded_carry_their_owner_and_date(
+    assessed_case: AssessedCase,
+) -> None:
+    from datetime import UTC
+
+    from fcrm_case.domain.analyst_records import PlannedControlRow
+
+    assessed_case.read.decisions.recorded.setdefault("planned_controls", {})["pc_1"] = (
+        PlannedControlRow(
+            planned_id="pc_1",
+            case_id=CASE,
+            control_id="CTL-T01",
+            description="Corridor review of the payout partner",
+            owner="FCRM Ops",
+            due="2026-11-30",
+            created_at=datetime(2026, 10, 5, tzinfo=UTC),
+            created_by="u-riyer",
+        ).model_dump(mode="python")
+    )
+    view = RiskView.model_validate(get(assessed_case, "risk"))
+    recorded = next(p for p in view.planned if p.id == "pc_1")
+    assert (recorded.owner, recorded.due) == ("FCRM Ops", "2026-11-30")
+    assert recorded.control_id == "CTL-T01"
+    # The agent's own planned proposal is listed too, with no owner yet.
+    assert any(p.owner == "Unassigned" for p in view.planned)
+    # Neither is scored: planned controls are in no area.
+    assert [c.id for a in view.areas for c in a.controls].count("CTL-T01") == 1
+
+
+def test_the_completeness_gate_is_open_until_the_ledger_decides_it(
+    assessed_case: AssessedCase, decide_gate: Callable[..., None]
+) -> None:
+    open_ = AssessmentSummary.model_validate(get(assessed_case, "assessment"))
+    assert open_.completeness.gate_open is True
+    decide_gate("gate_completeness", "completeness", "proceed", CASE)
+    closed = AssessmentSummary.model_validate(get(assessed_case, "assessment"))
+    assert closed.completeness.gate_open is False
+    assert closed.completeness.gate_id == "gate_completeness"
+
+
+# ── the clarification round ─────────────────────────────────────────────────────
+
+
+def thread_row(
+    question_id: str, status: str = "awaiting_response", answer: Any = None
+) -> Any:
+    from datetime import UTC
+
+    from fcrm_case.domain.clarifications import (
+        ClarificationThreadRow,
+        thread_id_for,
+    )
+
+    return ClarificationThreadRow(
+        thread_id=thread_id_for(CASE, 1, question_id),
+        case_id=CASE,
+        round=1,
+        question_id=question_id,
+        text=f"Question {question_id}",
+        anchor="F11" if question_id == "Q1" else "CTL-T01",
+        field_ids=["F11"],
+        field_label="Licence number",
+        status=status,
+        opened_at=datetime(2026, 10, 5, 14, tzinfo=UTC),
+        opened_by="u-riyer",
+        answer=answer,
+    )
+
+
+def test_the_inbox_lists_the_drafted_questions_and_whether_a_round_can_go(
+    assessed_case: AssessedCase, decide_gate: Callable[..., None]
+) -> None:
+    from fcrm_contracts.api.case_analyst_read import ClarificationsView
+
+    assessed_case.read.assessment.completeness[CASE] = (
+        assessed_case.read.assessment.completeness[CASE].model_copy(
+            update={
+                "questions": [
+                    {"question_id": "Q1", "anchored_to": "F11", "text": "Licence?"},
+                    {
+                        "question_id": "Q2",
+                        "anchored_to": None,
+                        "text": "Anything else?",
+                        "dropped_reason": "Not anchored to a field",
+                    },
+                ]
+            }
+        )
+    )
+    before = ClarificationsView.model_validate(get(assessed_case, "clarifications"))
+    assert [(q.id, q.keep, q.anchor) for q in before.drafted] == [
+        ("Q1", True, "F11"),
+        ("Q2", False, None),
+    ]
+    assert before.drafted[1].dropped_reason == "Not anchored to a field"
+    assert (before.rounds, before.can_send, before.clock_paused) == ([], False, False)
+    decide_gate("gate_completeness", "completeness", "ask", CASE)
+    asked = ClarificationsView.model_validate(get(assessed_case, "clarifications"))
+    assert asked.can_send is True
+
+
+def test_the_inbox_shows_the_round_with_the_owners_answers_and_the_paused_clock(
+    assessed_case: AssessedCase,
+) -> None:
+    from datetime import UTC
+
+    from fcrm_case.domain.clarifications import ThreadAnswerRow
+    from fcrm_contracts.api.case_analyst_read import ClarificationsView
+
+    views = assessed_case.read.service.views
+    answered = thread_row(
+        "Q1",
+        "answered",
+        ThreadAnswerRow(
+            text="Licence MX-114",
+            documents=["licence.pdf"],
+            at=datetime(2026, 10, 5, 15, tzinfo=UTC),
+            by="u-pnair",
+        ),
+    )
+    waiting = thread_row("Q2")
+    for row in (answered, waiting):
+        views.threads[row.thread_id] = row
+    view = ClarificationsView.model_validate(get(assessed_case, "clarifications"))
+    [round_one] = view.rounds
+    assert (round_one.round, round_one.to) == (1, "Priya Nair")
+    assert round_one.sent_at.startswith("2026-10-05T14:00")
+    first, second = round_one.threads
+    assert (first.status, first.anchor, first.question) == (
+        "answered",
+        "F11",
+        "Question Q1",
+    )
+    assert first.answer is not None
+    assert (first.answer.text, first.answer.documents, first.answer.by) == (
+        "Licence MX-114",
+        ["licence.pdf"],
+        "u-pnair",
+    )
+    assert (second.status, second.anchor, second.answer) == ("open", "CTL-T01", None)
+    assert view.clock_paused is True
+    assert view.can_send is False
+    resolved = thread_row("Q2", "resolved")
+    views.threads[resolved.thread_id] = resolved
+    after = ClarificationsView.model_validate(get(assessed_case, "clarifications"))
+    assert after.clock_paused is False
+    assert after.rounds[0].threads[1].status == "resolved"

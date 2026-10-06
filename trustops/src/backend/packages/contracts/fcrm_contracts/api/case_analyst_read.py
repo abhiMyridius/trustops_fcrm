@@ -274,6 +274,39 @@ class AssessmentSummary(_Dto):
     agent_failed: Optional[AgentFailed]
 
 
+# --- clarifications ---------------------------------------------------------------
+
+
+class ThreadAnswerView(_Dto):
+    text: str
+    documents: list[str]
+    at: str
+    by: str
+
+
+class ThreadAnalyst(_Dto):
+    id: str
+    round: int
+    anchor: str
+    question: str
+    status: Literal["open", "answered", "resolved"]
+    answer: Optional[ThreadAnswerView]
+
+
+class ClarificationRound(_Dto):
+    round: int
+    sent_at: str
+    to: str
+    threads: list[ThreadAnalyst]
+
+
+class ClarificationsView(_Dto):
+    drafted: list[DraftQuestion]
+    rounds: list[ClarificationRound]
+    can_send: bool
+    clock_paused: bool
+
+
 # --- submissions -----------------------------------------------------------------
 
 

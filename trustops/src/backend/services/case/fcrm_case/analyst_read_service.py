@@ -19,6 +19,7 @@ from fcrm_common.time import utcnow
 from fcrm_contracts.api.case_analyst_read import (
     ActivityAnalyst,
     AssessmentSummary,
+    ClarificationsView,
     DashboardAnalyst,
     HandoffView,
     HarnessPush,
@@ -41,12 +42,14 @@ from fcrm_case.analyst_read_store import (
     QueuePage,
     QueueQuery,
 )
+from fcrm_case.analyst_write_store import AnalystWriteStore
 from fcrm_case.assessment_store import AssessmentStore
 from fcrm_case.domain.analyst_assessment import (
     AssessmentInputs,
     HandoffInputs,
     RiskInputs,
     assessment_summary,
+    clarifications_view,
     handoff_view,
     policy_view,
     risk_view,
@@ -61,11 +64,13 @@ from fcrm_case.domain.analyst_views import (
     HeaderInputs,
     assessment_ready,
     dashboard,
+    owed_kinds,
     pending_acknowledgements,
     queue_item,
     score_visible,
     workbench_header,
 )
+from fcrm_case.domain.assessment import CompletenessViewRow
 from fcrm_case.domain.diffing import RowDiff, SubmissionVersionNotFoundError, diff_rows
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.outcome_store import OutcomeStore
@@ -119,7 +124,8 @@ def _offset(cursor: Optional[str]) -> int:
 
 class AnalystReadService:
     """The analyst read use cases over the case, view, assessment, outcome and
-    read stores.
+    read stores, and the analyst's ledger (the gates they decided, the planned
+    controls and policy gaps they recorded), which lane I3-B2's write routes keep.
     """
 
     def __init__(
@@ -129,6 +135,7 @@ class AnalystReadService:
         assessment: AssessmentStore,
         views: ViewStore,
         outcomes: OutcomeStore,
+        decisions: AnalystWriteStore,
         clock: Callable[[], datetime] = utcnow,
     ) -> None:
         self._cases = cases
@@ -136,6 +143,7 @@ class AnalystReadService:
         self._assessment = assessment
         self._views = views
         self._outcomes = outcomes
+        self._decisions = decisions
         self._clock = clock
 
     async def case(self, case_id: str) -> CaseRecord:
@@ -212,7 +220,10 @@ class AnalystReadService:
         record = await self.case(case_id)
         snapshot = await self._assessment.latest_score(case_id)
         completeness = await self._assessment.get_completeness(case_id)
-        acks = await self._reads.acknowledgements(case_id)
+        open_acks = pending_acknowledgements(
+            await self._decisions.score_snapshots(case_id),
+            await self._decisions.decided_gate_ids(case_id),
+        )
         spans = await self._reads.stage_spans(case_id)
         monitor = await self._reads.get_harness(case_id)
         return workbench_header(
@@ -221,7 +232,8 @@ class AnalystReadService:
                 snapshot=snapshot,
                 review_started=record.review_started_at is not None,
                 has_completeness_view=completeness is not None,
-                acks=acks,
+                open_acks=open_acks,
+                completeness_decided=await self._completeness_decided(completeness),
                 spans=spans,
                 audit_count=monitor.counters.audit_records if monitor else 0,
                 audit_verified=monitor.counters.chain_verified if monitor else False,
@@ -229,7 +241,29 @@ class AnalystReadService:
             )
         )
 
+    async def _completeness_decided(
+        self, view: Optional[CompletenessViewRow]
+    ) -> Optional[str]:
+        """What the ledger holds as the analyst's decision at the completeness
+        gate (``ask`` or ``proceed``), or ``None`` when it was not decided.
+        """
+        if view is None:
+            return None
+        row = await self._decisions.get_decision(view.gate_id)
+        return row.decision if row is not None else None
+
     # -- assessment, risk, policy, handoff ------------------------------------------
+
+    async def clarifications(self, case_id: str) -> ClarificationsView:
+        """The Inbox tab: the drafted questions and the round the owner holds."""
+        record = await self.case(case_id)
+        completeness = await self._assessment.get_completeness(case_id)
+        return clarifications_view(
+            record,
+            completeness,
+            await self._completeness_decided(completeness),
+            await self._decisions.threads(case_id),
+        )
 
     async def assessment(self, case_id: str) -> AssessmentSummary:
         """The Summary tab: submission, flags, the critic's findings, the
@@ -248,6 +282,7 @@ class AnalystReadService:
                 intake=await self._views.get_intake_view(case_id),
                 critic=await self._assessment.get_critic(case_id),
                 completeness=await self._assessment.get_completeness(case_id),
+                decided_gate_ids=await self._decisions.decided_gate_ids(case_id),
             )
         )
 
@@ -284,6 +319,7 @@ class AnalystReadService:
                 completeness_present=completeness is not None,
                 catalogue=control_catalogue(),
                 today=self._clock().date(),
+                planned_rows=await self._decisions.planned_controls(case_id),
             )
         )
 
@@ -298,6 +334,7 @@ class AnalystReadService:
             await self._views.list_items(case_id),
             clause_catalogue(),
             assessment_ready(record, completeness is not None),
+            await self._decisions.gaps(case_id),
         )
 
     async def handoff(self, case_id: str) -> HandoffView:
@@ -306,9 +343,12 @@ class AnalystReadService:
         """
         record = await self.case(case_id)
         snapshot = await self._assessment.latest_score(case_id)
-        acks = await self._reads.acknowledgements(case_id)
         started = record.review_started_at is not None
         shown = score_visible(snapshot, started)
+        open_acks = pending_acknowledgements(
+            await self._decisions.score_snapshots(case_id),
+            await self._decisions.decided_gate_ids(case_id),
+        )
         decided = outcome_analyst(
             record, await self._outcomes.get_outcome(case_id), [], seeded_outcomes()
         )
@@ -318,7 +358,7 @@ class AnalystReadService:
                 snapshot=snapshot,
                 review_started=started,
                 items=await self._views.list_items(case_id),
-                owed=pending_acknowledgements(snapshot, acks) if shown else [],
+                owed=owed_kinds(open_acks) if shown else [],
                 handoff=await self._assessment.get_handoff(case_id),
                 recommendation=await self._assessment.get_recommendation(case_id),
                 catalogue=control_catalogue(),

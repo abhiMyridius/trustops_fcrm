@@ -232,3 +232,8 @@ class ConditionRow(BaseModel):
     updated_at: Optional[datetime] = None
     updated_by: Optional[str] = None
     note: Optional[str] = None
+    # What the owner said they attach as evidence (the owner's own words; the
+    # analyst's ``note`` above is their review of it).
+    evidence_note: Optional[str] = None
+    evidence_at: Optional[datetime] = None
+    evidence_by: Optional[str] = None

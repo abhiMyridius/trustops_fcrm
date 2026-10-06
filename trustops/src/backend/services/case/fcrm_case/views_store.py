@@ -62,6 +62,7 @@ from pymongo import ASCENDING, AsyncMongoClient, IndexModel, UpdateOne
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.errors import BulkWriteError
 
+from fcrm_case.domain.clarifications import ClarificationThreadRow
 from fcrm_case.domain.intake import (
     intake_view_from_push,
     items_from_push,
@@ -654,6 +655,9 @@ class InMemoryViewStore:
         self.documents: dict[str, DocumentRow] = {}
         self.items: dict[str, ReviewItemRow] = {}
         self.intake: dict[str, IntakeViewRow] = {}
+        #: The clarification round's questions, by thread id (the collection the
+        #: analyst's and the owner's follow-up stores share).
+        self.threads: dict[str, ClarificationThreadRow] = {}
         self.events: list[Envelope] = []
 
     async def ensure_indexes(self) -> None:

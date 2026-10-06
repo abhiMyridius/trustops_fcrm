@@ -17,27 +17,8 @@
 import { describe, expect, it } from 'vitest';
 import { handlerTemplatesOutsideEndpoints, servedRoutes, webRoutes } from './routes';
 
-/** Web routes the backend does not serve yet (17 after the analyst read surface landed; 34 after the configuration screens; 65 on 5 Oct). */
-const PENDING_ROUTES: readonly string[] = [
-  // S1 case: the analyst and owner write routes and the inbox (17)
-  'POST /api/fcrm/cases/{id}/acknowledge',
-  'POST /api/fcrm/cases/{id}/change-types',
-  'GET /api/fcrm/cases/{id}/clarifications',
-  'POST /api/fcrm/cases/{id}/clarifications',
-  'POST /api/fcrm/cases/{id}/clarifications/{id}/answer',
-  'POST /api/fcrm/cases/{id}/clarifications/{id}/resolve',
-  'POST /api/fcrm/cases/{id}/completeness',
-  'POST /api/fcrm/cases/{id}/conditions/{id}/evidence',
-  'POST /api/fcrm/cases/{id}/controls/planned',
-  'POST /api/fcrm/cases/{id}/gaps',
-  'GET /api/fcrm/cases/{id}/inbox',
-  'POST /api/fcrm/cases/{id}/items/{id}',
-  'GET /api/fcrm/cases/{id}/recommendation',
-  'PUT /api/fcrm/cases/{id}/recommendation',
-  'POST /api/fcrm/cases/{id}/recommendation/lock',
-  'POST /api/fcrm/cases/{id}/recommendation/unlock',
-  'POST /api/fcrm/cases/{id}/screening',
-];
+/** Web routes the backend does not serve yet: none (every analyst screen's route is served; 65 were pending on 5 Oct). */
+const PENDING_ROUTES: readonly string[] = [];
 
 const WEB = webRoutes();
 const SERVED = servedRoutes();

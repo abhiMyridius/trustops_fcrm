@@ -27,6 +27,7 @@ from fcrm_common.time import utcnow
 from fcrm_contracts.api.case_analyst_read import (
     ActivityAnalyst,
     AssessmentSummary,
+    ClarificationsView,
     DashboardAnalyst,
     HandoffView,
     HarnessSnapshot,
@@ -38,20 +39,23 @@ from fcrm_contracts.api.case_analyst_read import (
     SubmissionVersion,
     WorkbenchHeader,
 )
-from fcrm_contracts.api.case_po import ActivityEventPO
+from fcrm_contracts.api.case_po import ActivityEventPO, OutcomePO
 from fcrm_contracts.common import Page, Principal
 from fcrm_contracts.enums import Role
 
 from fcrm_case.analyst_read_service import AnalystReadService
 from fcrm_case.analyst_read_store import AnalystReadStore
+from fcrm_case.analyst_write_store import AnalystWriteStore
 from fcrm_case.deps import (
     authorize_case,
     get_outcomes,
+    get_po_followup_service,
     get_po_service,
     get_store,
     get_views,
 )
 from fcrm_case.domain.activity import audience_of
+from fcrm_case.po_followup_service import PoFollowupService
 from fcrm_case.po_guard import PoGuardedRoute
 from fcrm_case.po_service import PoService
 from fcrm_case.routes_internal_assessment import get_assessment
@@ -90,7 +94,7 @@ MonitorReader = Annotated[
     Depends(require_roles(Role.ANALYST, Role.COMMITTEE, Role.OBSERVER)),
 ]
 OutcomeReader = Annotated[
-    Principal, Depends(require_roles(Role.ANALYST, Role.COMMITTEE))
+    Principal, Depends(require_roles(Role.PO, Role.ANALYST, Role.COMMITTEE))
 ]
 PageLimit = Annotated[int, Query(ge=1, le=MAX_PAGE_LIMIT)]
 
@@ -122,6 +126,29 @@ def get_clock() -> Callable[[], datetime]:
     return utcnow
 
 
+def get_analyst_store(request: Request) -> AnalystWriteStore:
+    """The analyst's ledger store ``lifespan.register`` (or a test) put on
+    ``app.state`` (read here for the gates decided, the planned controls and the
+    gaps recorded).
+
+    Raises:
+        fcrm_common.errors.UpstreamUnavailableError: nothing wired one (a
+            deployment fault, answered 503: fail closed).
+    """
+    store: Optional[AnalystWriteStore] = getattr(
+        request.app.state, "analyst_store", None
+    )
+    if store is None:
+        logger.error(
+            "case service dependency not wired", extra={"dependency": "analyst_store"}
+        )
+        raise UpstreamUnavailableError(
+            "The case service is not fully configured (analyst_store).",
+            dependency="analyst_store",
+        )
+    return store
+
+
 def read_service(
     request: Request, clock: Callable[[], datetime] = utcnow
 ) -> AnalystReadService:
@@ -137,6 +164,7 @@ def read_service(
         get_assessment(request),
         get_views(request),
         get_outcomes(request),
+        get_analyst_store(request),
         clock,
     )
 
@@ -204,6 +232,17 @@ async def assessment(
     until the analyst has opened the risk view.
     """
     return await service.assessment(case_id)
+
+
+@router.get("/cases/{case_id}/clarifications")
+async def clarifications(
+    case_id: str, principal: Analyst, service: Service
+) -> ClarificationsView:
+    """The Inbox tab: the questions drafted for the owner, the round sent, each
+    question with the owner's answer, and whether the analyst's clock is paused on
+    the owner.
+    """
+    return await service.clarifications(case_id)
 
 
 @router.get("/cases/{case_id}/risk")
@@ -283,14 +322,21 @@ async def activity(
 
 @shared_router.get("/cases/{case_id}/outcome")
 async def outcome(
-    case_id: str, principal: OutcomeReader, service: Service
-) -> OutcomeAnalyst:
-    """The recorded outcome for the analyst and the committee: how it was decided
-    (committee vote or delegated close), by whom, why, and the conditions it
-    activated. The owner's plainer outcome is a separate shape served from the
-    same path by the owner's own routes.
+    case_id: str,
+    request: Request,
+    principal: OutcomeReader,
+    clock: Annotated[Callable[[], datetime], Depends(get_clock)],
+) -> OutcomePO | OutcomeAnalyst:
+    """The recorded outcome. An owner reads their own case's plain one
+    (``PoFollowupService.outcome``: the label, the summary and the conditions in
+    words, no score, band, vote or rationale); the analyst and the committee read
+    how it was decided (committee vote or delegated close), by whom, why, and the
+    conditions it activated. Each caller's service is built only on its own branch.
     """
-    return await service.outcome(case_id)
+    if audience_of(principal) == "po":
+        owner_service: PoFollowupService = get_po_followup_service(request)
+        return await owner_service.outcome(principal, case_id)
+    return await read_service(request, clock).outcome(case_id)
 
 
 @router.get("/cases/{case_id}/harness")

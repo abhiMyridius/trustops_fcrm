@@ -1706,6 +1706,94 @@
         "effect": "deny"
       },
       {
+        "id": "deny-case-post-cases-id-change-types",
+        "description": "Guard 7: a re-tag is the analyst's decision, never the service account's",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/change-types",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-clarifications",
+        "description": "Guard 7: the clarification round is asked by the analyst, never the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/clarifications",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-clarifications-thread_id-resolve",
+        "description": "Guard 7: human gates are decided by people, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/clarifications/{thread_id}/resolve",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-controls-planned",
+        "description": "Guard 7: a planned control is recorded by the analyst, never the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/controls/planned",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-gaps",
+        "description": "Guard 7: a policy gap is recorded by the analyst, never the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/gaps",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-runs",
+        "description": "Guard 7: a re-run is requested by the analyst, with a reason, never by the service account",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/runs",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-put-cases-id-recommendation",
+        "description": "Guard 7: the recommendation is edited by the analyst, never the service account",
+        "service": "case",
+        "method": "PUT",
+        "path": "/cases/{id}/recommendation",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-conditions-cnd_id-evidence",
+        "description": "Guard 7: evidence for a condition is the owner's act, never the service account's",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/conditions/{cnd_id}/evidence",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
         "id": "deny-policy-post-jurisdictions-versions-version-activate",
         "description": "Guard 7: activating a jurisdiction list is the analyst's decision, never the service account's",
         "service": "policy",
@@ -1914,6 +2002,17 @@
         "roles": [
           "fcrm_analyst",
           "fcrm_committee"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-clarifications-analyst",
+        "description": "the clarification round as the analyst reads it (drafted questions, threads, answers)",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/clarifications",
+        "roles": [
+          "fcrm_analyst"
         ],
         "effect": "allow"
       }

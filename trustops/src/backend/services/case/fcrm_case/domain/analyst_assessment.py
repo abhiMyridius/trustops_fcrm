@@ -35,10 +35,13 @@ from typing import Any, Final, Optional
 from fcrm_contracts.api.case_analyst_read import (
     AgentFailed,
     AssessmentSummary,
+    ClarificationRound,
+    ClarificationsView,
     ClauseItem,
     CompletenessSummary,
     ControlItem,
     CriticFinding,
+    DraftQuestion,
     FactorAnchor,
     Flag,
     HandoffView,
@@ -56,10 +59,13 @@ from fcrm_contracts.api.case_analyst_read import (
     ScoreBox,
     ScoreShown,
     SubmissionSummary,
+    ThreadAnalyst,
+    ThreadAnswerView,
 )
 from fcrm_contracts.api.case_po import SourceRef
 from fcrm_contracts.enums import CaseState, Domain, ItemKind, ItemStatus
 
+from fcrm_case.domain.analyst_records import GapRow, PlannedControlRow
 from fcrm_case.domain.analyst_views import assessment_ready, band_no, score_box
 from fcrm_case.domain.assessment import (
     CompletenessViewRow,
@@ -68,6 +74,7 @@ from fcrm_case.domain.assessment import (
     RecommendationRow,
     current_items,
 )
+from fcrm_case.domain.clarifications import ClarificationThreadRow
 from fcrm_case.domain.completion import compute_completion
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.views import (
@@ -380,6 +387,7 @@ class AssessmentInputs:
     intake: Optional[IntakeViewRow]
     critic: Optional[CriticViewRow]
     completeness: Optional[CompletenessViewRow]
+    decided_gate_ids: frozenset[str]
 
 
 def assessment_summary(inputs: AssessmentInputs) -> AssessmentSummary:
@@ -393,7 +401,11 @@ def assessment_summary(inputs: AssessmentInputs) -> AssessmentSummary:
     completion = compute_completion(record.required_fields, filled)
     completeness = _completeness(inputs.completeness)
     completeness = completeness.model_copy(
-        update={"gate_open": _completeness_open(record, inputs.completeness)}
+        update={
+            "gate_open": _completeness_open(
+                inputs.completeness, inputs.decided_gate_ids
+            )
+        }
     )
     box = score_box(
         inputs.snapshot,
@@ -431,9 +443,13 @@ def assessment_summary(inputs: AssessmentInputs) -> AssessmentSummary:
     )
 
 
-def _completeness_open(record: CaseRecord, view: Optional[CompletenessViewRow]) -> bool:
-    """The completeness gate is open from the report until the case moves on."""
-    return view is not None and record.state is CaseState.COMPLETENESS
+def _completeness_open(
+    view: Optional[CompletenessViewRow], decided_gate_ids: frozenset[str]
+) -> bool:
+    """The completeness gate (ask or proceed) is open from the report until the
+    analyst's ledger holds a decision on it.
+    """
+    return view is not None and view.gate_id not in decided_gate_ids
 
 
 # -- policy ------------------------------------------------------------------------
@@ -485,27 +501,25 @@ def policy_view(
     rows: Sequence[ReviewItemRow],
     catalogue: Mapping[str, ClauseRef],
     ready: bool,
+    recorded_gaps: Sequence[GapRow] = (),
 ) -> PolicyView:
     """The Policy tab: the clauses research proposed (each with its decision), the
-    gap research declared when a domain had no applicable clause, and the pinned
-    corpus version. Empty until the assessment has run.
+    gap research declared when a domain had no applicable clause (``recorded`` once
+    the analyst recorded it as a policy gap), and the pinned corpus version. Empty
+    until the assessment has run.
     """
     gaps = [
         r
         for r in current_items(rows)
         if r.kind is ItemKind.GAP and r.subject.get("origin") == "research"
     ]
-    recorded = {
-        _text(r.subject.get("domain"))
-        for r in current_items(rows)
-        if r.kind is ItemKind.GAP and r.subject.get("origin") == "analyst"
-    }
+    recorded = {g.text.strip() for g in recorded_gaps}
     first = gaps[0] if gaps else None
     return PolicyView(
         clauses=clause_items(rows, catalogue) if ready else [],
         gap=PolicyGap(
             text=_text(first.subject.get("description")),
-            recorded=_text(first.subject.get("domain")) in recorded,
+            recorded=_text(first.subject.get("description")).strip() in recorded,
         )
         if first is not None and ready
         else None,
@@ -623,6 +637,7 @@ class RiskInputs:
     completeness_present: bool
     catalogue: Mapping[str, ControlRef]
     today: date
+    planned_rows: Sequence[PlannedControlRow] = ()
 
 
 def risk_view(inputs: RiskInputs) -> RiskView:
@@ -684,6 +699,15 @@ def risk_view(inputs: RiskInputs) -> RiskView:
             )
         )
     planned = [
+        PlannedControl(
+            id=row.planned_id,
+            control_id=row.control_id,
+            description=row.description,
+            owner=row.owner,
+            due=row.due,
+        )
+        for row in inputs.planned_rows
+    ] + [
         PlannedControl(
             id=f.item.item_id,
             control_id=f.control_id,
@@ -887,4 +911,73 @@ def handoff_view(inputs: HandoffInputs) -> HandoffView:
         )
         if inputs.outcome_label is not None and inputs.outcome_at is not None
         else None,
+    )
+
+
+# -- the clarification round -------------------------------------------------------
+
+_THREAD_STATUS: Final = {
+    "awaiting_response": "open",
+    "answered": "answered",
+    "resolved": "resolved",
+}
+
+
+def _thread(row: ClarificationThreadRow) -> ThreadAnalyst:
+    answer = row.answer
+    return ThreadAnalyst(
+        id=row.thread_id,
+        round=row.round,
+        anchor=row.anchor or "",
+        question=row.text,
+        status=_THREAD_STATUS[row.status],  # type: ignore[arg-type]
+        answer=ThreadAnswerView(
+            text=answer.text,
+            documents=list(answer.documents),
+            at=answer.at.isoformat(),
+            by=answer.by,
+        )
+        if answer is not None
+        else None,
+    )
+
+
+def clarifications_view(
+    record: CaseRecord,
+    completeness: Optional[CompletenessViewRow],
+    decided: Optional[str],
+    threads: Sequence[ClarificationThreadRow],
+) -> ClarificationsView:
+    """The Inbox tab: the questions the narrative agent drafted (with the ones it
+    dropped and why), the round the analyst sent (each question with the owner's
+    answer, in the analyst's terms: the anchor may name a control), whether a round
+    can still be sent and whether the analyst's clock is paused on the owner.
+    """
+    drafted = [
+        DraftQuestion(
+            id=_text(q.get("question_id")),
+            text=_text(q.get("text")),
+            anchor=q.get("anchored_to"),
+            keep=q.get("dropped_reason") is None,
+            dropped_reason=q.get("dropped_reason"),
+        )
+        for q in (completeness.questions if completeness is not None else [])
+    ]
+    by_round: dict[int, list[ClarificationThreadRow]] = {}
+    for row in threads:
+        by_round.setdefault(row.round, []).append(row)
+    rounds = [
+        ClarificationRound(
+            round=number,
+            sent_at=min(r.opened_at for r in rows).isoformat(),
+            to=record.owner_name or record.owner,
+            threads=[_thread(r) for r in sorted(rows, key=lambda r: r.question_id)],
+        )
+        for number, rows in sorted(by_round.items())
+    ]
+    return ClarificationsView(
+        drafted=drafted,
+        rounds=rounds,
+        can_send=decided == "ask" and not threads,
+        clock_paused=any(r.status == "awaiting_response" for r in threads),
     )

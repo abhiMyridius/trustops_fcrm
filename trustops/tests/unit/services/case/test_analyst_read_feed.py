@@ -304,8 +304,8 @@ def test_a_seeded_closed_case_reads_its_outcome_from_the_seed(
     assert result.decided_at == closed.decided_at
 
 
-@pytest.mark.parametrize("role", [Role.OBSERVER, Role.SERVICE, Role.PO])
-def test_the_observer_the_service_and_the_owner_do_not_read_the_staff_outcome(
+@pytest.mark.parametrize("role", [Role.OBSERVER, Role.SERVICE])
+def test_the_observer_and_the_service_do_not_read_the_outcome(
     assessed_case: AssessedCase, act_as: Callable[[Role, str], None], role: Role
 ) -> None:
     act_as(role, "u-someone")
