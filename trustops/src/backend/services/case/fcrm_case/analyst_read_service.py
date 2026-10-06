@@ -32,7 +32,6 @@ from fcrm_contracts.api.case_analyst_read import (
     SubmissionVersion,
     WorkbenchHeader,
 )
-from fcrm_contracts.api.case_internal_outcome import outcome_label
 from fcrm_contracts.common import Page, Principal
 from fcrm_contracts.tools.case_search import CaseSearchOutput
 from fcrm_contracts.tools.submission_diff import SubmissionDiffOutput
@@ -313,8 +312,9 @@ class AnalystReadService:
         acks = await self._reads.acknowledgements(case_id)
         started = record.review_started_at is not None
         shown = score_visible(snapshot, started)
-        outcome = await self._outcomes.get_outcome(case_id)
-        recorded = outcome if outcome is not None and outcome.outcome else None
+        decided = outcome_analyst(
+            record, await self._outcomes.get_outcome(case_id), [], seeded_outcomes()
+        )
         return handoff_view(
             HandoffInputs(
                 record=record,
@@ -326,10 +326,8 @@ class AnalystReadService:
                 recommendation=await self._assessment.get_recommendation(case_id),
                 catalogue=control_catalogue(),
                 released_to=await self._reads.released_to(case_id),
-                outcome_label=outcome_label(recorded.outcome)
-                if recorded is not None and recorded.outcome is not None
-                else None,
-                outcome_at=recorded.decided_at if recorded is not None else None,
+                outcome_label=decided.outcome_label,
+                outcome_at=decided.decided_at,
             )
         )
 

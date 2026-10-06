@@ -696,6 +696,28 @@ def test_a_seeded_case_has_no_clauses_and_a_stored_score(
     assert handoff.band == 1
 
 
+def test_a_seeded_closed_case_shows_its_outcome_in_the_handoff(
+    seeded_analyst_read: AnalystRead,
+) -> None:
+    closed = next(
+        r
+        for r in seeded_analyst_read.service.store.records.values()
+        if r.state is CaseState.CLOSED
+    )
+    view = HandoffView.model_validate(
+        seeded_analyst_read.client.get(f"/cases/{closed.case_id}/handoff").json()
+    )
+    assert view.pack is None
+    assert view.outcome is not None
+    assert view.outcome.label in {
+        "Approved",
+        "Approved with conditions",
+        "Deferred",
+        "Rejected",
+    }
+    assert view.can_close_delegated is False
+
+
 def test_the_demo_case_at_intake_has_nothing_to_show(
     seeded_analyst_read: AnalystRead,
 ) -> None:
