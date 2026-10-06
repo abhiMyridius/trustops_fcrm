@@ -42,6 +42,7 @@ from fcrm_context_worker.config import FCRM_PROJECT, context_config_from_env
 from fcrm_context_worker.seedload import load_clauses
 
 from fcrm_policy.bus import start_events_consumer, start_relay
+from fcrm_policy.config_service import build_config
 from fcrm_policy.corpus import MongoClauseStore
 from fcrm_policy.indexing import IndexName, IndexRequester, IndexStatusStore
 from fcrm_policy.precedents import MongoPrecedentStore
@@ -148,6 +149,10 @@ async def register(
         await load_clauses(vector_store, llm)
     vector = VectorClauseSource(vector_store, llm, context_config)
 
+    config, scoring_client = await build_config(
+        db, deps.mongo, reference, reference, settings
+    )
+    app.state.config = config
     app.state.reference = reference
     app.state.clauses = clause_store
     app.state.precedents = precedent_store
@@ -170,6 +175,8 @@ async def register(
     probe.add(mongo_check(deps.mongo))
 
     async with AsyncExitStack() as stack:
+        if scoring_client is not None:
+            stack.push_async_callback(scoring_client.aclose)
         start_relay(stack, probe, outbox, db, deps)
         await start_events_consumer(
             stack,

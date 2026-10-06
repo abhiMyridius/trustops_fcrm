@@ -1775,6 +1775,7 @@ dependencies = [
     { name = "fcrm-common" },
     { name = "fcrm-context-worker" },
     { name = "fcrm-contracts" },
+    { name = "fcrm-scoring-service" },
     { name = "fcrm-seed" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -1794,6 +1795,7 @@ requires-dist = [
     { name = "fcrm-common", editable = "packages/common" },
     { name = "fcrm-context-worker", editable = "workers/context-worker" },
     { name = "fcrm-contracts", editable = "packages/contracts" },
+    { name = "fcrm-scoring-service", editable = "services/scoring" },
     { name = "fcrm-seed", editable = "packages/seed" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.34" },
 ]
