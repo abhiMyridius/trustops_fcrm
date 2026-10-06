@@ -1,6 +1,6 @@
 # ai/agents/intake.agent.yaml  (design B §2.2)
 name: intake
-version: 2
+version: 3
 purpose: >-
   Read one window of pages of one uploaded document (canonical Markdown with
   page:line anchors) and propose field values with sources, change types with
@@ -27,7 +27,7 @@ output_schema:
     extraction: {model: fcrm_contracts.proposals.intake.ExtractionProposal, many: false, status: contract}
     categories: {model: fcrm_contracts.proposals.intake.CategoryProposal, many: true, max_items: 6, status: contract}
     gaps: {model: fcrm_contracts.proposals.intake.GapQuestion, many: true, max_items: 8, status: contract}
-    facts_flagged: {model: fcrm_contracts.proposals.intake.FactFlag, many: true, max_items: 5, status: pending_contract, design_ref: "B §2.2 FactFlag(statement, provenance, conflicts_with)"}
+    facts_flagged: {model: fcrm_contracts.proposals.intake.FactFlag, many: true, max_items: 5, status: contract}
     not_found: {type: "list[str]", status: primitive, description: field ids searched for in this window and not present}
     notes_for_analyst: {type: "list[str]", max_items: 5, status: primitive}
   notes: >-

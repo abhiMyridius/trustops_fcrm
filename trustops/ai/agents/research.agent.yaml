@@ -1,6 +1,6 @@
 # ai/agents/research.agent.yaml  (design B §2.3)
 name: research
-version: 3
+version: 4
 purpose: >-
   Find the policy clauses that apply to the submitted change and quote them
   verbatim from the pinned corpus version, find the closest closed cases,
@@ -24,8 +24,8 @@ output_schema:
   fields:
     clauses: {model: fcrm_contracts.proposals.research.ClauseProposal, many: true, max_items: 8, status: contract}
     precedents: {model: fcrm_contracts.proposals.research.PrecedentMatch, many: true, max_items: 5, status: contract}
-    gaps: {model: fcrm_contracts.proposals.research.PolicyGap, many: true, max_items: 4, status: pending_contract, design_ref: "B §2.3 PolicyGap(topic, statement, searched: Searched, domain)"}
-    jurisdiction_notes: {model: fcrm_contracts.proposals.research.JurisdictionNote, many: true, max_items: 6, status: pending_contract, design_ref: "B §2.3 JurisdictionNote(country, status, provenance)"}
+    gaps: {model: fcrm_contracts.proposals.research.PolicyGap, many: true, max_items: 4, status: contract}
+    jurisdiction_notes: {model: fcrm_contracts.proposals.research.JurisdictionNote, many: true, max_items: 6, status: contract}
     notes_for_analyst: {type: "list[str]", max_items: 5, status: primitive}
   notes: >-
     ClauseProposal in the committed contract has no implies_controls list.

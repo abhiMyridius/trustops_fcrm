@@ -12,14 +12,14 @@
 # History of set versions is append-only: add a row, never edit one, so any
 # pinned prompts_v can be resolved to exact files.
 
-set_version: "2026-10-06.1"
+set_version: "2026-10-06.2"
 
 current:
   screening.system: 3
   screening.user: 1
   intake.system: 2
   intake.user: 1
-  research.system: 2
+  research.system: 3
   research.user: 1
   assessment.system: 2
   assessment.user: 1
@@ -80,4 +80,9 @@ history:
     date: 2026-10-06
     reason: "screening.system v3, from the full 100-row screening run on v2 (fast_lane_precision 0.58, recall 0.39 against the R4 predicate): the prompt states R4 as the two cases the routing code accepts, reads the change types and the volume (F05) itself because nothing applies them to the agent's answer, and lets a described new corridor, segment or product veto both"
     pointers: {screening.system: 3}
+    eval_run: null
+  - set_version: "2026-10-06.2"
+    date: 2026-10-06
+    reason: "research.system v3: a clause proposal's clause_id and its source_ref name the same clause (a demo-case run spent its retry on a mismatch)"
+    pointers: {research.system: 3}
     eval_run: null

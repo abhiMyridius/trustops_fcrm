@@ -24,7 +24,7 @@ PINS = PinnedVersions(
     fieldset_v=6,
     jurisdictions_v="2026-09",
     routing_v=4,
-    prompts_v="2026-10-06.1",
+    prompts_v="2026-10-06.2",
 )
 NARRATIVE_ITEMS = {
     "completeness": ("CompletenessReport", "Question"),
@@ -127,6 +127,13 @@ def test_screening_applies_the_whole_r4_predicate_itself() -> None:
     assert not is_fast_lane_candidate(
         ["new_feature"], 5_000_000.0, new_geography=False, new_segment=False
     )
+
+
+def test_research_says_a_clause_proposals_two_ids_are_one() -> None:
+    """Guard 4 ``clause_ref_matches`` refuses a proposal whose ``source_ref``
+    names another clause than its ``clause_id``; one such item cost a demo-case
+    run its retry."""
+    assert "the same id as in its source_ref" in _text(AgentName.RESEARCH)
 
 
 def test_the_examiner_prompt_asks_for_what_examiner_answer_can_hold() -> None:
