@@ -420,6 +420,10 @@ class PlannedControl(_Dto):
     description: str
     owner: str
     due: str
+    # Not in the web type: an agent-proposed planned control is a review item with
+    # a gate (the web posts ``id`` to ``POST items/{id}``); one the analyst
+    # recorded by hand has none.
+    gate_open: bool = False
 
 
 class FactorAnchor(_Dto):

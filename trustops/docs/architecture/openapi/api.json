@@ -7526,6 +7526,11 @@
             "title": "Due",
             "type": "string"
           },
+          "gate_open": {
+            "default": false,
+            "title": "Gate Open",
+            "type": "boolean"
+          },
           "id": {
             "title": "Id",
             "type": "string"

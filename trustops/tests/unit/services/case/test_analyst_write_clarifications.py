@@ -320,6 +320,52 @@ def test_an_anchor_that_is_not_the_cases_is_refused(
     assert response.status_code == 422
 
 
+def test_a_control_of_a_domain_in_scope_is_a_valid_anchor_even_with_no_item(
+    clarification_service: CaseService,
+) -> None:
+    """A live run rated no channel control, and the narrative agent asked about
+    the channel's controls (anchor CTL-T01): refusing the whole round for it left
+    the analyst unable to send the drafted questions.
+    """
+    record = clarification_service.store._cases[CASE]
+    clarification_service.store._cases[CASE] = record.model_copy(
+        update={"domains": ["channel"]}
+    )
+    clarification_service.views.items = {
+        k: v
+        for k, v in clarification_service.views.items.items()
+        if v.subject.get("control_id") != "CTL-T05"
+    }
+
+    response = clarification_service.client.post(
+        COMPLETENESS,
+        json={"decision": "ask", "questions": [question(1, anchor="CTL-T05")]},
+    )
+
+    assert response.status_code == 202, response.text
+
+
+def test_a_control_of_a_domain_out_of_scope_is_not_an_anchor(
+    clarification_service: CaseService,
+) -> None:
+    record = clarification_service.store._cases[CASE]
+    clarification_service.store._cases[CASE] = record.model_copy(
+        update={"domains": ["product"]}
+    )
+    clarification_service.views.items = {
+        k: v
+        for k, v in clarification_service.views.items.items()
+        if v.subject.get("control_id") != "CTL-T05"
+    }
+
+    response = clarification_service.client.post(
+        COMPLETENESS,
+        json={"decision": "ask", "questions": [question(1, anchor="CTL-T05")]},
+    )
+
+    assert response.status_code == 422
+
+
 def test_duplicate_question_ids_and_unusable_ids_are_refused(
     clarification_service: CaseService,
 ) -> None:

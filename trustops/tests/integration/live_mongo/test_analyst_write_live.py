@@ -140,6 +140,32 @@ async def test_an_item_decision_commits_row_ledger_activity_and_event_together(
     assert await count(review, "activity", case_id=CASE, type="item.decided") == 1
 
 
+async def test_a_different_decision_on_a_decided_gate_is_refused_not_replayed(
+    review: LivePo, demo_review_items: list[ReviewItemRow]
+) -> None:
+    """The first full live run: the ledger row has no ``gate_id`` field (its
+    ``_id`` is the gate), the read filtered on one, never found it, and a
+    ``confirm`` on an overridden control answered 200 ``replayed`` with the
+    status it did not have.
+    """
+    row = t01(demo_review_items)
+    url = f"/cases/{CASE}/items/{row.item_id}"
+    await review.client.post(
+        url, json={"decision": "override", "value": 4.5, "reason": REASON}
+    )
+
+    other = await review.client.post(url, json={"decision": "confirm"})
+    changed = await review.client.post(
+        url, json={"decision": "override", "value": 1.0, "reason": REASON}
+    )
+
+    assert (other.status_code, changed.status_code) == (409, 409)
+    stored = await review.case.db["review_items"].find_one({"_id": row.item_id})
+    assert stored["status"] == "overridden"
+    assert stored["decided"]["value"] == {"rating": 4.5}
+    assert await count(review, "analyst_decisions") == 1
+
+
 async def test_a_failure_while_the_event_is_enqueued_leaves_nothing_decided(
     review: LivePo,
     demo_review_items: list[ReviewItemRow],

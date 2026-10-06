@@ -362,6 +362,18 @@ def test_a_planned_control_is_listed_and_never_in_an_area(
     assert scored_ids.count("CTL-T01") == 1
 
 
+def test_an_agent_proposed_planned_control_shows_its_open_gate_so_it_can_be_decided(
+    assessed_case: AssessedCase,
+) -> None:
+    """The first full live run: an agent-proposed planned control is a review
+    item with a gate, nothing on the read view said so and the web had nothing to
+    confirm it with, so the case could never reach its lock.
+    """
+    view = RiskView.model_validate(get(assessed_case, "risk"))
+    [planned] = view.planned
+    assert planned.gate_open is True
+
+
 def test_the_critic_banner_and_the_lock_block_follow_the_open_finding(
     assessed_case: AssessedCase,
 ) -> None:

@@ -156,6 +156,56 @@ def test_an_unknown_field_or_decision_is_refused(review_service: CaseService) ->
     )
 
 
+# ── the id the web posts ────────────────────────────────────────────────────────
+
+
+def test_the_web_posts_the_control_id_the_read_view_shows_not_the_item_id(
+    review_service: CaseService,
+) -> None:
+    """The read views give a control its ``CTL-`` id and a clause its clause id
+    as ``id`` (the real ``itm_`` id travels as ``item_id``); the web posts that
+    ``id``, so the write route must find the item by it (first live run: 404).
+    """
+    row = scored_t01(review_service)
+
+    response = review_service.client.post(
+        f"/cases/{CASE}/items/CTL-T01",
+        json={"decision": "override", "value": 4.5, "reason": REASON},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["item_id"] == row.item_id
+    assert review_service.views.items[row.item_id].status is ItemStatus.OVERRIDDEN
+    assert [e["decision"] for e in gate_events(review_service)] == ["override"]
+
+
+def test_the_web_posts_the_clause_id_the_read_view_shows(
+    review_service: CaseService, make_review_item: Callable[..., ReviewItemRow]
+) -> None:
+    clause = make_review_item(
+        ItemKind.CLAUSE,
+        {"clause_id": "AML-12", "domain": "channel", "corpus_v": 14},
+        {"quote": "q", "applicability": "a", "confidence": 0.9},
+    )
+    review_service.views.items[clause.item_id] = clause
+
+    response = review_service.client.post(
+        f"/cases/{CASE}/items/AML-12", json={"decision": "accept"}
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["item_id"] == clause.item_id
+
+
+def test_a_control_id_with_no_item_is_not_found(review_service: CaseService) -> None:
+    response = review_service.client.post(
+        f"/cases/{CASE}/items/CTL-X99", json={"decision": "confirm"}
+    )
+
+    assert response.status_code == 404
+    assert gate_events(review_service) == []
+
+
 # ── the override, the golden decision ───────────────────────────────────────────
 
 

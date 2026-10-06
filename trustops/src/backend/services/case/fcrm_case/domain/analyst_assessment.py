@@ -714,6 +714,7 @@ def risk_view(inputs: RiskInputs) -> RiskView:
             description=_text(f.item.proposed.get("rationale")) or f.name,
             owner="Unassigned",
             due="No date set",
+            gate_open=gate_open(f.item),
         )
         for f in facts
         if f.planned and f.item.status is not ItemStatus.REMOVED
