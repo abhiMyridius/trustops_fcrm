@@ -8,6 +8,9 @@ tests call it with plausible URLs that are never dialled.
 
 from __future__ import annotations
 
+import asyncio
+import logging
+
 import pytest
 from faststream.rabbit import RabbitBroker
 from fcrm_caseflow.app import build_unit
@@ -16,6 +19,7 @@ from fcrm_caseflow.steps import StepDeps, StepResult, UnknownStepKindError
 from fcrm_caseflow.triggers import Trigger
 from fcrm_common.broker import FastStreamPublisher
 from fcrm_common.mongo import get_client
+from fcrm_common.outbox import OutboxRelay, RelayStoppedError
 from fcrm_common.settings import MissingSettingsError
 from fcrm_contracts.enums import StepKind
 from fcrm_contracts.events.payloads import HarnessStep
@@ -79,7 +83,7 @@ def test_the_default_unit_closes_its_five_http_clients() -> None:
     assert len(unit.after_startup) == 2  # indexes, relay
     # the relay, then the audit, case, policy, scoring and decision clients
     assert len(unit.on_shutdown) == 6
-    assert [c.name for c in unit.checks] == ["indexes"]
+    assert [c.name for c in unit.checks] == ["indexes", "outbox"]
 
 
 def test_the_default_unit_runs_every_step_the_shipped_trigger_map_enqueues() -> None:
@@ -157,3 +161,27 @@ def test_a_handler_nobody_maps_is_allowed() -> None:
         _settings(), step_handlers={StepKind.STATE_PUSH: _push}, step_map={}
     )
     assert unit.component_id == "H1"
+
+
+async def test_a_relay_that_dies_is_logged_and_turns_readiness_red(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The relay is the only path out of H1's outbox: when its task dies the
+    exception is logged at once (not at shutdown), ``/readyz`` fails, and the
+    stop hook cannot raise the relay's error and skip the clients after it.
+    """
+
+    async def dies(self: OutboxRelay, stop: asyncio.Event) -> None:
+        raise RuntimeError("relay crashed")
+
+    monkeypatch.setattr(OutboxRelay, "run", dies)
+    unit, _ = _unit(_settings())
+    outbox_check = next(c for c in unit.checks if c.name == "outbox")
+    with caplog.at_level(logging.ERROR, logger="fcrm_common.outbox"):
+        await unit.after_startup[1]()
+        for _ in range(50):
+            await asyncio.sleep(0)
+    assert "outbox relay stopped unexpectedly" in caplog.text
+    with pytest.raises(RelayStoppedError):
+        await outbox_check.fn()
+    await unit.on_shutdown[0]()

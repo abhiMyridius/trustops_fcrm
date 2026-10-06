@@ -10,6 +10,16 @@ import { ApiError } from './errors';
 import { paths } from './endpoints';
 import type { LoginResponse, Problem } from './types/common';
 
+/**
+ * Every request has a deadline, so a gateway that stops answering turns into an error a screen can show
+ * rather than a spinner that never ends. The gateway's own limits come first in normal operation (30 s
+ * for the API, 75 s for the examiner, 300 s for uploads); these are what is left when the gateway
+ * itself hangs.
+ */
+const DEFAULT_TIMEOUT_MS = 120_000;
+const UPLOAD_TIMEOUT_MS = 330_000;
+const REFRESH_TIMEOUT_MS = 15_000;
+
 let accessToken: string | null = null;
 let onSessionLost: (() => void) | null = null;
 let refreshInFlight: Promise<boolean> | null = null;
@@ -60,12 +70,26 @@ async function parseProblem(res: Response): Promise<Problem> {
   }
 }
 
+function deadline(ms: number): AbortSignal | undefined {
+  return typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(ms) : undefined;
+}
+
+function isTimeout(err: unknown): boolean {
+  // By name: the DOMException that AbortSignal.timeout raises is not always the page's DOMException class.
+  return typeof err === 'object' && err !== null && 'name' in err && err.name === 'TimeoutError';
+}
+
 /** POST auth/refresh with the cookie; concurrent callers share one request. */
 export function refreshSession(): Promise<boolean> {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
       try {
-        const res = await fetch(absolute(paths.auth.refresh), { method: 'POST', credentials: 'include', headers: { 'X-Trace-Id': traceId } });
+        const res = await fetch(absolute(paths.auth.refresh), {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'X-Trace-Id': traceId },
+          signal: deadline(REFRESH_TIMEOUT_MS),
+        });
         if (!res.ok) return false;
         const body = (await res.json()) as LoginResponse;
         accessToken = body.access_token;
@@ -87,6 +111,8 @@ export interface RequestOptions {
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined | null>;
   headers?: Record<string, string>;
+  /** Give up after this many milliseconds (default 2 minutes; 5.5 minutes for an upload). */
+  timeoutMs?: number;
   /** Internal: set on the retry after a refresh so we never loop. */
   retried?: boolean;
 }
@@ -119,7 +145,20 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
   const method = opts.method ?? 'GET';
   if (method !== 'GET') headers['Idempotency-Key'] = globalThis.crypto.randomUUID();
 
-  const res = await fetch(absolute(withQuery(path, opts.query)), { method, headers, body, credentials: 'include' });
+  const timeoutMs = opts.timeoutMs ?? (opts.body instanceof FormData ? UPLOAD_TIMEOUT_MS : DEFAULT_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(absolute(withQuery(path, opts.query)), { method, headers, body, credentials: 'include', signal: deadline(timeoutMs) });
+  } catch (err) {
+    if (!isTimeout(err)) throw err;
+    throw new ApiError(504, {
+      type: 'about:blank',
+      title: 'Request timed out',
+      status: 504,
+      detail: 'The server did not answer in time. Try again in a moment.',
+      trace_id: traceId,
+    });
+  }
 
   if (res.status === 401 && !opts.retried && path !== paths.auth.login && path !== paths.auth.refresh) {
     const ok = await refreshSession();

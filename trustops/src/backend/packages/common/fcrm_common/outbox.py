@@ -256,6 +256,8 @@ class OutboxRelay:
             logger.warning(
                 "outbox publish failed; will retry",
                 extra={
+                    "case_id": doc.get("case_id"),
+                    "type": doc.get("type"),
                     "amqp": {
                         "exchange": doc["exchange"],
                         "message_id": doc["event_id"],

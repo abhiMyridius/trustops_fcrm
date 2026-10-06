@@ -1,7 +1,7 @@
 /** The HTTP client: list unwrapping and the in-memory access token. */
-import { HttpResponse, http } from 'msw';
+import { HttpResponse, delay, http } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { apiList, getAccessToken, setAccessToken } from '@/api/client';
+import { api, apiList, getAccessToken, setAccessToken } from '@/api/client';
 import { server } from '@/mocks/server';
 
 const LIST = '/api/fcrm/__test/list';
@@ -51,5 +51,18 @@ describe('getAccessToken', () => {
     expect(getAccessToken()).toBe('abc');
     setAccessToken(null);
     expect(getAccessToken()).toBeNull();
+  });
+});
+
+describe('api timeouts', () => {
+  it('gives up on a gateway that never answers, as a 504 a screen can show', async () => {
+    server.use(http.get(LIST, async () => {
+      await delay('infinite');
+      return HttpResponse.json({});
+    }));
+    await expect(api(LIST, { timeoutMs: 50 })).rejects.toMatchObject({
+      status: 504,
+      problem: { title: 'Request timed out' },
+    });
   });
 });

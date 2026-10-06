@@ -54,6 +54,20 @@ async def test_get_retries_on_503_then_succeeds():
     assert len(script.requests) == 3
 
 
+async def test_a_success_status_with_a_body_that_is_not_json_is_a_503_not_a_500():
+    """A proxy's HTML error page behind a 200 must reach the caller as a
+    problem naming the peer, not as a ``JSONDecodeError`` (a bare 500).
+    """
+    script = Script(
+        httpx.Response(200, text="<html>bad gateway</html>"),
+    )
+    async with client_for(script) as client:
+        with pytest.raises(errors.UpstreamUnavailableError) as raised:
+            await client.request_json("GET", "/bands")
+    assert raised.value.extra["dependency"] == "scoring"
+    assert raised.value.extra["upstream_status"] == 200
+
+
 async def test_backoff_follows_design_schedule():
     slept: list[float] = []
 

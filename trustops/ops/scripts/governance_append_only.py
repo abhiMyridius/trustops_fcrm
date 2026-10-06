@@ -37,6 +37,7 @@ def removed_rows() -> list[str]:
         capture_output=True,
         text=True,
         check=True,
+        timeout=30,
     ).stdout
     path = ""
     found: list[str] = []

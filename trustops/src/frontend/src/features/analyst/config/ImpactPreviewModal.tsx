@@ -63,6 +63,11 @@ export function ImpactPreviewModal({ section, open, onClose }: { section: Config
             {preview.data.summary}
           </Banner>
         )}
+        {preview.isError && (
+          <Banner tone="danger" title="The impact preview is not available">
+            {userMessage(preview.error)} You can still publish, but you will not see what it changes first.
+          </Banner>
+        )}
         {section.section === 'ai-agents' && <Banner tone="warning">A model change must pass the agent&apos;s eval set before it is used on cases.</Banner>}
         <Textarea
           label="Version note (required)"

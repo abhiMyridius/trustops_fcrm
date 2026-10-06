@@ -80,7 +80,16 @@ function scheduleReopen(caseId: string, entry: Entry, qc: QueryClient, delayMs: 
   entry.timer = setTimeout(() => {
     entry.timer = null;
     // The access token the failed connection used may have expired: renew it first, then reconnect.
-    void refreshSession().then(() => connect(caseId, entry, qc));
+    void refreshSession()
+      .then(() => connect(caseId, entry, qc))
+      .catch((error: unknown) => {
+        // `new EventSource` can throw (a blocked or malformed URL). Keep the slow retry going rather than
+        // end the loop with an unhandled rejection and a stream that never comes back.
+        console.error('case stream could not reconnect', error);
+        entry.source = null;
+        setStatus(caseId, entry, 'polling');
+        if (!entry.disposed) scheduleReopen(caseId, entry, qc, POLLING_RETRY_MS);
+      });
   }, delayMs);
 }
 

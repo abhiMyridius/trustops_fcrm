@@ -194,6 +194,29 @@ async def test_a_redelivered_result_settles_once(
     assert ledger.jobs["job_r"].spent == 17_000
 
 
+async def test_every_audit_record_the_engine_writes_carries_an_idempotency_key(
+    engine_factory: EngineFactory,
+    run_store: CaseRunStore,
+    budget_store: CaseBudgetStore,
+    session: FakeSession,
+    recording_audit: RecordingAudit,
+) -> None:
+    """The engine writes its records from inside the Mongo transaction, which
+    ``with_transaction`` re-runs on a transient error: without a key each re-run
+    chains the same ``budget.exhausted`` or transition record again.
+    """
+    results = AgentResultStore(FakeCollection("agent_results"))  # type: ignore[arg-type]
+    engine = engine_factory(budgets=budget_store, results=results)
+    await _in_assess(run_store, session, budget_store, spent=105_000)
+
+    await engine.handle(_done("job_r", "research", 1_500), session)
+    await engine.handle(_done("job_s", "assessment", 1_500), session)
+
+    assert recording_audit.records
+    assert None not in recording_audit.keys
+    assert len(set(recording_audit.keys)) == len(recording_audit.keys)
+
+
 async def test_a_dispatch_the_cap_refuses_is_not_published_and_hands_the_case_off(
     engine_factory: EngineFactory,
     run_store: CaseRunStore,

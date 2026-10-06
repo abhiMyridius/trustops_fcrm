@@ -12,6 +12,7 @@ from typing import Any
 
 import httpx
 import pytest
+from aio_pika.exceptions import ChannelClosed, ChannelInvalidStateError, DeliveryError
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from fcrm_contracts.enums import Role
@@ -305,6 +306,33 @@ def test_a_publish_failure_is_503_after_the_question_was_stored(
     act_as: Callable[[Role, str], None],
     chained_case: str,
 ) -> None:
+    app = build_examiner_app(failing_publisher)
+    client = _client(app, act_as, Role.ANALYST)
+    response = client.post(ASK, json={"question": QUESTION, "case_id": chained_case})
+    assert response.status_code == 503
+    assert "stored" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        DeliveryError(None, None),
+        ChannelClosed(404, "NOT_FOUND - no exchange 'case.events'"),
+        ChannelInvalidStateError("channel is closed"),
+    ],
+    ids=["nacked", "channel closed", "channel invalid"],
+)
+def test_an_amqp_refusal_is_503_not_a_bare_500(
+    build_examiner_app: Callable[..., FastAPI],
+    failing_publisher: Any,
+    act_as: Callable[[Role, str], None],
+    chained_case: str,
+    failure: Exception,
+) -> None:
+    """A broker that nacks the publish or closes the channel is not an
+    ``OSError``, but is the same "stored, not announced" problem.
+    """
+    failing_publisher.failure = failure
     app = build_examiner_app(failing_publisher)
     client = _client(app, act_as, Role.ANALYST)
     response = client.post(ASK, json={"question": QUESTION, "case_id": chained_case})

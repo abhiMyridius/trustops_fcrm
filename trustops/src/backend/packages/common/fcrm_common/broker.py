@@ -22,6 +22,7 @@ import logging
 from collections.abc import Sequence
 from typing import Any, Final, Optional
 
+from aio_pika.exceptions import AMQPError, ChannelInvalidStateError
 from faststream import AckPolicy
 from faststream.rabbit import (
     Channel,
@@ -45,6 +46,20 @@ EXCHANGE_TYPES: Final[dict[str, ExchangeType]] = {
     "retry": ExchangeType.DIRECT,
     "dlx": ExchangeType.DIRECT,
 }
+
+#: What a publish can raise when the broker is down, refuses the message
+#: (``DeliveryError``: nacked or unroutable), or has closed the channel
+#: (``ChannelClosed``, and the plain ``RuntimeError`` subclass
+#: ``ChannelInvalidStateError``). ``AMQPConnectionError`` is an ``OSError`` and a
+#: publish deadline is a ``TimeoutError``; the other AMQP errors are none of
+#: those, so a caller that maps "the broker did not take it" to a 503 catches
+#: this tuple rather than ``OSError`` alone.
+BROKER_ERRORS: Final[tuple[type[BaseException], ...]] = (
+    OSError,
+    TimeoutError,
+    AMQPError,
+    ChannelInvalidStateError,
+)
 
 #: Headers :func:`fcrm_common.events.message_headers` sets that become AMQP
 #: message properties rather than staying in the headers table.

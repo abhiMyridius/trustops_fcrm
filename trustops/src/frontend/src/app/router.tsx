@@ -7,6 +7,7 @@ import type { ComponentType } from 'react';
 import { Navigate, createBrowserRouter, type RouteObject } from 'react-router-dom';
 import { PageSkeleton } from '@/components/layout/PageSkeleton';
 import { NotFound } from '@/components/layout/NotFound';
+import { RouteError } from '@/components/layout/RouteError';
 import { RequireAuth } from './guards/RequireAuth';
 import { RequireRole } from './guards/RequireRole';
 import { AppShell } from './layouts/AppShell';
@@ -27,6 +28,7 @@ export const routes: RouteObject[] = [
   {
     path: '/',
     HydrateFallback: () => <PageSkeleton />,
+    errorElement: <RouteError />,
     children: [
       {
         element: <AuthLayout />,

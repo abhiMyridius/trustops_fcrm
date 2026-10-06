@@ -6,6 +6,7 @@ against a real replica set are in ``test_common_mongo_live.py``.
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import timedelta
 from typing import Any
 
@@ -161,6 +162,18 @@ async def test_relay_stops_at_first_failure_to_keep_order():
     assert [d["published_at"] is None for d in coll.docs] == [False, True, True, True]
     assert await relay.publish_batch() == (3, False)
     assert [e.event_id for e in publisher.sent] == [e.event_id for e in queued]
+
+
+async def test_a_failed_publish_is_logged_with_the_case_and_the_event_type(
+    caplog: pytest.LogCaptureFixture,
+):
+    _, coll, _ = await filled_outbox(1)
+    relay = relay_for(coll, FakeLease(), FlakyPublisher(fail_on={1}))
+    with caplog.at_level(logging.WARNING, logger="fcrm_common.outbox"):
+        await relay.publish_batch()
+    [record] = [r for r in caplog.records if "outbox publish failed" in r.message]
+    assert record.case_id == "FCRM-2026-0151"  # type: ignore[attr-defined]
+    assert record.type == "gate.decided"  # type: ignore[attr-defined]
 
 
 async def test_relay_does_not_publish_without_the_lease():

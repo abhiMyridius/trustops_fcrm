@@ -106,7 +106,14 @@ def main(argv: list[str] | None = None) -> int:
             state = service_state(rows, service, service in args.oneshot)
             if state == "failed":
                 logger.error("%s failed; last log lines:", service)
-                subprocess.run([*compose, "logs", "--tail", "40", service], check=False)  # noqa: S603
+                try:
+                    subprocess.run(  # noqa: S603 - argv built from the Makefile's compose command
+                        [*compose, "logs", "--tail", "40", service],
+                        check=False,
+                        timeout=30,
+                    )
+                except subprocess.TimeoutExpired:
+                    logger.error("%s: reading its logs timed out", service)
                 return 1
             if state != "ready":
                 pending.append(service)
