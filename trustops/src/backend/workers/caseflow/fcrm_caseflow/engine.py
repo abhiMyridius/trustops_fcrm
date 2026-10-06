@@ -614,10 +614,8 @@ class CaseflowEngine:
         session: AsyncClientSession,
     ) -> Optional[tuple[Trigger, TransitionContext]]:
         agent = agent_done_agent(envelope)
-        if self._results is not None:
-            # Kept before anything else: the proposals exist nowhere else, and
-            # a step that merges several jobs reads them back from here.
-            await self._results.save(envelope.payload, session=session)
+        if await self._is_repeat_done(envelope, run, session):
+            return None
         state = run.state
         job_id = envelope.payload.get("job_id")
         cleared = await self._clear_join_key(run, agent, job_id, session)
@@ -653,6 +651,30 @@ class CaseflowEngine:
         if cleared:
             return None
         return trigger, context_from_payload(envelope.payload)
+
+    async def _is_repeat_done(
+        self, envelope: Envelope, run: CaseRun, session: AsyncClientSession
+    ) -> bool:
+        """Keep an ``agent.done``'s result and say whether it is a repeat.
+
+        The result is kept before anything else: the proposals exist nowhere
+        else, and a step that merges several jobs reads them back from here. A
+        repeat is a second ``agent.done`` for a job whose result is already
+        stored: H2 ran a redelivered job a second time and published again
+        under a new event id, which the consumer's message-id dedupe cannot
+        see. Applying it would enqueue a second step and write every record
+        again, so the caller ignores it.
+        """
+        if self._results is None:
+            return False
+        if await self._results.save(envelope.payload, session=session):
+            return False
+        logger.info(
+            "agent.done for job %s was already applied; ignoring the repeat",
+            envelope.payload.get("job_id"),
+            extra={"case_id": envelope.case_id, "run_id": run.snapshot.run_id},
+        )
+        return True
 
     async def _clear_join_key(
         self,
