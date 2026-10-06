@@ -18,7 +18,6 @@ its own broker and ``/healthz``/``/readyz`` for ``python -m fcrm_caseflow``.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections.abc import Mapping
 from typing import Optional
@@ -40,7 +39,7 @@ from fcrm_common.http import ServiceClient
 from fcrm_common.ids import new_id
 from fcrm_common.logging import configure_logging
 from fcrm_common.mongo import Document, MongoLease, close_clients, get_client
-from fcrm_common.outbox import Outbox, OutboxRelay
+from fcrm_common.outbox import Outbox, OutboxRelay, RelayRunner
 from fcrm_common.settings import required_value
 from fcrm_common.worker import WorkerUnit
 from fcrm_contracts.enums import StepKind
@@ -263,8 +262,10 @@ def build_unit(
 
     lease = MongoLease(db[LEASES_COLLECTION], OUTBOX_RELAY_LEASE_NAME, new_id("relay"))
     relay = OutboxRelay(outbox_collection, lease, publisher)
-    stop_event = asyncio.Event()
-    relay_task: list[asyncio.Task[None]] = []
+    # The runner logs a relay that dies as it dies, bounds the stop and backs the
+    # "outbox" readiness check, as in S1, S3 and S5 (a bare task lost the error
+    # until shutdown, left /readyz green and could abort the other shutdown hooks).
+    relay_runner = RelayRunner(relay, name="caseflow")
     indexes_ready: list[bool] = []
 
     async def _ensure_indexes() -> None:
@@ -289,12 +290,7 @@ def build_unit(
             raise RuntimeError(msg)
 
     async def _start_relay() -> None:
-        relay_task.append(asyncio.create_task(relay.run(stop_event)))
-
-    async def _stop_relay() -> None:
-        stop_event.set()
-        if relay_task:
-            await relay_task[0]
+        relay_runner.start()
 
     return WorkerUnit(
         "H1",
@@ -308,14 +304,17 @@ def build_unit(
         ),
         after_startup=(_ensure_indexes, _start_relay),
         on_shutdown=(
-            _stop_relay,
+            relay_runner.stop,
             audit_http.aclose,
             case_http.aclose,
             policy_http.aclose,
             scoring_http.aclose,
             decision_http.aclose,
         ),
-        checks=(ReadinessCheck("indexes", _indexes_check, critical=True),),
+        checks=(
+            ReadinessCheck("indexes", _indexes_check, critical=True),
+            ReadinessCheck("outbox", relay_runner.check),
+        ),
     )
 
 
