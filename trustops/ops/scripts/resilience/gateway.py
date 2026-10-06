@@ -37,6 +37,9 @@ PERSONAS: Final[dict[str, str]] = {
 _RENEW_MARGIN_S: Final = 120.0
 _DEFAULT_CALL_TIMEOUT_S: Final = 20.0
 _PAGE_LIMIT: Final = 200
+#: How often, and how long apart, a rate-limited login is tried again.
+LOGIN_ATTEMPTS: Final = 8
+LOGIN_RETRY_S: Final = 7.0
 _MAX_PAGES: Final = 25
 
 
@@ -134,24 +137,39 @@ class GatewayClient:
     # -- tokens -----------------------------------------------------------
 
     def login(self, persona: str) -> str:
-        """Log ``persona`` in (once) and return the access token.
+        """Log ``persona`` in and return the access token.
+
+        The login route allows ten a minute per address, and anything else on
+        this machine (another test run, a person at the UI) shares that budget,
+        so a 429 is waited out (the limit refills at one every six seconds)
+        rather than failing a drill that has not started yet.
 
         Raises:
-            GatewayError: the login was refused or unreadable.
+            GatewayError: the login was refused for another reason, or was still
+                rate limited after :data:`LOGIN_ATTEMPTS` tries, or was unreadable.
         """
         username = PERSONAS[persona]
-        reply = self.call(
-            None,
-            "POST",
-            "/auth/login",
-            json={"username": username, "password": self._password},
-        ).require(200)
+        reply = self._login_request(username)
+        for _ in range(LOGIN_ATTEMPTS - 1):
+            if reply.status != 429:
+                break
+            time.sleep(LOGIN_RETRY_S)
+            reply = self._login_request(username)
+        reply.require(200)
         body = reply.body if isinstance(reply.body, Mapping) else {}
         token = body.get("access_token")
         if not isinstance(token, str):
             raise GatewayError("login answered without an access_token")
         self._sessions[persona] = _Session(token, float(body.get("expires_in", 900)))
         return token
+
+    def _login_request(self, username: str) -> Reply:
+        return self.call(
+            None,
+            "POST",
+            "/auth/login",
+            json={"username": username, "password": self._password},
+        )
 
     def token(self, persona: str) -> str:
         """``persona``'s token: logged in on first use, renewed when it is

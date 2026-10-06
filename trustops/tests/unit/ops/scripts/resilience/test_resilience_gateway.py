@@ -65,6 +65,35 @@ def test_login_without_an_access_token_is_an_error() -> None:
         client.login("po")
 
 
+def test_a_rate_limited_login_is_waited_out_and_tried_again(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import time
+
+    slept: list[float] = []
+    monkeypatch.setattr(time, "sleep", slept.append)
+    answers = iter([429, 429, 200])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if next(answers) == 429:
+            return httpx.Response(429, json={"code": "rate_limited"})
+        return _login_ok(request)
+
+    assert _client(handler).login("po") == "token-for-pnair"
+    assert slept == [7.0, 7.0]
+
+
+def test_a_login_that_stays_rate_limited_gives_up_with_the_status(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import time
+
+    monkeypatch.setattr(time, "sleep", lambda seconds: None)
+    client = _client(lambda request: httpx.Response(429, json={"code": "rate_limited"}))
+    with pytest.raises(GatewayError, match="got 429"):
+        client.login("po")
+
+
 def test_a_refused_login_is_an_error_with_the_status() -> None:
     client = _client(lambda request: httpx.Response(429, json={"code": "rate_limited"}))
     with pytest.raises(GatewayError, match="got 429"):

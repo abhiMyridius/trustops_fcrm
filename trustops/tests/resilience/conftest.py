@@ -37,7 +37,12 @@ from resilience.report import (
     render_table,
     write_report,
 )
-from resilience.scenarios import create_scratch_case, discard_scratch_case, utc_stamp
+from resilience.scenarios import (
+    baseline_dead_letters,
+    create_scratch_case,
+    discard_scratch_case,
+    utc_stamp,
+)
 from resilience.shell import SubprocessRunner
 from resilience.stack import Stack
 
@@ -184,6 +189,19 @@ def stack() -> Iterator[Stack]:
         pytest.skip(message)
     yield handles
     handles.gateway.close()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def dead_letters_at_start(stack: Stack) -> dict[str, int]:
+    """What the dead-letter queues held before the first drill (statistics
+    settled): what is parked then is somebody else's, and the last drill
+    holds the drills to leaving nothing *more* than that.
+    """
+    depths = baseline_dead_letters(stack.broker)
+    left_over = {queue: depth for queue, depth in depths.items() if depth}
+    if left_over:
+        logger.warning("dead letters parked before the drills: %s", left_over)
+    return depths
 
 
 @pytest.fixture(autouse=True)

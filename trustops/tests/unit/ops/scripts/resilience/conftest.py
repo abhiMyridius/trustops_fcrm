@@ -84,6 +84,32 @@ def docker(runner: FakeRunner) -> DockerCli:
     return DockerCli(runner)
 
 
+class FakeReader:
+    """A case stream that has already read everything it will."""
+
+    def __init__(
+        self,
+        seqs: list[int],
+        *,
+        ended: Optional[str] = "closed by the server",
+        status: Optional[int] = 200,
+    ) -> None:
+        self.seqs = seqs
+        self.ended = ended
+        self.status = status
+        self.stopped = False
+
+    def wait_for(
+        self, predicate: Callable[[list[int]], bool], *, timeout_s: float
+    ) -> bool:
+        """Whether the predicate holds of what was read."""
+        return predicate(self.seqs)
+
+    def stop(self) -> None:
+        """Note that the drill finished with this reader."""
+        self.stopped = True
+
+
 class FakeGateway:
     """A gateway client answering from a table of ``(method, path)`` routes.
 
@@ -94,6 +120,8 @@ class FakeGateway:
     def __init__(self) -> None:
         self.routes: dict[tuple[str, str], Any] = {}
         self.calls: list[dict[str, Any]] = []
+        #: Readers :meth:`open_stream` hands out, in order.
+        self.streams: list[FakeReader] = []
 
     def route(self, method: str, path: str, *replies: Reply) -> None:
         """Answer ``method path`` with ``replies`` in order."""
@@ -116,6 +144,20 @@ class FakeGateway:
     def login(self, persona: str) -> str:
         """A token named for the persona."""
         return f"token-{persona}"
+
+    def open_stream(
+        self, persona: str, case_id: str, *, last_event_id: Optional[int] = None
+    ) -> FakeReader:
+        """The next scripted reader; the call is recorded."""
+        self.calls.append(
+            {
+                "persona": persona,
+                "method": "STREAM",
+                "path": case_id,
+                "last_event_id": last_event_id,
+            }
+        )
+        return self.streams.pop(0)
 
     def token(self, persona: str) -> str:
         """The persona's token."""
@@ -332,6 +374,16 @@ def incoming() -> Callable[..., FakeIncoming]:
 
 
 @pytest.fixture
+def reader() -> Callable[..., FakeReader]:
+    """``reader([1, 2, 3])`` builds a stream that already read those ``seq``."""
+
+    def build(seqs: list[int], **fields: Any) -> FakeReader:
+        return FakeReader(seqs, **fields)
+
+    return build
+
+
+@pytest.fixture
 def frozen_now() -> datetime:
     """A fixed UTC instant."""
     return FROZEN_NOW
@@ -348,6 +400,9 @@ class FakeWorld:
         self.dlq_depth: dict[str, int] = {}
         self.retry_depth = 0
         self.log: list[str] = []
+        #: One callable per ``queues()`` call, run before it answers (a test
+        #: uses them to move the world on between two polls).
+        self.script: list[Callable[[], None]] = []
 
 
 class FakeDocker:
@@ -446,6 +501,8 @@ class FakeBroker:
         """
         from resilience.broker import CONSUMED_QUEUES, QueueStat
 
+        if self._world.script:
+            self._world.script.pop(0)()
         stats = {name: QueueStat(name, 0, 0, 1) for name in CONSUMED_QUEUES}
         stats["agent-worker.run"] = QueueStat(
             "agent-worker.run", 0, 1 if self._world.inflight else 0, 1

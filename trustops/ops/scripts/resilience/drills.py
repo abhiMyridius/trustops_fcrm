@@ -841,14 +841,16 @@ def poison_the_steps_queue(stack: Stack, case_id: str) -> PoisonOutcome:
             message_type="harness.step",
         )
         began = time.monotonic()
-        wait_for_depth(stack, STEPS_RETRY, 1, timeout_s=60.0)
+        _, retry_peak = wait_for_depth(
+            stack, STEPS_RETRY, 1, timeout_s=60.0, watch=STEPS_RETRY
+        )
         other_case = create_scratch_case(gateway, "poison bystander")
         other_began = time.monotonic()
         wait_for_record(
             gateway, other_case, "workflow.started", timeout_s=RECORD_TIMEOUT_S
         )
         other_s = time.monotonic() - other_began
-        _, invalid_peak = wait_for_depth(
+        _, later_peak = wait_for_depth(
             stack,
             STEPS_DLQ,
             base + 2,
@@ -887,7 +889,7 @@ def poison_the_steps_queue(stack: Stack, case_id: str) -> PoisonOutcome:
     return PoisonOutcome(
         malformed_dlq_s=malformed_s,
         malformed_retry_peak=malformed_peak,
-        invalid_retry_peak=invalid_peak,
+        invalid_retry_peak=max(retry_peak, later_peak),
         invalid_dlq_s=invalid_s,
         shown=shown,
         other_case=other_case,
