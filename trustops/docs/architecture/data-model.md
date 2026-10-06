@@ -12,6 +12,7 @@ One MongoDB database per service (no service reads another's database directly �
 | `submission_versions` | `SubmissionVersionRow` | Frozen per case, unique `{case_id, version}`; written once, never updated. `SubmissionVersionDiff` is computed between two versions, not stored redundantly |
 | `po_decisions` | `PoDecisionRow` | The ledger of owner gate decisions: a deterministic `_id` per gate, so the first decision emits `gate.decided` and a later change to the same data does not |
 | `integrations` | `IntegrationRow` | One owner's choice per integration (`{user_id}`); no row means the catalogue default |
+| `reflags` | `fcrm_case.domain.reflags.ReflagRow` | A watchlist re-flag (`_id` = `rf_` plus a digest of the list version, the case and the jurisdiction, derived by H1, so a second post creates nothing): the reason, who wrote it (`agent` or `code`), the list entry it cites, the harness `run_id` and `gate_id` that decide it and, once an analyst acknowledged it, who and why. Acknowledging stores the row and enqueues `gate.decided` in one transaction and works on a closed case. Indexes `{created_at, _id}` (the paged list) and `{case_id}`. Analyst-only: no PO shape can carry one |
 | `review_items` | `ReviewItem` | One per clause/factor/control/critic-finding proposal; `kind` discriminates (`ItemKind`) |
 | `threads` | `ClarificationThreadPO` | One clarification round per document; `round_open` flag on the run mirrors whether a thread is still awaiting an answer |
 | `conditions` | `ConditionPO` | Activated on `outcome.set`; 14-day-before-due reminders are computed from `due`, not stored as separate reminder documents |
@@ -68,7 +69,7 @@ The queue is **one aggregation** over `cases` (`$match` scope/stage, a `$lookup`
 | `GET .../submissions`, `.../submissions/diff` | `submission_versions`; `fcrm_case.domain.diffing.diff_rows` compares any two |
 | `GET .../activity` | `activity`: one handler for the owner (`PoService`, plain words, unchanged) and the analyst (every row, who did it, the audit record and the gate it cites) |
 | `GET .../outcome` (analyst, committee) | `outcomes` and `conditions`; a seeded closed case reads its outcome from the seed. The owner's plainer shape is served from the same path by the owner's own routes |
-| `GET /internal/cases/{id}/submissions/diff`, `GET /internal/cases/search` | the `submission_diff` and `case_search` tools' service routes (service role only): the tool's own output models; the search ranks stored cases by title words and change types, with each one's recorded outcome |
+| `GET /internal/cases/{id}/submissions/diff` | the `submission_diff` tool's service route (service role only), in the tool's own output model: the fields whose *value* differs between two submissions (an origin-only change is not a changed field for a re-run). `GET /internal/cases/search`, the `case_search` tool's route, is the re-flag lane's (`routes_internal_reflags`) |
 
 Two item shapes read: H1's typed items (``fcrm_contracts.api.case_internal_assessment``) and the older flat items the seed wrote for cases that predate this system (a likelihood and an impact are two items; a control carries ``evidence``, no weight). The older ones take their control name and weight from the catalogue and have no factor justification.
 
@@ -108,6 +109,10 @@ Each of the three versioned collections has a unique `version` index and a parti
 | `proposals` | `Proposal` | The evidence ledger; `seq` is one monotonic number per case (`{case_id, seq}` unique); a later version is a new entry whose `supersedes` names the one it replaces, and `superseded_by` is derived on read |
 | `audit_records` | `AuditRecord` | Hash-chained, append-only (see `docs/governance/audit-chain.md`); written only by the `fcrm_audit_writer` Mongo user, which has no `update`/`remove` grant |
 | `idempotency_keys` | `_id` = the `Idempotency-Key` | `{kind, case_id, fingerprint, seq, result_id, at}`, inserted in the same transaction as the record or proposal it produced; 24 h TTL on `at`. A repeat with the same body replays the stored result, another body is a 409 |
+| `examiner_questions` | `fcrm_audit.examiner.QuestionRow` | An examiner's question about one case (`_id` = `exq_` plus a ULID): `{case_id, question, asked_by, asked_at}`. Inserted once, under the insert-only role; `{case_id, asked_at}` indexed |
+| `examiner_answers` | `fcrm_audit.examiner.AnswerRow` | The answer H1 posted (`_id` = the question's id, so the unique `_id` is the "one answer per question" guarantee): `{case_id, run_id, refused, sentences[{t, refs}], references, refusal_reason, fingerprint, answered_at}`. Inserted once; an identical post replays, a different one is a 409, and S4 refuses a `ref` beyond the chain head |
+
+S4 also **reads** `audit_records` and `proposals` for the Assurance screens (`GET overrides`, `GET versions/{case}`): the override rate is one aggregation over `audit_records` with `$unionWith` the ledger, and a case's pins are the `data.pins` of its `workflow.started` record. Both need only `find`, which the insert-only role has; indexes `{type, created_at}` on `audit_records` and `{agent}` on `proposals` serve them.
 
 ## `fcrm_decision` (S5)
 
@@ -124,7 +129,7 @@ Each of the three versioned collections has a unique `version` index and a parti
 
 | Collection | Shape | Notes |
 |---|---|---|
-| `case_runs` | `fcrm_caseflow.states.RunSnapshot` | One per run; `state` plus `RunFlags` (fast_lane, round_open, locked, pack_version, vote_round) |
+| `case_runs` | `fcrm_caseflow.states.RunSnapshot` | One per run; `state` plus `RunFlags` (fast_lane, round_open, locked, pack_version, vote_round). Oversight adds two kinds of row that are never a case in flight (state `closed`, `closed_at` set, the closing dispatch marked done, `refs.oversight` naming the kind): an **oversight run** for a case H1 never ran (so the examiner has a run to hang its job on) and the **harness run** of one jurisdiction list version (`case_id` = `WATCHLIST-<version>`, `_id` derived from the version), which owns the watchlist job and the re-flag gates |
 | `run_events` | `fcrm_caseflow.eventstore.RecordedTransition` (persisted form) | Append-only; `eventstore.rebuild` folds these back to a state and must equal the snapshot |
 | `agent_jobs` | — | Idempotency key = `sha256(case_id\|run_id\|agent\|step_key\|input_hash)`, unique |
 | `gates` | — | One per open-or-decided gate; `GateDecision` is what closes one |
@@ -167,6 +172,8 @@ Written by `python -m fcrm_evals run --producer live --publish` (`fcrm_evals.pub
   cases: [{row_id, status: "ok" | "blocked" | "failed" | null, tokens, cost_usd,
            latency_s | null, metrics: {name: score | null}}] }
 ```
+
+S4 reads this database through its **own read-only credential** (`fcrm_evals_reader`, role `fcrmEvalsReadOnly`: `find` on `eval_runs` and `eval_dashboards` and nothing else, `MONGODB_URI_EVALS_READER`); the insert-only audit role never reaches it, and S4 answers 503 for agent quality when the credential is missing.
 
 Rules for readers:
 

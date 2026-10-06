@@ -1,28 +1,18 @@
-"""S1's submission reads and the two service routes the agent tools call: the
-analyst's version list and diff, the ``submission_diff`` tool's comparison and
-the ``case_search`` tool's ranked search of past cases.
+"""S1's submission reads and the service route the ``submission_diff`` tool
+calls: the analyst's version list and diff, and the tool's comparison.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from fcrm_case.domain.analyst_submissions import (
-    CaseCandidate,
-    rank_cases,
-    similarity,
-    words,
-)
 from fcrm_case.domain.diffing import SubmissionVersionNotFoundError, diff_rows
-from fcrm_case.domain.outcome import OutcomeRow
 from fcrm_contracts.api.case_analyst_read import SubmissionDiff, SubmissionVersion
-from fcrm_contracts.enums import CaseState, Outcome, Role
-from fcrm_contracts.tools.case_search import CaseSearchOutput
+from fcrm_contracts.enums import Role
 from fcrm_contracts.tools.submission_diff import SubmissionDiffOutput
-from fcrm_tools.http_case_tools import CASE_SEARCH_PATH, SUBMISSION_DIFF_PATH
+from fcrm_tools.http_case_tools import SUBMISSION_DIFF_PATH
 
 if TYPE_CHECKING:
     from conftest import AnalystRead, AssessedCase
@@ -31,7 +21,6 @@ CASE = "FCRM-2026-0151"
 SUBMISSIONS = f"/cases/{CASE}/submissions"
 DIFF = f"/cases/{CASE}/submissions/diff"
 TOOL_DIFF = f"/internal/cases/{CASE}/submissions/diff"
-SEARCH = "/internal/cases/search"
 
 
 # ── who may read ────────────────────────────────────────────────────────────────
@@ -50,9 +39,7 @@ def test_only_an_analyst_may_read_the_submissions(
 
 
 @pytest.mark.parametrize("role", [Role.PO, Role.ANALYST, Role.COMMITTEE, Role.OBSERVER])
-@pytest.mark.parametrize(
-    "path", [f"{TOOL_DIFF}?from_version=1&to_version=2", f"{SEARCH}?q=remittance"]
-)
+@pytest.mark.parametrize("path", [f"{TOOL_DIFF}?from_version=1&to_version=2"])
 def test_only_the_service_may_call_the_tool_routes(
     submitted_case: AssessedCase,
     act_as: Callable[[Role, str], None],
@@ -252,10 +239,10 @@ def test_the_tool_diff_refuses_a_bad_version(
     )
 
 
-def test_the_tools_paths_are_the_routes_s1_serves(
+def test_the_tools_path_is_the_route_s1_serves(
     submitted_case: AssessedCase, act_as: Callable[[Role, str], None]
 ) -> None:
-    """The paths the tools are coded against answer, in the tools' own models."""
+    """The path the tool is coded against answers, in the tool's own model."""
     act_as(Role.SERVICE, "svc:caseflow")
     client = submitted_case.client
     diff = client.get(
@@ -264,184 +251,9 @@ def test_the_tools_paths_are_the_routes_s1_serves(
     )
     assert diff.status_code == 200
     assert SubmissionDiffOutput.model_validate(diff.json()).changed_fields
-    found = client.get(CASE_SEARCH_PATH, params={"q": "remittances"})
-    assert found.status_code == 200
-    CaseSearchOutput.model_validate(found.json())
-
-
-# ── the case_search tool's route ────────────────────────────────────────────────
-
-
-@pytest.fixture
-def searching(
-    seeded_analyst_read: AnalystRead, act_as: Callable[[Role, str], None]
-) -> AnalystRead:
-    act_as(Role.SERVICE, "svc:caseflow")
-    return seeded_analyst_read
-
-
-def closed_titles(read: AnalystRead) -> list[tuple[str, str, list[str]]]:
-    records = read.service.store.records.values()
-    return sorted(
-        (r.case_id, r.title, [t.value for t in r.change_types])
-        for r in records
-        if r.state is CaseState.CLOSED
-    )
-
-
-def search(read: AnalystRead, **params: Any) -> CaseSearchOutput:
-    response = read.client.get(SEARCH, params=params)
-    assert response.status_code == 200, response.text
-    return CaseSearchOutput.model_validate(response.json())
-
-
-def test_a_case_title_finds_that_case_first(searching: AnalystRead) -> None:
-    case_id, title, _ = closed_titles(searching)[0]
-    out = search(searching, q=title)
-    assert out.hits[0].case_id == case_id or out.hits[0].similarity == 1.0
-    assert out.hits[0].similarity == 1.0
-    assert all(
-        a.similarity >= b.similarity
-        for a, b in zip(out.hits, out.hits[1:], strict=False)
-    )
-    assert len(out.hits) <= 5
-
-
-def test_a_closed_case_hit_carries_the_seeds_outcome(searching: AnalystRead) -> None:
-    case_id, title, _ = closed_titles(searching)[0]
-    hit = next(
-        h for h in search(searching, q=title, top_k=25).hits if h.case_id == case_id
-    )
-    assert hit.outcome in {"approve", "approve_with_conditions", "defer", "reject"}
-
-
-def test_a_recorded_outcome_beats_the_seeds(searching: AnalystRead) -> None:
-    case_id, title, _ = closed_titles(searching)[0]
-    searching.service.outcomes.outcomes[case_id] = OutcomeRow(
-        case_id=case_id,
-        status="set",
-        outcome=Outcome.REJECT,
-        mode="committee",
-        decided_by="svc:caseflow",
-        decided_at=datetime(2026, 10, 7, tzinfo=UTC),
-        pack_id="p1",
-    )
-    hit = next(
-        h for h in search(searching, q=title, top_k=25).hits if h.case_id == case_id
-    )
-    assert hit.outcome == "reject"
-
-
-def test_closed_only_is_the_default_and_can_be_turned_off(
-    searching: AnalystRead,
-) -> None:
-    open_case = next(
-        r
-        for r in searching.service.store.records.values()
-        if r.state is CaseState.REVIEW
-    )
-    closed_default = search(searching, q=open_case.title, top_k=25)
-    assert open_case.case_id not in [h.case_id for h in closed_default.hits]
-    everything = search(searching, q=open_case.title, top_k=25, closed_only="false")
-    assert open_case.case_id in [h.case_id for h in everything.hits]
-    assert (
-        next(h for h in everything.hits if h.case_id == open_case.case_id).outcome
-        is None
-    )
-
-
-def test_change_types_narrow_and_blend_into_the_similarity(
-    searching: AnalystRead,
-) -> None:
-    out = search(
-        searching, q="payout partner", change_types="vendor_onboarding", top_k=25
-    )
-    records = searching.service.store.records
-    assert out.hits
-    for hit in out.hits:
-        assert "vendor_onboarding" in [
-            t.value for t in records[hit.case_id].change_types
-        ]
-
-
-def test_a_bad_search_is_a_422(searching: AnalystRead) -> None:
-    client = searching.client
-    assert client.get(SEARCH).status_code == 422
-    assert client.get(SEARCH, params={"q": ""}).status_code == 422
-    assert client.get(SEARCH, params={"q": "x" * 1001}).status_code == 422
-    assert client.get(SEARCH, params={"q": "a", "top_k": 0}).status_code == 422
-    assert client.get(SEARCH, params={"q": "a", "top_k": 26}).status_code == 422
-    assert (
-        client.get(SEARCH, params={"q": "a", "change_types": "nonsense"}).status_code
-        == 422
-    )
-
-
-def test_a_geography_filter_keeps_only_cases_in_that_geography(
-    searching: AnalystRead,
-) -> None:
-    records = searching.service.store.records
-    with_geo = next(r for r in records.values() if r.geographies)
-    out = search(
-        searching,
-        q=with_geo.title,
-        geography=with_geo.geographies[0],
-        top_k=25,
-        closed_only="false",
-    )
-    assert [h.case_id for h in out.hits] == [with_geo.case_id]
-    elsewhere = search(
-        searching, q=with_geo.title, geography="Atlantis", top_k=25, closed_only="false"
-    )
-    assert elsewhere.hits == []
-
-
-def test_a_query_nothing_matches_has_no_hits(searching: AnalystRead) -> None:
-    assert search(searching, q="zzzzzz qqqqqq").hits == []
 
 
 # ── the pure parts ──────────────────────────────────────────────────────────────
-
-
-def test_words_keeps_three_letter_words_and_drops_the_rest() -> None:
-    assert words("A new US-Mexico payout, via FX!") == {
-        "new",
-        "mexico",
-        "payout",
-        "via",
-    }
-
-
-@pytest.mark.parametrize(
-    ("query", "wanted", "expected"),
-    [
-        ("payout partner", frozenset(), 1.0),
-        ("payout partner", frozenset({"vendor_onboarding"}), 1.0),
-        ("payout", frozenset(), 0.5),
-        ("cash", frozenset(), 0.0),
-        ("cash", frozenset({"vendor_onboarding"}), 0.3),
-        ("payout", frozenset({"vendor_onboarding", "new_geography"}), 0.5),
-    ],
-)
-def test_similarity_blends_title_overlap_and_change_types(
-    query: str, wanted: frozenset[str], expected: float
-) -> None:
-    candidate = CaseCandidate("c1", "Payout partner", ("vendor_onboarding",), None)
-    assert similarity(words(query), wanted, candidate) == pytest.approx(expected)
-
-
-def test_ranking_orders_by_similarity_then_case_id_and_drops_zero() -> None:
-    candidates = [
-        CaseCandidate("c3", "Payout partner onboarding", (), "approve"),
-        CaseCandidate("c1", "Payout partner onboarding", (), None),
-        CaseCandidate("c2", "Branch cash handling", (), "defer"),
-    ]
-    hits = rank_cases("payout partner", [], candidates, 5)
-    assert [h.case_id for h in hits] == ["c1", "c3"]
-    assert [h.outcome for h in hits] == [None, "approve"]
-    assert [h.case_id for h in rank_cases("payout partner", [], candidates, 1)] == [
-        "c1"
-    ]
 
 
 def test_diff_rows_orders_fields_and_finds_added_documents(

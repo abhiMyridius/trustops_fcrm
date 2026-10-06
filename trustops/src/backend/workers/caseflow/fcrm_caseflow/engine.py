@@ -88,6 +88,11 @@ from fcrm_caseflow.gates import (
     deterministic_gate_id,
     gate_document,
 )
+from fcrm_caseflow.oversight_runs import (
+    GLOBAL_EVENT_TYPES,
+    OversightRuns,
+    oversight_result_trigger,
+)
 from fcrm_caseflow.resolve import (
     agent_done_agent,
     agent_done_pair_members,
@@ -211,6 +216,10 @@ class CaseflowEngine:
             type (``case.created``, ``case.submitted``), the engine skips its
             generic per-transition record of that type, so the chain does not
             carry the same type twice.
+        oversight: Finds or opens the run of an oversight event that names no
+            open run (``examiner.asked``, ``jurisdiction.list_published``;
+            :mod:`fcrm_caseflow.oversight_runs`). Without it those two events
+            are refused rather than treated as orphans of a case.
     """
 
     def __init__(
@@ -225,6 +234,7 @@ class CaseflowEngine:
         results: Optional[AgentResultStore] = None,
         ingest_bucket: str = "canonical",
         records_for: Mapping[StepKind, tuple[str, ...]] = RECORDS_FOR,
+        oversight: Optional[OversightRuns] = None,
     ) -> None:
         self._runs = runs
         self._gates = gates
@@ -235,6 +245,7 @@ class CaseflowEngine:
         self._results = results
         self._ingest_bucket = ingest_bucket
         self._records_for = records_for
+        self._oversight = oversight
 
     async def handle(
         self, envelope: Envelope, session: Optional[AsyncClientSession]
@@ -278,12 +289,19 @@ class CaseflowEngine:
         if envelope.type == "case.created":
             await self._open_run(envelope, session)
             return
+        if envelope.type in GLOBAL_EVENT_TYPES:
+            await self._handle_global(envelope, session)
+            return
         run = await self._load_run(envelope, session)
         if run is None:
             raise OrphanEventError(
                 f"{envelope.type} for case={envelope.case_id} run={envelope.run_id} "
                 "has no open run"
             )
+        result_trigger = oversight_result_trigger(envelope)
+        if result_trigger is not None:
+            await self._handle_oversight_result(envelope, run, result_trigger, session)
+            return
         resolution = await self._resolve(envelope, run, session)
         if resolution is None:
             # No primary trigger for this event (an informational-only
@@ -297,6 +315,7 @@ class CaseflowEngine:
             # D-15 — see the package report.
             run = await self._po_action_step(envelope, run, session)
             run = await self._ack_step(envelope, run, session)
+            run = await self._reflag_ack_step(envelope, run, session)
             base_ctx = TransitionContext(flags=run.snapshot.flags, band=run.band)
             await self._chain_internal(run, base_ctx, session, envelope.event_id)
             return
@@ -340,6 +359,76 @@ class CaseflowEngine:
                 summary="run opened; pins recorded",
                 data={"run_id": run.snapshot.run_id},
             )
+
+    # -- oversight (scene 20) ------------------------------------------
+
+    async def _handle_global(
+        self, envelope: Envelope, session: AsyncClientSession
+    ) -> None:
+        """An oversight event that names no open run: find or open the run it
+        belongs to and enqueue the step-only trigger's step (no transition).
+
+        Raises:
+            ValueError: The engine was built without ``oversight``.
+        """
+        if self._oversight is None:
+            raise ValueError(
+                f"{envelope.type} needs the engine's oversight runs "
+                "(fcrm_caseflow.oversight_runs.OversightRuns)"
+            )
+        target = await self._oversight.target_for(envelope, session)
+        await self._enqueue_step_for(
+            target.run,
+            target.trigger,
+            envelope.event_id,
+            envelope.event_id,
+            envelope.payload,
+            session,
+        )
+
+    async def _handle_oversight_result(
+        self,
+        envelope: Envelope,
+        run: CaseRun,
+        trigger: Trigger,
+        session: AsyncClientSession,
+    ) -> None:
+        """An ``agent.done`` / ``agent.failed`` of the examiner or the watchlist:
+        keep the result, then enqueue the step that answers or flags. It never
+        reaches the transition table, so a failed examiner on a closed run is a
+        refusal, not an illegal transition.
+        """
+        if envelope.type == "agent.done" and self._results is not None:
+            await self._results.save(envelope.payload, session=session)
+        await self._enqueue_step_for(
+            run,
+            trigger,
+            envelope.event_id,
+            envelope.event_id,
+            envelope.payload,
+            session,
+        )
+
+    async def _reflag_ack_step(
+        self, envelope: Envelope, run: CaseRun, session: AsyncClientSession
+    ) -> CaseRun:
+        """Start ``reflag.ack`` for an analyst's acknowledgement of a re-flag, in
+        this transaction and without a transition: the step records it on the
+        re-flagged case's chain. Any other event leaves the run unchanged.
+        """
+        if (
+            envelope.type != "gate.decided"
+            or envelope.payload.get("gate_type") != GateType.REFLAG_ACK.value
+        ):
+            return run
+        return await self._enqueue_step_for(
+            run,
+            Trigger.GATE_DECIDED_REFLAG_ACK,
+            envelope.event_id,
+            envelope.event_id,
+            envelope.payload,
+            session,
+        )
 
     # -- loading the target run --------------------------------------
 
@@ -707,11 +796,13 @@ class CaseflowEngine:
         required_role: Role,
         subject: Mapping[str, str],
         session: AsyncClientSession,
+        *,
+        case_id: Optional[str] = None,
     ) -> None:
         opened = GateOpened(
             gate_id=gate_id,
             gate_type=gate_type,
-            case_id=run.snapshot.case_id,
+            case_id=case_id or run.snapshot.case_id,
             run_id=run.snapshot.run_id,
             subject=dict(subject),
             required_role=required_role.value,
@@ -719,7 +810,7 @@ class CaseflowEngine:
         env = build_envelope(
             "gate.opened",
             opened.model_dump(mode="json"),
-            case_id=run.snapshot.case_id,
+            case_id=case_id or run.snapshot.case_id,
             run_id=run.snapshot.run_id,
         )
         await self._outbox.enqueue(session, env)
@@ -956,9 +1047,10 @@ class CaseflowEngine:
             run.snapshot.run_id, spec.gate_type, spec.subject_key
         )
         required_role = REQUIRED_ROLE[spec.gate_type]
+        gate_case_id = spec.case_id or run.snapshot.case_id
         document: Document = gate_document(
             gate_id=gate_id,
-            case_id=run.snapshot.case_id,
+            case_id=gate_case_id,
             run_id=run.snapshot.run_id,
             gate_type=spec.gate_type,
             required_role=required_role,
@@ -971,7 +1063,13 @@ class CaseflowEngine:
             )
             return
         await self._announce_gate_opened(
-            run, gate_id, spec.gate_type, required_role, spec.subject, session
+            run,
+            gate_id,
+            spec.gate_type,
+            required_role,
+            spec.subject,
+            session,
+            case_id=gate_case_id,
         )
 
     async def _close_step_gate(
@@ -1001,7 +1099,8 @@ class CaseflowEngine:
     ) -> None:
         jobs = result.agent_jobs_to_dispatch
         envelopes = [
-            build_job_envelope(job.dispatch, run, refs=job.refs) for job in jobs
+            build_job_envelope(job.dispatch, run, refs=job.refs, pins=job.pins)
+            for job in jobs
         ]
         for env in envelopes:
             await self._outbox.enqueue(session, env)

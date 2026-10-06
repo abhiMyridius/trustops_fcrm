@@ -1946,3 +1946,123 @@ def decision_deps_factory(
         return StepDeps(**values)
 
     return build
+
+
+# --- the peers the oversight steps call (the examiner and the watchlist) -------
+
+
+class FakeExaminerService(FakePeer):
+    """S4's ``POST /examiner/answers`` as the real service behaves: an answer is
+    stored once per question, an identical one again is a replay (200), a
+    different one is a 409, and an answer citing a record beyond the chain head
+    (``head``) is a 422.
+    """
+
+    BASE_PATH = "/api/fcrm/audit"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.head = 99
+        self.answers: dict[str, dict[str, Any]] = {}
+
+    def route(self, call: Call) -> httpx.Response:
+        if (call.method, call.path) != ("POST", "/examiner/answers"):
+            return problem(404, f"no route {call.method} {call.path}")
+        body = call.body or {}
+        cited = {ref for s in body.get("sentences", []) for ref in s["refs"]}
+        if any(ref > self.head for ref in cited):
+            return problem(422, "cites a record the chain does not hold")
+        stored = self.answers.get(body["question_id"])
+        if stored is not None and stored != body:
+            return coded_problem(409, "conflict")
+        self.answers[body["question_id"]] = body
+        out = {**body, "question": "the question as S4 holds it"}
+        out.pop("run_id")
+        return httpx.Response(200 if stored is not None else 201, json=out)
+
+
+class FakeReflagService(FakePeer):
+    """S1's internal re-flag routes: ``candidates`` is what the match returns for
+    any query (filtered to the countries asked), ``rows`` the re-flags held, one
+    per id. ``queries`` records the countries of each candidate request.
+    """
+
+    BASE_PATH = "/api/fcrm"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.candidates: list[dict[str, Any]] = []
+        self.rows: dict[str, dict[str, Any]] = {}
+        self.queries: list[list[str]] = []
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        """Keep every ``countries`` value (a plain ``dict`` would keep one)."""
+        if request.url.path.endswith("/internal/reflags/candidates"):
+            self.queries.append(request.url.params.get_list("countries"))
+        return super().handler(request)
+
+    def route(self, call: Call) -> httpx.Response:
+        if (call.method, call.path) == ("GET", "/internal/reflags/candidates"):
+            asked = set(self.queries[-1])
+            items = [c for c in self.candidates if c["jurisdiction"] in asked]
+            return httpx.Response(200, json={"items": items})
+        if (call.method, call.path) == ("POST", "/internal/reflags"):
+            body = call.body or {}
+            created = 0
+            for row in body["reflags"]:
+                if row["reflag_id"] not in self.rows:
+                    self.rows[row["reflag_id"]] = row
+                    created += 1
+            return httpx.Response(
+                200,
+                json={
+                    "created": created,
+                    "replayed": len(body["reflags"]) - created,
+                    "reflag_ids": [r["reflag_id"] for r in body["reflags"]],
+                },
+            )
+        return problem(404, f"no route {call.method} {call.path}")
+
+
+class FakeJurisdictionPolicyService(FakePolicyService):
+    """S3 with ``GET /jurisdictions/versions``: ``versions`` as
+    ``(version, published)`` pairs.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.versions: list[tuple[str, str]] = [
+            ("v2026-06", "2026-06-19"),
+            ("v2026-10-fixture", "fixture"),  # S3 files a fixture under the word
+        ]
+
+    def route(self, call: Call) -> httpx.Response:
+        if (call.method, call.path) == ("GET", "/jurisdictions/versions"):
+            items = [
+                {
+                    "version": version,
+                    "published": published,
+                    "fixture": version.endswith("fixture"),
+                    "active": version == self.versions[-1][0],
+                }
+                for version, published in self.versions
+            ]
+            return httpx.Response(
+                200, json={"items": items, "next_cursor": None, "total": len(items)}
+            )
+        return super().route(call)
+
+
+@pytest.fixture
+def examiner_service() -> FakeExaminerService:
+    return FakeExaminerService()
+
+
+@pytest.fixture
+def reflag_service() -> FakeReflagService:
+    return FakeReflagService()
+
+
+@pytest.fixture
+def jurisdiction_policy_service() -> FakeJurisdictionPolicyService:
+    return FakeJurisdictionPolicyService()

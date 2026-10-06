@@ -9,7 +9,7 @@ own: one is built per request from the stores ``lifespan.register`` wired.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from datetime import datetime
 from typing import Optional
 
@@ -33,7 +33,6 @@ from fcrm_contracts.api.case_analyst_read import (
     WorkbenchHeader,
 )
 from fcrm_contracts.common import Page, Principal
-from fcrm_contracts.tools.case_search import CaseSearchOutput
 from fcrm_contracts.tools.submission_diff import SubmissionDiffOutput
 
 from fcrm_case.analyst_read_store import (
@@ -54,8 +53,6 @@ from fcrm_case.domain.analyst_assessment import (
 )
 from fcrm_case.domain.analyst_feed import activity_analyst, outcome_analyst
 from fcrm_case.domain.analyst_submissions import (
-    CaseCandidate,
-    rank_cases,
     submission_diff,
     submission_version,
     tool_diff,
@@ -374,33 +371,6 @@ class AnalystReadService:
         """The same comparison in the ``submission_diff`` tool's shape."""
         await self.case(case_id)
         return tool_diff(await self._diff(case_id, from_version, to_version))
-
-    async def search(
-        self,
-        *,
-        query: str,
-        change_types: Sequence[str],
-        top_k: int,
-        closed_only: bool,
-        geography: Optional[str],
-    ) -> CaseSearchOutput:
-        """Cases like ``query``, best first: ranked by word overlap with the
-        title and overlap of change types, each with its recorded outcome (the
-        seed's for a seeded case with no outcome row of its own).
-        """
-        found = await self._reads.search_candidates(
-            change_types=change_types, geography=geography, closed_only=closed_only
-        )
-        seeded = seeded_outcomes()
-        candidates = [
-            c
-            if c.outcome is not None
-            else CaseCandidate(
-                c.case_id, c.title, c.change_types, seeded.get(c.case_id)
-            )
-            for c in found
-        ]
-        return CaseSearchOutput(hits=rank_cases(query, change_types, candidates, top_k))
 
     # -- the activity feed and the outcome, as staff read them ----------------------
 

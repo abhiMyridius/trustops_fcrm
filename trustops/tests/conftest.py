@@ -1937,7 +1937,6 @@ def analyst_read(
         critic_count,
         lambda: case_service.store.activity.entries,
         lambda: case_service.po.submissions.values(),
-        lambda: case_service.outcomes.outcomes,
     )
     app = case_service.client.app
     app.state.assessment = assessment_store  # type: ignore[attr-defined]

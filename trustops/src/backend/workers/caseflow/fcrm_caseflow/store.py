@@ -418,6 +418,18 @@ class CaseRunStore:
         )
         return case_run_from_document(doc) if doc is not None else None
 
+    async def get_any_by_case_id(
+        self, case_id: str, *, session: Optional[AsyncClientSession] = None
+    ) -> Optional[CaseRun]:
+        """The oldest run of ``case_id`` whether it is open or closed: what
+        oversight reads (a question about a closed case), where
+        :meth:`get_by_case_id` deliberately ignores a closed run.
+        """
+        doc = await self._case_runs.find_one(
+            {"case_id": case_id}, sort=[("opened_at", ASCENDING)], session=session
+        )
+        return case_run_from_document(doc) if doc is not None else None
+
     async def create(
         self, document: Document, *, session: Optional[AsyncClientSession] = None
     ) -> CaseRun:

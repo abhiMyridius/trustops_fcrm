@@ -29,7 +29,7 @@ the moment the analyst first looked at the risk view.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Final, Optional, Protocol
@@ -45,7 +45,6 @@ from pymongo import ASCENDING, AsyncMongoClient, IndexModel
 from pymongo.asynchronous.collection import AsyncCollection
 
 from fcrm_case.domain.activity import ActivityEntry
-from fcrm_case.domain.analyst_submissions import CaseCandidate
 from fcrm_case.domain.analyst_views import (
     FAST_LANE_STAGE,
     NEEDS_RANK,
@@ -55,7 +54,6 @@ from fcrm_case.domain.analyst_views import (
     QueueRow,
     StageSpan,
 )
-from fcrm_case.domain.outcome import OutcomeRow
 from fcrm_case.domain.po_rows import SubmissionVersionRow
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.views import ScoreSnapshotRow
@@ -67,8 +65,6 @@ logger = logging.getLogger(__name__)
 MAX_ACKNOWLEDGEMENTS: Final = 100
 MAX_STAGE_CHANGES: Final = 500
 MAX_SUBMISSIONS: Final = 100
-#: Most cases one search ranks; newest first.
-MAX_SEARCH_CANDIDATES: Final = 500
 #: A queue page is at most this many rows and starts at most this far in.
 MAX_QUEUE_OFFSET: Final = 10_000
 
@@ -133,19 +129,6 @@ class AnalystReadStore(Protocol):
 
     async def list_submissions(self, case_id: str) -> list[SubmissionVersionRow]:
         """The case's frozen submissions, oldest version first (bounded)."""
-        ...
-
-    async def search_candidates(
-        self,
-        *,
-        change_types: Sequence[str],
-        geography: Optional[str],
-        closed_only: bool,
-    ) -> list[CaseCandidate]:
-        """Cases a search may rank: submitted, optionally closed only, sharing a
-        change type and a geography when those are given; newest first, bounded,
-        each with its recorded outcome (one aggregation).
-        """
         ...
 
     async def put_harness(
@@ -276,36 +259,6 @@ def queue_pipeline(query: QueueQuery) -> list[dict[str, Any]]:
     return pipeline
 
 
-def search_pipeline(
-    change_types: Sequence[str], geography: Optional[str], closed_only: bool
-) -> list[dict[str, Any]]:
-    """The one aggregation behind a case search: the filtered, newest-first,
-    bounded candidates and a ``$lookup`` of each one's recorded outcome.
-    """
-    match: dict[str, Any] = {"discarded_at": None, "submitted_at": {"$ne": None}}
-    if closed_only:
-        match["state"] = CaseState.CLOSED.value
-    if change_types:
-        match["change_types"] = {"$in": list(change_types)}
-    if geography:
-        match["geographies"] = geography
-    return [
-        {"$match": match},
-        {"$sort": {"submitted_at": -1, "_id": 1}},
-        {"$limit": MAX_SEARCH_CANDIDATES},
-        {
-            "$lookup": {
-                "from": "outcomes",
-                "localField": "_id",
-                "foreignField": "_id",
-                "pipeline": [{"$project": {"outcome": 1}}],
-                "as": "recorded",
-            }
-        },
-        {"$project": {"title": 1, "change_types": 1, "recorded": 1}},
-    ]
-
-
 def queue_row_from_document(doc: dict[str, Any]) -> QueueRow:
     """One ``items`` document of the queue aggregation as a :class:`QueueRow`."""
     snap: dict[str, Any] = (doc.get("snap") or [{}])[0]
@@ -369,7 +322,7 @@ class MongoAnalystReadStore:
 
     async def ensure_indexes(self) -> None:
         """``cases`` ``{state, submitted_at}`` for the stage-filtered queue and
-        ``{change_types, state}`` for the case search, and ``acknowledgements``
+        and ``acknowledgements``
         ``{case_id, at}``.
         """
         await self._cases.ensure_indexes(
@@ -377,10 +330,6 @@ class MongoAnalystReadStore:
                 IndexModel(
                     [("state", ASCENDING), ("submitted_at", ASCENDING)],
                     name="state_submitted_idx",
-                ),
-                IndexModel(
-                    [("change_types", ASCENDING), ("state", ASCENDING)],
-                    name="types_state_idx",
                 ),
             ]
         )
@@ -549,38 +498,11 @@ class MongoAnalystReadStore:
         doc = await self._harness.find_one({"_id": case_id}, projection={"snapshot": 1})
         return HarnessSnapshot.model_validate(doc["snapshot"]) if doc else None
 
-    async def search_candidates(
-        self,
-        *,
-        change_types: Sequence[str],
-        geography: Optional[str],
-        closed_only: bool,
-    ) -> list[CaseCandidate]:
-        docs = await self._cases.aggregate(
-            search_pipeline(change_types, geography, closed_only)
-        )
-        return [
-            CaseCandidate(
-                case_id=str(d["_id"]),
-                title=str(d["title"]),
-                change_types=tuple(str(c) for c in d.get("change_types") or ()),
-                outcome=str(d["recorded"][0]["outcome"])
-                if d.get("recorded") and d["recorded"][0].get("outcome")
-                else None,
-            )
-            for d in docs
-        ]
-
 
 # -- the in-memory twin -----------------------------------------------------------
 
 
 _LATEST: Final = datetime.max.replace(tzinfo=UTC)
-
-
-def _negated(moment: Optional[datetime]) -> float:
-    """A sort key that orders newest first (``None`` last)."""
-    return -moment.timestamp() if moment is not None else float("inf")
 
 
 def _needs_key(row: QueueRow) -> tuple[int, datetime, str]:
@@ -601,7 +523,6 @@ class InMemoryAnalystReadStore:
         critic_counts: A callable giving a case's critic finding count.
         activity: ``InMemoryActivityLog.entries``.
         submissions: The in-memory PO store's frozen submissions.
-        outcomes: The in-memory outcome store's rows by case id.
     """
 
     def __init__(
@@ -611,14 +532,12 @@ class InMemoryAnalystReadStore:
         critic_counts: Callable[[str], int],
         activity: Callable[[], list[ActivityEntry]],
         submissions: Callable[[], Iterable[SubmissionVersionRow]] = lambda: (),
-        outcomes: Callable[[], Mapping[str, OutcomeRow]] = lambda: {},
     ) -> None:
         self._records = records
         self._snapshots = snapshots
         self._critic_counts = critic_counts
         self._activity = activity
         self._submissions = submissions
-        self._outcomes = outcomes
         self.harness: dict[str, HarnessPush] = {}
         self.acks: list[tuple[str, Acknowledgement]] = []
 
@@ -749,41 +668,6 @@ class InMemoryAnalystReadStore:
     async def list_submissions(self, case_id: str) -> list[SubmissionVersionRow]:
         rows = [r for r in self._submissions() if r.case_id == case_id]
         return sorted(rows, key=lambda r: r.version)[:MAX_SUBMISSIONS]
-
-    async def search_candidates(
-        self,
-        *,
-        change_types: Sequence[str],
-        geography: Optional[str],
-        closed_only: bool,
-    ) -> list[CaseCandidate]:
-        found = [
-            r
-            for r in self._records.values()
-            if r.submitted_at is not None
-            and r.discarded_at is None
-            and (not closed_only or r.state is CaseState.CLOSED)
-            and (
-                not change_types or any(t.value in change_types for t in r.change_types)
-            )
-            and (not geography or geography in r.geographies)
-        ]
-        found.sort(key=lambda r: (_negated(r.submitted_at), r.case_id))
-        outcomes = self._outcomes()
-
-        def recorded(case_id: str) -> Optional[str]:
-            row = outcomes.get(case_id)
-            return row.outcome.value if row is not None and row.outcome else None
-
-        return [
-            CaseCandidate(
-                case_id=r.case_id,
-                title=r.title,
-                change_types=tuple(t.value for t in r.change_types),
-                outcome=recorded(r.case_id),
-            )
-            for r in found[:MAX_SEARCH_CANDIDATES]
-        ]
 
     async def put_harness(
         self, case_id: str, push: HarnessPush, at: datetime

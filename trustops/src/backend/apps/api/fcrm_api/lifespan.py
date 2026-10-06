@@ -146,6 +146,13 @@ async def api_lifespan(app: FastAPI) -> AsyncIterator[None]:
     async with AsyncExitStack() as stack:
         app_mongo = await stack.enter_async_context(mongo_client(app_uri))
         audit_mongo = await stack.enter_async_context(mongo_client(writer_uri))
+        evals_mongo = (
+            await stack.enter_async_context(
+                mongo_client(settings.mongodb_uri_evals_reader)
+            )
+            if settings.mongodb_uri_evals_reader
+            else None
+        )
         verifier = TokenVerifier.from_settings(settings)
         stack.push_async_callback(verifier.aclose)
         opa = OPAClient(opa_url)
@@ -167,6 +174,7 @@ async def api_lifespan(app: FastAPI) -> AsyncIterator[None]:
                 publisher=publisher,
                 lease_holder=lease_holder,
                 broker=broker,
+                evals_mongo=evals_mongo if mount.mongo_role == "audit_writer" else None,
             )
             await stack.enter_async_context(
                 mount.register(sub, _service_settings(mount, settings), deps)

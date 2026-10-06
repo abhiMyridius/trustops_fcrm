@@ -447,7 +447,6 @@ async def test_the_queue_uses_its_indexes(live_case: LiveCase) -> None:
         i["name"] async for i in await live_case.db["acknowledgements"].list_indexes()
     }
     assert "case_at" in acks
-    assert "types_state_idx" in names
 
 
 # ── the activity feed and the outcome ───────────────────────────────────────────
@@ -617,10 +616,9 @@ async def test_the_submissions_and_their_diff_are_read_from_the_collection(
     assert missing.status_code == 404
 
 
-async def test_the_service_routes_answer_the_tools_in_their_own_models(
+async def test_the_service_route_answers_the_tool_in_its_own_model(
     live_case: LiveCase,
 ) -> None:
-    from fcrm_contracts.tools.case_search import CaseSearchOutput
     from fcrm_contracts.tools.submission_diff import SubmissionDiffOutput
 
     await _freeze_two_submissions(live_case)
@@ -634,25 +632,15 @@ async def test_the_service_routes_answer_the_tools_in_their_own_models(
         c.field_id
         for c in SubmissionDiffOutput.model_validate(diff.json()).changed_fields
     ] == ["F11"]
-    closed = await live_case.db["cases"].find_one({"state": "closed"})
-    found = await http.get(
-        "/internal/cases/search", params={"q": closed["title"], "top_k": 3}
-    )
-    assert found.status_code == 200, found.text
-    hits = CaseSearchOutput.model_validate(found.json()).hits
-    assert hits[0].similarity == 1.0
-    assert hits[0].outcome in {"approve", "approve_with_conditions", "defer", "reject"}
-    open_only = await http.get(
-        "/internal/cases/search",
-        params={"q": "payout", "closed_only": "false", "top_k": 25},
-    )
-    assert open_only.status_code == 200
 
 
 async def test_a_person_cannot_call_the_service_routes(
     live_case: LiveCase, live_analyst: httpx.AsyncClient
 ) -> None:
-    refused = await live_analyst.get("/internal/cases/search", params={"q": "payout"})
+    refused = await live_analyst.get(
+        "/internal/cases/FCRM-2026-0151/submissions/diff",
+        params={"from_version": 1, "to_version": 2},
+    )
     assert refused.status_code == 403
 
 

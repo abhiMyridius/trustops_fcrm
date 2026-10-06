@@ -82,6 +82,14 @@ class TestStepFor:
             Trigger.CASE_CREATED,
             Trigger.GATE_DECIDED_PO_ACTION,
             Trigger.GATE_DECIDED_ACK,
+            # oversight: the examiner, the watchlist and a re-flag's acknowledgement
+            Trigger.EXAMINER_ASKED,
+            Trigger.JURISDICTION_LIST_PUBLISHED,
+            Trigger.AGENT_DONE_EXAMINER,
+            Trigger.AGENT_FAILED_EXAMINER,
+            Trigger.AGENT_DONE_WATCHLIST,
+            Trigger.AGENT_FAILED_WATCHLIST,
+            Trigger.GATE_DECIDED_REFLAG_ACK,
         }
         legal = {t.trigger for t in TRANSITIONS} | step_only
         assert set(STEP_FOR) <= legal
@@ -89,6 +97,12 @@ class TestStepFor:
     def test_it_is_read_only(self) -> None:
         with pytest.raises(TypeError):
             STEP_FOR[Trigger.CASE_SUBMITTED] = StepKind.SUBMIT_RECORD  # type: ignore[index]
+
+
+#: Record types the design names for the oversight chain that are not events:
+#: design A §2.4.1 (``jurisdiction.published``) and design B §2.7 (``examiner
+#: .answered``, "logged as an audit record of type ``examiner.answered``").
+OVERSIGHT_RECORD_TYPES = frozenset({"jurisdiction.published", "examiner.answered"})
 
 
 class TestRecordsFor:
@@ -108,7 +122,7 @@ class TestRecordsFor:
         ``demo.audit[].type`` set covers the demo path; the catalogue covers
         the paths the demo does not take (unlock, no majority, handoff...).
         """
-        known = _seed_audit_types() | EVENT_TYPES
+        known = _seed_audit_types() | EVENT_TYPES | OVERSIGHT_RECORD_TYPES
         unknown = {
             (kind.value, record)
             for kind, records in RECORDS_FOR.items()

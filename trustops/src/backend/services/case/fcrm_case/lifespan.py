@@ -60,6 +60,7 @@ from fcrm_case.outcome_store import MongoOutcomeStore
 from fcrm_case.po_documents import DemoFixtures, DirectoryFixtures, ObjectFixtures
 from fcrm_case.po_store import MongoPoStore
 from fcrm_case.po_uploads import DocumentIntake
+from fcrm_case.reflag_store import MongoReflagStore
 from fcrm_case.seeding import seed_case_service
 from fcrm_case.settings import CaseSettings
 from fcrm_case.sse import EventHub
@@ -189,6 +190,8 @@ async def register(
     await outcomes.ensure_indexes()
     analyst_reads = MongoAnalystReadStore(deps.mongo, db, cases_repo)
     await analyst_reads.ensure_indexes()
+    reflags = MongoReflagStore(deps.mongo, db, outbox)
+    await reflags.ensure_indexes()
     if settings.seed_on_empty:
         await seed_case_service(
             SeedReader(settings.seed_path), cases_repo, views.repos, counters
@@ -218,6 +221,7 @@ async def register(
     app.state.assessment = assessment
     app.state.analyst_reads = analyst_reads
     app.state.outcomes = outcomes
+    app.state.reflags = reflags
     app.state.hub = EventHub(settings.sse_queue_size)
     app.state.directory = directory
     app.state.loads = AnalystLoadService(store, directory)

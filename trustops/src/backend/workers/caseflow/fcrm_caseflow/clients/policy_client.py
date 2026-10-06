@@ -20,10 +20,12 @@ from fcrm_common.http import ServiceClient
 from fcrm_contracts.api.policy import (
     ControlInventoryOut,
     FieldSetOut,
+    JurisdictionVersionOut,
     SearchHit,
     SearchRequest,
     SearchResponse,
 )
+from fcrm_contracts.common import Page
 
 from fcrm_caseflow.clients import CALL_TIMEOUTS, parse_body, path_segment
 
@@ -34,6 +36,7 @@ SEARCH_PATH: Final = "/search"
 PRECEDENT_INDEX: Final = "precedent_cases"
 CONTROLS_PATH: Final = "/controls"
 FIELD_SET_PATH: Final = "/field-sets/{version}"
+JURISDICTION_VERSIONS_PATH: Final = "/jurisdictions/versions"
 
 #: How long a control inventory or field set is reused. Both are versioned and a
 #: case pins one version, so a stale read is never wrong, only older than it needs
@@ -120,6 +123,25 @@ class PolicyClient:
             similarity=similarity_of(hit),
             closed_date=str(closed) if closed else None,
         )
+
+    async def jurisdiction_versions(self) -> list[JurisdictionVersionOut]:
+        """``GET /jurisdictions/versions``: every stored jurisdiction list version
+        (version, publication date, fixture and active flags), not cached: a list
+        is published while a round is in flight.
+
+        Raises:
+            fcrm_common.errors.FcrmError: S3 refused or was unreachable.
+        """
+        body = await self._client.request_json(
+            "GET", JURISDICTION_VERSIONS_PATH, timeout=CALL_TIMEOUTS
+        )
+        page = parse_body(
+            Page[JurisdictionVersionOut],
+            body,
+            dependency=DEPENDENCY,
+            route=JURISDICTION_VERSIONS_PATH,
+        )
+        return page.items
 
     async def controls(self, version: str) -> ControlInventoryOut:
         """``GET /controls?version=``: the control inventory a case is pinned
