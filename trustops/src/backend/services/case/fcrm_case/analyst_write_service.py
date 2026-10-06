@@ -123,6 +123,7 @@ from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.views import ScoreSnapshotRow
 from fcrm_case.errors import ensure_open
 from fcrm_case.po_text import reject_reserved_terms
+from fcrm_case.policy_config import PolicyConfig
 from fcrm_case.reference import control_catalogue
 from fcrm_case.sse import ActivityWriter
 from fcrm_case.store import CaseStore
@@ -144,6 +145,8 @@ class AnalystWriteService:
         assessment: The assessment store (screening, completeness, recommendation).
         store: The analyst write store (atomic writes, the ledger).
         writer: Publishes committed activity rows to the case stream.
+        config: The field sets by version: a re-tag resolves the type's fields
+            against the field set the case pinned.
     """
 
     def __init__(
@@ -154,12 +157,14 @@ class AnalystWriteService:
         assessment: AssessmentStore,
         store: AnalystWriteStore,
         writer: ActivityWriter,
+        config: PolicyConfig,
     ) -> None:
         self._cases = cases
         self._views = views
         self._assessment = assessment
         self._store = store
         self._writer = writer
+        self._config = config
 
     # -- plumbing ----------------------------------------------------------------
 
@@ -860,6 +865,7 @@ class AnalystWriteService:
                 replayed=True,
             )
         self._in_review(record, "a change type is added")
+        await self._config.load_field_set(record.fieldset_v)
         await self._commit(
             retag_command(
                 case_id=case_id,

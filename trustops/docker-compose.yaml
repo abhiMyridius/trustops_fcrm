@@ -283,6 +283,11 @@ services:
       UPLOAD_MAX_BYTES: "52428800"
       UPLOAD_ALLOWED_EXTENSIONS: .pdf,.docx,.xlsx,.pptx,.csv,.md,.txt
       SSE_HEARTBEAT_S: "15"
+      # A new case pins the versions S3 holds in force (GET /internal/config/pins)
+      # and reads a pinned field-set version from S3 (same process, called by URL
+      # with S1's service token). S3 down: the case pins the seed's versions and
+      # S1 logs a warning; raising a case never fails on it.
+      POLICY_SERVICE_URL: http://api:8000/api/fcrm/policy
       # S2 scoring
       SEED_RECOMPUTE_ON_START: ${SEED_RECOMPUTE_ON_START:-true}
       # POST /simulate reads S1's score-request (same process, called by URL so
