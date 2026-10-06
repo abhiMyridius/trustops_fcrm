@@ -1021,8 +1021,9 @@ def test_scene_21_the_monitor_shows_the_records_the_agents_and_tokens_within_the
     assert not REQUIRED_TYPES - present, f"missing {sorted(REQUIRED_TYPES - present)}"
     assert any(t.startswith("proposal.") for t in present)
     used, budget = counters["tokens_used"], counters["tokens_budget"]
-    assert budget == 120000
-    assert used <= budget, f"{used} tokens against the 120k cap"
+    assert budget == 160000
+    assert counters["tokens_target"] == 120000
+    assert used <= budget, f"{used} tokens against the 160k cap"
     depths = _dead_letters()
     if depths is not None:
         assert not {q: n for q, n in depths.items() if n}, f"dead letters: {depths}"

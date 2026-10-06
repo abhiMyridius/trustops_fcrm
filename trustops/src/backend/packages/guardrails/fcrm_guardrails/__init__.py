@@ -26,6 +26,7 @@ from fcrm_guardrails.base import (
 )
 from fcrm_guardrails.budget import (
     CASE_TOKEN_CAP,
+    CASE_TOKEN_TARGET,
     TIER_BUDGETS,
     BudgetExceededError,
     BudgetGuard,
@@ -46,6 +47,7 @@ from fcrm_guardrails.rules_guard import RulesGuard
 
 __all__ = [
     "CASE_TOKEN_CAP",
+    "CASE_TOKEN_TARGET",
     "GUARD_ORDER",
     "RULES",
     "TIER_BUDGETS",

@@ -2,11 +2,12 @@
 pushed to S1 after every step (``PUT /internal/cases/{id}/harness``).
 
 The monitor answers "what is the harness doing for this case": which core is
-running, how many of the nine agents have run, how many tokens against the 120k
-case budget, what each of the seven guards last did, and a log. Nothing in it is
-invented: the log is the case's own audit chain (S4), the tokens are the case's
-token ledger (:mod:`fcrm_caseflow.budget`: ``tokens_used`` is what its settled
-jobs spent, ``tokens_budget`` its cap), the other counters are the run's, the
+running, how many of the nine agents have run, how many tokens against the case
+cap (160k) and the clean-run target (120k), what each of the seven guards last
+did, and a log. Nothing in it is invented: the log is the case's own audit chain
+(S4), the tokens are the case's token ledger (:mod:`fcrm_caseflow.budget`:
+``tokens_used`` is what its settled jobs spent, ``tokens_budget`` its cap,
+``tokens_target`` the clean-run target), the other counters are the run's, the
 status comes from the run's pending work and open gates, and ``chain_verified`` is
 S4's own check.
 
@@ -36,7 +37,7 @@ from fcrm_contracts.api.case_analyst_read import (
     HarnessSnapshot,
 )
 from fcrm_contracts.enums import AgentName, CaseState
-from fcrm_guardrails.budget import CASE_TOKEN_CAP
+from fcrm_guardrails.budget import CASE_TOKEN_CAP, CASE_TOKEN_TARGET
 
 from fcrm_caseflow.budget import CaseLedger
 from fcrm_caseflow.store import CaseRun
@@ -47,8 +48,9 @@ logger = logging.getLogger(__name__)
 JAEGER_UI_URL: Final = "http://localhost:16686"
 
 TOKENS_NOTE: Final = (
-    "Token counts are the agents' recorded usage; the case budget is the cap the "
-    "budget guard enforces."
+    "Token counts are the agents' recorded usage, from the case's token ledger. The "
+    "budget is the cap the budget guard enforces; the target is what a clean run fits "
+    "in, and a case over the target but under the cap is not an error."
 )
 
 #: The seven guards: number, name and what each one stops (design B section 4).
@@ -258,6 +260,7 @@ def harness_snapshot(
             chain_verified=bool(verify and verify.ok),
             tokens_used=tokens_used,
             tokens_budget=tokens_budget,
+            tokens_target=CASE_TOKEN_TARGET,
         ),
         guards=guard_rows(records),
         log=[line_of(r) for r in records[-MAX_HARNESS_LINES:]],

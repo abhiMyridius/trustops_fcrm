@@ -44,6 +44,8 @@ export interface HarnessSnapshot {
     chain_verified: boolean;
     tokens_used: number;
     tokens_budget: number;
+    /** What a clean run fits in; a case over it and under `tokens_budget` is not an error. */
+    tokens_target?: number;
   };
   guards: GuardStatus[];
   log: HarnessLine[];

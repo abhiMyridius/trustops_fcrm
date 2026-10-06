@@ -786,8 +786,10 @@ def case_budgets_collection() -> FakeCollection:
 
 @pytest.fixture
 def budget_store(case_budgets_collection: FakeCollection) -> CaseBudgetStore:
-    """The per-case token ledger over the fake collection, at the 120k default."""
-    return CaseBudgetStore(case_budgets_collection)  # type: ignore[arg-type]
+    """The per-case token ledger over the fake collection, with a 120,000 cap (the
+    tests are about the mechanics, in round numbers; the default is 160,000).
+    """
+    return CaseBudgetStore(case_budgets_collection, cap=120_000)  # type: ignore[arg-type]
 
 
 @pytest.fixture

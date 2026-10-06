@@ -17,7 +17,7 @@ from fcrm_caseflow.budget import (
     usage_tokens,
 )
 from fcrm_contracts.enums import AgentName
-from fcrm_guardrails.budget import CASE_TOKEN_CAP
+from fcrm_guardrails.budget import CASE_TOKEN_CAP, CASE_TOKEN_TARGET
 
 CASE_ID = "FCRM-2026-0151"
 RUN_ID = "run_1"
@@ -47,9 +47,10 @@ async def settle(
     return outcome.applied
 
 
-def test_the_collection_and_the_default_cap_are_the_designed_ones() -> None:
+def test_the_collection_the_enforced_cap_and_the_target_are_the_designed_ones() -> None:
     assert CASE_BUDGETS_COLLECTION == "case_budgets"
-    assert CASE_TOKEN_CAP == 120_000
+    assert CASE_TOKEN_CAP == 160_000
+    assert CASE_TOKEN_TARGET == 120_000
 
 
 def test_a_dispatch_reserves_one_attempt_of_the_tier_not_the_retry() -> None:
@@ -271,3 +272,22 @@ async def test_a_job_id_that_cannot_be_a_field_name_is_refused(
         await reserve(budget_store, session, job("job.a", AgentName.SCREENING))
     with pytest.raises(ValueError, match="settled tokens"):
         await settle(budget_store, session, "job_a", AgentName.SCREENING, -1)
+
+
+async def test_a_case_over_the_target_and_under_the_cap_is_not_refused(
+    case_budgets_collection: FakeCollection, session: FakeSession
+) -> None:
+    store = CaseBudgetStore(case_budgets_collection)  # type: ignore[arg-type]
+    await store.settle(
+        CASE_ID, RUN_ID, "job_a", AgentName.RESEARCH, 130_000, session=session
+    )
+
+    # 130,000 spent is over the 120,000 target; the 160,000 cap still has room
+    # for a narrative (15,000) and then refuses the one that would pass it.
+    assert await reserve(store, session, job("job_n", AgentName.NARRATIVE))
+    await settle(store, session, "job_n", AgentName.NARRATIVE, 15_000)
+    ledger = await store.get(CASE_ID)
+    assert ledger is not None
+    assert ledger.cap == CASE_TOKEN_CAP
+    assert ledger.spent > CASE_TOKEN_TARGET
+    assert not await reserve(store, session, job("job_c", AgentName.CRITIC))

@@ -192,8 +192,9 @@ class TestAssessOpen:
         assert result == StepResult()
         record = _record(recording_audit, "workflow.stage")
         assert record.summary == (
-            "Assessment core started · per-case budget 120k tokens"
+            "Assessment core started · per-case budget 160k tokens (target 120k)"
         )
+        assert (record.data["budget"], record.data["target"]) == (160_000, 120_000)
         assert record.data["agents"] == ["research", "assessment"]
         [patch] = assessed_case.calls_to("PATCH", "/state")
         assert patch.body["stage"] == "assess"

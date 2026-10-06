@@ -105,7 +105,7 @@ export function MonitorPage() {
         <Counter label="Agents run" value={`${h.counters.agents_run} / ${h.counters.agents_total}`} hint="One Pydantic AI call per job" />
         <Counter label="Guards" value={`${h.counters.guards_passed} passed`} hint={`${h.counters.guards_blocked} blocked`} />
         <Counter label="Audit records" value={formatInt(h.counters.audit_records)} hint={h.counters.chain_verified ? 'chain verified' : 'chain not verified'} />
-        <Counter label="Tokens" value={`${Math.round(h.counters.tokens_used / 1000)}k / ${Math.round(h.counters.tokens_budget / 1000)}k`} hint={h.tokens_note}>
+        <Counter label="Tokens" value={`${Math.round(h.counters.tokens_used / 1000)}k / ${Math.round(h.counters.tokens_budget / 1000)}k`} hint={`${h.counters.tokens_target ? `Target ${Math.round(h.counters.tokens_target / 1000)}k. ` : ''}${h.tokens_note}`}>
           <ProgressBar value={ratio} label="Tokens used of the case budget" tone={ratio >= 80 ? 'warning' : 'teal'} showValue={false} />
         </Counter>
       </section>

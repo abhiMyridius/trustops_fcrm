@@ -133,7 +133,7 @@ async def world() -> AsyncIterator[World]:
         database = client[name]
         runs = CaseRunStore(database["case_runs"], database["run_events"])
         gates = GateStore(database["gates"])
-        budgets = CaseBudgetStore(database["case_budgets"])
+        budgets = CaseBudgetStore(database["case_budgets"], cap=120_000)
         audit = RecordingAudit()
         await runs.ensure_indexes()
         await gates.ensure_indexes()

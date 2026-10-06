@@ -227,7 +227,8 @@ def test_the_snapshot_counts_from_the_run_and_the_chain() -> None:
     snapshot = harness_snapshot(run, records, verify, 0)
     c = snapshot.counters
     assert (c.agents_run, c.agents_total) == (2, 9)
-    assert (c.tokens_used, c.tokens_budget) == (41_200, 120_000)
+    assert (c.tokens_used, c.tokens_budget) == (41_200, 160_000)
+    assert c.tokens_target == 120_000
     assert (c.guards_passed, c.guards_blocked) == (5, 1)
     assert (c.audit_records, c.chain_verified) == (67, True)
     assert snapshot.trace_id == "trace-abc"

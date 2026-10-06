@@ -56,9 +56,9 @@ class CaseflowSettings(BaseServiceSettings):
 
     case_token_cap: int = Field(default=DEFAULT_CASE_TOKEN_CAP, ge=1)
     """Tokens a case may spend across all of its agent jobs (``CASE_TOKEN_CAP``,
-    ADR-14): H1 reserves each job against it and settles what the job used
-    (:mod:`fcrm_caseflow.budget`). A ledger takes this value when it is created,
-    so changing it leaves the cases already under way where they were."""
+    default 160,000, ADR-14): H1 reserves each job against it and settles what the
+    job used (:mod:`fcrm_caseflow.budget`). A ledger takes this value when it is
+    created, so changing it leaves the cases already under way where they were."""
 
     health_port: int = 9100
     prefetch: int = 16

@@ -14,9 +14,13 @@ measured usage, about 30% over the p90 of an attempt, in ``ai/models/tiers.yaml`
 which ``tests/unit/packages/agents/test_budgets_agree.py`` keeps equal to this
 table): cheap 15k tokens / 60 s, mid 15k / 120 s, strong 24k / 180 s, judge 20k /
 180 s (the seed's
-"strong + judge"), one retry each, 120k tokens per case. A dispatch
-reserves ``tokens x (1 + retries)`` so a Guard 4 retry can never push a case
-over its cap mid-run (design A §3.3).
+"strong + judge"), one retry each. A case may spend 160k tokens (the enforced
+cap, :data:`CASE_TOKEN_CAP`: the worst case measured on the demo case, a run in
+which Guard 4 forced a retry, plus a small margin); 120k is the target a clean run
+fits in (:data:`CASE_TOKEN_TARGET`), which the harness monitor reports against.
+H1 enforces the cap across a case's jobs with its own ledger
+(``fcrm_caseflow.budget``: one attempt of the tier reserved per dispatch, the
+real usage settled per result); :class:`CaseBudget` below is H2's per-job view.
 
 Fallback order (design B §4.4): attempt 1 runs the tier's
 ``FallbackModel(primary, fallback)`` (transport errors fall through to the
@@ -75,8 +79,15 @@ TIER_BUDGETS: Final[Mapping[Tier, TierBudget]] = {
     Tier.JUDGE: TierBudget(Tier.JUDGE, tokens=20_000, wall_s=180),
 }
 
-CASE_TOKEN_CAP: Final[int] = 120_000
-"""Tokens per case across every agent run (BUILD-PLAN §3.4)."""
+CASE_TOKEN_CAP: Final[int] = 160_000
+"""Tokens per case across every agent run that H1 enforces (BUILD-PLAN §3.4 priced
+120k; the live demo case measured 115k clean and 126k to 158k with a Guard 4
+retry, so the enforced cap is the worst case measured plus a small margin)."""
+
+CASE_TOKEN_TARGET: Final[int] = 120_000
+"""Tokens a clean run of a case is expected to fit in: the efficiency target the
+harness monitor reports (``tokens_target``). A case over it and under
+:data:`CASE_TOKEN_CAP` is not an error."""
 
 
 class BudgetExceededError(Exception):

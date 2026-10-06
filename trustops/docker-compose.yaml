@@ -334,7 +334,7 @@ services:
       AGENT_PREFETCH: "4"
       FCRM_LLM_MODE: live
       BEDROCK_REGION_FALLBACK: ${BEDROCK_REGION_FALLBACK:-us-west-2}
-      CASE_TOKEN_CAP: ${CASE_TOKEN_CAP:-120000}
+      CASE_TOKEN_CAP: ${CASE_TOKEN_CAP:-160000}
       # The ai/ root, not a path to tiers.yaml or to ai/prompts: both
       # fcrm_agents.models.load_tiers_config and fcrm_prompts.PromptLibrary
       # expect this same root directory (D-15).

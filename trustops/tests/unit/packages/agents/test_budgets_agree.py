@@ -13,7 +13,7 @@ from fcrm_agents import REGISTRY
 from fcrm_agents.models import load_tiers_config
 from fcrm_agents.runtime import OFFLINE_MAX_TOKENS
 from fcrm_contracts.enums import Tier
-from fcrm_guardrails.budget import CASE_TOKEN_CAP, TIER_BUDGETS
+from fcrm_guardrails.budget import CASE_TOKEN_CAP, CASE_TOKEN_TARGET, TIER_BUDGETS
 from fcrm_prompts import PromptLibrary
 
 REPO_AI = Path(__file__).parents[4] / "ai"
@@ -62,6 +62,12 @@ def test_the_offline_output_allowance_is_the_tiers(tier: Tier) -> None:
 
 def test_the_case_cap_is_the_one_in_tiers_yaml() -> None:
     assert load_tiers_config(REPO_AI)["per_case_budget_tokens"] == CASE_TOKEN_CAP
+
+
+def test_the_case_target_is_the_one_in_tiers_yaml_and_under_the_cap() -> None:
+    config = load_tiers_config(REPO_AI)
+    assert config["per_case_target_tokens"] == CASE_TOKEN_TARGET
+    assert CASE_TOKEN_TARGET < CASE_TOKEN_CAP
 
 
 def test_one_reservation_of_any_tier_fits_the_case_cap() -> None:

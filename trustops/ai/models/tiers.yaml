@@ -108,7 +108,19 @@ tiers:
     cache_min_prefix_tokens: 1024
     used_by: [critic, eval judges]
 
-per_case_budget_tokens: 120000
+# The ENFORCED cap on every agent job of one case, across all of them (H1's
+# per-case ledger, fcrm_caseflow.budget: one attempt of a job's tier is reserved
+# before the job is published, the real usage is settled when it answers, and a
+# dispatch that would pass the cap opens the human handoff instead). 160000 is the
+# worst case measured on the live demo case: 115k with every job answering on its
+# first attempt, 126k to 158k when Guard 4 forces a retry (evals/README.md, "The
+# demo case against the 120k per-case cap"), plus a small margin, so a run that
+# needs one retry completes and a case that needs two stops for the analyst.
+per_case_budget_tokens: 160000
+# The efficiency TARGET: what a clean run fits in. The harness monitor reports
+# tokens_used against both numbers; a case over the target and under the cap is
+# not an error.
+per_case_target_tokens: 120000
 
 # Request constraints per model, read by the fcrm_agents runtime when it
 # builds ModelSettings. Taken from the Claude API reference (Sept 2026); the
