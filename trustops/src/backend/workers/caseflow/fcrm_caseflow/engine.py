@@ -88,11 +88,13 @@ from fcrm_caseflow.gates import (
     deterministic_gate_id,
     gate_document,
 )
+from fcrm_caseflow.handoff import handoff_subject, manual_done_payload
 from fcrm_caseflow.oversight_runs import (
     GLOBAL_EVENT_TYPES,
     OversightRuns,
     oversight_result_trigger,
 )
+from fcrm_caseflow.raw_inputs import RawInputsReader, inputs_fields
 from fcrm_caseflow.resolve import (
     agent_done_agent,
     agent_done_pair_members,
@@ -220,6 +222,9 @@ class CaseflowEngine:
             open run (``examiner.asked``, ``jurisdiction.list_published``;
             :mod:`fcrm_caseflow.oversight_runs`). Without it those two events
             are refused rather than treated as orphans of a case.
+        raw_inputs: Reads what a failed job was given (kept by H2), to show on
+            the handoff gate opened for it. Without it the gate names the
+            reference and carries no text.
     """
 
     def __init__(
@@ -235,6 +240,7 @@ class CaseflowEngine:
         ingest_bucket: str = "canonical",
         records_for: Mapping[StepKind, tuple[str, ...]] = RECORDS_FOR,
         oversight: Optional[OversightRuns] = None,
+        raw_inputs: Optional[RawInputsReader] = None,
     ) -> None:
         self._runs = runs
         self._gates = gates
@@ -246,6 +252,7 @@ class CaseflowEngine:
         self._ingest_bucket = ingest_bucket
         self._records_for = records_for
         self._oversight = oversight
+        self._raw_inputs = raw_inputs
 
     async def handle(
         self, envelope: Envelope, session: Optional[AsyncClientSession]
@@ -308,6 +315,9 @@ class CaseflowEngine:
         result_trigger = oversight_result_trigger(envelope)
         if result_trigger is not None:
             await self._handle_oversight_result(envelope, run, result_trigger, session)
+            return
+        if self._is_handoff_decision(envelope):
+            await self._handle_handoff_decided(envelope, run, session)
             return
         resolution = await self._resolve(envelope, run, session)
         if resolution is None:
@@ -491,28 +501,8 @@ class CaseflowEngine:
         run: CaseRun,
         session: AsyncClientSession,
     ) -> Optional[tuple[Trigger, TransitionContext]]:
-        known = set(GateDecision.model_fields)
-        decision = GateDecision.model_validate(
-            {k: v for k, v in envelope.payload.items() if k in known}
-        )
-        gate_doc = await self._gates.get(decision.gate_id, session=session)
-        if gate_doc is None:
-            result = GuardResult(
-                guard=GuardName.HUMAN_GATE,
-                status=GuardStatus.BLOCKED,
-                summary=f"no gate {decision.gate_id!r} is open for {decision.case_id}",
-                details={"gate_id": decision.gate_id},
-                audit_type=AUDIT_TYPES[GuardName.HUMAN_GATE],
-            )
-            raise GateDecisionError(result)
+        decision, gate_doc = await self._decide_gate(envelope, session)
         gate_type = GateType(gate_doc["gate_type"])
-        principal = Principal(
-            sub=decision.decided_by,
-            roles=[Role(gate_doc["required_role"])],
-            name=decision.decided_by,
-            typ="access",
-        )
-        await self._gates.decide(decision, principal, session=session)
         if gate_type is GateType.PO_CONFIRM_CATEGORY:
             remaining = await self._gates.count_open(
                 decision.case_id,
@@ -536,6 +526,155 @@ class CaseflowEngine:
             return None
         ctx = self._gate_decision_context(trigger, decision, envelope.payload)
         return trigger, ctx
+
+    async def _decision_and_gate(
+        self, envelope: Envelope, session: AsyncClientSession
+    ) -> tuple[GateDecision, Document]:
+        """The decision a ``gate.decided`` event carries and the gate it names,
+        nothing changed yet.
+
+        Raises:
+            GateDecisionError: no such gate.
+        """
+        known = set(GateDecision.model_fields)
+        decision = GateDecision.model_validate(
+            {k: v for k, v in envelope.payload.items() if k in known}
+        )
+        gate_doc = await self._gates.get(decision.gate_id, session=session)
+        if gate_doc is None:
+            result = GuardResult(
+                guard=GuardName.HUMAN_GATE,
+                status=GuardStatus.BLOCKED,
+                summary=f"no gate {decision.gate_id!r} is open for {decision.case_id}",
+                details={"gate_id": decision.gate_id},
+                audit_type=AUDIT_TYPES[GuardName.HUMAN_GATE],
+            )
+            raise GateDecisionError(result)
+        return decision, gate_doc
+
+    async def _guard_gate(
+        self,
+        decision: GateDecision,
+        gate_doc: Document,
+        session: AsyncClientSession,
+    ) -> None:
+        """Guard 7: check ``decision`` against its gate and mark the gate decided.
+
+        Raises:
+            GateDecisionError: Guard 7 refused the decision.
+        """
+        principal = Principal(
+            sub=decision.decided_by,
+            roles=[Role(gate_doc["required_role"])],
+            name=decision.decided_by,
+            typ="access",
+        )
+        await self._gates.decide(decision, principal, session=session)
+
+    async def _decide_gate(
+        self, envelope: Envelope, session: AsyncClientSession
+    ) -> tuple[GateDecision, Document]:
+        """Guard 7 over a ``gate.decided`` event: find its gate, check the decision
+        against it and mark the gate decided. Returns the decision and the gate
+        document as it was before.
+
+        Raises:
+            GateDecisionError: no such gate, or Guard 7 refused the decision.
+        """
+        decision, gate_doc = await self._decision_and_gate(envelope, session)
+        await self._guard_gate(decision, gate_doc, session)
+        return decision, gate_doc
+
+    @staticmethod
+    def _is_handoff_decision(envelope: Envelope) -> bool:
+        """A ``gate.decided`` for a ``handoff`` gate: the analyst completed a failed
+        step by hand."""
+        return (
+            envelope.type == "gate.decided"
+            and envelope.payload.get("gate_type") == GateType.HANDOFF.value
+        )
+
+    async def _handle_handoff_decided(
+        self, envelope: Envelope, run: CaseRun, session: AsyncClientSession
+    ) -> None:
+        """The analyst completed a failed step by hand (flow F-path).
+
+        The output the decision carries is checked like an agent's
+        (:func:`~fcrm_caseflow.handoff.manual_done_payload`) and becomes the
+        ``agent.done`` of the failed job with ``model`` ``human``; the engine then
+        handles it exactly like the agent's own. While another failed job's
+        handoff gate is still open the run stays in ``HANDOFF`` (this output is
+        kept and its join entry cleared); the decision that closes the last one
+        resumes the run to the state it was suspended from, and the join, if this
+        completes it, fires the trigger the agent's ``agent.done`` would have.
+
+        Raises:
+            GateDecisionError: Guard 7 refused the decision.
+            fcrm_caseflow.handoff.HandoffError: the gate names no job or the
+                output fails its checks (the transaction rolls back: the gate
+                stays open).
+        """
+        decision, gate_doc = await self._decision_and_gate(envelope, session)
+        # The output is checked before the gate is marked decided, so a refusal
+        # leaves the gate open whether or not the caller's transaction rolls back.
+        done = manual_done_payload(decision, gate_doc.get("subject") or {})
+        await self._guard_gate(decision, gate_doc, session)
+        message_id = envelope.event_id
+        remaining = await self._gates.count_open(
+            decision.case_id, GateType.HANDOFF, run_id=decision.run_id, session=session
+        )
+        if remaining == 0 and run.state is CaseState.HANDOFF:
+            run = await self._resume_from_handoff(envelope, run, session)
+        else:
+            # Another failed job still waits: the run stays in HANDOFF, and the
+            # step still records this completion and tells S1 where the run is.
+            run = await self._enqueue_step_for(
+                run,
+                Trigger.GATE_DECIDED_HANDOFF,
+                message_id,
+                message_id,
+                envelope.payload,
+                session,
+            )
+        done_envelope = build_envelope(
+            "agent.done",
+            done,
+            case_id=run.snapshot.case_id,
+            run_id=run.snapshot.run_id,
+        )
+        resolution = await self._resolve_agent_done(done_envelope, run, session)
+        if resolution is None:
+            base = TransitionContext(flags=run.snapshot.flags, band=run.band)
+            await self._chain_internal(run, base, session, message_id)
+            return
+        trigger, ctx = resolution
+        await self._apply_and_chain(
+            run, trigger, ctx, f"{message_id}/human", done, session
+        )
+
+    async def _resume_from_handoff(
+        self, envelope: Envelope, run: CaseRun, session: AsyncClientSession
+    ) -> CaseRun:
+        """Move a run out of ``HANDOFF`` to the state it was suspended from
+        (``GATE_DECIDED_HANDOFF``, with ``resume_state`` in its context so a
+        replay lands in the same place). Returns the resumed run.
+        """
+        trigger = Trigger.GATE_DECIDED_HANDOFF
+        ctx = TransitionContext(
+            flags=run.snapshot.flags, band=run.band, resume_state=run.suspended_from
+        )
+        ctx = await self._refresh_gate_derived_ctx(run, ctx, session)
+        result = apply(run.state, trigger, ctx)
+        return await self._persist_and_dispatch(
+            run,
+            trigger,
+            ctx,
+            result,
+            envelope.event_id,
+            envelope.event_id,
+            envelope.payload,
+            session,
+        )
 
     async def _po_action_step(
         self, envelope: Envelope, run: CaseRun, session: AsyncClientSession
@@ -616,9 +755,18 @@ class CaseflowEngine:
         agent = agent_done_agent(envelope)
         if await self._is_repeat_done(envelope, run, session):
             return None
-        state = run.state
         job_id = envelope.payload.get("job_id")
         cleared = await self._clear_join_key(run, agent, job_id, session)
+        if run.state is CaseState.HANDOFF:
+            # A job that finishes while a person holds the case: its result is
+            # kept and its join entry cleared, but no trigger fires. The one
+            # that completes the failed job does, once the run has resumed.
+            logger.info(
+                "agent.done while in handoff; no trigger until the run resumes",
+                extra={"case_id": envelope.case_id, "agent": agent.value},
+            )
+            return None
+        state = run.state
         single = agent_done_single(state, agent)
         if single is not None:
             # A job of a fan-out (one intake job per document) may be one of
@@ -789,21 +937,49 @@ class CaseflowEngine:
                 build_ingest_envelope(ingest, run, target_bucket=self._ingest_bucket),
             )
         gate_type = gate_to_open(trigger, ctx)
-        if gate_type is not None:
+        if gate_type is GateType.HANDOFF:
+            # The subject names the failed job, so the analyst's decision can be
+            # matched to it and a replay of the failure opens the same gate.
+            subject = handoff_subject(payload, run.suspended_from)
+            subject.update(await self._inputs_subject(subject, session))
+            await self._open_gate(
+                run, gate_type, session, subject=subject, key=subject["job_id"]
+            )
+        elif gate_type is not None:
             await self._open_gate(run, gate_type, session)
+
+    async def _inputs_subject(
+        self, subject: dict[str, str], session: AsyncClientSession
+    ) -> dict[str, str]:
+        """The gate-subject fields that carry the failed job's inputs (a bounded
+        text, its digest, whether it was cut), read from what H2 kept; empty
+        when H2 named none or the reader is not wired.
+        """
+        ref = subject.get("raw_inputs_ref")
+        if ref is None or self._raw_inputs is None:
+            return {}
+        found = await self._raw_inputs.read(ref, session=session)
+        if found is None:
+            logger.warning("the failed job's inputs are not there", extra={"ref": ref})
+            return {"raw_inputs_error": "the inputs were not kept"}
+        return inputs_fields(found)
 
     async def _open_gate(
         self,
         run: CaseRun,
         gate_type: GateType,
         session: AsyncClientSession,
+        *,
+        subject: Optional[Mapping[str, str]] = None,
+        key: Optional[str] = None,
     ) -> None:
         """Open the gate a transition calls for. The three gates a step must
-        know the id of (:func:`~fcrm_caseflow.dispatch.trigger_gate_key`) get a
+        know the id of (:func:`~fcrm_caseflow.dispatch.trigger_gate_key`), and
+        any gate given a ``key`` (a handoff gate: the failed job's id), get a
         deterministic id and are opened at most once (a replayed trigger finds
         the gate it opened); any other gets a fresh one.
         """
-        key = trigger_gate_key(gate_type, run)
+        key = key if key is not None else trigger_gate_key(gate_type, run)
         gate_id = (
             deterministic_gate_id(run.snapshot.run_id, gate_type, key)
             if key is not None
@@ -816,6 +992,7 @@ class CaseflowEngine:
             run_id=run.snapshot.run_id,
             gate_type=gate_type,
             required_role=required_role,
+            subject=dict(subject or {}),
         )
         if key is not None:
             if not await self._gates.open_if_absent(document, session=session):
@@ -827,7 +1004,7 @@ class CaseflowEngine:
         else:
             await self._gates.open(document, session=session)
         await self._announce_gate_opened(
-            run, gate_id, gate_type, required_role, {}, session
+            run, gate_id, gate_type, required_role, subject or {}, session
         )
 
     async def _announce_gate_opened(

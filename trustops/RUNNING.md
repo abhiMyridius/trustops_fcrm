@@ -134,7 +134,7 @@ curl -s -H "Authorization: Bearer $A" $G/api/fcrm/audit/verify/FCRM-2026-0151; e
 curl -s -H "Authorization: Bearer $A" $G/api/fcrm/cases/FCRM-2026-0151/harness | head -c 600; echo
 ```
 
-If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks/dlq-replay.md`. If an agent fails twice the run moves to `handoff` and does not resume (known gap; `make demo-reset` for this case).
+If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks/dlq-replay.md`. If an agent fails twice the run moves to `handoff`: the analyst completes the step by hand on the Summary tab (the proposals as JSON and a reason), and the run resumes (`docs/architecture/sequences/handoff.md`).
 
 ## 5. Make targets
 
@@ -162,7 +162,7 @@ If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks
 | `gen-seed` | regenerate `seed.json` and assert it is byte-stable | no | no | seconds (not timed) |
 | `seed` | reload the seed, restart `api` and `harness`, stage the demo PDFs; refuses `ENV=prod` | yes | corpus embedding on restart | not timed as a whole; includes one `api` restart (about 85 s) |
 | `demo-reset` | delete case 0151's documents, uploads, audit records and run | yes | no | seconds |
-| `check` | the commit gate: ruff, format, mypy, OPA check and tests, unit tests, env contract, web typecheck and vitest | no (needs Docker for `compose config`) | no | 355 s measured (unit tests 288 s) |
+| `check` | the commit gate: ruff, format, mypy, OPA check and tests, `ai-check`, unit tests, env contract, web typecheck and vitest | no (needs Docker for `compose config`) | no | 355 s measured (unit tests 288 s) |
 | `lint`, `format-check`, `typecheck` | ruff, ruff format, mypy over every package | no | no | under 2 s warm |
 | `opa-check`, `opa-test` | Rego check and 120 Rego tests | no | no | 0.1 s, 12 s |
 | `test-unit`, `test` | the 7,094 unit tests (`-m "not integration and not e2e"`) | no | no | about 290 s |
@@ -170,7 +170,8 @@ If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks
 | `web-install` | `npm ci` in `src/frontend` | no | no | not timed |
 | `web-check` | web typecheck and 144 vitest tests | no | no | 17 s |
 | `gate` | `check`, `test-int`, `fcrm_evals build --check`, `selfcheck` | needs Docker | no | more than `check` (not timed) |
-| `test-int`, `test-integration` | the 464 tests under `tests/integration`, on testcontainers or on `FCRM_TEST_MONGO_URI` | needs Docker, not the stack | no | not timed through make; the same tests plus the 74 in `tests/unit` took 192 to 225 s on a throwaway replica set |
+| `test-int`, `test-integration` | every integration-marked test under `tests/` (`pytest -m integration tests`): the 464 under `tests/integration` on testcontainers or on `FCRM_TEST_MONGO_URI`, and the 74 `*_live.py` tests under `tests/unit`, which need `FCRM_TEST_MONGO_URI` and skip without it (the target says so) | needs Docker, not the stack | no | not timed through make; all of them took 192 to 225 s on a throwaway replica set |
+| `ai-check` | `ai/_tools/validate_ai.py` (registry, tool permits, OPA decisions, and the rule that no model id appears outside `ai/models/tiers.yaml` in `ai/`, `src/`, `evals/` or `ops/`) and `compute_locks.py --check` | no | no | under 10 s |
 | `evals` | live agent evals, 5 rows per agent, Bedrock judge; writes `evals/results/<date>/` | no | **yes**, about USD 3 | 7 to 11 minutes |
 | `evals-full` | every row of every dataset | no | **yes**, several times `evals` | slow |
 | `evals-gate AGENT=<a>` | the promotion gate for one agent on the newest run | no | no | seconds |
@@ -220,7 +221,7 @@ Every route is in `docs/architecture/openapi/api.json` (110 paths); the roles ar
 
 ```bash
 make check         # about 6 minutes: ruff, format, mypy over 606 files, OPA, 7,094 unit tests, env contract, web typecheck and 144 vitest tests
-make test-int      # the 464 tests under tests/integration (testcontainers, needs Docker)
+make test-int      # every integration-marked test: tests/integration on testcontainers (needs Docker), the *_live.py tests under tests/unit when FCRM_TEST_MONGO_URI is set
 make gate          # check, test-int, datasets and eval self-check
 ```
 
@@ -230,8 +231,8 @@ To point the integration tests at a Mongo replica set you started yourself (neve
 docker run -d --rm --name scratch-mongo -p 127.0.0.1:28999:28999 mongo:8.0 mongod --replSet rs0 --bind_ip_all --port 28999
 docker exec scratch-mongo mongosh --quiet --port 28999 --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:28999"}]}).ok'
 FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:28999/?replicaSet=rs0' make test-int
-# the 74 integration-marked tests under tests/unit are not in make test-int:
-FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:28999/?replicaSet=rs0' uv run --project src/backend --all-packages pytest -m integration tests/unit
+# with the variable set, make test-int also runs the 74 *_live.py tests under tests/unit; one path on its own:
+FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:28999/?replicaSet=rs0' uv run --project src/backend --all-packages pytest -m integration tests/unit/workers/caseflow
 docker rm -f scratch-mongo
 ```
 
@@ -250,7 +251,7 @@ On 6 October 2026 `make check` was green on `5a02c09`: 7,094 passed, 4 skipped, 
 | `make up` seems stuck on `api` | it takes about 85 s: S3 embeds 197 clauses on Bedrock. `make logs svc=api` shows progress or an error. With no or expired AWS credentials expect a failure there |
 | Everything stalls after the laptop slept | Docker paused the VM; in-flight Bedrock calls timed out. On the build machine, closing the lid on battery stalled every background job and looked like an API fault (D-50): keep it plugged in with the lid open, or `sudo pmset -a disablesleep 1`, and check `pmset -g log` for sleep events first. Then `make ps`, `make dlq`; replay what is parked (`make dlq-replay q=<queue>`) or `docker compose restart harness` |
 | A case stops moving | `make dlq` and `make logs svc=harness`; a parked `caseflow.steps` message freezes a run until fixed and replayed (`ops/runbooks/dlq-replay.md`). List every queue with `docker compose exec -T rabbitmq rabbitmqctl -q list_queues name messages consumers` |
-| The case shows "handed to a person" | an agent failed twice and the run is in `handoff`; there is no resume (known gap). Check Bedrock (`ops/runbooks/bedrock-outage-and-fallbacks.md`), then `make demo-reset` for 0151 |
+| The case shows "handed to a person" | an agent failed twice and the run is in `handoff`: open the Summary tab and use "Complete by hand" (the form shows what the agent was given). Check Bedrock (`ops/runbooks/bedrock-outage-and-fallbacks.md`); a manual output's claims are not matched to their sources |
 | Every API call returns `503` | OPA is unreachable and the services fail closed. `make ps`, `make logs svc=opa` |
 | Agent runs fail with a credentials or region error | AWS keys missing or expired in `.env` (or the shell), or no model access. `docker compose up -d` after fixing |
 | I need to run the demo again | `make demo-reset` (this case only); `make seed` (everything); `make down-v` then `make up` (everything, including volumes) |
@@ -281,11 +282,11 @@ More: `ops/runbooks/README.md` indexes one short page per task (start, stop, res
 The full list, each item with its evidence, is `docs/governance/known-gaps.md`. The ones that change what you can do:
 
 - `make demo`, `make seed-verify`, `make verify`, `make e2e`, `make resilience`, `make nightly`, `make backup` and `make restore` print "not yet wired". The demo is driven by hand (section 4); the golden numbers are unit tests.
-- **A run that hits `handoff` (an agent failed twice) cannot be resumed.** No route decides the gate and the web has no re-run control.
+- **A manual output (a run completed from `handoff`) is less machine-verified than an agent's:** its claims are not matched against their sources; the record says so.
 - **S1 pins versions from the seed**, not from a configuration publish.
 - **The 120,000-token case cap is reported, not enforced across jobs.**
 - **Redis does nothing** (`make up-cache`); **S3 Vectors is not in the image** (vectors are in memory; each `api` start embeds the corpus).
-- **The web examiner does not handle a 202**, and `BEDROCK_REGION_FALLBACK` is read by no code.
+- **The web examiner does not handle a 202.**
 - **Two integration mismatches are open defects:** the `evidence_store` agent tool reads a different shape than S1 answers (D-52), and the web's decide call for a clause or control may not resolve the item id (D-53). If a review decision errors on the first item, that is D-53.
 - **No live end-to-end suite and no resilience drills.** The black-box tests run in process.
 - **The assessment agent fails its eval gate** (`li_within_one` 0.70 against 0.85); eight of nine agents pass (`evals/results/2026-10-06/gate.json`).

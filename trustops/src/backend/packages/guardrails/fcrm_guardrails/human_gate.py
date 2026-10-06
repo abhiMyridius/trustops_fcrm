@@ -13,7 +13,8 @@ every reason at once:
 - a principal without the gate's ``required_role``;
 - a decision whose ``decided_by`` is not the principal;
 - a decision that needs a reason and has none: every committee vote
-  (routing R2, "rationale required on each vote"), every unlock (R6),
+  (routing R2, "rationale required on each vote"), every unlock (R6), every
+  handoff (a person completing a step the machine could not),
   every override/remove/adjust/explain decision, and every decision whose
   ``after`` differs from ``before`` (rule 6, through the same function);
 - a vote whose decision is not one of the four outcomes.
@@ -38,7 +39,7 @@ from fcrm_guardrails.rules.r6_override_has_reason import check as override_has_r
 from fcrm_guardrails.thresholds import OVERRIDE_REASON_MIN_CHARS
 
 REASON_REQUIRED_GATES: Final[frozenset[GateType]] = frozenset(
-    {GateType.VOTE, GateType.UNLOCK}
+    {GateType.VOTE, GateType.UNLOCK, GateType.HANDOFF}
 )
 REASON_REQUIRED_DECISIONS: Final[frozenset[str]] = frozenset(
     {"override", "remove", "adjust", "explain"}

@@ -54,6 +54,10 @@ class TransitionContext:
     committee_numbers_changed: bool = False
     vote_outcome: Optional[str] = None  # set when the trigger is VOTE_TALLIED
     band: Optional[int] = None  # 1-4; used to route R1 (delegated) vs R2 (committee)
+    resume_state: Optional[CaseState] = None
+    """The state a run in HANDOFF resumes to: the one it was suspended from
+    (``CaseRun.suspended_from``). Read only by ``GATE_DECIDED_HANDOFF``; recorded
+    with the transition so a replay lands where the live run did."""
 
 
 @dataclass(frozen=True)
@@ -465,12 +469,10 @@ _CLOSED_HANDOFF = [
     Transition(
         S.HANDOFF,
         Trigger.GATE_DECIDED_HANDOFF,
-        S.REVIEW,  # the real runtime resumes to whichever state it suspended from;
-        # REVIEW is the common case and the only one exercised by a pure-reducer
-        # test here — the runtime tracks the true suspended state itself and
-        # passes it back in as `from_state` when it calls `apply`, so this
-        # table entry's `to_state` is only ever used when HANDOFF's *caller*
-        # does not already know better, which in practice it always does.
+        S.REVIEW,  # the default only: the runtime resumes to the state the run was
+        # suspended from and passes it in as `ctx.resume_state`, which `apply`
+        # prefers (see `_resume_target`). A run that has none (suspended before
+        # the runtime remembered it) resumes to REVIEW.
         "treat the manual output like agent.done, actor=human",
     ),
 ]
@@ -532,10 +534,31 @@ def apply(
         if transition.from_state != state or transition.trigger != trigger:
             continue
         if transition.guard(ctx):
+            to_state = transition.to_state
+            if trigger is Trigger.GATE_DECIDED_HANDOFF:
+                to_state = _resume_target(state, trigger, ctx, to_state)
             return TransitionResult(
                 from_state=state,
-                to_state=transition.to_state,
+                to_state=to_state,
                 action=transition.action,
                 trigger=trigger,
             )
     raise IllegalTransition(state, trigger)
+
+
+def _resume_target(
+    state: CaseState, trigger: Trigger, ctx: TransitionContext, default: CaseState
+) -> CaseState:
+    """Where a run leaving HANDOFF goes: ``ctx.resume_state`` (the state it was
+    suspended from) when the runtime knows it, else the table's ``default``. A
+    run never resumes into HANDOFF or CLOSED.
+
+    Raises:
+        IllegalTransition: ``ctx.resume_state`` is HANDOFF or CLOSED.
+    """
+    if ctx.resume_state is None:
+        return default
+    target = CaseState(ctx.resume_state)
+    if target in (S.HANDOFF, S.CLOSED):
+        raise IllegalTransition(state, trigger)
+    return target

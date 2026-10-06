@@ -44,7 +44,7 @@ The guarantee is at-least-once delivery with idempotent handlers, not exactly-on
 
 - Read `make logs svc=harness` for the first error, not the last.
 - `make dlq`: parked messages mean a cause to fix, then replay.
-- A case that is in the `handoff` state because an agent failed after its retry will not resume by a restart. See [bedrock-outage-and-fallbacks.md](bedrock-outage-and-fallbacks.md).
+- A case that is in the `handoff` state because an agent failed after its retry will not resume by a restart: the analyst completes the step by hand on the Summary tab. See [bedrock-outage-and-fallbacks.md](bedrock-outage-and-fallbacks.md).
 
 ## Checked and not checked
 

@@ -87,6 +87,10 @@ STEP_FOR: Final[Mapping[Trigger, StepKind]] = MappingProxyType(
         Trigger.AGENT_DONE_WATCHLIST: K.WATCHLIST_PUBLISH,
         Trigger.AGENT_FAILED_WATCHLIST: K.WATCHLIST_PUBLISH,
         Trigger.GATE_DECIDED_REFLAG_ACK: K.REFLAG_ACK,
+        # the human handoff (flow F-path): one step kind at both ends. S1 learns the
+        # stage (the analyst's banner) and the chain gets ``human.handoff``
+        Trigger.AGENT_FAILED_AFTER_RETRY: K.HANDOFF_OPEN,
+        Trigger.GATE_DECIDED_HANDOFF: K.HANDOFF_OPEN,
     }
 )
 
@@ -172,7 +176,11 @@ RECORDS_FOR: Final[Mapping[StepKind, tuple[str, ...]]] = MappingProxyType(
         K.DECIDE_OUTCOME: ("vote.revealed", "outcome.set"),
         K.DECIDE_NO_MAJORITY: ("vote.no_majority", "vote.rerequested"),
         K.CLOSED_FINALIZE: ("outcome.delivered", "case.closed", "chain.verified"),
-        K.HANDOFF_OPEN: ("agent.failed", "human.handoff"),
+        # H2 writes ``agent.failed`` itself. ``human.handoff`` is written twice by
+        # this step, told apart by ``data.phase``: ``opened`` when the run is handed
+        # to the analyst (with the digest of the inputs shown) and ``completed``
+        # when the analyst finishes a job by hand.
+        K.HANDOFF_OPEN: ("human.handoff",),
         # oversight (scene 20)
         K.EXAMINER_ANSWER: ("examiner.asked", "examiner.answered"),
         K.WATCHLIST_PUBLISH: (

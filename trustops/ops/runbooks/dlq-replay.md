@@ -19,7 +19,7 @@ Topology is `ops/rabbitmq/definitions.json`; the delivery rules are in `fcrm_com
 | `ingestion-worker.run`, `context-worker.run` | H3, H4 | a document or index job |
 | `case-service.events` | S1 consumer | a mirrored event that did not apply |
 | `policy-service.events` | S3 | a policy-side event that did not apply |
-| `evals.events` | nobody | nothing: no consumer exists (`docs/governance/known-gaps.md`) |
+| `evals.events` | nobody | nothing parked by a failure: no consumer exists. The queue is capped (policies `fcrm-evals-bounded` and `fcrm-evals-bounded-parked`: 24 h, 10,000 messages, 64 MiB, drop-head; 1,000 on its retry and DLQ). What the cap drops is dead-lettered into `evals.events.dlq` with reason `expired` or `maxlen` in the `x-death` header, so that DLQ is retention, not a failure: do not replay it |
 
 ## What a parked step does to a run
 

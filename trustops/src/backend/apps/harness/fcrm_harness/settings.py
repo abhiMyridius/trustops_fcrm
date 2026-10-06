@@ -84,6 +84,7 @@ class HarnessSettings(BaseServiceSettings, S3Settings):
     prompts_dir: str = "ai"
     agent_max_tool_calls: int = 12
     bedrock_region_fallback: Optional[str] = None
+    aws_region: Optional[str] = None
 
     def _shared(self) -> dict[str, Any]:
         """The fields every unit's settings take from the harness."""
@@ -156,6 +157,7 @@ class HarnessSettings(BaseServiceSettings, S3Settings):
             audit_service_url=self.audit_service_url,
             decision_service_url=self.decision_service_url,
             bedrock_region_fallback=self.bedrock_region_fallback,
+            aws_region=self.aws_region,
             prompts_dir=self.prompts_dir,
             agent_max_tool_calls=self.agent_max_tool_calls,
             prefetch=self.agent_prefetch,

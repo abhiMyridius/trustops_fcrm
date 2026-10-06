@@ -42,13 +42,15 @@ from fcrm_common.objectstore import ObjectStore
 from fcrm_common.settings import MissingSettingsError, required_value
 from fcrm_common.worker import WorkerUnit
 from fcrm_contracts.enums import AgentName, LlmMode
+from fcrm_contracts.events.raw_inputs import RAW_INPUTS_COLLECTION
 from fcrm_contracts.versions import PinnedVersions
 from fcrm_tools import ToolClients, ToolRegistry, build_http_registry
 from pymongo import AsyncMongoClient
 
 from fcrm_agent_worker.audit_client import AuditClient
 from fcrm_agent_worker.handler import AgentJobConsumer
-from fcrm_agent_worker.live_runtime import ModelFactory, live_model_for_slot
+from fcrm_agent_worker.live_runtime import ModelFactory, model_factory_for
+from fcrm_agent_worker.raw_inputs import MongoRawInputs
 from fcrm_agent_worker.settings import AgentWorkerSettings
 from fcrm_agent_worker.topology import (
     AGENT_JOBS_EXCHANGE,
@@ -148,7 +150,7 @@ def build_unit(
     mongo: AsyncMongoClient[Document],
     publisher: Publisher,
     registry: Optional[ToolRegistry] = None,
-    model_factory: ModelFactory = live_model_for_slot,
+    model_factory: Optional[ModelFactory] = None,
 ) -> WorkerUnit:
     """H2 as a unit a host can wire onto its own broker.
 
@@ -162,6 +164,8 @@ def build_unit(
             canonical bucket through the object store. Pass the seed-backed
             registry (tests, evals) to run with no service.
         model_factory: Builds the model for each attempt (a fake in tests).
+            ``None`` builds the live one, ending each chain with a second
+            Bedrock region when ``BEDROCK_REGION_FALLBACK`` names one.
 
     Returns:
         The unit: the ``agent-worker.run`` subscriber, an OPA readiness check,
@@ -222,7 +226,9 @@ def build_unit(
         audit=AuditClient(audit_http),
         tiers_config=tiers_config,
         instructions_for=_instructions_for(settings),
-        model_factory=model_factory,
+        model_factory=model_factory
+        or model_factory_for(settings.bedrock_region_fallback, settings.aws_region),
+        raw_inputs=MongoRawInputs(mongo[db_name][RAW_INPUTS_COLLECTION]),
         tool_call_cap=settings.agent_max_tool_calls,
         client=mongo,
     )
@@ -246,7 +252,7 @@ def build_app(
     settings: Optional[AgentWorkerSettings] = None,
     *,
     registry: Optional[ToolRegistry] = None,
-    model_factory: ModelFactory = live_model_for_slot,
+    model_factory: Optional[ModelFactory] = None,
 ) -> AsgiFastStream:
     """The standalone H2 process (``python -m fcrm_agent_worker``): its own
     broker, the unit, and a health ASGI app, with real dependencies.

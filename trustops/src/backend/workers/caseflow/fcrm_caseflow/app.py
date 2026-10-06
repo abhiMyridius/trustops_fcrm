@@ -44,6 +44,7 @@ from fcrm_common.outbox import Outbox, OutboxRelay
 from fcrm_common.settings import required_value
 from fcrm_common.worker import WorkerUnit
 from fcrm_contracts.enums import StepKind
+from fcrm_contracts.events.raw_inputs import RAW_INPUTS_COLLECTION
 from pymongo import AsyncMongoClient
 
 from fcrm_caseflow.audit_client import AuditClient
@@ -68,6 +69,7 @@ from fcrm_caseflow.engine import CaseflowEngine, mongo_transact
 from fcrm_caseflow.gates import GateStore
 from fcrm_caseflow.harness_view import HarnessReporter
 from fcrm_caseflow.oversight_runs import OversightRuns
+from fcrm_caseflow.raw_inputs import MongoRawInputsReader
 from fcrm_caseflow.settings import CaseflowSettings
 from fcrm_caseflow.steps import StepHandler, StepRegistry, StepRunner
 from fcrm_caseflow.store import AGENT_RESULTS_COLLECTION, AgentResultStore, CaseRunStore
@@ -223,6 +225,7 @@ def build_unit(
         results=results_store,
         ingest_bucket=settings.s3_bucket_canonical,
         oversight=OversightRuns(runs_store),
+        raw_inputs=MongoRawInputsReader(db[RAW_INPUTS_COLLECTION]),
     )
     step_runner = StepRunner(
         runs_store,

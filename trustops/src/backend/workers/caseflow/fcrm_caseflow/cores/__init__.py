@@ -16,6 +16,7 @@ from fcrm_caseflow.cores import (
     assessment_review,
     closing,
     decision,
+    handoff,
     intake,
     oversight,
 )
@@ -37,6 +38,7 @@ def default_handlers() -> dict[StepKind, StepHandler]:
         decision.HANDLERS,
         closing.HANDLERS,
         oversight.HANDLERS,
+        handoff.HANDLERS,
     ):
         clash = merged.keys() & table.keys()
         if clash:

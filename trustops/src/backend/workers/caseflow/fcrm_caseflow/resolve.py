@@ -223,7 +223,8 @@ WIRE_CONTEXT_FIELDS: Final[frozenset[str]] = frozenset(
 #: Context fields H1 derives itself and never takes from a payload: the open
 #: gate counts (:meth:`fcrm_caseflow.engine.CaseflowEngine._refresh_gate_
 #: derived_ctx`) and the fast-lane decision (read off the gate's own
-#: ``decision`` string). ``all_po_gates_decided`` is reserved: no guard reads
+#: ``decision`` string). ``resume_state`` is the run's own ``suspended_from``.
+#: ``all_po_gates_decided`` is reserved: no guard reads
 #: it today. A payload carrying one of these is ignored, so no event can
 #: assert, say, that every acknowledgement is done.
 H1_DERIVED_CONTEXT_FIELDS: Final[frozenset[str]] = frozenset(
@@ -233,6 +234,7 @@ H1_DERIVED_CONTEXT_FIELDS: Final[frozenset[str]] = frozenset(
         "gaps_open",
         "all_items_decided",
         "acks_done",
+        "resume_state",
     }
 )
 

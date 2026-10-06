@@ -21,21 +21,22 @@ How the chain is used (ADR-14; `fcrm_agent_worker/live_runtime.py`, `fcrm_agents
 3. There is exactly one retry. The critic runs on a different model than the assessor it checks, so a Sonnet outage degrades the critic to Sonnet only on attempt 2.
 4. Models that reject a request field are handled per model, not per chain: Opus 5.5 and Sonnet 5.5 get `effort: low`, Haiku and Nova do not (`tiers.yaml`).
 
-Not in the chain: a second region. `BEDROCK_REGION_FALLBACK` (default `us-west-2` in `docker-compose.yaml`) is passed to H2's settings and no code reads it. All fallbacks are other models in the same region. There is no circuit breaker either; a throttled model is tried on every call.
+A second region is the last entry of every chain. `BEDROCK_REGION_FALLBACK` (default `us-west-2` in `docker-compose.yaml`; empty, or equal to `AWS_DEFAULT_REGION`, turns it off) adds the chain's first model id, read from `tiers.yaml` like the rest, served from that region: attempt 1 ends with the tier's primary, attempt 2 with its first fallback, so a retry still never returns to the model whose output was rejected. It is tried only after every model in the first region failed, and it needs model access for that profile in the second region (not checked against the account). The audit record names the model, not the region. There is no circuit breaker; a throttled model is tried on every call (`fcrm_agents.models.bedrock_chain`, `fcrm_agent_worker.live_runtime.model_factory_for`).
 
 ## What the run does when every attempt fails
 
-1. H2 publishes `agent.failed` for the job (never `agent.done`), and writes `agent.failed` to the audit chain.
-2. H1 moves the run to the `handoff` state (from any state except `closed`) and opens a `handoff` gate for the analyst with the raw inputs. It records `agent.failed` and `human.handoff`. A second failed job in the same run opens its own gate; the run does not freeze and nothing is dead-lettered (`fcrm_caseflow/transitions.py`, D-42).
-3. The analyst's Summary tab shows a red banner: "`<step>` step handed to a person". The PO sees the stage name only.
-4. Nothing else advances: no score is computed from a missing proposal, and nothing is approved or rejected.
+1. H2 keeps what the job was given (`agent_raw_inputs`, by job id), publishes `agent.failed` for the job (never `agent.done`) naming that copy in `raw_inputs_ref`, and writes `agent.failed` to the audit chain.
+2. H1 moves the run to the `handoff` state (from any state except `closed`), remembers the state it left (`suspended_from`) and opens a `handoff` gate for the analyst. The gate's id derives from the run and the job; its subject names the job, why it failed and carries the inputs the agent saw with their SHA-256. The step `handoff.open` writes `human.handoff` (`phase: opened`, with the digest, never the text) and tells S1 the stage. A second failed job in the same run opens its own gate; the run does not freeze and nothing is dead-lettered (`fcrm_caseflow/transitions.py`, D-42).
+3. The analyst's Summary tab shows a red banner, "`<step>` step handed to a person", and below it a form per open gate: the failure, what the agent was given, a box for the proposals as a JSON array and a reason of at least 20 characters. The PO sees the stage name only.
+4. Nothing else advances until a person acts: no score is computed from a missing proposal, and nothing is approved or rejected.
 
-**Recovery is not built end to end.** The gates register says the analyst completes the step by hand and the machine resumes. Today:
+## Recovery: complete the step by hand
 
-- `GATE_DECIDED_HANDOFF` is in the transition table, but no service route emits a decision for a `handoff` gate (`docs/architecture/openapi/api.json` has none, and `grep -rn GATE_DECIDED_HANDOFF src/backend` finds only `triggers.py`, `resolve.py` and `transitions.py`).
-- `POST /api/fcrm/cases/{id}/runs` (re-run research and assessment with a reason) works from the `review` state only, and the web has no button for it. The banner's "Re-run from the harness panel" has no control behind it.
+The analyst's route is `POST /api/fcrm/cases/{id}/handoff/{gate_id}/complete` (`GET .../handoff/gates` lists the gates). The output is checked like an agent's (the same proposal contracts and the source-free part of Guard 4; a 422 names each problem), stored with the reason, and only then announced as `gate.decided handoff`. Caseflow checks it again and treats it exactly like the failed job's `agent.done` with model `human`: the run resumes to the state it was suspended from and the join or trigger fires as it would have. While another failed job's gate is open the run stays in `handoff`. The sequence is in [`docs/architecture/sequences/handoff.md`](../../docs/architecture/sequences/handoff.md).
 
-So a run in `handoff` stays there. To get unstuck: restore Bedrock, then for the demo case run `make demo-reset` and start again; for any other case there is no supported resume. This is listed in `docs/governance/known-gaps.md`.
+What a manual output is not: its claims are not matched against their sources (the pack is built by H2 from live tools), so `guard_summary.claims_with_source` is 0 and the `human.handoff` record says `claims_matched_to_sources: 0`; every item still reaches a human review gate and the critic.
+
+If the cause was an outage, restore Bedrock first: a run that is handed to a person stays with them, and a re-run (`POST /api/fcrm/cases/{id}/runs`) works from `review` only. For a case suspended before this was built, the gate has no subject and cannot be completed; `make demo-reset` restarts the demo case.
 
 ## Diagnose
 
@@ -61,5 +62,5 @@ Compare the result with the ids in `ai/models/tiers.yaml`. A model id missing fr
 
 ## Checked and not checked
 
-- Checked: the chain per tier, budgets and wall clocks against `ai/models/tiers.yaml`; the attempt rules and the handoff transition against the code; that nothing reads `BEDROCK_REGION_FALLBACK` (`grep -rn region_fallback src/backend`); that no route decides a handoff gate.
+- Checked: the chain per tier, budgets and wall clocks against `ai/models/tiers.yaml`; the attempt rules and the handoff transition against the code; that `BEDROCK_REGION_FALLBACK` is read by `model_factory_for` and unit-tested with a fake provider (no call to a second region was made); the handoff path against the code and its tests (the unit tests, and the live-Mongo tests under `tests/integration/live_mongo/test_analyst_handoff_live.py` and `tests/unit/workers/caseflow/test_engine_handoff_live.py`). Not checked: a real Bedrock failure driving it end to end, and the web form against a running stack.
 - Not checked: an induced Bedrock failure. No outage drill exists (`make resilience` is not wired). The statement that review, lock, release and vote use no model is read from the sequence documents (`docs/architecture/sequences/assessment.md`, `committee-decide.md`).

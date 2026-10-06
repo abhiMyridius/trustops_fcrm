@@ -53,6 +53,7 @@ async function parseProblem(res: Response): Promise<Problem> {
       detail: body.detail,
       trace_id: body.trace_id ?? traceId,
       blocking: body.blocking,
+      errors: body.errors,
     };
   } catch {
     return { type: 'about:blank', title: res.statusText || 'Request failed', status: res.status, trace_id: traceId };

@@ -171,8 +171,8 @@ verify: ## verify one case's audit chain through S4: make verify case=FCRM-2026-
 	$(UV_RUN) python ops/scripts/seed_verify.py --case "$(case)"
 
 # ── quality gates ────────────────────────────────────────────────────────
-.PHONY: check lint format-check typecheck test test-unit opa-check opa-test compose-check web-install web-check gate
-check: lint format-check typecheck opa-check opa-test test-unit compose-check web-check ## commit gate: ruff, format, mypy, OPA, unit tests, env contract, web typecheck and vitest
+.PHONY: check lint format-check typecheck test test-unit opa-check opa-test ai-check compose-check web-install web-check gate
+check: lint format-check typecheck opa-check opa-test ai-check test-unit compose-check web-check ## commit gate: ruff, format, mypy, OPA, ai/ registry and model-id guards, unit tests, env contract, web typecheck and vitest
 	@echo "check: green"
 
 lint: ## ruff over src/backend, ops/scripts and tests (what the commit hook lints)
@@ -190,6 +190,10 @@ opa-check: ## opa check --strict on the policies and tests
 
 opa-test: ## Rego unit tests against the real permissions/tool_permits data (30 s per test: the route-matrix tests are slow on a busy machine)
 	$(OPA) test --timeout 30s $(OPA_DIR)/policy $(OPA_DIR)/data $(OPA_DIR)/tests
+
+ai-check: ## ai/ registry (prompts, agents, tools, skills), the model-id rule over ai/ src/ evals/ ops/, and prompt-lock freshness
+	$(UV_RUN) python ai/_tools/validate_ai.py
+	$(UV_RUN) python ai/_tools/compute_locks.py --check
 
 test-unit: ## every unit test under tests/ (integration and e2e markers excluded)
 	$(UV_RUN) pytest -m "not integration and not e2e and not resilience"
@@ -215,8 +219,12 @@ gate: check ## push / task-done gate: check plus the parts other lanes have wire
 
 # ── integration, e2e, resilience, evals ──────────────────────────────────
 .PHONY: test-int test-integration e2e resilience evals evals-full evals-gate nightly
-test-int: ## integration tests (testcontainers; needs Docker)
-	@if [ -d tests/integration ]; then $(UV_RUN) pytest -m integration tests/integration; else $(call pending,the first tests/integration suite from the service lanes); fi
+test-int: ## every integration-marked test under tests/ (tests/integration on Docker or FCRM_TEST_MONGO_URI; the *_live.py tests under tests/unit need FCRM_TEST_MONGO_URI)
+	@if [ -z "$$FCRM_TEST_MONGO_URI" ]; then \
+		echo "test-int: FCRM_TEST_MONGO_URI is not set. tests/integration starts its own containers (needs Docker); the *_live.py tests under tests/unit will SKIP, not pass." >&2; \
+		echo "test-int: to run all of them, start a throwaway replica set and export FCRM_TEST_MONGO_URI (RUNNING.md, 'Live tests')." >&2; \
+	fi
+	$(UV_RUN) pytest -m integration tests
 
 test-integration: test-int ## alias of test-int
 

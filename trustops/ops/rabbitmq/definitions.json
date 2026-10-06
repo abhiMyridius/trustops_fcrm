@@ -1,5 +1,5 @@
 {
-  "_comment": "TrustOps topology (design A 4.1, 4.5), imported at boot via rabbitmq.conf. RETRY (TTL + DLX requeue): on a handler exception with x-attempt < 3 the consumer republishes the message to exchange 'retry' with routing key '<queue>' and x-attempt + 1, then acks the original. '<queue>.retry' has no consumer; it holds the message for x-message-ttl (30 s) and on expiry dead-letters it through the default exchange ('') with routing key '<queue>', i.e. straight back onto the work queue: a delayed redelivery without the delayed-message plugin. PARK: when x-attempt reaches 3, or the envelope fails validation (poison), the consumer publishes to exchange 'dlx' with routing key '<queue>' and acks; '<queue>.dlq' keeps it with no TTL until 'make dlq-replay q=<queue>'. Work queues also carry x-dead-letter-exchange 'dlx', so a reject(requeue=false), or the quorum delivery-limit (5, policy fcrm-quorum-safety) after repeated consumer crashes, lands in the same DLQ. Policy fcrm-quorum-safety makes dead-lettering at-least-once (requires overflow reject-publish), so nothing is dropped between queues. Clients must declare these queues passively (or with exactly these arguments): ops owns the topology. No users here: ops/rabbitmq/entrypoint.sh adds the single RABBITMQ_DEFAULT_USER from .env (hashed) to a runtime copy at start.",
+  "_comment": "TrustOps topology (design A 4.1, 4.5), imported at boot via rabbitmq.conf. RETRY (TTL + DLX requeue): on a handler exception with x-attempt < 3 the consumer republishes the message to exchange 'retry' with routing key '<queue>' and x-attempt + 1, then acks the original. '<queue>.retry' has no consumer; it holds the message for x-message-ttl (30 s) and on expiry dead-letters it through the default exchange ('') with routing key '<queue>', i.e. straight back onto the work queue: a delayed redelivery without the delayed-message plugin. PARK: when x-attempt reaches 3, or the envelope fails validation (poison), the consumer publishes to exchange 'dlx' with routing key '<queue>' and acks; '<queue>.dlq' keeps it with no TTL until 'make dlq-replay q=<queue>'. Work queues also carry x-dead-letter-exchange 'dlx', so a reject(requeue=false), or the quorum delivery-limit (5, policy fcrm-quorum-safety) after repeated consumer crashes, lands in the same DLQ. Policy fcrm-quorum-safety makes dead-lettering at-least-once (requires overflow reject-publish), so nothing is dropped between queues. Clients must declare these queues passively (or with exactly these arguments): ops owns the topology. No users here: ops/rabbitmq/entrypoint.sh adds the single RABBITMQ_DEFAULT_USER from .env (hashed) to a runtime copy at start. BOUNDED, NO CONSUMER: nothing consumes evals.events (it only receives copies of gate.decided and outcome.*), so policies fcrm-evals-bounded and fcrm-evals-bounded-parked (priority 10, they replace fcrm-quorum-safety for these three queues, a queue gets ONE policy) cap it: 24 h, 10000 messages, 64 MiB, and 1000 messages on its retry and DLQ siblings, all with overflow drop-head, because reject-publish on a full evals.events would nack the publisher of every case.events message routed to it. A policy rather than queue arguments, because a declared queue cannot change its arguments and a policy applies to the existing queue on import. Messages the work queue drops (reason expired or maxlen) are dead-lettered by its x-dead-letter-exchange into evals.events.dlq, which keeps the newest 1000; an entry there is retention, not a failure. A consumer that gets built for these queues should keep these bounds or replace them on purpose.",
   "rabbit_version": "4.0.9",
   "rabbitmq_version": "4.0.9",
   "vhosts": [
@@ -27,6 +27,32 @@
       "apply-to": "queues",
       "priority": 10,
       "definition": {
+        "delivery-limit": -1
+      }
+    },
+    {
+      "vhost": "/",
+      "name": "fcrm-evals-bounded",
+      "pattern": "^evals\\.events$",
+      "apply-to": "queues",
+      "priority": 10,
+      "definition": {
+        "message-ttl": 86400000,
+        "max-length": 10000,
+        "max-length-bytes": 67108864,
+        "overflow": "drop-head",
+        "delivery-limit": 5
+      }
+    },
+    {
+      "vhost": "/",
+      "name": "fcrm-evals-bounded-parked",
+      "pattern": "^evals\\.events\\.(retry|dlq)$",
+      "apply-to": "queues",
+      "priority": 20,
+      "definition": {
+        "max-length": 1000,
+        "overflow": "drop-head",
         "delivery-limit": -1
       }
     }
@@ -432,6 +458,14 @@
       "destination": "case-service.events",
       "destination_type": "queue",
       "routing_key": "index.built",
+      "arguments": {}
+    },
+    {
+      "source": "case.events",
+      "vhost": "/",
+      "destination": "case-service.events",
+      "destination_type": "queue",
+      "routing_key": "gate.opened",
       "arguments": {}
     },
     {

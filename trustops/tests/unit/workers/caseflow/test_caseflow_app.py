@@ -129,6 +129,7 @@ def test_a_mapped_step_without_a_handler_refuses_to_start() -> None:
         _unit(
             _settings(),
             step_map={Trigger.CASE_RETAGGED: StepKind.HANDOFF_OPEN},
+            step_handlers={},
         )
 
 

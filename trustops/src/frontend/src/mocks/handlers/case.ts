@@ -292,6 +292,15 @@ export const caseHandlers = [
       return new HttpResponse(null, { status: 202 });
     }),
   ),
+  // The mock demo never reaches handoff: no gate is waiting, and nothing can be completed.
+  http.get(`${P}/handoff/gates`, ({ request, params }) =>
+    guarded(request, ['fcrm_analyst'], () => ok({ case_id: id(params), gates: [] })),
+  ),
+  http.post(`${P}/handoff/:gid/complete`, ({ request }) =>
+    guarded(request, ['fcrm_analyst'], () =>
+      problem(409, 'Not in handoff', 'No agent step has failed in mock mode, so there is nothing to complete by hand.'),
+    ),
+  ),
   http.post(`${P}/change-types`, ({ request, params }) =>
     guarded(request, ['fcrm_analyst'], async () => {
       const b = await body<{ change_type: string; reason: string }>(request);

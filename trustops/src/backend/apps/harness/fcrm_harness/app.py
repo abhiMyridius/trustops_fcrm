@@ -18,7 +18,7 @@ from typing import Optional
 from faststream.asgi import AsgiFastStream
 from faststream.rabbit import RabbitBroker
 from fcrm_agent_worker.app import build_unit as build_agent_worker_unit
-from fcrm_agent_worker.live_runtime import ModelFactory, live_model_for_slot
+from fcrm_agent_worker.live_runtime import ModelFactory
 from fcrm_caseflow.app import build_unit as build_caseflow_unit
 from fcrm_common.broker import FastStreamPublisher
 from fcrm_common.events import Publisher
@@ -50,7 +50,7 @@ def build_units(
     mongo: AsyncMongoClient[Document],
     publisher: Publisher,
     registry: Optional[ToolRegistry] = None,
-    model_factory: ModelFactory = live_model_for_slot,
+    model_factory: Optional[ModelFactory] = None,
 ) -> list[WorkerUnit]:
     """The consumer units this process runs, in start order.
 
@@ -59,7 +59,8 @@ def build_units(
         mongo: The process's Mongo client.
         publisher: The process's publisher over its one broker.
         registry: Tool registry for H2; ``None`` selects its default.
-        model_factory: Model factory for H2 (a fake in tests).
+        model_factory: Model factory for H2 (a fake in tests); ``None`` builds the
+            live one with the second Bedrock region, if one is set.
     """
     return [
         build_caseflow_unit(
@@ -85,7 +86,7 @@ def build_app(
     settings: Optional[HarnessSettings] = None,
     *,
     registry: Optional[ToolRegistry] = None,
-    model_factory: ModelFactory = live_model_for_slot,
+    model_factory: Optional[ModelFactory] = None,
 ) -> AsgiFastStream:
     """The full harness process with real dependencies.
 

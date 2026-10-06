@@ -56,6 +56,7 @@ PO_BLOCKED_TYPE_PREFIXES: Final[tuple[str, ...]] = (
     "vote.",
     "committee.",
     "monitor.",
+    "handoff.",
 )
 
 #: Payload keys (matched whole, case-insensitively, at any depth) that mark an
