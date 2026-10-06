@@ -48,7 +48,7 @@ export function ControlInventory({ s }: { s: ConfigSectionBase<'control-inventor
             {d.domain}: weights sum {formatFixed(d.sum, 2)}
           </Badge>
         ))}
-        <Button size="sm" variant="ghost" onClick={() => toast.info('CSV import', 'Per-row validation runs server-side (S3); not available in mock mode.')}>
+        <Button size="sm" variant="ghost" onClick={() => toast.info('CSV import', 'Per-row validation runs server-side (S3); not available in this build.')}>
           Import CSV
         </Button>
       </div>

@@ -1,7 +1,7 @@
 /**
- * WAI-ARIA tabs. `Tabs` switches in-page panels; `RouteTabs` renders the case tabs as router links
- * (the URL is the state, design C §1.5 rule 3). Both use a roving tabindex: arrows, Home and End
- * move focus between tabs; Enter/Space (or click) activates.
+ * WAI-ARIA tabs. `RouteTabs` renders the case tabs as router links (the URL is the state, design C
+ * §1.5 rule 3) with a roving tabindex: arrows, Home and End move focus between tabs; Enter (or
+ * click) activates.
  */
 import { useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -38,45 +38,6 @@ const tabClass = (active: boolean) =>
       ? 'text-carbon-moss after:absolute after:inset-x-2 after:-bottom-px after:h-[2.5px] after:rounded-full after:bg-quantum-leaf'
       : 'text-text-muted hover:text-text-primary',
   );
-
-export interface TabsProps {
-  tabs: TabDef[];
-  active: string;
-  onChange: (key: string) => void;
-  label: string;
-  children: ReactNode;
-}
-
-export function Tabs({ tabs, active, onChange, label, children }: TabsProps) {
-  const id = useStableId('tabs');
-  const listRef = useRef<HTMLDivElement>(null);
-  return (
-    <div>
-      <div ref={listRef} role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto border-b border-border">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            id={`${id}-tab-${t.key}`}
-            type="button"
-            role="tab"
-            aria-selected={t.key === active}
-            aria-controls={`${id}-panel`}
-            tabIndex={t.key === active ? 0 : -1}
-            onClick={() => onChange(t.key)}
-            onKeyDown={(e) => moveFocus(e, listRef.current)}
-            className={tabClass(t.key === active)}
-          >
-            {t.label}
-            {t.count ? <Pill count={t.count} label={t.countLabel ?? 'items'} /> : null}
-          </button>
-        ))}
-      </div>
-      <div id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-tab-${active}`} tabIndex={0} className="pt-5 outline-none">
-        {children}
-      </div>
-    </div>
-  );
-}
 
 export interface RouteTabsProps {
   tabs: TabDef[];

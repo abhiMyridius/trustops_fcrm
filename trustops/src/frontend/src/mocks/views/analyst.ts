@@ -23,7 +23,6 @@ import type {
 } from '@/api/types/analyst';
 import type { Domain } from '@/api/types/common';
 import {
-  LOCK_BLOCKING_CONTROLS,
   THREAD_IDS,
   demoScore,
   lockBlockers,
@@ -757,5 +756,3 @@ export function reflags(): Reflag[] {
       acknowledged: Boolean(ack[`rf_${c.id}`]),
     }));
 }
-
-export { LOCK_BLOCKING_CONTROLS };

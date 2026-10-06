@@ -53,7 +53,7 @@ export interface QueueItem {
   mine: boolean;
 }
 
-/** Every figure is seed-derived on the server; nothing on this dashboard is computed in the browser. */
+/** Every figure is computed on the server (counts and averages from the stored cases and scores, reference tables from the seed); nothing on this dashboard is computed in the browser. */
 export interface DashboardAnalyst {
   kpis: {
     open_assigned: number;

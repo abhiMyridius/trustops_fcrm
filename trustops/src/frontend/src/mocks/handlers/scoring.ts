@@ -1,22 +1,13 @@
-/** S2 scoring stand-in: model and routing versions, and the simulate preview used by ReasonDialog. */
+/** S2 scoring stand-in: the simulate preview used by ReasonDialog. */
 import { HttpResponse, http } from 'msw';
-import { API_PREFIX, paths } from '@/api/endpoints';
+import { paths } from '@/api/endpoints';
 import type { SimulateResponse } from '@/api/types/analyst';
 import { demoAreas, demoScore } from '../actions';
 import { score } from '../engine';
 import { body, guarded, notFound, problem } from '../http';
-import { seed } from '../seed';
 import { isDemo } from '../views/common';
 
 export const scoringHandlers = [
-  http.get(`${API_PREFIX}/scoring/models/:v`, ({ request, params }) =>
-    guarded(request, ['fcrm_analyst', 'fcrm_committee'], () =>
-      params.v === seed.scoring_model.version ? HttpResponse.json(seed.scoring_model) : notFound(),
-    ),
-  ),
-  http.get(`${API_PREFIX}/scoring/routing-rules/:v`, ({ request, params }) =>
-    guarded(request, ['fcrm_analyst', 'fcrm_committee'], () => (params.v === seed.routing.version ? HttpResponse.json(seed.routing) : notFound())),
-  ),
   http.post(paths.scoring.simulate, ({ request }) =>
     guarded(request, ['fcrm_analyst'], async () => {
       const b = await body<{ case_id: string; control_id: string; value: number }>(request);

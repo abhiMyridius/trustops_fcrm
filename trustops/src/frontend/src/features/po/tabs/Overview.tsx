@@ -244,7 +244,7 @@ export function OverviewTab() {
               {intake.change_types.length > 0 && <ChangeTypes caseId={id} types={intake.change_types} />}
               {intake.precedent && <Precedent caseId={id} intake={intake} />}
               <Gaps caseId={id} intake={intake} />
-              {intake.values.length > 0 ? <Values values={intake.values} /> : <EmptyState title="No values proposed for this case" body="Replay fixtures exist only for FCRM-2026-0151." />}
+              {intake.values.length > 0 ? <Values values={intake.values} /> : <EmptyState title="No values proposed for this case" body="The assistant found no values in the uploaded documents. Add a document that states them." />}
             </div>
             <div className="flex flex-col gap-5">
               <Card title="Completion">

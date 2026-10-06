@@ -122,7 +122,7 @@ export function WorkbenchLayout() {
         </Banner>
       )}
       {w.closed && <Banner tone="rule">Closed means closed. No one, including the signer, can re-run or edit this assessment.</Banner>}
-      {!w.is_demo && <Banner tone="info">Seeded case: shown read-only from the P7 seed. FCRM-2026-0151 is the live case in mock mode.</Banner>}
+      {!w.is_demo && <Banner tone="info">Seeded case: shown read-only from the P7 seed. The harness has no assessment run for it, so it cannot be edited here.</Banner>}
       {!w.submitted ? (
         <Banner tone="info" title="Not submitted yet">
           The owner is still at intake. The case appears here once it is submitted and triaged.

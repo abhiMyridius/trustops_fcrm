@@ -17,7 +17,7 @@ export function PolicyCorpus({ s }: { s: ConfigSectionBase<'policy-corpus', Poli
           {d.sources.length} sources · {d.clause_count} clauses
         </Badge>
         <span className="text-[13px] text-text-secondary">Ingested {formatDate(d.ingested)}</span>
-        <Button size="sm" variant="secondary" onClick={() => toast.info('Upload a source', 'Ingestion (H3) and indexing (H4) run as jobs; progress streams on cases/stream. Not available in mock mode.')}>
+        <Button size="sm" variant="secondary" onClick={() => toast.info('Upload a source', 'Ingestion (H3) and indexing (H4) run as jobs; progress streams on cases/stream. Not available in this build.')}>
           Upload source…
         </Button>
       </div>

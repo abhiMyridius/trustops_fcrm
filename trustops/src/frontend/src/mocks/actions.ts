@@ -211,8 +211,6 @@ export function decideCompleteness(decision: 'ask' | 'proceed'): void {
   persist();
 }
 
-export const DRAFT_IDS = ['Q1', 'Q2', 'Q3'];
-
 export function sendRound(questions: { id: string; keep: boolean; text: string }[]): void {
   requireOpen();
   const d = demo();

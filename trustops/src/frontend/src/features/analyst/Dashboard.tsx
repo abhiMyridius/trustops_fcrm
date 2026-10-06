@@ -33,7 +33,7 @@ export function AnalystDashboard() {
   ];
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Analyst dashboard" subtitle="What is assigned to you, and how the portfolio and the agents are doing. Every figure comes from the seed." />
+      <PageHeader title="Analyst dashboard" subtitle="What is assigned to you, and how the portfolio and the agents are doing. Counts and averages are computed from the stored cases and scores; reference tables come from the seed." />
       <QueryState query={q} label="Loading dashboard">
         {(d) => (
           <>

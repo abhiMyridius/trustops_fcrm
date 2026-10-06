@@ -3,15 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, apiList } from '../client';
 import { paths } from '../endpoints';
 import { keys } from '../keys';
-import type { AuditRecord, Reflag, VerifyResult } from '../types/analyst';
+import type { Reflag, VerifyResult } from '../types/analyst';
 import type { AgentQuality, ExaminerAnswer, OverrideRow, VersionsRow } from '../types/config';
-
-export function useAuditRecords(caseId: string) {
-  return useQuery({
-    queryKey: keys.audit('records', { caseId }),
-    queryFn: () => apiList<AuditRecord>(paths.audit.records, { query: { case_id: caseId } }),
-  });
-}
 
 export function useVerifyChain(caseId: string, enabled = true) {
   return useQuery({

@@ -75,8 +75,6 @@ export const paths = {
     reflagAck: (rid: string) => `${API_PREFIX}/reflags/${e(rid)}/acknowledge`,
   },
   scoring: {
-    model: (v: string) => `${API_PREFIX}/scoring/models/${e(v)}`,
-    routing: (v: string) => `${API_PREFIX}/scoring/routing-rules/${e(v)}`,
     simulate: `${API_PREFIX}/scoring/simulate`,
   },
   policy: {
@@ -98,13 +96,10 @@ export const paths = {
   decision: {
     committeeQueue: `${API_PREFIX}/decision/committee/queue`,
     buildPack: `${API_PREFIX}/decision/packs`,
-    casePacks: (caseId: string) => `${API_PREFIX}/decision/cases/${e(caseId)}/packs`,
     latestPack: (caseId: string) => `${API_PREFIX}/decision/cases/${e(caseId)}/packs/latest`,
-    pack: (packId: string) => `${API_PREFIX}/decision/packs/${e(packId)}`,
     release: (packId: string) => `${API_PREFIX}/decision/packs/${e(packId)}/release`,
     votes: (packId: string) => `${API_PREFIX}/decision/packs/${e(packId)}/votes`,
     threads: (packId: string) => `${API_PREFIX}/decision/packs/${e(packId)}/threads`,
     answerThread: (threadId: string) => `${API_PREFIX}/decision/threads/${e(threadId)}/answer`,
-    outcome: (caseId: string) => `${API_PREFIX}/decision/cases/${e(caseId)}/outcome`,
   },
 } as const;

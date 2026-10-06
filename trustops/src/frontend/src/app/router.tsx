@@ -23,21 +23,6 @@ function lazy(load: () => Promise<Mod>, name: string) {
   };
 }
 
-export const PO_TABS = ['overview', 'documents', 'review', 'inbox', 'activity', 'conditions'] as const;
-export const ANALYST_TABS = ['summary', 'submission', 'inbox', 'policy', 'risk-controls', 'recommendation', 'handoff', 'activity'] as const;
-export const ASSURANCE_TABS = ['ask', 'overrides', 'watchlist', 'agent-quality'] as const;
-export const CONFIG_SECTIONS = [
-  'field-sets',
-  'categories',
-  'scoring-model',
-  'control-inventory',
-  'policy-corpus',
-  'routing-rules',
-  'jurisdiction-risk',
-  'ai-agents',
-] as const;
-export const COMMITTEE_TABS = ['pack', 'inbox', 'vote'] as const;
-
 export const routes: RouteObject[] = [
   {
     path: '/',

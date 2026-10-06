@@ -7,7 +7,6 @@ import type {
   ActivityAnalyst,
   AssessmentSummary,
   ClarificationsView,
-  ConditionAnalyst,
   DashboardAnalyst,
   HandoffCompleted,
   HandoffGates,
@@ -91,10 +90,6 @@ export function useHandoffGates(id: string, enabled: boolean) {
     enabled,
     staleTime: 0,
   });
-}
-
-export function useConditionsAnalyst(id: string) {
-  return useQuery({ queryKey: keys.caseSection(id, 'conditions'), queryFn: () => apiList<ConditionAnalyst>(paths.cases.conditions(id)) });
 }
 
 export function useActivityAnalyst(id: string) {

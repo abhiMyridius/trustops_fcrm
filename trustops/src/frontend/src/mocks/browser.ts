@@ -1,4 +1,4 @@
-/** Browser MSW worker. Started from main.tsx only when VITE_API_MODE=msw (the default until services exist). */
+/** Browser MSW worker. Started from main.tsx only when VITE_API_MODE=msw (`npm run dev:msw`); the live build never loads it. */
 import { setupWorker } from 'msw/browser';
 import { boot } from './db';
 import { handlers } from './handlers';
