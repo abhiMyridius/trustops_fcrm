@@ -37,6 +37,7 @@ from datetime import datetime
 from time import monotonic
 from typing import Any, Final, Optional, Protocol
 
+from fcrm_common.broker import BROKER_ERRORS
 from fcrm_common.errors import (
     ConflictError,
     NotFoundError,
@@ -400,7 +401,7 @@ class ExaminerService:
                     EVENT_EXAMINER_ASKED,
                     envelope,
                 )
-        except (OSError, TimeoutError) as exc:
+        except BROKER_ERRORS as exc:
             logger.error(
                 "examiner.asked could not be published",
                 extra={
