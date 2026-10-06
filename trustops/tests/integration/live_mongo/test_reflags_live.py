@@ -220,3 +220,35 @@ async def test_the_indexes_the_queries_rely_on_exist(
 ) -> None:
     info = await live_db["reflags"].index_information()
     assert {"created_id", "case_idx"} <= set(info)
+
+
+async def test_case_search_reads_the_real_collections(store: MongoReflagStore) -> None:
+    by_country = await store.search_cases(
+        "Algeria", geography="Algeria", change_types=[], closed_only=False, top_k=5
+    )
+    assert [(h.case_id, h.outcome) for h in by_country] == [
+        ("FCRM-2026-0118", "closed"),
+        ("FCRM-2026-0144", None),
+    ]
+    precedents = await store.search_cases(
+        "Algeria", geography="Algeria", change_types=[], closed_only=True, top_k=5
+    )
+    assert [h.case_id for h in precedents] == ["FCRM-2026-0118"]
+    corridor = await store.search_cases(
+        "Namibia", geography="Namibia", change_types=[], closed_only=False, top_k=5
+    )
+    assert [h.case_id for h in corridor] == ["FCRM-2026-0150"]
+    by_title = await store.search_cases(
+        "remittances", geography=None, change_types=[], closed_only=False, top_k=2
+    )
+    assert [h.case_id for h in by_title] == ["FCRM-2026-0118", "FCRM-2026-0144"]
+    assert (
+        await store.search_cases(
+            "remittances",
+            geography=None,
+            change_types=["vendor"],
+            closed_only=False,
+            top_k=2,
+        )
+        == []
+    )

@@ -7,7 +7,7 @@ idempotent create H1 drives, the analyst's paged list and the acknowledgement
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Optional
 
 import pytest
 from fastapi import FastAPI
@@ -356,3 +356,65 @@ def test_a_closed_case_re_flag_can_still_be_acknowledged_and_nothing_else_change
     assert response.status_code == 200
     assert reflag_store.cases["FCRM-2026-0118"] == before
     assert reflag_store.cases["FCRM-2026-0118"].state is CaseState.CLOSED
+
+
+# ── the agents' case_search tool ─────────────────────────────────────────────────
+
+SEARCH = "/internal/cases/search"
+
+
+def _hits(response: Any) -> list[tuple[str, Optional[str]]]:
+    return [(h["case_id"], h["outcome"]) for h in response.json()["hits"]]
+
+
+def test_case_search_by_geography_tells_open_cases_from_closed_ones(
+    reflag_app: FastAPI, act_as: Callable[[Role, str], None]
+) -> None:
+    client = _as(reflag_app, act_as, Role.SERVICE)
+    everything = client.get(
+        SEARCH, params={"q": "Algeria", "geography": "Algeria", "closed_only": "false"}
+    )
+    assert everything.status_code == 200
+    assert _hits(everything) == [("FCRM-2026-0118", "closed"), ("FCRM-2026-0144", None)]
+    precedents = client.get(SEARCH, params={"q": "Algeria", "geography": "Algeria"})
+    assert _hits(precedents) == [("FCRM-2026-0118", "closed")]
+
+
+def test_case_search_reads_a_corridor_like_the_re_flag_match(
+    reflag_app: FastAPI, act_as: Callable[[Role, str], None]
+) -> None:
+    client = _as(reflag_app, act_as, Role.SERVICE)
+    found = client.get(
+        SEARCH, params={"q": "Namibia", "geography": "Namibia", "closed_only": "false"}
+    )
+    assert _hits(found) == [("FCRM-2026-0150", None)]
+
+
+def test_case_search_by_title_and_top_k(
+    reflag_app: FastAPI, act_as: Callable[[Role, str], None]
+) -> None:
+    client = _as(reflag_app, act_as, Role.SERVICE)
+    by_title = client.get(SEARCH, params={"q": "WEALTH", "closed_only": "false"})
+    assert _hits(by_title) == [("FCRM-2026-0139", None)]
+    trimmed = client.get(SEARCH, params={"q": "a", "closed_only": "false", "top_k": 1})
+    assert len(trimmed.json()["hits"]) == 1
+
+
+@pytest.mark.parametrize(
+    "params",
+    [{}, {"q": ""}, {"q": "x", "top_k": 0}, {"q": "x", "top_k": 21}, {"q": "x" * 201}],
+)
+def test_case_search_refuses_a_malformed_request(
+    reflag_app: FastAPI, act_as: Callable[[Role, str], None], params: dict[str, Any]
+) -> None:
+    client = _as(reflag_app, act_as, Role.SERVICE)
+    assert client.get(SEARCH, params=params).status_code == 422
+
+
+@pytest.mark.parametrize("role", [Role.ANALYST, Role.COMMITTEE, Role.PO, Role.OBSERVER])
+def test_case_search_is_service_only(
+    reflag_app: FastAPI, act_as: Callable[[Role, str], None], role: Role
+) -> None:
+    assert (
+        _as(reflag_app, act_as, role).get(SEARCH, params={"q": "x"}).status_code == 403
+    )

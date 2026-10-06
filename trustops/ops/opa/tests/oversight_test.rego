@@ -74,9 +74,11 @@ test_the_service_account_never_acknowledges if {
 test_the_internal_reflag_routes_are_the_services if {
 	authz.allow with input as req("fcrm_service", "case", "POST", "/internal/reflags")
 	authz.allow with input as req("fcrm_service", "case", "GET", "/internal/reflags/candidates")
+	authz.allow with input as req("fcrm_service", "case", "GET", "/internal/cases/search")
 	every role in ["fcrm_analyst", "fcrm_committee", "fcrm_po", "fcrm_observer"] {
 		not authz.allow with input as req(role, "case", "POST", "/internal/reflags")
 		not authz.allow with input as req(role, "case", "GET", "/internal/reflags/candidates")
+		not authz.allow with input as req(role, "case", "GET", "/internal/cases/search")
 	}
 }
 

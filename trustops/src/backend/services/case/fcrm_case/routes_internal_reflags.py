@@ -1,5 +1,7 @@
 """S1's internal re-flag routes, called by H1's watchlist step:
-``GET /internal/reflags/candidates`` and ``POST /internal/reflags``.
+``GET /internal/reflags/candidates``, ``POST /internal/reflags`` and
+``GET /internal/cases/search`` (the agents' ``case_search`` tool, which the
+watchlist agent reads the open cases of a country through).
 
 Service-only at three layers (this router, OPA's ``case-any-internal-all-service``
 rule and the gateway) and left out of the public OpenAPI document. The
@@ -12,7 +14,7 @@ row once.
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Query
 from fcrm_common.auth import require_roles
@@ -24,6 +26,7 @@ from fcrm_contracts.api.case_internal_reflags import (
 )
 from fcrm_contracts.common import Principal
 from fcrm_contracts.enums import Role
+from fcrm_contracts.tools.case_search import CaseSearchOutput
 
 from fcrm_case.deps import get_reflags
 from fcrm_case.idempotency import IdempotencyKeyHeader, checked_key
@@ -42,6 +45,9 @@ ServiceCaller = Annotated[Principal, Depends(require_roles(Role.SERVICE))]
 
 #: Countries one candidate query may name (a list version adds a handful).
 MAX_COUNTRIES = 50
+#: The agents' ``case_search`` bounds (the tool refuses more before it asks).
+MAX_QUERY_CHARS = 200
+MAX_TOP_K = 20
 
 
 @router.get("/reflags/candidates")
@@ -54,6 +60,32 @@ async def reflag_candidates(
     one entry per case and country, ordered by case id.
     """
     return ReflagCandidates(items=await reflags.candidates(countries))
+
+
+@router.get("/cases/search")
+async def search_cases(
+    _principal: ServiceCaller,
+    reflags: Annotated[ReflagStore, Depends(get_reflags)],
+    q: Annotated[str, Query(min_length=1, max_length=MAX_QUERY_CHARS)],
+    top_k: Annotated[int, Query(ge=1, le=MAX_TOP_K)] = 5,
+    closed_only: bool = True,
+    change_types: Annotated[Optional[str], Query(max_length=200)] = None,
+    geography: Annotated[Optional[str], Query(max_length=120)] = None,
+) -> CaseSearchOutput:
+    """The agents' ``case_search`` tool: the cases exposed to ``geography`` (the
+    same code match as the re-flag candidates), else those whose title holds
+    ``q``; best match first. ``outcome`` is ``None`` for an open case, which is
+    how the watchlist agent tells the open cases from precedents.
+    """
+    wanted = [t.strip() for t in (change_types or "").split(",") if t.strip()]
+    found = await reflags.search_cases(
+        q,
+        geography=geography,
+        change_types=wanted,
+        closed_only=closed_only,
+        top_k=top_k,
+    )
+    return CaseSearchOutput(hits=found)
 
 
 @router.post("/reflags")

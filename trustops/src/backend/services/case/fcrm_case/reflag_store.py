@@ -27,6 +27,7 @@ case is exactly the point. Nothing here changes a score or reopens a case.
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -46,6 +47,7 @@ from fcrm_contracts.api.case_internal_reflags import (
 )
 from fcrm_contracts.common import Page
 from fcrm_contracts.events.envelope import Envelope
+from fcrm_contracts.tools.case_search import CaseSearchHit
 from pymongo import ASCENDING, DESCENDING, AsyncMongoClient, IndexModel, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -96,6 +98,23 @@ class ReflagStore(Protocol):
         """Open cases exposed to any of ``countries``, one entry per case and
         country, ordered by case id then country (at most
         :data:`~fcrm_case.domain.reflags.MAX_CANDIDATES`).
+        """
+        ...
+
+    async def search_cases(
+        self,
+        query: str,
+        *,
+        geography: Optional[str],
+        change_types: Sequence[str],
+        closed_only: bool,
+        top_k: int,
+    ) -> list[CaseSearchHit]:
+        """Cases for the agents' ``case_search`` tool: those exposed to
+        ``geography`` (code match), else those whose title holds ``query``;
+        narrowed to ``change_types``; closed ones only when ``closed_only``.
+        Best match first, at most ``top_k``; ``outcome`` is ``None`` exactly for
+        an open case.
         """
         ...
 
@@ -216,6 +235,45 @@ class InMemoryReflagStore:
     async def candidates(self, countries: Sequence[str]) -> list[ReflagCandidate]:
         return _candidates_of(self._open_cases(), self.corridors, countries)
 
+    async def search_cases(
+        self,
+        query: str,
+        *,
+        geography: Optional[str],
+        change_types: Sequence[str],
+        closed_only: bool,
+        top_k: int,
+    ) -> list[CaseSearchHit]:
+        hits: list[CaseSearchHit] = []
+        for case in sorted(self.cases.values(), key=lambda c: c.case_id):
+            stage = case.state.value
+            if case.discarded_at is not None or (closed_only and stage != "closed"):
+                continue
+            if change_types and not set(change_types) & {
+                t.value for t in case.change_types
+            }:
+                continue
+            if geography is not None:
+                matched = countries_matched(
+                    case.geographies, self.corridors.get(case.case_id, []), [geography]
+                )
+            else:
+                matched = (
+                    [query] if query.strip().casefold() in case.title.casefold() else []
+                )
+            if matched:
+                hits.append(
+                    CaseSearchHit(
+                        case_id=case.case_id,
+                        title=case.title,
+                        similarity=1.0,
+                        outcome=_outcome_of(
+                            stage, case.outcome_ref, case.outcome_summary
+                        ),
+                    )
+                )
+        return hits[:top_k]
+
     async def create_many(self, proposed: Sequence[ReflagIn]) -> ReflagsPosted:
         unknown = sorted({p.case_id for p in proposed if p.case_id not in self.cases})
         if unknown:
@@ -275,6 +333,17 @@ class InMemoryReflagStore:
         self.rows[reflag_id] = updated
         self.events.append(acknowledged_envelope(updated, by, reason, body.rerun, now))
         return AckWrite(updated)
+
+
+def _outcome_of(
+    stage: str, ref: Optional[str], summary: Optional[str]
+) -> Optional[str]:
+    """What a search hit says the case's outcome is: ``None`` for an open case,
+    otherwise the recorded outcome (or that it is closed).
+    """
+    if stage != "closed":
+        return None
+    return ref or summary or "closed"
 
 
 def _unknown_cases(case_ids: Sequence[str]) -> FcrmValidationError:
@@ -360,6 +429,64 @@ class MongoReflagStore:
             async for doc in cursor
         ]
         return _candidates_of(exposures, corridors, names)
+
+    async def search_cases(
+        self,
+        query: str,
+        *,
+        geography: Optional[str],
+        change_types: Sequence[str],
+        closed_only: bool,
+        top_k: int,
+    ) -> list[CaseSearchHit]:
+        base: dict[str, Any] = {"discarded_at": None}
+        if closed_only:
+            base["state"] = "closed"
+        if change_types:
+            base["change_types"] = {"$in": list(change_types)}
+        corridors: dict[str, list[str]] = {}
+        if geography is not None:
+            corridors = await self._corridor_values([geography])
+            base["$or"] = [
+                {"geographies": geography},
+                {"case_id": {"$in": list(corridors)}},
+            ]
+        else:
+            base["title"] = {"$regex": re.escape(query.strip()), "$options": "i"}
+        cursor = self._cases.find(
+            base,
+            projection={
+                "case_id": 1,
+                "title": 1,
+                "state": 1,
+                "geographies": 1,
+                "outcome_ref": 1,
+                "outcome_summary": 1,
+            },
+            sort=[("case_id", ASCENDING)],
+            limit=MAX_CANDIDATES,
+        )
+        hits: list[CaseSearchHit] = []
+        async for doc in cursor:
+            if geography is not None and not countries_matched(
+                doc.get("geographies") or (),
+                corridors.get(doc["case_id"], []),
+                [geography],
+            ):
+                continue
+            hits.append(
+                CaseSearchHit(
+                    case_id=doc["case_id"],
+                    title=doc["title"],
+                    similarity=1.0,
+                    outcome=_outcome_of(
+                        str(doc["state"]),
+                        doc.get("outcome_ref"),
+                        doc.get("outcome_summary"),
+                    ),
+                )
+            )
+        return hits[:top_k]
 
     async def _corridor_values(self, names: Sequence[str]) -> dict[str, list[str]]:
         """Corridor field text mentioning any of ``names``, by case id (one
