@@ -129,3 +129,4 @@ Still open:
 - **No complete live acceptance pass on the final build.** The last 21-scene pass is 21 of 21 on the shipped chain at 18:25 IST, before the clean-up merges; on cheaper chains the run stopped at scene 3, 8 or 9 (D-95). The live black-box rules and the Playwright scenes need a completed demo and were not run on the final build. A run on the shipped chain would cost about USD 0.6 to 1.0 at the verified prices and needs the operator's approval (ADR-59).
 - The Guard 4 retry model for the cheap tier (D-96).
 - The stack was left running the economy profile, not the shipped tiers, until `make up` is run (it restarts the api, which embeds the clauses on Titan).
+- A job parked in `agent-worker.run.dlq` by a transport failure (a Bedrock timeout on every delivery) may leave the case waiting with no signal; no drill covers it (D-98).
