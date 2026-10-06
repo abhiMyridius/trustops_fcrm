@@ -63,37 +63,6 @@ class SubmissionVersion(BaseModel):
     diff: list[SubmissionVersionDiff]
 
 
-class CaseWorkbenchSummary(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    case_id: str
-    state: str
-    score: Optional[ScoreResponse] = None
-    review_items: list[ReviewItem]
-    submission_versions: list[SubmissionVersion]
-
-
-class RerunRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    scope: str  # "changed_fields" | "full"
-    reason: Optional[str] = None  # required when scope == "full"
-
-
-class UnlockRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    reason: str
-
-
-class AcknowledgeRequest(BaseModel):
-    """R3: boundary flag or band-change acknowledgement."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    ack_type: str  # "boundary" | "band_change"
-
-
 class CaseListItemAnalyst(BaseModel):
     """The analyst/committee queue row: carries the assignment, which
     ``CaseListItemPO`` (case_po.py) never does.

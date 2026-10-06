@@ -50,7 +50,6 @@ x-app-env: &app-env
   SERVICE_TOKEN_SECRET: ${SERVICE_TOKEN_SECRET:?set SERVICE_TOKEN_SECRET in .env}
   SEED_PATH: ${SEED_PATH:-}
   SEED_ON_EMPTY: ${SEED_ON_EMPTY:-true}
-  GATEWAY_ORIGIN: ${GATEWAY_ORIGIN:-http://localhost:8080}
 
 # MinIO (local S3). The AWS path unsets S3_ENDPOINT_URL and uses real S3.
 x-s3-env: &s3-env
@@ -276,7 +275,6 @@ services:
       JWT_AUDIENCE: fcrm
       REFRESH_COOKIE_NAME: fcrm_refresh
       DEMO_USERS_PASSWORD_HASH: ${DEMO_USERS_PASSWORD_HASH:-}
-      LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-10/minute}
       # Password-less demo picker: honoured only while ENV is local, test or ci.
       DEMO_USERS_ENABLED: "true"
       # S1 case
@@ -305,8 +303,6 @@ services:
       PROMPTS_DIR: /app/ai
       # S1: the committed demo PDFs a {"demo_files": []} upload reads (scene 3)
       DEMO_DOCUMENTS_DIR: /app/fixtures/documents
-      # S5 decision
-      COMMITTEE_QUORUM: "3"
     expose:
       - "8000"
     volumes:

@@ -200,15 +200,6 @@ def _case_types(text: str) -> list[str]:
     return [t.strip() for t in match.group("types").split(",")] if match else []
 
 
-def _line_items(prefix: str, text: str) -> list[Item]:
-    """One item per non-blank line of ``text``, numbered from 1."""
-    return [
-        (f"{prefix}{n}", line)
-        for n, line in enumerate(text.split("\n"), start=1)
-        if line.strip()
-    ]
-
-
 def _submitted(view: RowView) -> Optional[date]:
     raw = view.input_value("submitted")
     return date.fromisoformat(str(raw)) if raw else None

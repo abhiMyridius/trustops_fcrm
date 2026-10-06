@@ -292,16 +292,6 @@ async def run_live(
     return outcome
 
 
-def prices_of(outcome: LiveRunOutcome) -> PriceTable:
-    """The price table of the run's ``tiers.yaml``."""
-    return PriceTable.from_tiers(outcome.tiers)
-
-
-def agents_in(results: Sequence[EvalResult]) -> list[AgentName]:
-    """The agents a set of results covers, in result order."""
-    return [r.agent for r in results]
-
-
 __all__ = [
     "JudgeKit",
     "LiveRunConfig",

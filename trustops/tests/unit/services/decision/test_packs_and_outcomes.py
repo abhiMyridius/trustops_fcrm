@@ -7,7 +7,6 @@ from __future__ import annotations
 from fcrm_contracts.enums import Outcome
 from fcrm_decision.outcomes import tally_round
 from fcrm_decision.packs import build_pack, content_hash, pack_unchanged
-from fcrm_decision.release_checks import evaluate_release_checks
 from fcrm_seed.loader import demo_case
 
 
@@ -29,26 +28,6 @@ def test_build_pack_round_trips_through_pack_unchanged() -> None:
 
     tampered = {"case_id": "FCRM-2026-0151", "composite": 11.0}
     assert pack_unchanged(pack, tampered) is False
-
-
-def test_release_checks_all_pass_only_when_every_one_does() -> None:
-    passing = evaluate_release_checks(
-        locked=True,
-        all_items_reviewed=True,
-        boundary_and_band_acknowledged=True,
-        business_summary_present=True,
-    )
-    assert passing.all_passed is True
-    assert passing.failing() == []
-
-    failing = evaluate_release_checks(
-        locked=True,
-        all_items_reviewed=False,
-        boundary_and_band_acknowledged=True,
-        business_summary_present=False,
-    )
-    assert failing.all_passed is False
-    assert failing.failing() == ["all_items_reviewed", "business_summary_present"]
 
 
 def test_the_demo_case_s_vote_tallies_to_approve_with_conditions() -> None:

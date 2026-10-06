@@ -19,8 +19,6 @@ assert _SPEC.loader is not None
 seed_verify = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(seed_verify)
 
-LOGIN = "/api/fcrm/auth/login"
-
 
 def _client(handler: Any) -> Any:
     client = seed_verify.Client("http://gateway.test")

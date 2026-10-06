@@ -151,18 +151,3 @@ class CaseRecord(BaseModel):
             for field_id, value in self.fields.items()
             if value.value is not None and value.value.strip() != ""
         }
-
-    @property
-    def open_for_writes(self) -> bool:
-        """Whether a field write, title edit or (re)submission may proceed.
-
-        False once the case is closed for voting (``DECIDE``/``CLOSED``) or
-        has already been submitted at least once -- the task's "a case
-        closed for voting or already submitted rejects further writes"
-        rule, checked in one place rather than at each route.
-        """
-        return (
-            self.state in OPEN_FOR_WRITES_STATES
-            and self.submitted_at is None
-            and self.discarded_at is None
-        )

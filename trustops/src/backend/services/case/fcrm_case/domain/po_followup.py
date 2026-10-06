@@ -47,9 +47,6 @@ from fcrm_case.errors import ConditionClosedError
 
 _PO_COMPONENT: Final = "S1"
 
-#: A condition the owner can evidence: not closed (closing is terminal).
-EVIDENCE_FROM: Final = frozenset({"open", "scheduled"})
-
 
 @dataclass(frozen=True)
 class ThreadAnswerWrite:

@@ -87,7 +87,6 @@ Scope the Bedrock resource ARNs to exactly the profiles and models in `ai/models
 | `RABBITMQ_URL` | `amqp://` from `RABBITMQ_DEFAULT_USER` and `_PASS` | Amazon MQ `amqps://` endpoint, from Secrets Manager |
 | `OPA_URL` | `http://opa:8181` | `http://localhost:8181` (sidecar) |
 | `IDENTITY_JWKS_URL`, `IDENTITY_VALIDATE_URL`, `CASE_SERVICE_URL` and the other service URLs | `http://api:8000/api/fcrm/...` | unchanged, with `api` as the Service Connect name |
-| `GATEWAY_ORIGIN` | `http://localhost:8080` | the public `https://` origin |
 | `S3_ENDPOINT_URL`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` | MinIO | unset |
 | `S3_REGION`, `S3_BUCKET_*` | `us-east-1`, five short names | the real bucket names |
 | `AWS_DEFAULT_REGION` (and `AWS_REGION`) | `.env` | task environment |
@@ -97,7 +96,7 @@ Scope the Bedrock resource ARNs to exactly the profiles and models in `ai/models
 | `REDIS_URL` | empty | leave empty (see below) |
 | `SERVICE_TOKEN_SECRET`, `JWT_KEY_FILE` | `.env`, `jwt_keys/` | Secrets Manager; the file step above |
 | `DEMO_USERS_PASSWORD_HASH`, `DEMO_USERS_ENABLED` | demo values | not for production |
-| `LOGIN_RATE_LIMIT`, `CASEFLOW_PREFETCH`, `AGENT_PREFETCH`, `AGENT_MAX_TOOL_CALLS` | compose defaults | same defaults; tune with load |
+| `CASEFLOW_PREFETCH`, `AGENT_PREFETCH`, `AGENT_MAX_TOOL_CALLS` | compose defaults | same defaults; tune with load |
 
 ## Networking
 

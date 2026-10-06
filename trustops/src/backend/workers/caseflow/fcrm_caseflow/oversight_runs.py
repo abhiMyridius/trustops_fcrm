@@ -56,9 +56,6 @@ JURISDICTION_EVENT: Final = "jurisdiction.list_published"
 #: orphans. Any other event type without a run is still an orphan.
 GLOBAL_EVENT_TYPES: Final = frozenset({EXAMINER_ASKED_EVENT, JURISDICTION_EVENT})
 
-#: The agents whose results never move a run: their steps answer or flag.
-OVERSIGHT_AGENTS: Final = frozenset({AgentName.EXAMINER, AgentName.WATCHLIST})
-
 #: The pseudo case a list version's harness run belongs to.
 WATCHLIST_CASE_PREFIX: Final = "WATCHLIST-"
 

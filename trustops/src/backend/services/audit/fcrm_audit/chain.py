@@ -25,18 +25,12 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime
-from typing import Any, Final
+from typing import Any
 
 from fcrm_contracts.api.audit import AuditRecord, RecordAppend, VerifyResult
 from pydantic import BaseModel, ConfigDict
 
 GENESIS_HASH = "0" * 64
-
-#: The ``AuditRecord`` fields that enter the hash: everything except
-#: ``prev_hash`` and ``hash`` themselves.
-HASHED_FIELDS: Final[frozenset[str]] = frozenset(
-    {"case_id", "seq", "type", "actor", "summary", "data", "created_at"}
-)
 
 
 class _HashedBody(BaseModel):
@@ -99,7 +93,8 @@ def sha256_hex(data: bytes) -> str:
 
 def hashed_body(record: AuditRecord) -> dict[str, Any]:
     """The JSON-mode body of a stored or served record: the
-    :data:`HASHED_FIELDS` of ``record`` exactly as the API serialises them,
+    hashed fields of ``record`` (every ``AuditRecord`` field except ``prev_hash``
+    and ``hash``) exactly as the API serialises them,
     so ``chain_hash(record.prev_hash, hashed_body(record)) == record.hash``
     holds for every intact record.
     """

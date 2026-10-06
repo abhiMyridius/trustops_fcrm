@@ -23,7 +23,6 @@ import pytest
 from fcrm_agent_worker.live_runtime import ModelFactory
 from fcrm_agents.models import load_tiers_config
 from fcrm_contracts.enums import AgentName, Tier
-from fcrm_evals.datasets import load
 from fcrm_evals.live import LiveProducer
 from fcrm_evals.rows import EvalRow
 from fcrm_evals.usage import PriceTable
@@ -179,12 +178,6 @@ def producer_for(
         )
 
     return make
-
-
-@pytest.fixture
-def rows_of() -> Callable[[AgentName], list[EvalRow]]:
-    """A bundled dataset's rows."""
-    return load
 
 
 class FakeConverseClient:

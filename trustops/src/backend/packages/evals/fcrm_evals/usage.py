@@ -255,11 +255,6 @@ class RowRun(BaseModel):
     """The tools the model called, over every attempt, in order."""
 
     @property
-    def peak_attempt_tokens(self) -> int:
-        """The largest single attempt, the figure a per-run budget must hold."""
-        return max(self.attempt_tokens, default=0)
-
-    @property
     def retries(self) -> int:
         """Attempts beyond the first."""
         return max(0, self.attempts - 1)

@@ -59,9 +59,8 @@ from fcrm_case.domain.views import ScoreSnapshotRow
 
 logger = logging.getLogger(__name__)
 
-#: Most acknowledgements and stage changes one case can have; the bound stops a
-#: bug from reading an unbounded log.
-MAX_ACKNOWLEDGEMENTS: Final = 100
+#: Most stage changes one case can have; the bound stops a bug from reading an
+#: unbounded log.
 MAX_STAGE_CHANGES: Final = 500
 MAX_SUBMISSIONS: Final = 100
 #: A queue page is at most this many rows and starts at most this far in.

@@ -54,12 +54,6 @@ CONFIG_SNAPSHOTS: Final = "config_snapshots"
 CONFIG_DRAFTS: Final = "config_drafts"
 CONFIG_CHANGES: Final = "config_changes"
 CONFIG_IDEMPOTENCY: Final = "config_idempotency"
-CONFIG_COLLECTIONS: Final = (
-    CONFIG_SNAPSHOTS,
-    CONFIG_DRAFTS,
-    CONFIG_CHANGES,
-    CONFIG_IDEMPOTENCY,
-)
 MAX_HISTORY: Final = 200
 """Upper bound on a section's history listing (a handful exist; a guard)."""
 

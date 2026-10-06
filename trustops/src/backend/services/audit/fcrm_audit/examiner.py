@@ -64,8 +64,6 @@ logger = logging.getLogger(__name__)
 EVENT_EXAMINER_ASKED: Final = "examiner.asked"
 #: A deadline for the one publish; the broker confirms in milliseconds.
 PUBLISH_TIMEOUT_S: Final = 5.0
-#: What the answer points at besides the records: the rules it was read under.
-MAX_REFERENCES: Final = 8
 
 
 @dataclass(frozen=True)

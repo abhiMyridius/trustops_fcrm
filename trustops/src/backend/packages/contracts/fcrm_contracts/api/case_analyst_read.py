@@ -23,7 +23,7 @@ typo in a builder is an error rather than a silently dropped key.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal, Optional, Union
+from typing import Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -642,7 +642,3 @@ class HarnessPushResult(_Dto):
     case_id: str
     lines: int
     replayed: bool = False
-
-
-#: A page's worth of free-form extras a test may attach (never served).
-Extras = dict[str, Any]
