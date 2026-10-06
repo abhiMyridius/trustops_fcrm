@@ -37,6 +37,35 @@
         "title": "ActivityEventPO",
         "type": "object"
       },
+      "AgentEval": {
+        "additionalProperties": false,
+        "properties": {
+          "agent": {
+            "title": "Agent",
+            "type": "string"
+          },
+          "lower_is_better": {
+            "title": "Lower Is Better",
+            "type": "boolean"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "pct": {
+            "title": "Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "agent",
+          "pct",
+          "metric",
+          "lower_is_better"
+        ],
+        "title": "AgentEval",
+        "type": "object"
+      },
       "AnswerItem": {
         "additionalProperties": false,
         "properties": {
@@ -112,6 +141,25 @@
           "line"
         ],
         "title": "AssistantStatus",
+        "type": "object"
+      },
+      "AuditBadge": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "verified": {
+            "title": "Verified",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "count",
+          "verified"
+        ],
+        "title": "AuditBadge",
         "type": "object"
       },
       "AuditRecord": {
@@ -225,6 +273,36 @@
         ],
         "title": "Band",
         "type": "string"
+      },
+      "BandCount": {
+        "additionalProperties": false,
+        "properties": {
+          "band": {
+            "enum": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "title": "Band",
+            "type": "integer"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "band",
+          "label",
+          "count"
+        ],
+        "title": "BandCount",
+        "type": "object"
       },
       "BandDef": {
         "additionalProperties": false,
@@ -831,6 +909,30 @@
         "title": "ClauseSourceRef",
         "type": "object"
       },
+      "Clocks": {
+        "additionalProperties": false,
+        "properties": {
+          "analyst_active": {
+            "title": "Analyst Active",
+            "type": "string"
+          },
+          "analyst_paused": {
+            "title": "Analyst Paused",
+            "type": "boolean"
+          },
+          "total_elapsed": {
+            "title": "Total Elapsed",
+            "type": "string"
+          }
+        },
+        "required": [
+          "analyst_active",
+          "total_elapsed",
+          "analyst_paused"
+        ],
+        "title": "Clocks",
+        "type": "object"
+      },
       "CloseCaseRequest": {
         "additionalProperties": false,
         "description": "``POST /cases/{id}/close``: the analyst's delegated close.\n\n``plain_summary`` is what the PO reads, so it must be in business words;\nthe route refuses one that names a score, band or rating.",
@@ -1187,6 +1289,43 @@
         "title": "ConditionPatch",
         "type": "object"
       },
+      "ControlHealth": {
+        "additionalProperties": false,
+        "properties": {
+          "healthy": {
+            "title": "Healthy",
+            "type": "integer"
+          },
+          "recency_months": {
+            "title": "Recency Months",
+            "type": "integer"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "integer"
+          },
+          "stale_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Stale Ids",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "stale",
+          "healthy",
+          "stale_ids",
+          "recency_months"
+        ],
+        "title": "ControlHealth",
+        "type": "object"
+      },
       "ControlInput": {
         "additionalProperties": false,
         "description": "One control's rating as confirmed (or AI-proposed) for scoring.\nA planned control must never appear here (rule 7); the engine does not\nspecial-case it — it is the caller's job to exclude it.",
@@ -1342,6 +1481,92 @@
           }
         },
         "title": "CreateCaseBody",
+        "type": "object"
+      },
+      "DashboardAnalyst": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_eval": {
+            "items": {
+              "$ref": "#/components/schemas/AgentEval"
+            },
+            "title": "Agent Eval",
+            "type": "array"
+          },
+          "band_distribution": {
+            "items": {
+              "$ref": "#/components/schemas/BandCount"
+            },
+            "title": "Band Distribution",
+            "type": "array"
+          },
+          "cases_by_type": {
+            "items": {
+              "$ref": "#/components/schemas/TypeCount"
+            },
+            "title": "Cases By Type",
+            "type": "array"
+          },
+          "closed_by_month": {
+            "items": {
+              "$ref": "#/components/schemas/MonthCount"
+            },
+            "title": "Closed By Month",
+            "type": "array"
+          },
+          "control_health": {
+            "$ref": "#/components/schemas/ControlHealth"
+          },
+          "kpis": {
+            "$ref": "#/components/schemas/DashboardKpis"
+          },
+          "mine": {
+            "items": {
+              "$ref": "#/components/schemas/QueueItem"
+            },
+            "title": "Mine",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kpis",
+          "band_distribution",
+          "closed_by_month",
+          "cases_by_type",
+          "agent_eval",
+          "control_health",
+          "mine"
+        ],
+        "title": "DashboardAnalyst",
+        "type": "object"
+      },
+      "DashboardKpis": {
+        "additionalProperties": false,
+        "properties": {
+          "approaching_due": {
+            "title": "Approaching Due",
+            "type": "integer"
+          },
+          "avg_days_intake_to_decision": {
+            "title": "Avg Days Intake To Decision",
+            "type": "number"
+          },
+          "closed_cases": {
+            "title": "Closed Cases",
+            "type": "integer"
+          },
+          "open_assigned": {
+            "title": "Open Assigned",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "open_assigned",
+          "approaching_due",
+          "avg_days_intake_to_decision",
+          "closed_cases"
+        ],
+        "title": "DashboardKpis",
         "type": "object"
       },
       "DashboardPO": {
@@ -1657,6 +1882,25 @@
         "description": "``POST validate`` and ``POST submit`` carry no input: the server reads the\ncase. The web posts ``{}``.",
         "properties": {},
         "title": "EmptyBody",
+        "type": "object"
+      },
+      "FastLane": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "proposed": {
+            "title": "Proposed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "proposed",
+          "confirmed"
+        ],
+        "title": "FastLane",
         "type": "object"
       },
       "FieldDef": {
@@ -2157,6 +2401,25 @@
           "user"
         ],
         "title": "LoginResponse",
+        "type": "object"
+      },
+      "MonthCount": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month",
+          "count"
+        ],
+        "title": "MonthCount",
         "type": "object"
       },
       "MyVote": {
@@ -3794,6 +4057,90 @@
         "title": "Page[Proposal]",
         "type": "object"
       },
+      "Page_QueueItem_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/QueueItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[QueueItem]",
+        "type": "object"
+      },
+      "PinnedVersionsWeb": {
+        "additionalProperties": false,
+        "description": "``PinnedVersions`` in ``common.ts``: the versions a case pins, in the\nweb's display form (``v3``, ``v14``, ``2026-06``).",
+        "properties": {
+          "controls": {
+            "title": "Controls",
+            "type": "string"
+          },
+          "corpus": {
+            "title": "Corpus",
+            "type": "string"
+          },
+          "field_set": {
+            "title": "Field Set",
+            "type": "string"
+          },
+          "jurisdictions": {
+            "title": "Jurisdictions",
+            "type": "string"
+          },
+          "prompts": {
+            "title": "Prompts",
+            "type": "string"
+          },
+          "routing": {
+            "title": "Routing",
+            "type": "string"
+          },
+          "scoring": {
+            "title": "Scoring",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scoring",
+          "corpus",
+          "controls",
+          "field_set",
+          "jurisdictions",
+          "routing",
+          "prompts"
+        ],
+        "title": "PinnedVersionsWeb",
+        "type": "object"
+      },
       "PolicyClauseHit": {
         "additionalProperties": false,
         "description": "One clause hit of a policy search: the verbatim text under the web's\nname (``quote``), both citations, its place in ``corpus/<source>.md`` and\nits scores. ``similarity`` is the fused rank-agreement score in (0, 1];\n``vector_score`` and ``text_score`` are the two rankers' own numbers.",
@@ -4644,6 +4991,148 @@
           }
         },
         "title": "ProposalTokens",
+        "type": "object"
+      },
+      "QueueItem": {
+        "additionalProperties": false,
+        "properties": {
+          "analyst_name": {
+            "title": "Analyst Name",
+            "type": "string"
+          },
+          "arrived": {
+            "title": "Arrived",
+            "type": "string"
+          },
+          "band": {
+            "anyOf": [
+              {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4
+                ],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Band"
+          },
+          "band_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Band Label"
+          },
+          "boundary_flag": {
+            "title": "Boundary Flag",
+            "type": "boolean"
+          },
+          "change_types": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeType"
+            },
+            "title": "Change Types",
+            "type": "array"
+          },
+          "composite": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Composite"
+          },
+          "critic_count": {
+            "title": "Critic Count",
+            "type": "integer"
+          },
+          "due": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due"
+          },
+          "fast_lane": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FastLane"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_new": {
+            "title": "Is New",
+            "type": "boolean"
+          },
+          "mine": {
+            "title": "Mine",
+            "type": "boolean"
+          },
+          "owner_name": {
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "stage_label": {
+            "title": "Stage Label",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "unit",
+          "owner_name",
+          "analyst_name",
+          "change_types",
+          "arrived",
+          "due",
+          "stage",
+          "stage_label",
+          "band",
+          "band_label",
+          "composite",
+          "fast_lane",
+          "boundary_flag",
+          "critic_count",
+          "is_new",
+          "mine"
+        ],
+        "title": "QueueItem",
         "type": "object"
       },
       "RecordAppend": {
@@ -5909,6 +6398,30 @@
         "title": "ThreadAsk",
         "type": "object"
       },
+      "TypeCount": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "label",
+          "count"
+        ],
+        "title": "TypeCount",
+        "type": "object"
+      },
       "ValidateResponse": {
         "additionalProperties": false,
         "description": "What ``/core/validate`` returns to nginx's ``auth_request`` and to any\nservice that falls back to it when JWKS is unavailable.",
@@ -6337,6 +6850,172 @@
           "members"
         ],
         "title": "VotesView",
+        "type": "object"
+      },
+      "WorkbenchHeader": {
+        "additionalProperties": false,
+        "properties": {
+          "ack_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ack Message"
+          },
+          "analyst_name": {
+            "title": "Analyst Name",
+            "type": "string"
+          },
+          "audit": {
+            "$ref": "#/components/schemas/AuditBadge"
+          },
+          "change_types": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeType"
+            },
+            "title": "Change Types",
+            "type": "array"
+          },
+          "clocks": {
+            "$ref": "#/components/schemas/Clocks"
+          },
+          "closed": {
+            "title": "Closed",
+            "type": "boolean"
+          },
+          "completeness_decision": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ask",
+                  "proceed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completeness Decision"
+          },
+          "domains": {
+            "items": {
+              "$ref": "#/components/schemas/Domain"
+            },
+            "title": "Domains",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_demo": {
+            "title": "Is Demo",
+            "type": "boolean"
+          },
+          "lifecycle": {
+            "items": {
+              "$ref": "#/components/schemas/StageStep"
+            },
+            "title": "Lifecycle",
+            "type": "array"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "owner_name": {
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "pending_acknowledgements": {
+            "items": {
+              "enum": [
+                "boundary",
+                "band_change"
+              ],
+              "type": "string"
+            },
+            "title": "Pending Acknowledgements",
+            "type": "array"
+          },
+          "pins": {
+            "$ref": "#/components/schemas/PinnedVersionsWeb"
+          },
+          "review_started": {
+            "title": "Review Started",
+            "type": "boolean"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "enum": [
+                  "analyst",
+                  "committee"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "stage_label": {
+            "title": "Stage Label",
+            "type": "string"
+          },
+          "submission_version": {
+            "title": "Submission Version",
+            "type": "integer"
+          },
+          "submitted": {
+            "title": "Submitted",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "unit",
+          "owner_name",
+          "analyst_name",
+          "change_types",
+          "domains",
+          "stage",
+          "stage_label",
+          "lifecycle",
+          "clocks",
+          "pins",
+          "pending_acknowledgements",
+          "ack_message",
+          "closed",
+          "submitted",
+          "review_started",
+          "completeness_decision",
+          "submission_version",
+          "locked",
+          "route",
+          "audit",
+          "is_demo"
+        ],
+        "title": "WorkbenchHeader",
         "type": "object"
       }
     },
@@ -8331,6 +9010,54 @@
         ]
       }
     },
+    "/api/fcrm/cases/{case_id}/workbench": {
+      "get": {
+        "description": "The case summary header: stage, strip, clocks, pinned versions and what\nis owed before the case can be released.",
+        "operationId": "S1_workbench_cases__case_id__workbench_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkbenchHeader"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Workbench",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
     "/api/fcrm/conditions/{condition_id}": {
       "patch": {
         "description": "Move a condition's status (reason of at least 20 characters) and/or record\na note on the evidence the analyst reviewed.\n\nRaises:\n    NotFoundError: No such condition (or its case).\n    ForbiddenError: The caller is not the case's analyst.\n    fcrm_case.errors.ConditionClosedError: Closing is terminal.\n    fcrm_case.errors.ConditionMoveError: Not a move an analyst may make.",
@@ -8413,6 +9140,33 @@
         "summary": "Dashboard",
         "tags": [
           "po"
+        ]
+      }
+    },
+    "/api/fcrm/dashboard/analyst": {
+      "get": {
+        "description": "The analyst dashboard: counts and averages computed from the stored cases\nand scores, the viewer's own open cases and the seed's reference tables.",
+        "operationId": "S1_analyst_dashboard_dashboard_analyst_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardAnalyst"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Analyst Dashboard",
+        "tags": [
+          "analyst"
         ]
       }
     },
@@ -10206,6 +10960,136 @@
         "summary": "Search",
         "tags": [
           "policy"
+        ]
+      }
+    },
+    "/api/fcrm/queue": {
+      "get": {
+        "description": "The analyst's queue, the cases that need them first. ``scope`` is the\nanalyst's own, everyone's or the unassigned; ``stage`` and ``band`` filter\n(the band of the latest score; a closed case is listed only for\n``stage=closed``).",
+        "operationId": "S1_queue_queue_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "default": "mine",
+              "enum": [
+                "mine",
+                "all",
+                "unassigned"
+              ],
+              "title": "Scope",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "stage",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "new",
+                    "assessing",
+                    "review",
+                    "awaiting_business",
+                    "recommend",
+                    "committee",
+                    "closed",
+                    "fast_lane"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stage"
+            }
+          },
+          {
+            "in": "query",
+            "name": "band",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "1",
+                    "2",
+                    "3",
+                    "4"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Band"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_QueueItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Queue",
+        "tags": [
+          "analyst"
         ]
       }
     },

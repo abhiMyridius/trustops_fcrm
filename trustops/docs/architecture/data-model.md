@@ -45,6 +45,17 @@ Written only by H1 through the service-only routes below, read by the analyst ro
 
 **The score request** (`GET /internal/cases/{id}/score-request`, `ScoreRequestView`): the single place the S2 request is built from items, shared by H1's scoring, H1's re-scoring after a decision, and S2's simulate. One domain per current, not-removed `factor` item; in it every current, not-removed, not-planned `control` item of that domain at its decided value (override or adjustment) or, while undecided, its proposed one; at the case's pinned `scoring_v`. A planned control is left out and listed in `planned_control_ids`; a control whose domain has no factor item is listed in `unscored_control_ids`; every replaced value is listed in `overrides` with the reason. 409 until the assessment has produced a factor item. `GET .../evidence?control_id=` answers the `evidence_store` tool's shape from the same items (artefact, date, the document a source reference cites).
 
+### S1's analyst read surface (lane I3-B1)
+
+Served by `fcrm_case.routes_analyst_read` in the web's shapes (`fcrm_contracts.api.case_analyst_read`, locked to `analyst.ts` and `harness.ts` by a parity test). Every route reads stored rows and computes nothing: a score box is what S2 answered and H1 (or the seed) stored. Two things are stored for the reads' sake:
+
+| Where | Shape and rules |
+|---|---|
+| `cases.review_started_at`, `review_started_by` | Set once, by the case's own analyst, the first time they open `GET /cases/{id}/risk`. Until then the analyst is shown no score for a live case (`ScoreBox.withheld`); a seeded snapshot (`purpose: "seed"`) shows at once. A conditional update (`{review_started_at: null}`), so a repeat keeps the first time |
+| `acknowledgements` | `{case_id, kind: "boundary" \| "band_change", at, ...}`, index `{case_id, at}`. Written by the analyst's `POST acknowledge` (the write lane); read here to say what is still owed on the latest score: a band change is owed until an acknowledgement made after that score, a boundary flag until one exists. H1's own `ack` gates stay the authority for release |
+
+The queue is **one aggregation** over `cases` (`$match` scope/stage, a `$lookup` of the latest `score_snapshots` row on `{case_id, computed_at}` and of the `critic_views` count, the band filter, a rank by what needs the analyst first, and a `$facet` returning the page and the total); the dashboard is two (a `$facet` over `cases`, and the latest band per case over `score_snapshots`). `cases` gains the index `{state, submitted_at}`.
+
 ## `fcrm_scoring` (S2)
 
 | Collection | Shape | Notes |

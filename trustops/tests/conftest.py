@@ -1881,3 +1881,113 @@ def stub_case_inputs(demo_score_view: Any) -> Callable[..., Any]:
         return _Stub(view, error)
 
     return _make
+
+
+# ── S1 analyst read surface (lane I3-B1) ────────────────────────────────────────
+@dataclass
+class AnalystRead:
+    """The S1 app with the analyst read stores wired over in-memory twins:
+    ``client`` calls as whoever ``act_as`` last set (the demo analyst, Rahul
+    Iyer, to begin with).
+    """
+
+    service: CaseService
+    assessment: InMemoryAssessmentStore
+    reads: Any
+
+    @property
+    def client(self) -> TestClient:
+        """The HTTP client of the wrapped service."""
+        return self.service.client
+
+
+@pytest.fixture
+def analyst_read(
+    case_service: CaseService,
+    assessment_store: InMemoryAssessmentStore,
+    act_as: Callable[[Role, str], None],
+) -> AnalystRead:
+    """The S1 app with the assessment store and the analyst read store wired
+    (both in memory), acting as Rahul Iyer, the analyst of the demo case.
+    """
+    from fcrm_case.analyst_read_store import InMemoryAnalystReadStore
+    from fcrm_contracts.enums import Role
+
+    def critic_count(case_id: str) -> int:
+        view = assessment_store.critic.get(case_id)
+        return len(view.findings) if view is not None else 0
+
+    reads = InMemoryAnalystReadStore(
+        case_service.store.records,
+        lambda: assessment_store.snapshots,
+        critic_count,
+        lambda: case_service.store.activity.entries,
+    )
+    app = case_service.client.app
+    app.state.assessment = assessment_store  # type: ignore[attr-defined]
+    app.state.analyst_reads = reads  # type: ignore[attr-defined]
+    act_as(Role.ANALYST, ANALYST_SUB)
+    return AnalystRead(case_service, assessment_store, reads)
+
+
+@pytest.fixture
+def make_snapshot() -> Callable[..., Any]:
+    """``make_snapshot(case_id, band=2, composite=9.8, purpose="proposed", ...)``:
+    a stored score snapshot row, as H1's push (or the seed) leaves it.
+    """
+    from datetime import UTC, datetime
+
+    from fcrm_case.domain.views import ScoreSnapshotRow
+    from fcrm_common.ids import deterministic_id
+
+    def _make(
+        case_id: str = "FCRM-2026-0151",
+        band: int = 2,
+        composite: float = 9.8,
+        purpose: str = "proposed",
+        **overrides: Any,
+    ) -> ScoreSnapshotRow:
+        fields: dict[str, Any] = {
+            "snapshot_id": deterministic_id(
+                "snap", case_id, purpose, str(composite), str(band)
+            ),
+            "case_id": case_id,
+            "computed_at": datetime(2026, 10, 5, 12, tzinfo=UTC),
+            "purpose": purpose,
+            "composite": composite,
+            "band": band,
+            "route": "committee" if band >= 3 else "analyst",
+            "boundary_flag": False,
+            "boundary_distance": None,
+            "domains": {},
+        }
+        return ScoreSnapshotRow(**{**fields, **overrides})
+
+    return _make
+
+
+@pytest.fixture
+def seeded_analyst_read(
+    analyst_read: AnalystRead,
+    seeded_service: CaseService,
+    assessment_store: InMemoryAssessmentStore,
+) -> AnalystRead:
+    """:func:`analyst_read` over the real seed's S1 slice: the 80 cases, the
+    items, and the 79 score snapshots the startup seed stores (the demo case, at
+    intake, has none).
+    """
+    from fcrm_case.seedmodel import (
+        build_case_seed,
+        field_set_from_seed,
+        pinned_versions_from_seed,
+    )
+
+    raw = load_raw()
+    rows = build_case_seed(
+        raw,
+        field_set_from_seed(raw["field_set"]),
+        pinned_versions_from_seed(raw["demo"]["versions"]),
+    )
+    for snapshot in rows.score_snapshots:
+        assessment_store.snapshots[snapshot.snapshot_id] = snapshot
+    return analyst_read

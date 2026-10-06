@@ -1634,6 +1634,86 @@
           "fcrm_service"
         ],
         "effect": "deny"
+      },
+      {
+        "id": "case-get-dashboard-analyst",
+        "description": "analyst dashboard (computed from the stored cases and scores)",
+        "service": "case",
+        "method": "GET",
+        "path": "/dashboard/analyst",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-assessment-analyst",
+        "description": "assessment summary (score withheld until review starts)",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/assessment",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-risk-analyst",
+        "description": "risk and controls view (opening it starts review)",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/risk",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-policy-analyst",
+        "description": "policy view: clauses with verbatim quote and source",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/policy",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-handoff-analyst",
+        "description": "handoff view: the pack, its checks and the audit head",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/handoff",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-harness-staff",
+        "description": "harness monitor snapshot (never the PO, ADR-19)",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/harness",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_committee",
+          "fcrm_observer"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-outcome-staff",
+        "description": "the recorded outcome as staff read it (the PO has its own rule)",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/outcome",
+        "roles": [
+          "fcrm_analyst",
+          "fcrm_committee"
+        ],
+        "effect": "allow"
       }
     ]
   }
