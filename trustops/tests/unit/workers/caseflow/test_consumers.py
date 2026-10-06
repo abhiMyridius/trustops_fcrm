@@ -15,12 +15,15 @@ job is only "does the right wire message reach the right consumer".
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any, Optional
 
 from conftest import FakeCollection
 from faststream.rabbit import RabbitBroker, TestRabbitBroker
 from fcrm_caseflow.app import wire_subscribers
 from fcrm_caseflow.consumers import (
+    STEP_MAX_ATTEMPTS,
     AgentResultsConsumer,
     CaseEventsConsumer,
     HarnessStepConsumer,
@@ -228,3 +231,34 @@ async def test_an_agent_run_message_does_not_reach_either_caseflow_consumer() ->
         )
 
     assert engine.calls == []
+
+
+ROOT = Path(__file__).resolve().parents[4]
+API_RESTART_BUDGET_S = 180
+"""An api restart took about 90 s in drill D4 (it embeds the corpus on start);
+the window must hold twice that."""
+
+
+def test_a_step_rides_out_an_api_restart_before_it_is_parked() -> None:
+    definitions = json.loads(
+        (ROOT / "ops" / "rabbitmq" / "definitions.json").read_text(encoding="utf-8")
+    )
+    retry = next(
+        q for q in definitions["queues"] if q["name"] == "caseflow.steps.retry"
+    )
+    retry_delay_s = retry["arguments"]["x-message-ttl"] / 1000
+
+    assert (STEP_MAX_ATTEMPTS - 1) * retry_delay_s >= API_RESTART_BUDGET_S
+
+
+def test_the_step_consumer_takes_the_step_attempts_and_the_others_keep_three() -> None:
+    publisher = FastStreamPublisher(RabbitBroker())
+    steps = _steps_consumer(publisher)
+    events = CaseEventsConsumer(
+        FakeCollection("consumed_messages"),
+        publisher,
+        engine=RecordingEngine(),  # type: ignore[arg-type]
+    )
+
+    assert steps._max_attempts == STEP_MAX_ATTEMPTS
+    assert events._max_attempts == 3

@@ -17,6 +17,7 @@ from conftest import FakeCollection, FakePublisher
 from faststream.rabbit import RabbitBroker, TestRabbitBroker
 from fcrm_caseflow.app import wire_subscribers
 from fcrm_caseflow.consumers import (
+    STEP_MAX_ATTEMPTS,
     AgentResultsConsumer,
     CaseEventsConsumer,
     HarnessStepConsumer,
@@ -228,11 +229,31 @@ class TestStepConsumerProcess:
         acks = Acks()
         body = _step_envelope().model_dump_json().encode()
 
-        outcome = await consumer.process(body, {"x-attempt": 3}, acks.ack, acks.nack)
+        outcome = await consumer.process(
+            body, {"x-attempt": STEP_MAX_ATTEMPTS}, acks.ack, acks.nack
+        )
 
         assert outcome is Disposition.DEAD_LETTERED
         assert [(ex, key) for ex, key, _ in publisher.published] == [
             ("dlx", CASEFLOW_STEPS_QUEUE)
+        ]
+
+    async def test_a_step_is_still_retried_on_the_attempt_before_the_last(
+        self,
+    ) -> None:
+        # Three attempts used to park a step while the api restarted (D-93).
+        runner = StubRunner(error=UpstreamUnavailableError("S1 is down"))
+        consumer, publisher = self._consumer(runner)
+        acks = Acks()
+        body = _step_envelope().model_dump_json().encode()
+
+        outcome = await consumer.process(
+            body, {"x-attempt": STEP_MAX_ATTEMPTS - 1}, acks.ack, acks.nack
+        )
+
+        assert outcome is Disposition.RETRIED
+        assert [(ex, key) for ex, key, _ in publisher.published] == [
+            ("retry", CASEFLOW_STEPS_QUEUE)
         ]
 
     async def test_a_failed_step_leaves_no_consumed_marker_so_the_retry_reruns_it(

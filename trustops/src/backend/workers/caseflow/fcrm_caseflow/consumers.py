@@ -11,7 +11,7 @@ step to :class:`~fcrm_caseflow.steps.StepRunner`.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Final, Optional
 
 from fcrm_common.events import Consumer, Publisher
 from fcrm_common.mongo import Document
@@ -29,6 +29,15 @@ from fcrm_caseflow.topology import (
     CASEFLOW_STEPS_QUEUE,
     HARNESS_STEP_EVENT,
 )
+
+#: Attempts a ``harness.step`` gets before it is parked. ``caseflow.steps.retry``
+#: holds a message 30 s (``ops/rabbitmq/definitions.json``), so eight attempts
+#: ride out about four minutes of a dependency's outage, longer than an api
+#: restart takes (it embeds the policy corpus on start, about 90 s). Three
+#: attempts dead-lettered an in-flight step during that restart (drill D4, D-93).
+#: Steps are idempotent by step id, so more attempts only delay a permanent
+#: failure's trip to the dead-letter queue.
+STEP_MAX_ATTEMPTS: Final = 8
 
 
 class CaseEventsConsumer(Consumer):
@@ -112,7 +121,7 @@ class HarnessStepConsumer(Consumer):
         publisher: Publisher,
         *,
         runner: StepRunner,
-        max_attempts: int = 3,
+        max_attempts: int = STEP_MAX_ATTEMPTS,
     ) -> None:
         super().__init__(
             CASEFLOW_STEPS_QUEUE,
