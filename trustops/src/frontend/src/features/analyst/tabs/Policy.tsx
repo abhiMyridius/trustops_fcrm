@@ -90,7 +90,7 @@ export function PolicyTab() {
                 className="flex flex-col gap-3"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  search.mutate(query);
+                  search.mutate(query, { onError: (err) => toast.error('Search failed', userMessage(err)) });
                 }}
               >
                 <Input label="Search terms" value={query} onChange={(e) => setQuery(e.target.value)} />
