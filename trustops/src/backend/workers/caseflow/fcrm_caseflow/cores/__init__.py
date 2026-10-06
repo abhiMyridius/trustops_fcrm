@@ -2,9 +2,8 @@
 
 ``intake`` (scenes 2-7), the assessment core (scenes 8-16: ``assessment``,
 ``assessment_review``, ``assessment_pack``) and the decision core (scenes 17-19:
-``decision``, ``closing``) are here; the oversight core adds its ``HANDLERS``
-table to :func:`default_handlers` with its handlers and its
-``audit_map.STEP_FOR`` entries.
+``decision``, ``closing``) and the oversight core (scene 20: ``oversight``, with
+``oversight_watchlist``) are here.
 """
 
 from __future__ import annotations
@@ -18,6 +17,7 @@ from fcrm_caseflow.cores import (
     closing,
     decision,
     intake,
+    oversight,
 )
 from fcrm_caseflow.steps import StepHandler
 
@@ -36,6 +36,7 @@ def default_handlers() -> dict[StepKind, StepHandler]:
         assessment_pack.HANDLERS,
         decision.HANDLERS,
         closing.HANDLERS,
+        oversight.HANDLERS,
     ):
         clash = merged.keys() & table.keys()
         if clash:

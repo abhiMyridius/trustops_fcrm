@@ -12,6 +12,7 @@ One MongoDB database per service (no service reads another's database directly �
 | `submission_versions` | `SubmissionVersionRow` | Frozen per case, unique `{case_id, version}`; written once, never updated. `SubmissionVersionDiff` is computed between two versions, not stored redundantly |
 | `po_decisions` | `PoDecisionRow` | The ledger of owner gate decisions: a deterministic `_id` per gate, so the first decision emits `gate.decided` and a later change to the same data does not |
 | `integrations` | `IntegrationRow` | One owner's choice per integration (`{user_id}`); no row means the catalogue default |
+| `reflags` | `fcrm_case.domain.reflags.ReflagRow` | A watchlist re-flag (`_id` = `rf_` plus a digest of the list version, the case and the jurisdiction, derived by H1, so a second post creates nothing): the reason, who wrote it (`agent` or `code`), the list entry it cites, the harness `run_id` and `gate_id` that decide it and, once an analyst acknowledged it, who and why. Acknowledging stores the row and enqueues `gate.decided` in one transaction and works on a closed case. Indexes `{created_at, _id}` (the paged list) and `{case_id}`. Analyst-only: no PO shape can carry one |
 | `review_items` | `ReviewItem` | One per clause/factor/control/critic-finding proposal; `kind` discriminates (`ItemKind`) |
 | `threads` | `ClarificationThreadPO` | One clarification round per document; `round_open` flag on the run mirrors whether a thread is still awaiting an answer |
 | `conditions` | `ConditionPO` | Activated on `outcome.set`; 14-day-before-due reminders are computed from `due`, not stored as separate reminder documents |
@@ -44,6 +45,22 @@ Written only by H1 through the service-only routes below, read by the analyst ro
 `catalogue_weight` is stamped by H1 from S3's inventory at the case's pinned `controls_v`; an agent never supplies one, and an item without one cannot be scored (S1 answers 409 naming the item, never a zero). An item is **superseded** when a later item names it in `supersedes`: it stays as history and is never read as current. A decided item is never edited: a re-run proposes a new item (`itm_` id with a revision) whose gate H1 opens, and expires the old gate if it was still open.
 
 **The score request** (`GET /internal/cases/{id}/score-request`, `ScoreRequestView`): the single place the S2 request is built from items, shared by H1's scoring, H1's re-scoring after a decision, and S2's simulate. One domain per current, not-removed `factor` item; in it every current, not-removed, not-planned `control` item of that domain at its decided value (override or adjustment) or, while undecided, its proposed one; at the case's pinned `scoring_v`. A planned control is left out and listed in `planned_control_ids`; a control whose domain has no factor item is listed in `unscored_control_ids`; every replaced value is listed in `overrides` with the reason. 409 until the assessment has produced a factor item. `GET .../evidence?control_id=` answers the `evidence_store` tool's shape from the same items (artefact, date, the document a source reference cites).
+
+### S1's analyst writes and the owner's follow-up (lane I3-B2)
+
+Every human gate of scenes 8-16 is decided through an analyst route (`fcrm_case.routes_analyst_write`) and the owner's follow-up through `fcrm_case.routes_po_followup`. **Store before emit**: a route commits the decision, its ledger row, its activity row and the outbox event in ONE transaction (`fcrm_case.analyst_write_store`, `fcrm_case.po_followup_store`), because Caseflow's `review.item` reads the decided value from the item. A failure while the event is enqueued leaves nothing decided. A replay (the same decision, the same recorded row, the same lock) changes nothing and emits nothing.
+
+| Collection | `_id` | Written by | Shape and rules |
+|---|---|---|---|
+| `analyst_decisions` | `gate_id` | every analyst gate route | The ledger of gates the analyst decided: `{case_id, gate_type, decision, fingerprint, decided_by, decided_at}`. The gate id is read from the item (`review_items.gate_id`), the score snapshot that opened an acknowledgement (`score_snapshots.gate_id`), the screening or completeness view; never recomputed. The first decision on a gate emits `gate.decided`; the same fingerprint replays, another one is a 409 `gate_already_decided`. After an unlock an item carries a new gate id, so it is decided again |
+| `clarification_threads` | `thread_id` (`thr_` + digest of case, round, question) | `POST completeness {ask}` / `POST clarifications` (open), the owner's answer, `POST .../resolve` | One row per question of the one round (D-16): `{case_id, round, question_id, text, anchor, field_ids, field_label, status (awaiting_response\|answered\|resolved), opened_at, answer{text, documents, document_ids, field_ids, at, by}, resulting_version, resolved_*}`. The owner reads `field_label` and the words, never `anchor` (it may name a control). The answer that closes the round freezes submission v2 and emits `case.answered{round, submission_version, changed_field_ids, added_document_ids, thread_ids}` in the same transaction; the changed fields are the ones the owner set plus the fields the questions were about |
+| `planned_controls` | `planned_id` (digest of the content) | `POST controls/planned` | `{case_id, control_id?, description, owner, due, created_*}`; announced as `case.control_planned{planned_control{.., target_date}}`. **Never a review item**, so it is in no score request (rule 7) |
+| `gaps` | `gap_id` (digest of the text) | `POST gaps` | `{case_id, text, scope?, created_*}`; announced as `case.gap_recorded` |
+| `rerun_requests` | `request_id` (digest of scope and reason) | `POST runs` | `{case_id, scope, reason, requested_*}`; announced as `case.rerun_requested{rerun_reason}`. The same reason and scope twice is one request |
+| `recommendations` (analyst fields) | `case_id` | `PUT recommendation`, `POST recommendation/lock\|unlock` | `edits` (`RecommendationEdits`), `locked`, `locked_at`, `locked_by`, and since this lane `unlock_reason`, `unlocked_at`, `unlocked_by`. A lock needs the row unlocked and an unlock needs it locked (conditional updates), so two requests at once flip it once and announce `case.locked` / `case.unlocked{unlock_reason}` once |
+| `conditions` (owner's evidence) | `condition_id` | `POST conditions/{c}/evidence` | `evidence_note`, `evidence_at`, `evidence_by` beside the analyst's own `note`; `status` becomes `evidence_submitted`; announced as `condition.updated`. Allowed after the case is closed (rule 5) |
+
+The owner's reads are cut at the data layer: the plain outcome reads `outcomes` with a projection of `outcome`, `plain_summary` and `decided_at` only, and the conditions are read without `source`, `pack_id` and `note`, so the analyst's reason, the pack and the provenance never reach an owner module.
 
 ## `fcrm_scoring` (S2)
 
@@ -81,6 +98,10 @@ Each of the three versioned collections has a unique `version` index and a parti
 | `proposals` | `Proposal` | The evidence ledger; `seq` is one monotonic number per case (`{case_id, seq}` unique); a later version is a new entry whose `supersedes` names the one it replaces, and `superseded_by` is derived on read |
 | `audit_records` | `AuditRecord` | Hash-chained, append-only (see `docs/governance/audit-chain.md`); written only by the `fcrm_audit_writer` Mongo user, which has no `update`/`remove` grant |
 | `idempotency_keys` | `_id` = the `Idempotency-Key` | `{kind, case_id, fingerprint, seq, result_id, at}`, inserted in the same transaction as the record or proposal it produced; 24 h TTL on `at`. A repeat with the same body replays the stored result, another body is a 409 |
+| `examiner_questions` | `fcrm_audit.examiner.QuestionRow` | An examiner's question about one case (`_id` = `exq_` plus a ULID): `{case_id, question, asked_by, asked_at}`. Inserted once, under the insert-only role; `{case_id, asked_at}` indexed |
+| `examiner_answers` | `fcrm_audit.examiner.AnswerRow` | The answer H1 posted (`_id` = the question's id, so the unique `_id` is the "one answer per question" guarantee): `{case_id, run_id, refused, sentences[{t, refs}], references, refusal_reason, fingerprint, answered_at}`. Inserted once; an identical post replays, a different one is a 409, and S4 refuses a `ref` beyond the chain head |
+
+S4 also **reads** `audit_records` and `proposals` for the Assurance screens (`GET overrides`, `GET versions/{case}`): the override rate is one aggregation over `audit_records` with `$unionWith` the ledger, and a case's pins are the `data.pins` of its `workflow.started` record. Both need only `find`, which the insert-only role has; indexes `{type, created_at}` on `audit_records` and `{agent}` on `proposals` serve them.
 
 ## `fcrm_decision` (S5)
 
@@ -97,7 +118,7 @@ Each of the three versioned collections has a unique `version` index and a parti
 
 | Collection | Shape | Notes |
 |---|---|---|
-| `case_runs` | `fcrm_caseflow.states.RunSnapshot` | One per run; `state` plus `RunFlags` (fast_lane, round_open, locked, pack_version, vote_round) |
+| `case_runs` | `fcrm_caseflow.states.RunSnapshot` | One per run; `state` plus `RunFlags` (fast_lane, round_open, locked, pack_version, vote_round). Oversight adds two kinds of row that are never a case in flight (state `closed`, `closed_at` set, the closing dispatch marked done, `refs.oversight` naming the kind): an **oversight run** for a case H1 never ran (so the examiner has a run to hang its job on) and the **harness run** of one jurisdiction list version (`case_id` = `WATCHLIST-<version>`, `_id` derived from the version), which owns the watchlist job and the re-flag gates |
 | `run_events` | `fcrm_caseflow.eventstore.RecordedTransition` (persisted form) | Append-only; `eventstore.rebuild` folds these back to a state and must equal the snapshot |
 | `agent_jobs` | — | Idempotency key = `sha256(case_id\|run_id\|agent\|step_key\|input_hash)`, unique |
 | `gates` | — | One per open-or-decided gate; `GateDecision` is what closes one |
@@ -140,6 +161,8 @@ Written by `python -m fcrm_evals run --producer live --publish` (`fcrm_evals.pub
   cases: [{row_id, status: "ok" | "blocked" | "failed" | null, tokens, cost_usd,
            latency_s | null, metrics: {name: score | null}}] }
 ```
+
+S4 reads this database through its **own read-only credential** (`fcrm_evals_reader`, role `fcrmEvalsReadOnly`: `find` on `eval_runs` and `eval_dashboards` and nothing else, `MONGODB_URI_EVALS_READER`); the insert-only audit role never reaches it, and S4 answers 503 for agent quality when the credential is missing.
 
 Rules for readers:
 

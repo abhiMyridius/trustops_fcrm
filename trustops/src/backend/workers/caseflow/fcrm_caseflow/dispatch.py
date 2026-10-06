@@ -40,6 +40,7 @@ from fcrm_contracts.events.payloads import (
     ObjectPrefix,
     ObjectRef,
 )
+from fcrm_contracts.versions import PinnedVersions
 
 from fcrm_caseflow.states import RunFlags
 from fcrm_caseflow.store import CaseRun
@@ -92,6 +93,11 @@ class AgentDispatch:
     scope: Optional[str] = None
     changed_fields: tuple[str, ...] = ()
     step_key: Optional[str] = None
+    job_id: Optional[str] = None
+    """A fixed job id (derived by the step from what the job is for), so the
+    result can be matched to its question or list without a lookup and a
+    re-dispatch is the same job. ``None`` mints a fresh one.
+    """
 
 
 @dataclass(frozen=True)
@@ -214,15 +220,18 @@ def build_job_envelope(
     *,
     attempt: int = 1,
     refs: Optional[Mapping[str, Any]] = None,
+    pins: Optional[PinnedVersions] = None,
 ) -> Envelope:
     """One ``agent.run`` envelope for ``dispatch`` against ``run``'s
     pinned versions (design A §3.1's "open run ... pins from active
     versions"). ``refs`` become ``JobPayload.refs``: the context-pack inputs
     H2 cannot derive from the job itself (:class:`fcrm_agents.context_pack
     .BuildRequest` fields such as ``domains`` or ``submission_version``).
+    ``pins`` replace the run's own for this job (an oversight job reads the
+    versions of the list or case it is about, not a placeholder run's).
     """
     payload = JobPayload(
-        job_id=new_id("job"),
+        job_id=dispatch.job_id or new_id("job"),
         case_id=run.snapshot.case_id,
         run_id=run.snapshot.run_id,
         agent=dispatch.agent,
@@ -231,7 +240,7 @@ def build_job_envelope(
         attempt=attempt,
         scope=dispatch.scope,
         changed_fields=list(dispatch.changed_fields),
-        pins=run.pins,
+        pins=pins if pins is not None else run.pins,
         refs=dict(refs or {}),
     )
     return build_envelope(

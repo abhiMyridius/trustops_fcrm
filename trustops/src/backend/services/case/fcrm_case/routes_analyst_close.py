@@ -19,9 +19,10 @@ decision (rule 5 allows ``condition_update`` on a closed case).
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
 from fcrm_common.auth import require_roles
 from fcrm_common.errors import (
     ForbiddenError,
@@ -42,21 +43,31 @@ from fcrm_contracts.api.case_internal import UiActor
 from fcrm_contracts.common import Page, Principal
 from fcrm_contracts.enums import Role
 
-from fcrm_case.deps import get_outcomes, get_store, get_writer
+from fcrm_case.deps import (
+    authorize_case,
+    get_outcomes,
+    get_po_followup_service,
+    get_store,
+    get_writer,
+)
 from fcrm_case.domain.activity import has_restricted_text
 from fcrm_case.domain.outcome import CloseRequestRow
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.views import ConditionRow
 from fcrm_case.errors import ensure_open
 from fcrm_case.outcome_store import OutcomeStore
+from fcrm_case.po_guard import guard_response
 from fcrm_case.sse import ActivityWriter
 from fcrm_case.store import CaseStore
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["case"])
+router = APIRouter(tags=["case"], dependencies=[Depends(authorize_case)])
 
 Analyst = Annotated[Principal, Depends(require_roles(Role.ANALYST))]
+#: ``GET conditions`` is one route with two shapes: the analyst's tracker and the
+#: owner's plain list.
+AnalystOrOwner = Annotated[Principal, Depends(require_roles(Role.ANALYST, Role.PO))]
 
 #: A delegated close is for Band 1-2 (R1); Band 3-4 goes to the committee (R2).
 DELEGATED_BANDS = (1, 2)
@@ -177,14 +188,27 @@ async def close_case(
     )
 
 
-@router.get("/cases/{case_id}/conditions")
+@router.get("/cases/{case_id}/conditions", response_model=Page[ConditionAnalyst])
 async def list_conditions(
     case_id: str,
-    principal: Analyst,
+    request: Request,
+    principal: AnalystOrOwner,
     store: Annotated[CaseStore, Depends(get_store)],
     outcomes: Annotated[OutcomeStore, Depends(get_outcomes)],
-) -> Page[ConditionAnalyst]:
-    """The case's conditions, soonest due first (one query on ``{case_id}``)."""
+) -> Any:
+    """The case's conditions, soonest due first (one query on ``{case_id}``).
+
+    Role-shaped (ADR-30, one route, two shapes): an analyst reads
+    ``Page[ConditionAnalyst]`` (above); the owner of the case reads the plain
+    ``Page[ConditionPO]`` of :mod:`fcrm_contracts.api.case_po` (text, owner, due,
+    status, ``mine``; nothing about where a condition came from), through the
+    PO response guard. Another owner's case is a 404.
+    """
+    if Role.ANALYST not in principal.roles:
+        page = await get_po_followup_service(request).conditions_page(
+            principal, case_id
+        )
+        return guard_response(request, JSONResponse(page.model_dump(mode="json")))
     await _case_or_404(store, case_id)
     rows = await outcomes.list_conditions(case_id)
     items = [to_condition_analyst(row) for row in rows]

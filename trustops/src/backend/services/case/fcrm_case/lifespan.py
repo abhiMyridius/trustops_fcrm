@@ -41,6 +41,7 @@ from fcrm_common.tracing import init_otel
 from pymongo.asynchronous.collection import AsyncCollection
 
 from fcrm_case.activity_log import MongoActivityLog
+from fcrm_case.analyst_write_store import MongoAnalystWriteStore
 from fcrm_case.assessment_store import MongoAssessmentStore
 from fcrm_case.consumer import start_consumer
 from fcrm_case.directory import (
@@ -57,8 +58,10 @@ from fcrm_case.fieldset_provider import (
 )
 from fcrm_case.outcome_store import MongoOutcomeStore
 from fcrm_case.po_documents import DemoFixtures, DirectoryFixtures, ObjectFixtures
+from fcrm_case.po_followup_store import MongoPoFollowupStore
 from fcrm_case.po_store import MongoPoStore
 from fcrm_case.po_uploads import DocumentIntake
+from fcrm_case.reflag_store import MongoReflagStore
 from fcrm_case.seeding import seed_case_service
 from fcrm_case.settings import CaseSettings
 from fcrm_case.sse import EventHub
@@ -186,6 +189,8 @@ async def register(
     await assessment.ensure_indexes()
     await activity.ensure_indexes()
     await outcomes.ensure_indexes()
+    reflags = MongoReflagStore(deps.mongo, db, outbox)
+    await reflags.ensure_indexes()
     if settings.seed_on_empty:
         await seed_case_service(
             SeedReader(settings.seed_path), cases_repo, views.repos, counters
@@ -203,17 +208,35 @@ async def register(
         type_domains=active_type_domains(),
     )
     await po_store.ensure_indexes()
+    analyst_store = MongoAnalystWriteStore(
+        deps.mongo,
+        db,
+        cases_repo,
+        views.repos,
+        outbox,
+        activity,
+        field_sets=field_set_for,
+        type_domains=active_type_domains(),
+    )
+    await analyst_store.ensure_indexes()
+    po_followup_store = MongoPoFollowupStore(
+        deps.mongo, db, cases_repo, views.repos, outbox, activity
+    )
+    await po_followup_store.ensure_indexes()
     objects = ObjectStore.from_settings(settings)
     directory, closable = _build_directory(settings)
     app.state.store = store
     app.state.views = views
     app.state.po_store = po_store
+    app.state.analyst_store = analyst_store
+    app.state.po_followup_store = po_followup_store
     app.state.objects = objects
     app.state.intake = DocumentIntake(
         objects, _build_fixtures(settings, objects), settings
     )
     app.state.assessment = assessment
     app.state.outcomes = outcomes
+    app.state.reflags = reflags
     app.state.hub = EventHub(settings.sse_queue_size)
     app.state.directory = directory
     app.state.loads = AnalystLoadService(store, directory)

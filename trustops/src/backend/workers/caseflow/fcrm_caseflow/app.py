@@ -51,6 +51,11 @@ from fcrm_caseflow.audit_map import STEP_FOR
 from fcrm_caseflow.clients.case_client import CaseClient
 from fcrm_caseflow.clients.decision_client import DecisionClient
 from fcrm_caseflow.clients.decision_votes_client import DecisionVotesClient
+from fcrm_caseflow.clients.oversight_client import (
+    ExaminerClient,
+    OversightClients,
+    ReflagClient,
+)
 from fcrm_caseflow.clients.policy_client import PolicyClient
 from fcrm_caseflow.clients.scoring_client import ScoringClient
 from fcrm_caseflow.consumers import (
@@ -61,6 +66,7 @@ from fcrm_caseflow.consumers import (
 from fcrm_caseflow.cores import default_handlers
 from fcrm_caseflow.engine import CaseflowEngine, mongo_transact
 from fcrm_caseflow.gates import GateStore
+from fcrm_caseflow.oversight_runs import OversightRuns
 from fcrm_caseflow.settings import CaseflowSettings
 from fcrm_caseflow.steps import StepHandler, StepRegistry, StepRunner
 from fcrm_caseflow.store import AGENT_RESULTS_COLLECTION, AgentResultStore, CaseRunStore
@@ -214,6 +220,7 @@ def build_unit(
         transact=mongo_transact(mongo),
         results=results_store,
         ingest_bucket=settings.s3_bucket_canonical,
+        oversight=OversightRuns(runs_store),
     )
     step_runner = StepRunner(
         runs_store,
@@ -228,6 +235,9 @@ def build_unit(
         decision=DecisionClient(decision_http),
         gates=gate_store,
         decision_votes=DecisionVotesClient(decision_http),
+        oversight=OversightClients(
+            examiner=ExaminerClient(audit_http), reflags=ReflagClient(case_http)
+        ),
     )
 
     case_events_consumer = CaseEventsConsumer(

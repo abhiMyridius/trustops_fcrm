@@ -49,12 +49,14 @@ from fcrm_common.logging import bound_context
 from fcrm_contracts.api.audit import AuditRecord, RecordAppend
 from fcrm_contracts.enums import GateStatus, GateType, StepKind
 from fcrm_contracts.events.payloads import HarnessStep
+from fcrm_contracts.versions import PinnedVersions
 from pymongo.errors import PyMongoError
 
 from fcrm_caseflow.audit_client import AuditClient
 from fcrm_caseflow.clients.case_client import CaseClient
 from fcrm_caseflow.clients.decision_client import DecisionClient
 from fcrm_caseflow.clients.decision_votes_client import DecisionVotesClient
+from fcrm_caseflow.clients.oversight_client import OversightClients
 from fcrm_caseflow.clients.policy_client import PolicyClient
 from fcrm_caseflow.clients.scoring_client import ScoringClient
 from fcrm_caseflow.dispatch import AgentDispatch
@@ -106,11 +108,16 @@ class GateSpec:
             gate that should exist separately: reusing a key after the first
             gate was decided finds that gate and opens no new one.
         subject: ``{kind, id}`` shown to the UI (``GateOpened.subject``).
+        case_id: The case the gate is about, when that is not the run's own: a
+            watchlist re-flag's gate belongs to the re-flagged case but is
+            opened on the harness run of the list version (Guard 7 matches the
+            gate's case and run to the decision's). ``None`` means the run's.
     """
 
     gate_type: GateType
     subject_key: str
     subject: Mapping[str, str] = field(default_factory=dict)
+    case_id: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -144,10 +151,14 @@ class AgentJobSpec:
         refs: Becomes ``JobPayload.refs``: the context-pack inputs
             (:class:`fcrm_agents.context_pack.BuildRequest` fields) H2 cannot
             derive itself. References only.
+        pins: Versions this job is pinned to instead of the run's own. An
+            oversight job reads the list or case it is about (the run of a list
+            version has placeholder pins); every other job leaves it ``None``.
     """
 
     dispatch: AgentDispatch
     refs: Mapping[str, Any] = field(default_factory=dict)
+    pins: Optional[PinnedVersions] = None
 
 
 @dataclass(frozen=True)
@@ -226,6 +237,8 @@ class StepDeps:
             merges the output of several jobs.
         decision_votes: The S5 client the decision core records outcomes,
             supersedes and confirms re-votes through.
+        oversight: S4's examiner and S1's re-flag clients, for the oversight
+            core.
     """
 
     run: CaseRun
@@ -237,6 +250,7 @@ class StepDeps:
     decision: Optional[DecisionClient] = None
     gates: Optional[GateStore] = None
     decision_votes: Optional[DecisionVotesClient] = None
+    oversight: Optional[OversightClients] = None
 
     def require_case(self) -> CaseClient:
         """The S1 client.
@@ -269,6 +283,19 @@ class StepDeps:
                 "this step needs the S5 client", needs="decision_votes"
             )
         return self.decision_votes
+
+    def require_oversight(self) -> OversightClients:
+        """The clients the oversight core calls S4's examiner and S1's re-flags
+        through.
+
+        Raises:
+            StepDependencyError: the unit was built without them.
+        """
+        if self.oversight is None:
+            raise StepDependencyError(
+                "this step needs the oversight clients", needs="oversight"
+            )
+        return self.oversight
 
     def require_agent_results(self) -> AgentResultStore:
         """The kept agent results.
@@ -321,6 +348,7 @@ class StepDeps:
         *,
         actor: str = "system",
         ordinal: int = 0,
+        case_id: Optional[str] = None,
     ) -> AuditRecord:
         """Append one audit record for ``step``, safely repeatable.
 
@@ -328,7 +356,9 @@ class StepDeps:
         and ``ordinal``, so a retried step re-sends the same keys and S4 can
         return the record it already wrote instead of chaining a duplicate.
         Give records of the same type within one step distinct ``ordinal``
-        values (three ``guard.input`` records: 0, 1, 2).
+        values (three ``guard.input`` records: 0, 1, 2). ``case_id`` names the
+        chain when it is not the step's own (a watchlist step writes
+        ``reflag.proposed`` on each re-flagged case's chain).
 
         Raises:
             fcrm_common.errors.FcrmError: S4 refused or was unreachable. The
@@ -338,7 +368,7 @@ class StepDeps:
         key = deterministic_id("idem", step.step_id, record_type, str(ordinal))
         return await self.audit.append(
             RecordAppend(
-                case_id=step.case_id,
+                case_id=case_id or step.case_id,
                 type=record_type,
                 actor=actor,
                 summary=summary,
@@ -475,6 +505,7 @@ class StepRunner:
         decision: The S5 client, likewise.
         gates: Read access to the gates, likewise.
         decision_votes: The S5 client for the decision core, likewise.
+        oversight: The oversight core's S4 and S1 clients, likewise.
     """
 
     def __init__(
@@ -492,6 +523,7 @@ class StepRunner:
         decision: Optional[DecisionClient] = None,
         gates: Optional[GateStore] = None,
         decision_votes: Optional[DecisionVotesClient] = None,
+        oversight: Optional[OversightClients] = None,
     ) -> None:
         """Wire the runner's collaborators; it holds no other state."""
         self._runs = runs
@@ -506,6 +538,7 @@ class StepRunner:
         self._decision = decision
         self._gates = gates
         self._decision_votes = decision_votes
+        self._oversight = oversight
         self._locks = _CaseLocks()
 
     async def run(self, step: HarnessStep) -> None:
@@ -578,6 +611,7 @@ class StepRunner:
             decision=self._decision,
             gates=self._gates,
             decision_votes=self._decision_votes,
+            oversight=self._oversight,
         )
         try:
             async with asyncio.timeout(self._timeout_s) as deadline:

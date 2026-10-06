@@ -125,10 +125,10 @@ def test_the_canonical_bucket_defaults_to_the_object_store_default() -> None:
 
 
 def test_a_mapped_step_without_a_handler_refuses_to_start() -> None:
-    with pytest.raises(UnknownStepKindError, match=r"examiner\.answer"):
+    with pytest.raises(UnknownStepKindError, match=r"handoff\.open"):
         _unit(
             _settings(),
-            step_map={Trigger.CASE_RETAGGED: StepKind.EXAMINER_ANSWER},
+            step_map={Trigger.CASE_RETAGGED: StepKind.HANDOFF_OPEN},
         )
 
 

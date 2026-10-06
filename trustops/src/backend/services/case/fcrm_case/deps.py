@@ -15,9 +15,12 @@ from fastapi import Request
 from fcrm_common.authz import opa_dependency
 from fcrm_common.errors import UpstreamUnavailableError
 
+from fcrm_case.analyst_write_service import AnalystWriteService
 from fcrm_case.directory import AnalystLoadService, IdentityDirectory
 from fcrm_case.outcome_store import OutcomeStore
+from fcrm_case.po_followup_service import PoFollowupService
 from fcrm_case.po_service import PoService
+from fcrm_case.reflag_store import ReflagStore
 from fcrm_case.settings import CaseSettings
 from fcrm_case.sse import ActivityWriter, EventHub
 from fcrm_case.store import CaseStore
@@ -85,6 +88,12 @@ def get_outcomes(request: Request) -> OutcomeStore:
     return outcomes
 
 
+def get_reflags(request: Request) -> ReflagStore:
+    """The watchlist re-flag store."""
+    reflags: ReflagStore = _wired(request, "reflags")
+    return reflags
+
+
 def get_writer(request: Request) -> ActivityWriter:
     """An activity writer over the store's log and the hub: persist an event,
     then publish it to the open streams.
@@ -102,4 +111,30 @@ def get_po_service(request: Request) -> PoService:
         po=_wired(request, "po_store"),
         writer=get_writer(request),
         intake=_wired(request, "intake"),
+    )
+
+
+def get_po_followup_service(request: Request) -> PoFollowupService:
+    """The owner's follow-up use cases (answer, outcome, conditions): one cheap
+    object per request, built from what is on ``app.state``.
+    """
+    return PoFollowupService(
+        cases=get_store(request),
+        views=get_views(request),
+        store=_wired(request, "po_followup_store"),
+        writer=get_writer(request),
+        intake=_wired(request, "intake"),
+    )
+
+
+def get_analyst_write_service(request: Request) -> AnalystWriteService:
+    """The analyst's write use cases over the stores ``lifespan.py`` wired: one
+    cheap object per request, built from what is on ``app.state``.
+    """
+    return AnalystWriteService(
+        cases=get_store(request),
+        views=get_views(request),
+        assessment=_wired(request, "assessment"),
+        store=_wired(request, "analyst_store"),
+        writer=get_writer(request),
     )
