@@ -62,6 +62,11 @@ class TierModels(BaseModel):
     """The chain's models that take ``output_config.effort`` (``tiers.yaml
     models.<id>.effort_param``); a model that does not (Haiku, Nova) is never
     sent it, because Bedrock rejects the field on them."""
+    cache_models: tuple[str, ...] = ()
+    """The chain's models that take a ``cachePoint`` after the system prompt and
+    after the tool definitions (``tiers.yaml models.<id>.prompt_cache``). Nova
+    rejects one in the tool list, so it is a per-model default, never chain-wide.
+    A prefix under the model's cache minimum is simply not cached (no error)."""
 
     @property
     def chain(self) -> tuple[str, ...]:
@@ -110,6 +115,11 @@ def tier_models(tier: Tier, tiers_config: Mapping[str, Any]) -> TierModels:
         for model_id in chain
         if per_model.get(model_id, {}).get("effort_param")
     )
+    cache_models = tuple(
+        model_id
+        for model_id in chain
+        if per_model.get(model_id, {}).get("prompt_cache")
+    )
     return TierModels(
         tier=tier,
         primary=entry["primary"],
@@ -119,6 +129,7 @@ def tier_models(tier: Tier, tiers_config: Mapping[str, Any]) -> TierModels:
         send_temperature=send_temperature,
         effort=str(effort) if effort else None,
         effort_models=effort_models,
+        cache_models=cache_models,
     )
 
 
@@ -145,14 +156,23 @@ def model_defaults(models: TierModels, model_id: str) -> Optional[BedrockModelSe
     returns an empty call (the first live run lost four rows that way). The
     field goes to **that model only**, never into the chain-wide settings,
     because Bedrock rejects ``output_config`` on Haiku and Nova.
+
+    A model that takes cache points gets one after the system prompt and one
+    after the tool definitions: the prompt prefix is identical for every run of
+    an agent version (design B §3.4), so a second request in a run (a tool round
+    trip, a retry) and the next job within the cache's five minutes read it at a
+    tenth of the price. Nova rejects a cache point in the tool list, so it gets
+    none.
     """
-    if models.effort is None or model_id not in models.effort_models:
-        return None
-    return BedrockModelSettings(
-        bedrock_additional_model_requests_fields={
+    settings = BedrockModelSettings()
+    if models.effort is not None and model_id in models.effort_models:
+        settings["bedrock_additional_model_requests_fields"] = {
             "output_config": {"effort": models.effort}
         }
-    )
+    if model_id in models.cache_models:
+        settings["bedrock_cache_instructions"] = True
+        settings["bedrock_cache_tool_definitions"] = True
+    return settings or None
 
 
 def bedrock_chain(

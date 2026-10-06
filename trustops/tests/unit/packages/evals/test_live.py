@@ -16,6 +16,7 @@ from fcrm_contracts.proposals.screening import ScreeningProposal
 from fcrm_evals.datasets import load
 from fcrm_evals.instructions import InstructionRenderer
 from fcrm_evals.live import LiveProducer, RowPackBuilder, lifted_token_budgets
+from fcrm_evals.metrics.citation import shown_sources
 from fcrm_evals.usage import RowStatus
 from fcrm_seed.loader import load_raw
 from fcrm_tools import build_seed_registry, seed_pins
@@ -100,6 +101,23 @@ async def test_critic_pack_widens_only_the_assessment_record(
     assert changed == ["record:FCRM-2026-0151#31"]
     widened = next(s for s in pack.sources if s.key in changed)
     assert '"controls"' in widened.text
+
+
+async def test_citation_validity_checks_the_critic_against_what_it_was_shown(
+    pack_builder: RowPackBuilder,
+) -> None:
+    """A finding quotes the rating it is about, which only the widened
+    assessment record (production's ``cite_records``) contains. The metric uses
+    the pack's sources, or a finding Guard 4 accepted would read as unsourced."""
+    row = load(AgentName.CRITIC)[0]
+    pack = await pack_builder.build(row)
+    assert [s.model_dump() for s in shown_sources(row)] == [
+        s.model_dump() for s in pack.sources
+    ]
+    plain = load(AgentName.SCREENING)[0]
+    assert [s.model_dump() for s in shown_sources(plain)] == [
+        s.model_dump() for s in plain.sources()
+    ]
 
 
 async def test_screening_fields_are_real_builder_lines_whose_values_a_quote_can_verify(

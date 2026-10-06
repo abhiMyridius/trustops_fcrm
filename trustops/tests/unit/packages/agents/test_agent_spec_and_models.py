@@ -214,7 +214,10 @@ EFFORT_TIERS: dict[str, Any] = {
             "wall_clock_s": 60,
         },
     },
-    "models": {"thinker": {"effort_param": True}, "plain-model": {}},
+    "models": {
+        "thinker": {"effort_param": True, "prompt_cache": True},
+        "plain-model": {},
+    },
 }
 
 
@@ -229,16 +232,34 @@ def test_effort_is_sent_only_to_the_models_that_take_it() -> None:
     """Bedrock rejects ``output_config`` on Haiku and Nova, so the field is
     a per-model default, never a chain-wide setting."""
     strong = tier_models(Tier.STRONG, EFFORT_TIERS)
-    assert model_defaults(strong, "thinker") == {
-        "bedrock_additional_model_requests_fields": {"output_config": {"effort": "low"}}
+    defaults = model_defaults(strong, "thinker")
+    assert defaults is not None
+    assert defaults["bedrock_additional_model_requests_fields"] == {
+        "output_config": {"effort": "low"}
     }
     assert model_defaults(strong, "plain-model") is None
     assert "bedrock_additional_model_requests_fields" not in model_settings_for(strong)
 
 
-def test_a_tier_without_an_effort_sends_nothing_to_any_model() -> None:
+def test_cache_points_go_only_to_the_models_that_take_them() -> None:
+    """Nova rejects a cache point in the tool list, so it is per model too."""
+    strong = tier_models(Tier.STRONG, EFFORT_TIERS)
+    assert strong.cache_models == ("thinker",)
+    defaults = model_defaults(strong, "thinker")
+    assert defaults is not None
+    assert defaults["bedrock_cache_instructions"] is True
+    assert defaults["bedrock_cache_tool_definitions"] is True
+    assert model_defaults(strong, "plain-model") is None
+    assert "bedrock_cache_instructions" not in model_settings_for(strong)
+
+
+def test_a_tier_without_an_effort_still_caches_what_can_be_cached() -> None:
+    """No effort is asked of the model, but its prompt prefix is still cached."""
     cheap = tier_models(Tier.CHEAP, EFFORT_TIERS)
-    assert model_defaults(cheap, "thinker") is None
+    defaults = model_defaults(cheap, "thinker")
+    assert defaults is not None
+    assert "bedrock_additional_model_requests_fields" not in defaults
+    assert defaults["bedrock_cache_instructions"] is True
 
 
 def test_the_chain_gives_each_child_its_own_defaults() -> None:
@@ -266,3 +287,22 @@ def test_the_real_tiers_ask_the_thinking_models_for_a_bounded_effort() -> None:
     cheap = tier_models(Tier.CHEAP, config)
     assert cheap.effort is None
     assert cheap.effort_models == ()
+
+
+@pytest.mark.skipif(not HAS_AI, reason="ai/ lane absent")
+def test_the_real_chains_send_cache_points_to_anthropic_models_only() -> None:
+    """Probed live: Bedrock rejects a cache point in the tool list on Nova and
+    on no Anthropic model, and rejects ``output_config`` on Haiku and Nova."""
+    config = load_tiers_config(REPO_AI)
+    families = {k: v["family"] for k, v in config["models"].items()}
+    for tier in Tier:
+        chain = tier_models(tier, config)
+        for model_id in chain.chain:
+            defaults = model_defaults(chain, model_id)
+            if families[model_id] == "amazon":
+                assert defaults is None, model_id
+            else:
+                assert defaults is not None, model_id
+                assert defaults["bedrock_cache_tool_definitions"] is True
+                has_effort = "bedrock_additional_model_requests_fields" in defaults
+                assert has_effort == (model_id in chain.effort_models)

@@ -19,8 +19,8 @@ Your answer is a list of three kinds of item:
 - a GapQuestion for each required field with no value in this window.
 
 Rules you must keep:
-1. Every value points to the page and line range where it appears (doc_id from the `Document` line above the page) and quotes it verbatim. If you cannot point to a span, do not output the value; ask a GapQuestion for it instead if it is a required field.
-2. Do not infer, normalise, convert or compute values. Copy "Q1 2027" as written, "$48M year 1" as written. The value is the text of the field without its label ("Priya Nair, Payments", not "Change owner: Priya Nair, Payments"). Code handles formats.
+1. Every value points to the page and line range where it appears (doc_id from the `Document` line above the page) and is quoted. The quote is the whole document line the value sits on, label included and without the `p.N l.M:` anchor ("Change owner: Jane Doe, Payments"); the value is only the value ("Jane Doe, Payments"). If you cannot point to a span, do not output the value; ask a GapQuestion for it instead if it is a required field.
+2. Do not infer, normalise, convert or compute values. Copy "Q1 2027" as written, "$48M year 1" as written. The value is the text of the field without its label ("Jane Doe, Payments", not "Change owner: Jane Doe, Payments"). Code handles formats.
 3. When a field appears more than once with different values, output one ExtractedField per value, each with its own span, and give the most specific one the highest confidence. Never average, merge or choose silently.
 4. Propose a change type (new_product, new_feature, process_change, vendor_onboarding, new_geography, new_segment) only when a passage supports it, and quote that passage.
 5. A GapQuestion is only for a required field with no value anywhere in this window and not already extracted elsewhere: a question_id, the field_id, one short question a business person can answer, and blocking true when the field is always required (F01 to F06).

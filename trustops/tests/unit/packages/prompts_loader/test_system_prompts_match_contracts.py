@@ -91,6 +91,7 @@ def test_no_system_prompt_carries_case_data(agent: AgentName, mode: str | None) 
     text = _text(agent, mode)
     assert "FCRM-2026-0" not in text
     assert "Remesas" not in text
+    assert "Priya" not in text
 
 
 @pytest.mark.parametrize("agent", CITING)
