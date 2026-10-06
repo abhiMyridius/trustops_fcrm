@@ -13,20 +13,20 @@ sequenceDiagram
     participant H2 as agent worker (H2)
 
     An->>S4: POST /examiner/ask {question, case_id}
-    S4->>S4: 404 unless the case has a chain; store the question (insert-only)
+    S4->>S4: 404 unless the case has a chain, store the question (insert-only)
     S4-->>X3: examiner.asked{case_id, question_id, question, asked_by}
     Note over S4: waits up to 60 s for the answer (202 and the question id otherwise)
     X3->>H1: examiner.asked (names a case, no run)
-    Note over H1: the case's own run, closed or not; else an oversight run. Step examiner.answer
+    Note over H1: the case's own run, closed or not, else an oversight run. Step examiner.answer
     H1->>S4: examiner.asked (the question, on the chain)
     H1-->>X3: agent.run examiner {refs.question} (job id derived from the question)
     X3->>H2: the examiner reads the chain through its audit_log tool, nothing else
     H2-->>X3: agent.done examiner {accepted: [ExaminerAnswer]} (or agent.failed)
-    X3->>H1: agent.done (kept; never reaches the transition table)
+    X3->>H1: agent.done (kept, never reaches the transition table)
     H1->>S4: GET /verify/{case}: a chain that does not verify is never answered from
     H1->>H1: check_answer: every sentence cites records, every seq exists in the chain
     H1->>S4: POST /examiner/answers {sentences[{t, refs}], refused, references}
-    S4->>S4: 422 if a cited seq is beyond the chain head; insert once
+    S4->>S4: 422 if a cited seq is beyond the chain head, insert once
     S4-->>An: 200 the answer (waiting call), or GET /examiner/answers/{question_id}
     H1->>S4: examiner.answered (on the chain, with the cited seqs)
     H1->>S1: show examiner.answered on the case stream (analyst only)
@@ -74,7 +74,7 @@ sequenceDiagram
     An->>S1: GET /reflags, POST /reflags/{id}/acknowledge {reason >= 20}
     S1->>S1: ONE transaction: the row (acknowledged, who, why) + gate.decided via the outbox
     S1-->>X3: gate.decided reflag_ack
-    X3->>H1: Guard 7 decides the gate; step reflag.ack
+    X3->>H1: Guard 7 decides the gate, step reflag.ack
     H1->>S4: reflag.acknowledged (on the case's chain, the analyst as actor)
 ```
 

@@ -3,7 +3,7 @@
 FCRM Risk Assessment Workbench · Genius Hacks Q3 2026 · Myridius
 Plan version 1.0 · 3 October 2026 · submission 9 October 2026 (six build days)
 
-This is the master plan. It is written so that Claude Code subagents can implement it without stopping for input. Depth lives in the three design documents; this file fixes the decisions, the structure, the order of work and the definition of done.
+**Status: the plan below is historical; "Status as built" says where the built system differs.** This is the master plan as written on 3 October. It is written so that Claude Code subagents can implement it without stopping for input. Depth lives in the three design documents; this file fixes the decisions, the structure, the order of work and the definition of done.
 
 | Need | Read |
 |---|---|
@@ -14,6 +14,34 @@ This is the master plan. It is written so that Claude Code subagents can impleme
 | Every human gate and why it sits where it does | `docs/governance/gates-register.md` |
 | What the brief grades | `docs/requirements/research/01-brief-and-rubric.md` |
 | The canonical demo data | `docs/requirements/research/06-walkthrough-seed-extraction.md` |
+
+## Status as built (6 October 2026)
+
+**Read this section first. Everything below it is the plan as written on 3 October, kept as history.** The software is built and merged; the plan was followed in shape and departed from where the code or the first live runs said otherwise. Each departure has a decision row. The evidence for the numbers is named in each line.
+
+| Plan said | As built | Why | Decision |
+|---|---|---|---|
+| One repo per service plus an umbrella repo (the team's original plan, D-64 and D-90a) | One monorepo at the brief's layout, then moved under `trustops/` inside the `trustops_fcrm` repository, next to `Documents/` and `FCRM_v2/`; the inner repo's history was merged in | The brief requires a single repo and reads commit history as evidence; the inner repo had no remote, so collaborators pulled an empty folder | ADR-01, ADR-25 |
+| `src/{services,workers,packages}` and a web app in `src/web`, one Dockerfile per unit, 22 to 24 containers | `src/backend` (a uv workspace: `apps/`, `services/`, `workers/`, `packages/`) and `src/frontend`; **eight containers**: `mongo`, `rabbitmq`, `minio`, `opa`, `api`, `harness`, `gateway`, `web`; observability and Redis are compose profiles | 24 containers with ten near-identical Dockerfiles and two crash-looping workers were hard to run and to explain | ADR-26 |
+| X1 identity and S1 to S5 as six services; H1 to H4 as four workers, H2 as two replicas | **Composite processes**: `api` mounts X1 and S1 to S5 as sub-apps by URL prefix; `harness` runs H1 to H4 as units on one broker, H2 with a prefetch of four. Each unit keeps its own app factory | Mounting (not `include_router`) keeps the 127 OPA route templates and each service's state unchanged | ADR-26; D-13, D-14 |
+| `FCRM_LLM_MODE=live`, `replay` or `mock`; E2E and rehearsal run offline in replay and reproduce the seed's figures | **Live Amazon Bedrock only.** Replay and mock were removed. The golden figures (9.8 to 10.4, 2-1, 67 records) are unit tests; a live run asserts structure and prints its own numbers | The operator wants nothing mocked; replay was never implemented (no code read the setting) and recordings of a live run would not be the demo | ADR-27 (amends ADR-12) |
+| H1 applies a trigger and its HTTP calls inside the consumer transaction | **Steps and the outbox.** A trigger that needs S1 to S5 enqueues a `harness.step` through the transactional outbox in the same Mongo transaction as the state change; a separate consumer (`caseflow.steps`, retry then DLQ) runs the step outside it. Steps are idempotent by step id | An HTTP call inside a transaction that may be retried can run twice, hold the transaction open on a slow peer, or leave a run half-applied | ADR-28, ADR-35 |
+| The policy corpus is 197 real clauses | **A synthetic corpus**: four verbatim clause texts from the seed and 193 generated once on Bedrock, each with a `provenance` field. The three demo PDFs are rendered from the seed's facts. Public-source stand-ins never claim real section numbers or verbatim text | No real regulation text was available, and fabricating text as if real would break "policy is quoted, not generated" | ADR-29 |
+| Vectors in S3 Vectors, embeddings Titan v2, a `dummy` provider for tests | **Bedrock Titan embeddings with in-memory vectors by default** (`VECTOR_BACKEND=memory`). The S3 Vectors backend exists but is **not in the shipped image**: its extra conflicts with the agents' `boto3` requirement. The dummy provider is for offline tests only; each `api` start embeds the 197 clauses (about 85 s) | The conflict is declared in `src/backend/pyproject.toml`; the dummy provider ranked searches arbitrarily and returned an unrelated precedent for the demo | ADR-03, ADR-12, ADR-41 |
+| API routes named by design A section 2.1 and design C section 1.4; per-service OpenAPI files; `make contracts` | **The web's route names are the contract** and the backend adopted them; one merged OpenAPI of the `api` process (110 paths, `make openapi`); the web's route test fails when a route is not in it. `make contracts` and `make api-gen` are not wired | The frontend was built against the mock first; renaming the backend was cheaper than renaming the web | ADR-30 |
+| A committee outcome is whichever option has two votes; how three votes map onto four outcomes was left open | Two identical votes win; approve, approve, approve-with-conditions is approve-with-conditions; any 1-1-1 split is `no_majority`, opens a thread and a second round, and is never auto-deferred; one pure function shared by S5 and H1 | The documents disagreed; an automatic defer would decide a case without a majority | ADR-08, ADR-31, ADR-36, ADR-37 |
+| Token budgets cheap 6k, mid 12k, strong 20k, judge 20k; "realistic first run about 82k" per case | **Budgets from measured p90 plus about 30%**: cheap 15k, mid 11k, strong 24k, judge 15k per attempt, thinking effort low, rendered prompts, prompt-cache points, compact schemas. Measured demo case: 114.6k of 120k with one retry, 91.0k clean, before `research.system` v3. The 120k cap is reported, not enforced across jobs | The first live run passed 1 of 9 gates: no real run fitted the first budgets (a 6k cap against 7,370 used) | ADR-04, ADR-14, ADR-27, ADR-43; D-46, D-47; `ops/reports/token-analysis.md` |
+| Evals: `pydantic-evals`, seeded weekly figures (intake 96.4%, research 99.1%, ...), code under `/evals` | A plain async runner, a DeepEval judge on a different model than the agent, nine datasets and 27 metrics generated from the seed, code in `src/backend/packages/evals` (source may not sit outside `src/`), results and a one-page dashboard in `evals/`. **Measured: 8 of 9 gates pass**; the assessment agent fails at 0.70 against 0.85 and says so. The seeded figures are the generator's targets, not measurements | Coding standards forbid source outside `src/`; the first run showed the seeded figures were not met | ADR-21, ADR-43; `evals/README.md` |
+| Job leases with a reaper, circuit breakers on Bedrock and S3 Vectors | Idempotent steps, deterministic gate and job ids, consumer dedupe and an outbox relay lease are built. **No reaper and no circuit breaker.** A run in `handoff` cannot be resumed | The resume was never routed | `docs/governance/known-gaps.md` |
+| Redis for the SSE fan-out, the JWKS cache and the OPA decision cache | Redis is an optional profile (`make up-cache`) that **nothing reads**: the SSE hub is in process, so run one `api` replica | The fan-out was left as a documented extension point | `fcrm_case/sse.py` |
+| `make demo`, `make seed-verify`, `make e2e` (21 Playwright scenes and BB-01 to BB-14 against the stack), `make resilience`, `make nightly`, `make contracts`, `make api-gen`, `make locks`, `make backup` | **Not wired**: they print "not yet wired". The demo is driven by hand (`RUNNING.md`). The black-box tests run in process (13 files, 12 scenarios, numbered by the design document's table, D-16); the web has four Playwright specs against the mock | The live join took the time the verification harness would have | `known-gaps.md`; D-16 |
+| Claude Code hooks registered in `.claude/settings.json`, a Stop hook that runs `make check` | The hook scripts and the convention are committed (`ai/guidance/hooks/`); the registration is not. The enforceable part is the git `pre-commit` and `commit-msg` hooks that `make bootstrap` installs | The registration is the operator's file | `docs/governance/sdlc-evidence.md` |
+| Case 0151 seeded at intake, with its 67 records the golden | 0151 is seeded unassigned at intake with nothing else (so R5 picks Rahul by load); its first upload opens the run; the 67 records belong to the static walkthrough and the tests | The seed alone fixed neither the assignment nor the origin; a boot-time event would not survive `make demo-reset` | ADR-34, ADR-39 |
+| SharePoint and OCR out; a `DocumentSource` interface with an S3 implementation | Unchanged | | ADR-17 |
+
+Still true as planned: nothing is approved or rejected automatically; scores come only from S2; policy is quoted with a source reference; overrides need a reason; the audit chain is hash-chained with an insert-only database role; the PO never sees a score, band or rating; data is synthetic; AWS everywhere (Bedrock for every model call, ADR-03).
+
+The numbers behind this section: `make check` on 6 October (code unchanged since `5a02c09`) was green (7,094 unit tests passed, 4 skipped, 538 integration-marked tests deselected, 120 Rego tests, 144 web tests); 49 ADRs; 57 defect rows; the live eval gate 8 of 9 (`evals/results/2026-10-06/gate.json`). What is still open, with its evidence: `docs/governance/known-gaps.md`. How to run it: `RUNNING.md`. How the lifecycle was built with AI: `docs/governance/sdlc-evidence.md`.
 
 ## 1. Context
 
@@ -190,7 +218,7 @@ One exception hierarchy in `fcrm_common.errors` mapped to RFC 9457 problem+json.
 
 ## 4. Folder structure
 
-Condensed view; the complete file-level tree for every unit is `docs/architecture/folder-structure.md`.
+Condensed view of the planned layout (historical: the web is `src/frontend`, the Python units sit under `src/backend`, and the stack is eight containers; see "Status as built"). The as-built file-level tree is `docs/architecture/folder-structure.md`.
 
 ```
 trustops/
@@ -241,6 +269,8 @@ Every Python unit builds and ships alone (`uv run --package <name>`; one Dockerf
 
 ## 5. Execution: one continuous run
 
+> **Historical.** This section and the lane table below are the schedule as planned on 3 October and as annotated up to 5 October. They are kept unchanged. The lanes that actually merged are the `Merge lane I1-A ... I5-A` commits in `git log`, and the state of the system is "Status as built" above. The status key and the status column describe that day, not today.
+
 The build is a single autonomous run from scaffold to freeze. The lead session executes the dependency graph below continuously: a lane starts the moment its dependencies are merged, up to six lanes run at once, and nothing waits for the operator. Each lane is one Claude Code subagent in its own git worktree (`ws/<lane>/<topic>`), briefed from `ai/guidance/subagent-brief-template.md`, and is done only when `make gate` passes on the merged tree and its report lists Changed / Failed / Decided. The lead merges, re-plans on failure (retry with the failure in the brief, then split the lane, then record a defect and continue), and keeps the governance tables current. "Order" below is a dependency rank, not a pause.
 
 Operator gates (G-R1, G-D1, G-D2, G-C2, G-T2, G-P1, G-O1) are non-blocking during the run: the run records the evidence, marks the gate "passed pending operator review" and continues; the operator reviews asynchronously and objects by adding an ADR or defect row. Proposed ADR rows count as accepted from the moment the run starts. The only inputs the run cannot produce itself are AWS credentials in `.env` (it runs in `replay`/`memory` mode until they exist, then switches to live automatically) and the final deck narration.
@@ -278,6 +308,8 @@ As of this revision: **9 packages merged and fully tested** (contracts, scoring,
 | 5 | hardening | docs/governance complete, README, clean-clone proof, deck, rehearsal, token analysis | — | G-P1 signed |
 
 ## 6. Milestones the run asserts
+
+> **Historical.** The expected dates below were the plan. Milestones M0 to M5 were reached in substance (the verticals run live); the automated assertions this section describes (`make e2e`, `make demo`, `make resilience`, the nightly report) were not built, so no milestone was asserted by a script. See "Status as built" and `docs/governance/known-gaps.md`.
 
 Milestones are automated assertions the run performs, logs to `ops/reports/`, and commits; they never wait for a person. Dates are the expected pace for the single run, not scheduled stops.
 
@@ -336,6 +368,8 @@ Mechanics: Claude Code hooks (protect paths, commit-message guard requiring a `D
 | Operator time | daily 10-minute G-O1 review; everything else runs through hooks and subagents |
 
 ## 10. Definition of done
+
+> **Status on 6 October.** Item 1: `make bootstrap && make up` brings eight containers healthy; `make seed-verify` is not wired. Item 2: `make demo` is not wired; the demo is driven by hand and its golden figures are unit tests. Item 3: `make gate` and `make test-int` exist; `make e2e` and `make resilience` are not wired; `make evals` is committed with measured results (8 of 9 gates). Item 4: the PO fence is three layers and a black-box test; BB-12 is tested. Item 5: the `docs/` set is in place and the known gaps are listed. Item 6: the token report is `ops/reports/token-analysis.md`; the runtime report (`ops/token-analysis/`) and Grafana dashboards populated by a demo run are not committed. Item 7: the deck is outside the repository.
 
 1. `git clone` → `make bootstrap && make up && make seed-verify` on a clean machine brings 22 containers healthy and the seed loaded.
 2. `make demo` drives FCRM-2026-0151 through the API as the five users and asserts 9.8 → 10.4, approve with conditions 2–1, three conditions, and a 67-record audit chain whose type sequence equals `demo.audit[].type`; `GET /verify` passes.

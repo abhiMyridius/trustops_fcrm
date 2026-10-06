@@ -16,12 +16,12 @@ sequenceDiagram
     Note over S5: third vote lands: tally in the same transaction
     S5-->>X3: vote.cast (count only, never the option), vote.tallied{outcome, counts, votes[]}
     X3->>H1: vote.cast, once per vote
-    Note over H1: VOTE_CAST (DECIDE -> DECIDE); step vote.record
-    H1->>S4: vote.cast (member, n of 3; the option is not in the event, the record or any log)
+    Note over H1: VOTE_CAST (DECIDE -> DECIDE), step vote.record
+    H1->>S4: vote.cast (member, n of 3, the option is not in the event, the record or any log)
     X3->>H1: vote.tallied
-    Note over H1: VOTE_TALLIED (DECIDE -> CLOSED); step decide.outcome
+    Note over H1: VOTE_TALLIED (DECIDE -> CLOSED), step decide.outcome
     H1->>H1: tally(votes[]) must equal vote_outcome, else the step fails (nothing recorded)
-    H1->>S4: vote.revealed (2 approve with conditions, 1 defer; each member's vote and rationale)
+    H1->>S4: vote.revealed (2 approve with conditions, 1 defer, each member's vote and rationale)
     H1->>S5: GET /packs/{p} (the drafted conditions)
     H1->>S5: POST /outcomes {committee, pack_id, outcome, decided_by, conditions, plain_summary} (Idempotency-Key)
     S5-->>X3: outcome.set (committee: informational for H1)
@@ -29,11 +29,11 @@ sequenceDiagram
     S1->>S1: ONE transaction: outcome row + 3 conditions + case closed (closed_at, outcome_ref) + activity + outbox + key
     S1-->>X3: case.closed, condition.activated x3
     H1->>S4: outcome.set (3 conditions activated)
-    Note over H1: CLOSED_DISPATCH (CLOSED -> CLOSED), once no step is pending; step closed.finalize
+    Note over H1: CLOSED_DISPATCH (CLOSED -> CLOSED), once no step is pending, step closed.finalize
     H1->>S4: outcome.delivered, case.closed
     H1->>S4: GET /verify/{case} -> ok required, else the step FAILS and dead-letters
     H1->>S4: chain.verified
-    H1-->>X3: outcome.delivered (plain, no numbers; catalogued UI event, applied with the step)
+    H1-->>X3: outcome.delivered (plain, no numbers, catalogued UI event, applied with the step)
     X3->>S1: case-service.events: outcome.delivered
     S1-->>PO: SSE: "Your change was decided: Approved with conditions"
 ```
@@ -83,11 +83,11 @@ sequenceDiagram
     participant S5 as decision (S5)
 
     An->>S1: POST /cases/{id}/close {outcome, reason, plain_summary}
-    S1->>S1: 409 unless: the analyst's own case, open, latest score Band 1-2, recommendation locked; summary has no restricted term
+    S1->>S1: 409 unless: the analyst's own case, open, latest score Band 1-2, recommendation locked, summary has no restricted term
     S1-->>H1: case.close_requested{outcome, reason, plain_summary, band} (outbox, same transaction as the request row)
-    Note over H1: CASE_CLOSE_REQUESTED, guard: band 1-2, acks done, locked (RECOMMEND or DECIDE); step decide.delegated
+    Note over H1: CASE_CLOSE_REQUESTED, guard: band 1-2, acks done, locked (RECOMMEND or DECIDE), step decide.delegated
     H1->>H1: Guard 5: band, lock, the eight rules (closed untouched, ...)
-    H1->>S5: POST /outcomes {delegated, decided_by: analyst, reason}; 409 committee_pending / case_decided
+    H1->>S5: POST /outcomes {delegated, decided_by: analyst, reason}, 409 committee_pending / case_decided
     H1->>S1: PUT outcome (closes the case)
     S5-->>H1: outcome.set{mode: delegated}
     Note over H1: OUTCOME_SET_DELEGATED -> CLOSED, then closed.finalize as above
