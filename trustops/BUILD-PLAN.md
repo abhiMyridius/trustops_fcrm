@@ -226,7 +226,7 @@ trustops/
   BUILD-PLAN.md                  this file
   CLAUDE.md                      repo guidance for Claude Code; package files under src/**/CLAUDE.md
   Makefile                       bootstrap · up · down · seed · demo · check · gate · test-* · e2e · evals · contracts · dlq · token-report · nightly
-  docker-compose.yaml            base; compose.dev.yaml (bind mounts, vite), compose.test.yaml (replay mode), compose.obs.yaml
+  docker-compose.yaml            base; compose.dev.yaml (bind mounts, vite), compose.test.yaml (project trustops-test, host ports +1000), the `obs` and `cache` profiles in the base file
   .env.example                   every variable name, no values
   .pre-commit-config.yaml
   .claude/settings.json          hooks (protect paths, commit guard, formatters, Stop gate, SubagentStop report)
@@ -371,7 +371,7 @@ Mechanics: Claude Code hooks (protect paths, commit-message guard requiring a `D
 
 > **Status on 6 October.** Item 1: `make bootstrap && make up` brings eight containers healthy; `make seed-verify` is not wired. Item 2: `make demo` is not wired; the demo is driven by hand and its golden figures are unit tests. Item 3: `make gate` and `make test-int` exist; `make e2e` and `make resilience` are not wired; `make evals` is committed with measured results (8 of 9 gates). Item 4: the PO fence is three layers and a black-box test; BB-12 is tested. Item 5: the `docs/` set is in place and the known gaps are listed. Item 6: the token report is `ops/reports/token-analysis.md`; the runtime report (`ops/token-analysis/`) and Grafana dashboards populated by a demo run are not committed. Item 7: the deck is outside the repository.
 
-1. `git clone` → `make bootstrap && make up && make seed-verify` on a clean machine brings 22 containers healthy and the seed loaded.
+1. `git clone` → `make bootstrap && make up && make seed-verify` on a clean machine brings the eight default containers healthy and the seed loaded.
 2. `make demo` drives FCRM-2026-0151 through the API as the five users and asserts 9.8 → 10.4, approve with conditions 2–1, three conditions, and a 67-record audit chain whose type sequence equals `demo.audit[].type`; `GET /verify` passes.
 3. `make e2e` passes the 21 scenes and BB-01…BB-14; `make gate`, `make test-int`, `make resilience` green; `make evals` committed with measured baselines.
 4. The PO never sees a score, band or rating in any response, stream or page (BB-02); every proposal claim resolves to a source (BB-12).

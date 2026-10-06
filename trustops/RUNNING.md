@@ -286,7 +286,7 @@ The full list, each item with its evidence, is `docs/governance/known-gaps.md`. 
 - **S1 pins versions from the seed**, not from a configuration publish.
 - **The 120,000-token case cap is reported, not enforced across jobs.**
 - **Redis does nothing** (`make up-cache`); **S3 Vectors is not in the image** (vectors are in memory; each `api` start embeds the corpus).
-- **The web examiner does not handle a 202**, and `BEDROCK_REGION_FALLBACK` is read by no code.
+- **The web examiner does not handle a 202.**
 - **Two integration mismatches are open defects:** the `evidence_store` agent tool reads a different shape than S1 answers (D-52), and the web's decide call for a clause or control may not resolve the item id (D-53). If a review decision errors on the first item, that is D-53.
 - **No live end-to-end suite and no resilience drills.** The black-box tests run in process.
 - **The assessment agent fails its eval gate** (`li_within_one` 0.70 against 0.85); eight of nine agents pass (`evals/results/2026-10-06/gate.json`).

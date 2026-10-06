@@ -21,7 +21,7 @@ How the chain is used (ADR-14; `fcrm_agent_worker/live_runtime.py`, `fcrm_agents
 3. There is exactly one retry. The critic runs on a different model than the assessor it checks, so a Sonnet outage degrades the critic to Sonnet only on attempt 2.
 4. Models that reject a request field are handled per model, not per chain: Opus 5.5 and Sonnet 5.5 get `effort: low`, Haiku and Nova do not (`tiers.yaml`).
 
-Not in the chain: a second region. `BEDROCK_REGION_FALLBACK` (default `us-west-2` in `docker-compose.yaml`) is passed to H2's settings and no code reads it. All fallbacks are other models in the same region. There is no circuit breaker either; a throttled model is tried on every call.
+A second region is the last entry of every chain. `BEDROCK_REGION_FALLBACK` (default `us-west-2` in `docker-compose.yaml`; empty, or equal to `AWS_DEFAULT_REGION`, turns it off) adds the chain's first model id, read from `tiers.yaml` like the rest, served from that region: attempt 1 ends with the tier's primary, attempt 2 with its first fallback, so a retry still never returns to the model whose output was rejected. It is tried only after every model in the first region failed, and it needs model access for that profile in the second region (not checked against the account). The audit record names the model, not the region. There is no circuit breaker; a throttled model is tried on every call (`fcrm_agents.models.bedrock_chain`, `fcrm_agent_worker.live_runtime.model_factory_for`).
 
 ## What the run does when every attempt fails
 
@@ -61,5 +61,5 @@ Compare the result with the ids in `ai/models/tiers.yaml`. A model id missing fr
 
 ## Checked and not checked
 
-- Checked: the chain per tier, budgets and wall clocks against `ai/models/tiers.yaml`; the attempt rules and the handoff transition against the code; that nothing reads `BEDROCK_REGION_FALLBACK` (`grep -rn region_fallback src/backend`); that no route decides a handoff gate.
+- Checked: the chain per tier, budgets and wall clocks against `ai/models/tiers.yaml`; the attempt rules and the handoff transition against the code; that `BEDROCK_REGION_FALLBACK` is read by `model_factory_for` and unit-tested with a fake provider (no call to a second region was made); that no route decides a handoff gate.
 - Not checked: an induced Bedrock failure. No outage drill exists (`make resilience` is not wired). The statement that review, lock, release and vote use no model is read from the sequence documents (`docs/architecture/sequences/assessment.md`, `committee-decide.md`).
