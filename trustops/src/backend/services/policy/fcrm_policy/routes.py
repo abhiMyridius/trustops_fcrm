@@ -3,8 +3,10 @@ reference data the agent tools need (jurisdiction lists, field sets and control
 inventories) and the activation of a jurisdiction list version. The corpus
 routes (a clause by id, policy and precedent search) are in
 :mod:`fcrm_policy.routes_corpus` and the service-only ``/internal/*`` routes in
-:mod:`fcrm_policy.routes_internal`; both are included in :data:`router` below,
-so one router-wide OPA check covers all of them.
+:mod:`fcrm_policy.routes_internal`; and the analyst's configuration screens
+(``/config/{section}`` and its draft, preview and publish) are in
+:mod:`fcrm_policy.routes_config`. All three are included in :data:`router`
+below, so one router-wide OPA check covers all of them.
 
 Every hit is the fused output of the real ``reciprocal_rank_fusion`` over
 whatever keyword and (for ``policy_clauses``) vector sources were wired
@@ -46,7 +48,7 @@ from fcrm_contracts.common import Page, Principal
 from fcrm_contracts.enums import Domain, Role
 from pydantic import Discriminator, Tag
 
-from fcrm_policy import routes_corpus, routes_internal
+from fcrm_policy import routes_config, routes_corpus, routes_internal
 from fcrm_policy.deps import (
     REFERENCE_ROLES,
     SEARCH_ROLES,
@@ -232,5 +234,6 @@ async def activate_jurisdiction_version(
     return activated
 
 
+router.include_router(routes_config.router)
 router.include_router(routes_corpus.router)
 router.include_router(routes_internal.router)

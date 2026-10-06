@@ -32,10 +32,13 @@ from fcrm_contracts.api.scoring import (
 )
 from fcrm_seed.loader import cases as seed_cases
 from fcrm_seed.loader import control_catalogue_weights
+from fcrm_seed.loader import scoring_model as seed_scoring_model
 from pymongo import IndexModel
 from pymongo.asynchronous.database import AsyncDatabase
 
+from fcrm_scoring.config_publish import MongoPublishStore, ensure_publish_indexes
 from fcrm_scoring.engine import compute_score
+from fcrm_scoring.routing_rules import MongoRoutingStore
 from fcrm_scoring.seedmodel import (
     apply_catalogue_weights,
     score_request_from_case,
@@ -109,6 +112,21 @@ async def _recompute_self_test(model: ScoringModelVersion) -> None:
     logger.info("recompute self-test passed", extra={"cases": len(cases)})
 
 
+async def _seeded_model(store: MongoConfigStore) -> ScoringModelVersion:
+    """The scoring model the seeded cases were scored with (the seed's own
+    version), not whichever model is active: a published newer model changes
+    what new cases score, never what the immutable seed cases did, so the
+    self-test of the engine against the seed must keep replaying the old one.
+    """
+    version = int(str(seed_scoring_model()["version"]).lstrip("v"))
+    model = await store.model(version)
+    if model is None:
+        raise RecomputeFailedError(
+            f"the seed's scoring model v{version} is missing from the store"
+        )
+    return model
+
+
 def _routing_version_from_seed(routing_raw: dict[str, Any]) -> RoutingRulesVersion:
     """``seed.json["routing"]["rules"]`` entries are ``{"id": "R1", "rule":
     "<one-line text>"}`` — no separate label/description. ``label`` is
@@ -170,13 +188,18 @@ async def register(
     probe: ReadinessProbe = app.state.probe
     probe.add(mongo_check(deps.mongo))
     if settings.seed_recompute_on_start:
-        active = await store.active_model()
-        await _recompute_self_test(active)
+        await _recompute_self_test(await _seeded_model(store))
 
         async def _recompute_check() -> None:
-            await _recompute_self_test(await store.active_model())
+            await _recompute_self_test(await _seeded_model(store))
 
         probe.add(ReadinessCheck("recompute", _recompute_check, critical=True))
+
+    # The read of routing rules by version and the service-only publish of a
+    # model or routing rules that S3's configuration screens call.
+    await ensure_publish_indexes(models_repo, routing_repo)
+    app.state.routing = MongoRoutingStore(routing_repo)
+    app.state.publisher = MongoPublishStore(deps.mongo, models_repo, routing_repo)
 
     # The one outbound call S2 makes (``POST /simulate`` reads S1's score
     # request); one pooled client for the process, closed with the app. Not

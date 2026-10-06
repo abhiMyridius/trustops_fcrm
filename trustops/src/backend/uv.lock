@@ -519,9 +519,9 @@ resolution-markers = [
     "python_full_version < '3.15'",
 ]
 dependencies = [
-    { name = "jmespath" },
-    { name = "python-dateutil" },
-    { name = "urllib3" },
+    { name = "jmespath", marker = "extra == 'extra-10-fcrm-evals-live' or extra != 'extra-19-fcrm-context-worker-s3vectors' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-10-fcrm-evals') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "python-dateutil", marker = "extra == 'extra-10-fcrm-evals-live' or extra != 'extra-19-fcrm-context-worker-s3vectors' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-10-fcrm-evals') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "urllib3", marker = "extra == 'extra-10-fcrm-evals-live' or extra != 'extra-19-fcrm-context-worker-s3vectors' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-10-fcrm-evals') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/11/b9/10ca68d0092895d5ea60f485a61a9840d5aff9d732c66ed60da53a20b1d4/botocore-1.43.106.tar.gz", hash = "sha256:006870b3b4e40547232ad12c3bb4faec91bbbe0659aafaa3b7fa48a112c4ee97", size = 16271399, upload-time = "2026-09-30T19:36:35.836Z" }
 wheels = [
@@ -1775,6 +1775,7 @@ dependencies = [
     { name = "fcrm-common" },
     { name = "fcrm-context-worker" },
     { name = "fcrm-contracts" },
+    { name = "fcrm-scoring-service" },
     { name = "fcrm-seed" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -1794,6 +1795,7 @@ requires-dist = [
     { name = "fcrm-common", editable = "packages/common" },
     { name = "fcrm-context-worker", editable = "workers/context-worker" },
     { name = "fcrm-contracts", editable = "packages/contracts" },
+    { name = "fcrm-scoring-service", editable = "services/scoring" },
     { name = "fcrm-seed", editable = "packages/seed" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.34" },
 ]
@@ -2745,7 +2747,7 @@ name = "markdown-it-py"
 version = "4.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "mdurl" },
+    { name = "mdurl", marker = "extra == 'extra-10-fcrm-evals-live' or extra != 'extra-19-fcrm-context-worker-s3vectors' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-10-fcrm-evals') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/06/ff/7841249c247aa650a76b9ee4bbaeae59370dc8bfd2f6c01f3630c35eb134/markdown_it_py-4.2.0.tar.gz", hash = "sha256:04a21681d6fbb623de53f6f364d352309d4094dd4194040a10fd51833e418d49", size = 82454, upload-time = "2026-05-07T12:08:28.36Z" }
 wheels = [
@@ -4212,8 +4214,8 @@ name = "rich"
 version = "14.3.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "markdown-it-py" },
-    { name = "pygments" },
+    { name = "markdown-it-py", marker = "extra == 'extra-10-fcrm-evals-live' or extra != 'extra-19-fcrm-context-worker-s3vectors' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-10-fcrm-evals') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "pygments", marker = "extra == 'extra-10-fcrm-evals-live' or extra != 'extra-19-fcrm-context-worker-s3vectors' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-10-fcrm-evals') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e9/67/cae617f1351490c25a4b8ac3b8b63a4dda609295d8222bad12242dfdc629/rich-14.3.4.tar.gz", hash = "sha256:817e02727f2b25b40ef56f5aa2217f400c8489f79ca8f46ea2b70dd5e14558a9", size = 230524, upload-time = "2026-04-11T02:57:45.419Z" }
 wheels = [
@@ -4605,10 +4607,10 @@ name = "typer"
 version = "0.27.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "annotated-doc" },
+    { name = "annotated-doc", marker = "extra == 'extra-10-fcrm-evals-live' or extra != 'extra-19-fcrm-context-worker-s3vectors' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-10-fcrm-evals') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
     { name = "colorama", marker = "(sys_platform == 'win32' and extra == 'extra-10-fcrm-evals-live') or (sys_platform == 'win32' and extra != 'extra-19-fcrm-context-worker-s3vectors') or (extra == 'extra-10-fcrm-evals-live' and extra == 'extra-19-fcrm-context-worker-s3vectors') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-10-fcrm-evals') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
-    { name = "rich" },
-    { name = "shellingham" },
+    { name = "rich", marker = "extra == 'extra-10-fcrm-evals-live' or extra != 'extra-19-fcrm-context-worker-s3vectors' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-10-fcrm-evals') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
+    { name = "shellingham", marker = "extra == 'extra-10-fcrm-evals-live' or extra != 'extra-19-fcrm-context-worker-s3vectors' or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-10-fcrm-evals') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-11-fcrm-agents') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-12-fcrm-harness') or (extra == 'extra-19-fcrm-context-worker-s3vectors' and extra == 'project-17-fcrm-agent-worker')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/16/f7/57713ba479fd405eb76de31404b2c744c289e336b2d999511ebf51e496f7/typer-0.27.2.tar.gz", hash = "sha256:269b7eb9d3c202ca84b4bc9618cb04ebb43d3d4d1e567e4c768607232c05f945", size = 204045, upload-time = "2026-08-28T10:26:55.046Z" }
 wheels = [
