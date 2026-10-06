@@ -25,7 +25,7 @@ from fcrm_contracts.enums import Tier
 from fcrm_prompts import PromptLibrary
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai import Agent, ModelSettings, Tool, ToolOutput
-from pydantic_ai.models.bedrock import BedrockConverseModel
+from pydantic_ai.models.bedrock import BedrockConverseModel, BedrockModelSettings
 from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.providers.bedrock import BedrockProvider
 
@@ -53,6 +53,15 @@ class TierModels(BaseModel):
     max_tokens: int = Field(gt=0)
     wall_clock_s: int = Field(gt=0)
     send_temperature: bool
+    effort: Optional[str] = None
+    """``tiers.<tier>.effort``: how hard the chain's adaptively-thinking models
+    are asked to think (``output_config.effort``), or ``None`` to leave their
+    default. Thinking tokens come out of ``max_tokens``, so a model left at its
+    default can spend the whole allowance before it calls the output tool."""
+    effort_models: tuple[str, ...] = ()
+    """The chain's models that take ``output_config.effort`` (``tiers.yaml
+    models.<id>.effort_param``); a model that does not (Haiku, Nova) is never
+    sent it, because Bedrock rejects the field on them."""
 
     @property
     def chain(self) -> tuple[str, ...]:
@@ -95,6 +104,12 @@ def tier_models(tier: Tier, tiers_config: Mapping[str, Any]) -> TierModels:
         per_model.get(model_id, {}).get("temperature") != TEMPERATURE_OMIT
         for model_id in chain
     )
+    effort = entry.get("effort")
+    effort_models = tuple(
+        model_id
+        for model_id in chain
+        if per_model.get(model_id, {}).get("effort_param")
+    )
     return TierModels(
         tier=tier,
         primary=entry["primary"],
@@ -102,6 +117,8 @@ def tier_models(tier: Tier, tiers_config: Mapping[str, Any]) -> TierModels:
         max_tokens=int(entry["max_tokens"]),
         wall_clock_s=int(entry["wall_clock_s"]),
         send_temperature=send_temperature,
+        effort=str(effort) if effort else None,
+        effort_models=effort_models,
     )
 
 
@@ -119,18 +136,53 @@ def model_settings_for(
     return settings
 
 
-def build_model(
-    models: TierModels, *, provider: Optional[BedrockProvider] = None
+def model_defaults(models: TierModels, model_id: str) -> Optional[BedrockModelSettings]:
+    """The settings one model of the chain always runs with, or ``None``.
+
+    A model that thinks adaptively and cannot switch it off (Sonnet 5.5, Opus
+    5.5) is asked for the tier's ``effort``: left at its default it spends
+    hidden reasoning out of ``max_tokens`` before the forced tool call and
+    returns an empty call (the first live run lost four rows that way). The
+    field goes to **that model only**, never into the chain-wide settings,
+    because Bedrock rejects ``output_config`` on Haiku and Nova.
+    """
+    if models.effort is None or model_id not in models.effort_models:
+        return None
+    return BedrockModelSettings(
+        bedrock_additional_model_requests_fields={
+            "output_config": {"effort": models.effort}
+        }
+    )
+
+
+def bedrock_chain(
+    models: TierModels,
+    model_ids: Sequence[str],
+    *,
+    provider: Optional[BedrockProvider] = None,
 ) -> FallbackModel:
-    """``FallbackModel(primary, *fallbacks)`` of ``BedrockConverseModel``s
-    (design B §5.2, attempt 1). ``provider`` defaults to the AWS default
+    """``FallbackModel`` of ``BedrockConverseModel``s for ``model_ids``, each with
+    its own :func:`model_defaults`. ``provider`` defaults to the AWS default
     credential chain and region."""
     bedrock: Union[BedrockProvider, Literal["bedrock"]] = (
         provider if provider is not None else "bedrock"
     )
     return FallbackModel(
-        *(BedrockConverseModel(model_id, provider=bedrock) for model_id in models.chain)
+        *(
+            BedrockConverseModel(
+                model_id, provider=bedrock, settings=model_defaults(models, model_id)
+            )
+            for model_id in model_ids
+        )
     )
+
+
+def build_model(
+    models: TierModels, *, provider: Optional[BedrockProvider] = None
+) -> FallbackModel:
+    """``FallbackModel(primary, *fallbacks)`` of ``BedrockConverseModel``s
+    (design B §5.2, attempt 1)."""
+    return bedrock_chain(models, models.chain, provider=provider)
 
 
 def build_agent(

@@ -37,12 +37,13 @@ import json
 import logging
 import re
 from collections.abc import Collection, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Final, Optional, Union
 
 from fcrm_contracts.enums import Tier
+from fcrm_contracts.versions import PinnedVersions
 from fcrm_guardrails import (
     BudgetExceededError,
     BudgetGuard,
@@ -61,6 +62,7 @@ from fcrm_guardrails import (
     attempt_plan,
 )
 from fcrm_guardrails.base import AUDIT_TYPES
+from fcrm_guardrails.context import AvailableSource
 from fcrm_tools import ToolError, ToolRegistry, build_seed_registry
 from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, ValidationError
 from pydantic_ai import (
@@ -78,6 +80,7 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from fcrm_agents.context_pack import ContextPack
 from fcrm_agents.spec import REGISTRY, AgentSpec
+from fcrm_agents.tool_sources import sources_from_result
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +165,12 @@ class AgentDeps:
     agent: str
     registry: ToolRegistry
     permit: PermitGuard
+    versions: PinnedVersions
+    tool_sources: list[AvailableSource] = field(default_factory=list)
+    """What the tool results returned to *this model call* let the agent cite
+    (:func:`fcrm_agents.tool_sources.sources_from_result`). One ``AgentDeps``
+    serves one call, so the list is scoped to it: Guard 4 resolves a citation
+    against the pack and these, never against a tool the agent did not call."""
 
 
 def _tool_function(name: str, registry: ToolRegistry) -> Tool[AgentDeps]:
@@ -189,6 +198,11 @@ def _tool_function(name: str, registry: ToolRegistry) -> Tool[AgentDeps]:
         except (ValidationError, ToolError) as exc:
             logger.info("tool call refused", extra={"tool": name, "error": str(exc)})
             return {"error": f"{type(exc).__name__}: {exc}"}
+        deps.tool_sources.extend(
+            sources_from_result(
+                name, request, result, case_id=deps.case_id, versions=deps.versions
+            )
+        )
         return result.model_dump(mode="json")
 
     return Tool.from_schema(
@@ -310,6 +324,7 @@ class OfflineRun:
         self.instructions = instructions
         self.tool_calls = tool_calls
         self.reservation_id = f"{pack.run_id}:{spec.name.value}"
+        self.tool_sources: list[AvailableSource] = []
         self.base = GuardContext(
             case_id=pack.case_id,
             run_id=pack.run_id,
@@ -390,7 +405,9 @@ class OfflineRun:
             agent=self.spec.name.value,
             registry=self.registry,
             permit=self.permit,
+            versions=self.pack.versions,
         )
+        self.tool_sources = deps.tool_sources
         max_tokens = int(
             OFFLINE_MAX_TOKENS[Tier(self.spec.tier)] * plan.max_tokens_factor
         )
@@ -437,7 +454,7 @@ class OfflineRun:
             update={
                 "attempt": attempt,
                 "outputs": outputs,
-                "sources": self.pack.sources,
+                "sources": [*self.tool_sources, *self.pack.sources],
                 "may_be_empty": self.spec.may_be_empty,
             }
         )

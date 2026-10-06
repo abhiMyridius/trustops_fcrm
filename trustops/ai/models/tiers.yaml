@@ -51,6 +51,7 @@ tiers:
     primary: us.anthropic.claude-sonnet-5-5
     fallbacks:
       - us.anthropic.claude-haiku-4-5-20251001-v1:0
+    effort: low                    # output_config.effort for the chain's thinking models; see the models block
     max_tokens: 3500
     wall_clock_s: 120
     retries: 1
@@ -62,6 +63,7 @@ tiers:
     fallbacks:
       - us.anthropic.claude-opus-5-5
       - us.amazon.nova-pro-v1:0
+    effort: medium
     max_tokens: 5000
     wall_clock_s: 180
     retries: 1
@@ -74,6 +76,7 @@ tiers:
     primary: us.anthropic.claude-opus-5-5
     fallbacks:
       - us.anthropic.claude-sonnet-5-5
+    effort: medium
     max_tokens: 4000
     wall_clock_s: 180
     retries: 1
@@ -89,13 +92,21 @@ per_case_budget_tokens: 120000
 # confirms with one live call per model before relying on it.
 #  - temperature: Sonnet 5.5 rejects non-default sampling values and Opus 5.5
 #    rejects sampling parameters entirely, so the runtime OMITS temperature
-#    for those ids. Determinism for demos and E2E comes from replay mode
-#    (ADR-12), not from temperature 0.
+#    for those ids (there is no replay mode, ADR-27).
 #  - forced_tool_choice: Sonnet 5.5 and Opus 5.5 reject tool_choice any/tool.
 #    If Pydantic AI's ToolOutput forces the output tool, use tool_choice auto
 #    plus the prompt's "output exactly one object" line (or PromptedOutput)
 #    and let Guard 4 reject a missing output.
-#  - thinking: neither model can switch thinking off; it is adaptive.
+#  - thinking: neither model can switch thinking off; it is adaptive, and its
+#    tokens come out of max_tokens. Measured live on Bedrock (6 Oct 2026, a
+#    forced-style tool call with max_tokens 2000): at the default effort Sonnet
+#    5.5 spent 795 output tokens and Opus 5.5 1134, both with a reasoning block;
+#    with output_config.effort low, 594 and 497, none. Bedrock accepts the
+#    field on both (additionalModelRequestFields); it rejects thinking
+#    between_tools on Opus and thinking disabled on both.
+#  - effort_param: the model takes output_config.effort. The runtime sends it,
+#    at the tier's `effort`, to that model only (fcrm_agents.models.model_defaults);
+#    Bedrock rejects the field on Haiku and Nova, so it is never chain-wide.
 #  - label: the name a report may print for the model. Committed result files
 #    live under /evals, where no model id may appear (ADR-04), so the evals
 #    report every model by this label (fcrm_evals.usage.PriceTable.label).
@@ -112,6 +123,7 @@ models:
     temperature: omit
     forced_tool_choice: rejected
     thinking: adaptive_always
+    effort_param: true
   us.anthropic.claude-opus-5-5:
     family: anthropic
     label: "Opus 5.5"
@@ -119,6 +131,7 @@ models:
     forced_tool_choice: rejected
     thinking: adaptive_always
     effort_default: medium
+    effort_param: true
   us.amazon.nova-lite-v1:0:
     family: amazon
     label: "Nova Lite"

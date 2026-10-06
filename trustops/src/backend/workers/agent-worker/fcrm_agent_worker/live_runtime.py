@@ -36,10 +36,16 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Mapping, Sequence
 from re import compile as re_compile
-from typing import Any, Final, Literal, Optional, Union
+from typing import Any, Final, Optional
 
 from fcrm_agents.context_pack import ContextPack
-from fcrm_agents.models import TierModels, build_model, model_settings_for, tier_models
+from fcrm_agents.models import (
+    TierModels,
+    bedrock_chain,
+    build_model,
+    model_settings_for,
+    tier_models,
+)
 from fcrm_agents.runtime import (
     HARNESS_ROLE,
     AgentDeps,
@@ -67,6 +73,7 @@ from fcrm_guardrails import (
 )
 from fcrm_guardrails.base import AUDIT_TYPES
 from fcrm_guardrails.budget import TIER_BUDGETS, AttemptPlan, ModelSlot
+from fcrm_guardrails.context import AvailableSource
 from fcrm_tools import ToolRegistry
 from pydantic import BaseModel
 from pydantic_ai import (
@@ -78,8 +85,6 @@ from pydantic_ai import (
 )
 from pydantic_ai.exceptions import FallbackExceptionGroup
 from pydantic_ai.models import Model
-from pydantic_ai.models.bedrock import BedrockConverseModel
-from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.providers.bedrock import BedrockProvider
 
 logger = logging.getLogger(__name__)
@@ -103,15 +108,7 @@ def live_model_for_slot(
     """
     if plan.slot is ModelSlot.PRIMARY_WITH_FALLBACK:
         return build_model(models, provider=provider)
-    bedrock: Union[BedrockProvider, Literal["bedrock"]] = (
-        provider if provider is not None else "bedrock"
-    )
-    return FallbackModel(
-        *(
-            BedrockConverseModel(model_id, provider=bedrock)
-            for model_id in models.fallbacks
-        )
-    )
+    return bedrock_chain(models, models.fallbacks, provider=provider)
 
 
 def _drop(
@@ -128,6 +125,31 @@ def _drop(
     }
     kept = [o for i, o in enumerate(outputs) if i not in indexes]
     return kept, [f"outputs[{i}]" for i in sorted(indexes)]
+
+
+FEEDBACK_LINES: Final = 8
+"""Failing items a retry is shown (the first ones; the rest repeat the same
+mistake)."""
+FEEDBACK_CHARS: Final = 240
+
+RETRY_HEADER: Final = (
+    "## previous_attempt\n"
+    "Your previous answer was refused by the checks below. Answer again, "
+    "through the output tool, with the complete result. Fix each item from "
+    "the sources shown above, or leave out any item you cannot source."
+)
+
+
+def retry_text(user_text: str, feedback: Sequence[str]) -> str:
+    """``user_text`` with the reasons the previous attempt was refused
+    appended, or unchanged when there are none. The feedback is Guard 4's own
+    per-item lines (``details["feedback"]``): code, never model text."""
+    if not feedback:
+        return user_text
+    lines = "\n".join(
+        f"- {line[:FEEDBACK_CHARS]}" for line in feedback[:FEEDBACK_LINES]
+    )
+    return f"{user_text}\n\n{RETRY_HEADER}\n{lines}"
 
 
 def _model_name(model: Model) -> str:
@@ -205,6 +227,8 @@ class LiveRun:
         self.starting_attempt = starting_attempt
         self.model_used = ""
         self.last_usage: UsageBreakdown = {}
+        self.tool_sources: list[AvailableSource] = []
+        self.feedback: list[str] = []
         self.base = GuardContext(
             case_id=pack.case_id,
             run_id=pack.run_id,
@@ -287,7 +311,9 @@ class LiveRun:
             agent=self.spec.name.value,
             registry=self.registry,
             permit=self.permit,
+            versions=self.pack.versions,
         )
+        self.tool_sources = deps.tool_sources
         try:
             run = await agent.run(
                 user_text,
@@ -318,6 +344,12 @@ class LiveRun:
                 if attempt < self.max_attempts
                 else GuardStatus.BLOCKED
             )
+            if isinstance(exc, UnexpectedModelBehavior):
+                self.feedback = [
+                    "your answer was not a valid call of the output tool "
+                    f"({str(exc)[:FEEDBACK_CHARS]}); call it once with the "
+                    "complete result"
+                ]
             record.guard_results.append(
                 GuardResult(
                     guard=GuardName.OUTPUT_SHAPE,
@@ -351,7 +383,7 @@ class LiveRun:
             update={
                 "attempt": attempt,
                 "outputs": outputs,
-                "sources": self.pack.sources,
+                "sources": [*self.tool_sources, *self.pack.sources],
                 "may_be_empty": self.spec.may_be_empty,
             }
         )
@@ -359,6 +391,9 @@ class LiveRun:
         record.guard_results.append(shape)
         if shape.status is GuardStatus.RETRY:
             if not last:
+                self.feedback = [
+                    str(line) for line in shape.details.get("feedback", [])
+                ]
                 return None
             self._block(GuardName.OUTPUT_SHAPE, f"{shape.summary}; no attempt left")
             return False
@@ -382,8 +417,12 @@ class LiveRun:
     async def attempt(
         self, attempt: int, user_text: str, *, last: bool
     ) -> Optional[bool]:
-        """Run one attempt end to end (see :meth:`post_guards`)."""
-        produced, record = await self.call_model(attempt, user_text)
+        """Run one attempt end to end (see :meth:`post_guards`). A retry is
+        shown why the last answer was refused (ADR-14: "the validation error
+        appended")."""
+        produced, record = await self.call_model(
+            attempt, retry_text(user_text, self.feedback) if attempt > 1 else user_text
+        )
         self.result.attempts.append(record)
         self.result.tokens_used += record.tokens_used
         if produced is None:

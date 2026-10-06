@@ -10,7 +10,13 @@ from typing import Any
 
 import pytest
 from fcrm_agents import REGISTRY, ModelConfigError, build_agent, get_spec, tier_models
-from fcrm_agents.models import load_tiers_config, model_settings_for
+from fcrm_agents.models import (
+    bedrock_chain,
+    build_model,
+    load_tiers_config,
+    model_defaults,
+    model_settings_for,
+)
 from fcrm_contracts.enums import AgentName, Tier
 from fcrm_contracts.proposals.research import ClauseProposal, PrecedentMatch
 from fcrm_guardrails.output_shape import AGENT_OUTPUT_TYPES
@@ -146,7 +152,7 @@ def test_load_tiers_config_absent_file_raises(tmp_path: Path) -> None:
         load_tiers_config(tmp_path / "ai")
 
 
-def test_model_settings_for_halves_max_tokens_on_retry() -> None:
+def test_model_settings_for_scales_max_tokens_by_the_factor_it_is_given() -> None:
     models = tier_models(Tier.CHEAP, FAKE_TIERS)
     first, retry = (
         model_settings_for(models),
@@ -190,3 +196,73 @@ def test_critic_runs_on_a_different_primary_than_the_assessor() -> None:
     critic = tier_models(get_spec("critic").tier, config)
     assessor = tier_models(get_spec("assessment").tier, config)
     assert critic.primary != assessor.primary
+
+
+EFFORT_TIERS: dict[str, Any] = {
+    "tiers": {
+        "strong": {
+            "primary": "thinker",
+            "fallbacks": ["plain-model"],
+            "max_tokens": 5000,
+            "wall_clock_s": 180,
+            "effort": "low",
+        },
+        "cheap": {
+            "primary": "plain-model",
+            "fallbacks": ["thinker"],
+            "max_tokens": 2000,
+            "wall_clock_s": 60,
+        },
+    },
+    "models": {"thinker": {"effort_param": True}, "plain-model": {}},
+}
+
+
+def test_tier_models_reads_the_effort_and_the_models_that_take_it() -> None:
+    strong = tier_models(Tier.STRONG, EFFORT_TIERS)
+    assert strong.effort == "low"
+    assert strong.effort_models == ("thinker",)
+    assert tier_models(Tier.CHEAP, EFFORT_TIERS).effort is None
+
+
+def test_effort_is_sent_only_to_the_models_that_take_it() -> None:
+    """Bedrock rejects ``output_config`` on Haiku and Nova, so the field is
+    a per-model default, never a chain-wide setting."""
+    strong = tier_models(Tier.STRONG, EFFORT_TIERS)
+    assert model_defaults(strong, "thinker") == {
+        "bedrock_additional_model_requests_fields": {"output_config": {"effort": "low"}}
+    }
+    assert model_defaults(strong, "plain-model") is None
+    assert "bedrock_additional_model_requests_fields" not in model_settings_for(strong)
+
+
+def test_a_tier_without_an_effort_sends_nothing_to_any_model() -> None:
+    cheap = tier_models(Tier.CHEAP, EFFORT_TIERS)
+    assert model_defaults(cheap, "thinker") is None
+
+
+def test_the_chain_gives_each_child_its_own_defaults() -> None:
+    strong = tier_models(Tier.STRONG, EFFORT_TIERS)
+    chain = build_model(strong, provider=OFFLINE_PROVIDER)
+    by_name = {m.model_name: m for m in chain.models}
+    assert by_name["thinker"].settings == model_defaults(strong, "thinker")
+    assert by_name["plain-model"].settings is None
+
+
+def test_the_retry_chain_keeps_the_same_defaults_on_the_fallbacks() -> None:
+    strong = tier_models(Tier.STRONG, EFFORT_TIERS)
+    retry = bedrock_chain(strong, ["thinker", "plain-model"], provider=OFFLINE_PROVIDER)
+    assert [m.settings is not None for m in retry.models] == [True, False]
+
+
+@pytest.mark.skipif(not HAS_AI, reason="ai/ lane absent")
+def test_the_real_tiers_ask_the_thinking_models_for_a_bounded_effort() -> None:
+    config = load_tiers_config(REPO_AI)
+    for tier in (Tier.MID, Tier.STRONG, Tier.JUDGE):
+        chain = tier_models(tier, config)
+        assert chain.effort in {"low", "medium"}
+        assert chain.effort_models
+        assert chain.primary in chain.effort_models
+    cheap = tier_models(Tier.CHEAP, config)
+    assert cheap.effort is None
+    assert cheap.effort_models == ()

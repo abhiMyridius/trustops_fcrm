@@ -16,9 +16,12 @@ over its cap mid-run (design A §3.3).
 
 Fallback order (design B §4.4): attempt 1 runs the tier's
 ``FallbackModel(primary, fallback)`` (transport errors fall through to the
-fallback); attempt 2 runs the fallback model alone with a halved
-``max_tokens`` hint; there is no attempt 3: a second failure opens the human
-``handoff`` gate. Model ids are never named here (ADR-04): only slots.
+fallback); attempt 2 runs the fallback model alone with the tier's own
+``max_tokens`` (it was halved before the first live run: Sonnet 5.5 and Opus 5.5
+think adaptively and cannot switch it off, and half an allowance went on
+thinking before the forced tool call, so a retried row returned an empty call);
+there is no attempt 3: a second failure opens the human ``handoff`` gate.
+Model ids are never named here (ADR-04): only slots.
 """
 
 from __future__ import annotations
@@ -125,7 +128,7 @@ def attempt_plan(
         slot=ModelSlot.PRIMARY_WITH_FALLBACK if first else ModelSlot.FALLBACK_ONLY,
         token_limit=budget.tokens,
         wall_s=budget.wall_s,
-        max_tokens_factor=1.0 if first else 0.5,
+        max_tokens_factor=1.0,
     )
 
 

@@ -118,7 +118,9 @@ def test_attempt_plan_fallback_order() -> None:
     assert first.slot is ModelSlot.PRIMARY_WITH_FALLBACK
     assert first.max_tokens_factor == 1.0
     assert second.slot is ModelSlot.FALLBACK_ONLY
-    assert second.max_tokens_factor == 0.5
+    # The retry keeps the tier's whole output allowance: a thinking model that
+    # is given half of it spends it thinking and returns an empty tool call.
+    assert second.max_tokens_factor == 1.0
     assert second.token_limit == 20_000
     assert second.wall_s == 180
     with pytest.raises(AttemptsExhaustedError):
