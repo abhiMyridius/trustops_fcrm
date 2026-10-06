@@ -13,7 +13,7 @@ import pytest
 from resilience import drills
 from resilience.stack import Stack
 
-pytestmark = pytest.mark.resilience
+pytestmark = [pytest.mark.resilience, pytest.mark.disruptive, pytest.mark.aws]
 
 
 @pytest.mark.drill("D7", "api stopped under an issued token; same token works after")

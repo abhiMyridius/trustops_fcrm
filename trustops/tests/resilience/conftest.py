@@ -1,9 +1,13 @@
 """Fixtures and the PASS/FAIL table for the resilience drills (``make resilience``).
 
-The drills restart, stop and kill containers of the **running** stack, so they
-are opt-in three ways: the ``resilience`` marker (excluded from ``make check``),
-a guard here that skips them unless ``-m resilience`` (or ``FCRM_RESILIENCE=1``)
-asked for them, and a stack check before each one. With
+The drills act on the **running** stack, so they are opt-in three ways: the
+``resilience`` marker (excluded from ``make check``), a guard here that skips them
+unless ``-m resilience`` (or ``FCRM_RESILIENCE=1``) asked for them, and a stack
+check before each one. Two more approvals gate the ones that matter most:
+``disruptive`` drills (they stop, kill or restart containers) need
+``FCRM_RESILIENCE_DISRUPTIVE=1`` and ``aws`` drills (live Bedrock calls, or an api
+restart, which embeds the policy clauses on Bedrock) need ``FCRM_RESILIENCE_AWS=1``
+(``resilience.approvals``; ``make resilience DISRUPTIVE=1 AWS=1``). With
 ``FCRM_RESILIENCE_STRICT=1`` (what ``make resilience`` sets) a stack that is not
 ready is a failure, not a skip, so the target cannot pass by testing nothing.
 
@@ -23,6 +27,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import pytest
+from resilience.approvals import approval_skip_reason
 from resilience.drills import restore
 from resilience.errors import PollTimeoutError
 from resilience.polling import poll_until
@@ -66,16 +71,26 @@ def _drills_selected(config: pytest.Config) -> bool:
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
-    """Skip every drill unless the run asked for them (they restart containers)."""
-    if _drills_selected(config):
-        return
-    skip = pytest.mark.skip(
-        reason="resilience drills restart containers of the running stack: "
+    """Skip every drill unless the run asked for them, and then each one that
+    needs an approval the run does not carry (``disruptive``: it restarts
+    containers; ``aws``: it makes live AWS calls), naming the variable that gives it.
+    """
+    selected = _drills_selected(config)
+    not_asked = pytest.mark.skip(
+        reason="resilience drills act on the running stack: "
         "run `make resilience` (or pytest -m resilience)"
     )
     for item in items:
-        if item.get_closest_marker("resilience") is not None:
-            item.add_marker(skip)
+        if item.get_closest_marker("resilience") is None:
+            continue
+        if not selected:
+            item.add_marker(not_asked)
+            continue
+        reason = approval_skip_reason(
+            {mark.name for mark in item.iter_markers()}, os.environ
+        )
+        if reason is not None:
+            item.add_marker(pytest.mark.skip(reason=reason))
 
 
 # ------------------------------------------------------------------ the table

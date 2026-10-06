@@ -13,7 +13,7 @@ from resilience import drills
 from resilience.scenarios import record_types
 from resilience.stack import Stack
 
-pytestmark = pytest.mark.resilience
+pytestmark = [pytest.mark.resilience, pytest.mark.disruptive]
 
 
 @pytest.mark.drill("D2", "RabbitMQ stopped and started; an outbox event survives")

@@ -23,6 +23,7 @@ from resilience.docker import ContainerState, DockerCli
 from resilience.errors import (
     BrokerAgentError,
     CommandError,
+    DrillError,
     PollTimeoutError,
 )
 from resilience.gateway import Reply
@@ -1119,6 +1120,14 @@ def exhaust_the_case_budget(stack: Stack, case_id: str) -> BudgetHandoffOutcome:
     wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
     dead_before = baseline_dead_letters(broker)
     seeded = mongo.seed_scratch_ledger(case_id, SEEDED_CAP)
+    ledger = case_ledger(stack, case_id)
+    if not seeded or ledger is None or ledger.get("cap") != SEEDED_CAP:
+        # Without the tiny cap in place the upload would end in a real intake
+        # call on Bedrock: this drill promises it makes none, so it stops here.
+        raise DrillError(
+            f"the case ledger of {case_id} does not have the seeded cap of "
+            f"{SEEDED_CAP}; not uploading the document (it would call a model)"
+        )
     since = rfc3339(datetime.now(UTC) - timedelta(seconds=5))
     upload_document(gateway, case_id)
     exhausted = wait_for_record(

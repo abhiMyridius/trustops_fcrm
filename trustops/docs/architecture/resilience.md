@@ -5,16 +5,38 @@ Design A section 10 says how the system should behave when a dependency or a pro
 ## Running them
 
 ```bash
-make up                      # the 8-container stack, healthy
-make resilience              # all drills (estimated 25 minutes), prints the table
-make resilience k=d3         # one drill (ids d1a d1b d1c d2 d3 d4 d5a d5b d6 d6b d7 d8; `k=d6` runs both d6 and d6b)
-make dlq                     # what the DLQ tool shows (see "Dead letters" below)
+make up                                  # the 8-container stack, healthy
+make resilience                          # the drills that restart nothing and call no AWS service: D5a, D5b, D6, D6b, D8
+make resilience DISRUPTIVE=1             # adds the ones that stop, kill or restart containers: D2, D3 (and D1, D4, D7 below)
+make resilience DISRUPTIVE=1 AWS=1       # adds the ones that call AWS: D1a, D1b, D1c, D4, D7
+make resilience k=d3 DISRUPTIVE=1        # one drill (ids d1a d1b d1c d2 d3 d4 d5a d5b d6 d6b d7 d8; `k=d6` runs d6 and d6b)
+make dlq                                 # what the DLQ tool shows (see "Dead letters" below)
 ```
 
-- **They are destructive on purpose.** They stop, kill and restart containers of the running stack and must not share it with anyone. They are opt-in three ways: the `resilience` pytest marker (never part of `make check`), a guard that skips them unless `-m resilience` asked for them, and a stack check before each drill. `make resilience` sets `FCRM_RESILIENCE_STRICT=1`, so a stack that is not ready fails the target instead of skipping it.
-- **They need only the `docker` CLI and the gateway.** Containers are addressed by name (`trustops-<service>-1`), HTTP goes through the gateway on `:8080` as the demo personas, nothing reads `.env` and no credential is printed. A broker operation runs as a script *inside* the harness container (`ops/scripts/resilience/broker_agent.py`, sent on stdin), which already holds the broker URL; the one read of Mongo documents (`mongosh` in the mongo container, `find` only) uses the container's own root credentials the same way. `FCRM_COMPOSE_PROJECT` and `FCRM_GATEWAY_URL` point the drills at another stack.
-- **Cost.** Three drills (D1a, D1b, D1c) each run one real intake agent call on the smallest demo document (5 KB), a few cents on Bedrock. Nothing else calls a model.
-- **Each drill is independent**, creates its own scratch case (title `[resilience-drill] ...`) and starts from a healthy stack (it waits for one). Whatever a drill does, a fixture puts back anything it left stopped and waits for the api and harness to be ready. The chain of a scratch case is append-only and stays; a draft is discarded so it leaves the PO's lists.
+A drill that lacks an approval is **skipped with the variable that would give it** in the table (`needs FCRM_RESILIENCE_AWS=1 (make resilience AWS=1 DISRUPTIVE=1): ...`), never run. `AWS=1` approves exactly `FCRM_RESILIENCE_AWS=1`, and only the value `1` counts.
+
+### What each drill costs
+
+| Drill | Restarts a container | Live AWS calls | Expected tokens |
+|---|---|---|---|
+| D1a | harness (SIGTERM) | 1 intake agent call on Bedrock (Haiku 4.5, the 5 KB vendor letter); 2 if the restart cuts it off and it is redelivered | about 6,000 per call, at most about 12,000 (the intake runs of the 6 October evals and demo took 5,600 to 12,200); about USD 0.01 a call |
+| D1b | harness (SIGKILL) | 1 intake call, cut off, and 1 more when the job is redelivered: 2 | about 12,000, at most about 24,000 |
+| D1c | none | 1 intake call (the duplicate `agent.done` that follows is injected, not a model call) | about 6,000, at most about 12,000 |
+| D2 | RabbitMQ | none | none |
+| D3 | Mongo | none (the api is not restarted; it would re-embed if the outage made it exit) | none |
+| D4 | api (restart) | the api embeds the 197 policy clauses on Bedrock each time it starts: 1 start | about 20,000 embedding tokens (an estimate of about 100 per clause, not measured), under USD 0.01 |
+| D5a | none | none | none |
+| D5b | none | none | none |
+| D6 | none | none (the job cannot build its context pack, so H2 never reaches the model) | none |
+| D6b | none | none (the dispatch is refused before any job is published; the drill refuses to upload the document unless the tiny ledger is in place) | none |
+| D7 | api (stop, start) | 1 api start, as D4 | as D4 |
+| D8 | none | none | none |
+
+So the default `make resilience` calls no AWS service and restarts nothing. With everything approved a run makes 3 to 5 intake calls (about 18,000 to 30,000 tokens, about USD 0.03 to 0.05) and 2 api starts (394 clause embeddings). Nothing in a harness restart calls AWS that I could find (its `/readyz` checks local MinIO buckets). D5a, D5b, D6, D6b and D8 raise scratch cases (a `POST /cases` and, for D6b and D5a, a document upload to the local MinIO and H3's extraction); none of that touches AWS.
+
+- **They are destructive on purpose.** The `disruptive` ones stop, kill and restart containers of the running stack and must not share it with anyone. They are opt-in four ways: the `resilience` pytest marker (never part of `make check`), a guard that skips them unless `-m resilience` asked for them, the two approvals above, and a stack check before each drill. `make resilience` sets `FCRM_RESILIENCE_STRICT=1`, so a stack that is not ready fails the target instead of skipping it.
+- **They need only the `docker` CLI and the gateway.** Containers are addressed by name (`trustops-<service>-1`), HTTP goes through the gateway on `:8080` as the demo personas, nothing reads `.env` and no credential is printed. A broker operation runs as a script *inside* the harness container (`ops/scripts/resilience/broker_agent.py`, sent on stdin), which already holds the broker URL; Mongo is reached with `mongosh` in the mongo container the same way: `find`, and the one narrow write of D6b. `FCRM_COMPOSE_PROJECT` and `FCRM_GATEWAY_URL` point the drills at another stack (`Stack.from_environment`).
+- **Each drill is independent**, creates its own scratch case (title `[resilience-drill] ...`) and starts from a healthy stack (it waits for one). Whatever a drill does, a fixture puts back anything it left stopped and waits for the api and harness to be ready. The chain of a scratch case is append-only and stays; a draft is discarded so it leaves the PO's lists. The demo case is never touched.
 - The login route allows ten a minute per address and other users of the machine share that; the drills wait out a 429 (one login per persona per drill that needs a fresh token).
 - The result of each run is written to `ops/reports/resilience/<UTC stamp>.json` with the commit it ran on.
 
@@ -66,4 +88,13 @@ The first version of this document listed three gaps found by reading: the per-c
 
 ## Last run
 
-Not yet run against the stack: it was in use by the integration lane while this lane was written. The helpers, the DLQ tool and the flows are covered by unit tests over fakes, and the broker operations and the `make dlq-*` targets were rehearsed against a scratch RabbitMQ with the repository's topology.
+**Not yet run on the stack.** None of the twelve rows below has a live result:
+
+| Drill | Result of the last run |
+|---|---|
+| D1a, D1b, D1c | not yet run (needs `DISRUPTIVE=1 AWS=1`) |
+| D2, D3 | not yet run (needs `DISRUPTIVE=1`) |
+| D4, D7 | not yet run (needs `DISRUPTIVE=1 AWS=1`) |
+| D5a, D5b, D6, D6b, D8 | not yet run (need nothing beyond the stack) |
+
+What exists instead: the helpers, the DLQ tool, the approval guard and every flow are covered by unit tests over fakes (`tests/unit/ops/scripts/resilience`), the broker operations, the `make dlq-*` targets and the poison path were rehearsed against a scratch RabbitMQ with the repository's topology and H1's real consumer logic, and the live stack was only read (container health, readyz, queues, policies, Mongo `find`, the audit chain of a seeded case).

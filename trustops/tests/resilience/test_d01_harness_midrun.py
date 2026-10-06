@@ -14,7 +14,7 @@ from resilience import drills
 from resilience.scenarios import record_types
 from resilience.stack import Stack
 
-pytestmark = pytest.mark.resilience
+pytestmark = [pytest.mark.resilience, pytest.mark.disruptive, pytest.mark.aws]
 
 
 def _assert_run_finished_cleanly(outcome: drills.MidRunOutcome) -> None:

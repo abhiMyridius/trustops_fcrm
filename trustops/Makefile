@@ -233,16 +233,20 @@ e2e: demo ## the demo, then the live black-box rules (BB-03/06/08/09/13/14), the
 	@if [ -d src/frontend/node_modules ]; then cd src/frontend && npm run --silent test:e2e:live; \
 	else echo "e2e: SKIPPED the Playwright live scenes, src/frontend/node_modules is missing (run 'make web-install')"; fi
 
-# The drills restart, stop and kill containers of the RUNNING stack (make up
-# first; no one else may be using it) and run a few real Bedrock calls (one small
-# intake document each). They address containers by name (trustops-<service>-1),
-# talk to the gateway on :8080 as the demo personas and never read .env.
-# FCRM_RESILIENCE_STRICT=1 makes an unreachable stack a failure, not a skip, so
-# this target cannot go green by testing nothing. Estimated 25 minutes.
+# The drills act on the RUNNING stack (make up first; no one else may be using
+# it). By default only the drills that restart nothing and call no AWS service
+# run (D5a, D5b, D6, D6b, D8: they raise scratch cases, publish to the broker and
+# read). DISRUPTIVE=1 adds the ones that stop, kill or restart containers (D1, D2,
+# D3, D4, D7); AWS=1 adds those that make live Bedrock calls or restart the api,
+# which embeds the policy clauses on Bedrock at start (D1, D4, D7) and needs
+# DISRUPTIVE=1 as well. Nothing here is run without the person typing the switch.
+# They address containers by name (trustops-<service>-1), talk to the gateway on
+# :8080 as the demo personas and never read .env. FCRM_RESILIENCE_STRICT=1 makes an
+# unreachable stack a failure, not a skip. Estimated 25 minutes with everything on.
 # Docs: docs/architecture/resilience.md. One drill: make resilience k=d3
 # (ids d1a d1b d1c d2 d3 d4 d5a d5b d6 d6b d7 d8).
 resilience: ## kill/restart drills against the running stack (harness, RabbitMQ, Mongo, api/identity, SSE, DLQ replay, handoff); PASS/FAIL table with seconds
-	FCRM_RESILIENCE_STRICT=1 $(UV_RUN) pytest -m resilience tests/resilience -p no:cacheprovider $(if $(k),-k "$(k)")
+	FCRM_RESILIENCE_STRICT=1 $(if $(DISRUPTIVE),FCRM_RESILIENCE_DISRUPTIVE=1) $(if $(AWS),FCRM_RESILIENCE_AWS=1) $(UV_RUN) pytest -m resilience tests/resilience -p no:cacheprovider $(if $(k),-k "$(k)")
 
 # The X6 evals (src/backend/packages/evals; evals/README.md). `evals` calls Bedrock
 # with the AWS credentials in the shell's environment (about USD 4 and 10 minutes);

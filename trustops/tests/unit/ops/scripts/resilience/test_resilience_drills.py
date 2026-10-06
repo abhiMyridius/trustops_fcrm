@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 from resilience import drills
-from resilience.errors import PollTimeoutError
+from resilience.errors import DrillError, PollTimeoutError
 from resilience.gateway import Reply
 
 CASE = "FCRM-2026-0300"
@@ -461,6 +461,29 @@ def test_the_ledger_is_seeded_before_the_document_is_uploaded(
     stack.gateway.call = watching
     drills.exhaust_the_case_budget(stack, CASE)
     assert order == ["seed", "upload"]
+
+
+def test_the_document_is_not_uploaded_when_the_ledger_was_not_seeded(
+    stack: Any, reply: Callable[..., Reply]
+) -> None:
+    """Without the tiny cap in place the upload would end in a real intake call:
+    the drill that promises none must stop first.
+    """
+    _budget_world(stack, reply)
+    stack.mongo.seed_scratch_ledger = lambda case_id, cap: False
+    with pytest.raises(DrillError, match="not uploading the document"):
+        drills.exhaust_the_case_budget(stack, CASE)
+    assert not [c for c in stack.gateway.calls if c["path"].endswith("/documents")]
+
+
+def test_the_document_is_not_uploaded_when_the_ledger_has_another_cap(
+    stack: Any, reply: Callable[..., Reply]
+) -> None:
+    _budget_world(stack, reply)
+    stack.mongo.rows["case_budgets"] = [{"_id": CASE, "cap": 160_000}]
+    with pytest.raises(DrillError, match="seeded cap of"):
+        drills.exhaust_the_case_budget(stack, CASE)
+    assert not [c for c in stack.gateway.calls if c["path"].endswith("/documents")]
 
 
 def test_agent_jobs_the_harness_received_after_the_refusal_are_counted(
