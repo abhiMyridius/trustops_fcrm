@@ -69,3 +69,11 @@ def test_every_up_target_recreates_opa_before_it_starts_the_stack() -> None:
         assert len(recreate) == 1, target
         assert len(started) == 1, target
         assert recreate[0] < started[0], target
+
+
+def test_up_economy_recreates_api_and_harness_after_the_profile_is_rewritten() -> None:
+    lines = [ln.strip() for ln in _dry_run("up-economy").splitlines()]
+    recreated = [ln for ln in lines if "--force-recreate --no-deps api harness" in ln]
+
+    assert len(recreated) == 1
+    assert ".economy/compose.override.yaml" in recreated[0]

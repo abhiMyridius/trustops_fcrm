@@ -140,6 +140,8 @@ economy-profile: ## .economy/: a copy of ai/ with no Sonnet or Opus in any tier 
 
 up-economy: env keys economy-profile ## the default stack with api and harness on the economy profile (no Sonnet or Opus); `make up` puts the shipped tiers back
 	$(COMPOSE_ECONOMY) up -d --force-recreate --no-deps opa
+	@# economy-profile rewrites .economy/, so a running api or harness holds a mount of the deleted folder
+	$(COMPOSE_ECONOMY) up -d --build --force-recreate --no-deps api harness
 	$(COMPOSE_ECONOMY) up -d --build
 	@$(WAIT) --timeout 600 --compose "$(COMPOSE_ECONOMY)" $(INFRA) $(APPS) $(EDGE)
 

@@ -80,6 +80,10 @@ MODEL_ID_SKIP_DIRS = frozenset(
 # The only files outside ai/models/tiers.yaml that may carry a model id, each
 # with the reason. Adding a row needs a decision-log row.
 MODEL_ID_ALLOWED = {
+    "ai/models/economy.yaml": (
+        "the economy profile's extra model and chains for cost-capped live checks "
+        "(ADR-56, ADR-60); never read by the running system"
+    ),
     "src/backend/packages/seed/fcrm_seed/clauses.json": (
         "provenance: records the model that generated each synthetic clause (ADR-29)"
     ),
@@ -437,8 +441,11 @@ def check_tool(
 def check_model_ids(report: Report) -> None:
     """No model id outside ai/models/tiers.yaml."""
     allowed = AI / "models" / "tiers.yaml"
+    listed = {REPO / name for name in MODEL_ID_ALLOWED}
     for path in sorted(AI.rglob("*")):
-        if not path.is_file() or path == allowed or path.suffix in {".pyc"}:
+        if not path.is_file() or path == allowed or path in listed:
+            continue
+        if path.suffix in {".pyc"}:
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         hits = sorted(set(m.group(0) for m in MODEL_ID_RE.finditer(text)))
