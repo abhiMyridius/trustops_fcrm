@@ -124,12 +124,15 @@ async def _drain(
     *,
     limit: Optional[int],
     handle: Callable[[Any], Awaitable[bool]],
+    stop: Callable[[], bool] = lambda: False,
 ) -> tuple[int, list[Any]]:
     """Fetch messages one at a time and offer each to ``handle``.
 
     ``handle`` returns ``True`` when it consumed the message (the message is
     then its job to acknowledge). A message it does not take is held and
     returned to the queue at the end, so it is never seen twice in one pass.
+    ``stop`` ends the pass early (a failure: going on would only meet the same
+    one again).
 
     Returns:
         ``(taken, untaken)``: how many ``handle`` consumed, and the messages
@@ -137,7 +140,7 @@ async def _drain(
     """
     taken = 0
     untaken: list[Any] = []
-    while limit is None or taken < limit:
+    while (limit is None or taken < limit) and not stop():
         message = await queue.get(no_ack=False, fail=False, timeout=GET_TIMEOUT_S)
         if message is None:
             break
@@ -175,8 +178,23 @@ async def publish(
         if not params.get("exchange")
         else await channel.get_exchange(params["exchange"], ensure=True)
     )
-    await exchange.publish(message, routing_key=params["routing_key"], mandatory=True)
+    await publish_confirmed(exchange, message, params["routing_key"])
     return {"published": 1}
+
+
+async def publish_confirmed(exchange: Any, message: Any, routing_key: str) -> None:
+    """Publish ``message`` mandatory and wait for the broker's confirm.
+
+    aio_pika answers a message the broker *returned* (no queue matched the
+    routing key) with the returned message instead of raising, so that case is
+    checked for here: it is an error, never a silent drop.
+
+    Raises:
+        AgentError: the broker returned the message as unroutable.
+    """
+    outcome = await exchange.publish(message, routing_key=routing_key, mandatory=True)
+    if getattr(outcome, "delivery", None) is not None:
+        raise AgentError(f"unroutable: no queue takes routing key {routing_key!r}")
 
 
 async def peek(channel: Any, params: Mapping[str, Any]) -> dict[str, Any]:
@@ -218,19 +236,19 @@ async def replay(
             delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
         )
         try:
-            await channel.default_exchange.publish(
-                copy, routing_key=target, mandatory=True
-            )
-        except Exception as exc:  # noqa: BLE001 - report, keep the message
+            await publish_confirmed(channel.default_exchange, copy, target)
+        except Exception as exc:  # noqa: BLE001 - report, keep the message parked
             failures.append(f"{message.message_id}: {type(exc).__name__}: {exc}")
-            await message.nack(requeue=True)
             return False
         await message.ack()
         return True
 
     limit = params.get("limit")
     moved, held = await _drain(
-        dlq, limit=int(limit) if limit is not None else None, handle=move
+        dlq,
+        limit=int(limit) if limit is not None else None,
+        handle=move,
+        stop=lambda: bool(failures),
     )
     await _give_back(held)
     if failures:

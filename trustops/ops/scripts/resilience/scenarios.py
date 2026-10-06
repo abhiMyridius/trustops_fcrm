@@ -9,12 +9,16 @@ from __future__ import annotations
 
 import json
 import logging
+import re
+import time
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final, Optional
 
-from resilience.broker import Broker, QueueStat
+from resilience.broker import Broker
+from resilience.docker import DockerCli
 from resilience.errors import CommandError, GatewayError
 from resilience.gateway import GatewayClient, Reply
 from resilience.polling import poll_until
@@ -31,6 +35,13 @@ FIXTURES_DIR: Final = PROJECT_ROOT / "evals" / "fixtures" / "documents"
 SMALL_DOCUMENT: Final = "vendor_DD_scope_letter_2026.pdf"
 DISCARD_REASON: Final = "resilience drill scratch case, safe to discard"
 IN_FLIGHT_QUEUE: Final = "agent-worker.run"
+#: How often RabbitMQ refreshes the statistics ``rabbitmqctl list_queues`` reads.
+STATS_REFRESH_S: Final = 5.0
+#: A FastStream delivery line, e.g.
+#: ``agent.jobs | agent-worker.run | evt_01M487 - Received`` (``Processed`` at ack).
+_DELIVERY_LINE: Final = re.compile(
+    r"\|\s*(?P<queue>[\w.\-]+)\s*\|\s*(?P<mid>evt_\w+)\s+-\s+(?P<what>Received|Processed)"
+)
 #: The queues whose emptiness means "the harness has nothing left to do".
 WORK_QUEUES: Final[tuple[str, ...]] = (
     "caseflow.events",
@@ -149,23 +160,97 @@ def verify_chain(gateway: GatewayClient, case_id: str) -> Mapping[str, Any]:
     return body
 
 
-def wait_for_job_in_flight(broker: Broker, *, timeout_s: float) -> QueueStat:
-    """Block until an agent job is being worked on: ``agent-worker.run`` holds a
-    delivered, unacknowledged message (the model call is running).
+def rfc3339(moment: datetime) -> str:
+    """``moment`` as the UTC timestamp ``docker logs --since`` takes."""
+    return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def deliveries(log: str, queue: str) -> tuple[Counter[str], Counter[str]]:
+    """The messages of ``queue`` a FastStream process logged: ``(received,
+    processed)`` counted by the short id the log prints (``evt_01M487``).
+
+    The id is only ten characters, which is the first six of a ULID's
+    timestamp: messages minted within some minutes of each other share it. So
+    deliveries are counted, not collected in a set: an id received once more than
+    it was processed is a message a handler is working on right now.
+    """
+    received: Counter[str] = Counter()
+    processed: Counter[str] = Counter()
+    for match in _DELIVERY_LINE.finditer(log):
+        if match["queue"] != queue:
+            continue
+        counter = received if match["what"] == "Received" else processed
+        counter[match["mid"]] += 1
+    return received, processed
+
+
+def running_jobs(log: str, queue: str = IN_FLIGHT_QUEUE) -> list[str]:
+    """Short ids of the messages of ``queue`` received and not yet processed."""
+    received, processed = deliveries(log, queue)
+    return [mid for mid, count in received.items() if count > processed[mid]]
+
+
+def wait_for_job_in_flight(
+    docker: DockerCli, *, since: str, timeout_s: float, service: str = "harness"
+) -> str:
+    """Block until an agent job is being worked on and return its message id: the
+    harness log shows a delivery on ``agent-worker.run`` with no ``Processed``
+    after it (the model call is running).
+
+    The log is the observable because it is immediate. Queue statistics
+    (``messages_unacknowledged``) are refreshed by RabbitMQ every five seconds,
+    which is as long as a small intake run, so they would name a job that had
+    already finished.
 
     Raises:
         PollTimeoutError: no job was in flight in time.
     """
 
-    def probe() -> Optional[QueueStat]:
-        stat = broker.queues().get(IN_FLIGHT_QUEUE)
-        return stat if stat is not None and stat.unacked >= 1 else None
+    def probe() -> Optional[str]:
+        running = running_jobs(docker.logs_since(service, since))
+        return running[0] if running else None
 
     return poll_until(
         probe,
         what=f"an agent job in flight on {IN_FLIGHT_QUEUE}",
         timeout_s=timeout_s,
         interval_s=0.4,
+        tolerate=(CommandError,),
+    )
+
+
+def baseline_dead_letters(broker: Broker) -> dict[str, int]:
+    """The dead-letter depths a drill starts from, read once the queue
+    statistics are fresh (RabbitMQ refreshes them every five seconds, so a
+    message parked just before the drill would otherwise be counted as the
+    drill's).
+    """
+    time.sleep(STATS_REFRESH_S + 1.0)
+    return broker.dead_letter_depths()
+
+
+def wait_for_empty_dead_letters(
+    broker: Broker, *, timeout_s: float, allowed: Optional[Mapping[str, int]] = None
+) -> dict[str, int]:
+    """Block until every dead-letter queue holds no more than ``allowed`` says
+    (nothing, by default) and return the depths seen.
+
+    Raises:
+        PollTimeoutError: some queue still holds more.
+    """
+    limits = allowed or {}
+
+    def probe() -> Optional[dict[str, int]]:
+        depths = broker.dead_letter_depths()
+        over = {q: d for q, d in depths.items() if d > limits.get(q, 0)}
+        return depths if not over else None
+
+    return poll_until(
+        probe,
+        what="the dead-letter queues to hold nothing more than expected",
+        timeout_s=timeout_s,
+        interval_s=2.0,
+        tolerate=(CommandError,),
     )
 
 
@@ -370,12 +455,13 @@ def wait_for_idle(
     *,
     timeout_s: float,
     queues: Sequence[str] = WORK_QUEUES,
-    settle_polls: int = 3,
+    settle_polls: int = 5,
     interval_s: float = 2.0,
 ) -> None:
     """Block until every queue in ``queues`` is empty (ready and in flight) on
     ``settle_polls`` polls in a row: nothing is being worked on and nothing is
-    waiting.
+    waiting. The polls must span longer than the five seconds RabbitMQ takes to
+    refresh its statistics, or a stale zero would pass for idle.
 
     Raises:
         PollTimeoutError: the queues did not drain in time.

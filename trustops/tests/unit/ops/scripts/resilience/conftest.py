@@ -223,14 +223,21 @@ class FakeExchange:
     def __init__(self) -> None:
         self.published: list[tuple[Any, str]] = []
         self.refuse: Optional[Exception] = None
+        #: Answer as aio_pika does for a message the broker returned.
+        self.unroutable = False
 
     async def publish(
         self, message: Any, routing_key: str, *, mandatory: bool = True
-    ) -> None:
-        """Record the publish, or raise the scripted refusal."""
+    ) -> Any:
+        """Record the publish, raise the scripted refusal, or answer that the
+        broker returned the message (nothing matched the routing key).
+        """
         if self.refuse is not None:
             raise self.refuse
+        if self.unroutable:
+            return type("DeliveredMessage", (), {"delivery": object()})()
         self.published.append((message, routing_key))
+        return type("Ack", (), {"delivery_tag": 1})()
 
 
 class FakeChannel:
@@ -346,10 +353,14 @@ class FakeWorld:
 class FakeDocker:
     """Container operations over a :class:`FakeWorld`; every call is logged."""
 
+    project = "trustops"
+
     def __init__(self, world: FakeWorld) -> None:
         self._world = world
         self.runs: dict[str, int] = {}
         self.logs = ""
+        #: Log texts handed out one per call, before ``logs`` repeats.
+        self.log_script: list[str] = []
         self.ready_codes: dict[str, int] = {}
 
     def _note(self, what: str) -> None:
@@ -415,8 +426,8 @@ class FakeDocker:
         return Readyz(self.ready_codes.get(service, 200), {})
 
     def logs_since(self, service: str, since: str, *, timeout_s: float = 30.0) -> str:
-        """The scripted log text."""
-        return self.logs
+        """The next scripted log text, else the standing one."""
+        return self.log_script.pop(0) if self.log_script else self.logs
 
 
 class FakeBroker:

@@ -11,7 +11,6 @@ import pytest
 from fcrm_contracts.events.envelope import Envelope
 from fcrm_contracts.events.payloads import HarnessStep
 from resilience import scenarios
-from resilience.broker import QueueStat
 from resilience.errors import GatewayError, PollTimeoutError
 
 
@@ -113,29 +112,94 @@ def test_verify_chain_returns_the_service_answer(
     assert scenarios.verify_chain(gateway, "FCRM-1")["ok"] is True
 
 
-class _Broker:
-    """Answers ``queues()`` from a script."""
-
-    def __init__(self, *rounds: dict[str, QueueStat]) -> None:
-        self._rounds = list(rounds)
-
-    def queues(self) -> dict[str, QueueStat]:
-        return self._rounds.pop(0) if len(self._rounds) > 1 else self._rounds[0]
+RECEIVED = "agent.jobs     | agent-worker.run       | evt_01M487 - Received\n"
+PROCESSED = "agent.jobs     | agent-worker.run       | evt_01M487 - Processed\n"
+OTHER = "case.events    | caseflow.events        | evt_01M487 - Received\n"
 
 
-def _stat(unacked: int) -> dict[str, QueueStat]:
-    name = scenarios.IN_FLIGHT_QUEUE
-    return {name: QueueStat(name, 0, unacked, 1)}
+def test_deliveries_counts_received_and_processed_per_queue() -> None:
+    log = RECEIVED + OTHER + PROCESSED + RECEIVED
+    received, processed = scenarios.deliveries(log, "agent-worker.run")
+    assert (received["evt_01M487"], processed["evt_01M487"]) == (2, 1)
 
 
-def test_wait_for_job_in_flight_returns_once_a_delivery_is_unacknowledged() -> None:
-    stat = scenarios.wait_for_job_in_flight(_Broker(_stat(0), _stat(1)), timeout_s=5)
-    assert stat.unacked == 1
+def test_deliveries_ignores_other_queues_and_ansi_noise() -> None:
+    log = "2026-10-06 09:07:40,427 \x1b[32mINFO\x1b[0m     - " + OTHER
+    received, processed = scenarios.deliveries(log, "agent-worker.run")
+    assert (sum(received.values()), sum(processed.values())) == (0, 0)
 
 
-def test_wait_for_job_in_flight_times_out_when_nothing_runs() -> None:
+def test_running_jobs_lists_a_message_received_once_more_than_processed() -> None:
+    assert scenarios.running_jobs(RECEIVED) == ["evt_01M487"]
+    assert scenarios.running_jobs(RECEIVED + PROCESSED) == []
+    assert scenarios.running_jobs(RECEIVED + PROCESSED + RECEIVED) == ["evt_01M487"]
+
+
+def test_running_jobs_of_an_empty_log_is_nothing() -> None:
+    assert scenarios.running_jobs("") == []
+
+
+def test_wait_for_job_in_flight_returns_the_id_of_the_job_being_worked_on(
+    stack: Any,
+) -> None:
+    stack.docker.log_script = ["", RECEIVED]
+    mid = scenarios.wait_for_job_in_flight(
+        stack.docker, since="2026-10-06T09:00:00Z", timeout_s=5
+    )
+    assert mid == "evt_01M487"
+
+
+def test_wait_for_job_in_flight_ignores_a_job_that_already_finished(
+    stack: Any,
+) -> None:
+    stack.docker.logs = RECEIVED + PROCESSED
     with pytest.raises(PollTimeoutError, match="agent job in flight"):
-        scenarios.wait_for_job_in_flight(_Broker(_stat(0)), timeout_s=0)
+        scenarios.wait_for_job_in_flight(
+            stack.docker, since="2026-10-06T09:00:00Z", timeout_s=0
+        )
+
+
+def test_rfc3339_is_the_utc_stamp_docker_logs_takes() -> None:
+    assert scenarios.rfc3339(datetime(2026, 10, 6, 12, 5, 1, tzinfo=UTC)) == (
+        "2026-10-06T12:05:01Z"
+    )
+
+
+def test_baseline_dead_letters_waits_out_the_statistics_refresh(
+    stack: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import time
+
+    slept: list[float] = []
+    monkeypatch.setattr(time, "sleep", slept.append)
+    stack.world.dlq_depth["caseflow.steps.dlq"] = 2
+    assert scenarios.baseline_dead_letters(stack.broker) == {"caseflow.steps.dlq": 2}
+    assert slept == [scenarios.STATS_REFRESH_S + 1.0]
+
+
+def test_wait_for_empty_dead_letters_returns_once_nothing_is_parked(
+    stack: Any,
+) -> None:
+    stack.world.dlq_depth["caseflow.steps.dlq"] = 0
+    assert scenarios.wait_for_empty_dead_letters(stack.broker, timeout_s=5) == {
+        "caseflow.steps.dlq": 0
+    }
+
+
+def test_wait_for_empty_dead_letters_allows_what_the_caller_says(stack: Any) -> None:
+    stack.world.dlq_depth["caseflow.steps.dlq"] = 2
+    depths = scenarios.wait_for_empty_dead_letters(
+        stack.broker, timeout_s=5, allowed={"caseflow.steps.dlq": 2}
+    )
+    assert depths == {"caseflow.steps.dlq": 2}
+
+
+def test_wait_for_empty_dead_letters_times_out_while_something_is_parked(
+    stack: Any,
+) -> None:
+    stack.world.dlq_depth["caseflow.steps.dlq"] = 1
+    with pytest.raises(PollTimeoutError, match="dead-letter queues"):
+        scenarios.wait_for_empty_dead_letters(stack.broker, timeout_s=0)
 
 
 def test_step_envelope_is_a_valid_envelope_carrying_a_valid_step() -> None:

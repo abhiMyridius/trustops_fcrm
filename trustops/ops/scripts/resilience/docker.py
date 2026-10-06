@@ -124,6 +124,11 @@ class DockerCli:
         self._runner = runner
         self._project = project
 
+    @property
+    def project(self) -> str:
+        """The compose project name containers are named after."""
+        return self._project
+
     def container(self, service: str) -> str:
         """The container name of ``service`` (``trustops-api-1``)."""
         return f"{self._project}-{service}-1"

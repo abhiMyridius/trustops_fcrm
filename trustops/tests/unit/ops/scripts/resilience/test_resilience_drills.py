@@ -16,6 +16,8 @@ from resilience.errors import PollTimeoutError
 from resilience.gateway import Reply
 
 CASE = "FCRM-2026-0300"
+RUNNING = "agent.jobs | agent-worker.run | evt_01M487 - Received\n"
+FINISHED = RUNNING + "agent.jobs | agent-worker.run | evt_01M487 - Processed\n"
 PINS = {
     "scoring_v": 3,
     "corpus_v": 14,
@@ -71,10 +73,11 @@ def test_a_killed_harness_is_restarted_and_the_run_is_checked(
     stack: Any, reply: Callable[..., Reply]
 ) -> None:
     _serve(stack, reply, _intake_chain())
-    stack.docker.logs = "case.events | agent-worker.run | evt_1 - Received"
+    stack.docker.log_script = [RUNNING, RUNNING]  # caught running; handed out again
     outcome = drills.interrupt_harness_midrun(stack, CASE, mode="kill")
     assert stack.world.log[0] == "kill harness"
     assert outcome.restarted.started_at == "run-1"
+    assert outcome.in_flight == "evt_01M487"
     assert outcome.redelivered is True
     assert outcome.problems == []
     assert outcome.verify["ok"] is True
@@ -85,6 +88,7 @@ def test_a_graceful_restart_gives_the_compose_grace_period(
     stack: Any, reply: Callable[..., Reply]
 ) -> None:
     _serve(stack, reply, _intake_chain())
+    stack.docker.log_script = [RUNNING, ""]  # drained: the new process saw nothing
     outcome = drills.interrupt_harness_midrun(stack, CASE, mode="graceful")
     assert stack.world.log[0] == f"restart harness {drills.HARNESS_GRACE_S}"
     assert outcome.redelivered is False
@@ -94,6 +98,7 @@ def test_the_harness_is_put_back_and_waited_for_even_when_the_drill_fails(
     stack: Any, reply: Callable[..., Reply]
 ) -> None:
     _serve(stack, reply, _intake_chain())
+    stack.docker.logs = RUNNING
 
     def explode(*args: Any, **kwargs: Any) -> Any:
         raise PollTimeoutError("no new run")
@@ -110,6 +115,7 @@ def test_a_duplicated_record_after_the_run_is_reported_as_a_problem(
 ) -> None:
     chain = _intake_chain() + [_record(6, "proposal.extraction", step_id="step_9")]
     _serve(stack, reply, chain)
+    stack.docker.logs = RUNNING
     outcome = drills.interrupt_harness_midrun(stack, CASE, mode="kill")
     assert any("proposal.extraction appears 2 times" in p for p in outcome.problems)
 
@@ -118,6 +124,7 @@ def test_a_dead_letter_the_drill_caused_is_reported(
     stack: Any, reply: Callable[..., Reply]
 ) -> None:
     _serve(stack, reply, _intake_chain())
+    stack.docker.logs = RUNNING
     original = stack.docker.kill
 
     def kill_and_dead_letter(service: str) -> None:
@@ -421,6 +428,6 @@ def test_run_make_runs_make_in_the_project_root_without_raising(
     result = drills.run_make(stack, ["dlq-purge", "q=caseflow.steps"])
     argv = stack.runner.calls[0]["argv"]
     assert argv[:2] == ["make", "-C"]
-    assert argv[3:] == ["dlq-purge", "q=caseflow.steps"]
+    assert argv[3:] == ["DLQ_PROJECT=trustops", "dlq-purge", "q=caseflow.steps"]
     assert stack.runner.calls[0]["check"] is False
     assert result.returncode == 2

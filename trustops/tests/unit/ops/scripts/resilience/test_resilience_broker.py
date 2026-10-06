@@ -149,7 +149,8 @@ def test_replay_returns_how_many_moved(
     broker: Broker, runner: Any, json_line: Callable[..., str]
 ) -> None:
     runner.reply(json_line(ok=True, replayed=3, left=0, to="caseflow.steps"))
-    assert broker.replay("caseflow.steps", message_id="evt_9") == 3
+    result = broker.replay("caseflow.steps", message_id="evt_9")
+    assert (result.moved, result.left) == (3, 0)
     params = json.loads(runner.calls[0]["argv"][7])
     assert params == {"queue": "caseflow.steps", "limit": None, "message_id": "evt_9"}
 

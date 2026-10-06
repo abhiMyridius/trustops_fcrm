@@ -270,8 +270,9 @@ openapi: ## export the api process's merged OpenAPI (every service under its pre
 # container names (trustops-<service>-1): no .env and no `docker compose`. A
 # replayed message gets its retry budget back (x-attempt reset), which the
 # shovel this replaced did not do, so a replay of a failing message parked at
-# once. --project <name> if the compose project is not "trustops".
-DLQ := $(PYTHON) ops/scripts/dlq.py
+# once. DLQ_PROJECT=<name> if the compose project is not "trustops".
+DLQ_PROJECT ?= trustops
+DLQ := $(PYTHON) ops/scripts/dlq.py --project $(DLQ_PROJECT)
 
 dlq: ## list dead-letter queues with their depth
 	@$(DLQ) list

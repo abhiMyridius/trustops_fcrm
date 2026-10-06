@@ -14,6 +14,7 @@ import logging
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any, Final, Optional
 
 from resilience.broker import DLQ_SUFFIX, RETRY_SUFFIX
@@ -27,14 +28,18 @@ from resilience.errors import (
 from resilience.gateway import Reply
 from resilience.polling import poll_until
 from resilience.scenarios import (
+    IN_FLIGHT_QUEUE,
     PROJECT_ROOT,
     agent_done_envelope,
     agent_run_envelope,
     audit_records,
+    baseline_dead_letters,
     case_titles,
     create_scratch_case,
+    deliveries,
     new_dead_letters,
     poison_step_envelope,
+    rfc3339,
     run_and_step_ids,
     step_envelope,
     try_create_scratch_case,
@@ -157,7 +162,15 @@ def run_make(
 ) -> CommandResult:
     """``make <args>`` from the project root, without raising on a failure."""
     return stack.runner.run(
-        ["make", "-C", str(PROJECT_ROOT), *args], timeout_s=timeout_s, check=False
+        [
+            "make",
+            "-C",
+            str(PROJECT_ROOT),
+            f"DLQ_PROJECT={stack.docker.project}",
+            *args,
+        ],
+        timeout_s=timeout_s,
+        check=False,
     )
 
 
@@ -171,7 +184,8 @@ class MidRunOutcome:
     Attributes:
         case_id: The scratch case.
         mode: ``graceful`` (SIGTERM, drain) or ``kill`` (SIGKILL).
-        in_flight: The queue state when the job was caught running.
+        in_flight: The short message id of the job caught running (from the
+            harness log).
         restarted: The harness's new run.
         redelivered: Whether the new process was handed the job again.
         interrupt_s: How long the restart took.
@@ -184,7 +198,7 @@ class MidRunOutcome:
 
     case_id: str
     mode: str
-    in_flight: Any
+    in_flight: str
     restarted: ContainerState
     redelivered: bool
     interrupt_s: float
@@ -227,10 +241,13 @@ def interrupt_harness_midrun(stack: Stack, case_id: str, *, mode: str) -> MidRun
     harness, and let the run finish.
     """
     docker, broker, gateway = stack.docker, stack.broker, stack.gateway
-    dead_before = broker.dead_letter_depths()
+    dead_before = baseline_dead_letters(broker)
     previous = docker.state("harness").started_at
+    since = rfc3339(datetime.now(UTC) - timedelta(seconds=5))
     upload_document(gateway, case_id)
-    in_flight = wait_for_job_in_flight(broker, timeout_s=IN_FLIGHT_TIMEOUT_S)
+    in_flight = wait_for_job_in_flight(
+        docker, since=since, timeout_s=IN_FLIGHT_TIMEOUT_S
+    )
     began = time.monotonic()
     try:
         restarted = interrupt(docker, "harness", mode, previous)
@@ -242,14 +259,15 @@ def interrupt_harness_midrun(stack: Stack, case_id: str, *, mode: str) -> MidRun
     )
     complete_s = time.monotonic() - began
     wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
-    logs = docker.logs_since("harness", restarted.started_at)
+    new_run_log = docker.logs_since("harness", restarted.started_at)
+    delivered_again, _ = deliveries(new_run_log, IN_FLIGHT_QUEUE)
     records, problems, verify = settled_chain(stack, case_id, INTAKE_ONCE_TYPES)
     return MidRunOutcome(
         case_id=case_id,
         mode=mode,
         in_flight=in_flight,
         restarted=restarted,
-        redelivered="agent-worker.run" in logs,
+        redelivered=in_flight in delivered_again,
         interrupt_s=interrupt_s,
         complete_s=complete_s,
         records=records,
@@ -291,7 +309,7 @@ def inject_duplicate_agent_done(stack: Stack, case_id: str) -> DuplicateDoneOutc
         gateway, case_id, "proposal.extraction", timeout_s=COMPLETE_TIMEOUT_S
     )
     wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
-    dead_before = broker.dead_letter_depths()
+    dead_before = baseline_dead_letters(broker)
     before = audit_records(gateway, case_id)
     permit = next(
         r
@@ -386,7 +404,7 @@ def outage_of_rabbitmq(stack: Stack, *, hold_s: float = 8.0) -> BrokerOutageOutc
     docker, broker, gateway = stack.docker, stack.broker, stack.gateway
     gateway.login("po")
     gateway.login("analyst")
-    dead_before = broker.dead_letter_depths()
+    dead_before = baseline_dead_letters(broker)
     docker.stop("rabbitmq", grace_s=30)
     try:
         write, outage_case = try_create_scratch_case(gateway, "broker down")
@@ -496,7 +514,7 @@ def outage_of_mongo(stack: Stack, *, hold_s: float = 5.0) -> MongoOutageOutcome:
     docker, broker, gateway = stack.docker, stack.broker, stack.gateway
     gateway.login("po")
     gateway.login("analyst")
-    dead_before = broker.dead_letter_depths()
+    dead_before = baseline_dead_letters(broker)
     survivor = create_scratch_case(gateway, "mongo survivor")
     wait_for_record(gateway, survivor, "workflow.started", timeout_s=RECORD_TIMEOUT_S)
     wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
@@ -714,7 +732,7 @@ def replay_a_finished_step(stack: Stack, case_id: str) -> ReplayOutcome:
     )
     run_id, step_id = run_and_step_ids(created)
     wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
-    base = broker.dead_letter_depths().get(STEPS_DLQ, 0)
+    base = baseline_dead_letters(broker).get(STEPS_DLQ, 0)
     records_before = len(audit_records(gateway, case_id))
     event_id = f"evt_drill_replay_{utc_stamp()}"
     since = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 2))
@@ -769,8 +787,8 @@ class PoisonOutcome:
         invalid_retry_peak: Most the retry queue held for the invalid payload.
         invalid_dlq_s: Seconds for it to reach the DLQ after its retries.
         shown: The tool's description of each parked message, by id.
-        other_work_s: Seconds an unrelated new case took to get its
-            ``workflow.started`` while the poison was parked and retrying.
+        other_case: A case raised while the invalid message was retrying.
+        other_work_s: Seconds it took to get its ``workflow.started``.
         purge_refused_status: Exit status of ``make dlq-purge`` without CONFIRM.
         depth_after_refusal: The DLQ's depth after that refusal.
         purge_statuses: Exit statuses of the two confirmed purges.
@@ -783,6 +801,7 @@ class PoisonOutcome:
     invalid_retry_peak: int
     invalid_dlq_s: float
     shown: dict[str, dict[str, Any]]
+    other_case: str
     other_work_s: float
     purge_refused_status: int
     depth_after_refusal: int
@@ -791,9 +810,7 @@ class PoisonOutcome:
     consumers_after: bool
 
 
-def poison_the_steps_queue(
-    stack: Stack, case_id: str, other_case: str
-) -> PoisonOutcome:
+def poison_the_steps_queue(stack: Stack, case_id: str) -> PoisonOutcome:
     """Publish an unparseable message and a well-formed message with an invalid
     payload onto ``caseflow.steps`` and follow them to the DLQ, then purge
     exactly those two messages.
@@ -804,7 +821,7 @@ def poison_the_steps_queue(
     )
     run_id, _ = run_and_step_ids(created)
     wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
-    base = broker.dead_letter_depths().get(STEPS_DLQ, 0)
+    base = baseline_dead_letters(broker).get(STEPS_DLQ, 0)
     stamp = utc_stamp()
     malformed_id, invalid_id = f"evt_drill_bad_{stamp}", f"evt_drill_invalid_{stamp}"
     try:
@@ -825,6 +842,7 @@ def poison_the_steps_queue(
         )
         began = time.monotonic()
         wait_for_depth(stack, STEPS_RETRY, 1, timeout_s=60.0)
+        other_case = create_scratch_case(gateway, "poison bystander")
         other_began = time.monotonic()
         wait_for_record(
             gateway, other_case, "workflow.started", timeout_s=RECORD_TIMEOUT_S
@@ -860,7 +878,11 @@ def poison_the_steps_queue(
                 broker.purge(STEPS_DLQ, message_id=message)
             except BrokerAgentError:
                 logger.warning("could not purge %s", message)
-    drained = broker.depth(STEPS_DLQ) == base
+    try:
+        wait_for_depth(stack, STEPS_DLQ, base, timeout_s=30.0)
+        drained = True
+    except PollTimeoutError:
+        drained = False
     consumers = broker.queues()[STEPS_QUEUE].consumers >= 1
     return PoisonOutcome(
         malformed_dlq_s=malformed_s,
@@ -868,6 +890,7 @@ def poison_the_steps_queue(
         invalid_retry_peak=invalid_peak,
         invalid_dlq_s=invalid_s,
         shown=shown,
+        other_case=other_case,
         other_work_s=other_s,
         purge_refused_status=refused.returncode,
         depth_after_refusal=depth_after_refusal,
@@ -920,7 +943,7 @@ def fail_a_job_into_handoff(stack: Stack, case_id: str) -> HandoffOutcome:
     run_id, _ = run_and_step_ids(started)
     pins = started["data"]["pins"]
     wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
-    dead_before = broker.dead_letter_depths()
+    dead_before = baseline_dead_letters(broker)
     job_id = f"job_drill_{utc_stamp()}"
     event_id = f"evt_drill_run_{utc_stamp()}"
     broker.publish(

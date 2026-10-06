@@ -7,7 +7,9 @@ A message lands in ``<queue>.dlq`` when its consumer failed it three times
 (a poison message goes there at once). Nothing is ever dropped; this tool is
 how an operator deals with what is parked.
 
-* ``list`` shows every dead-letter queue with its depth.
+* ``list`` shows every dead-letter queue with its depth. The depths are
+  RabbitMQ's statistics, refreshed every five seconds, so a message parked a
+  moment ago may not be counted yet; ``inspect`` reads the queue itself.
 * ``inspect <queue>`` shows the parked messages (id, type, attempts, last
   error, start of the body) and puts them back. Each look counts as one
   delivery of the message, and a dead-letter queue keeps a delivery limit
@@ -121,7 +123,7 @@ def command_inspect(broker: Broker, queue: str, limit: int) -> int:
     if not _known(broker, dlq):
         return EXIT_REFUSED
     messages = broker.peek(dlq, limit=limit)
-    _say(f"{dlq}: {len(messages)} shown, {_depths(broker)[dlq]} in the queue")
+    _say(f"{dlq}: {len(messages)} shown (at most {limit})")
     for message in messages:
         _say(json.dumps(message, ensure_ascii=False))
     return EXIT_OK
@@ -135,9 +137,10 @@ def command_replay(
     if not _known(broker, dlq):
         return EXIT_REFUSED
     work = dlq[: -len(DLQ_SUFFIX)]
-    moved = broker.replay(work, limit=limit, message_id=message_id)
-    _say(f"dlq-replay: moved {moved} message(s) from {dlq} to {work}")
-    _say(f"dlq-replay: {dlq} now holds {_depths(broker)[dlq]}")
+    result = broker.replay(work, limit=limit, message_id=message_id)
+    _say(f"dlq-replay: moved {result.moved} message(s) from {dlq} to {work}")
+    if result.left:
+        _say(f"dlq-replay: {result.left} other message(s) seen and left parked")
     return EXIT_OK
 
 
@@ -151,10 +154,7 @@ def command_purge(
     if not confirm:
         what = f"message {message_id}" if message_id else "every message"
         logger.error(
-            "dlq-purge: would delete %s of %s (%d in the queue); repeat with --confirm",
-            what,
-            dlq,
-            _depths(broker)[dlq],
+            "dlq-purge: would delete %s of %s; repeat with --confirm", what, dlq
         )
         return EXIT_REFUSED
     purged = broker.purge(dlq, message_id=message_id)

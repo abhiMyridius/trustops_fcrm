@@ -64,6 +64,20 @@ class QueueStat:
         return self.ready + self.unacked
 
 
+@dataclass(frozen=True)
+class ReplayResult:
+    """What a replay did.
+
+    Attributes:
+        moved: Messages put back on the work queue.
+        left: Messages the script held and did not move (another id, or past
+            ``limit``) and returned to the dead-letter queue.
+    """
+
+    moved: int
+    left: int
+
+
 def parse_list_queues(text: str) -> dict[str, QueueStat]:
     """Parse ``rabbitmqctl -q list_queues name messages_ready
     messages_unacknowledged consumers`` output (tab separated, header first
@@ -213,14 +227,20 @@ class Broker:
         *,
         limit: Optional[int] = None,
         message_id: Optional[str] = None,
-    ) -> int:
+    ) -> ReplayResult:
         """Move messages of ``<queue>.dlq`` back onto ``<queue>`` with a fresh
-        retry budget; returns how many moved.
+        retry budget; says how many moved and how many were left parked.
+
+        The counts are the script's own, taken while it held the messages. The
+        queue statistics of ``rabbitmqctl`` lag by up to five seconds, so they
+        are no way to confirm a replay a moment later.
         """
         outcome = self._agent(
             "replay", {"queue": queue, "limit": limit, "message_id": message_id}
         )
-        return int(outcome.get("replayed", 0))
+        return ReplayResult(
+            moved=int(outcome.get("replayed", 0)), left=int(outcome.get("left", 0))
+        )
 
     def purge(self, dlq: str, *, message_id: Optional[str] = None) -> int:
         """Delete messages of a ``*.dlq`` queue; returns how many went.

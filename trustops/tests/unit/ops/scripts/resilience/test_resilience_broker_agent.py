@@ -157,6 +157,57 @@ async def test_a_republish_the_broker_refuses_keeps_the_message_parked(
     assert parked.state == "requeued"
 
 
+async def test_a_failed_republish_ends_the_pass_instead_of_meeting_it_again(
+    make_pika: Callable[..., Any], incoming: Callable[..., Any], frozen_now: datetime
+) -> None:
+    messages = [_dead_lettered(incoming, f"evt_{n}") for n in range(3)]
+    pika = make_pika({"caseflow.steps.dlq": messages})
+    pika.connection._channel.default_exchange.refuse = ConnectionError("nacked")
+    with pytest.raises(AgentError):
+        await run_command(
+            "replay",
+            {"queue": "caseflow.steps"},
+            url=URL,
+            aio_pika=pika,
+            now=frozen_now,
+        )
+    assert [m.state for m in messages] == ["requeued", "waiting", "waiting"]
+
+
+async def test_a_replay_the_broker_returns_as_unroutable_stays_parked(
+    make_pika: Callable[..., Any], incoming: Callable[..., Any], frozen_now: datetime
+) -> None:
+    parked = _dead_lettered(incoming)
+    pika = make_pika({"caseflow.steps.dlq": [parked]})
+    pika.connection._channel.default_exchange.unroutable = True
+    with pytest.raises(AgentError, match="unroutable"):
+        await run_command(
+            "replay",
+            {"queue": "caseflow.steps"},
+            url=URL,
+            aio_pika=pika,
+            now=frozen_now,
+        )
+    assert parked.state == "requeued"
+
+
+async def test_a_publish_the_broker_returns_as_unroutable_is_an_error(
+    make_pika: Callable[..., Any],
+) -> None:
+    pika = make_pika({})
+    pika.connection._channel.default_exchange.unroutable = True
+    with pytest.raises(AgentError, match="unroutable: no queue takes routing key"):
+        await run_command(
+            "publish",
+            {
+                "routing_key": "no.such.queue",
+                "body_b64": base64.b64encode(b"x").decode(),
+            },
+            url=URL,
+            aio_pika=pika,
+        )
+
+
 async def test_purge_deletes_everything_of_a_dlq(
     make_pika: Callable[..., Any], incoming: Callable[..., Any]
 ) -> None:

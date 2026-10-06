@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 import dlq
 import pytest
+from resilience.broker import ReplayResult
 from resilience.errors import BrokerAgentError
 
 
@@ -17,6 +18,7 @@ class _FakeBroker:
         self.depths = depths if depths is not None else {"caseflow.steps.dlq": 2}
         self.calls: list[tuple[str, Any]] = []
         self.fail_with: Optional[Exception] = None
+        self.left = 0
 
     def dead_letter_depths(self) -> dict[str, int]:
         return dict(self.depths)
@@ -27,13 +29,13 @@ class _FakeBroker:
 
     def replay(
         self, queue: str, *, limit: Optional[int], message_id: Optional[str]
-    ) -> int:
+    ) -> ReplayResult:
         self.calls.append(("replay", (queue, limit, message_id)))
         if self.fail_with is not None:
             raise self.fail_with
         moved = self.depths["caseflow.steps.dlq"]
         self.depths["caseflow.steps.dlq"] = 0
-        return moved
+        return ReplayResult(moved=moved, left=self.left)
 
     def purge(self, queue: str, *, message_id: Optional[str]) -> int:
         self.calls.append(("purge", (queue, message_id)))
@@ -60,7 +62,7 @@ def test_inspect_accepts_the_work_queue_name_and_prints_json_lines(
     assert _run(broker, "inspect", "caseflow.steps", "--limit", "5") == dlq.EXIT_OK
     out = capsys.readouterr().out.strip().splitlines()
     assert broker.calls == [("peek", ("caseflow.steps.dlq", 5))]
-    assert out[0].startswith("caseflow.steps.dlq: 1 shown, 2 in the queue")
+    assert out[0].startswith("caseflow.steps.dlq: 1 shown")
     assert json.loads(out[1])["message_id"] == "evt_1"
 
 
@@ -72,7 +74,16 @@ def test_replay_moves_the_backlog_and_reports_the_new_depth(
     assert broker.calls == [("replay", ("caseflow.steps", None, None))]
     out = capsys.readouterr().out
     assert "moved 2 message(s) from caseflow.steps.dlq to caseflow.steps" in out
-    assert "caseflow.steps.dlq now holds 0" in out
+    assert "left parked" not in out
+
+
+def test_replay_says_when_other_messages_stay_parked(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    broker = _FakeBroker()
+    broker.left = 3
+    _run(broker, "replay", "caseflow.steps", "--message-id", "evt_1")
+    assert "3 other message(s) seen and left parked" in capsys.readouterr().out
 
 
 def test_replay_of_one_message_passes_its_id_and_limit() -> None:
