@@ -1,7 +1,7 @@
 """The S5 client for H1's decision core: what it does *after* people have voted
 or an analyst has unlocked (``POST /outcomes``, ``POST /packs/{id}/supersede``,
 ``POST /packs/{id}/revote``) and the reads it needs to do it (the pack's drafted
-conditions, the revealed votes, the case's outcome).
+conditions, the case's outcome).
 
 Building and releasing a pack belong to the assessment core's own client
 (:mod:`fcrm_caseflow.clients.decision_client`); this one never builds or
@@ -36,7 +36,6 @@ from fcrm_contracts.api.decision import (
     RevoteResult,
     SupersedeRequest,
     SupersedeResult,
-    VotesView,
 )
 from pydantic import BaseModel
 
@@ -51,7 +50,6 @@ DEPENDENCY: Final = "decision"
 OUTCOMES_PATH: Final = "/outcomes"
 SUPERSEDE_PATH: Final = "/packs/{pack_id}/supersede"
 REVOTE_PATH: Final = "/packs/{pack_id}/revote"
-VOTES_PATH: Final = "/packs/{pack_id}/votes"
 PACK_PATH: Final = "/packs/{pack_id}"
 LATEST_PACK_PATH: Final = "/cases/{case_id}/packs/latest"
 CASE_OUTCOME_PATH: Final = "/cases/{case_id}/outcome"
@@ -236,25 +234,6 @@ class DecisionVotesClient:
         return parse_body(
             SupersedeResult, body, dependency=DEPENDENCY, route=SUPERSEDE_PATH
         )
-
-    async def get_votes(
-        self, pack_id: str, round_no: Optional[int] = None
-    ) -> VotesView:
-        """``GET /packs/{pack_id}/votes[?round=n]``: the round's votes, revealed
-        only once it was tallied (the service account sees what a member sees
-        of a round still open: nobody's choice).
-
-        Raises:
-            fcrm_common.errors.NotFoundError: no such pack.
-        """
-        params = {"round": round_no} if round_no is not None else None
-        body = await self._send(
-            "GET",
-            _fill(VOTES_PATH, pack_id=pack_id),
-            route=VOTES_PATH,
-            params=params,
-        )
-        return parse_body(VotesView, body, dependency=DEPENDENCY, route=VOTES_PATH)
 
     async def get_pack(self, pack_id: str) -> PackView:
         """``GET /packs/{pack_id}``: the frozen pack, with its drafted
