@@ -37,6 +37,180 @@
         "title": "ActivityEventPO",
         "type": "object"
       },
+      "AgentRow": {
+        "additionalProperties": false,
+        "properties": {
+          "budget": {
+            "title": "Budget",
+            "type": "string"
+          },
+          "eval_metric": {
+            "title": "Eval Metric",
+            "type": "string"
+          },
+          "eval_score": {
+            "title": "Eval Score",
+            "type": "number"
+          },
+          "eval_set": {
+            "title": "Eval Set",
+            "type": "string"
+          },
+          "fallback": {
+            "title": "Fallback",
+            "type": "string"
+          },
+          "gate": {
+            "title": "Gate",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "output": {
+            "title": "Output",
+            "type": "string"
+          },
+          "skills": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skills",
+            "type": "array"
+          },
+          "tier": {
+            "title": "Tier",
+            "type": "string"
+          },
+          "tools": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tools",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "tier",
+          "model",
+          "fallback",
+          "tools",
+          "skills",
+          "output",
+          "gate",
+          "eval_set",
+          "budget",
+          "eval_score",
+          "eval_metric"
+        ],
+        "title": "AgentRow",
+        "type": "object"
+      },
+      "AgentsData": {
+        "additionalProperties": false,
+        "properties": {
+          "agents": {
+            "items": {
+              "$ref": "#/components/schemas/AgentRow"
+            },
+            "title": "Agents",
+            "type": "array"
+          },
+          "per_case_budget": {
+            "title": "Per Case Budget",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "agents",
+          "per_case_budget"
+        ],
+        "title": "AgentsData",
+        "type": "object"
+      },
+      "AiAgentsSection": {
+        "additionalProperties": false,
+        "properties": {
+          "active_version": {
+            "title": "Active Version",
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AgentsData"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/ConfigDraft"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "section": {
+            "const": "ai-agents",
+            "title": "Section",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigVersion"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "title",
+          "owner",
+          "active_version",
+          "versions",
+          "draft",
+          "section",
+          "data"
+        ],
+        "title": "AiAgentsSection",
+        "type": "object"
+      },
+      "AlwaysRequiredField": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "note"
+        ],
+        "title": "AlwaysRequiredField",
+        "type": "object"
+      },
       "AnswerItem": {
         "additionalProperties": false,
         "properties": {
@@ -578,6 +752,73 @@
         "title": "CasePOListItem",
         "type": "object"
       },
+      "CategoriesData": {
+        "additionalProperties": false,
+        "properties": {
+          "fast_lane": {
+            "$ref": "#/components/schemas/FastLane"
+          },
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryType"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "types",
+          "fast_lane"
+        ],
+        "title": "CategoriesData",
+        "type": "object"
+      },
+      "CategoriesSection": {
+        "additionalProperties": false,
+        "properties": {
+          "active_version": {
+            "title": "Active Version",
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CategoriesData"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/ConfigDraft"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "section": {
+            "const": "categories",
+            "title": "Section",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigVersion"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "title",
+          "owner",
+          "active_version",
+          "versions",
+          "draft",
+          "section",
+          "data"
+        ],
+        "title": "CategoriesSection",
+        "type": "object"
+      },
       "CategoryDecisionBody": {
         "additionalProperties": false,
         "properties": {
@@ -657,6 +898,40 @@
           "reason"
         ],
         "title": "CategoryProposalPO",
+        "type": "object"
+      },
+      "CategoryType": {
+        "additionalProperties": false,
+        "properties": {
+          "domains": {
+            "items": {
+              "$ref": "#/components/schemas/Domain"
+            },
+            "title": "Domains",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "signals": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Signals",
+            "type": "array"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ChangeType"
+          }
+        },
+        "required": [
+          "type",
+          "label",
+          "domains",
+          "signals"
+        ],
+        "title": "CategoryType",
         "type": "object"
       },
       "ChainHead": {
@@ -1187,6 +1462,186 @@
         "title": "ConditionPatch",
         "type": "object"
       },
+      "ConfigBandDef": {
+        "additionalProperties": false,
+        "description": "The web's ``BandDef`` (``band``, ``min``, ``max``, ``route``, ``label``).",
+        "properties": {
+          "band": {
+            "enum": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "title": "Band",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "max": {
+            "title": "Max",
+            "type": "number"
+          },
+          "min": {
+            "title": "Min",
+            "type": "number"
+          },
+          "route": {
+            "enum": [
+              "analyst",
+              "committee"
+            ],
+            "title": "Route",
+            "type": "string"
+          }
+        },
+        "required": [
+          "band",
+          "min",
+          "max",
+          "route",
+          "label"
+        ],
+        "title": "ConfigBandDef",
+        "type": "object"
+      },
+      "ConfigDraft": {
+        "additionalProperties": false,
+        "description": "The section's server-side working set. ``etag`` changes on every write\nand names the published version the draft started from.",
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigDraftChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "etag": {
+            "title": "Etag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "etag",
+          "changes"
+        ],
+        "title": "ConfigDraft",
+        "type": "object"
+      },
+      "ConfigDraftChange": {
+        "additionalProperties": false,
+        "description": "One change in the working set: ``path`` names a value, ``before`` is the\nvalue in force when the change was made and ``after`` the one it becomes.",
+        "properties": {
+          "after": {
+            "title": "After",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "before",
+          "after"
+        ],
+        "title": "ConfigDraftChange",
+        "type": "object"
+      },
+      "ConfigDraftIn": {
+        "additionalProperties": false,
+        "description": "``PUT policy/config/{section}/draft``: one change to add to (or replace\nin) the working set. ``before`` is what the editor showed; the server keeps\nthe value it finds in the published version, not this one.",
+        "properties": {
+          "after": {
+            "maxLength": 4000,
+            "title": "After",
+            "type": "string"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "path": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "after"
+        ],
+        "title": "ConfigDraftIn",
+        "type": "object"
+      },
+      "ConfigPublishIn": {
+        "additionalProperties": false,
+        "description": "``POST policy/config/{section}/draft/publish``: the version note\n(``reason`` is accepted as a synonym).",
+        "properties": {
+          "note": {
+            "maxLength": 2000,
+            "minLength": 20,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "note"
+        ],
+        "title": "ConfigPublishIn",
+        "type": "object"
+      },
+      "ConfigVersion": {
+        "additionalProperties": false,
+        "description": "One row of a section's append-only history.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "published_at": {
+            "title": "Published At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "published_at",
+          "by",
+          "note",
+          "active"
+        ],
+        "title": "ConfigVersion",
+        "type": "object"
+      },
       "ControlInput": {
         "additionalProperties": false,
         "description": "One control's rating as confirmed (or AI-proposed) for scoring.\nA planned control must never appear here (rule 7); the engine does not\nspecial-case it — it is the caller's job to exclude it.",
@@ -1220,6 +1675,31 @@
         "title": "ControlInput",
         "type": "object"
       },
+      "ControlInventoryData": {
+        "additionalProperties": false,
+        "properties": {
+          "controls": {
+            "items": {
+              "$ref": "#/components/schemas/ControlRow"
+            },
+            "title": "Controls",
+            "type": "array"
+          },
+          "domain_weight_sums": {
+            "items": {
+              "$ref": "#/components/schemas/DomainWeightSum"
+            },
+            "title": "Domain Weight Sums",
+            "type": "array"
+          }
+        },
+        "required": [
+          "controls",
+          "domain_weight_sums"
+        ],
+        "title": "ControlInventoryData",
+        "type": "object"
+      },
       "ControlInventoryOut": {
         "additionalProperties": false,
         "description": "``GET /controls?version=&domain=``: a control inventory version,\noptionally narrowed to one risk domain.",
@@ -1246,6 +1726,52 @@
           "controls"
         ],
         "title": "ControlInventoryOut",
+        "type": "object"
+      },
+      "ControlInventorySection": {
+        "additionalProperties": false,
+        "properties": {
+          "active_version": {
+            "title": "Active Version",
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ControlInventoryData"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/ConfigDraft"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "section": {
+            "const": "control-inventory",
+            "title": "Section",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigVersion"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "title",
+          "owner",
+          "active_version",
+          "versions",
+          "draft",
+          "section",
+          "data"
+        ],
+        "title": "ControlInventorySection",
         "type": "object"
       },
       "ControlOut": {
@@ -1287,6 +1813,49 @@
         "title": "ControlOut",
         "type": "object"
       },
+      "ControlRow": {
+        "additionalProperties": false,
+        "properties": {
+          "domain": {
+            "$ref": "#/components/schemas/Domain"
+          },
+          "evidence_artefact": {
+            "title": "Evidence Artefact",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_tested": {
+            "title": "Last Tested",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "domain",
+          "name",
+          "weight",
+          "evidence_artefact",
+          "last_tested",
+          "stale"
+        ],
+        "title": "ControlRow",
+        "type": "object"
+      },
       "ControlVersionOut": {
         "additionalProperties": false,
         "description": "``GET /controls/versions``: one stored control-inventory version.",
@@ -1310,6 +1879,48 @@
           "control_count"
         ],
         "title": "ControlVersionOut",
+        "type": "object"
+      },
+      "CorpusSource": {
+        "additionalProperties": false,
+        "properties": {
+          "clauses": {
+            "title": "Clauses",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "sections": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "used_for": {
+            "title": "Used For",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "sections",
+          "used_for",
+          "clauses"
+        ],
+        "title": "CorpusSource",
         "type": "object"
       },
       "CreateCaseBody": {
@@ -1652,11 +2263,74 @@
         "title": "DomainResult",
         "type": "object"
       },
+      "DomainWeight": {
+        "additionalProperties": false,
+        "properties": {
+          "domain": {
+            "$ref": "#/components/schemas/Domain"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "domain",
+          "label",
+          "weight"
+        ],
+        "title": "DomainWeight",
+        "type": "object"
+      },
+      "DomainWeightSum": {
+        "additionalProperties": false,
+        "properties": {
+          "domain": {
+            "$ref": "#/components/schemas/Domain"
+          },
+          "sum": {
+            "title": "Sum",
+            "type": "number"
+          }
+        },
+        "required": [
+          "domain",
+          "sum"
+        ],
+        "title": "DomainWeightSum",
+        "type": "object"
+      },
       "EmptyBody": {
         "additionalProperties": false,
         "description": "``POST validate`` and ``POST submit`` carry no input: the server reads the\ncase. The web posts ``{}``.",
         "properties": {},
         "title": "EmptyBody",
+        "type": "object"
+      },
+      "FastLane": {
+        "additionalProperties": false,
+        "properties": {
+          "conditions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "volume_under_usd": {
+            "title": "Volume Under Usd",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "volume_under_usd",
+          "conditions"
+        ],
+        "title": "FastLane",
         "type": "object"
       },
       "FieldDef": {
@@ -1692,6 +2366,60 @@
           "always_required"
         ],
         "title": "FieldDef",
+        "type": "object"
+      },
+      "FieldRef": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "FieldRef",
+        "type": "object"
+      },
+      "FieldSetData": {
+        "additionalProperties": false,
+        "properties": {
+          "always_required": {
+            "items": {
+              "$ref": "#/components/schemas/AlwaysRequiredField"
+            },
+            "title": "Always Required",
+            "type": "array"
+          },
+          "completion_threshold": {
+            "title": "Completion Threshold",
+            "type": "number"
+          },
+          "max_required": {
+            "title": "Max Required",
+            "type": "integer"
+          },
+          "per_type": {
+            "items": {
+              "$ref": "#/components/schemas/PerTypeFields"
+            },
+            "title": "Per Type",
+            "type": "array"
+          }
+        },
+        "required": [
+          "max_required",
+          "completion_threshold",
+          "always_required",
+          "per_type"
+        ],
+        "title": "FieldSetData",
         "type": "object"
       },
       "FieldSetOut": {
@@ -1741,6 +2469,52 @@
           "per_type"
         ],
         "title": "FieldSetOut",
+        "type": "object"
+      },
+      "FieldSetsSection": {
+        "additionalProperties": false,
+        "properties": {
+          "active_version": {
+            "title": "Active Version",
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/FieldSetData"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/ConfigDraft"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "section": {
+            "const": "field-sets",
+            "title": "Section",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigVersion"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "title",
+          "owner",
+          "active_version",
+          "versions",
+          "draft",
+          "section",
+          "data"
+        ],
+        "title": "FieldSetsSection",
         "type": "object"
       },
       "GapQuestionPO": {
@@ -1805,6 +2579,46 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ImpactPreview": {
+        "additionalProperties": false,
+        "description": "What publishing the draft would change. ``summary`` is computed from\nstored data (never canned) and says, for every figure, how many cases it\ncovers and what could not be computed.",
+        "properties": {
+          "non_retroactive": {
+            "title": "Non Retroactive",
+            "type": "boolean"
+          },
+          "open_cases_pinned": {
+            "title": "Open Cases Pinned",
+            "type": "integer"
+          },
+          "section": {
+            "enum": [
+              "field-sets",
+              "categories",
+              "scoring-model",
+              "control-inventory",
+              "policy-corpus",
+              "routing-rules",
+              "jurisdiction-risk",
+              "ai-agents"
+            ],
+            "title": "Section",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section",
+          "open_cases_pinned",
+          "summary",
+          "non_retroactive"
+        ],
+        "title": "ImpactPreview",
         "type": "object"
       },
       "IntakeViewPO": {
@@ -2012,6 +2826,111 @@
         "title": "JurisdictionActivateOut",
         "type": "object"
       },
+      "JurisdictionCurrent": {
+        "additionalProperties": false,
+        "properties": {
+          "added": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Added",
+            "type": "array"
+          },
+          "call_for_action": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Call For Action",
+            "type": "array"
+          },
+          "increased_monitoring": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Increased Monitoring",
+            "type": "array"
+          },
+          "published": {
+            "title": "Published",
+            "type": "string"
+          },
+          "removed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Removed",
+            "type": "array"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "published",
+          "source",
+          "call_for_action",
+          "increased_monitoring",
+          "added",
+          "removed"
+        ],
+        "title": "JurisdictionCurrent",
+        "type": "object"
+      },
+      "JurisdictionData": {
+        "additionalProperties": false,
+        "properties": {
+          "current": {
+            "$ref": "#/components/schemas/JurisdictionCurrent"
+          },
+          "fixture": {
+            "$ref": "#/components/schemas/JurisdictionFixture"
+          },
+          "unlisted_default": {
+            "title": "Unlisted Default",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current",
+          "fixture",
+          "unlisted_default"
+        ],
+        "title": "JurisdictionData",
+        "type": "object"
+      },
+      "JurisdictionFixture": {
+        "additionalProperties": false,
+        "properties": {
+          "added": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Added",
+            "type": "array"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "note",
+          "added"
+        ],
+        "title": "JurisdictionFixture",
+        "type": "object"
+      },
       "JurisdictionListOut": {
         "additionalProperties": false,
         "properties": {
@@ -2055,6 +2974,52 @@
           "active"
         ],
         "title": "JurisdictionListOut",
+        "type": "object"
+      },
+      "JurisdictionRiskSection": {
+        "additionalProperties": false,
+        "properties": {
+          "active_version": {
+            "title": "Active Version",
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/JurisdictionData"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/ConfigDraft"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "section": {
+            "const": "jurisdiction-risk",
+            "title": "Section",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigVersion"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "title",
+          "owner",
+          "active_version",
+          "versions",
+          "draft",
+          "section",
+          "data"
+        ],
+        "title": "JurisdictionRiskSection",
         "type": "object"
       },
       "JurisdictionVersionOut": {
@@ -3794,6 +4759,32 @@
         "title": "Page[Proposal]",
         "type": "object"
       },
+      "PerTypeFields": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/FieldRef"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ChangeType"
+          }
+        },
+        "required": [
+          "type",
+          "label",
+          "fields"
+        ],
+        "title": "PerTypeFields",
+        "type": "object"
+      },
       "PolicyClauseHit": {
         "additionalProperties": false,
         "description": "One clause hit of a policy search: the verbatim text under the web's\nname (``quote``), both citations, its place in ``corpus/<source>.md`` and\nits scores. ``similarity`` is the fused rank-agreement score in (0, 1];\n``vector_score`` and ``text_score`` are the two rankers' own numbers.",
@@ -3914,6 +4905,79 @@
           "similarity"
         ],
         "title": "PolicyClauseHit",
+        "type": "object"
+      },
+      "PolicyCorpusData": {
+        "additionalProperties": false,
+        "properties": {
+          "clause_count": {
+            "title": "Clause Count",
+            "type": "integer"
+          },
+          "ingested": {
+            "title": "Ingested",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/CorpusSource"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "clause_count",
+          "ingested",
+          "sources"
+        ],
+        "title": "PolicyCorpusData",
+        "type": "object"
+      },
+      "PolicyCorpusSection": {
+        "additionalProperties": false,
+        "properties": {
+          "active_version": {
+            "title": "Active Version",
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PolicyCorpusData"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/ConfigDraft"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "section": {
+            "const": "policy-corpus",
+            "title": "Section",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigVersion"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "title",
+          "owner",
+          "active_version",
+          "versions",
+          "draft",
+          "section",
+          "data"
+        ],
+        "title": "PolicyCorpusSection",
         "type": "object"
       },
       "PolicySearchResultOut": {
@@ -4646,6 +5710,26 @@
         "title": "ProposalTokens",
         "type": "object"
       },
+      "PublishedVersionOut": {
+        "additionalProperties": false,
+        "description": "What a publish answers: the version now active and whether this call\nwrote it (``False`` for a repeat of the same publish).",
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "created"
+        ],
+        "title": "PublishedVersionOut",
+        "type": "object"
+      },
       "RecordAppend": {
         "additionalProperties": false,
         "description": "What the caller submits; ``prev_hash``/``hash``/``seq`` are computed\nby the service, never supplied by the caller.",
@@ -5059,6 +6143,30 @@
         "title": "Route",
         "type": "string"
       },
+      "RoutingParameter": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "value"
+        ],
+        "title": "RoutingParameter",
+        "type": "object"
+      },
       "RoutingRule": {
         "additionalProperties": false,
         "description": "One of R1..R6 as data (ADR-19 as D-19 origin; routing v4).",
@@ -5090,6 +6198,160 @@
         "title": "RoutingRule",
         "type": "object"
       },
+      "RoutingRuleRow": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "rule"
+        ],
+        "title": "RoutingRuleRow",
+        "type": "object"
+      },
+      "RoutingRulesData": {
+        "additionalProperties": false,
+        "properties": {
+          "parameters": {
+            "items": {
+              "$ref": "#/components/schemas/RoutingParameter"
+            },
+            "title": "Parameters",
+            "type": "array"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/RoutingRuleRow"
+            },
+            "title": "Rules",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rules",
+          "parameters"
+        ],
+        "title": "RoutingRulesData",
+        "type": "object"
+      },
+      "RoutingRulesOut": {
+        "additionalProperties": false,
+        "description": "A routing rules version: ``version`` is the label cases pin (``v4``).",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "committee_quorum": {
+            "title": "Committee Quorum",
+            "type": "integer"
+          },
+          "parameters": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Parameters",
+            "type": "object"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/RoutingRuleRow"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "rules",
+          "committee_quorum",
+          "active"
+        ],
+        "title": "RoutingRulesOut",
+        "type": "object"
+      },
+      "RoutingRulesPublishIn": {
+        "additionalProperties": false,
+        "description": "``POST /internal/routing-rules``: the rules version that becomes the\nactive one, under the same ``base_version`` rule as the model.",
+        "properties": {
+          "base_version": {
+            "title": "Base Version",
+            "type": "integer"
+          },
+          "published_by": {
+            "title": "Published By",
+            "type": "string"
+          },
+          "routing": {
+            "$ref": "#/components/schemas/RoutingRulesVersion"
+          }
+        },
+        "required": [
+          "base_version",
+          "published_by",
+          "routing"
+        ],
+        "title": "RoutingRulesPublishIn",
+        "type": "object"
+      },
+      "RoutingRulesSection": {
+        "additionalProperties": false,
+        "properties": {
+          "active_version": {
+            "title": "Active Version",
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/RoutingRulesData"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/ConfigDraft"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "section": {
+            "const": "routing-rules",
+            "title": "Section",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigVersion"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "title",
+          "owner",
+          "active_version",
+          "versions",
+          "draft",
+          "section",
+          "data"
+        ],
+        "title": "RoutingRulesSection",
+        "type": "object"
+      },
       "RoutingRulesVersion": {
         "additionalProperties": false,
         "properties": {
@@ -5102,6 +6364,13 @@
             "default": 3,
             "title": "Committee Quorum",
             "type": "integer"
+          },
+          "parameters": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Parameters",
+            "type": "object"
           },
           "rules": {
             "items": {
@@ -5120,6 +6389,25 @@
           "rules"
         ],
         "title": "RoutingRulesVersion",
+        "type": "object"
+      },
+      "ScaleAnchor": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "ScaleAnchor",
         "type": "object"
       },
       "ScoreRequest": {
@@ -5204,6 +6492,147 @@
           "boundary_flag"
         ],
         "title": "ScoreResponse",
+        "type": "object"
+      },
+      "ScoringModelData": {
+        "additionalProperties": false,
+        "properties": {
+          "approved": {
+            "title": "Approved",
+            "type": "string"
+          },
+          "bands": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigBandDef"
+            },
+            "title": "Bands",
+            "type": "array"
+          },
+          "boundary_flag": {
+            "title": "Boundary Flag",
+            "type": "number"
+          },
+          "domain_weights": {
+            "items": {
+              "$ref": "#/components/schemas/DomainWeight"
+            },
+            "title": "Domain Weights",
+            "type": "array"
+          },
+          "impact_scale": {
+            "items": {
+              "$ref": "#/components/schemas/ScaleAnchor"
+            },
+            "title": "Impact Scale",
+            "type": "array"
+          },
+          "likelihood_scale": {
+            "items": {
+              "$ref": "#/components/schemas/ScaleAnchor"
+            },
+            "title": "Likelihood Scale",
+            "type": "array"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "retention_factor": {
+            "title": "Retention Factor",
+            "type": "number"
+          },
+          "retention_floor": {
+            "title": "Retention Floor",
+            "type": "number"
+          },
+          "rounding": {
+            "title": "Rounding",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain_weights",
+          "likelihood_scale",
+          "impact_scale",
+          "bands",
+          "retention_factor",
+          "retention_floor",
+          "boundary_flag",
+          "rounding",
+          "approved",
+          "owner"
+        ],
+        "title": "ScoringModelData",
+        "type": "object"
+      },
+      "ScoringModelPublishIn": {
+        "additionalProperties": false,
+        "description": "``POST /internal/models``: the model that becomes the active one.\n``base_version`` is the version the caller believes is active; S2 refuses\nthe call when it is not (a concurrent publish moved it).",
+        "properties": {
+          "base_version": {
+            "title": "Base Version",
+            "type": "integer"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ScoringModelVersion"
+          },
+          "published_by": {
+            "title": "Published By",
+            "type": "string"
+          }
+        },
+        "required": [
+          "base_version",
+          "published_by",
+          "model"
+        ],
+        "title": "ScoringModelPublishIn",
+        "type": "object"
+      },
+      "ScoringModelSection": {
+        "additionalProperties": false,
+        "properties": {
+          "active_version": {
+            "title": "Active Version",
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ScoringModelData"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/ConfigDraft"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "section": {
+            "const": "scoring-model",
+            "title": "Section",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigVersion"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "title",
+          "owner",
+          "active_version",
+          "versions",
+          "draft",
+          "section",
+          "data"
+        ],
+        "title": "ScoringModelSection",
         "type": "object"
       },
       "ScoringModelVersion": {
@@ -9510,6 +10939,489 @@
         ]
       }
     },
+    "/api/fcrm/policy/config/{section}": {
+      "get": {
+        "description": "One section: the data in force, its append-only version history, and\nthe server-side draft with its ETag.",
+        "operationId": "S3_get_config_config__section__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "section",
+            "required": true,
+            "schema": {
+              "title": "Section",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "discriminator": {
+                    "mapping": {
+                      "ai-agents": "#/components/schemas/AiAgentsSection",
+                      "categories": "#/components/schemas/CategoriesSection",
+                      "control-inventory": "#/components/schemas/ControlInventorySection",
+                      "field-sets": "#/components/schemas/FieldSetsSection",
+                      "jurisdiction-risk": "#/components/schemas/JurisdictionRiskSection",
+                      "policy-corpus": "#/components/schemas/PolicyCorpusSection",
+                      "routing-rules": "#/components/schemas/RoutingRulesSection",
+                      "scoring-model": "#/components/schemas/ScoringModelSection"
+                    },
+                    "propertyName": "section"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/FieldSetsSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CategoriesSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ScoringModelSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ControlInventorySection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PolicyCorpusSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RoutingRulesSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JurisdictionRiskSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AiAgentsSection"
+                    }
+                  ],
+                  "title": "Response Get Config Config  Section  Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Config",
+        "tags": [
+          "policy",
+          "policy-config"
+        ]
+      }
+    },
+    "/api/fcrm/policy/config/{section}/draft": {
+      "delete": {
+        "description": "Discard the section's working set.",
+        "operationId": "S3_delete_draft_config__section__draft_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "section",
+            "required": true,
+            "schema": {
+              "title": "Section",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "discriminator": {
+                    "mapping": {
+                      "ai-agents": "#/components/schemas/AiAgentsSection",
+                      "categories": "#/components/schemas/CategoriesSection",
+                      "control-inventory": "#/components/schemas/ControlInventorySection",
+                      "field-sets": "#/components/schemas/FieldSetsSection",
+                      "jurisdiction-risk": "#/components/schemas/JurisdictionRiskSection",
+                      "policy-corpus": "#/components/schemas/PolicyCorpusSection",
+                      "routing-rules": "#/components/schemas/RoutingRulesSection",
+                      "scoring-model": "#/components/schemas/ScoringModelSection"
+                    },
+                    "propertyName": "section"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/FieldSetsSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CategoriesSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ScoringModelSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ControlInventorySection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PolicyCorpusSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RoutingRulesSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JurisdictionRiskSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AiAgentsSection"
+                    }
+                  ],
+                  "title": "Response Delete Draft Config  Section  Draft Delete"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Draft",
+        "tags": [
+          "policy",
+          "policy-config"
+        ]
+      },
+      "put": {
+        "description": "Add one change to the section's working set (a change back to the\npublished value removes it). 409 when ``If-Match`` is stale or the\npublished version moved under the draft; 422 naming the field when the path\nor the value does not suit the section.",
+        "operationId": "S3_put_draft_config__section__draft_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "section",
+            "required": true,
+            "schema": {
+              "title": "Section",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigDraftIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "discriminator": {
+                    "mapping": {
+                      "ai-agents": "#/components/schemas/AiAgentsSection",
+                      "categories": "#/components/schemas/CategoriesSection",
+                      "control-inventory": "#/components/schemas/ControlInventorySection",
+                      "field-sets": "#/components/schemas/FieldSetsSection",
+                      "jurisdiction-risk": "#/components/schemas/JurisdictionRiskSection",
+                      "policy-corpus": "#/components/schemas/PolicyCorpusSection",
+                      "routing-rules": "#/components/schemas/RoutingRulesSection",
+                      "scoring-model": "#/components/schemas/ScoringModelSection"
+                    },
+                    "propertyName": "section"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/FieldSetsSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CategoriesSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ScoringModelSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ControlInventorySection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PolicyCorpusSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RoutingRulesSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JurisdictionRiskSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AiAgentsSection"
+                    }
+                  ],
+                  "title": "Response Put Draft Config  Section  Draft Put"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Draft",
+        "tags": [
+          "policy",
+          "policy-config"
+        ]
+      }
+    },
+    "/api/fcrm/policy/config/{section}/draft/preview": {
+      "post": {
+        "description": "What publishing would change, replayed from stored data: nothing is\nwritten, and anything the data cannot answer is said to be not computable.",
+        "operationId": "S3_preview_draft_config__section__draft_preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "section",
+            "required": true,
+            "schema": {
+              "title": "Section",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImpactPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Preview Draft",
+        "tags": [
+          "policy",
+          "policy-config"
+        ]
+      }
+    },
+    "/api/fcrm/policy/config/{section}/draft/publish": {
+      "post": {
+        "description": "Append the draft as the section's next immutable snapshot and put it\ninto force; the version note must be at least 20 characters. The jurisdiction\nlist publishes by activating the stored list, with its\n``jurisdiction.list_published`` event, in the same transaction.",
+        "operationId": "S3_publish_draft_config__section__draft_publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "section",
+            "required": true,
+            "schema": {
+              "title": "Section",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigPublishIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "discriminator": {
+                    "mapping": {
+                      "ai-agents": "#/components/schemas/AiAgentsSection",
+                      "categories": "#/components/schemas/CategoriesSection",
+                      "control-inventory": "#/components/schemas/ControlInventorySection",
+                      "field-sets": "#/components/schemas/FieldSetsSection",
+                      "jurisdiction-risk": "#/components/schemas/JurisdictionRiskSection",
+                      "policy-corpus": "#/components/schemas/PolicyCorpusSection",
+                      "routing-rules": "#/components/schemas/RoutingRulesSection",
+                      "scoring-model": "#/components/schemas/ScoringModelSection"
+                    },
+                    "propertyName": "section"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/FieldSetsSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CategoriesSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ScoringModelSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ControlInventorySection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PolicyCorpusSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RoutingRulesSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JurisdictionRiskSection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AiAgentsSection"
+                    }
+                  ],
+                  "title": "Response Publish Draft Config  Section  Draft Publish Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Publish Draft",
+        "tags": [
+          "policy",
+          "policy-config"
+        ]
+      }
+    },
     "/api/fcrm/policy/controls": {
       "get": {
         "description": "One control-inventory version (``v9`` or ``9``; the active one when\nomitted), optionally only the controls of one risk ``domain``.",
@@ -10209,6 +12121,102 @@
         ]
       }
     },
+    "/api/fcrm/scoring/internal/models": {
+      "post": {
+        "description": "Make ``body.model`` the active scoring model, if ``body.base_version`` is\nthe one active now (409 otherwise) and the model is valid (422). A repeat of\na publish that already happened answers the same version with\n``created: false``.",
+        "operationId": "S2_publish_model_internal_models_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScoringModelPublishIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedVersionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Publish Model",
+        "tags": [
+          "scoring",
+          "scoring-routing"
+        ]
+      }
+    },
+    "/api/fcrm/scoring/internal/routing-rules": {
+      "post": {
+        "description": "Make ``body.routing`` the active routing rules, under the same\n``base_version`` and repeat rules as :func:`publish_model`.",
+        "operationId": "S2_publish_routing_internal_routing_rules_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoutingRulesPublishIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedVersionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Publish Routing",
+        "tags": [
+          "scoring",
+          "scoring-routing"
+        ]
+      }
+    },
     "/api/fcrm/scoring/models/active": {
       "get": {
         "description": "The scoring model version currently active for new scoring calls.",
@@ -10281,6 +12289,55 @@
         "summary": "Model By Version",
         "tags": [
           "scoring"
+        ]
+      }
+    },
+    "/api/fcrm/scoring/routing-rules/{version}": {
+      "get": {
+        "description": "One routing rules version (``v4`` or ``4``; ``active`` for the one in\nforce): R1 to R6 as ``{id, rule}`` rows, the parameter table and the\ncommittee quorum.\n\nRaises:\n    NotFoundError: There is no such version.",
+        "operationId": "S2_routing_rules_by_version_routing_rules__version__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoutingRulesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Routing Rules By Version",
+        "tags": [
+          "scoring",
+          "scoring-routing"
         ]
       }
     },
