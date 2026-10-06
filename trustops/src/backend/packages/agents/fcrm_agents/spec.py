@@ -26,12 +26,42 @@ Source of each value
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
-from typing import Any, Final, Optional, Union
+from typing import Annotated, Any, Final, Optional, Union
 
 from fcrm_contracts.enums import AgentName, Tier
 from fcrm_guardrails.output_shape import AGENT_OUTPUT_TYPES
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+
+
+def _loads(value: Any) -> Any:
+    """``value`` decoded when it is text that is JSON, else unchanged."""
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return value
+    return value
+
+
+def decode_json_text(value: Any) -> Any:
+    """``value`` with JSON that a model sent as *text* decoded: the whole list, or
+    an item of it, written as a string instead of an array or an object, and a
+    single item sent without its list.
+
+    A model asked to call a tool with a list sometimes sends the list as one
+    JSON string (seen live from Sonnet 5.5: ``response`` was ``"[{...}]"``), which
+    fails validation and costs a whole retry (about 20k tokens for research).
+    The text is decoded and then validated against the contract exactly as an
+    array would have been; text that is not JSON is left alone to fail.
+    """
+    value = _loads(value)
+    if isinstance(value, dict):
+        return [value]
+    if isinstance(value, list):
+        return [_loads(item) for item in value]
+    return value
 
 
 class AgentSpec(BaseModel):
@@ -65,7 +95,7 @@ class AgentSpec(BaseModel):
             if len(self.output_types) == 1
             else Union.__getitem__(self.output_types)
         )
-        return list[items]
+        return Annotated[list[items], BeforeValidator(decode_json_text)]
 
 
 def _spec(

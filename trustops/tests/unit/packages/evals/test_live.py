@@ -15,7 +15,12 @@ from fcrm_contracts.enums import AgentName
 from fcrm_contracts.proposals.screening import ScreeningProposal
 from fcrm_evals.datasets import load
 from fcrm_evals.instructions import InstructionRenderer
-from fcrm_evals.live import LiveProducer, RowPackBuilder, lifted_token_budgets
+from fcrm_evals.live import (
+    LiveProducer,
+    RowPackBuilder,
+    lifted_token_budgets,
+    with_field_lines,
+)
 from fcrm_evals.metrics.citation import shown_sources
 from fcrm_evals.usage import RowStatus
 from fcrm_seed.loader import load_raw
@@ -86,9 +91,8 @@ async def test_pack_sources_are_the_rows_own(
 ) -> None:
     row = load(agent)[0]
     pack = await pack_builder.build(row)
-    assert [s.model_dump() for s in pack.sources] == [
-        s.model_dump() for s in row.sources()
-    ]
+    own = with_field_lines(row.sources(), row.case_id, pack.sections.get("fields"))
+    assert [s.model_dump() for s in pack.sources] == [s.model_dump() for s in own]
 
 
 async def test_critic_pack_widens_only_the_assessment_record(
@@ -135,6 +139,27 @@ async def test_screening_fields_are_real_builder_lines_whose_values_a_quote_can_
     for line in lines:
         value = line.split(" · ")[2]
         assert value in case_text
+
+
+async def test_a_whole_field_line_the_pack_printed_is_a_quotable_case_source(
+    pack_builder: RowPackBuilder,
+) -> None:
+    """A value shorter than 12 characters cannot stand as a quote; the whole
+    line (id and label around it) can, so the case source holds the lines the
+    pack printed, as production's ``cite_case`` does."""
+    demo = next(r for r in load(AgentName.SCREENING) if r.case_id == "FCRM-2026-0151")
+    pack = await pack_builder.build(demo)
+    case = next(s for s in pack.sources if s.key == "case:FCRM-2026-0151")
+    for line in pack.sections["fields"].split("\n"):
+        assert line in case.text
+    assert case.text.startswith(demo.sources()[0].text)
+
+
+def test_with_field_lines_leaves_other_sources_and_pack_without_fields_alone() -> None:
+    row = load(AgentName.SCREENING)[0]
+    assert [
+        s.model_dump() for s in with_field_lines(row.sources(), row.case_id, None)
+    ] == [s.model_dump() for s in row.sources()]
 
 
 async def test_a_volume_the_case_does_not_record_is_an_empty_field(

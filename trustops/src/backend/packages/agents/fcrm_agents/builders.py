@@ -163,12 +163,28 @@ def field_items(
     return items
 
 
-def cite_case(draft: PackDraft, record: CaseRecordOutput) -> None:
-    """Register the case's own fields as a citable source."""
+def cite_case(
+    draft: PackDraft,
+    record: CaseRecordOutput,
+    labels: Optional[Mapping[str, str]] = None,
+) -> None:
+    """Register the case's own fields as a citable source.
+
+    The text holds each field twice: as ``<id>: <value>`` and as the very line the
+    pack's ``fields`` section shows (``labels`` as that section shows them), so a
+    model that copies a whole line it was shown has quoted the source, and a value
+    too short to stand as a quote (``US \u2192 Mexico`` is 11 characters) can be
+    quoted with its id and label around it. The source text is never sent to the
+    model, only checked against.
+    """
+    shown = dict(field_items(record, labels))
     lines = [
         f"{fid}: {field_value(record, fid)}"
         for fid in sorted(record.fields)
         if field_value(record, fid) is not None
+    ]
+    lines += [
+        shown[fid] for fid in sorted(shown) if field_value(record, fid) is not None
     ]
     draft.cite(CaseSourceRef(case_id=record.case_id), source_text_lines(lines))
 
@@ -426,7 +442,7 @@ class ScreeningPackBuilder(ContextPackBuilder):
                 for h in hits.hits
             ],
         )
-        cite_case(draft, record)
+        cite_case(draft, record, labels)
         cite_precedents(draft, hits)
 
 
@@ -587,7 +603,14 @@ class ResearchPackBuilder(ContextPackBuilder):
         listing = await fetch_list(tools, request.versions.jurisdictions_v)
         countries = destinations(record)
         lines = [list_line(listing, c) for c in countries]
-        draft.add("jurisdictions", list(zip(countries, lines, strict=True)))
+        handle = f"{FATF_LIST_ID}@{listing.version}"
+        draft.add(
+            "jurisdictions",
+            [
+                (country, dot(country, handle, f"line: {line}"))
+                for country, line in zip(countries, lines, strict=True)
+            ],
+        )
         if lines:
             draft.cite(
                 ListSourceRef(list_id=FATF_LIST_ID, version=listing.version),

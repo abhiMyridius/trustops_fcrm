@@ -29,6 +29,7 @@ from pydantic_ai.models.bedrock import BedrockConverseModel, BedrockModelSetting
 from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.providers.bedrock import BedrockProvider
 
+from fcrm_agents.runtime import agent_capabilities
 from fcrm_agents.spec import AgentSpec
 
 logger = logging.getLogger(__name__)
@@ -231,5 +232,6 @@ def build_agent(
         model_settings=model_settings_for(models),
         retries=0,
         tools=list(tools),
+        capabilities=agent_capabilities(),
         name=spec.name.value,
     )

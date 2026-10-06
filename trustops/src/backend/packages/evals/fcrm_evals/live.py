@@ -667,6 +667,26 @@ NARRATIVE_MODE: Final[str] = "recommendation"
 # ---- the pack builder ----------------------------------------------------
 
 
+def with_field_lines(
+    sources: Sequence[AvailableSource], case_id: str, fields: Optional[str]
+) -> list[AvailableSource]:
+    """``sources`` with the row's own case source widened by the lines of the
+    pack's ``fields`` section, as production's ``cite_case`` registers a case: a
+    model that copies a whole field line it was shown has quoted a source, and a
+    value too short to stand as a quote can be quoted with its id and label.
+    Nothing else changes, and nothing is invented: every line is one the pack
+    printed."""
+    if not fields:
+        return list(sources)
+    widened = []
+    for source in sources:
+        ref = source.source_ref
+        if isinstance(ref, CaseSourceRef) and ref.case_id == case_id:
+            source = AvailableSource(source_ref=ref, text=f"{source.text}\n{fields}")
+        widened.append(source)
+    return widened
+
+
 class RowPackBuilder:
     """Dataset row -> :class:`~fcrm_agents.context_pack.ContextPack` (module
     docstring)."""
@@ -772,7 +792,7 @@ class RowPackBuilder:
             versions=self._versions,
             sections=sections,
             section_meta=draft.sections,
-            sources=list(view.sources),
+            sources=with_field_lines(view.sources, row.case_id, sections.get("fields")),
             tools_called=[],
             token_estimate=tokens,
             token_cap=cap,

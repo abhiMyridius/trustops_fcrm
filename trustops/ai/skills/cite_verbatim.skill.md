@@ -11,9 +11,9 @@ changelog:
 Every item that states a fact carries a `source_ref` and a `quote`. Code checks both before any person sees your output, and an item that fails is dropped.
 
 1. Copy the quote character for character from the source text shown to you: same words, order, numbers and punctuation. Do not fix typos, expand abbreviations or swap in synonyms.
-2. Quote the shortest span that proves the claim, at least 12 characters. You may cut the start or the end of a sentence and mark the cut with "…". Never put "…" in the middle to join two pieces. One quote comes from one place; a claim that needs two passages is two items. A value shorter than 12 characters cannot stand as a quote: quote the whole line it sits on instead (a document line without its `p.N l.M:` anchor), or, for a case field, quote the longer change description (F02).
+2. Quote the shortest span that proves the claim, at least 12 characters. You may cut the start or the end of a sentence and mark the cut with "…". Never put "…" in the middle to join two pieces. One quote comes from one place; a claim that needs two passages is two items. A value shorter than 12 characters cannot stand as a quote: quote the whole line it sits on instead (a document line without its `p.N l.M:` anchor), or, for a case field, its whole line from the fields section (id and label included).
 3. The `source_ref` names where the quote is, by the handle the pack shows, and nothing else resolves:
-   - a case field (an `F02 · label · value` line): `{kind: case, case_id}` with the case id from the identity line. The quote is the field's value alone, not its id or label. A field is never a document.
+   - a case field (an `F02 · label · value` line): `{kind: case, case_id}` with the case id from the identity line. The quote is the field's value alone, or the whole line (id and label included) when the value is shorter than 12 characters. A field is never a document.
    - a document line (`p.N l.M: text`): `{kind: doc, doc_id, page, line_start, line_end}` with the anchors as shown.
    - a policy clause: `{kind: clause, clause_id, corpus_v}`; an audit record (`#seq`): `{kind: record, case_id, seq}`.
    - a control: `{kind: control, control_id, controls_v}`; an owner answer: `{kind: owner_answer, thread_id, question_id}`.

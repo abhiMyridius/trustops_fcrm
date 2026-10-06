@@ -41,7 +41,7 @@ tiers:
     primary: us.anthropic.claude-haiku-4-5-20251001-v1:0
     fallbacks:
       - us.amazon.nova-lite-v1:0
-    max_tokens: 2000               # output cap per request
+    max_tokens: 4000               # output cap per request (was 2000: an intake window of 15 values is cut off at 2000, and a cut tool call arrives as {})
     wall_clock_s: 60
     retries: 1
     budget: {tokens: 6000, wall_s: 60, retries: 1}
@@ -52,7 +52,7 @@ tiers:
     fallbacks:
       - us.anthropic.claude-haiku-4-5-20251001-v1:0
     effort: low                    # output_config.effort for the chain's thinking models; see the models block
-    max_tokens: 3500
+    max_tokens: 4000
     wall_clock_s: 120
     retries: 1
     budget: {tokens: 12000, wall_s: 120, retries: 1}
@@ -64,7 +64,7 @@ tiers:
       - us.anthropic.claude-opus-5-5
       - us.amazon.nova-pro-v1:0
     effort: medium
-    max_tokens: 5000
+    max_tokens: 8000
     wall_clock_s: 180
     retries: 1
     budget: {tokens: 20000, wall_s: 180, retries: 1}
@@ -77,7 +77,7 @@ tiers:
     fallbacks:
       - us.anthropic.claude-sonnet-5-5
     effort: medium
-    max_tokens: 4000
+    max_tokens: 8000
     wall_clock_s: 180
     retries: 1
     budget: {tokens: 20000, wall_s: 180, retries: 1}

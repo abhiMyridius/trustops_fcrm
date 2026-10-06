@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 from fcrm_agents import REGISTRY
 from fcrm_agents.models import load_tiers_config
+from fcrm_agents.runtime import OFFLINE_MAX_TOKENS
 from fcrm_contracts.enums import Tier
 from fcrm_guardrails.budget import CASE_TOKEN_CAP, TIER_BUDGETS
 from fcrm_prompts import PromptLibrary
@@ -51,6 +52,12 @@ def test_every_agent_spec_copies_its_tiers_budget(name: str) -> None:
         budget.wall_s,
         budget.retries,
     )
+
+
+@pytest.mark.parametrize("tier", list(Tier))
+def test_the_offline_output_allowance_is_the_tiers(tier: Tier) -> None:
+    entry = load_tiers_config(REPO_AI)["tiers"][tier.value]
+    assert OFFLINE_MAX_TOKENS[tier] == entry["max_tokens"]
 
 
 def test_the_case_cap_is_the_one_in_tiers_yaml() -> None:

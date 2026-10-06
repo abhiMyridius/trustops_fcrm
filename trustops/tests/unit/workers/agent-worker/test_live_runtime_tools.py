@@ -9,6 +9,7 @@ setting's 12)."""
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from typing import Any
 
@@ -78,6 +79,36 @@ async def test_an_agent_with_cap_zero_is_offered_no_tool(
         make_model_factory_scripted([[_no_tools_offered(seen)]], []),
     )
     assert seen == [[]]
+
+
+async def test_the_output_tool_schema_the_model_sees_is_compact(
+    research_pack: ContextPack,
+    research_spec: AgentSpec,
+    fake_tiers_config: dict[str, Any],
+    seed_registry: ToolRegistry,
+    allow_all_permit: PermitGuard,
+    make_model_factory_scripted: Callable[..., ModelFactory],
+) -> None:
+    """Title keywords repeat the field name on every property; 200 to 300 tokens
+    of every request of every agent. The contract is still validated whole."""
+    shown: list[str] = []
+
+    def record(info: AgentInfo, messages: list[Any]) -> ModelResponse:
+        shown.append(json.dumps(info.output_tools[0].parameters_json_schema))
+        return _no_tools_offered([])(info, messages)
+
+    await _run(
+        research_spec,
+        research_pack,
+        seed_registry,
+        allow_all_permit,
+        fake_tiers_config,
+        make_model_factory_scripted([[record]], []),
+    )
+    (schema,) = shown
+    assert '"title"' not in schema
+    assert '"default": null' not in schema
+    assert "ClauseProposal" in schema
 
 
 async def test_an_agent_with_a_cap_is_offered_its_tools(

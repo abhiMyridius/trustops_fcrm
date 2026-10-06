@@ -37,7 +37,7 @@ import json
 import logging
 import re
 from collections.abc import Collection, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Final, Optional, Union
@@ -75,8 +75,10 @@ from pydantic_ai import (
     UsageLimitExceeded,
     UsageLimits,
 )
+from pydantic_ai.capabilities import AbstractCapability, PrepareOutputTools
 from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
+from pydantic_ai.tools import ToolDefinition
 
 from fcrm_agents.builders import POLICY_INDEX, PRECEDENT_INDEX
 from fcrm_agents.context_pack import ContextPack
@@ -93,10 +95,10 @@ HARNESS_ROLE: Final = "fcrm_service"
 DEFAULT_PERMITS_FILE: Final = Path("ai/policies/tool_permits.json")
 _OUTPUT_INDEX: Final = re.compile(r"^outputs\[(\d+)\]")
 OFFLINE_MAX_TOKENS: Final[Mapping[Tier, int]] = {
-    Tier.CHEAP: 2000,
-    Tier.MID: 3500,
-    Tier.STRONG: 5000,
-    Tier.JUDGE: 4000,
+    Tier.CHEAP: 4000,
+    Tier.MID: 4000,
+    Tier.STRONG: 8000,
+    Tier.JUDGE: 8000,
 }
 """Output caps per tier (``ai/models/tiers.yaml max_tokens``) for the
 offline ``ModelSettings``; the live path reads them from the file."""
@@ -205,6 +207,25 @@ def compact_schema(node: Any) -> Any:
     if isinstance(node, list):
         return [compact_schema(v) for v in node]
     return node
+
+
+async def compact_output_tools(
+    ctx: RunContext[Any], tool_defs: list[ToolDefinition]
+) -> list[ToolDefinition]:
+    """The output tool's definition with its JSON schema compacted
+    (:func:`compact_schema`): 200 to 300 tokens off every request of every agent.
+    Only what the model is shown changes; the output is still validated against
+    the contract's own types."""
+    return [
+        replace(td, parameters_json_schema=compact_schema(td.parameters_json_schema))
+        for td in tool_defs
+    ]
+
+
+def agent_capabilities() -> list[AbstractCapability[Any]]:
+    """The Pydantic AI capabilities every agent runs with (offline, live and
+    :func:`fcrm_agents.models.build_agent` alike)."""
+    return [PrepareOutputTools(compact_output_tools)]
 
 
 def scope_values(name: str, deps: AgentDeps) -> dict[str, Any]:
@@ -479,6 +500,7 @@ class OfflineRun:
             deps_type=AgentDeps,
             retries=0,
             tools=tool_functions(self.spec, self.registry),
+            capabilities=agent_capabilities(),
             name=self.spec.name.value,
         )
         deps = AgentDeps(

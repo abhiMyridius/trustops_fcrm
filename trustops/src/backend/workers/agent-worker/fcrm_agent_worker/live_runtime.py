@@ -52,6 +52,7 @@ from fcrm_agents.runtime import (
     AgentRunResult,
     AttemptRecord,
     RunVerdict,
+    agent_capabilities,
     tool_functions,
 )
 from fcrm_agents.spec import AgentSpec
@@ -150,6 +151,17 @@ def retry_text(user_text: str, feedback: Sequence[str]) -> str:
         f"- {line[:FEEDBACK_CHARS]}" for line in feedback[:FEEDBACK_LINES]
     )
     return f"{user_text}\n\n{RETRY_HEADER}\n{lines}"
+
+
+def describe_failure(exc: BaseException) -> str:
+    """One line saying why a model call failed: the error and, when Pydantic AI
+    wrapped one (an output that failed validation is reported as "exceeded
+    maximum output retries"), what it wrapped."""
+    text = str(exc)
+    cause = exc.__cause__
+    if cause is not None:
+        text = f"{text}: {type(cause).__name__}: {cause}"
+    return " ".join(text.split())[:400]
 
 
 def _model_name(model: Model) -> str:
@@ -307,6 +319,7 @@ class LiveRun:
             tools=tool_functions(self.spec, self.registry)
             if self.tool_call_cap
             else [],
+            capabilities=agent_capabilities(),
             name=self.spec.name.value,
         )
         deps = AgentDeps(
@@ -349,24 +362,25 @@ class LiveRun:
                 if attempt < self.max_attempts
                 else GuardStatus.BLOCKED
             )
+            detail = describe_failure(exc)
             logger.warning(
                 "model call failed (%s, attempt %d): %s",
                 self.spec.name.value,
                 attempt,
-                str(exc)[:300],
+                detail,
                 extra={"agent": self.spec.name.value, "attempt": attempt},
             )
             if isinstance(exc, UnexpectedModelBehavior):
                 self.feedback = [
                     "your answer was not a valid call of the output tool "
-                    f"({str(exc)[:FEEDBACK_CHARS]}); call it once with the "
+                    f"({detail[:FEEDBACK_CHARS]}); call it once with the "
                     "complete result"
                 ]
             record.guard_results.append(
                 GuardResult(
                     guard=GuardName.OUTPUT_SHAPE,
                     status=status,
-                    summary=f"attempt {attempt}: model call failed: {exc}",
+                    summary=f"attempt {attempt}: model call failed: {detail}",
                     details={"error": type(exc).__name__},
                     audit_type=AUDIT_TYPES[GuardName.OUTPUT_SHAPE],
                 )

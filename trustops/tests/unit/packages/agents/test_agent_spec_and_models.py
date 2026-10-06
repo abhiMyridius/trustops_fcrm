@@ -17,11 +17,12 @@ from fcrm_agents.models import (
     model_defaults,
     model_settings_for,
 )
+from fcrm_agents.spec import decode_json_text
 from fcrm_contracts.enums import AgentName, Tier
 from fcrm_contracts.proposals.research import ClauseProposal, PrecedentMatch
 from fcrm_guardrails.output_shape import AGENT_OUTPUT_TYPES
 from fcrm_prompts import PromptLibrary
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 from pydantic_ai.models.bedrock import BedrockConverseModel
 from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.providers.bedrock import BedrockProvider
@@ -96,6 +97,47 @@ def test_output_type_validates_a_mixed_item_list() -> None:
         ]
     )
     assert [type(i) for i in items] == [PrecedentMatch, ClauseProposal]
+
+
+PRECEDENT = {
+    "case_id": "FCRM-2026-0118",
+    "similarity": 0.7,
+    "outcome": "x",
+    "note": "y",
+}
+
+
+def test_a_list_a_model_sent_as_json_text_is_decoded_and_validated() -> None:
+    """Seen live from Sonnet 5.5: the output tool's ``response`` was the string
+    ``"[{...}]"``, which failed validation and cost a whole retry."""
+    adapter: TypeAdapter[Any] = TypeAdapter(get_spec("research").output_type())
+    items = adapter.validate_python(json.dumps([PRECEDENT]))
+    assert [type(i) for i in items] == [PrecedentMatch]
+
+
+def test_an_item_sent_as_json_text_inside_the_list_is_decoded() -> None:
+    adapter: TypeAdapter[Any] = TypeAdapter(get_spec("research").output_type())
+    items = adapter.validate_python([json.dumps(PRECEDENT), PRECEDENT])
+    assert [type(i) for i in items] == [PrecedentMatch, PrecedentMatch]
+
+
+def test_a_single_item_sent_without_its_list_is_wrapped() -> None:
+    adapter: TypeAdapter[Any] = TypeAdapter(get_spec("research").output_type())
+    assert len(adapter.validate_python(PRECEDENT)) == 1
+
+
+def test_decoding_does_not_make_an_invalid_item_valid() -> None:
+    adapter: TypeAdapter[Any] = TypeAdapter(get_spec("research").output_type())
+    with pytest.raises(ValidationError):
+        adapter.validate_python(json.dumps([{**PRECEDENT, "similarity": "high"}]))
+    with pytest.raises(ValidationError):
+        adapter.validate_python("not json at all")
+
+
+def test_decode_json_text_leaves_everything_else_alone() -> None:
+    assert decode_json_text([1, 2]) == [1, 2]
+    assert decode_json_text(None) is None
+    assert decode_json_text("plain") == "plain"
 
 
 @pytest.mark.skipif(not HAS_AI, reason="ai/ lane absent")
