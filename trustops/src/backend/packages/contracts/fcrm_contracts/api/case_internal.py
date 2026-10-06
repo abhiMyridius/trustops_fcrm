@@ -44,13 +44,6 @@ class AnalystLoad(BaseModel):
     open_case_count: int
 
 
-class SetOutcomeRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    outcome: str
-    conditions: list[dict[str, Any]] = []
-
-
 # ── V1: what H1's intake core and the document pipeline push into S1 ────────
 # Everything below is called only by the service account (``fcrm_service``),
 # idempotently: a PUT or PATCH repeated with the same body leaves S1 unchanged,
