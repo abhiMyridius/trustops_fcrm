@@ -341,12 +341,12 @@ class PoFollowupService:
                 activity=[
                     po_row(
                         principal.sub,
-                        "condition.evidence_submitted",
+                        "condition.updated",
                         "You sent evidence for a condition",
                     ),
                     staff_row(
                         principal.sub,
-                        "condition.evidence_submitted",
+                        "condition.updated",
                         f"The owner sent evidence for condition {label}",
                         {"condition_id": condition_id},
                     ),

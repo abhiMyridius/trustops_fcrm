@@ -412,6 +412,25 @@ def test_the_owner_and_the_analyst_each_read_their_own_line_of_each_answer(
             assert_plain({"summary": entry.summary, "detail": entry.detail})
 
 
+def test_the_owners_activity_feed_tells_the_round_in_plain_words(
+    round_sent: CaseService,
+) -> None:
+    first, second = thread_ids(round_sent)
+    answer(round_sent, first, {"text": ANSWER_ONE})
+    answer(round_sent, second, {"text": ANSWER_TWO})
+
+    response = round_sent.client.get(f"/cases/{CASE}/activity")
+
+    assert response.status_code == 200, response.text
+    texts = [e["text"] for e in response.json()["items"]]
+    assert "You answered a question from FCRM" in texts
+    assert any(t.startswith("You answered FCRM's questions") for t in texts)
+    assert "FCRM has 2 questions for you" in texts
+    assert_plain(response.json())
+    # What only the analyst sees stays off the owner's feed.
+    assert not any("submission v2" in t or "owner answered" in t for t in texts)
+
+
 # ── the plain outcome (scene 19) ────────────────────────────────────────────────
 
 
@@ -619,9 +638,7 @@ def test_the_owner_evidences_their_own_condition_even_after_the_case_closed(
     assert event["data"]["status"] == "evidence_submitted"
     assert event["data"]["condition_id"] == "cnd_1"
     owner_rows = [
-        e
-        for e in decided.store.activity.entries
-        if e.type == "condition.evidence_submitted"
+        e for e in decided.store.activity.entries if e.type == "condition.updated"
     ]
     assert sorted(e.visibility for e in owner_rows) == ["analyst", "po"]
     assert decided.store._cases[CASE].state is CaseState.CLOSED
