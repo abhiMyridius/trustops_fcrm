@@ -45,7 +45,7 @@ sequenceDiagram
     An->>W1: Override CTL-T01: 7.6 -> 4.5, reason required
     W1->>S1: POST review item decision (OverrideReviewItemRequest.reason)
     S1->>H1: gate.decided review_item
-    Note over H1: rule 6 (reason present); rebuild ScoreRequest from confirmed values
+    Note over H1: rule 6 (reason present), rebuild ScoreRequest from confirmed values
     H1->>S2: POST /score (CTL-T01 now 4.5)
     S2-->>H1: 10.4, Band 3, boundary_flag=true (edge just crossed), distance=0.3
     H1->>S4: human.override, score.recomputed

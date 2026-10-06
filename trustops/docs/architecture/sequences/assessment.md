@@ -13,22 +13,22 @@ sequenceDiagram
     participant S4 as audit (S4)
     participant S5 as decision (S5)
 
-    Note over H1: TRIAGE_DISPATCH (TRIAGE -> SCREENING); agent.run screening
+    Note over H1: TRIAGE_DISPATCH (TRIAGE -> SCREENING), agent.run screening
     H2-->>H1: agent.done screening
-    Note over H1: AGENT_DONE_SCREENING (SCREENING -> ASSESS); step screening.publish
+    Note over H1: AGENT_DONE_SCREENING (SCREENING -> ASSESS), step screening.publish
     H1->>S1: PUT screening
     H1->>S4: screening.proposed
 
-    Note over H1: ASSESS_DISPATCH; agent.run research and assessment (assessment alone on the fast lane); step assess.open
+    Note over H1: ASSESS_DISPATCH, agent.run research and assessment (assessment alone on the fast lane), step assess.open
     H1->>S1: PATCH state assess
     H1->>S4: workflow.stage
-    H2-->>H1: agent.done (each is kept; the join waits for both)
-    Note over H1: AGENT_DONE_ASSESS_BOTH (ASSESS -> CRITIC); step assess.publish
+    H2-->>H1: agent.done (each is kept, the join waits for both)
+    Note over H1: AGENT_DONE_ASSESS_BOTH (ASSESS -> CRITIC), step assess.publish
     H1->>S3: GET /controls (catalogue weights, cached)
     H1->>S4: proposal.research, proposal.assessment (one ledger entry per item)
     H1->>S1: PUT items (clauses, factors, controls with their weights, gaps)
     H1->>H1: open one review_item gate per gated item
-    H1->>S1: GET score-request (the one builder; planned controls never in it)
+    H1->>S1: GET score-request (the one builder, planned controls never in it)
     H1->>S2: POST /score
     S2-->>H1: 9.8, Band 2, boundary flag, distance 0.3
     H1->>S1: PUT score (request and response kept as the score of record)
@@ -37,39 +37,39 @@ sequenceDiagram
 
     H1->>H2: agent.run critic
     H2-->>H1: agent.done critic
-    Note over H1: AGENT_DONE_CRITIC (CRITIC -> COMPLETENESS); step critic.publish
-    H1->>S1: PUT critic (findings; each is an item with a gate)
+    Note over H1: AGENT_DONE_CRITIC (CRITIC -> COMPLETENESS), step critic.publish
+    H1->>S1: PUT critic (findings, each is an item with a gate)
     H1->>S4: critic.findings
 
     H1->>H2: agent.run narrative (completeness mode)
     H2-->>H1: agent.done narrative
-    Note over H1: AGENT_DONE_NARRATIVE_COMPLETENESS; step completeness.publish; completeness gate opens
+    Note over H1: AGENT_DONE_NARRATIVE_COMPLETENESS, step completeness.publish, completeness gate opens
     H1->>S1: PUT completeness (report and the questions to ask)
     H1->>S4: completeness.report
 
     An->>S1: Ask the owner one round of questions
     S1->>H1: gate.decided completeness (ask)
-    Note over H1: GATE_DECIDED_COMPLETENESS_ASK (COMPLETENESS -> CLARIFICATION); step clarification.record
+    Note over H1: GATE_DECIDED_COMPLETENESS_ASK (COMPLETENESS -> CLARIFICATION), step clarification.record
     H1->>S4: clarification.sent
     S1->>H1: case.answered (the owner's answers and any added documents)
-    Note over H1: CASE_ANSWERED; step rerun.record (waits for added documents to be extracted)
+    Note over H1: CASE_ANSWERED, step rerun.record (waits for added documents to be extracted)
     H1->>S4: owner.answered, agent.rerun
     H1->>H2: agent.run research and assessment, only for the changed fields
     H2-->>H1: agent.done (both)
-    Note over H1: AGENT_DONE_RERUN_BOTH (CLARIFICATION -> REVIEW); step rerun.publish
-    H1->>S1: PUT items (a changed proposal is a new item; the old one is superseded)
+    Note over H1: AGENT_DONE_RERUN_BOTH (CLARIFICATION -> REVIEW), step rerun.publish
+    H1->>S1: PUT items (a changed proposal is a new item, the old one is superseded)
     H1->>S2: POST /score
     H1->>S4: proposal.research, proposal.assessment, score.recomputed
 
     An->>S1: Override CTL-T01 7.6 to 4.5, with a reason
     S1->>S1: store the decision on the item
     S1->>H1: gate.decided review_item
-    Note over H1: GATE_DECIDED_REVIEW_ITEM (REVIEW -> REVIEW); step review.item
+    Note over H1: GATE_DECIDED_REVIEW_ITEM (REVIEW -> REVIEW), step review.item
     H1->>S4: gate.decided, human.override (reason recorded)
     H1->>S1: GET score-request (CTL-T01 now 4.5)
     H1->>S2: POST /score
     S2-->>H1: 10.4, Band 3, route committee
-    H1->>S1: PUT score (previous 9.8 Band 2; band_changed)
+    H1->>S1: PUT score (previous 9.8 Band 2, band_changed)
     H1->>S4: score.recomputed
     H1->>H1: open ack(band_change)
     An->>S1: Acknowledge the band change
@@ -85,15 +85,15 @@ sequenceDiagram
 
     An->>S1: Lock the recommendation
     S1->>H1: case.locked
-    Note over H1: CASE_LOCKED (RECOMMEND -> RECOMMEND); pack_release gate opens; step lock.build_pack
+    Note over H1: CASE_LOCKED (RECOMMEND -> RECOMMEND), pack_release gate opens, step lock.build_pack
     H1->>S4: recommendation.locked (this record is the pack's audit head)
-    H1->>S2: POST /score (no model involved; the numbers are S2's)
+    H1->>S2: POST /score (no model involved, the numbers are S2's)
     H1->>S5: POST /packs (the snapshot, with the four release checks computed here)
     H1->>S4: pack.assembled
     H1->>S1: PUT handoff (pack id and hash, the four checks, the audit head, the release gate id)
     An->>S5: Release the pack to the committee
     S5->>H1: pack.released
-    Note over H1: PACK_RELEASED (RECOMMEND -> DECIDE); step pack.approved (R1/R2 pick the route)
+    Note over H1: PACK_RELEASED (RECOMMEND -> DECIDE), step pack.approved (R1/R2 pick the route)
     H1->>S4: pack.approved
 ```
 

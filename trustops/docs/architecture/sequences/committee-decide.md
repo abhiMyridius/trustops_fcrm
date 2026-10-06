@@ -18,13 +18,13 @@ sequenceDiagram
     An->>W1: Edit, then lock the recommendation
     W1->>S1: case.locked
     Note over H1: CASE_LOCKED -> RECOMMEND
-    H1->>S5: POST /packs {case_id, snapshot} (PackView body + checks; Idempotency-Key)
+    H1->>S5: POST /packs {case_id, snapshot} (PackView body + checks, Idempotency-Key)
     S5->>S5: validate PackContent, content_hash(snapshot) -- the pack is now frozen, NOT released
     S5-->>H1: PackView{status: built}
     H1-->>S4: pack.assembled
     An->>W1: Release the pack
     W1->>S5: POST /packs/{p}/release
-    S5->>S5: four checks (locked, all_items_reviewed, boundary_and_band_acknowledged, business_summary_present); else 409 naming them
+    S5->>S5: four checks (locked, all_items_reviewed, boundary_and_band_acknowledged, business_summary_present), else 409 naming them
     S5->>S5: roster from X1 (GET /users?role=fcrm_committee), pack opens for voting
     S5-->>H1: pack.released{release_checks_passed, released_to[]}
     Note over H1: PACK_RELEASED, guard: release_checks_passed -> DECIDE
@@ -35,18 +35,18 @@ sequenceDiagram
     S5-->>H1: committee.question_asked
     An->>W1: Rahul answers (numbers unchanged)
     W1->>S5: POST /threads/{t}/answer {text, numbers_changed: false}
-    Note over S5: addendum no. n attached; the pack's content_hash is unchanged
+    Note over S5: addendum no. n attached, the pack's content_hash is unchanged
     S5-->>H1: committee.answered{numbers_changed: false}
     Note over H1: COMMITTEE_ANSWERED_NO_CHANGE -> DECIDE (addendum only)
 
     Cm->>W1: Joseph Okafor votes: approve_with_conditions
     W1->>S5: POST /packs/{p}/votes {vote, rationale >= 20 chars} -> {vote_id, round, cast_n_of_3}
-    S5-->>H1: vote.cast (member, count; never the option)
+    S5-->>H1: vote.cast (member, count, never the option)
     Cm->>W1: Ana Mendes votes: approve_with_conditions
     Cm->>W1: Lin Chen votes: defer
     Note over S5: GET /packs/{p}/votes shows each member only their own choice until all 3 are cast
     S5->>S5: tally(votes) = fcrm_contracts.voting.tally, in the transaction of the third vote
-    Note over S5: 2 of 3 agree -> outcome = approve_with_conditions (never auto-resolved); reveal and tally together
+    Note over S5: 2 of 3 agree -> outcome = approve_with_conditions (never auto-resolved), reveal and tally together
     S5-->>H1: vote.tallied{vote_outcome, counts, votes[]}
     Note over H1: VOTE_TALLIED -> CLOSED
     H1->>S5: POST /outcomes {mode: committee, pack_id, outcome, conditions[], plain_summary} (Idempotency-Key)
@@ -86,7 +86,7 @@ sequenceDiagram
     Note over S5: a system thread opens: "No majority: 1 approve / 1 defer / 1 reject. Discuss and re-vote (ADR-08)."
     Note over H1: VOTE_NO_MAJORITY -> DECIDE (same state, new round)
     H1->>S5: POST /packs/{p}/revote {reason: no_majority} (Idempotency-Key)
-    S5-->>H1: {round: 2, member_ids}  (confirms; writes nothing)
+    S5-->>H1: {round: 2, member_ids}  (confirms, writes nothing)
     Cm->>S5: three new hidden votes, each with a rationale (round 2)
 ```
 
