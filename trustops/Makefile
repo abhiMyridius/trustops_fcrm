@@ -110,23 +110,28 @@ up: env keys ## the default stack, 8 containers (mongo rabbitmq minio opa api ha
 	@missing=""; for f in src/backend/Dockerfile src/frontend/Dockerfile; do \
 		[ -f "$$f" ] || missing="$$missing $$f"; done; \
 	if [ -n "$$missing" ]; then echo "up: not buildable, missing:$$missing" >&2; exit 1; fi
+	$(COMPOSE) up -d --force-recreate --no-deps opa
 	$(COMPOSE) up -d --build
 	@$(WAIT) --timeout 600 --compose "$(COMPOSE)" $(INFRA) $(APPS) $(EDGE)
 
 up-obs: env keys ## the default stack plus otel-collector, jaeger, prometheus and grafana (12 containers); services export traces
+	$(COMPOSE_OBS) up -d --force-recreate --no-deps opa
 	OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318 $(COMPOSE_OBS) up -d --build
 	@$(WAIT) --timeout 600 --compose "$(COMPOSE_OBS)" $(INFRA) $(OBS) $(APPS) $(EDGE) \
 		--url otel-collector=http://$$($(COMPOSE_OBS) port otel-collector 13133)/
 
 up-cache: env keys ## the default stack plus Redis for SSE fan-out (api uses it via REDIS_URL)
+	$(COMPOSE_CACHE) up -d --force-recreate --no-deps opa
 	REDIS_URL=redis://redis:6379/0 $(COMPOSE_CACHE) up -d --build
 	@$(WAIT) --timeout 600 --compose "$(COMPOSE_CACHE)" $(INFRA) redis $(APPS) $(EDGE)
 
 up-debug: env keys ## the default stack with infrastructure and harness health ports published to the host
+	$(COMPOSE_DEBUG) up -d --force-recreate --no-deps opa
 	$(COMPOSE_DEBUG) up -d --build
 	@$(WAIT) --timeout 600 --compose "$(COMPOSE_DEBUG)" $(INFRA) $(APPS) $(EDGE)
 
 up-dev: env keys ## default stack with bind-mounted source, uvicorn --reload and vite dev
+	$(COMPOSE_DEV) up -d --force-recreate --no-deps opa
 	$(COMPOSE_DEV) up -d --build
 	@$(WAIT) --timeout 600 --compose "$(COMPOSE_DEV)" $(INFRA) $(APPS) $(EDGE)
 
@@ -134,6 +139,7 @@ economy-profile: ## .economy/: a copy of ai/ with no Sonnet or Opus in any tier 
 	$(UV_RUN) python ops/scripts/economy_profile.py
 
 up-economy: env keys economy-profile ## the default stack with api and harness on the economy profile (no Sonnet or Opus); `make up` puts the shipped tiers back
+	$(COMPOSE_ECONOMY) up -d --force-recreate --no-deps opa
 	$(COMPOSE_ECONOMY) up -d --build
 	@$(WAIT) --timeout 600 --compose "$(COMPOSE_ECONOMY)" $(INFRA) $(APPS) $(EDGE)
 

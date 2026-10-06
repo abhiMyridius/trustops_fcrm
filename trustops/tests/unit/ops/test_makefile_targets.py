@@ -50,3 +50,22 @@ def test_check_runs_the_ai_registry_and_model_id_guard_and_the_lock_check() -> N
 
 def test_gate_still_runs_test_int() -> None:
     assert "pytest -m integration tests" in _dry_run("gate")
+
+
+UP_TARGETS = ("up", "up-obs", "up-cache", "up-debug", "up-dev", "up-economy")
+
+
+def test_every_up_target_recreates_opa_before_it_starts_the_stack() -> None:
+    # OPA reads its policy and data files once at start; a bind-mounted file that
+    # changed after that is never seen, so a new rule (or a tightened one) would
+    # not apply on a stack brought up again (D-92).
+    for target in UP_TARGETS:
+        lines = [ln.strip() for ln in _dry_run(target).splitlines()]
+        recreate = [
+            i for i, ln in enumerate(lines) if "--force-recreate --no-deps opa" in ln
+        ]
+        started = [i for i, ln in enumerate(lines) if ln.endswith("up -d --build")]
+
+        assert len(recreate) == 1, target
+        assert len(started) == 1, target
+        assert recreate[0] < started[0], target
