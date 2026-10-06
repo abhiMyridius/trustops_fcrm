@@ -112,6 +112,7 @@ export function harness(caseId: string): HarnessSnapshot | null {
       chain_verified: true,
       tokens_used: tokens,
       tokens_budget: typeof seed.budgets.per_case === 'number' ? seed.budgets.per_case : 120000,
+      tokens_target: typeof seed.budgets.per_case === 'number' ? seed.budgets.per_case : 120000,
     },
     guards,
     log: lines.slice(-200),

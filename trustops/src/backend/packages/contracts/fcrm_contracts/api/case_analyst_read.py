@@ -601,7 +601,13 @@ class HarnessCounters(_Dto):
     audit_records: int
     chain_verified: bool
     tokens_used: int
+    # The cap H1 enforces on the case (``CASE_TOKEN_CAP``, 160k): a dispatch that
+    # would pass it is refused and opens a handoff.
     tokens_budget: int
+    # What a clean run is expected to fit in (120k). A case over the target and
+    # under the cap is not an error. Defaulted so a snapshot pushed before the
+    # field existed still validates.
+    tokens_target: int = 120_000
 
 
 #: The most log lines and guard rows one snapshot carries.

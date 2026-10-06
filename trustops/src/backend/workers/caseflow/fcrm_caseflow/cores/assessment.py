@@ -50,7 +50,7 @@ from fcrm_contracts.enums import AgentName, Domain, GateStatus, GateType, StepKi
 from fcrm_contracts.events.payloads import GateDecided, HarnessStep
 from fcrm_contracts.proposals.narrative import CompletenessReport, Question
 from fcrm_contracts.proposals.screening import ScreeningProposal
-from fcrm_guardrails.budget import CASE_TOKEN_CAP
+from fcrm_guardrails.budget import CASE_TOKEN_CAP, CASE_TOKEN_TARGET
 from fcrm_guardrails.rules import check_all
 from fcrm_guardrails.rules.context import RulesContext
 from fcrm_guardrails.thresholds import STALE_EVIDENCE_MONTHS
@@ -219,8 +219,14 @@ async def assess_open(step: HarnessStep, deps: StepDeps) -> StepResult:
     audit = await deps.append_record(
         step,
         "workflow.stage",
-        f"Assessment core started · per-case budget {CASE_TOKEN_CAP // 1000}k tokens",
-        {"fast_lane": flags.fast_lane, "agents": agents, "budget": CASE_TOKEN_CAP},
+        "Assessment core started · per-case budget "
+        f"{CASE_TOKEN_CAP // 1000}k tokens (target {CASE_TOKEN_TARGET // 1000}k)",
+        {
+            "fast_lane": flags.fast_lane,
+            "agents": agents,
+            "budget": CASE_TOKEN_CAP,
+            "target": CASE_TOKEN_TARGET,
+        },
         actor="system",
     )
     await deps.require_case().patch_state(step.case_id, state_patch(deps.run))

@@ -208,6 +208,44 @@ class TestRefsReachTheBuilder:
         assert [r.type for r in recording_audit.records] == ["agent.failed"]
 
 
+class TestFailedJobUsage:
+    async def test_a_failed_job_reports_what_its_attempts_spent(
+        self,
+        demo_job_payload: JobPayload,
+        seed_registry: ToolRegistry,
+        allow_all_opa_client: OPAClient,
+        fake_tiers_config: dict[str, Any],
+        recording_publisher: Any,
+        recording_audit: Any,
+        fake_consumed: Any,
+        make_model_factory_returning: Callable[..., ModelFactory],
+    ) -> None:
+        """H1 settles the case token ledger from ``agent.failed``'s usage, so a
+        job that failed after two attempts is charged for both.
+        """
+        consumer = _consumer(
+            registry=seed_registry,
+            permit_client=allow_all_opa_client,
+            audit=recording_audit,
+            publisher=recording_publisher,
+            tiers_config=fake_tiers_config,
+            model_factory=make_model_factory_returning([]),
+            consumed=fake_consumed,
+        )
+        usage = {"input_tokens": 41_000, "output_tokens": 7_000}
+
+        await consumer._publish_failed(  # noqa: SLF001 - the one place that builds it
+            demo_job_payload, attempt=2, reason="guard4_rejected", usage=usage
+        )
+        await consumer._publish_failed(  # noqa: SLF001
+            demo_job_payload, attempt=1, reason="context_pack_error: x"
+        )
+
+        [(_, with_usage), (_, without)] = _sent(recording_publisher)
+        assert AgentFailed.model_validate(with_usage.payload).usage == usage
+        assert AgentFailed.model_validate(without.payload).usage == {}
+
+
 class TestAuditVocabulary:
     async def test_a_clean_run_records_the_permit_and_the_sourced_claims(
         self,

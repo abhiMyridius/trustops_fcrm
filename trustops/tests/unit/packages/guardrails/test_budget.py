@@ -7,6 +7,7 @@ from fcrm_contracts.enums import AgentName, Tier
 from fcrm_guardrails.base import GuardStatus
 from fcrm_guardrails.budget import (
     CASE_TOKEN_CAP,
+    CASE_TOKEN_TARGET,
     TIER_BUDGETS,
     AttemptsExhaustedError,
     BudgetExceededError,
@@ -42,7 +43,8 @@ def test_tier_wall_clock_and_retries_match_the_seed(tier: Tier, seed_key: str) -
 
 
 def test_case_token_cap_matches_the_seed() -> None:
-    assert CASE_TOKEN_CAP == SEED_BUDGETS["per_case"] == 120_000
+    assert CASE_TOKEN_TARGET == SEED_BUDGETS["per_case"] == 120_000
+    assert CASE_TOKEN_CAP == 160_000
 
 
 def test_reserve_holds_tokens_times_attempts() -> None:

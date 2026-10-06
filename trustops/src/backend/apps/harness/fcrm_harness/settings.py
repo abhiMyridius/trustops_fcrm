@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Any, ClassVar, Literal, Optional
 
 from fcrm_agent_worker.settings import AgentWorkerSettings
-from fcrm_caseflow.settings import CaseflowSettings
+from fcrm_caseflow.settings import DEFAULT_CASE_TOKEN_CAP, CaseflowSettings
 from fcrm_common.settings import BaseServiceSettings, S3Settings
 from fcrm_context_worker.settings import ContextSettings
 from fcrm_ingestion_worker.settings import IngestionSettings
@@ -45,6 +45,8 @@ class HarnessSettings(BaseServiceSettings, S3Settings):
         guard1_allowlist_file: H3's file of terms Guard 1 never masks.
         prompts_dir: The ``ai/`` root holding prompts and ``models/tiers.yaml``.
         agent_max_tool_calls: Per-job cap on tool calls.
+        case_token_cap: Tokens one case may spend across all its agent jobs
+            (``CASE_TOKEN_CAP``, ADR-14); H1 enforces it.
 
     The object-store variables (``S3_*``) are :class:`~fcrm_common.settings
     .S3Settings`: H3 reads uploads and writes canonical Markdown, and H1 names
@@ -85,6 +87,7 @@ class HarnessSettings(BaseServiceSettings, S3Settings):
     agent_max_tool_calls: int = 12
     bedrock_region_fallback: Optional[str] = None
     aws_region: Optional[str] = None
+    case_token_cap: int = Field(default=DEFAULT_CASE_TOKEN_CAP, ge=1)
 
     def _shared(self) -> dict[str, Any]:
         """The fields every unit's settings take from the harness."""
@@ -116,6 +119,7 @@ class HarnessSettings(BaseServiceSettings, S3Settings):
             decision_service_url=self.decision_service_url,
             s3_bucket_canonical=self.s3_bucket_canonical,
             prefetch=self.caseflow_prefetch,
+            case_token_cap=self.case_token_cap,
         )
         settings.fail_fast()
         return settings

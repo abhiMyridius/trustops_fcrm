@@ -2,13 +2,16 @@
 pushed to S1 after every step (``PUT /internal/cases/{id}/harness``).
 
 The monitor answers "what is the harness doing for this case": which core is
-running, how many of the nine agents have run, how many tokens against the 120k
-case budget, what each of the seven guards last did, and a log. Nothing in it is
-invented: the log is the case's own audit chain (S4), the counters are the run's
-(``agents_run`` and ``tokens_used``, bumped by the steps), the status comes from
-the run's pending work and open gates, and ``chain_verified`` is S4's own check.
+running, how many of the nine agents have run, how many tokens against the case
+cap (160k) and the clean-run target (120k), what each of the seven guards last
+did, and a log. Nothing in it is invented: the log is the case's own audit chain
+(S4), the tokens are the case's token ledger (:mod:`fcrm_caseflow.budget`:
+``tokens_used`` is what its settled jobs spent, ``tokens_budget`` its cap,
+``tokens_target`` the clean-run target), the other counters are the run's, the
+status comes from the run's pending work and open gates, and ``chain_verified`` is
+S4's own check.
 
-:func:`harness_snapshot` is pure. :class:`HarnessReporter` reads the four inputs
+:func:`harness_snapshot` is pure. :class:`HarnessReporter` reads the inputs
 and sends the snapshot; it is best effort by design: a monitor that could fail a
 step would put the decision path behind an observability feature, so the reporter
 logs what it could not send (with the case and run ids) and lets the step stand.
@@ -34,8 +37,9 @@ from fcrm_contracts.api.case_analyst_read import (
     HarnessSnapshot,
 )
 from fcrm_contracts.enums import AgentName, CaseState
-from fcrm_guardrails.budget import CASE_TOKEN_CAP
+from fcrm_guardrails.budget import CASE_TOKEN_CAP, CASE_TOKEN_TARGET
 
+from fcrm_caseflow.budget import CaseLedger
 from fcrm_caseflow.store import CaseRun
 
 logger = logging.getLogger(__name__)
@@ -44,8 +48,9 @@ logger = logging.getLogger(__name__)
 JAEGER_UI_URL: Final = "http://localhost:16686"
 
 TOKENS_NOTE: Final = (
-    "Token counts are the agents' recorded usage; the case budget is the cap the "
-    "budget guard enforces."
+    "Token counts are the agents' recorded usage, from the case's token ledger. The "
+    "budget is the cap the budget guard enforces; the target is what a clean run fits "
+    "in, and a case over the target but under the cap is not an error."
 )
 
 #: The seven guards: number, name and what each one stops (design B section 4).
@@ -65,6 +70,7 @@ GUARD_OF_TYPE: Final[dict[str, int]] = {
     "guard.input": 1,
     "guard.permit": 2,
     "agent.failed": 3,
+    "budget.exhausted": 3,
     "guard.output": 4,
     "gate.validation": 5,
     "critic.findings": 6,
@@ -73,7 +79,7 @@ GUARD_OF_TYPE: Final[dict[str, int]] = {
     "human.handoff": 7,
 }
 #: Records that mean a guard stopped something.
-BLOCKED_TYPES: Final = frozenset({"agent.failed"})
+BLOCKED_TYPES: Final = frozenset({"agent.failed", "budget.exhausted"})
 
 
 def is_blocked(record: AuditRecord) -> bool:
@@ -225,14 +231,21 @@ def harness_snapshot(
     records: Sequence[AuditRecord],
     verify: Optional[VerifyResult],
     open_gates: int,
+    ledger: Optional[CaseLedger] = None,
 ) -> HarnessSnapshot:
-    """The monitor's snapshot of ``run``: counters from the run, the log and the
+    """The monitor's snapshot of ``run``: counters from the run, the tokens from
+    the case's token ``ledger`` (the run's own ``tokens_used`` counter only when
+    no ledger is given; a case with no job yet has neither), the log and the
     guards from its audit ``records``, the chain check from ``verify`` (``None``
     when S4 could not answer: reported as not verified, never as verified).
     """
     blocked = sum(1 for r in records if is_blocked(r))
     guarded = sum(1 for r in records if r.type in GUARD_OF_TYPE)
     trace = run.trace_id or ""
+    tokens_used = (
+        ledger.spent if ledger is not None else run.counters.get("tokens_used", 0)
+    )
+    tokens_budget = ledger.cap if ledger is not None else CASE_TOKEN_CAP
     return HarnessSnapshot(
         case_id=run.snapshot.case_id,
         trace_id=trace,
@@ -245,8 +258,9 @@ def harness_snapshot(
             guards_blocked=blocked,
             audit_records=verify.record_count if verify is not None else len(records),
             chain_verified=bool(verify and verify.ok),
-            tokens_used=run.counters.get("tokens_used", 0),
-            tokens_budget=CASE_TOKEN_CAP,
+            tokens_used=tokens_used,
+            tokens_budget=tokens_budget,
+            tokens_target=CASE_TOKEN_TARGET,
         ),
         guards=guard_rows(records),
         log=[line_of(r) for r in records[-MAX_HARNESS_LINES:]],
@@ -260,6 +274,14 @@ class RunReader(Protocol):
 
     async def get(self, run_id: str) -> Optional[CaseRun]:
         """The run, or ``None``."""
+        ...
+
+
+class LedgerReader(Protocol):
+    """What the reporter reads of the case's token ledger."""
+
+    async def get(self, case_id: str) -> Optional[CaseLedger]:
+        """The case's ledger, or ``None`` when no job was ever dispatched."""
         ...
 
 
@@ -304,6 +326,8 @@ class HarnessReporter:
         gates: Counts the run's open gates.
         chain: Reads the audit chain and its verification.
         sink: S1's harness route.
+        budgets: Reads the case's token ledger. Without it the monitor falls
+            back to the run's ``tokens_used`` counter.
     """
 
     def __init__(
@@ -312,11 +336,13 @@ class HarnessReporter:
         gates: GateCounter,
         chain: ChainReader,
         sink: SnapshotSink,
+        budgets: Optional[LedgerReader] = None,
     ) -> None:
         self._runs = runs
         self._gates = gates
         self._chain = chain
         self._sink = sink
+        self._budgets = budgets
 
     async def report(self, case_id: str, run_id: str) -> bool:
         """Send the current snapshot of ``run_id``. Returns whether S1 took it.
@@ -334,8 +360,15 @@ class HarnessReporter:
                 return False
             records = await self._chain.list_records(case_id)
             verify = await self._verified(case_id)
+            ledger = (
+                await self._budgets.get(case_id) if self._budgets is not None else None
+            )
             snapshot = harness_snapshot(
-                run, records, verify, await self._gates.count_open_for_run(run_id)
+                run,
+                records,
+                verify,
+                await self._gates.count_open_for_run(run_id),
+                ledger,
             )
             await self._sink.put_harness(
                 case_id, HarnessPush(run_id=run_id, snapshot=snapshot)

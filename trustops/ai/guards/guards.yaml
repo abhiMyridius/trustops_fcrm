@@ -50,7 +50,7 @@ guards:
   budget:
     n: 3
     stage: pre
-    runs_in: [H1, H2]               # H1 reserves tier tokens x (1 + retries) against the 120k case budget; H2 wraps the call
+    runs_in: [H1, H2]               # H1 reserves one attempt of the tier against the per-case cap (160k, target 120k) and settles the real usage; H2 wraps the call
     applies_to: *all
     checks: [case_reservation, usage_limits, wall_clock]
     config: {tiers: ../models/tiers.yaml}

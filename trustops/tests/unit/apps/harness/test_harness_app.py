@@ -171,6 +171,13 @@ def test_h3_settings_are_derived_with_the_object_store_and_its_own_knobs(
     assert ingestion.s3_bucket_canonical == "canonical"
 
 
+def test_the_case_token_cap_is_the_measured_160k_and_reaches_h1(tmp_path: Path):
+    assert _settings(tmp_path).case_token_cap == 160_000
+    assert _settings(tmp_path).caseflow_settings().case_token_cap == 160_000
+    lowered = _settings(tmp_path, case_token_cap=30_000)
+    assert lowered.caseflow_settings().case_token_cap == 30_000
+
+
 def test_the_ingestion_prefetch_defaults_to_two(tmp_path: Path):
     assert _settings(tmp_path).ingestion_prefetch == 2
 

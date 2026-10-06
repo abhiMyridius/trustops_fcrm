@@ -1071,6 +1071,7 @@ def test_scene_21_the_monitor_shows_the_records_the_agents_and_tokens_within_the
     # held to the cap; whether it met the target is reported, not asserted, because
     # one Guard 4 retry (10 to 25k tokens) is model luck, not a defect.
     assert budget >= TARGET_TOKENS
+    assert counters.get("tokens_target", TARGET_TOKENS) == TARGET_TOKENS
     cap = max(
         budget, ENFORCED_CAP_TOKENS
     )  # the harness view says 120k until the ledger
