@@ -633,8 +633,7 @@ async def _policy_gap(view: RowView, draft: PackDraft, registry: ToolRegistry) -
             f"#{ref.seq}",
             ref.case_id,
             gap.get("domain", "-"),
-            gap.get("topic", "-"),
-            f"record: {source.text}",
+            source.text,
         )
         gap_lines.append((f"#{ref.seq}", text))
     draft.add("gaps", gap_lines)

@@ -375,6 +375,15 @@ async def test_check_numbers_must_be_grounded_when_given() -> None:
     assert "4.5" in (invented.ledger_items[-1].detail or "")
 
 
+async def test_a_failed_quote_is_named_in_the_feedback_the_retry_is_shown() -> None:
+    """The retry is told which quote failed, not only that one did."""
+    result = await GUARD.check(_ctx(AgentName.RESEARCH, [PARAPHRASE]))
+    assert result.status is GuardStatus.RETRY
+    feedback = result.details["feedback"][0]
+    assert "quote was" in feedback
+    assert "banks must evaluate the processor" in feedback
+
+
 async def test_check_no_output_fails_closed() -> None:
     result = await GUARD.check(_ctx(AgentName.RESEARCH, []))
     assert result.status is GuardStatus.BLOCKED

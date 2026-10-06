@@ -233,7 +233,11 @@ def _claim_checks(
     if text is None:
         return checks
     match = match_quote(claim.quote, text, min_chars=min_chars)
-    detail = None if match.verified else f"{match.kind.value}: {match.reason}"
+    detail = (
+        None
+        if match.verified
+        else f"{match.kind.value}: {match.reason}; quote was {claim.quote[:80]!r}"
+    )
     checks.append(_Check(path, QUOTE_CHECK, match.verified, detail))
     if claim.confidence < floor:
         checks.append(_Check(path, "confidence", True, "low confidence"))
