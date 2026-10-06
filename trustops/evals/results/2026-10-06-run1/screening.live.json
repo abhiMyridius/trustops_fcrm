@@ -1,0 +1,483 @@
+{
+ "agent": "screening",
+ "dataset": "screening/fast-lane-100",
+ "dataset_sha256": "0d6e57ee922128e830a0c456edbbe6eedd684877eac0c6d7ef963cf9c2403e36",
+ "producer": "live",
+ "n": 5,
+ "primary_metric": "fast_lane_precision",
+ "metrics": {
+  "fast_lane_precision": 1.0,
+  "fast_lane_recall": 0.5,
+  "citation_validity": 0.3333333333333333
+ },
+ "summaries": [
+  {
+   "name": "fast_lane_precision",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 1.0,
+   "denominator": 1.0,
+   "rows_scored": 1,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": true,
+   "description": "TP/(TP+FP) vs the R4 predicate",
+   "flags": []
+  },
+  {
+   "name": "fast_lane_recall",
+   "kind": "deterministic",
+   "score": 0.5,
+   "numerator": 1.0,
+   "denominator": 2.0,
+   "rows_scored": 2,
+   "threshold": 0.9,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": false,
+   "description": "TP/(TP+FN) vs the R4 predicate",
+   "flags": [
+    "FCRM-2026-0089~vol-4.2M: missed"
+   ]
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": 0.3333333333333333,
+   "numerator": 5.0,
+   "denominator": 15.0,
+   "rows_scored": 3,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": false,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": [
+    "outputs[0].reasons[0]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Small-dollar instalment loan · -')",
+    "outputs[0].reasons[1]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Small-dollar instalment loan · -')",
+    "outputs[0].reasons[2]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Small-dollar instalment loan · -')",
+    "outputs[0].reasons[3]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Small-dollar instalment loan · -')",
+    "outputs[0].reasons[4]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Small-dollar instalment loan · -')",
+    "outputs[0].reasons[0]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Real-time balance alerts')",
+    "outputs[0].reasons[1]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Real-time balance alerts')",
+    "outputs[0].reasons[2]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Real-time balance alerts')",
+    "outputs[0].reasons[3]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Real-time balance alerts')",
+    "outputs[0].reasons[4]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Real-time balance alerts')"
+   ]
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "FCRM-2026-0092",
+   "case_id": "FCRM-2026-0092",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0092",
+    "status": "ok",
+    "verdict": "pass_with_drops",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 2,
+    "calls": 2,
+    "input_tokens": 4891,
+    "output_tokens": 954,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005672,
+    "latency_s": 9.174,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 1,
+    "claims_attempt1": 5,
+    "verified_attempt1": 4,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 2
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[2]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types process_change, new_geography'); fix it from the sources shown or drop any item you cannot source"
+    ],
+    "attempt_tokens": [
+     3219,
+     2626
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0132",
+   "case_id": "FCRM-2026-0132",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": 0.0
+   },
+   "flags": [
+    "citation_validity: outputs[0].reasons[0]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Small-dollar instalment loan · -')",
+    "citation_validity: outputs[0].reasons[1]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Small-dollar instalment loan · -')",
+    "citation_validity: outputs[0].reasons[2]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Small-dollar instalment loan · -')",
+    "citation_validity: outputs[0].reasons[3]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Small-dollar instalment loan · -')",
+    "citation_validity: outputs[0].reasons[4]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Small-dollar instalment loan · -')"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0132",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 2,
+    "calls": 2,
+    "input_tokens": 4994,
+    "output_tokens": 951,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.0055,
+    "latency_s": 8.45,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 2,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 2
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[0]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types new_product, new_feature'); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[1]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types new_product, new_feature'); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[4]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types new_product, new_feature'); fix it from the sources shown or drop any item you cannot source"
+    ],
+    "attempt_tokens": [
+     3180,
+     2765
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0151",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0151",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 2,
+    "calls": 2,
+    "input_tokens": 5102,
+    "output_tokens": 651,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005837,
+    "latency_s": 6.566,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 1,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 2
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[0]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types vendor_onboarding, new_geography, new_product'); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[1]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types vendor_onboarding, new_geography, new_product'); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[2]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types vendor_onboarding, new_geography, new_product'); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[4]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types vendor_onboarding, new_geography, new_product'); fix it from the sources shown or drop any item you cannot source"
+    ],
+    "attempt_tokens": [
+     3279,
+     2474
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0089~vol-4.2M",
+   "case_id": "FCRM-2026-0089",
+   "metrics": {
+    "fast_lane_precision": null,
+    "fast_lane_recall": 0.0,
+    "citation_validity": 0.0
+   },
+   "flags": [
+    "fast_lane_recall: FCRM-2026-0089~vol-4.2M: missed",
+    "citation_validity: outputs[0].reasons[0]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Real-time balance alerts')",
+    "citation_validity: outputs[0].reasons[1]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Real-time balance alerts')",
+    "citation_validity: outputs[0].reasons[2]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Real-time balance alerts')",
+    "citation_validity: outputs[0].reasons[3]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Real-time balance alerts')",
+    "citation_validity: outputs[0].reasons[4]: quote_verbatim (none: quote not found verbatim in the cited source; quote was 'F02 · Change description · Real-time balance alerts')"
+   ],
+   "run": {
+    "row_id": "FCRM-2026-0089~vol-4.2M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 2659,
+    "output_tokens": 529,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005304,
+    "latency_s": 5.097,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 5,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3188
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0106~vol-4.2M",
+   "case_id": "FCRM-2026-0106",
+   "metrics": {
+    "fast_lane_precision": 1.0,
+    "fast_lane_recall": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0106~vol-4.2M",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 2,
+    "calls": 2,
+    "input_tokens": 4930,
+    "output_tokens": 908,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005494,
+    "latency_s": 8.098,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 5,
+    "verified_attempt1": 3,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 2
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0].reasons[1]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types new_feature'); fix it from the sources shown or drop any item you cannot source",
+     "outputs[0].reasons[4]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'types new_feature'); fix it from the sources shown or drop any item you cannot source"
+    ],
+    "attempt_tokens": [
+     3181,
+     2657
+    ],
+    "tools_called": []
+   }
+  }
+ ],
+ "timestamp": "2026-10-06T06:47:53.390262Z",
+ "usage": {
+  "calls": 9,
+  "retries": 4,
+  "blocked_rows": 0,
+  "failed_rows": 0,
+  "input_tokens": 22576,
+  "output_tokens": 3993,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.027807,
+  "latency_p50_s": 8.098,
+  "latency_max_s": 9.174,
+  "models": [
+   "Haiku 4.5",
+   "Nova Lite"
+  ]
+ },
+ "judge_usage": null,
+ "sampled": {
+  "n": 5,
+  "of": 100,
+  "seed": 7,
+  "strategy": "demo+stratified",
+  "row_ids": [
+   "FCRM-2026-0092",
+   "FCRM-2026-0132",
+   "FCRM-2026-0151",
+   "FCRM-2026-0089~vol-4.2M",
+   "FCRM-2026-0106~vol-4.2M"
+  ],
+  "demo_row_ids": [
+   "FCRM-2026-0151"
+  ]
+ },
+ "judge": "bedrock"
+}
