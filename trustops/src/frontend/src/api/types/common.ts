@@ -74,6 +74,8 @@ export interface Problem {
   detail?: string;
   trace_id?: string;
   blocking?: string[];
+  /** Field-level problems of a 422, one `{loc, msg}` each. */
+  errors?: { loc: string; msg: string }[];
 }
 
 export interface StageStep {

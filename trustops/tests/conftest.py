@@ -47,8 +47,10 @@ if TYPE_CHECKING:
     from fcrm_case.analyst_write_store import InMemoryAnalystWriteStore
     from fcrm_case.assessment_store import InMemoryAssessmentStore
     from fcrm_case.directory import AnalystLoadService, StaticIdentityDirectory
+    from fcrm_case.domain.analyst_handoff import HandoffGateRow
     from fcrm_case.domain.record import CaseRecord
     from fcrm_case.domain.views import ReviewItemRow
+    from fcrm_case.handoff_store import InMemoryHandoffGateStore
     from fcrm_case.outcome_store import InMemoryOutcomeStore
     from fcrm_case.po_followup_store import InMemoryPoFollowupStore
     from fcrm_case.po_store import InMemoryPoStore
@@ -1949,6 +1951,84 @@ def review_service(
     )
     for row in demo_review_items:
         case_service.views.items[row.item_id] = row
+    act_as(Role.ANALYST, ANALYST_SUB)
+    return case_service
+
+
+@pytest.fixture
+def handoff_store() -> InMemoryHandoffGateStore:
+    """S1's in-memory record of the ``handoff`` gates Caseflow opened."""
+    from fcrm_case.handoff_store import InMemoryHandoffGateStore
+
+    return InMemoryHandoffGateStore()
+
+
+@pytest.fixture
+def make_handoff_gate(
+    handoff_store: InMemoryHandoffGateStore,
+) -> Callable[..., HandoffGateRow]:
+    """``make_handoff_gate(agent="research", gate_id="gate_h1", case_id=...)``: a
+    handoff gate S1 was told of (what ``gate.opened`` makes it hold).
+    """
+    from datetime import UTC, datetime
+
+    from fcrm_case.domain.analyst_handoff import HandoffGateRow
+
+    def _make(
+        agent: str = "research",
+        gate_id: str = "gate_h1",
+        job_id: str = "job_r1",
+        case_id: str = "FCRM-2026-0151",
+        run_id: str = "run_1",
+        opened_at: Any = None,
+    ) -> HandoffGateRow:
+        row = HandoffGateRow(
+            gate_id=gate_id,
+            case_id=case_id,
+            run_id=run_id,
+            agent=agent,
+            job_id=job_id,
+            step="assess",
+            reason="guard4_rejected: schema mismatch",
+            attempt=2,
+            raw_inputs_ref=f"agent_raw_inputs/{job_id}",
+            raw_inputs="## Case\nRemittances to Mexico",
+            raw_inputs_sha256="ab" * 32,
+            raw_inputs_bytes=27,
+            opened_at=opened_at or datetime(2026, 10, 6, 9, tzinfo=UTC),
+        )
+        handoff_store.rows[row.gate_id] = row
+        return row
+
+    return _make
+
+
+@pytest.fixture
+def handoff_service(
+    case_service: CaseService,
+    assessment_store: InMemoryAssessmentStore,
+    analyst_store: InMemoryAnalystWriteStore,
+    handoff_store: InMemoryHandoffGateStore,
+    act_as: Callable[[Role, str], None],
+    stored_case: CaseRecord,
+) -> CaseService:
+    """The S1 app with the handoff gates wired, the demo case held by Rahul Iyer
+    in ``handoff`` (run ``run_1``: an agent failed twice), called as Rahul.
+    """
+    from fcrm_contracts.enums import CaseState, Role
+
+    app = case_service.client.app
+    app.state.assessment = assessment_store  # type: ignore[attr-defined]
+    app.state.analyst_store = analyst_store  # type: ignore[attr-defined]
+    app.state.handoffs = handoff_store  # type: ignore[attr-defined]
+    case_service.store._cases[stored_case.case_id] = stored_case.model_copy(
+        update={
+            "state": CaseState.HANDOFF,
+            "analyst_id": ANALYST_SUB,
+            "analyst_name": "Rahul Iyer",
+            "run_id": "run_1",
+        }
+    )
     act_as(Role.ANALYST, ANALYST_SUB)
     return case_service
 

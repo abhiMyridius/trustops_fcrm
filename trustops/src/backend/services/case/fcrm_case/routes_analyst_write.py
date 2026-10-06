@@ -13,6 +13,11 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends
 from fcrm_common.auth import require_roles
+from fcrm_contracts.api.case_analyst_handoff import (
+    HandoffCompleteBody,
+    HandoffCompleteResult,
+    HandoffGatesView,
+)
 from fcrm_contracts.api.case_analyst_write import (
     AcknowledgeBody,
     AcknowledgeResult,
@@ -40,13 +45,19 @@ from fcrm_contracts.api.case_analyst_write import (
 from fcrm_contracts.common import Principal
 from fcrm_contracts.enums import Role
 
+from fcrm_case.analyst_handoff_service import AnalystHandoffService
 from fcrm_case.analyst_write_service import AnalystWriteService
-from fcrm_case.deps import authorize_case, get_analyst_write_service
+from fcrm_case.deps import (
+    authorize_case,
+    get_analyst_handoff_service,
+    get_analyst_write_service,
+)
 
 router = APIRouter(tags=["analyst"], dependencies=[Depends(authorize_case)])
 
 Analyst = Annotated[Principal, Depends(require_roles(Role.ANALYST))]
 Service = Annotated[AnalystWriteService, Depends(get_analyst_write_service)]
+HandoffService = Annotated[AnalystHandoffService, Depends(get_analyst_handoff_service)]
 
 
 @router.post("/cases/{case_id}/items/{item_id}")
@@ -203,3 +214,29 @@ async def decide_screening(
     ``gate.decided fast_lane_confirm``. Declining needs a reason.
     """
     return await service.decide_fast_lane(principal, case_id, body)
+
+
+@router.get("/cases/{case_id}/handoff/gates")
+async def get_handoff_gates(
+    case_id: str, principal: Analyst, service: HandoffService
+) -> HandoffGatesView:
+    """The jobs an agent failed twice on and that wait for the analyst, with the
+    ones already completed by hand.
+    """
+    return await service.gates(case_id)
+
+
+@router.post("/cases/{case_id}/handoff/{gate_id}/complete", status_code=202)
+async def complete_handoff(
+    case_id: str,
+    gate_id: str,
+    body: HandoffCompleteBody,
+    principal: Analyst,
+    service: HandoffService,
+) -> HandoffCompleteResult:
+    """Finish a failed job by hand: the proposals the agent should have produced
+    and a reason of at least 20 characters. The output is checked like an agent's
+    (422 names each problem), stored, then ``gate.decided handoff`` carries it to
+    Caseflow, which resumes the run as if the agent had finished.
+    """
+    return await service.complete(principal, case_id, gate_id, body)

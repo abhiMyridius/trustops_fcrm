@@ -57,6 +57,7 @@ from fcrm_case.fieldset_provider import (
     active_type_domains,
     field_set_for,
 )
+from fcrm_case.handoff_store import MongoHandoffGateStore
 from fcrm_case.outcome_store import MongoOutcomeStore
 from fcrm_case.po_documents import DemoFixtures, DirectoryFixtures, ObjectFixtures
 from fcrm_case.po_followup_store import MongoPoFollowupStore
@@ -222,6 +223,8 @@ async def register(
         type_domains=active_type_domains(),
     )
     await analyst_store.ensure_indexes()
+    handoffs = MongoHandoffGateStore(db)
+    await handoffs.ensure_indexes()
     po_followup_store = MongoPoFollowupStore(
         deps.mongo, db, cases_repo, views.repos, outbox, activity
     )
@@ -232,6 +235,7 @@ async def register(
     app.state.views = views
     app.state.po_store = po_store
     app.state.analyst_store = analyst_store
+    app.state.handoffs = handoffs
     app.state.po_followup_store = po_followup_store
     app.state.objects = objects
     app.state.intake = DocumentIntake(
@@ -260,6 +264,7 @@ async def register(
             consumed=db["consumed_messages"],
             activity=activity,
             hub=app.state.hub,
+            handoffs=handoffs,
         )
         yield
 

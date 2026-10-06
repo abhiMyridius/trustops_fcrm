@@ -9,6 +9,8 @@ import type {
   ClarificationsView,
   ConditionAnalyst,
   DashboardAnalyst,
+  HandoffCompleted,
+  HandoffGates,
   HandoffView,
   PolicySearchResult,
   PolicyView,
@@ -78,6 +80,16 @@ export function useHandoff(id: string) {
   return useQuery({ queryKey: keys.caseSection(id, 'handoff'), queryFn: () => api<HandoffView>(paths.cases.handoff(id)) });
 }
 
+/** The jobs an agent failed twice on; `enabled` is true only for a case in handoff. */
+export function useHandoffGates(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: keys.caseSection(id, 'handoff-gates'),
+    queryFn: () => api<HandoffGates>(paths.cases.handoffGates(id)),
+    enabled,
+    staleTime: 0,
+  });
+}
+
 export function useConditionsAnalyst(id: string) {
   return useQuery({ queryKey: keys.caseSection(id, 'conditions'), queryFn: () => apiList<ConditionAnalyst>(paths.cases.conditions(id)) });
 }
@@ -124,6 +136,13 @@ export function useAcknowledge(id: string) {
 
 export function useCompleteness(id: string) {
   return useCaseMutation(id, (v: { decision: 'ask' | 'proceed' }) => api(paths.cases.completeness(id), { method: 'POST', body: v }));
+}
+
+/** Finish a failed job by hand: the proposals the agent should have produced and a reason (20+ characters). */
+export function useCompleteHandoff(id: string) {
+  return useCaseMutation(id, (v: { gate_id: string; output: unknown[]; reason: string }) =>
+    api<HandoffCompleted>(paths.cases.completeHandoff(id, v.gate_id), { method: 'POST', body: { output: v.output, reason: v.reason } }),
+  );
 }
 
 export function useSendRound(id: string) {

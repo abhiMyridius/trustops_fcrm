@@ -1,6 +1,6 @@
 """S1's bus consumer: ``case-service.events``, bound by ops to ``outcome.*``,
-``vote.rerequested``, ``pack.released`` and ``index.built`` (``ops/rabbitmq
-/definitions.json``).
+``vote.rerequested``, ``pack.released``, ``index.built`` and ``gate.opened``
+(``ops/rabbitmq/definitions.json``).
 
 It mirrors what S5 and H1 announce into S1's own ``activity`` log and the case
 stream, with the visibility :mod:`fcrm_case.domain.mirror` decides: the analyst
@@ -29,14 +29,18 @@ from fcrm_common.broker import wire_consumer
 from fcrm_common.events import Consumer, Disposition, Publisher
 from fcrm_common.mongo import Document
 from fcrm_common.service import ServiceDeps
+from fcrm_common.time import utcnow
 from fcrm_contracts.api.case_internal import UiEventIn
 from fcrm_contracts.events.envelope import Envelope
+from fcrm_contracts.events.payloads import GateOpened
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from fcrm_case.domain.activity import ActivityEntry
+from fcrm_case.domain.analyst_handoff import gate_row, opened_event
 from fcrm_case.domain.mirror import mirror_for
+from fcrm_case.handoff_store import HandoffGateStore
 from fcrm_case.sse import EventHub
 
 logger = logging.getLogger(__name__)
@@ -45,7 +49,13 @@ logger = logging.getLogger(__name__)
 QUEUE: Final = "case-service.events"
 EXCHANGE: Final = "case.events"
 #: The routing keys ops bound to it (``definitions.json``); one subscriber each.
-ROUTING_KEYS: Final = ("outcome.*", "vote.rerequested", "pack.released", "index.built")
+ROUTING_KEYS: Final = (
+    "outcome.*",
+    "vote.rerequested",
+    "pack.released",
+    "index.built",
+    "gate.opened",
+)
 
 
 class StagingActivityLog(Protocol):
@@ -72,6 +82,9 @@ class CaseServiceEventsConsumer(Consumer):
         publisher: For retry and dead-letter republishing.
         activity: The activity log.
         hub: The in-process stream hub the committed entries are published to.
+        handoffs: Where the ``handoff`` gates Caseflow opens are recorded (from
+            ``gate.opened``), so the analyst can complete them; without it those
+            events are not recorded.
         client: Enables the transactional dedupe (the replica set); without it the
             marker is written after the handler and the row can repeat after a
             crash between the two.
@@ -85,6 +98,7 @@ class CaseServiceEventsConsumer(Consumer):
         *,
         activity: StagingActivityLog,
         hub: EventHub,
+        handoffs: Optional[HandoffGateStore] = None,
         client: Optional[AsyncMongoClient[Document]] = None,
         max_attempts: int = 3,
     ) -> None:
@@ -93,6 +107,7 @@ class CaseServiceEventsConsumer(Consumer):
         )
         self._activity = activity
         self._hub = hub
+        self._handoffs = handoffs
         self._staged: dict[str, ActivityEntry] = {}
 
     async def handle(
@@ -104,7 +119,10 @@ class CaseServiceEventsConsumer(Consumer):
         Raises:
             pydantic.ValidationError: The payload is not what its type promises.
         """
-        event = mirror_for(envelope)
+        if envelope.type == "gate.opened":
+            event = await self._record_handoff_gate(envelope, session)
+        else:
+            event = mirror_for(envelope)
         if event is None:
             logger.debug(
                 "event is not mirrored onto the case stream",
@@ -129,6 +147,29 @@ class CaseServiceEventsConsumer(Consumer):
             )
             return
         self._staged[envelope.event_id] = entry
+
+    async def _record_handoff_gate(
+        self, envelope: Envelope, session: Optional[AsyncClientSession]
+    ) -> Optional[UiEventIn]:
+        """Hold the gate a ``gate.opened`` announces when it is a ``handoff`` gate
+        that names its failed job (in ``session``'s transaction), and return the
+        analyst's activity row for it; every other gate is not S1's business.
+
+        Raises:
+            pydantic.ValidationError: The payload is not a ``gate.opened`` body.
+        """
+        if self._handoffs is None:
+            return None
+        row = gate_row(GateOpened.model_validate(envelope.payload), utcnow())
+        if row is None:
+            return None
+        if not await self._handoffs.record(row, session=session):
+            logger.debug(
+                "handoff gate already held",
+                extra={"gate_id": row.gate_id, "event_id": envelope.event_id},
+            )
+            return None
+        return opened_event(row)
 
     async def _apply(self, envelope: Envelope) -> Disposition:
         """Dedupe and handle (the base class), then, only if the transaction
@@ -170,6 +211,7 @@ async def start_consumer(
     consumed: AsyncCollection[Document],
     activity: StagingActivityLog,
     hub: EventHub,
+    handoffs: Optional[HandoffGateStore] = None,
 ) -> Optional[CaseServiceEventsConsumer]:
     """Start the consumer on the host's broker, stopping its subscribers when
     ``stack`` closes; with no broker (a standalone ``uvicorn``) log it and start
@@ -186,7 +228,12 @@ async def start_consumer(
         )
         return None
     consumer = CaseServiceEventsConsumer(
-        consumed, deps.publisher, activity=activity, hub=hub, client=deps.mongo
+        consumed,
+        deps.publisher,
+        activity=activity,
+        hub=hub,
+        handoffs=handoffs,
+        client=deps.mongo,
     )
     await consumer.ensure_indexes()
     for subscriber in subscribe(deps.broker, consumer):

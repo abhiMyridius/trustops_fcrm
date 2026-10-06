@@ -9,6 +9,7 @@ One sequence document per stage of the case flow. Each names the real transition
 | [assessment-and-override.md](assessment-and-override.md) | The override and the recompute (the demo's central moment) | 9, 14 | the shorter picture of scoring and the CTL-T01 override with a reason, R3 acknowledgement | ADR-07, ADR-13 |
 | [committee-decide.md](committee-decide.md) | Pack release, committee question, hidden votes, tally | 15 to 18 | the pack freeze and content hash, the four release checks, the tally table, the no-majority path, R6 (a number changes), delegated close | ADR-08, ADR-31, ADR-36, ADR-37 |
 | [close.md](close.md) | Tally to outcome, conditions, close, chain verification | 18, 19 | the steps `vote.record`, `decide.outcome`, `closed.finalize`, how pack conditions become tracked rows, S1's single transaction, failure semantics | ADR-28, ADR-37, ADR-42 |
+| [handoff.md](handoff.md) | A failed agent and the human handoff | none of the 21 (the failure path) | `AGENT_FAILED_AFTER_RETRY` to `handoff` with `suspended_from`, the gate that names the failed job and carries its inputs, the analyst completing the step by hand through S1, `GATE_DECIDED_HANDOFF` and the output handled as the agent's `agent.done` (model `human`), the two `human.handoff` records | ADR-14, ADR-28 |
 | [oversight.md](oversight.md) | After a decision: examiner, watchlist re-flags, assurance reads | 20 | the examiner answering from the chain only, a jurisdiction list re-flagging open cases for an analyst, override rates, version pins and agent quality | ADR-07, ADR-19, ADR-28, ADR-33 |
 
 ## Scene by scene
@@ -39,9 +40,8 @@ One sequence document per stage of the case flow. Each names the real transition
 
 ## Coverage
 
-Every flow stage of the case has a document: intake, assessment and review, committee decision, close, oversight. Two things have none:
+Every flow stage of the case has a document: intake, assessment and review, committee decision, close, oversight, and the failed-agent handoff. One thing has none:
 
-- **A failed agent and the human handoff.** The transition (`AGENT_FAILED_AFTER_RETRY` to the `handoff` state) is in `fcrm_caseflow/transitions.py` and the behaviour is written up in `ops/runbooks/bedrock-outage-and-fallbacks.md`. The resume ("the analyst completes the step and the machine resumes") is not built, so there is nothing to draw (`docs/governance/known-gaps.md`).
 - **Sign-in and the monitor** (scenes 1 and 21), which are not Caseflow steps.
 
-The diagrams are Mermaid. A semicolon ends a statement in Mermaid sequence diagrams, so message and note text uses commas; the six documents here (ten diagrams, and `../c4-container.md`) were parsed with Mermaid 12.1 on 6 October 2026.
+The diagrams are Mermaid. A semicolon ends a statement in Mermaid sequence diagrams, so message and note text uses commas; the six documents before `handoff.md` (ten diagrams, and `../c4-container.md`) were parsed with Mermaid 12.1 on 6 October 2026; `handoff.md` follows the same rules but was not parsed.

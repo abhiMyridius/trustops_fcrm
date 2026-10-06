@@ -436,7 +436,7 @@ CASE_CAP_TOKENS = 120_000
 
 | Exchange (type) | Routing keys | Queues (binding) |
 |---|---|---|
-| `case.events` (topic) | `case.*`, `gate.decided`, `pack.*`, `vote.*`, `committee.*`, `outcome.*`, `condition.*`, `jurisdiction.*`, `index.*`, `ingest.done`, `ingest.failed` | `caseflow.events` (`#`), `case-service.events` (`outcome.*`, `vote.rerequested`, `pack.released`, `index.built`), `policy-service.events` (`index.*`), `evals.events` (`gate.decided`, `outcome.*`) |
+| `case.events` (topic) | `case.*`, `gate.decided`, `pack.*`, `vote.*`, `committee.*`, `outcome.*`, `condition.*`, `jurisdiction.*`, `index.*`, `ingest.done`, `ingest.failed` | `caseflow.events` (`#`), `case-service.events` (`outcome.*`, `vote.rerequested`, `pack.released`, `index.built`, `gate.opened`: S1 keeps the `handoff` gates), `policy-service.events` (`index.*`), `evals.events` (`gate.decided`, `outcome.*`) |
 | `agent.jobs` (direct) | `agent.run`, `agent.done`, `agent.failed` | `agent-worker.run` (`agent.run`), `caseflow.agent-results` (`agent.done`, `agent.failed`) |
 | `ingestion.jobs` (direct) | `ingest.run` | `ingestion-worker.run` |
 | `context.jobs` (direct) | `index.build` | `context-worker.run` |

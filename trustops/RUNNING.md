@@ -134,7 +134,7 @@ curl -s -H "Authorization: Bearer $A" $G/api/fcrm/audit/verify/FCRM-2026-0151; e
 curl -s -H "Authorization: Bearer $A" $G/api/fcrm/cases/FCRM-2026-0151/harness | head -c 600; echo
 ```
 
-If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks/dlq-replay.md`. If an agent fails twice the run moves to `handoff` and does not resume (known gap; `make demo-reset` for this case).
+If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks/dlq-replay.md`. If an agent fails twice the run moves to `handoff`: the analyst completes the step by hand on the Summary tab (the proposals as JSON and a reason), and the run resumes (`docs/architecture/sequences/handoff.md`).
 
 ## 5. Make targets
 
@@ -251,7 +251,7 @@ On 6 October 2026 `make check` was green on `5a02c09`: 7,094 passed, 4 skipped, 
 | `make up` seems stuck on `api` | it takes about 85 s: S3 embeds 197 clauses on Bedrock. `make logs svc=api` shows progress or an error. With no or expired AWS credentials expect a failure there |
 | Everything stalls after the laptop slept | Docker paused the VM; in-flight Bedrock calls timed out. On the build machine, closing the lid on battery stalled every background job and looked like an API fault (D-50): keep it plugged in with the lid open, or `sudo pmset -a disablesleep 1`, and check `pmset -g log` for sleep events first. Then `make ps`, `make dlq`; replay what is parked (`make dlq-replay q=<queue>`) or `docker compose restart harness` |
 | A case stops moving | `make dlq` and `make logs svc=harness`; a parked `caseflow.steps` message freezes a run until fixed and replayed (`ops/runbooks/dlq-replay.md`). List every queue with `docker compose exec -T rabbitmq rabbitmqctl -q list_queues name messages consumers` |
-| The case shows "handed to a person" | an agent failed twice and the run is in `handoff`; there is no resume (known gap). Check Bedrock (`ops/runbooks/bedrock-outage-and-fallbacks.md`), then `make demo-reset` for 0151 |
+| The case shows "handed to a person" | an agent failed twice and the run is in `handoff`: open the Summary tab and use "Complete by hand" (the form shows what the agent was given). Check Bedrock (`ops/runbooks/bedrock-outage-and-fallbacks.md`); a manual output's claims are not matched to their sources |
 | Every API call returns `503` | OPA is unreachable and the services fail closed. `make ps`, `make logs svc=opa` |
 | Agent runs fail with a credentials or region error | AWS keys missing or expired in `.env` (or the shell), or no model access. `docker compose up -d` after fixing |
 | I need to run the demo again | `make demo-reset` (this case only); `make seed` (everything); `make down-v` then `make up` (everything, including volumes) |
@@ -282,7 +282,7 @@ More: `ops/runbooks/README.md` indexes one short page per task (start, stop, res
 The full list, each item with its evidence, is `docs/governance/known-gaps.md`. The ones that change what you can do:
 
 - `make demo`, `make seed-verify`, `make verify`, `make e2e`, `make resilience`, `make nightly`, `make backup` and `make restore` print "not yet wired". The demo is driven by hand (section 4); the golden numbers are unit tests.
-- **A run that hits `handoff` (an agent failed twice) cannot be resumed.** No route decides the gate and the web has no re-run control.
+- **A manual output (a run completed from `handoff`) is less machine-verified than an agent's:** its claims are not matched against their sources; the record says so.
 - **S1 pins versions from the seed**, not from a configuration publish.
 - **The 120,000-token case cap is reported, not enforced across jobs.**
 - **Redis does nothing** (`make up-cache`); **S3 Vectors is not in the image** (vectors are in memory; each `api` start embeds the corpus).

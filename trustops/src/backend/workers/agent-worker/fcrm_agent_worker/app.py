@@ -42,6 +42,7 @@ from fcrm_common.objectstore import ObjectStore
 from fcrm_common.settings import MissingSettingsError, required_value
 from fcrm_common.worker import WorkerUnit
 from fcrm_contracts.enums import AgentName, LlmMode
+from fcrm_contracts.events.raw_inputs import RAW_INPUTS_COLLECTION
 from fcrm_contracts.versions import PinnedVersions
 from fcrm_tools import ToolClients, ToolRegistry, build_http_registry
 from pymongo import AsyncMongoClient
@@ -49,6 +50,7 @@ from pymongo import AsyncMongoClient
 from fcrm_agent_worker.audit_client import AuditClient
 from fcrm_agent_worker.handler import AgentJobConsumer
 from fcrm_agent_worker.live_runtime import ModelFactory, model_factory_for
+from fcrm_agent_worker.raw_inputs import MongoRawInputs
 from fcrm_agent_worker.settings import AgentWorkerSettings
 from fcrm_agent_worker.topology import (
     AGENT_JOBS_EXCHANGE,
@@ -226,6 +228,7 @@ def build_unit(
         instructions_for=_instructions_for(settings),
         model_factory=model_factory
         or model_factory_for(settings.bedrock_region_fallback, settings.aws_region),
+        raw_inputs=MongoRawInputs(mongo[db_name][RAW_INPUTS_COLLECTION]),
         tool_call_cap=settings.agent_max_tool_calls,
         client=mongo,
     )

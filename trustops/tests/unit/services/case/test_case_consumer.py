@@ -305,7 +305,7 @@ def test_the_consumer_binds_every_key_ops_bound_to_its_queue(
 ) -> None:
     broker = RabbitBroker("amqp://guest:guest@localhost:5672/")
     new = subscribe(broker, consumer)
-    assert len(new) == len(ROUTING_KEYS) == 4
+    assert len(new) == len(ROUTING_KEYS) == 5
     assert {sub.queue.name for sub in new} == {QUEUE}
     assert {sub.queue.routing_key for sub in new} == set(ROUTING_KEYS)
     assert {sub.exchange.name for sub in new if sub.exchange} == {EXCHANGE}
@@ -318,7 +318,7 @@ def test_a_second_subscribe_returns_only_the_new_subscribers(
     broker = RabbitBroker("amqp://guest:guest@localhost:5672/")
     first = subscribe(broker, consumer)
     second = subscribe(broker, consumer)
-    assert len(first) == len(second) == 4
+    assert len(first) == len(second) == len(ROUTING_KEYS)
     assert not {id(s) for s in first} & {id(s) for s in second}
 
 

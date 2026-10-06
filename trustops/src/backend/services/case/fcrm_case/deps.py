@@ -15,6 +15,7 @@ from fastapi import Request
 from fcrm_common.authz import opa_dependency
 from fcrm_common.errors import UpstreamUnavailableError
 
+from fcrm_case.analyst_handoff_service import AnalystHandoffService
 from fcrm_case.analyst_write_service import AnalystWriteService
 from fcrm_case.directory import AnalystLoadService, IdentityDirectory
 from fcrm_case.outcome_store import OutcomeStore
@@ -135,6 +136,18 @@ def get_analyst_write_service(request: Request) -> AnalystWriteService:
         cases=get_store(request),
         views=get_views(request),
         assessment=_wired(request, "assessment"),
+        store=_wired(request, "analyst_store"),
+        writer=get_writer(request),
+    )
+
+
+def get_analyst_handoff_service(request: Request) -> AnalystHandoffService:
+    """The analyst's handoff use cases (see what failed, finish it by hand): one
+    cheap object per request, built from what is on ``app.state``.
+    """
+    return AnalystHandoffService(
+        cases=get_store(request),
+        handoffs=_wired(request, "handoffs"),
         store=_wired(request, "analyst_store"),
         writer=get_writer(request),
     )

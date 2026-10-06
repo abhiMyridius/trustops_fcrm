@@ -450,6 +450,14 @@
       "arguments": {}
     },
     {
+      "source": "case.events",
+      "vhost": "/",
+      "destination": "case-service.events",
+      "destination_type": "queue",
+      "routing_key": "gate.opened",
+      "arguments": {}
+    },
+    {
       "source": "retry",
       "vhost": "/",
       "destination": "case-service.events.retry",

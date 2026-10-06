@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from fcrm_case.consumer import QUEUE as CASE_QUEUE
+from fcrm_case.consumer import ROUTING_KEYS as CASE_ROUTING_KEYS
 from fcrm_caseflow.topology import (
     CASE_EVENTS_EXCHANGE,
     CASEFLOW_AGENT_RESULTS_QUEUE,
@@ -179,3 +181,20 @@ def test_the_evals_queues_keep_their_declared_arguments(
     for queue in UNCONSUMED_QUEUES:
         arguments = _queue(definitions, queue)["arguments"]
         assert not any(key.startswith("x-max-length") for key in arguments)
+
+
+def test_s1_consumes_every_key_ops_bound_to_its_queue_and_no_other(
+    definitions: dict[str, Any],
+) -> None:
+    """The keys S1's consumer subscribes with are the bindings of its queue: a key
+    the consumer wants that ops did not bind would never arrive (``gate.opened``
+    is how S1 learns of a handoff gate), and a binding with no subscriber would
+    fill the queue with nothing to read it."""
+    bound_from_events = {
+        b["routing_key"]
+        for b in definitions["bindings"]
+        if b["destination"] == CASE_QUEUE and b["source"] == CASE_EVENTS_EXCHANGE
+    }
+
+    assert bound_from_events == set(CASE_ROUTING_KEYS)
+    assert "gate.opened" in bound_from_events
