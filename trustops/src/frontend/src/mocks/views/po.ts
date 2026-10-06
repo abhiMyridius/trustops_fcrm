@@ -23,7 +23,7 @@ import type {
 } from '@/api/types/po';
 import { GAP_FIELDS, REUSABLE, filledCount, requiredCount, roundAnswered, THREAD_IDS } from '../actions';
 import { READ_MS, getDB, type AuditEntry } from '../db';
-import { DEMO_ID, seed, type SeedCase } from '../seed';
+import { seed, type SeedCase } from '../seed';
 import { nameOf } from '../users';
 import {
   FIELD_LABEL,
@@ -709,5 +709,3 @@ export function integrations(): Integration[] {
   const st = getDB().integrations;
   return INTEGRATIONS.map((i) => ({ ...i, status: st[i.id]?.status ?? 'not_connected', scope: st[i.id]?.scope ?? null }));
 }
-
-export { DEMO_ID };

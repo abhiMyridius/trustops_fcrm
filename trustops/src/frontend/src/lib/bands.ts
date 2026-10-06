@@ -28,7 +28,3 @@ export function bandTone(band: BandNo): BandTone {
 export function bandName(band: BandNo, label?: string | null): string {
   return label ? `Band ${band} · ${label}` : `Band ${band}`;
 }
-
-export function routeLabel(route: 'analyst' | 'committee'): string {
-  return route === 'committee' ? 'Risk Committee' : 'Delegated close';
-}

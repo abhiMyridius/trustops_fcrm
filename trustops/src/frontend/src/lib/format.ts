@@ -50,10 +50,6 @@ export function formatFixed(n: number, places = 1): string {
   return n.toFixed(places);
 }
 
-export function formatPct(n: number, places = 0): string {
-  return `${n.toFixed(places)} %`;
-}
-
 export function shortHash(hash: string): string {
   return hash.length > 10 ? `${hash.slice(0, 4)}…${hash.slice(-4)}` : hash;
 }

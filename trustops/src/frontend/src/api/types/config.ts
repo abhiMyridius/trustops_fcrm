@@ -133,15 +133,6 @@ export interface ImpactPreview {
   non_retroactive: boolean;
 }
 
-export interface Assurance {
-  examiner: {
-    question: string;
-    refused: boolean;
-    sentences: { t: string; refs: number[] }[];
-    references: string[];
-  };
-}
-
 export interface ExaminerAnswer {
   question: string;
   case_id: string;

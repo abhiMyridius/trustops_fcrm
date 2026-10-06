@@ -6,8 +6,6 @@ import type { Role } from '@/api/types/common';
 
 export type { Role };
 
-export const ROLES = ['fcrm_po', 'fcrm_analyst', 'fcrm_committee', 'fcrm_observer'] as const satisfies readonly Role[];
-
 export const ROLE_LABEL: Record<Role, string> = {
   fcrm_po: 'Product owner',
   fcrm_analyst: 'FCRM analyst',
@@ -37,12 +35,4 @@ export function primaryRole(roles: readonly Role[]): Role | null {
     if (roles.includes(r)) return r;
   }
   return null;
-}
-
-/** Where a role opens a case. PO and committee see the same id through different shapes. */
-export function caseHref(role: Role, caseId: string): string {
-  if (role === 'fcrm_analyst') return `/analyst/case/${caseId}`;
-  if (role === 'fcrm_committee') return `/committee/case/${caseId}`;
-  if (role === 'fcrm_observer') return `/monitor/${caseId}`;
-  return `/case/${caseId}`;
 }
