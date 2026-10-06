@@ -206,9 +206,9 @@ export function RiskControlsTab() {
                   busy={busy}
                   onConfirm={(c) => void confirmItem(c.id)}
                   onOverride={(c) => setOverriding(c)}
-                  onConfirmFactor={(a) => {
-                    const id = (a as RiskArea & RiskAreaGate).factor_item_id;
-                    if (id) void confirmItem(id);
+                  onConfirmFactor={(area) => {
+                    const factorId = (area as RiskArea & RiskAreaGate).factor_item_id;
+                    if (factorId) void confirmItem(factorId);
                   }}
                 />
               ))}
