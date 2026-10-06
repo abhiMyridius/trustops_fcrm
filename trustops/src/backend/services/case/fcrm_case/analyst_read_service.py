@@ -17,9 +17,11 @@ from fcrm_common.errors import NotFoundError, ValidationError
 from fcrm_common.pagination import decode_cursor, encode_cursor
 from fcrm_common.time import utcnow
 from fcrm_contracts.api.case_analyst_read import (
+    ActivityAnalyst,
     AssessmentSummary,
     DashboardAnalyst,
     HandoffView,
+    OutcomeAnalyst,
     PolicyView,
     QueueItem,
     RiskView,
@@ -48,6 +50,7 @@ from fcrm_case.domain.analyst_assessment import (
     policy_view,
     risk_view,
 )
+from fcrm_case.domain.analyst_feed import activity_analyst, outcome_analyst
 from fcrm_case.domain.analyst_submissions import (
     CaseCandidate,
     rank_cases,
@@ -75,6 +78,21 @@ logger = logging.getLogger(__name__)
 
 #: How many of the viewer's own cases the dashboard lists.
 DASHBOARD_MINE_LIMIT = 50
+
+
+def _seq_cursor(cursor: str) -> int:
+    """The sequence number a feed cursor encodes (the window's upper edge).
+
+    Raises:
+        fcrm_common.errors.ValidationError: the cursor is not one the feed issued.
+    """
+    value = decode_cursor(cursor)
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        raise ValidationError(
+            "Invalid pagination cursor.",
+            errors=[{"loc": "query.cursor", "msg": "malformed cursor"}],
+        )
+    return value
 
 
 def _offset(cursor: Optional[str]) -> int:
@@ -381,3 +399,42 @@ class AnalystReadService:
             for c in found
         ]
         return CaseSearchOutput(hits=rank_cases(query, change_types, candidates, top_k))
+
+    # -- the activity feed and the outcome, as staff read them ----------------------
+
+    async def activity(
+        self, case_id: str, *, limit: int, cursor: Optional[str]
+    ) -> Page[ActivityAnalyst]:
+        """The case's activity, newest first, every row (owner, analyst and shared
+        visibility) with who did it, the audit record it cites and its gate. A page
+        is a window of ``limit`` sequence numbers; ``next_cursor`` opens the window
+        before it.
+        """
+        record = await self.case(case_id)
+        upper = record.activity_seq + 1 if cursor is None else _seq_cursor(cursor)
+        lower = max(0, upper - 1 - limit)
+        if upper <= 1:
+            return Page[ActivityAnalyst](items=[], next_cursor=None, total=0)
+        entries = await self._cases.activity.since(
+            case_id, lower, audience="staff", limit=upper - 1 - lower
+        )
+        shown = sorted(
+            (e for e in entries if e.seq < upper), key=lambda e: e.seq, reverse=True
+        )
+        return Page[ActivityAnalyst](
+            items=[activity_analyst(e, record) for e in shown],
+            next_cursor=encode_cursor(lower + 1) if lower > 0 else None,
+            total=None,
+        )
+
+    async def outcome(self, case_id: str) -> OutcomeAnalyst:
+        """The recorded outcome with who decided it and how, its reason and the
+        conditions it activated.
+        """
+        record = await self.case(case_id)
+        return outcome_analyst(
+            record,
+            await self._outcomes.get_outcome(case_id),
+            await self._outcomes.list_conditions(case_id),
+            seeded_outcomes(),
+        )

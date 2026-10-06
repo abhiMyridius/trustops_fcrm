@@ -1584,11 +1584,20 @@ def call(
 
 
 def test_the_route_list_covers_every_route_of_the_po_router() -> None:
+    from fcrm_case.routes_analyst_read import shared_router
     from fcrm_case.routes_po import router
 
     served = {
         (method, route.path.replace("{case_id}", "{case}"))
         for route in router.routes
+        for method in getattr(route, "methods", ())
+    }
+    # The activity feed is one path the web reads as an owner and as an analyst:
+    # its single handler lives in the analyst read module, under the same guard.
+    served |= {
+        (method, route.path.replace("{case_id}", "{case}"))
+        for route in shared_router.routes
+        if route.path.endswith("/activity")
         for method in getattr(route, "methods", ())
     }
     listed = {
@@ -1613,6 +1622,8 @@ def test_no_other_role_may_call_a_po_route(
 ) -> None:
     act_as(role, "u-other")
     for method, template, body in ROUTES:
+        if role is Role.ANALYST and template.endswith("/activity"):
+            continue  # the one shared path: an analyst reads the staff feed
         response = call(ready, method, template, body)
         assert response.status_code == 403, (
             f"{role} {method} {template}: {response.text}"

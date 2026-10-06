@@ -851,7 +851,21 @@ def case_service(
         objects, DirectoryFixtures(DEMO_DOCUMENTS_DIR), settings
     )
     install_authz(app.state, allow_all_opa)
-    app.dependency_overrides[current_user] = lambda: acting_principal["principal"]
+    from starlette.requests import Request
+
+    def caller(request: Request) -> Principal:
+        """What the real ``current_user`` does after verifying a token: store the
+        principal on the request (the PO response guard reads it to tell staff
+        from an owner) and return it.
+        """
+        principal = acting_principal["principal"]
+        request.state.principal = principal
+        return principal
+
+    # A real class, not the string ``from __future__`` makes, so FastAPI injects
+    # the request.
+    caller.__annotations__ = {"request": Request}
+    app.dependency_overrides[current_user] = caller
     return CaseService(
         client=TestClient(app),
         store=case_store,
@@ -2313,3 +2327,83 @@ def submitted_case(
     service.po.submissions[v1.version_id] = v1
     service.po.submissions[v2.version_id] = v2
     return assessed_case
+
+
+@pytest.fixture
+def add_activity(case_service: CaseService) -> Callable[..., list[Any]]:
+    """``add_activity(case_id, type, visibility, summary, detail=None, actor=...)
+    -> ActivityEntry``: append one row to the in-memory activity log with the next
+    ``seq`` of the case; the actor is ``(id, role, component)``, H1's by default.
+    """
+    from fcrm_contracts.api.case_internal import UiActor, UiEventIn
+
+    def _add(
+        case_id: str,
+        type: str,
+        visibility: str,
+        summary: str,
+        detail: Optional[dict[str, Any]] = None,
+        actor: tuple[str, str, str] = ("svc:caseflow", "fcrm_service", "caseflow"),
+    ) -> Any:
+        seq = case_service.store._bump_activity_seq(case_id)
+        assert seq is not None
+        return case_service.store.activity.stage(
+            case_id,
+            seq,
+            UiEventIn(
+                type=type,
+                visibility=visibility,  # type: ignore[arg-type]
+                summary=summary,
+                detail=detail or {},
+                actor=UiActor(id=actor[0], role=actor[1], component=actor[2]),
+            ),
+        )
+
+    return _add
+
+
+@pytest.fixture
+def live_caller(live_case: LiveCase) -> Callable[[Principal], Any]:
+    """``async with live_caller(principal) as client:`` calls the live S1 app as
+    ``principal``, a person: it replaces the service token with a verified caller
+    stored on the request exactly as the real ``current_user`` leaves it (the PO
+    response guard reads it to tell staff from an owner).
+    """
+    from contextlib import asynccontextmanager
+
+    import httpx
+    from fcrm_common.auth import current_user
+    from starlette.requests import Request
+
+    @asynccontextmanager
+    async def _caller(principal: Principal) -> AsyncIterator[httpx.AsyncClient]:
+        def caller(request: Request) -> Principal:
+            request.state.principal = principal
+            return principal
+
+        # A real class, not the string ``from __future__`` makes, so FastAPI
+        # injects the request.
+        caller.__annotations__ = {"request": Request}
+        live_case.app.dependency_overrides[current_user] = caller
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=live_case.app),
+            base_url="http://case.test",
+        ) as client:
+            yield client
+
+    return _caller
+
+
+@pytest.fixture
+async def live_analyst(
+    live_caller: Callable[[Principal], Any],
+) -> AsyncIterator[Any]:
+    """An HTTP client of the live S1 app, calling as Rahul Iyer, the analyst."""
+    from fcrm_contracts.common import Principal
+    from fcrm_contracts.enums import Role
+
+    principal = Principal(
+        sub=ANALYST_SUB, roles=[Role.ANALYST], name="Rahul Iyer", typ="access"
+    )
+    async with live_caller(principal) as client:
+        yield client

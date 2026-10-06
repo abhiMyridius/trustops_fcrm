@@ -33,7 +33,6 @@ const PENDING_ROUTES: readonly string[] = [
   'GET /api/fcrm/cases/{id}/harness',
   'GET /api/fcrm/cases/{id}/inbox',
   'POST /api/fcrm/cases/{id}/items/{id}',
-  'GET /api/fcrm/cases/{id}/outcome',
   'GET /api/fcrm/cases/{id}/recommendation',
   'PUT /api/fcrm/cases/{id}/recommendation',
   'POST /api/fcrm/cases/{id}/recommendation/lock',

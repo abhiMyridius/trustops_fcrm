@@ -25,7 +25,6 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from fcrm_common.auth import require_roles
 from fcrm_common.errors import ValidationError
 from fcrm_contracts.api.case_po import (
-    ActivityEventPO,
     AnswersBody,
     CasePO,
     CasePOListItem,
@@ -334,19 +333,12 @@ async def discard_case(
     return Response(status_code=204)
 
 
-# -- activity, integrations ------------------------------------------------------
-
-
-@router.get("/cases/{case_id}/activity")
-async def get_activity(
-    case_id: str,
-    principal: Owner,
-    service: Service,
-    limit: PageLimit = DEFAULT_PAGE_LIMIT,
-    cursor: Optional[str] = None,
-) -> Page[ActivityEventPO]:
-    """The owner's activity feed, newest first, in plain words."""
-    return await service.activity(principal, case_id, limit=limit, cursor=cursor)
+# -- integrations ----------------------------------------------------------------
+#
+# ``GET /cases/{id}/activity`` is not here: the web reads the same path as an
+# owner and as an analyst, so one handler serves both in
+# :mod:`fcrm_case.routes_analyst_read` (``shared_router``), under this module's
+# response guard, and calls ``PoService.activity`` for the owner.
 
 
 @router.get("/integrations")

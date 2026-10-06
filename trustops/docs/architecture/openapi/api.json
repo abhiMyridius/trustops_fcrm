@@ -1,6 +1,64 @@
 {
   "components": {
     "schemas": {
+      "ActivityAnalyst": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "gate_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gate Id"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "record_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Seq"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "actor",
+          "type",
+          "text",
+          "record_seq"
+        ],
+        "title": "ActivityAnalyst",
+        "type": "object"
+      },
       "ActivityEventPO": {
         "additionalProperties": false,
         "properties": {
@@ -3059,6 +3117,135 @@
         "title": "Outcome",
         "type": "string"
       },
+      "OutcomeAnalyst": {
+        "additionalProperties": false,
+        "description": "``GET /cases/{id}/outcome`` for the analyst, committee and observer: the\nrecorded outcome with who decided it and how, and the conditions it\nactivated. The PO reads a different, plainer shape from the same path.",
+        "properties": {
+          "close_requested": {
+            "title": "Close Requested",
+            "type": "boolean"
+          },
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/OutcomeConditionAnalyst"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "decided": {
+            "title": "Decided",
+            "type": "boolean"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decided_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "committee",
+                  "delegated"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "outcome_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Label"
+          },
+          "pack_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Id"
+          },
+          "plain_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plain Summary"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "decided",
+          "outcome",
+          "outcome_label",
+          "mode",
+          "decided_by",
+          "decided_at",
+          "pack_id",
+          "reason",
+          "plain_summary",
+          "close_requested",
+          "conditions"
+        ],
+        "title": "OutcomeAnalyst",
+        "type": "object"
+      },
       "OutcomeCondition": {
         "additionalProperties": false,
         "properties": {
@@ -3098,6 +3285,64 @@
           "text"
         ],
         "title": "OutcomeCondition",
+        "type": "object"
+      },
+      "OutcomeConditionAnalyst": {
+        "additionalProperties": false,
+        "properties": {
+          "due": {
+            "title": "Due",
+            "type": "string"
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "ref",
+          "text",
+          "owner",
+          "due",
+          "due_date",
+          "status"
+        ],
+        "title": "OutcomeConditionAnalyst",
         "type": "object"
       },
       "OutcomeLine": {
@@ -4147,6 +4392,45 @@
           "status"
         ],
         "title": "PackView",
+        "type": "object"
+      },
+      "Page_ActivityAnalyst_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityAnalyst"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[ActivityAnalyst]",
         "type": "object"
       },
       "Page_ActivityEventPO_": {
@@ -9606,8 +9890,8 @@
     },
     "/api/fcrm/cases/{case_id}/activity": {
       "get": {
-        "description": "The owner's activity feed, newest first, in plain words.",
-        "operationId": "S1_get_activity_cases__case_id__activity_get",
+        "description": "The case's activity, newest first. An owner reads their own case's feed in\nplain words (``PoService.activity``: only what the owner may see, no actor,\nno audit record); an analyst reads every row with who did it, the audit\nrecord it cites and its gate. Each caller's service is built only on its own\nbranch, so an owner's read never needs the analyst's stores.",
+        "operationId": "S1_activity_cases__case_id__activity_get",
         "parameters": [
           {
             "in": "path",
@@ -9652,7 +9936,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Page_ActivityEventPO_"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Page_ActivityEventPO_"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Page_ActivityAnalyst_"
+                    }
+                  ],
+                  "title": "Response Activity Cases  Case Id  Activity Get"
                 }
               }
             },
@@ -9674,9 +9966,9 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Get Activity",
+        "summary": "Activity",
         "tags": [
-          "po"
+          "analyst"
         ]
       }
     },
@@ -10367,6 +10659,54 @@
         "summary": "Decide Value",
         "tags": [
           "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/outcome": {
+      "get": {
+        "description": "The recorded outcome for the analyst and the committee: how it was decided\n(committee vote or delegated close), by whom, why, and the conditions it\nactivated. The owner's plainer outcome is a separate shape served from the\nsame path by the owner's own routes.",
+        "operationId": "S1_outcome_cases__case_id__outcome_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutcomeAnalyst"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Outcome",
+        "tags": [
+          "analyst"
         ]
       }
     },

@@ -25,9 +25,11 @@ from fcrm_common.auth import require_roles
 from fcrm_common.errors import UpstreamUnavailableError
 from fcrm_common.time import utcnow
 from fcrm_contracts.api.case_analyst_read import (
+    ActivityAnalyst,
     AssessmentSummary,
     DashboardAnalyst,
     HandoffView,
+    OutcomeAnalyst,
     PolicyView,
     QueueItem,
     RiskView,
@@ -35,17 +37,23 @@ from fcrm_contracts.api.case_analyst_read import (
     SubmissionVersion,
     WorkbenchHeader,
 )
+from fcrm_contracts.api.case_po import ActivityEventPO
 from fcrm_contracts.common import Page, Principal
 from fcrm_contracts.enums import Role
 
 from fcrm_case.analyst_read_service import AnalystReadService
 from fcrm_case.analyst_read_store import AnalystReadStore
-from fcrm_case.assessment_store import AssessmentStore
-from fcrm_case.deps import authorize_case, get_outcomes, get_store, get_views
-from fcrm_case.outcome_store import OutcomeStore
+from fcrm_case.deps import (
+    authorize_case,
+    get_outcomes,
+    get_po_service,
+    get_store,
+    get_views,
+)
+from fcrm_case.domain.activity import audience_of
+from fcrm_case.po_guard import PoGuardedRoute
+from fcrm_case.po_service import PoService
 from fcrm_case.routes_internal_assessment import get_assessment
-from fcrm_case.store import CaseStore
-from fcrm_case.views_store import ViewStore
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +73,19 @@ QueueStage = Literal[
 ]
 
 router = APIRouter(tags=["analyst"], dependencies=[Depends(authorize_case)])
+#: The two paths the web reads as an owner and as staff. One handler each, under
+#: the PO response guard (it lets staff through and scans what an owner is sent).
+shared_router = APIRouter(
+    tags=["analyst"],
+    route_class=PoGuardedRoute,
+    dependencies=[Depends(authorize_case)],
+)
 
 Analyst = Annotated[Principal, Depends(require_roles(Role.ANALYST))]
+Reader = Annotated[Principal, Depends(require_roles(Role.PO, Role.ANALYST))]
+OutcomeReader = Annotated[
+    Principal, Depends(require_roles(Role.ANALYST, Role.COMMITTEE))
+]
 PageLimit = Annotated[int, Query(ge=1, le=MAX_PAGE_LIMIT)]
 
 
@@ -97,16 +116,31 @@ def get_clock() -> Callable[[], datetime]:
     return utcnow
 
 
+def read_service(
+    request: Request, clock: Callable[[], datetime] = utcnow
+) -> AnalystReadService:
+    """One read service over the stores the lifespan wired onto ``request``'s app.
+
+    Raises:
+        fcrm_common.errors.UpstreamUnavailableError: a store is not wired (a
+            deployment fault, answered 503).
+    """
+    return AnalystReadService(
+        get_store(request),
+        get_analyst_reads(request),
+        get_assessment(request),
+        get_views(request),
+        get_outcomes(request),
+        clock,
+    )
+
+
 def get_read_service(
-    cases: Annotated[CaseStore, Depends(get_store)],
-    reads: Annotated[AnalystReadStore, Depends(get_analyst_reads)],
-    assessment: Annotated[AssessmentStore, Depends(get_assessment)],
-    views: Annotated[ViewStore, Depends(get_views)],
-    outcomes: Annotated[OutcomeStore, Depends(get_outcomes)],
+    request: Request,
     clock: Annotated[Callable[[], datetime], Depends(get_clock)],
 ) -> AnalystReadService:
-    """One read service per request over the stores the lifespan wired."""
-    return AnalystReadService(cases, reads, assessment, views, outcomes, clock)
+    """The dependency form of :func:`read_service`."""
+    return read_service(request, clock)
 
 
 Service = Annotated[AnalystReadService, Depends(get_read_service)]
@@ -214,3 +248,40 @@ async def submission_diff(
     and after) and the documents added. 404 when either version does not exist.
     """
     return await service.submission_diff(case_id, from_version, to_version)
+
+
+@shared_router.get("/cases/{case_id}/activity")
+async def activity(
+    case_id: str,
+    request: Request,
+    principal: Reader,
+    clock: Annotated[Callable[[], datetime], Depends(get_clock)],
+    limit: PageLimit = DEFAULT_PAGE_LIMIT,
+    cursor: Optional[str] = None,
+) -> Page[ActivityEventPO] | Page[ActivityAnalyst]:
+    """The case's activity, newest first. An owner reads their own case's feed in
+    plain words (``PoService.activity``: only what the owner may see, no actor,
+    no audit record); an analyst reads every row with who did it, the audit
+    record it cites and its gate. Each caller's service is built only on its own
+    branch, so an owner's read never needs the analyst's stores.
+    """
+    if audience_of(principal) == "po":
+        owner_service: PoService = get_po_service(request)
+        return await owner_service.activity(
+            principal, case_id, limit=limit, cursor=cursor
+        )
+    return await read_service(request, clock).activity(
+        case_id, limit=limit, cursor=cursor
+    )
+
+
+@shared_router.get("/cases/{case_id}/outcome")
+async def outcome(
+    case_id: str, principal: OutcomeReader, service: Service
+) -> OutcomeAnalyst:
+    """The recorded outcome for the analyst and the committee: how it was decided
+    (committee vote or delegated close), by whom, why, and the conditions it
+    activated. The owner's plainer outcome is a separate shape served from the
+    same path by the owner's own routes.
+    """
+    return await service.outcome(case_id)

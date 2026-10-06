@@ -13,7 +13,7 @@ Skipped unless ``FCRM_TEST_MONGO_URI`` points at a replica set::
 from __future__ import annotations
 
 import os
-from collections.abc import AsyncIterator
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -21,7 +21,6 @@ import httpx
 import pytest
 from fcrm_case.analyst_read_store import MongoAnalystReadStore, QueueQuery
 from fcrm_case.store import build_cases_repository
-from fcrm_common.auth import current_user
 from fcrm_contracts.api.case_analyst_read import (
     AssessmentSummary,
     DashboardAnalyst,
@@ -67,19 +66,6 @@ REVIEW_AND_CLARIFICATION = [
 ]
 
 
-@pytest.fixture
-async def analyst(live_case: LiveCase) -> AsyncIterator[httpx.AsyncClient]:
-    """An HTTP client of the live S1 app, calling as Rahul Iyer."""
-    app = live_case.app
-    app.dependency_overrides[current_user] = lambda: Principal(
-        sub=RAHUL, roles=[Role.ANALYST], name="Rahul Iyer", typ="access"
-    )
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://case.test"
-    ) as client:
-        yield client
-
-
 class CommandLog(monitoring.CommandListener):
     """Records the name of every command a client starts."""
 
@@ -106,9 +92,9 @@ async def ids(response: httpx.Response) -> list[str]:
 
 
 async def test_my_queue_is_ordered_by_what_needs_me_first(
-    analyst: httpx.AsyncClient,
+    live_analyst: httpx.AsyncClient,
 ) -> None:
-    response = await analyst.get("/queue")
+    response = await live_analyst.get("/queue")
     assert await ids(response) == RAHUL_QUEUE
     assert response.json()["total"] == 4
 
@@ -138,13 +124,15 @@ async def test_the_queue_is_one_aggregate_command(live_case: LiveCase) -> None:
     assert commands == ["aggregate"]
 
 
-async def test_everyones_queue_filters_and_pages(analyst: httpx.AsyncClient) -> None:
-    everyone = await analyst.get("/queue", params={"scope": "all", "limit": 6})
+async def test_everyones_queue_filters_and_pages(
+    live_analyst: httpx.AsyncClient,
+) -> None:
+    everyone = await live_analyst.get("/queue", params={"scope": "all", "limit": 6})
     assert everyone.json()["total"] == 14
     seen = await ids(everyone)
     cursor = everyone.json()["next_cursor"]
     while cursor is not None:
-        page = await analyst.get(
+        page = await live_analyst.get(
             "/queue", params={"scope": "all", "limit": 6, "cursor": cursor}
         )
         seen += await ids(page)
@@ -166,14 +154,14 @@ async def test_everyones_queue_filters_and_pages(analyst: httpx.AsyncClient) -> 
             params["stage"] = stage
         if band:
             params["band"] = band
-        response = await analyst.get("/queue", params=params)
+        response = await live_analyst.get("/queue", params=params)
         assert response.json()["total"] == total, (stage, band)
 
 
 async def test_the_seeded_queue_row_has_the_stored_score(
-    analyst: httpx.AsyncClient,
+    live_analyst: httpx.AsyncClient,
 ) -> None:
-    body = (await analyst.get("/queue")).json()
+    body = (await live_analyst.get("/queue")).json()
     first = QueueItem.model_validate(body["items"][0])
     assert first.id == "FCRM-2026-0140"
     assert (first.band, first.band_label) == (1, "Low")
@@ -182,16 +170,16 @@ async def test_the_seeded_queue_row_has_the_stored_score(
 
 
 async def test_the_demo_case_is_not_queued_until_it_is_submitted(
-    analyst: httpx.AsyncClient,
+    live_analyst: httpx.AsyncClient,
 ) -> None:
-    everyone = await analyst.get("/queue", params={"scope": "all", "limit": 200})
+    everyone = await live_analyst.get("/queue", params={"scope": "all", "limit": 200})
     assert "FCRM-2026-0151" not in await ids(everyone)
-    unassigned = await analyst.get("/queue", params={"scope": "unassigned"})
+    unassigned = await live_analyst.get("/queue", params={"scope": "unassigned"})
     assert unassigned.json()["total"] == 0
 
 
 async def test_a_live_score_is_withheld_in_the_queue_until_review_starts(
-    live_case: LiveCase, analyst: httpx.AsyncClient
+    live_case: LiveCase, live_analyst: httpx.AsyncClient
 ) -> None:
     cases = live_case.db["cases"]
     await cases.update_one(
@@ -214,13 +202,13 @@ async def test_a_live_score_is_withheld_in_the_queue_until_review_starts(
             "band_changed": False,
         }
     )
-    row = (await analyst.get("/queue")).json()["items"][0]
+    row = (await live_analyst.get("/queue")).json()["items"][0]
     assert (row["id"], row["band"], row["composite"]) == ("FCRM-2026-0140", None, None)
     await cases.update_one(
         {"_id": "FCRM-2026-0140"},
         {"$set": {"review_started_at": datetime(2026, 10, 6, tzinfo=UTC)}},
     )
-    row = (await analyst.get("/queue")).json()["items"][0]
+    row = (await live_analyst.get("/queue")).json()["items"][0]
     assert (row["band"], row["composite"]) == (3, 10.4)
 
 
@@ -228,9 +216,9 @@ async def test_a_live_score_is_withheld_in_the_queue_until_review_starts(
 
 
 async def test_the_dashboard_is_computed_from_the_seeded_cases(
-    analyst: httpx.AsyncClient,
+    live_analyst: httpx.AsyncClient,
 ) -> None:
-    response = await analyst.get("/dashboard/analyst")
+    response = await live_analyst.get("/dashboard/analyst")
     assert response.status_code == 200, response.text
     dash = DashboardAnalyst.model_validate(response.json())
     assert dash.kpis.open_assigned == 4
@@ -246,9 +234,9 @@ async def test_the_dashboard_is_computed_from_the_seeded_cases(
 
 
 async def test_the_demo_case_is_untouched_at_intake(
-    analyst: httpx.AsyncClient,
+    live_analyst: httpx.AsyncClient,
 ) -> None:
-    response = await analyst.get("/cases/FCRM-2026-0151/workbench")
+    response = await live_analyst.get("/cases/FCRM-2026-0151/workbench")
     assert response.status_code == 200, response.text
     head = WorkbenchHeader.model_validate(response.json())
     assert head.stage == "intake"
@@ -259,22 +247,22 @@ async def test_the_demo_case_is_untouched_at_intake(
 
 
 async def test_every_review_and_clarification_case_reads_with_its_snapshot(
-    analyst: httpx.AsyncClient,
+    live_analyst: httpx.AsyncClient,
 ) -> None:
     assert len(REVIEW_AND_CLARIFICATION) == 12
     for case_id in REVIEW_AND_CLARIFICATION:
-        response = await analyst.get(f"/cases/{case_id}/workbench")
+        response = await live_analyst.get(f"/cases/{case_id}/workbench")
         assert response.status_code == 200, (case_id, response.text)
         head = WorkbenchHeader.model_validate(response.json())
         assert head.submitted, case_id
         assert head.review_started, case_id
         assert head.route in {"analyst", "committee"}, case_id
-    unknown = await analyst.get("/cases/FCRM-2099-0001/workbench")
+    unknown = await live_analyst.get("/cases/FCRM-2099-0001/workbench")
     assert unknown.status_code == 404
 
 
 async def test_the_clock_pauses_from_the_stage_change_log(
-    live_case: LiveCase, analyst: httpx.AsyncClient
+    live_case: LiveCase, live_analyst: httpx.AsyncClient
 ) -> None:
     case_id = "FCRM-2026-0143"
     await live_case.db["activity"].insert_one(
@@ -290,13 +278,13 @@ async def test_the_clock_pauses_from_the_stage_change_log(
         }
     )
     head = WorkbenchHeader.model_validate(
-        (await analyst.get(f"/cases/{case_id}/workbench")).json()
+        (await live_analyst.get(f"/cases/{case_id}/workbench")).json()
     )
     assert head.clocks.analyst_paused is True
 
 
 async def test_an_acknowledgement_clears_what_is_owed(
-    live_case: LiveCase, analyst: httpx.AsyncClient
+    live_case: LiveCase, live_analyst: httpx.AsyncClient
 ) -> None:
     case_id = "FCRM-2026-0146"
     await live_case.db["score_snapshots"].insert_one(
@@ -322,7 +310,7 @@ async def test_an_acknowledgement_clears_what_is_owed(
         {"$set": {"review_started_at": datetime(2026, 10, 6, tzinfo=UTC)}},
     )
     owed = WorkbenchHeader.model_validate(
-        (await analyst.get(f"/cases/{case_id}/workbench")).json()
+        (await live_analyst.get(f"/cases/{case_id}/workbench")).json()
     )
     assert owed.pending_acknowledgements == ["band_change", "boundary"]
     when = datetime(2026, 10, 6, 1, tzinfo=UTC)
@@ -333,7 +321,7 @@ async def test_an_acknowledgement_clears_what_is_owed(
         ]
     )
     cleared = WorkbenchHeader.model_validate(
-        (await analyst.get(f"/cases/{case_id}/workbench")).json()
+        (await live_analyst.get(f"/cases/{case_id}/workbench")).json()
     )
     assert cleared.pending_acknowledgements == []
 
@@ -342,14 +330,14 @@ async def test_an_acknowledgement_clears_what_is_owed(
 
 
 async def test_every_review_and_clarification_case_reads_in_every_tab(
-    analyst: httpx.AsyncClient,
+    live_analyst: httpx.AsyncClient,
 ) -> None:
     for case_id in REVIEW_AND_CLARIFICATION:
         for tab in ("assessment", "risk", "policy", "handoff"):
-            response = await analyst.get(f"/cases/{case_id}/{tab}")
+            response = await live_analyst.get(f"/cases/{case_id}/{tab}")
             assert response.status_code == 200, (case_id, tab, response.text)
         risk = RiskView.model_validate(
-            (await analyst.get(f"/cases/{case_id}/risk")).json()
+            (await live_analyst.get(f"/cases/{case_id}/risk")).json()
         )
         assert risk.score.withheld is False, case_id
         assert risk.areas, case_id
@@ -357,35 +345,35 @@ async def test_every_review_and_clarification_case_reads_in_every_tab(
 
 
 async def test_the_demo_case_has_nothing_to_show_at_intake(
-    analyst: httpx.AsyncClient,
+    live_analyst: httpx.AsyncClient,
 ) -> None:
     summary = AssessmentSummary.model_validate(
-        (await analyst.get("/cases/FCRM-2026-0151/assessment")).json()
+        (await live_analyst.get("/cases/FCRM-2026-0151/assessment")).json()
     )
     assert summary.ready is False
     assert summary.score.withheld is True
     risk = RiskView.model_validate(
-        (await analyst.get("/cases/FCRM-2026-0151/risk")).json()
+        (await live_analyst.get("/cases/FCRM-2026-0151/risk")).json()
     )
     assert risk.areas == []
 
 
 async def test_opening_the_risk_view_stores_review_started_once(
-    live_case: LiveCase, analyst: httpx.AsyncClient
+    live_case: LiveCase, live_analyst: httpx.AsyncClient
 ) -> None:
     case_id = "FCRM-2026-0140"
     cases = live_case.db["cases"]
     before = await cases.find_one({"_id": case_id})
     assert before["review_started_at"] is None
-    assert (await analyst.get(f"/cases/{case_id}/risk")).status_code == 200
+    assert (await live_analyst.get(f"/cases/{case_id}/risk")).status_code == 200
     first = (await cases.find_one({"_id": case_id}))["review_started_at"]
     assert first is not None
-    assert (await analyst.get(f"/cases/{case_id}/risk")).status_code == 200
+    assert (await live_analyst.get(f"/cases/{case_id}/risk")).status_code == 200
     assert (await cases.find_one({"_id": case_id}))["review_started_at"] == first
 
 
 async def test_a_pack_and_its_committee_are_read_from_stored_rows(
-    live_case: LiveCase, analyst: httpx.AsyncClient
+    live_case: LiveCase, live_analyst: httpx.AsyncClient
 ) -> None:
     case_id = "FCRM-2026-0138"
     await live_case.db["handoff_views"].insert_one(
@@ -421,7 +409,7 @@ async def test_a_pack_and_its_committee_are_read_from_stored_rows(
         }
     )
     view = HandoffView.model_validate(
-        (await analyst.get(f"/cases/{case_id}/handoff")).json()
+        (await live_analyst.get(f"/cases/{case_id}/handoff")).json()
     )
     assert view.pack is not None
     assert (view.pack.pack_id, view.pack.status) == ("pack_live", "released")
@@ -460,6 +448,113 @@ async def test_the_queue_uses_its_indexes(live_case: LiveCase) -> None:
     }
     assert "case_at" in acks
     assert "types_state_idx" in names
+
+
+# ── the activity feed and the outcome ───────────────────────────────────────────
+
+
+async def _log(live_case: LiveCase, case_id: str, rows: int) -> None:
+    """``rows`` activity rows for ``case_id`` with the case's own gap-free seq."""
+    docs = [
+        {
+            "case_id": case_id,
+            "seq": n,
+            "at": datetime(2026, 10, 6, n, tzinfo=UTC),
+            "type": "score.recomputed" if n % 2 else "case.stage_changed",
+            "visibility": "analyst" if n % 2 else "all",
+            "summary": f"entry {n}",
+            "detail": {"record_seq": 40 + n, "gate_id": f"gate_{n}"} if n % 2 else {},
+            "actor": {"id": "u-riyer", "role": "fcrm_analyst", "component": "case"},
+        }
+        for n in range(1, rows + 1)
+    ]
+    await live_case.db["activity"].insert_many(docs)
+    await live_case.db["cases"].update_one(
+        {"_id": case_id}, {"$set": {"activity_seq": rows}}
+    )
+
+
+async def test_the_analyst_feed_pages_newest_first_over_the_real_log(
+    live_case: LiveCase, live_analyst: httpx.AsyncClient
+) -> None:
+    await _log(live_case, "FCRM-2026-0140", 5)
+    path = "/cases/FCRM-2026-0140/activity"
+    first = (await live_analyst.get(path, params={"limit": 3})).json()
+    assert [i["id"] for i in first["items"]] == ["ev_5", "ev_4", "ev_3"]
+    assert first["items"][0]["actor"] == "Rahul Iyer"
+    assert first["items"][0]["record_seq"] == 45
+    assert first["items"][0]["gate_id"] == "gate_5"
+    second = (
+        await live_analyst.get(
+            path, params={"limit": 3, "cursor": first["next_cursor"]}
+        )
+    ).json()
+    assert [i["id"] for i in second["items"]] == ["ev_2", "ev_1"]
+    assert second["next_cursor"] is None
+
+
+async def test_the_owner_reads_a_plain_feed_of_the_same_log(
+    live_case: LiveCase, live_caller: Callable[..., Any]
+) -> None:
+    await _log(live_case, "FCRM-2026-0140", 4)
+    owner = await live_case.db["cases"].find_one({"_id": "FCRM-2026-0140"})
+    owner_principal = Principal(
+        sub=owner["owner"], roles=[Role.PO], name="Owner", typ="access"
+    )
+    async with live_caller(owner_principal) as client:
+        response = await client.get("/cases/FCRM-2026-0140/activity")
+    assert response.status_code == 200, response.text
+    items = response.json()["items"]
+    assert [i["id"] for i in items] == ["ev_4", "ev_2"]
+    assert all(set(i) == {"id", "at", "actor", "text"} for i in items)
+
+
+async def test_the_outcome_reads_the_recorded_row_and_its_conditions(
+    live_case: LiveCase, live_analyst: httpx.AsyncClient
+) -> None:
+    case_id = "FCRM-2026-0138"
+    await live_case.db["outcomes"].insert_one(
+        {
+            "_id": case_id,
+            "case_id": case_id,
+            "status": "set",
+            "request": None,
+            "outcome": "approve_with_conditions",
+            "mode": "committee",
+            "decided_by": "svc:caseflow",
+            "decided_at": datetime(2026, 10, 7, tzinfo=UTC),
+            "pack_id": "pack_1",
+            "reason": None,
+            "plain_summary": "Approved with conditions.",
+            "condition_ids": ["cnd_x"],
+            "fingerprint": "f",
+        }
+    )
+    await live_case.db["conditions"].insert_one(
+        {
+            "_id": "cnd_x",
+            "condition_id": "cnd_x",
+            "case_id": case_id,
+            "text": "Review the vendor",
+            "owner_id": None,
+            "owner_label": "FCRM Ops",
+            "due_label": "go-live",
+            "due_date": "2027-02-01",
+            "status": "scheduled",
+            "source": {},
+            "ref": "CND-1",
+        }
+    )
+    result = (await live_analyst.get(f"/cases/{case_id}/outcome")).json()
+    assert result["decided"] is True
+    assert (result["outcome_label"], result["mode"], result["decided_by"]) == (
+        "Approved with conditions",
+        "committee",
+        "Risk Committee",
+    )
+    assert [c["ref"] for c in result["conditions"]] == ["CND-1"]
+    seeded = (await live_analyst.get("/cases/FCRM-2026-0140/outcome")).json()
+    assert seeded["decided"] is False
 
 
 # ── submissions and the tool routes ─────────────────────────────────────────────
@@ -503,20 +598,20 @@ async def _freeze_two_submissions(live_case: LiveCase) -> None:
 
 
 async def test_the_submissions_and_their_diff_are_read_from_the_collection(
-    live_case: LiveCase, analyst: httpx.AsyncClient
+    live_case: LiveCase, live_analyst: httpx.AsyncClient
 ) -> None:
     await _freeze_two_submissions(live_case)
-    listed = (await analyst.get("/cases/FCRM-2026-0151/submissions")).json()
+    listed = (await live_analyst.get("/cases/FCRM-2026-0151/submissions")).json()
     assert [v["version"] for v in listed["items"]] == [1, 2]
     diff = (
-        await analyst.get(
+        await live_analyst.get(
             "/cases/FCRM-2026-0151/submissions/diff", params={"from": 1, "to": 2}
         )
     ).json()
     assert [(c["field_id"], c["before"], c["after"]) for c in diff["changed"]] == [
         ("F11", None, "Licence MX-114")
     ]
-    missing = await analyst.get(
+    missing = await live_analyst.get(
         "/cases/FCRM-2026-0151/submissions/diff", params={"from": 1, "to": 5}
     )
     assert missing.status_code == 404
@@ -555,7 +650,7 @@ async def test_the_service_routes_answer_the_tools_in_their_own_models(
 
 
 async def test_a_person_cannot_call_the_service_routes(
-    live_case: LiveCase, analyst: httpx.AsyncClient
+    live_case: LiveCase, live_analyst: httpx.AsyncClient
 ) -> None:
-    refused = await analyst.get("/internal/cases/search", params={"q": "payout"})
+    refused = await live_analyst.get("/internal/cases/search", params={"q": "payout"})
     assert refused.status_code == 403
