@@ -175,7 +175,9 @@ async def test_blocked_after_both_attempts_fail_the_model_call(
     assert len(result.attempts) == 2
     assert result.attempts[0].guard_results[-1].status.value == "retry"
     assert result.attempts[1].guard_results[-1].status.value == "blocked"
-    assert usage == {}
+    # two calls were attempted and neither returned a response: nothing was spent
+    assert sum(usage.values()) == 0
+    assert result.tokens_used == 0
 
 
 async def test_usage_limit_exceeded_blocks_without_retry(

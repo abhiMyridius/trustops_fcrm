@@ -24,7 +24,7 @@ PINS = PinnedVersions(
     fieldset_v=6,
     jurisdictions_v="2026-09",
     routing_v=4,
-    prompts_v="2026-10-06",
+    prompts_v="2026-10-06.1",
 )
 NARRATIVE_ITEMS = {
     "completeness": ("CompletenessReport", "Question"),
@@ -103,6 +103,30 @@ def test_screening_is_told_its_one_citation_with_an_example() -> None:
     assert '{kind: "case", case_id:' in text
     assert 'never `kind: "doc"`' in text
     assert "Example:" in text
+
+
+def test_screening_applies_the_whole_r4_predicate_itself() -> None:
+    """Nothing applies the volume or the change-type test to the agent's answer
+    (H1 opens the fast-lane gate on the proposal as given), so the prompt must not
+    say code did, and must state the two cases ``is_fast_lane_candidate`` accepts."""
+    from fcrm_caseflow.routing import is_fast_lane_candidate
+
+    text = _text(AgentName.SCREENING)
+    assert "Code already applied" not in text
+    assert "the only change type on the identity line is vendor_onboarding" in text
+    assert "the only change type is new_feature" in text
+    assert "under $5M" in text
+    assert "EMPTY or missing F05" in text
+    # the two cases the prompt names are the two the code accepts
+    assert is_fast_lane_candidate(
+        ["vendor_onboarding"], 0.0, new_geography=False, new_segment=False
+    )
+    assert is_fast_lane_candidate(
+        ["new_feature"], 4_999_999.0, new_geography=False, new_segment=False
+    )
+    assert not is_fast_lane_candidate(
+        ["new_feature"], 5_000_000.0, new_geography=False, new_segment=False
+    )
 
 
 def test_the_examiner_prompt_asks_for_what_examiner_answer_can_hold() -> None:

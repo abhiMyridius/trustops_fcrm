@@ -87,12 +87,17 @@ async def test_every_row_of_every_dataset_builds_a_pack_under_its_cap(
 
 
 @pytest.mark.parametrize("agent", [a for a in AgentName if a is not AgentName.CRITIC])
-async def test_pack_sources_are_the_rows_own(
+async def test_pack_sources_are_the_rows_own_widened_by_the_lines_the_pack_printed(
     agent: AgentName, pack_builder: RowPackBuilder
 ) -> None:
     row = load(agent)[0]
     pack = await pack_builder.build(row)
-    own = with_field_lines(row.sources(), row.case_id, pack.sections.get("fields"))
+    own = with_field_lines(
+        row.sources(),
+        row.case_id,
+        pack.sections.get("fields"),
+        pack.sections["identity"].split(" · domains in scope")[0],
+    )
     assert [s.model_dump() for s in pack.sources] == [s.model_dump() for s in own]
 
 
@@ -108,21 +113,39 @@ async def test_critic_pack_widens_only_the_assessment_record(
     assert '"controls"' in widened.text
 
 
-async def test_citation_validity_checks_the_critic_against_what_it_was_shown(
-    pack_builder: RowPackBuilder,
+@pytest.mark.parametrize("agent", list(AgentName))
+async def test_citation_validity_checks_every_agent_against_what_it_was_shown(
+    agent: AgentName, pack_builder: RowPackBuilder
 ) -> None:
     """A finding quotes the rating it is about, which only the widened
-    assessment record (production's ``cite_records``) contains. The metric uses
-    the pack's sources, or a finding Guard 4 accepted would read as unsourced."""
-    row = load(AgentName.CRITIC)[0]
+    assessment record (production's ``cite_records``) contains; a screening
+    reason quotes a whole field line or the change types, which only the widened
+    case source (``cite_case``) contains. The metric uses the pack's sources, or
+    a quote Guard 4 accepted would read as unsourced."""
+    for row in load(agent):
+        pack = await pack_builder.build(row)
+        assert [s.model_dump() for s in shown_sources(row)] == [
+            s.model_dump() for s in pack.sources
+        ], row.row_id
+
+
+async def test_the_change_types_the_identity_line_prints_are_a_quotable_case_fact(
+    pack_builder: RowPackBuilder,
+) -> None:
+    """The screening agent quotes ``types vendor_onboarding, new_geography``
+    (the fast-lane rule turns on the change types and the pack prints them in
+    its identity line). The first live run's case source lacked the line, so
+    four of five rows spent a retry on a quote that was in the pack."""
+    row = next(r for r in load(AgentName.SCREENING) if r.case_id == "FCRM-2026-0151")
     pack = await pack_builder.build(row)
-    assert [s.model_dump() for s in shown_sources(row)] == [
-        s.model_dump() for s in pack.sources
-    ]
-    plain = load(AgentName.SCREENING)[0]
-    assert [s.model_dump() for s in shown_sources(plain)] == [
-        s.model_dump() for s in plain.sources()
-    ]
+    identity = pack.sections["identity"]
+    types_line = re.search(r"types [a-z_, ]+", identity)
+    assert types_line is not None
+    case = next(s for s in pack.sources if s.key == "case:FCRM-2026-0151")
+    assert types_line.group(0).strip() in case.text
+    assert f"Case FCRM-2026-0151 · submission v1 · {types_line.group(0).strip()}" in (
+        case.text
+    )
 
 
 async def test_screening_fields_are_real_builder_lines_whose_values_a_quote_can_verify(

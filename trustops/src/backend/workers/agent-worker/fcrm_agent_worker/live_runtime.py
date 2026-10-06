@@ -80,6 +80,7 @@ from fcrm_tools import ToolRegistry
 from pydantic import BaseModel
 from pydantic_ai import (
     Agent,
+    RunUsage,
     ToolOutput,
     UnexpectedModelBehavior,
     UsageLimitExceeded,
@@ -95,6 +96,12 @@ _OUTPUT_INDEX_PATTERN: Final = re_compile(r"^outputs\[(\d+)\]")
 
 #: Keys of the usage breakdown ``AgentDone.usage`` wants.
 UsageBreakdown = dict[str, int]
+USAGE_KEYS: Final = (
+    "input_tokens",
+    "output_tokens",
+    "cache_read_tokens",
+    "cache_write_tokens",
+)
 
 ModelFactory = Callable[[TierModels, AttemptPlan], Model]
 
@@ -172,10 +179,9 @@ def _model_name(model: Model) -> str:
     return str(getattr(model, "model_name", type(model).__name__))
 
 
-def _usage_of(run: Any) -> UsageBreakdown:
+def _usage_of(usage: RunUsage) -> UsageBreakdown:
     """The four-key usage breakdown ``AgentDone.usage`` wants, from one
-    Pydantic AI ``AgentRunResult.usage()``/``.usage``."""
-    usage = run.usage
+    attempt's Pydantic AI :class:`~pydantic_ai.RunUsage`."""
     return {
         "input_tokens": usage.input_tokens,
         "output_tokens": usage.output_tokens,
@@ -241,7 +247,7 @@ class LiveRun:
         )
         self.starting_attempt = starting_attempt
         self.model_used = ""
-        self.last_usage: UsageBreakdown = {}
+        self.usage_total: UsageBreakdown = {}
         self.tool_sources: list[AvailableSource] = []
         self.feedback: list[str] = []
         self.base = GuardContext(
@@ -334,10 +340,12 @@ class LiveRun:
         )
         self.tool_sources = deps.tool_sources
         record.tools_called = deps.tools_called
+        usage = RunUsage()
         try:
             run = await agent.run(
                 user_text,
                 deps=deps,
+                usage=usage,
                 usage_limits=UsageLimits(
                     total_tokens_limit=plan.token_limit,
                     request_limit=request_limit(self.tool_call_cap),
@@ -388,12 +396,22 @@ class LiveRun:
                 )
             )
             return None, record
-        self.last_usage = _usage_of(run)
-        record.tokens_used = (
-            self.last_usage["input_tokens"] + self.last_usage["output_tokens"]
-        )
-        record.tool_calls = run.usage.tool_calls
+        finally:
+            self._bill(record, usage)
         return list(run.output), record
+
+    def _bill(self, record: AttemptRecord, usage: RunUsage) -> None:
+        """Charge an attempt's tokens to the job, whatever became of the attempt.
+
+        A call whose answer was refused, cut off or timed out still spent its
+        tokens; counting only the attempt that succeeded under-reported the case
+        ledger (the first live run's retried narrative showed ``[0, 8386]``).
+        """
+        spent = _usage_of(usage)
+        record.tokens_used = spent["input_tokens"] + spent["output_tokens"]
+        record.tool_calls = usage.tool_calls
+        for key in USAGE_KEYS:
+            self.usage_total[key] = self.usage_total.get(key, 0) + spent[key]
 
     async def post_guards(
         self,
@@ -480,8 +498,9 @@ async def run_agent_live(
 
     Returns ``(result, model_used, usage)``: ``result`` is exactly what
     ``run_agent_offline`` would hand H1 (same type, same verdict
-    semantics); ``model_used`` and ``usage`` are the last attempt's, for
-    ``AgentDone.model``/``AgentDone.usage``.
+    semantics); ``model_used`` is the last attempt's and ``usage`` is the whole
+    job's, every attempt included, for ``AgentDone.model``/``AgentDone.usage``
+    (H1 sums it into the case's token total).
     """
     run = LiveRun(
         spec,
@@ -509,4 +528,4 @@ async def run_agent_live(
         "live agent run finished",
         extra={"agent": spec.name.value, "verdict": run.result.verdict.value},
     )
-    return run.result, run.model_used, run.last_usage
+    return run.result, run.model_used, run.usage_total

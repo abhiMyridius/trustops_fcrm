@@ -20,7 +20,7 @@ Per-agent evaluation for TrustOps' nine agents: datasets, deterministic metrics,
 Run these from the repo root. `make evals` needs the AWS credentials of the shell's environment (the standard chain) and calls Bedrock.
 
 ```bash
-make evals                        # live, 5 rows per agent, seed 7, concurrency 3, Bedrock judge: about 10 minutes, USD 3-4
+make evals                        # live, 5 rows per agent, seed 7, concurrency 3, Bedrock judge: about 7 minutes, USD 3
 make evals AGENT=research         # one agent
 make evals EVALS_ARGS="--baseline --publish"   # also make this run the baseline, and load it into Mongo
 make evals EVALS_ARGS="--judge fake"           # no judge calls: the stand-in judge, labelled FAKE everywhere
@@ -47,8 +47,8 @@ FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:28217/?replicaSet=rs0' uv run --project
 For each agent, `python -m fcrm_evals run --producer live` does this, with no stand-in in the path:
 
 1. **Sample.** `--sample N --seed S` draws N rows of the agent's dataset. The demo-case rows (FCRM-2026-0151) are always in. The rest are drawn by a seeded RNG, round-robin across the label a metric needs, because precision is undefined on a slice with no predicted positive: screening's 18 fast-lane rows in 100, watchlist's 3 re-flag rows in 29, examiner's unanswerable questions, the critic's three planted-error types. The same seed gives the same rows. `--row-ids` selects exact rows.
-2. **Build the pack.** `RowPackBuilder` renders the row into a `ContextPack` under the real builders' section names, order, caps and line formats (`fcrm_agents.builders`). The row's own `sources` become the pack's sources, so a quote the agent copies from what it was shown verifies against Guard 4 and one it invents does not.
-3. **Run the agent.** H2's `run_agent_live`: Guards 1 to 5, the seed-backed tools, a real `FallbackModel` on the agent's tier, the tier's token budget (cheap 6k, mid 12k, strong 20k tokens an attempt) and its one retry. Every request is metered (tokens, latency, the model that answered).
+2. **Build the pack.** `RowPackBuilder` renders the row into a `ContextPack` under the real builders' section names, order, caps and line formats (`fcrm_agents.builders`). The row's own `sources` become the pack's sources, widened the way production registers a case (`cite_case`: the field lines and the identity line the pack prints), so a quote the agent copies from what it was shown verifies against Guard 4 and one it invents does not. The `citation_validity` metric checks against the same list (`fcrm_evals.live.shown_sources`), never a narrower one.
+3. **Run the agent.** H2's `run_agent_live`: Guards 1 to 5, the seed-backed tools, a real `FallbackModel` on the agent's tier, the system prompt rendered (`fcrm_prompts.InstructionRenderer`, the same renderer H2 uses), the tier's token budget (cheap 15k, mid 11k, strong 24k, judge 15k tokens an attempt, set from measured usage, below) and its one retry. Every request is metered (tokens, latency, the model that answered).
 4. **Never fabricate.** A blocked run returns no items and a `blocked` flag with the guard that stopped it and Guard 4's feedback; a run that cannot build its pack or raises is `failed`. The metrics then score the empty output, which is what the agent produced. Failures are isolated per row and counted.
 5. **Score.** The 27 deterministic metrics, plus, for narrative, examiner and critic, DeepEval's faithfulness, answer relevancy and hallucination metrics on the `judge` tier, and the real `narrative_faithfulness` judge (`--judge-votes K`).
 6. **Gate.** One verdict per agent: the primary metric measured and at its threshold, no worse than the baseline's when there is one, **and at least 80% of the sampled rows completed**. The last rule is new and deliberate: a primary metric averaged over the one row that did produce an output reads as a pass for an agent that was refused on the other four (the first run's narrative gate did exactly that).
@@ -58,7 +58,7 @@ For each agent, `python -m fcrm_evals run --producer live` does this, with no st
 
 ### Two switches that decide what a run measures
 
-- **`--instructions raw|rendered`** (default `raw`). `raw` sends each agent its system prompt exactly as the H2 worker does today: the Jinja template unrendered, so `{{ config("routing.R4") }}`, `{{ skill("cite_verbatim") }}` and `{{ schema(...) }}` reach the model as text. `rendered` renders it fully (`fcrm_evals.instructions`), resolving the `routing.R4`, `corpus.catalogue` and `scoring.scales` excerpts from the seed and the `<Agent>Output` envelopes from the types Guard 4 enforces. The loader cannot do either today. The default measures the system as shipped; `rendered` measures it as designed.
+- **`--instructions rendered|raw`** (default `rendered`). `rendered` sends each agent its system prompt fully rendered by `fcrm_prompts.InstructionRenderer` (the `routing.R4`, `corpus.catalogue` and `scoring.scales` excerpts resolved from the seed, the skills expanded): that is what the H2 worker sends too, since the first live run found H2 sending the unrendered Jinja template (`{{ config("routing.R4") }}` reached the model as text). `raw` is kept as a diagnostic only, to reproduce that finding; a run that uses it says so on the dashboard.
 - **`--token-budget-factor F`** (default 1.0). A **diagnostic**: scales the per-attempt token limits while the run lasts, to see an agent behind the budget that blocks it. A run that uses it says so on the dashboard, in `index.json` and in the report. A baseline is always 1.0.
 
 ### Cost and its caveat

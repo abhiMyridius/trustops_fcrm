@@ -174,8 +174,13 @@ def cite_case(
     pack's ``fields`` section shows (``labels`` as that section shows them), so a
     model that copies a whole line it was shown has quoted the source, and a value
     too short to stand as a quote (``US \u2192 Mexico`` is 11 characters) can be
-    quoted with its id and label around it. The source text is never sent to the
-    model, only checked against.
+    quoted with its id and label around it. A field the owner left empty is
+    quotable as the line the pack shows (``F05 · Expected annual volume · EMPTY
+    · -``), which is how a reason says a volume is not recorded. The text also
+    holds the identity line's case facts (submission version and change types):
+    the fast-lane rule turns on the change types, the pack prints them there, and
+    the screening agent quotes them. The source text is never sent to the model,
+    only checked against.
     """
     shown = dict(field_items(record, labels))
     lines = [
@@ -183,10 +188,18 @@ def cite_case(
         for fid in sorted(record.fields)
         if field_value(record, fid) is not None
     ]
-    lines += [
-        shown[fid] for fid in sorted(shown) if field_value(record, fid) is not None
-    ]
+    lines += [shown[fid] for fid in sorted(shown)]
+    lines.append(identity_head(f"Case {record.case_id}", record))
     draft.cite(CaseSourceRef(case_id=record.case_id), source_text_lines(lines))
+
+
+def identity_head(label: str, record: CaseRecordOutput) -> str:
+    """``label`` with the case's submission version and change types: the head of
+    the pack's identity line, and a line of the case's citable source."""
+    return (
+        f"{label} · submission v{record.submission_version}"
+        f" · types {', '.join(record.change_types) or '-'}"
+    )
 
 
 def add_prelude(
@@ -200,10 +213,7 @@ def add_prelude(
     replaces the case line for cross-case oversight jobs."""
     identity = subject or f"Case {request.case_id}"
     if record is not None:
-        identity += (
-            f" · submission v{record.submission_version}"
-            f" · types {', '.join(record.change_types) or '-'}"
-        )
+        identity = identity_head(identity, record)
     if request.domains:
         identity += f" · domains in scope {', '.join(d.value for d in request.domains)}"
     if request.mode:

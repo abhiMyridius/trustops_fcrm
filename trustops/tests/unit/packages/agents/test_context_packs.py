@@ -13,6 +13,7 @@ from fcrm_agents.builders import (
     FATF_LIST_ID,
     IntakePackBuilder,
     ResearchPackBuilder,
+    cite_case,
     gap_ids,
 )
 from fcrm_agents.context_pack import (
@@ -20,6 +21,7 @@ from fcrm_agents.context_pack import (
     ContextPackBuilder,
     GapRecord,
     PackBuildError,
+    PackDraft,
     ScopedTools,
     fit_items,
 )
@@ -108,6 +110,41 @@ async def test_builder_section_order_is_fixed(
 ) -> None:
     pack = await builder_for(agent).build(demo_request(agent), REGISTRY)
     assert pack.section_names()[2:] == order
+
+
+async def test_the_case_source_holds_the_identity_lines_case_facts() -> None:
+    """The screening agent quotes the change types the identity line prints (the
+    fast-lane rule turns on them); the case source must hold what the line says,
+    or the quote is rejected and a retry is spent on a fact the pack showed."""
+    pack = await builder_for(AgentName.SCREENING).build(
+        demo_request(AgentName.SCREENING), REGISTRY
+    )
+    head = pack.sections["identity"].split(" · domains in scope")[0]
+    assert "· types " in head
+    case = next(s for s in pack.sources if s.key == f"case:{DEMO_CASE_ID}")
+    assert head in case.text
+    assert head.split(" · ", 2)[2] in case.text
+
+
+def test_a_field_the_owner_left_empty_is_quotable_as_the_line_the_pack_shows() -> None:
+    """A reason says "volume not recorded" by quoting ``F05 · ... · EMPTY · -``;
+    the line is in the pack, so it must be in the case source too."""
+    record = CaseRecordOutput(
+        case_id="FCRM-2026-0089",
+        change_types=["new_feature"],
+        fields={
+            "F02": {"value": "Real-time balance alerts", "source": None},
+            "F05": {"value": None, "source": None},
+        },
+        submission_version=1,
+    )
+    draft = PackDraft({})
+    cite_case(
+        draft, record, {"F02": "Change description", "F05": "Expected annual volume"}
+    )
+    (case,) = draft.sources.values()
+    assert "F05 · Expected annual volume · EMPTY · -" in case.text
+    assert "F02 · Change description · Real-time balance alerts · -" in case.text
 
 
 async def test_builder_pack_hash_is_stable_across_builds() -> None:

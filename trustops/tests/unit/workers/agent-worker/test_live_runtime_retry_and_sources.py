@@ -301,3 +301,46 @@ async def test_a_tool_result_of_an_earlier_attempt_is_not_citable_in_the_next(
     )
     assert result.verdict is RunVerdict.BLOCKED
     assert len(result.attempts) == 2
+
+
+def _malformed(info: AgentInfo, messages: list[ModelMessage]) -> ModelResponse:
+    """A call of the output tool whose argument is not a list: the model spent its
+    tokens and the answer is unusable (the live runs' "30 validation errors")."""
+    tool = info.output_tools[0]
+    return ModelResponse(
+        parts=[ToolCallPart(tool_name=tool.name, args={"response": "not a list"})]
+    )
+
+
+async def test_a_refused_attempts_tokens_are_charged_to_the_job(
+    research_pack: ContextPack,
+    research_spec: AgentSpec,
+    fake_tiers_config: dict[str, Any],
+    seed_registry: ToolRegistry,
+    allow_all_permit: PermitGuard,
+    make_model_factory_scripted: Callable[..., ModelFactory],
+) -> None:
+    """Attempt 1 is a model call that returns an unusable answer, attempt 2 a
+    good one. Both spent tokens: the attempt record, the job's total, the usage
+    H1 sums into the case and the case ledger all hold both."""
+    budget = CaseBudget(DEMO_CASE_ID)
+    result, _model, usage = await run_agent_live(
+        research_spec,
+        research_pack,
+        "job-billing",
+        registry=seed_registry,
+        permit=allow_all_permit,
+        budget=budget,
+        instructions=None,
+        tiers_config=fake_tiers_config,
+        model_factory=make_model_factory_scripted(
+            [[_malformed], [_output(research_output(research_pack))]], []
+        ),
+    )
+    first, second = result.attempts
+    assert result.verdict is RunVerdict.PASS
+    assert first.tokens_used > 0
+    assert second.tokens_used > 0
+    assert result.tokens_used == first.tokens_used + second.tokens_used
+    assert usage["input_tokens"] + usage["output_tokens"] == result.tokens_used
+    assert budget.snapshot().per_agent["research"].tokens == result.tokens_used

@@ -17,7 +17,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fcrm_contracts.enums import AgentName
 from fcrm_guardrails.context import AvailableSource, GuardContext
 from fcrm_guardrails.output_shape import QUOTE_CHECK, verify_outputs
 
@@ -31,18 +30,17 @@ SCHEMA_CHECK = "schema"
 
 
 def shown_sources(row: EvalRow) -> list[AvailableSource]:
-    """The sources the agent was shown for ``row``: the row's own, except that
+    """The sources the agent was shown for ``row``: the list the live pack
+    carries (:func:`fcrm_evals.live.shown_sources`). The row's own, except that
     the critic's assessment record is widened to its summary plus the compact
-    ledger payload, exactly as production's ``cite_records`` registers it and as
-    the live pack gives it to the model (:func:`fcrm_evals.live.critic_sources`).
-    The metric must check a quote against the text the model could read, or a
-    finding that quotes the rating it is about reads as unsourced."""
-    sources = row.sources()
-    if row.agent is not AgentName.CRITIC:
-        return sources
-    from fcrm_evals.live import critic_sources  # heavy; only the critic needs it
+    ledger payload, and the case source to the field lines and the identity line
+    the pack printed, exactly as production's ``cite_records`` and ``cite_case``
+    register them. The metric must check a quote against the text the model could
+    read, or a finding that quotes the rating it is about, or a case's change
+    types, reads as unsourced although Guard 4 accepted it."""
+    from fcrm_evals.live import shown_sources as pack_sources  # heavy import
 
-    return critic_sources(row, sources)
+    return pack_sources(row)
 
 
 def citation_validity(
