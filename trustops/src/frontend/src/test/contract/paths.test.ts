@@ -39,8 +39,6 @@ const PENDING_ROUTES: readonly string[] = [
   'POST /api/fcrm/cases/{id}/recommendation/lock',
   'POST /api/fcrm/cases/{id}/recommendation/unlock',
   'POST /api/fcrm/cases/{id}/screening',
-  'GET /api/fcrm/cases/{id}/submissions',
-  'GET /api/fcrm/cases/{id}/submissions/diff',
   'GET /api/fcrm/reflags',
   'POST /api/fcrm/reflags/{id}/acknowledge',
   // S2 scoring (2)

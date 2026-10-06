@@ -1923,6 +1923,7 @@ def analyst_read(
         critic_count,
         lambda: case_service.store.activity.entries,
         lambda: case_service.po.submissions.values(),
+        lambda: case_service.outcomes.outcomes,
     )
     app = case_service.client.app
     app.state.assessment = assessment_store  # type: ignore[attr-defined]
@@ -2166,3 +2167,149 @@ def assessed_case(
             if r.subject.get("control_id") == "CTL-T01" and not r.subject.get("planned")
         ),
     )
+
+
+@pytest.fixture
+def make_submission() -> Callable[..., Any]:
+    """``make_submission(version, values, ...)``: a frozen submission row of the
+    demo case. ``values`` maps a field id to the ``SnapshotValue`` fields
+    (``{"F11": {"value": "x", "origin": "answered"}}``); a field not named is
+    ``open``.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from fcrm_case.domain.po_rows import (
+        CapturedBy,
+        SnapshotCompletion,
+        SnapshotValue,
+        SubmissionVersionRow,
+        submission_version_id,
+    )
+
+    def _make(
+        version: int = 1,
+        values: Optional[dict[str, dict[str, Any]]] = None,
+        *,
+        case_id: str = "FCRM-2026-0151",
+        reason: str = "submit",
+        round_no: Optional[int] = None,
+        document_ids: tuple[str, ...] = (),
+        captured_by: str = "u-pnair",
+    ) -> SubmissionVersionRow:
+        frozen = {
+            field_id: SnapshotValue.model_validate(spec)
+            for field_id, spec in (values or {}).items()
+        }
+        return SubmissionVersionRow(
+            version_id=submission_version_id(case_id, version),
+            case_id=case_id,
+            version=version,
+            captured_at=datetime(2026, 10, 1, 9, 40, tzinfo=UTC)
+            + timedelta(hours=5 * (version - 1)),
+            captured_by=CapturedBy(sub=captured_by, role="fcrm_po"),
+            reason=reason,  # type: ignore[arg-type]
+            round=round_no,
+            field_values=frozen,
+            document_ids=list(document_ids),
+            changed_field_ids=[],
+            completion=SnapshotCompletion(filled=len(frozen), required=len(frozen)),
+        )
+
+    return _make
+
+
+@pytest.fixture
+def make_document() -> Callable[..., Any]:
+    """``make_document(doc_id, name)``: a stored document row of the demo case."""
+    from datetime import UTC, datetime
+
+    from fcrm_case.domain.views import DocumentRow
+
+    def _make(doc_id: str, name: str, case_id: str = "FCRM-2026-0151") -> DocumentRow:
+        return DocumentRow(
+            doc_id=doc_id,
+            case_id=case_id,
+            name=name,
+            status="extracted",
+            bucket="uploads",
+            key=f"{case_id}/{doc_id}/{name}",
+            size_bytes=1000,
+            content_type="application/pdf",
+            uploaded_at=datetime(2026, 10, 1, 9, tzinfo=UTC),
+        )
+
+    return _make
+
+
+@pytest.fixture
+def submitted_case(
+    assessed_case: AssessedCase,
+    make_submission: Callable[..., Any],
+    make_document: Callable[..., Any],
+) -> AssessedCase:
+    """:func:`assessed_case` with two frozen submissions and three documents: v1 as
+    submitted (an extracted value, an owner-corrected one, an open one, two
+    documents) and v2 after round 1 (the open one answered, the extracted one
+    re-answered, one more document).
+    """
+    service = assessed_case.read.service
+    for doc in (
+        make_document("doc_1", "business_case.pdf"),
+        make_document("doc_2", "partner_contract.pdf"),
+        make_document("doc_3", "audit_scope_letter.pdf"),
+    ):
+        service.views.documents[doc.doc_id] = doc
+    v1 = make_submission(
+        1,
+        {
+            "F01": {
+                "value": "Priya Nair",
+                "origin": "extracted",
+                "source": {
+                    "doc_id": "doc_1",
+                    "page": 1,
+                    "line_start": 4,
+                    "line_end": 4,
+                },
+            },
+            "F03": {
+                "value": "February 2027",
+                "origin": "owner_declared",
+                "source": {"label": "owner declared"},
+                "original": {
+                    "value": "Q1 2027",
+                    "source": {
+                        "doc_id": "doc_1",
+                        "page": 1,
+                        "line_start": 9,
+                        "line_end": 9,
+                    },
+                },
+            },
+            "F11": {"origin": "open"},
+        },
+        document_ids=("doc_1", "doc_2"),
+    )
+    v2 = make_submission(
+        2,
+        {
+            "F01": {
+                "value": "Priya Nair",
+                "origin": "extracted",
+                "source": {
+                    "doc_id": "doc_1",
+                    "page": 1,
+                    "line_start": 4,
+                    "line_end": 4,
+                },
+            },
+            "F03": {"value": "March 2027", "origin": "answered"},
+            "F11": {"value": "Licence MX-114", "origin": "answered"},
+        },
+        reason="round",
+        round_no=1,
+        document_ids=("doc_1", "doc_2", "doc_3"),
+    )
+    service.po.submissions[v1.version_id] = v1
+    service.po.submissions[v2.version_id] = v2
+    return assessed_case

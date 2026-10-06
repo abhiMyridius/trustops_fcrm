@@ -21,7 +21,8 @@ from datetime import date
 from functools import lru_cache
 from typing import Any, Final, Optional
 
-from fcrm_seed.loader import generated_clauses, load_raw
+from fcrm_seed.loader import cases as seed_cases
+from fcrm_seed.loader import generated_clauses, load_raw, platform_outcome
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +174,19 @@ def agent_evals() -> tuple[tuple[str, float, str], ...]:
         (agent, float(row["pct"]), str(row["metric"]))
         for agent, row in per_agent.items()
     )
+
+
+@lru_cache(maxsize=1)
+def seeded_outcomes() -> dict[str, str]:
+    """``{case id: platform outcome}`` for the seed's decided cases. The seed
+    stores a closed case's outcome only in ``seed.json``, so a search of past
+    cases reads it here for a case with no ``outcomes`` row of its own.
+    """
+    return {
+        str(c["id"]): platform_outcome(str(c["outcome"]))
+        for c in seed_cases()
+        if c.get("outcome")
+    }
 
 
 def months_between(earlier: date, later: date) -> int:

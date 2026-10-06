@@ -459,3 +459,103 @@ async def test_the_queue_uses_its_indexes(live_case: LiveCase) -> None:
         i["name"] async for i in await live_case.db["acknowledgements"].list_indexes()
     }
     assert "case_at" in acks
+    assert "types_state_idx" in names
+
+
+# ── submissions and the tool routes ─────────────────────────────────────────────
+
+
+async def _freeze_two_submissions(live_case: LiveCase) -> None:
+    """Two frozen submissions of the demo case, as the PO surface writes them."""
+    from fcrm_case.domain.po_rows import (
+        CapturedBy,
+        SnapshotCompletion,
+        SnapshotValue,
+        SubmissionVersionRow,
+        submission_version_id,
+    )
+    from fcrm_common.mongo import Repository
+
+    repo = Repository(
+        live_case.db["submission_versions"],
+        SubmissionVersionRow,
+        id_of=lambda r: r.version_id,
+    )
+    for version, value, origin in (
+        (1, None, "open"),
+        (2, "Licence MX-114", "answered"),
+    ):
+        await repo.insert_one(
+            SubmissionVersionRow(
+                version_id=submission_version_id("FCRM-2026-0151", version),
+                case_id="FCRM-2026-0151",
+                version=version,
+                captured_at=datetime(2026, 10, 1, 9 + version, tzinfo=UTC),
+                captured_by=CapturedBy(sub="u-pnair", role="fcrm_po"),
+                reason="submit" if version == 1 else "round",
+                round=None if version == 1 else 1,
+                field_values={"F11": SnapshotValue(value=value, origin=origin)},  # type: ignore[arg-type]
+                document_ids=[],
+                changed_field_ids=[],
+                completion=SnapshotCompletion(filled=1, required=1),
+            )
+        )
+
+
+async def test_the_submissions_and_their_diff_are_read_from_the_collection(
+    live_case: LiveCase, analyst: httpx.AsyncClient
+) -> None:
+    await _freeze_two_submissions(live_case)
+    listed = (await analyst.get("/cases/FCRM-2026-0151/submissions")).json()
+    assert [v["version"] for v in listed["items"]] == [1, 2]
+    diff = (
+        await analyst.get(
+            "/cases/FCRM-2026-0151/submissions/diff", params={"from": 1, "to": 2}
+        )
+    ).json()
+    assert [(c["field_id"], c["before"], c["after"]) for c in diff["changed"]] == [
+        ("F11", None, "Licence MX-114")
+    ]
+    missing = await analyst.get(
+        "/cases/FCRM-2026-0151/submissions/diff", params={"from": 1, "to": 5}
+    )
+    assert missing.status_code == 404
+
+
+async def test_the_service_routes_answer_the_tools_in_their_own_models(
+    live_case: LiveCase,
+) -> None:
+    from fcrm_contracts.tools.case_search import CaseSearchOutput
+    from fcrm_contracts.tools.submission_diff import SubmissionDiffOutput
+
+    await _freeze_two_submissions(live_case)
+    http = live_case.http
+    diff = await http.get(
+        "/internal/cases/FCRM-2026-0151/submissions/diff",
+        params={"from_version": 1, "to_version": 2},
+    )
+    assert diff.status_code == 200, diff.text
+    assert [
+        c.field_id
+        for c in SubmissionDiffOutput.model_validate(diff.json()).changed_fields
+    ] == ["F11"]
+    closed = await live_case.db["cases"].find_one({"state": "closed"})
+    found = await http.get(
+        "/internal/cases/search", params={"q": closed["title"], "top_k": 3}
+    )
+    assert found.status_code == 200, found.text
+    hits = CaseSearchOutput.model_validate(found.json()).hits
+    assert hits[0].similarity == 1.0
+    assert hits[0].outcome in {"approve", "approve_with_conditions", "defer", "reject"}
+    open_only = await http.get(
+        "/internal/cases/search",
+        params={"q": "payout", "closed_only": "false", "top_k": 25},
+    )
+    assert open_only.status_code == 200
+
+
+async def test_a_person_cannot_call_the_service_routes(
+    live_case: LiveCase, analyst: httpx.AsyncClient
+) -> None:
+    refused = await analyst.get("/internal/cases/search", params={"q": "payout"})
+    assert refused.status_code == 403

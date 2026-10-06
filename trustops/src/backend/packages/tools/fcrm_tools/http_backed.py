@@ -29,7 +29,7 @@ Tool                  Backed by
 ``rules_check``       in-process, the real eight rules (no service, no seed)
 ``evidence_ledger``   S4 ``GET /proposals`` (paged, bounded)
 ``audit_log``         S4 ``GET /records/{case_id}`` (paged, bounded)
-``submission_diff``   S1 ``GET /cases/{id}/versions/diff``
+``submission_diff``   S1 ``GET /internal/cases/{id}/submissions/diff``
 ====================  ==========================================================
 
 There is no ``scoring_engine`` tool at all: agents never score (ADR-07). The

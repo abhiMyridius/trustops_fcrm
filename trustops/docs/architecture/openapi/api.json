@@ -4734,6 +4734,45 @@
         "title": "Page[QueueItem]",
         "type": "object"
       },
+      "Page_SubmissionVersion_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SubmissionVersion"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "Page[SubmissionVersion]",
+        "type": "object"
+      },
       "PinnedVersionsWeb": {
         "additionalProperties": false,
         "description": "``PinnedVersions`` in ``common.ts``: the versions a case pins, in the\nweb's display form (``v3``, ``v14``, ``2026-06``).",
@@ -7378,6 +7417,179 @@
         "title": "StageStep",
         "type": "object"
       },
+      "SubmissionChange": {
+        "additionalProperties": false,
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "after_origin": {
+            "enum": [
+              "extracted",
+              "reused",
+              "answered",
+              "owner_declared",
+              "analyst_override",
+              "jurisdiction_list",
+              "open"
+            ],
+            "title": "After Origin",
+            "type": "string"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "before_origin": {
+            "enum": [
+              "extracted",
+              "reused",
+              "answered",
+              "owner_declared",
+              "analyst_override",
+              "jurisdiction_list",
+              "open"
+            ],
+            "title": "Before Origin",
+            "type": "string"
+          },
+          "field_id": {
+            "title": "Field Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field_id",
+          "label",
+          "before",
+          "after",
+          "before_origin",
+          "after_origin"
+        ],
+        "title": "SubmissionChange",
+        "type": "object"
+      },
+      "SubmissionDiff": {
+        "additionalProperties": false,
+        "properties": {
+          "added_documents": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Added Documents",
+            "type": "array"
+          },
+          "changed": {
+            "items": {
+              "$ref": "#/components/schemas/SubmissionChange"
+            },
+            "title": "Changed",
+            "type": "array"
+          },
+          "from": {
+            "title": "From",
+            "type": "integer"
+          },
+          "to": {
+            "title": "To",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "changed",
+          "added_documents"
+        ],
+        "title": "SubmissionDiff",
+        "type": "object"
+      },
+      "SubmissionField": {
+        "additionalProperties": false,
+        "properties": {
+          "field_id": {
+            "title": "Field Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "extracted",
+              "reused",
+              "answered",
+              "owner_declared",
+              "analyst_override",
+              "jurisdiction_list",
+              "open"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "was": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WasValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "field_id",
+          "label",
+          "value",
+          "origin",
+          "source",
+          "was"
+        ],
+        "title": "SubmissionField",
+        "type": "object"
+      },
       "SubmissionSummary": {
         "additionalProperties": false,
         "properties": {
@@ -7417,6 +7629,51 @@
           "submitted_at"
         ],
         "title": "SubmissionSummary",
+        "type": "object"
+      },
+      "SubmissionVersion": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "documents": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/SubmissionField"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "label",
+          "at",
+          "by",
+          "fields",
+          "documents"
+        ],
+        "title": "SubmissionVersion",
         "type": "object"
       },
       "SubmitCheck": {
@@ -8094,6 +8351,25 @@
           "members"
         ],
         "title": "VotesView",
+        "type": "object"
+      },
+      "WasValue": {
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "source"
+        ],
+        "title": "WasValue",
         "type": "object"
       },
       "WorkbenchHeader": {
@@ -10313,6 +10589,122 @@
         "summary": "Stream Case",
         "tags": [
           "case"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/submissions": {
+      "get": {
+        "description": "The case's frozen submissions, oldest first: every field with its value,\norigin and source, and what a corrected value replaced.",
+        "operationId": "S1_submissions_cases__case_id__submissions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_SubmissionVersion_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Submissions",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/submissions/diff": {
+      "get": {
+        "description": "What changed between two submissions: the fields (value and origin before\nand after) and the documents added. 404 when either version does not exist.",
+        "operationId": "S1_submission_diff_cases__case_id__submissions_diff_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "From",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "To",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionDiff"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Submission Diff",
+        "tags": [
+          "analyst"
         ]
       }
     },

@@ -9,7 +9,7 @@ own: one is built per request from the stores ``lifespan.register`` wired.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import datetime
 from typing import Optional
 
@@ -23,10 +23,14 @@ from fcrm_contracts.api.case_analyst_read import (
     PolicyView,
     QueueItem,
     RiskView,
+    SubmissionDiff,
+    SubmissionVersion,
     WorkbenchHeader,
 )
 from fcrm_contracts.api.case_internal_outcome import outcome_label
 from fcrm_contracts.common import Page, Principal
+from fcrm_contracts.tools.case_search import CaseSearchOutput
+from fcrm_contracts.tools.submission_diff import SubmissionDiffOutput
 
 from fcrm_case.analyst_read_store import (
     MAX_QUEUE_OFFSET,
@@ -44,6 +48,13 @@ from fcrm_case.domain.analyst_assessment import (
     policy_view,
     risk_view,
 )
+from fcrm_case.domain.analyst_submissions import (
+    CaseCandidate,
+    rank_cases,
+    submission_diff,
+    submission_version,
+    tool_diff,
+)
 from fcrm_case.domain.analyst_views import (
     HeaderInputs,
     assessment_ready,
@@ -53,9 +64,10 @@ from fcrm_case.domain.analyst_views import (
     score_visible,
     workbench_header,
 )
+from fcrm_case.domain.diffing import RowDiff, SubmissionVersionNotFoundError, diff_rows
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.outcome_store import OutcomeStore
-from fcrm_case.reference import clause_catalogue, control_catalogue
+from fcrm_case.reference import clause_catalogue, control_catalogue, seeded_outcomes
 from fcrm_case.store import CaseStore
 from fcrm_case.views_store import ViewStore
 
@@ -298,3 +310,74 @@ class AnalystReadService:
                 outcome_at=recorded.decided_at if recorded is not None else None,
             )
         )
+
+    # -- submissions and the service reads over them --------------------------------
+
+    async def submissions(self, case_id: str) -> Page[SubmissionVersion]:
+        """Every frozen submission of the case, oldest first, as the owner left it."""
+        record = await self.case(case_id)
+        rows = await self._reads.list_submissions(case_id)
+        documents = {d.doc_id: d for d in await self._views.list_documents(case_id)}
+        items = [submission_version(record, r, documents) for r in rows]
+        return Page[SubmissionVersion](items=items, next_cursor=None, total=len(items))
+
+    async def _diff(self, case_id: str, from_version: int, to_version: int) -> RowDiff:
+        """The comparison of two frozen submissions.
+
+        Raises:
+            fcrm_common.errors.NotFoundError: either version does not exist.
+        """
+        rows = await self._reads.list_submissions(case_id)
+        try:
+            return diff_rows(rows, from_version, to_version)
+        except SubmissionVersionNotFoundError as exc:
+            logger.info(
+                "submission version not found",
+                extra={"case_id": case_id, "from": from_version, "to": to_version},
+            )
+            raise NotFoundError(str(exc)) from exc
+
+    async def submission_diff(
+        self, case_id: str, from_version: int, to_version: int
+    ) -> SubmissionDiff:
+        """What changed between two submissions: fields with before and after
+        value and origin, and the documents added.
+        """
+        record = await self.case(case_id)
+        diff = await self._diff(case_id, from_version, to_version)
+        documents = {d.doc_id: d for d in await self._views.list_documents(case_id)}
+        return submission_diff(record, diff, from_version, to_version, documents)
+
+    async def tool_diff(
+        self, case_id: str, from_version: int, to_version: int
+    ) -> SubmissionDiffOutput:
+        """The same comparison in the ``submission_diff`` tool's shape."""
+        await self.case(case_id)
+        return tool_diff(await self._diff(case_id, from_version, to_version))
+
+    async def search(
+        self,
+        *,
+        query: str,
+        change_types: Sequence[str],
+        top_k: int,
+        closed_only: bool,
+        geography: Optional[str],
+    ) -> CaseSearchOutput:
+        """Cases like ``query``, best first: ranked by word overlap with the
+        title and overlap of change types, each with its recorded outcome (the
+        seed's for a seeded case with no outcome row of its own).
+        """
+        found = await self._reads.search_candidates(
+            change_types=change_types, geography=geography, closed_only=closed_only
+        )
+        seeded = seeded_outcomes()
+        candidates = [
+            c
+            if c.outcome is not None
+            else CaseCandidate(
+                c.case_id, c.title, c.change_types, seeded.get(c.case_id)
+            )
+            for c in found
+        ]
+        return CaseSearchOutput(hits=rank_cases(query, change_types, candidates, top_k))

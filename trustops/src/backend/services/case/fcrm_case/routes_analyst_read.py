@@ -31,6 +31,8 @@ from fcrm_contracts.api.case_analyst_read import (
     PolicyView,
     QueueItem,
     RiskView,
+    SubmissionDiff,
+    SubmissionVersion,
     WorkbenchHeader,
 )
 from fcrm_contracts.common import Page, Principal
@@ -188,3 +190,27 @@ async def handoff(case_id: str, principal: Analyst, service: Service) -> Handoff
     four release checks, the route and band, and who the committee is.
     """
     return await service.handoff(case_id)
+
+
+@router.get("/cases/{case_id}/submissions")
+async def submissions(
+    case_id: str, principal: Analyst, service: Service
+) -> Page[SubmissionVersion]:
+    """The case's frozen submissions, oldest first: every field with its value,
+    origin and source, and what a corrected value replaced.
+    """
+    return await service.submissions(case_id)
+
+
+@router.get("/cases/{case_id}/submissions/diff")
+async def submission_diff(
+    case_id: str,
+    principal: Analyst,
+    service: Service,
+    from_version: Annotated[int, Query(alias="from", ge=1)],
+    to_version: Annotated[int, Query(alias="to", ge=1)],
+) -> SubmissionDiff:
+    """What changed between two submissions: the fields (value and origin before
+    and after) and the documents added. 404 when either version does not exist.
+    """
+    return await service.submission_diff(case_id, from_version, to_version)

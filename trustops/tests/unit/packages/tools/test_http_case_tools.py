@@ -26,7 +26,7 @@ CASE_HOST = "case.test"
 POLICY_HOST = "policy.test"
 DEMO_CASE = "FCRM-2026-0151"
 EVIDENCE_PATH = f"/internal/cases/{DEMO_CASE}/evidence"
-DIFF_PATH = f"/cases/{DEMO_CASE}/versions/diff"
+DIFF_PATH = f"/internal/cases/{DEMO_CASE}/submissions/diff"
 SEARCH_PATH = "/internal/cases/search"
 CONTROLS_PATH = "/controls"
 
