@@ -1,299 +1,305 @@
 # Running and checking TrustOps
 
-How to set up the repo, run the checks, start the full stack and confirm that it works.
+How to set up the repository, start the stack, drive the demo case by hand in the web UI, run the checks and fix what goes wrong. Written on 6 October 2026 from the repository at that date; every command below was either run, expanded with `make -n`, or checked against the Makefile, the compose files and `docs/architecture/openapi/api.json`. What was not run is said in "What is not done and not verified".
 
-Every command runs from the repo root, the folder that holds the `Makefile`. Running `make` from anywhere else fails with `No rule to make target`.
+Run every command from the folder that holds the `Makefile` (`trustops/` inside the repository). `make` anywhere else fails with `No rule to make target`.
 
 ```bash
 cd ~/MacWorkspace/Hackathon/trustops_fcrm/trustops     # or wherever you cloned it
 ```
 
-This file describes the state on 5 October 2026. If a step stops matching what you see, check `git log --oneline` first: every commit says what it adds and what it is still waiting on.
+## 1. What you need
 
-## Quick start: run the whole thing
-
-The application is two parts. The backend is one Docker stack. The frontend is one Node dev server. Run them in two terminals. Both terminals start at the repo root.
-
-**If the repo sits under `~/Downloads`:** macOS blocks Docker from mounting files there until you allow it (`mkdir /host_mnt/Users/<you>/Downloads: operation not permitted`). Either turn on Downloads Folder for Docker under System Settings, Privacy & Security, Files and Folders (or Full Disk Access), then restart Docker Desktop, or keep the repo outside `~/Downloads`, for example under `~/MacWorkspace`.
-
-**Terminal 1: backend**
-
-1. `make tools` installs the OPA binary. Once.
-2. `make bootstrap` installs Python packages and pulls images. Once.
-3. `make env` writes `.env` with local passwords. Once. Add AWS keys to it only if you want agents to run.
-4. `make keys` writes the JWT keypair. Once.
-5. Start the stack:
-
-   ```bash
-   make up
-   ```
-
-   The first build takes a few minutes. `make up` runs eight containers: `mongo`, `rabbitmq`, `minio`, `opa`, `api` (identity and S1–S5 in one process), `harness` (H1 caseflow and H2 agent-worker in one process), `gateway` and `web`. Only the gateway publishes a port on your Mac (8080). `make up-obs` adds Jaeger, Prometheus and Grafana, and `make up-debug` also publishes the infrastructure ports (see [What the compose files are](#what-the-compose-files-are)).
-6. `make ps` should show 8 containers healthy.
-7. `curl -s http://localhost:8080/healthz` should answer. The backend is up.
-
-**Terminal 2: frontend**
-
-8. `cd src/frontend` then `npm ci`. Once.
-9. Choose the backend for the UI:
-   - Live backend, the default. Run `npm run dev`. Vite proxies `/api` to the gateway on :8080, so the stack from terminal 1 must be up. Sign-in works; most screens still lack a backend route, see the last section.
-   - Mock backend. Run `npm run dev:msw`. Every screen works against the in-browser mock. This is the one to use for the full click-through while the live join is unfinished.
-10. Open http://localhost:5173. On the live backend the login page offers the seeded-user picker only when the identity service serves one (see below); otherwise it shows a username and password form.
-
-**To stop:** `make down` in terminal 1, Ctrl-C in terminal 2.
-
-**Why live mode is only partly useful yet, in plain words.** The backend starts and answers `curl` correctly, and the web now signs in against it (the login contract was aligned, ADR-30). Behind the login, most analyst screens have no backend route yet, and the backend holds no seeded cases. The full list is in the last section of this file, and `src/frontend/src/test/contract/paths.test.ts` keeps it honest: it fails when a route the web calls is neither in `docs/architecture/openapi/api.json` nor in its `PENDING_ROUTES` list.
-
-## What works today
-
-| Area | Status |
+| Need | Notes |
 |---|---|
-| Code checks: lint, format, types, unit tests, OPA policy tests | ✅ `make check` |
-| Integration tests against a real MongoDB | ✅ `make test-int` |
-| Web unit tests and type check | ✅ `npm test`, `npm run typecheck` |
-| Backend stack: `api` (identity, S1–S5), `harness` (H1, H2), gateway, web, infra | ✅ `make up` starts 8 containers, all healthy, from empty volumes |
-| Login and access policy on every service, checked with `curl` through the gateway | ✅ |
-| Web app on its own, against the in-browser mock backend (`npm run dev:msw`) | ✅ every screen for all three personas |
-| Web app against the live backend | ⏳ sign-in works; about a fifth of the web's routes have a backend route (17 of 83). See [Where the backend and the frontend stand](#where-the-backend-and-the-frontend-stand) |
-| H3 ingestion worker | ✅ a unit of the harness; consumes `ingestion-worker.run` |
-| H4 context worker | ⏳ built and tested, joins the harness in iteration I3 |
-| Driving case FCRM-2026-0151 end to end through the live stack | ⏳ in progress: S1 holds the 80 seeded cases, and `case.created` already travels S1 outbox → RabbitMQ → H1 → S4 audit → SSE live; the PO routes, assessment and decision legs are still landing |
-| Agents on live Bedrock only (no replay mode, ADR-27) | ⏳ needs AWS keys in `.env`; without them every agent run fails at the model call |
-| `make demo`, `make seed-verify`, `make verify`, `make e2e`, `make evals` | ⏳ placeholders that print "pending" |
+| Docker Desktop with Compose v2, running | The default stack is 8 containers. Under `~/Downloads` macOS may block Docker's file mounts; keep the repository elsewhere (for example `~/MacWorkspace`) or grant Docker access in System Settings, Privacy and Security |
+| `uv` | Installs the Python 3.13 workspace. Put it in `~/.local/bin`; the Makefile adds that to `PATH` |
+| Node 22 and `npm` | Only for `make web-check`, `make web-install` and the dev server. `make up` builds the web image in Docker and needs no host Node |
+| `make`, `openssl`, `python3` | The macOS system versions work (GNU make 3.81). `make keys` uses `openssl`; `make env`, `make seed` and the waiters use `python3` |
+| AWS credentials with Amazon Bedrock access in the region of `AWS_DEFAULT_REGION` (default `us-east-1`) | Needed for every agent run and for the corpus embeddings that S3 does when `api` starts. There is no replay or mock mode (ADR-27) |
+| Several minutes and some disk for the first build | The images are built from the repository; `make bootstrap` also pulls the infrastructure images. Disk use was not measured |
 
-The demo figures (9.8 → 10.4, a 2–1 committee vote, 67 audit records) are currently proved by the unit and integration tests, not by a live run.
+The models the stack calls are named in `ai/models/tiers.yaml` and nowhere else. Enable model access for each in the account before the first run. Labels, not ids:
 
-**In one sentence:** the backend and the frontend each run on their own, but they do not yet talk to each other. Section 5 shows how to run each, and the last section lists exactly where the seam is.
+| Tier | Used by | Chain (attempt 1) | Budget per attempt |
+|---|---|---|---|
+| cheap | screening, intake, watchlist | Haiku 4.5, then Nova Lite | 15,000 tokens, 60 s |
+| mid | narrative, examiner, policy_gap | Sonnet 5.5, then Haiku 4.5 | 11,000 tokens, 120 s |
+| strong | research, assessment | Sonnet 5.5, then Opus 5.5, then Nova Pro | 24,000 tokens, 180 s |
+| judge | critic (and the eval judge) | Opus 5.5, then Sonnet 5.5 | 15,000 tokens, 180 s |
+| embeddings | S3 policy search, H4 index builds | Titan Embed Text v2, 1024 dimensions | |
 
-## 0. Prerequisites
+One retry per job, and 120,000 tokens per case (`ai/models/tiers.yaml`). Details and the failure behaviour: `ops/runbooks/bedrock-outage-and-fallbacks.md`.
 
-- Docker Desktop, running
-- [`uv`](https://docs.astral.sh/uv/), Node 22, `make`
-- The pinned OPA binary. Install it into `~/.local/bin` with:
-
-  ```bash
-  make tools
-  ```
-
-Two things to check before the first run:
-
-- **Another TrustOps stack already running.** Compose uses the project name `trustops`, so a second copy clashes with the first. Stop the other one with `docker compose -p trustops down`.
-- **The repo is under `~/Downloads` on macOS.** macOS can block Docker from mounting files there. If `up` fails with a mount or permission error, give Docker access (System Settings → Privacy & Security → Files and Folders, or Full Disk Access), or move the repo outside Downloads.
-
-## 1. One-time setup
+## 2. First run
 
 ```bash
-make bootstrap   # uv sync the workspace, install git hooks, pull images
-make env         # create .env from .env.example with generated local secrets (never overwrites)
-make keys        # generate the dev RS256 JWT keypair into jwt_keys/
+make bootstrap     # uv sync the workspace, install the opa binary, install git hooks, pull the infrastructure images
+make env           # write .env: generated local passwords, an empty AWS block (never overwrites)
+make keys          # write the RS256 JWT keypair into jwt_keys/ (never overwrites)
 ```
 
-Every seeded demo user shares one password, `demo-password-2026`. To choose your own, run `make env DEMO_PASSWORD=<yours>` instead. This works only while `.env` does not exist yet.
+Add the AWS credentials without printing them. Either open `.env` and fill `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in section 1 (the region is pre-filled; uncomment `AWS_SESSION_TOKEN` for SSO or assumed-role keys), or export them in the shell that runs `make up`:
 
-### The `.env` file
+```bash
+open -e .env
+# or, for this shell only (zsh):
+read -rs "?AWS_ACCESS_KEY_ID: " AWS_ACCESS_KEY_ID; echo; export AWS_ACCESS_KEY_ID
+read -rs "?AWS_SECRET_ACCESS_KEY: " AWS_SECRET_ACCESS_KEY; echo; export AWS_SECRET_ACCESS_KEY
+```
 
-`make env` writes a short `.env` of about 45 lines in three sections. Everything not in it uses a built-in default. `.env.example` is the full reference for every setting; you never edit or copy it.
+`AWS_PROFILE` is not passed into the containers. Never commit `.env` or `jwt_keys/` (`ops/runbooks/secrets-and-keys.md`).
 
-| Section | What to do |
+```bash
+make up            # build the images, start 8 containers, wait for health (up to 600 s)
+make ps            # every container healthy
+curl -s http://localhost:8080/healthz; echo       # {"status":"ok","service":"gateway"}
+make seed          # force-reload the seed and stage the three demo PDFs in MinIO
+```
+
+| Step | What to expect |
 |---|---|
-| **1. Live AI on Amazon Bedrock** | Needed for any agent run. Fill in `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (`AWS_DEFAULT_REGION` is already `us-east-1`; uncomment `AWS_SESSION_TOKEN` only for SSO or temporary keys). These are the standard boto3 and AWS CLI names. The agents call Bedrock through Pydantic AI's Bedrock provider, and the vector store calls S3 Vectors through aioboto3. **There is no replay mode (ADR-27):** without AWS keys every agent job fails at the Bedrock call. The services, login and the web app still work without keys; only agent runs need them |
-| **2. Host ports** | Optional. Change a port only if `up` reports `port is already allocated`: uncomment that line and choose a free port |
-| **3. Generated** | Leave as is. These are local passwords. The databases are created with them on the first start, so changing them later needs `make down-v`, which deletes local data |
+| `make up`, first time | a few minutes of image builds; then the waiter prints each container as it turns healthy |
+| `api` | about 85 seconds to become healthy: S3 embeds the 197 corpus clauses on Bedrock when it starts (commit `5a02c09`). Do not call it hung until `make logs svc=api` shows an error |
+| `make seed` | drops and reloads every `fcrm_*` database, restarts `api` and `harness` (another ~85 s), then copies the demo PDFs to `uploads/_fixtures/`. The PO's "Use the demo's two files" button needs this |
 
-**About ports.** A host port is the number on your Mac where you reach a container, for example `http://localhost:8080` for the app. By default only the gateway publishes one. The `api` and `harness` containers have no host port at all; you reach the API only through the gateway on 8080. The infrastructure ports (Mongo, RabbitMQ, MinIO, OPA) are published only by `make up-debug`, and the dashboards' ports only by `make up-obs`. A port clashes only when another program on your Mac already uses the same number.
+The first start already seeds an empty database (80 cases, the 65 closed cases' nine-record audit chains, 12 users, the policy corpus). `make seed` is what stages the PDFs and gives you a clean slate again.
 
-**MinIO** is a small S3-compatible storage server running locally. It holds uploaded documents, the extracted text, frozen committee packs and vector-index data. On AWS the same code uses real S3 instead.
+`make up` runs `mongo`, `rabbitmq`, `minio`, `opa`, `api` (identity and S1-S5 in one process), `harness` (H1 Caseflow, H2 agent worker, H3 ingestion, H4 context in one process), `gateway` and `web`. Only the gateway publishes a port on your machine (8080).
 
-If you created a `.env` before this change, keep it: it still works. To switch to the short form before your first `make up`, delete it and run `make env` again. If the stack has already run once, run `make down-v` first, because the databases already use the old passwords.
+## 3. URLs and who you can be
 
-**A `.env` older than the agent-quality screens** has no `MONGO_EVALS_READER_PASSWORD`, the password of the read-only Mongo user the audit service reads the eval results with (`find` on `fcrm_evals` and nothing else). `make up` stops at once and names it. Add a line `MONGO_EVALS_READER_PASSWORD=` followed by any URL-safe string (for example the output of `openssl rand -hex 16`); the user is created on the next start, and, unlike the other passwords, adding it needs no `make down-v`.
-
-Never commit `.env` or `jwt_keys/`.
-
-## 2. Check the code (no stack needed)
-
-```bash
-make check       # ruff, format check, mypy, OPA check + 54 Rego tests, 2,561 unit tests, env contract (~2 min)
-make test-int    # 235 integration tests against a real MongoDB replica set (needs Docker)
-```
-
-To point the integration tests at a replica set you already run, set `FCRM_TEST_MONGO_URI` first, for example:
-
-```bash
-FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:27217/?replicaSet=rs0' make test-int
-```
-
-Then run the web checks:
-
-```bash
-cd src/frontend
-npm ci
-npm test            # vitest unit tests
-npm run typecheck
-npm run lint
-cd ../..
-```
-
-Expected result: every suite is green, with a few skips whose reasons are written into the tests.
-
-## 3. Start the full stack
-
-```bash
-make up          # 8 containers: mongo rabbitmq minio opa api harness gateway web
-make ps          # expect 8 containers healthy
-```
-
-The first build takes a few minutes. Mongo and MinIO initialise themselves on every start (replica set, users and indexes; buckets), so there are no init containers: a container is `healthy` only once it is initialised.
-
-Other ways to start it:
-
-| Command | Adds |
+| What | URL |
 |---|---|
-| `make up-obs` | otel-collector, Jaeger (:16686), Prometheus (:9090), Grafana (:3000); the api and harness then export traces and metrics (12 containers) |
-| `make up-cache` | Redis, used for SSE fan-out across api replicas through `REDIS_URL` |
-| `make up-debug` | publishes Mongo (:27017), RabbitMQ (:5672, :15672), MinIO (:9000, :9001), OPA (:8181) and the harness health port (:9100) to your Mac |
-| `make up-dev` | live reload against your source and the Vite dev server (see below) |
+| The app (web through the gateway) | http://localhost:8080 |
+| The API (same origin) | http://localhost:8080/api/fcrm/... |
+| Vite dev server, hot reload against the live backend | http://localhost:5173 (`cd src/frontend && npm ci && npm run dev`) |
+| Vite dev server against the in-browser mock | `npm run dev:msw` in `src/frontend`; no Docker needed |
+| Grafana, Jaeger, Prometheus | http://localhost:3000, :16686, :9090 after `make up-obs`; Grafana user `admin`, password `GF_SECURITY_ADMIN_PASSWORD` from `.env` |
+| RabbitMQ management, MinIO console, OPA | http://localhost:15672, :9001, :8181 after `make up-debug` |
 
-**Port clashes.** If you see `port is already allocated`, another local stack is using the same host port. Set the matching `*_HOST_PORT` in `.env`, for example `GATEWAY_HOST_PORT=9080`, and run the command again. By default only the gateway port can clash; `make up-debug` and `make up-cache` publish more.
+Every seeded user shares one password, `demo-password-2026` (override with `make env DEMO_PASSWORD=...` before `.env` exists). On the login page "Sign in with corporate SSO" opens a picker of the seeded users; if identity does not serve the picker the page shows a username and password form. The username is the seed id without `u-` (`riyer` or `u-riyer` both work).
 
-### What the compose files are
+| Persona | Log in as | Home | Sees |
+|---|---|---|---|
+| Product owner | Priya Nair, `pnair` (also `tgold`, `skim`, `mros`, `ldia`) | `/` | her cases, documents, the questions FCRM asks her, conditions, the plain outcome. **Never** a score, band, rating, critic finding, vote or harness event; 403 on the monitor and on every analyst, scoring and decision route |
+| FCRM analyst | Rahul Iyer, `riyer` (also `mshah`, `dbrooks`) | `/analyst` | the queue, the workbench for a case (summary, submission, inbox, policy, risk and controls, recommendation, handoff, activity), Assurance (ask the examiner, overrides, watchlist, agent quality), Configuration (eight sections), the harness monitor |
+| Risk committee | Ana Mendes `amendes`, Joseph Okafor `jokafor`, Lin Chen `lchen` | `/committee` | the packs released to them, the pack (read-only), questions, their own vote. Other votes stay hidden until all three are cast |
+| Observer | Panel Observer, `observer` | `/monitor/<case>` | the harness monitor and agent quality only; no pack, no audit records |
 
-| File | Purpose |
-|---|---|
-| `docker-compose.yaml` | The whole stack. The default profile is the 8 containers; profile `obs` adds the four observability containers and profile `cache` adds Redis |
-| `compose.debug.yaml` | Publishes the infrastructure and harness health ports to your Mac. `make up-debug` |
-| `compose.dev.yaml` | Live reload against your source: bind mounts, `uvicorn --reload`, the Vite dev server, DEBUG logs. `make up-dev` |
-| `compose.test.yaml` | The test stack: in-memory vectors and dummy embeddings for S3, AWS keys blanked for the api, its own project `trustops-test`. Agents still call live Bedrock |
+The demo needs five people (Priya, Rahul, Ana, Joseph, Lin) across three working roles. Services also call each other with a service account (HMAC tokens); it is not a person and cannot decide a gate (Guard 7).
 
-## 4. Confirm it works
+## 4. Drive the demo by hand
+
+The case is **FCRM-2026-0151**: consumer remittances US to Mexico through a payout partner (Remesas del Norte S.A.). It is seeded as Priya's draft at intake, unassigned, with no documents. You play all five people. Use a different browser profile or a private window per person, or sign out between steps.
+
+Read this first:
+
+- The agents are live. The proposals, the completeness questions, the numbers and the wording differ from run to run. This guide describes structure: which screen, which action, what appears. The golden figures (9.8 to 10.4, committee 2-1, 67 audit records) are proved by the unit tests and belong to the static walkthrough; a live run prints its own numbers (ADR-27). Do not expect to see exactly 9.8 or 67.
+- Nothing is approved or rejected automatically. At every step the next move is a person's.
+- Leave a second window on `/monitor/FCRM-2026-0151` (as Rahul) to watch agents, guards, audit records and tokens as they happen.
+- To start over: `make demo-reset` (deletes only this case's data).
+- Do not press "New case" on the dashboard for the canonical run: it mints a different case id. Open 0151 from My queue.
+
+The 21 scenes are the walkthrough's (`docs/requirements/research/06-walkthrough-seed-extraction.md`, section 3.10 lists the audit records each writes). The flow behind them is in `docs/architecture/sequences/`.
+
+| # | Scene | As | Where | Do | Expect |
+|---|---|---|---|---|---|
+| 1 | Sign in | Priya | `/login`, then `/` | sign in | the dashboard: active cases, awaiting my answer, average days, open conditions, My cases. No risk number anywhere |
+| 2 | New case | Priya | `/queue`, then `/case/FCRM-2026-0151` | open the seeded draft | the case id, stage Intake, tabs Overview, Documents, Review, Inbox, Activity, Conditions. Nothing is on record until the first write; the first upload opens the run (`case.created`, `workflow.started`) |
+| 3 | Upload | Priya | `/case/FCRM-2026-0151/documents` | click "Use the demo's two files" (or Browse your own PDFs) | both files go Stored, Scanned, Read; the Assistant card narrates. H3 converts to Markdown with page:line anchors after Guard 1 (injection scan, PII masking); H2 runs the intake agent once per document (cheap tier). Tens of seconds, not instant. A scanned PDF is refused (no OCR) |
+| 4 | Proposals | Priya | `/case/.../overview` | Confirm or Remove each proposed change type (a removal needs a reason); read the "Values found" with their source chips | proposed change types (the demo expects vendor onboarding, new geography, new product) and the values each with a page and line. Confirming the last type resolves the field set; the case shows how many fields are required and how many are filled |
+| 5 | Reuse | Priya | same page, "A similar case you can reuse from" | tick values, "Reuse" | a precedent from S3's search (the demo expects FCRM-2026-0118); reused values carry provenance "reused" |
+| 6 | Gaps | Priya | same page, "Questions for you" | answer the blocking questions, save | blocking gaps are asked, optional ones are not; a fact such as a cash-pickup channel is flagged |
+| 7 | Review and submit | Priya | `/case/.../review` | correct a value if you like (the original is kept), then Submit | four plain checks (completion at least 80%, always-required fields, change types confirmed, no unresolved conflicts), then "Submitted". Triage assigns the analyst with the fewest open cases (R5): Rahul. Priya sees only the stage |
+| 8 | Analyst queue | Rahul | `/analyst/queue` | open 0151 | it is in My queue; screening has run and proposes the fast lane or not (R4; you confirm). Research and assessment run next; the Harness button and `/monitor/FCRM-2026-0151` show agents, guards and tokens |
+| 9 | Summary | Rahul | `/analyst/case/FCRM-2026-0151/summary` | read | "The assessment core is running" until it finishes; then the critic's findings (a banner) and the completeness report (missing, stale, contradictory). **The score card reads "Score withheld"**: a live score is shown only after the case's own analyst opens Risk and controls (ADR-45). Another analyst never sees it |
+| 10 | Clarify | Rahul | Summary, then `/analyst/case/.../inbox` | "Ask now", then keep, drop or edit each drafted question, send | one round only; the analyst clock pauses; the submission stays untouched |
+| 11 | PO answers | Priya | `/case/.../inbox` | answer the questions, optionally attach the vendor due-diligence scope letter | answers arrive as a new submission version; research and assessment re-run only for the changed fields; the case returns to Rahul in review |
+| 12 | Policy | Rahul | `/analyst/case/.../policy` | decide each clause: accept, or remove with a written reason of at least 20 characters; record the gap in the corpus | every clause is quoted word for word with its source reference. One decision per item: there is no accept-all. Decisions need the case in the review stage (after the clarification round); earlier, the API answers 409 `wrong_stage` (ADR-44) |
+| 13 | Controls | Rahul | `/analyst/case/.../risk-controls` | open the tab (this starts the review and unmasks the score), confirm each control rating item by item; optionally add a planned control | the score appears: composite, band, boundary flag when within 0.5 of an edge, with the derivation per area. The controls matched per area show rating and evidence date (older than 24 months is flagged stale); a planned control is shown and never scored. If a decision fails to resolve its item, that is open defect D-53 |
+| 14 | Override | Rahul | same tab | override the vendor due-diligence control (CTL-T01) to a lower rating, with a written reason of at least 20 characters | S2 recomputes. If the band changes or a boundary flag rises, a banner says "Acknowledgement required": acknowledge it in the workbench header (R3). The override is a `human.override` record with before, after and your reason. Overriding to the value the agent proposed is refused (422) |
+| 15 | Recommend | Rahul | `/analyst/case/.../recommendation` | read the narrative agent's draft, edit, Lock | lock is refused until every proposal and acknowledgement is done. Locking freezes the numbers |
+| 16 | Handoff | Rahul | `/analyst/case/.../handoff` | check the four release checks, release to the committee | the pack is assembled by code from the locked numbers and pinned versions; no model. Release goes to three members; votes are hidden |
+| 17 | Committee asks | Ana, then Rahul | `/committee`, `/committee/case/.../pack`, `.../inbox`; Rahul on Handoff | Ana reads the 12-section pack and asks a question; Rahul answers | a thread visible to all members; the answer is attached to the pack as an addendum. If the answer says a number changed, the pack unlocks, a pack v2 is built and every vote is requested again (R6) |
+| 18 | Vote | Joseph, Ana, Lin | `/committee/case/.../vote` | each casts one vote with a rationale of at least 20 characters (the demo: two approve with conditions, one defer) | "n of 3 votes in"; nobody sees another's vote; on the third vote all are revealed together and S5 tallies. Two identical votes win; a 1-1-1 split is `no_majority`, opens a thread and a second round; nothing is decided automatically (ADR-31, ADR-36) |
+| 19 | Outcome | Priya, Rahul | `/case/.../conditions`; the workbench | read | the committee outcome is recorded, the drafted conditions become tracked conditions, the case closes, and Priya sees one plain message ("Your change was decided ...") with her conditions. H1 then verifies the audit chain |
+| 20 | Examiner | Rahul | `/analyst/assurance/ask`; also `.../overrides`, `.../watchlist`, `.../agent-quality` | ask why the case went to committee | an answer in which each sentence cites an audit record that exists, or a refusal. The question can take up to 60 s (see the 202 gap). The watchlist tab lists re-flags after a new FATF list is activated under Configuration |
+| 21 | Recap | Rahul | `/monitor/FCRM-2026-0151` | read | counters: agents run, guards passed and blocked, audit records, chain verified, tokens against the 120k budget |
+
+Check the result without the UI (tokens as in section 6):
 
 ```bash
-G=http://localhost:8080          # or your GATEWAY_HOST_PORT
+curl -s -H "Authorization: Bearer $A" $G/api/fcrm/audit/verify/FCRM-2026-0151; echo   # {"ok":true,"record_count":N,...}
+curl -s -H "Authorization: Bearer $A" $G/api/fcrm/cases/FCRM-2026-0151/harness | head -c 600; echo
+```
 
-curl -s $G/healthz; echo         # gateway is up
+If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks/dlq-replay.md`. If an agent fails twice the run moves to `handoff` and does not resume (known gap; `make demo-reset` for this case).
 
+## 5. Make targets
+
+"Stack" means `make up` must be running. "Bedrock" means real model calls and real money. Times are what was measured or documented on 6 October 2026 (warm caches, Apple silicon); "not timed" means no measurement exists.
+
+| Target | What it does | Stack | Bedrock | Time |
+|---|---|---|---|---|
+| `help` | list targets | no | no | instant |
+| `bootstrap` | `tools`, `uv sync`, install git hooks, `pull` | no | no | minutes the first time (not timed) |
+| `tools` | install the pinned OPA 1.15.2 into `~/.local/bin` if missing | no | no | seconds |
+| `env` | write `.env` from `.env.example` with generated secrets; never overwrites | no | no | seconds |
+| `keys` | write the JWT keypair into `jwt_keys/`; `FORCE=1` rotates | no | no | instant |
+| `pull` | pull the pinned images | no | no | minutes the first time |
+| `up-infra` | mongo, rabbitmq, minio, opa only | starts it | no | about a minute |
+| `up` | build and start the 8-container default stack | starts it | the corpus embedding at `api` start | build a few minutes, `api` about 85 s |
+| `up-obs` | `up` plus otel-collector, Jaeger, Prometheus, Grafana (12 containers) | starts it | as `up` | as `up` |
+| `up-cache` | `up` plus Redis. **Nothing uses Redis today** (the SSE fan-out is not implemented) | starts it | as `up` | as `up` |
+| `up-debug` | `up` with infrastructure and harness health ports published to the host | starts it | as `up` | as `up` |
+| `up-dev` | bind-mounted source, `uvicorn --reload`, the Vite dev server | starts it | as `up` | as `up` |
+| `down` | stop every profile, keep volumes | yes | no | seconds |
+| `down-v` | stop and delete every volume (all local data) | yes | no | seconds |
+| `reset` | `down-v` then `up` | yes | as `up` | as `up` |
+| `ps` | container status and health | yes | no | instant |
+| `logs svc=<name>` | follow logs (all when `svc` empty) | yes | no | until Ctrl-C |
+| `gen-seed` | regenerate `seed.json` and assert it is byte-stable | no | no | seconds (not timed) |
+| `seed` | reload the seed, restart `api` and `harness`, stage the demo PDFs; refuses `ENV=prod` | yes | corpus embedding on restart | not timed as a whole; includes one `api` restart (about 85 s) |
+| `demo-reset` | delete case 0151's documents, uploads, audit records and run | yes | no | seconds |
+| `check` | the commit gate: ruff, format, mypy, OPA check and tests, unit tests, env contract, web typecheck and vitest | no (needs Docker for `compose config`) | no | 355 s measured (unit tests 288 s) |
+| `lint`, `format-check`, `typecheck` | ruff, ruff format, mypy over every package | no | no | under 2 s warm |
+| `opa-check`, `opa-test` | Rego check and 120 Rego tests | no | no | 0.1 s, 12 s |
+| `test-unit`, `test` | the 7,094 unit tests (`-m "not integration and not e2e"`) | no | no | about 290 s |
+| `compose-check` | `.env.example` against the compose files, `compose config` of each file set | no (needs Docker) | no | 1.4 s |
+| `web-install` | `npm ci` in `src/frontend` | no | no | not timed |
+| `web-check` | web typecheck and 144 vitest tests | no | no | 17 s |
+| `gate` | `check`, `test-int`, `fcrm_evals build --check`, `selfcheck` | needs Docker | no | more than `check` (not timed) |
+| `test-int`, `test-integration` | the 464 tests under `tests/integration`, on testcontainers or on `FCRM_TEST_MONGO_URI` | needs Docker, not the stack | no | not timed through make; the same tests plus the 74 in `tests/unit` took 192 to 225 s on a throwaway replica set |
+| `evals` | live agent evals, 5 rows per agent, Bedrock judge; writes `evals/results/<date>/` | no | **yes**, about USD 3 | 7 to 11 minutes |
+| `evals-full` | every row of every dataset | no | **yes**, several times `evals` | slow |
+| `evals-gate AGENT=<a>` | the promotion gate for one agent on the newest run | no | no | seconds |
+| `openapi` | export the merged OpenAPI to `docs/architecture/openapi/api.json` | no | no | seconds |
+| `dlq` | list the dead-letter queues with depth | yes | no | instant |
+| `dlq-replay q=<queue>` | move `<queue>.dlq` back onto `<queue>` with a shovel | yes | no | seconds |
+| `token-report` | per-agent tokens and cost from Prometheus into `ops/token-analysis/runtime/` | needs `up-obs` | no | seconds |
+| `rotate-keys` | `keys FORCE=1`, then restart `api`; everyone signs in again | yes | no | the `api` restart, about 85 s |
+| `seed-verify`, `demo`, `verify`, `e2e`, `resilience`, `nightly`, `contracts`, `api-gen`, `locks`, `build-usage`, `backup`, `restore` | **not wired**: print "not yet wired" and exit 1 | | | |
+
+`make -n <target>` prints what a target would run without running it.
+
+## 6. Verify with curl, through the gateway
+
+```bash
+G=http://localhost:8080
 login() {
   curl -s -X POST $G/api/fcrm/auth/login -H 'content-type: application/json' \
-    -d "{\"email\":\"$1\",\"password\":\"demo-password-2026\"}" |
+    -d "{\"username\":\"$1\",\"password\":\"demo-password-2026\"}" |
   python3 -c 'import sys, json; print(json.load(sys.stdin)["access_token"])'
 }
-A=$(login riyer)                 # Rahul Iyer, FCRM analyst
-P=$(login pnair)                 # Priya Nair, product owner
-C=$(login amendes)               # Ana Mendes, risk committee
+A=$(login riyer)      # Rahul Iyer, analyst
+P=$(login pnair)      # Priya Nair, product owner
+C=$(login amendes)    # Ana Mendes, committee
 ```
+
+The login is limited to 10 requests a minute (the gateway and identity both). Log in once per persona and reuse the token; an access token lasts 15 minutes.
 
 | Check | Command | Expect |
 |---|---|---|
+| Gateway is up | `curl -s $G/healthz` | `{"status":"ok","service":"gateway"}` |
+| Who am I | `curl -s -H "Authorization: Bearer $A" $G/api/fcrm/auth/me` | `200`, the analyst |
 | The analyst reads the active scoring model | `curl -s -H "Authorization: Bearer $A" $G/api/fcrm/scoring/models/active` | `200` with the model JSON |
-| A seeded case's audit chain verifies (0151 starts empty, its 67 records appear when the demo runs) | `curl -s -H "Authorization: Bearer $A" $G/api/fcrm/audit/verify/FCRM-2026-0118` | `200`, `ok: true`, 9 records |
-| The committee can read the audit trail | `curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $C" $G/api/fcrm/audit/records/FCRM-2026-0118` | `200` |
-| The product owner never sees scores | `curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $P" $G/api/fcrm/scoring/models/active` | `403` |
-| No token is rejected | `curl -s -o /dev/null -w '%{http_code}\n' $G/api/fcrm/scoring/models/active` | `401` |
-| Nobody but a service account can write audit records | `curl -s -o /dev/null -w '%{http_code}\n' -X POST -H "Authorization: Bearer $A" -H 'content-type: application/json' -d '{}' $G/api/fcrm/audit/records` | `403` |
+| The analyst's queue | `curl -s -H "Authorization: Bearer $A" $G/api/fcrm/queue` | `200`; 0151 appears once triage assigned it |
+| A seeded closed case's chain verifies | `curl -s -H "Authorization: Bearer $A" $G/api/fcrm/audit/verify/FCRM-2026-0118` | `200`, `ok: true`, `record_count` 9 |
+| The committee reads the trail | `curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $C" $G/api/fcrm/audit/records/FCRM-2026-0118` | `200` |
+| The committee queue | `curl -s -H "Authorization: Bearer $C" $G/api/fcrm/decision/committee/queue` | `200`; empty until a pack is released |
+| The PO never sees scores | `curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $P" $G/api/fcrm/scoring/models/active` | `403` |
+| The PO has no monitor | `curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $P" $G/api/fcrm/cases/FCRM-2026-0151/harness` | `403` |
+| No token | `curl -s -o /dev/null -w '%{http_code}\n' $G/api/fcrm/scoring/models/active` | `401` |
+| Nobody but a service account writes audit records | `curl -s -o /dev/null -w '%{http_code}\n' -X POST -H "Authorization: Bearer $A" -H 'content-type: application/json' -d '{}' $G/api/fcrm/audit/records` | `403` |
+| `/internal/` is not reachable from outside | `curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $A" $G/api/fcrm/policy/internal/clauses` | `404` (the gateway hides it) |
 
-Other logins: `tgold` and `skim` are product owners, `mshah` and `dbrooks` are analysts, and `jokafor` and `lchen` are committee members. You can also log in with the full seed id, such as `u-riyer`.
+Every route is in `docs/architecture/openapi/api.json` (110 paths); the roles are in `ops/opa/data/permissions.json`. Each route in the table above, and the roles allowed on it, was checked against both; the responses need the live stack.
 
-Logs for one service: `make logs svc=case`. Leave `svc` empty to follow every service.
-
-### Dashboards
-
-| Tool | URL | Login |
-|---|---|---|
-| Grafana | http://localhost:3000 | `admin` / `GF_SECURITY_ADMIN_PASSWORD` from `.env` |
-| Jaeger (traces) | http://localhost:16686 | none |
-| Prometheus | http://localhost:9090 | none |
-
-## 5. Run the web app
-
-There are three ways to see the UI. Pick by what you want to look at.
-
-| Way | URL | Backend | Use it for |
-|---|---|---|---|
-| **A. Mock, dev server** (`npm run dev:msw`) | http://localhost:5173 | MSW in the browser, fed by the P7 seed | Every screen, every persona, the full 0151 click-through. Needs no Docker |
-| **B. Live, packaged** | http://localhost:8080 | The real services through the gateway | Checking what the backend really serves. This is what `make up` gives you |
-| **C. Live, dev server** (`npm run dev`) | http://localhost:5173 | The real services, proxied by Vite to :8080 | Working on the FE against the real BE with hot reload |
-
-On the Monitor page the badge says how updates arrive: "live stream", "reconnecting" or "polling". The mock mode has no stream, so it polls.
-
-### A. Mock mode
+## 7. Check the code (no stack)
 
 ```bash
-cd src/frontend
-npm ci                           # first time only
-npm run dev:msw                  # http://localhost:5173
+make check         # about 6 minutes: ruff, format, mypy over 606 files, OPA, 7,094 unit tests, env contract, web typecheck and 144 vitest tests
+make test-int      # the 464 tests under tests/integration (testcontainers, needs Docker)
+make gate          # check, test-int, datasets and eval self-check
 ```
 
-`dev:msw` sets `VITE_API_MODE=msw`. The login page shows a picker of seeded users and collects no password. The URL prefix chooses the persona: `/` is the product owner, `/analyst` the FCRM analyst, `/committee` the risk committee. vitest and the Playwright scenes in `e2e/scenes` use this mode too; a production build never contains it.
-
-### B. Live mode, packaged (the web image behind the gateway)
+To point the integration tests at a Mongo replica set you started yourself (never the stack's Mongo; the tests create and drop their own databases):
 
 ```bash
-make up
-open http://localhost:8080
+docker run -d --rm --name scratch-mongo -p 127.0.0.1:28999:28999 mongo:8.0 mongod --replSet rs0 --bind_ip_all --port 28999
+docker exec scratch-mongo mongosh --quiet --port 28999 --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:28999"}]}).ok'
+FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:28999/?replicaSet=rs0' make test-int
+# the 74 integration-marked tests under tests/unit are not in make test-int:
+FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:28999/?replicaSet=rs0' uv run --project src/backend --all-packages pytest -m integration tests/unit
+docker rm -f scratch-mongo
 ```
 
-The web image is built with `VITE_API_MODE=live` and the MSW worker file is removed from it, so every request goes to the real services. The login page asks the identity service for the demo picker; the service answers it only when `DEMO_USERS_ENABLED=true` and `ENV` is `local`, `test` or `ci`, and answers 404 anywhere else, in which case the page shows the username and password form (`riyer` / `demo-password-2026`).
+On 6 October the whole integration-marked set (464 plus 74) run this way, with no stack, gave 525 passed and 14 skipped in 192 to 225 s. The skips: 7 need `FCRM_TEST_RABBITMQ_URL`, 6 are named black-box skips, 1 is a missing real-document fixture.
 
-### C. Live mode on the dev server
+Web checks on their own: `cd src/frontend && npm ci && npm test && npm run typecheck && npm run lint`. Playwright scenes against the mock: `npm run test:e2e` (4 specs, not run by the lane that wrote this file).
 
-Start the backend (step 3), then point the dev server at it:
+On 6 October 2026 `make check` was green on `5a02c09`: 7,094 passed, 4 skipped, 538 integration-marked tests deselected, 120 of 120 Rego tests, 144 web tests.
 
-```bash
-cd src/frontend
-npm run dev                      # live is the default; Vite proxies /api/* to http://localhost:8080
-```
-
-The login page uses the demo picker when identity serves one, otherwise the username/password form: log in with a seed id and the demo password (`riyer` / `demo-password-2026`). `VITE_DEMO_USERS=false` in `src/frontend/.env.local` (ignored by git) skips the picker request altogether.
-
-If Vite says `Port 5173 is already in use`, an earlier `npm run dev` is still running, often from before a folder move. Stop it with `kill $(lsof -tnP -iTCP:5173 -sTCP:LISTEN)` and start again. The dev server uses `strictPort`, so it never picks another port.
-
-## 6. Stop
-
-```bash
-make down        # stop the stack and keep its data
-make down-v      # stop the stack and delete every local volume
-```
-
-## Where the backend and the frontend stand
-
-The frontend was built against the MSW mock contract, which is the full design: 78 endpoints. The backend serves 33 routes today. Both sides are real code with tests, but they were built in parallel and the join has not been made. This table is what the live app will and will not find, screen by screen, as of 5 October 2026.
-
-| Web area | What the web calls | What the backend serves | Live today? |
-|---|---|---|---|
-| Login | `POST auth/login` with `{username, password}`, `GET auth/demo-users`, `auth/me`, `auth/refresh`, `auth/logout` | The same, plus `GET auth/users?role=` (roster). `login` takes `username` or `email`; `demo-users` and an empty password work only in a local environment with `DEMO_USERS_ENABLED=true` (ADR-30) | ✅ |
-| PO: my queue, case list, create case | `GET dashboard`, `GET/POST cases`, `GET cases/{id}` | `GET/POST cases`, `GET cases/{id}`, `GET cases/{id}/stream`. No `dashboard` | Partial. S1 holds **no seeded cases**, so the list is empty until a case is created in the UI |
-| PO: intake fields, review, submit | `PUT cases/{id}/intake/values/{field}`, `intake/categories`, `review`, `validate`, `submit` | `PUT cases/{id}/fields/{field}`, `PUT cases/{id}/title`, `POST cases/{id}/submit`, `GET versions`, `versions/diff` | Partial. Submit and title match; the field-write path differs; review and validate are missing |
-| PO: documents, inbox, clarifications, conditions, outcome, activity, integrations | 10 routes | None | ❌ |
-| Analyst: queue, workbench, screening, completeness, policy, risk, items, acknowledge, gaps, recommendation, lock and unlock, handoff, close, harness, reflags | 25 routes under `cases/{id}/…`, `queue`, `dashboard/analyst`, `reflags` | None. The gateway sends them to S1, which 404s | ❌ The whole analyst workbench |
-| Scoring | `GET scoring/models/{v}`, `scoring/routing-rules/{v}`, `POST scoring/simulate` | `GET models/active`, `models/{v}`, `routing/active`, `POST score` | Partial. The model read works; routing and simulate have different paths |
-| Policy search and config | `POST policy/search`, `policy/config/*` | `POST policy/search` only | Partial. Search works (4 clauses indexed, not 197); config screens are missing |
-| Audit | `GET audit/records`, `verify/{case}`, `examiner/ask`, `overrides`, `agent-quality`, `versions/{case}` | `GET records/{case}`, `verify/{case}`, `POST records` (service role only) | Partial. Verify works; the records list and the three analytics views differ or are missing |
-| Committee: queue, packs, votes, threads, outcome | `committee/queue`, `packs`, `cases/{id}/packs[/latest]`, `packs/{id}/release`, `packs/{id}/votes`, `packs/{id}/threads`, `threads/{id}/answer`, `cases/{id}/outcome` | All of them, under the web's names, plus `GET packs/{id}`, `GET packs/{id}/outcome` and H1's `POST packs`, `packs/{id}/supersede`, `packs/{id}/revote`, `POST outcomes` | ✅ S5 serves the whole committee surface (votes hidden until all three are cast, 1-1-1 is `no_majority` and opens round two, threads, pack release with four checks) and publishes its events through its outbox. The queue is empty until a pack is released; H1 does not call S5 yet |
-| Live updates | `GET cases/{id}/stream` as an `EventSource` with `?access_token=` (the gateway forwards it as the header) | `GET cases/{id}/stream`, bearer token required | Partial. The app connects, refreshes its session before each reconnect and polls while the stream is not live; the backend's frame format is still to be aligned |
-
-Behind the HTTP seam there is a second gap inside the backend: H1 does not call S5 yet (S5 now publishes its events), S1 never updates a case's state, and the H3/H4 workers have no process. So even with every route matched, a case would not yet move from intake to a decision. The order of work to close the gap is:
-
-1. ~~Align the login payload so the live UI can sign in.~~ Done (ADR-30).
-2. Seed S1 with the 80 cases so the PO and analyst queues are not empty.
-3. Add the analyst workbench routes to S1, or a thin read model over H1's `case_runs`, since those 25 routes are the bulk of the missing surface.
-4. Make S5 publish its events and S1 consume state changes, so the case actually moves.
-5. Rename the handful of mismatched paths (field writes, routing rules, audit records, committee queue) on whichever side is cheaper.
-6. Give H3 and H4 a `__main__` so documents can be ingested, and wire replay mode so the stack runs without AWS keys.
-
-## Troubleshooting
+## 8. Troubleshooting
 
 | Symptom | Cause and fix |
 |---|---|
-| `make: *** No rule to make target 'bootstrap'` | You are not in the repo root. `cd` into the folder that holds the `Makefile` |
-| `No resource found to remove for project "trustops"` | Harmless: no other TrustOps stack was running |
-| `port is already allocated` | Another local stack holds the port. Set the `*_HOST_PORT` values in `.env` |
-| `error while creating mount source path ... mkdir /host_mnt/Users/<you>/Downloads: operation not permitted` | macOS is blocking Docker's access to `~/Downloads`. Grant Docker the Downloads Folder (or Full Disk Access) in System Settings and restart Docker, or move the repo out of Downloads. See the quick start |
-| `audit` keeps restarting with `ChainVerifyFailedError` | The audit records in the Mongo volume were written under an older hash format (D-29). Run `make down-v`, then start again, to reseed |
-| `api` fails at start, asking for `DEMO_USERS_PASSWORD_HASH` | `.env` predates D-25. Move it aside and run `make env` again |
-| Every API call returns `503` | OPA is not reachable, and the services fail closed by design. Check with `make ps` and `make logs svc=opa` |
-| Every screen shows an error on the dev server | `npm run dev` is the live mode and proxies to the gateway on :8080: start the stack (`make up`) or use `npm run dev:msw` for the mock |
-| `Port 5173 is already in use` | A previous `npm run dev` is still running (it survives a folder move). `kill $(lsof -tnP -iTCP:5173 -sTCP:LISTEN)` and start again |
-| The login page shows a password form instead of the demo picker | Identity serves the picker only when `DEMO_USERS_ENABLED=true` and `ENV` is `local`, `test` or `ci` (otherwise `GET auth/demo-users` is a 404). Use the form with a seed id and the demo password |
-| Live PO queue is empty | S1 has no seeded cases yet (`make seed` is pending). Create a case from the UI, or use mock mode to see the 80 seed cases |
-| Agent jobs fail with a Bedrock or credentials error | Agents call live Bedrock only (ADR-27). Fill in the AWS keys in `.env` |
-| `ports are not available ... 127.0.0.1:6379 ... address already in use` | Only `make up-cache` with `make up-debug` publishes Redis. A Homebrew `redis-server` holds the port: `brew services stop redis`, or set `REDIS_HOST_PORT=6380` in `.env` |
+| `make: *** No rule to make target 'bootstrap'` | You are not in the folder with the `Makefile` |
+| `429 Too Many Requests` on login | the login limit is 10 a minute per address, at the gateway and in identity. Wait a minute; reuse tokens |
+| `make up` seems stuck on `api` | it takes about 85 s: S3 embeds 197 clauses on Bedrock. `make logs svc=api` shows progress or an error. With no or expired AWS credentials expect a failure there |
+| Everything stalls after the laptop slept | Docker paused the VM; in-flight Bedrock calls timed out. On the build machine, closing the lid on battery stalled every background job and looked like an API fault (D-50): keep it plugged in with the lid open, or `sudo pmset -a disablesleep 1`, and check `pmset -g log` for sleep events first. Then `make ps`, `make dlq`; replay what is parked (`make dlq-replay q=<queue>`) or `docker compose restart harness` |
+| A case stops moving | `make dlq` and `make logs svc=harness`; a parked `caseflow.steps` message freezes a run until fixed and replayed (`ops/runbooks/dlq-replay.md`). List every queue with `docker compose exec -T rabbitmq rabbitmqctl -q list_queues name messages consumers` |
+| The case shows "handed to a person" | an agent failed twice and the run is in `handoff`; there is no resume (known gap). Check Bedrock (`ops/runbooks/bedrock-outage-and-fallbacks.md`), then `make demo-reset` for 0151 |
+| Every API call returns `503` | OPA is unreachable and the services fail closed. `make ps`, `make logs svc=opa` |
+| Agent runs fail with a credentials or region error | AWS keys missing or expired in `.env` (or the shell), or no model access. `docker compose up -d` after fixing |
+| I need to run the demo again | `make demo-reset` (this case only); `make seed` (everything); `make down-v` then `make up` (everything, including volumes) |
+| `port is already allocated` | another stack holds the port. Set the matching `*_HOST_PORT` in `.env` (for example `GATEWAY_HOST_PORT=9080`) |
+| `mkdir /host_mnt/Users/<you>/Downloads: operation not permitted` | macOS blocks Docker's access to `~/Downloads`: grant it, or move the repository |
+| `audit` restarts with `ChainVerifyFailedError` | the Mongo volume holds audit records written under an older hash format (D-29). `make down-v` and start again |
+| `api` fails asking for `DEMO_USERS_PASSWORD_HASH` | `.env` predates D-25: move it aside and run `make env` |
+| `up` stops naming `MONGO_EVALS_READER_PASSWORD` | an older `.env`: add the line `MONGO_EVALS_READER_PASSWORD=` followed by any URL-safe string (`openssl rand -hex 16`); no `down-v` needed |
+| The login page shows a password form, not the picker | identity serves the picker only when `DEMO_USERS_ENABLED=true` and `ENV` is `local`, `test` or `ci`. Use `riyer` and the demo password |
+| Dev server says `Port 5173 is already in use` | an earlier `npm run dev` survives: `kill $(lsof -tnP -iTCP:5173 -sTCP:LISTEN)` |
+| Every screen errors on the dev server | `npm run dev` is the live mode and proxies to :8080: `make up` first, or use `npm run dev:msw` |
+| `ports are not available ... 6379` | a Homebrew `redis-server` holds the port (only with `up-cache` and `up-debug`): `brew services stop redis` or set `REDIS_HOST_PORT` |
+| The examiner question errors after a minute | the answer took longer than 60 s and the API answered 202; the web does not poll for it (known gap). Read it with `GET /api/fcrm/audit/examiner/answers/<question_id>` |
+| A stray `make down-v` deleted my data | there is no backup unless you made one (`ops/runbooks/backup-restore.md`); `make up` reseeds the 80 cases |
+
+More: `ops/runbooks/README.md` indexes one short page per task (start, stop, reset, dead letters, restarts, outages, secrets, backups, audit chain, agent incidents, release).
+
+## 9. Cost and tokens
+
+- **Per agent run:** tokens per attempt are capped by tier: 15,000 (cheap), 11,000 (mid), 24,000 (strong), 15,000 (judge), with one retry; a run that needs more is blocked and handed to a person, never silently cut (`ai/models/tiers.yaml`).
+- **Per case:** 120,000 tokens. One measured run of the demo case's eleven agent jobs used 114,626 tokens (about USD 0.45), 91,000 when every job answered first time, before `research.system` v3 (`evals/README.md`). H1 sums the total; it does not yet stop a case at the cap. The static walkthrough's "16.9k" is a script, not a measurement.
+- **An eval run:** `make evals` is about USD 3 and 7 to 11 minutes (USD 2.86 on 6 October: agents 0.56, judge 2.30). `make evals-full` is several times that. The judge is 80% of the cost; `EVALS_ARGS="--judge fake"` skips it and says FAKE on every output.
+- **Hand-driving the demo** costs roughly the agents' share of one case, plus the corpus embedding at each `api` start. The prices in `ai/models/tiers.yaml` are placeholders to confirm against the AWS bill.
+- Full analysis: `ops/reports/token-analysis.md`.
+
+## 10. What is not done and not verified
+
+The full list, each item with its evidence, is `docs/governance/known-gaps.md`. The ones that change what you can do:
+
+- `make demo`, `make seed-verify`, `make verify`, `make e2e`, `make resilience`, `make nightly`, `make backup` and `make restore` print "not yet wired". The demo is driven by hand (section 4); the golden numbers are unit tests.
+- **A run that hits `handoff` (an agent failed twice) cannot be resumed.** No route decides the gate and the web has no re-run control.
+- **S1 pins versions from the seed**, not from a configuration publish.
+- **The 120,000-token case cap is reported, not enforced across jobs.**
+- **Redis does nothing** (`make up-cache`); **S3 Vectors is not in the image** (vectors are in memory; each `api` start embeds the corpus).
+- **The web examiner does not handle a 202**, and `BEDROCK_REGION_FALLBACK` is read by no code.
+- **Two integration mismatches are open defects:** the `evidence_store` agent tool reads a different shape than S1 answers (D-52), and the web's decide call for a clause or control may not resolve the item id (D-53). If a review decision errors on the first item, that is D-53.
+- **No live end-to-end suite and no resilience drills.** The black-box tests run in process.
+- **The assessment agent fails its eval gate** (`li_within_one` 0.70 against 0.85); eight of nine agents pass (`evals/results/2026-10-06/gate.json`).
+- **The policy corpus and demo documents are synthetic**, 193 of 197 clauses generated (ADR-29). No OCR, no SharePoint.
+- **Identity is a demo directory** with one shared password and one JWT key; no TLS; single-node Mongo and RabbitMQ.
+- The AWS path (`ops/aws/README.md`) is a design; nothing was deployed.
+
+## Appendix: the compose files and the `.env`
+
+| File | Purpose |
+|---|---|
+| `docker-compose.yaml` | the whole stack; profile `obs` adds the four observability containers, profile `cache` adds Redis |
+| `compose.debug.yaml` | publishes Mongo (:27017), RabbitMQ (:5672, :15672), MinIO (:9000, :9001), OPA (:8181), Redis and the harness health port (:9100) to the host. `make up-debug` |
+| `compose.dev.yaml` | bind mounts, `uvicorn --reload`, the Vite dev server, DEBUG logs. `make up-dev` |
+| `compose.test.yaml` | the test stack: in-memory vectors, dummy embeddings for `api`, AWS keys blanked for `api`; project `trustops-test`. Agents still call live Bedrock. Used by the unwired `make e2e` |
+
+`.env` has three sections: (1) the AWS block (the only place a person must add anything), (2) optional host ports, commented out, (3) generated passwords and secrets. `.env.example` is the full reference for every variable, and `make compose-check` keeps it equal to the compose files. A host port is the number on your machine for a container; by default only the gateway publishes one. A generated password cannot change after the first start without `make down-v`, except `MONGO_APP_PASSWORD`, `MONGO_AUDIT_WRITER_PASSWORD` and `MONGO_EVALS_READER_PASSWORD` (`ops/runbooks/secrets-and-keys.md`).
