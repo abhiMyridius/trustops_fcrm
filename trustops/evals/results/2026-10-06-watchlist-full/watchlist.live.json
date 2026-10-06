@@ -1,0 +1,1987 @@
+{
+ "agent": "watchlist",
+ "dataset": "watchlist/reflag-29",
+ "dataset_sha256": "f100cccce23e812ec7d46d189d3e0e4f351d4a9dfb536c83cd8c47e06b7b694a",
+ "producer": "live",
+ "n": 29,
+ "primary_metric": "reflag_recall",
+ "metrics": {
+  "reflag_recall": 1.0,
+  "reflag_precision": 0.8,
+  "citation_validity": 1.0
+ },
+ "summaries": [
+  {
+   "name": "reflag_recall",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 4.0,
+   "denominator": 4.0,
+   "rows_scored": 3,
+   "threshold": 1.0,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": true,
+   "description": "code candidates with a proposal",
+   "flags": []
+  },
+  {
+   "name": "reflag_precision",
+   "kind": "deterministic",
+   "score": 0.8,
+   "numerator": 4.0,
+   "denominator": 5.0,
+   "rows_scored": 4,
+   "threshold": 1.0,
+   "threshold_source": "proposed",
+   "passed": false,
+   "primary": false,
+   "description": "proposals that are code candidates",
+   "flags": [
+    "invented ('FCRM-2026-0144', 'Algeria')"
+   ]
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 5.0,
+   "denominator": 5.0,
+   "rows_scored": 4,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "list:v2026-10-fixture",
+   "case_id": "FCRM-2026-0144",
+   "metrics": {
+    "reflag_recall": 1.0,
+    "reflag_precision": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "list:v2026-10-fixture",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3061,
+    "output_tokens": 367,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.004896,
+    "latency_s": 4.119,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 2,
+    "items_dropped": 0,
+    "claims_attempt1": 2,
+    "verified_attempt1": 2,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3428
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "list:v2026-06",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": 0.0,
+    "citation_validity": 1.0
+   },
+   "flags": [
+    "reflag_precision: invented ('FCRM-2026-0144', 'Algeria')"
+   ],
+   "run": {
+    "row_id": "list:v2026-06",
+    "status": "ok",
+    "verdict": "pass_with_drops",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 2,
+    "calls": 2,
+    "input_tokens": 5819,
+    "output_tokens": 630,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.005105,
+    "latency_s": 7.28,
+    "models": [
+     "Haiku 4.5",
+     "Nova Lite"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 1,
+    "claims_attempt1": 2,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "retry",
+      "attempt": 1
+     },
+     {
+      "guard": "output_shape",
+      "status": "annotated",
+      "attempt": 2
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 2
+     }
+    ],
+    "feedback": [
+     "outputs[0]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'Algeria: on the list'); fix it from the sources shown or drop any item you cannot source",
+     "outputs[1]: quote_verbatim failed (none: quote not found verbatim in the cited source; quote was 'Namibia: on the list'); fix it from the sources shown or drop any item you cannot source"
+    ],
+    "attempt_tokens": [
+     3456,
+     2993
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Algeria",
+   "case_id": "FCRM-2026-0144",
+   "metrics": {
+    "reflag_recall": 1.0,
+    "reflag_precision": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Algeria",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3012,
+    "output_tokens": 199,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.004007,
+    "latency_s": 3.339,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 1,
+    "verified_attempt1": 1,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3211
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Angola",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Angola",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3002,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003197,
+    "latency_s": 2.124,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3041
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Bolivia",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Bolivia",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3002,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003197,
+    "latency_s": 2.042,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3041
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Bosnia and Herzegovina",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Bosnia and Herzegovina",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3010,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003205,
+    "latency_s": 1.801,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3049
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Bulgaria",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Bulgaria",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3002,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003197,
+    "latency_s": 1.76,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3041
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Cameroon",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Cameroon",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3010,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003205,
+    "latency_s": 2.01,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3049
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Côte d'Ivoire",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Côte d'Ivoire",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3030,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003225,
+    "latency_s": 2.495,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3069
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Democratic People's Republic of Korea",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Democratic People's Republic of Korea",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3022,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003217,
+    "latency_s": 2.143,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3061
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Democratic Republic of the Congo",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Democratic Republic of the Congo",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3018,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003213,
+    "latency_s": 1.975,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3057
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Haiti",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Haiti",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3002,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003197,
+    "latency_s": 1.937,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3041
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Iran",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Iran",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3002,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003197,
+    "latency_s": 1.996,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3041
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Iraq",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Iraq",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3002,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003197,
+    "latency_s": 1.634,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3041
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Kenya",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Kenya",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3002,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003197,
+    "latency_s": 2.171,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3041
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Kuwait",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Kuwait",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3002,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003197,
+    "latency_s": 1.794,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3041
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Lao PDR",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Lao PDR",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3018,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003213,
+    "latency_s": 1.89,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3057
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Lebanon",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Lebanon",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3002,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003197,
+    "latency_s": 2.558,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3041
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Monaco",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Monaco",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3002,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003197,
+    "latency_s": 2.222,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3041
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Myanmar",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Myanmar",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3002,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003197,
+    "latency_s": 1.927,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3041
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Namibia",
+   "case_id": "FCRM-2026-0147",
+   "metrics": {
+    "reflag_recall": 1.0,
+    "reflag_precision": 1.0,
+    "citation_validity": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Namibia",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3022,
+    "output_tokens": 207,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.004057,
+    "latency_s": 4.338,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 1,
+    "verified_attempt1": 1,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3229
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Nepal",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Nepal",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3002,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003197,
+    "latency_s": 2.316,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3041
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Papua New Guinea",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Papua New Guinea",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3010,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003205,
+    "latency_s": 2.264,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3049
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:South Sudan",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:South Sudan",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3006,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003201,
+    "latency_s": 1.681,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3045
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Syria",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Syria",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3002,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003197,
+    "latency_s": 1.75,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3041
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Venezuela",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Venezuela",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3002,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003197,
+    "latency_s": 2.042,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3041
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Vietnam",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Vietnam",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3002,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003197,
+    "latency_s": 1.742,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3041
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Virgin Islands (UK)",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Virgin Islands (UK)",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3018,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003213,
+    "latency_s": 2.579,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3057
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "single:Yemen",
+   "case_id": "-",
+   "metrics": {
+    "reflag_recall": null,
+    "reflag_precision": null,
+    "citation_validity": null
+   },
+   "flags": [],
+   "run": {
+    "row_id": "single:Yemen",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 3002,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.003197,
+    "latency_s": 1.887,
+    "models": [
+     "Haiku 4.5"
+    ],
+    "items_accepted": 0,
+    "items_dropped": 0,
+    "claims_attempt1": 0,
+    "verified_attempt1": 0,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     3041
+    ],
+    "tools_called": []
+   }
+  }
+ ],
+ "timestamp": "2026-10-06T07:15:31.701257Z",
+ "usage": {
+  "calls": 30,
+  "retries": 1,
+  "blocked_rows": 0,
+  "failed_rows": 0,
+  "input_tokens": 90088,
+  "output_tokens": 2378,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.098114,
+  "latency_p50_s": 2.042,
+  "latency_max_s": 7.28,
+  "models": [
+   "Haiku 4.5",
+   "Nova Lite"
+  ]
+ },
+ "judge_usage": null,
+ "sampled": {
+  "n": 29,
+  "of": 29,
+  "seed": null,
+  "strategy": "all",
+  "row_ids": [
+   "list:v2026-10-fixture",
+   "list:v2026-06",
+   "single:Algeria",
+   "single:Angola",
+   "single:Bolivia",
+   "single:Bosnia and Herzegovina",
+   "single:Bulgaria",
+   "single:Cameroon",
+   "single:Côte d'Ivoire",
+   "single:Democratic People's Republic of Korea",
+   "single:Democratic Republic of the Congo",
+   "single:Haiti",
+   "single:Iran",
+   "single:Iraq",
+   "single:Kenya",
+   "single:Kuwait",
+   "single:Lao PDR",
+   "single:Lebanon",
+   "single:Monaco",
+   "single:Myanmar",
+   "single:Namibia",
+   "single:Nepal",
+   "single:Papua New Guinea",
+   "single:South Sudan",
+   "single:Syria",
+   "single:Venezuela",
+   "single:Vietnam",
+   "single:Virgin Islands (UK)",
+   "single:Yemen"
+  ],
+  "demo_row_ids": []
+ },
+ "judge": "fake"
+}

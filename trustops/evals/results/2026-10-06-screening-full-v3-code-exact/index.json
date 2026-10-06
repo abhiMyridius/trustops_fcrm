@@ -1,0 +1,96 @@
+{
+ "run_id": "2026-10-06T07-11Z-ac4b7d3",
+ "timestamp": "2026-10-06T07:11:49.714344Z",
+ "git_sha": "ac4b7d3",
+ "producer": "live",
+ "judge": "fake",
+ "judge_votes": 3,
+ "instructions": "rendered",
+ "token_budget_factor": 1.0,
+ "sample_n": null,
+ "seed": 7,
+ "concurrency": 4,
+ "models": [
+  "Haiku 4.5",
+  "Nova Lite"
+ ],
+ "judge_models": [],
+ "gates_pass": 1,
+ "gates_total": 1,
+ "usage": {
+  "calls": 102,
+  "retries": 2,
+  "blocked_rows": 0,
+  "failed_rows": 0,
+  "input_tokens": 293103,
+  "output_tokens": 65580,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.611774,
+  "latency_p50_s": 5.198,
+  "latency_max_s": 9.793,
+  "models": [
+   "Haiku 4.5",
+   "Nova Lite"
+  ]
+ },
+ "judge_usage": {
+  "calls": 0,
+  "retries": 0,
+  "blocked_rows": 0,
+  "failed_rows": 0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.0,
+  "latency_p50_s": null,
+  "latency_max_s": null,
+  "models": []
+ },
+ "cost_usd_total": 0.611774,
+ "tokens_total": 358683,
+ "price_status": "placeholder_confirm_before_go_live",
+ "baseline_run_id": null,
+ "agents": [
+  {
+   "agent": "screening",
+   "tier": "cheap",
+   "dataset": "screening/fast-lane-100",
+   "n": 100,
+   "of": 100,
+   "primary_metric": "fast_lane_precision",
+   "score": 1.0,
+   "threshold": 0.9,
+   "status": "PASS",
+   "measured": true,
+   "metrics_pass": 3,
+   "metrics_total": 3,
+   "tokens": 358683,
+   "cost_usd": 0.611774,
+   "judge_cost_usd": 0.0,
+   "latency_p50_s": 5.198,
+   "blocked_rows": 0,
+   "failed_rows": 0,
+   "completed": 100,
+   "reasons": [],
+   "others": [
+    {
+     "name": "fast_lane_recall",
+     "score": 1.0,
+     "threshold": 0.9,
+     "passed": true
+    },
+    {
+     "name": "citation_validity",
+     "score": 1.0,
+     "threshold": 0.95,
+     "passed": true
+    }
+   ]
+  }
+ ],
+ "files": {
+  "screening": "screening.live.json"
+ }
+}

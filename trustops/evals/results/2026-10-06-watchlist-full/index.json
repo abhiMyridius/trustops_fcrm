@@ -1,0 +1,96 @@
+{
+ "run_id": "2026-10-06T07-15Z-ac4b7d3",
+ "timestamp": "2026-10-06T07:15:31.701257Z",
+ "git_sha": "ac4b7d3",
+ "producer": "live",
+ "judge": "fake",
+ "judge_votes": 3,
+ "instructions": "rendered",
+ "token_budget_factor": 1.0,
+ "sample_n": null,
+ "seed": 7,
+ "concurrency": 3,
+ "models": [
+  "Haiku 4.5",
+  "Nova Lite"
+ ],
+ "judge_models": [],
+ "gates_pass": 1,
+ "gates_total": 1,
+ "usage": {
+  "calls": 30,
+  "retries": 1,
+  "blocked_rows": 0,
+  "failed_rows": 0,
+  "input_tokens": 90088,
+  "output_tokens": 2378,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.098114,
+  "latency_p50_s": 2.042,
+  "latency_max_s": 7.28,
+  "models": [
+   "Haiku 4.5",
+   "Nova Lite"
+  ]
+ },
+ "judge_usage": {
+  "calls": 0,
+  "retries": 0,
+  "blocked_rows": 0,
+  "failed_rows": 0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.0,
+  "latency_p50_s": null,
+  "latency_max_s": null,
+  "models": []
+ },
+ "cost_usd_total": 0.098114,
+ "tokens_total": 92466,
+ "price_status": "placeholder_confirm_before_go_live",
+ "baseline_run_id": null,
+ "agents": [
+  {
+   "agent": "watchlist",
+   "tier": "cheap",
+   "dataset": "watchlist/reflag-29",
+   "n": 29,
+   "of": 29,
+   "primary_metric": "reflag_recall",
+   "score": 1.0,
+   "threshold": 1.0,
+   "status": "PASS",
+   "measured": true,
+   "metrics_pass": 2,
+   "metrics_total": 3,
+   "tokens": 92466,
+   "cost_usd": 0.098114,
+   "judge_cost_usd": 0.0,
+   "latency_p50_s": 2.042,
+   "blocked_rows": 0,
+   "failed_rows": 0,
+   "completed": 29,
+   "reasons": [],
+   "others": [
+    {
+     "name": "reflag_precision",
+     "score": 0.8,
+     "threshold": 1.0,
+     "passed": false
+    },
+    {
+     "name": "citation_validity",
+     "score": 1.0,
+     "threshold": 0.95,
+     "passed": true
+    }
+   ]
+  }
+ ],
+ "files": {
+  "watchlist": "watchlist.live.json"
+ }
+}

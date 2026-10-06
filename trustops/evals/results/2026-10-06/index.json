@@ -1,0 +1,496 @@
+{
+ "run_id": "2026-10-06T07-28Z-7249d2a",
+ "timestamp": "2026-10-06T07:28:07.679531Z",
+ "git_sha": "7249d2a",
+ "producer": "live",
+ "judge": "bedrock",
+ "judge_votes": 3,
+ "instructions": "rendered",
+ "token_budget_factor": 1.0,
+ "sample_n": 5,
+ "seed": 7,
+ "concurrency": 3,
+ "models": [
+  "Haiku 4.5",
+  "Opus 5.5",
+  "Sonnet 5.5"
+ ],
+ "judge_models": [
+  "Opus 5.5"
+ ],
+ "gates_pass": 8,
+ "gates_total": 9,
+ "usage": {
+  "calls": 48,
+  "retries": 1,
+  "blocked_rows": 0,
+  "failed_rows": 0,
+  "input_tokens": 255021,
+  "output_tokens": 34529,
+  "cache_read_tokens": 150546,
+  "cache_write_tokens": 8826,
+  "cost_usd": 0.5631050000000001,
+  "latency_p50_s": 15.691,
+  "latency_max_s": 22.758,
+  "models": [
+   "Haiku 4.5",
+   "Opus 5.5",
+   "Sonnet 5.5"
+  ]
+ },
+ "judge_usage": {
+  "calls": 132,
+  "retries": 0,
+  "blocked_rows": 0,
+  "failed_rows": 0,
+  "input_tokens": 151135,
+  "output_tokens": 84565,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 2.29584,
+  "latency_p50_s": 7.4556210830342025,
+  "latency_max_s": 33.37204104207922,
+  "models": [
+   "Opus 5.5"
+  ]
+ },
+ "cost_usd_total": 2.858945,
+ "tokens_total": 525250,
+ "price_status": "placeholder_confirm_before_go_live",
+ "baseline_run_id": "2026-10-05T17-31Z-4c715bb",
+ "agents": [
+  {
+   "agent": "screening",
+   "tier": "cheap",
+   "dataset": "screening/fast-lane-100",
+   "n": 5,
+   "of": 100,
+   "primary_metric": "fast_lane_precision",
+   "score": 1.0,
+   "threshold": 0.9,
+   "status": "PASS",
+   "measured": true,
+   "metrics_pass": 3,
+   "metrics_total": 3,
+   "tokens": 17801,
+   "cost_usd": 0.030977,
+   "judge_cost_usd": 0.0,
+   "latency_p50_s": 5.228,
+   "blocked_rows": 0,
+   "failed_rows": 0,
+   "completed": 5,
+   "reasons": [],
+   "others": [
+    {
+     "name": "fast_lane_recall",
+     "score": 1.0,
+     "threshold": 0.9,
+     "passed": true
+    },
+    {
+     "name": "citation_validity",
+     "score": 1.0,
+     "threshold": 0.95,
+     "passed": true
+    }
+   ]
+  },
+  {
+   "agent": "intake",
+   "tier": "cheap",
+   "dataset": "intake/extraction-80",
+   "n": 5,
+   "of": 80,
+   "primary_metric": "field_extraction_accuracy",
+   "score": 1.0,
+   "threshold": 0.9,
+   "status": "PASS",
+   "measured": true,
+   "metrics_pass": 4,
+   "metrics_total": 5,
+   "tokens": 28739,
+   "cost_usd": 0.048103,
+   "judge_cost_usd": 0.0,
+   "latency_p50_s": 6.432,
+   "blocked_rows": 0,
+   "failed_rows": 0,
+   "completed": 5,
+   "reasons": [],
+   "others": [
+    {
+     "name": "source_span_accuracy",
+     "score": 1.0,
+     "threshold": 0.9,
+     "passed": true
+    },
+    {
+     "name": "category_f1",
+     "score": 0.6666666666666666,
+     "threshold": 0.9,
+     "passed": false
+    },
+    {
+     "name": "gap_question_precision",
+     "score": 1.0,
+     "threshold": 0.9,
+     "passed": true
+    },
+    {
+     "name": "citation_validity",
+     "score": 1.0,
+     "threshold": 0.95,
+     "passed": true
+    }
+   ]
+  },
+  {
+   "agent": "research",
+   "tier": "strong",
+   "dataset": "research/clauses-42",
+   "n": 5,
+   "of": 42,
+   "primary_metric": "clause_recall",
+   "score": 1.0,
+   "threshold": 0.85,
+   "status": "PASS",
+   "measured": true,
+   "metrics_pass": 3,
+   "metrics_total": 4,
+   "tokens": 86397,
+   "cost_usd": 0.133568,
+   "judge_cost_usd": 0.0,
+   "latency_p50_s": 8.647,
+   "blocked_rows": 0,
+   "failed_rows": 0,
+   "completed": 5,
+   "reasons": [],
+   "others": [
+    {
+     "name": "clause_precision",
+     "score": 1.0,
+     "threshold": 0.7,
+     "passed": true
+    },
+    {
+     "name": "precedent_top1",
+     "score": 0.0,
+     "threshold": 0.9,
+     "passed": false
+    },
+    {
+     "name": "citation_validity",
+     "score": 1.0,
+     "threshold": 0.95,
+     "passed": true
+    }
+   ]
+  },
+  {
+   "agent": "assessment",
+   "tier": "strong",
+   "dataset": "assessment/ratings-80",
+   "n": 5,
+   "of": 80,
+   "primary_metric": "li_within_one",
+   "score": 0.7,
+   "threshold": 0.85,
+   "status": "FAIL",
+   "measured": true,
+   "metrics_pass": 2,
+   "metrics_total": 5,
+   "tokens": 53605,
+   "cost_usd": 0.13178,
+   "judge_cost_usd": 0.0,
+   "latency_p50_s": 15.691,
+   "blocked_rows": 0,
+   "failed_rows": 0,
+   "completed": 5,
+   "reasons": [
+    "li_within_one 0.700 is below its threshold 0.85"
+   ],
+   "others": [
+    {
+     "name": "control_match_precision",
+     "score": 0.7894736842105263,
+     "threshold": 0.9,
+     "passed": false
+    },
+    {
+     "name": "control_match_recall",
+     "score": 0.6,
+     "threshold": 0.9,
+     "passed": false
+    },
+    {
+     "name": "evidence_date_exact",
+     "score": 1.0,
+     "threshold": 0.95,
+     "passed": true
+    },
+    {
+     "name": "citation_validity",
+     "score": 1.0,
+     "threshold": 0.95,
+     "passed": true
+    }
+   ]
+  },
+  {
+   "agent": "critic",
+   "tier": "judge",
+   "dataset": "critic/planted-61",
+   "n": 5,
+   "of": 61,
+   "primary_metric": "planted_error_detection",
+   "score": 1.0,
+   "threshold": 0.85,
+   "status": "PASS",
+   "measured": true,
+   "metrics_pass": 6,
+   "metrics_total": 6,
+   "tokens": 117552,
+   "cost_usd": 0.108375,
+   "judge_cost_usd": 0.808448,
+   "latency_p50_s": 10.75,
+   "blocked_rows": 0,
+   "failed_rows": 0,
+   "completed": 5,
+   "reasons": [],
+   "others": [
+    {
+     "name": "critic_finding_groundedness",
+     "score": 1.0,
+     "threshold": 1.0,
+     "passed": true
+    },
+    {
+     "name": "citation_validity",
+     "score": 1.0,
+     "threshold": 0.95,
+     "passed": true
+    },
+    {
+     "name": "faithfulness",
+     "score": 0.9826086956521738,
+     "threshold": 0.9,
+     "passed": true
+    },
+    {
+     "name": "answer_relevancy",
+     "score": 1.0,
+     "threshold": 0.8,
+     "passed": true
+    },
+    {
+     "name": "hallucination_free",
+     "score": 1.0,
+     "threshold": 0.9,
+     "passed": true
+    }
+   ]
+  },
+  {
+   "agent": "narrative",
+   "tier": "mid",
+   "dataset": "narrative/recommendation-66",
+   "n": 5,
+   "of": 66,
+   "primary_metric": "number_grounding",
+   "score": 1.0,
+   "threshold": 1.0,
+   "status": "PASS",
+   "measured": true,
+   "metrics_pass": 7,
+   "metrics_total": 8,
+   "tokens": 106667,
+   "cost_usd": 0.032166,
+   "judge_cost_usd": 0.857,
+   "latency_p50_s": 5.861,
+   "blocked_rows": 0,
+   "failed_rows": 0,
+   "completed": 5,
+   "reasons": [],
+   "others": [
+    {
+     "name": "narrative_restricted_terms",
+     "score": 1.0,
+     "threshold": 1.0,
+     "passed": true
+    },
+    {
+     "name": "conditions_traceable",
+     "score": 1.0,
+     "threshold": 1.0,
+     "passed": true
+    },
+    {
+     "name": "citation_validity",
+     "score": 1.0,
+     "threshold": 0.95,
+     "passed": true
+    },
+    {
+     "name": "narrative_faithfulness",
+     "score": 0.2,
+     "threshold": 0.9,
+     "passed": false
+    },
+    {
+     "name": "faithfulness",
+     "score": 1.0,
+     "threshold": 0.9,
+     "passed": true
+    },
+    {
+     "name": "answer_relevancy",
+     "score": 1.0,
+     "threshold": 0.8,
+     "passed": true
+    },
+    {
+     "name": "hallucination_free",
+     "score": 1.0,
+     "threshold": 0.9,
+     "passed": true
+    }
+   ]
+  },
+  {
+   "agent": "examiner",
+   "tier": "mid",
+   "dataset": "examiner/questions-5",
+   "n": 5,
+   "of": 5,
+   "primary_metric": "examiner_grounding",
+   "score": 1.0,
+   "threshold": 1.0,
+   "status": "PASS",
+   "measured": true,
+   "metrics_pass": 5,
+   "metrics_total": 6,
+   "tokens": 92015,
+   "cost_usd": 0.051899,
+   "judge_cost_usd": 0.630392,
+   "latency_p50_s": 4.452,
+   "blocked_rows": 0,
+   "failed_rows": 0,
+   "completed": 5,
+   "reasons": [],
+   "others": [
+    {
+     "name": "must_cite_coverage",
+     "score": 0.8888888888888888,
+     "threshold": 0.9,
+     "passed": false
+    },
+    {
+     "name": "refusal_rate",
+     "score": 1.0,
+     "threshold": 0.95,
+     "passed": true
+    },
+    {
+     "name": "faithfulness",
+     "score": 1.0,
+     "threshold": 0.9,
+     "passed": true
+    },
+    {
+     "name": "answer_relevancy",
+     "score": 1.0,
+     "threshold": 0.8,
+     "passed": true
+    },
+    {
+     "name": "hallucination_free",
+     "score": 1.0,
+     "threshold": 0.9,
+     "passed": true
+    }
+   ]
+  },
+  {
+   "agent": "watchlist",
+   "tier": "cheap",
+   "dataset": "watchlist/reflag-29",
+   "n": 5,
+   "of": 29,
+   "primary_metric": "reflag_recall",
+   "score": 1.0,
+   "threshold": 1.0,
+   "status": "PASS",
+   "measured": true,
+   "metrics_pass": 3,
+   "metrics_total": 3,
+   "tokens": 15948,
+   "cost_usd": 0.019344,
+   "judge_cost_usd": 0.0,
+   "latency_p50_s": 2.924,
+   "blocked_rows": 0,
+   "failed_rows": 0,
+   "completed": 5,
+   "reasons": [],
+   "others": [
+    {
+     "name": "reflag_precision",
+     "score": 1.0,
+     "threshold": 1.0,
+     "passed": true
+    },
+    {
+     "name": "citation_validity",
+     "score": 1.0,
+     "threshold": 0.95,
+     "passed": true
+    }
+   ]
+  },
+  {
+   "agent": "policy_gap",
+   "tier": "mid",
+   "dataset": "policy_gap/suggestions-1",
+   "n": 1,
+   "of": 1,
+   "primary_metric": "gap_targets_recorded_gap",
+   "score": 1.0,
+   "threshold": 1.0,
+   "status": "PASS",
+   "measured": true,
+   "metrics_pass": 3,
+   "metrics_total": 3,
+   "tokens": 6526,
+   "cost_usd": 0.006893,
+   "judge_cost_usd": 0.0,
+   "latency_p50_s": 4.512,
+   "blocked_rows": 0,
+   "failed_rows": 0,
+   "completed": 1,
+   "reasons": [],
+   "others": [
+    {
+     "name": "suggestion_novelty",
+     "score": 1.0,
+     "threshold": 1.0,
+     "passed": true
+    },
+    {
+     "name": "citation_validity",
+     "score": 1.0,
+     "threshold": 0.95,
+     "passed": true
+    }
+   ]
+  }
+ ],
+ "files": {
+  "screening": "screening.live.json",
+  "intake": "intake.live.json",
+  "research": "research.live.json",
+  "assessment": "assessment.live.json",
+  "critic": "critic.live.json",
+  "narrative": "narrative.live.json",
+  "examiner": "examiner.live.json",
+  "watchlist": "watchlist.live.json",
+  "policy_gap": "policy_gap.live.json"
+ }
+}

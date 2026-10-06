@@ -1,0 +1,18 @@
+{
+ "gates": {
+  "screening": {
+   "agent": "screening",
+   "baseline": null,
+   "candidate": 1.0,
+   "deltas": {},
+   "primary": "fast_lane_precision",
+   "reasons": [],
+   "status": "PASS",
+   "threshold": 0.9,
+   "tolerance": 0.0
+  }
+ },
+ "gates_pass": 1,
+ "gates_total": 1,
+ "run_id": "2026-10-06T07-15Z-ac4b7d3"
+}

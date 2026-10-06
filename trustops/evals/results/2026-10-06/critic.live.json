@@ -1,0 +1,489 @@
+{
+ "agent": "critic",
+ "dataset": "critic/planted-61",
+ "dataset_sha256": "ff4c05dcb5ccad0c496dfea2bd726a4f1ca4645b302da4bd842571f9e92259c5",
+ "producer": "live",
+ "n": 5,
+ "primary_metric": "planted_error_detection",
+ "metrics": {
+  "planted_error_detection": 1.0,
+  "critic_finding_groundedness": 1.0,
+  "citation_validity": 1.0,
+  "faithfulness": 0.9826086956521738,
+  "answer_relevancy": 1.0,
+  "hallucination_free": 1.0
+ },
+ "summaries": [
+  {
+   "name": "planted_error_detection",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 6.0,
+   "denominator": 6.0,
+   "rows_scored": 5,
+   "threshold": 0.85,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": true,
+   "description": "expected findings matched by type and control",
+   "flags": []
+  },
+  {
+   "name": "critic_finding_groundedness",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 10.0,
+   "denominator": 10.0,
+   "rows_scored": 5,
+   "threshold": 1.0,
+   "threshold_source": "proposed",
+   "passed": true,
+   "primary": false,
+   "description": "findings whose record refs resolve in the chain",
+   "flags": []
+  },
+  {
+   "name": "citation_validity",
+   "kind": "deterministic",
+   "score": 1.0,
+   "numerator": 10.0,
+   "denominator": 10.0,
+   "rows_scored": 5,
+   "threshold": 0.95,
+   "threshold_source": "design_b",
+   "passed": true,
+   "primary": false,
+   "description": "claims whose source resolves and quote is EXACT (Guard 4)",
+   "flags": []
+  },
+  {
+   "name": "faithfulness",
+   "kind": "llm_judge",
+   "score": 0.9826086956521738,
+   "numerator": 4.913043478260869,
+   "denominator": 5.0,
+   "rows_scored": 5,
+   "threshold": 0.9,
+   "threshold_source": "proposed",
+   "passed": true,
+   "primary": false,
+   "description": "claims in the output supported by what the agent was shown (DeepEval FaithfulnessMetric)",
+   "flags": []
+  },
+  {
+   "name": "answer_relevancy",
+   "kind": "llm_judge",
+   "score": 1.0,
+   "numerator": 5.0,
+   "denominator": 5.0,
+   "rows_scored": 5,
+   "threshold": 0.8,
+   "threshold_source": "proposed",
+   "passed": true,
+   "primary": false,
+   "description": "share of the output that is relevant to the task (DeepEval AnswerRelevancyMetric)",
+   "flags": []
+  },
+  {
+   "name": "hallucination_free",
+   "kind": "llm_judge",
+   "score": 1.0,
+   "numerator": 5.0,
+   "denominator": 5.0,
+   "rows_scored": 5,
+   "threshold": 0.9,
+   "threshold_source": "proposed",
+   "passed": true,
+   "primary": false,
+   "description": "1 - the share of contexts the output contradicts (DeepEval HallucinationMetric, already scored 1 = pass)",
+   "flags": []
+  }
+ ],
+ "per_case": [
+  {
+   "row_id": "FCRM-2026-0151",
+   "case_id": "FCRM-2026-0151",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0,
+    "faithfulness": 0.9130434782608695,
+    "answer_relevancy": 1.0,
+    "hallucination_free": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0151",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 5718,
+    "output_tokens": 1254,
+    "cache_read_tokens": 4077,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.032459,
+    "latency_s": 15.23,
+    "models": [
+     "Opus 5.5"
+    ],
+    "items_accepted": 4,
+    "items_dropped": 0,
+    "claims_attempt1": 4,
+    "verified_attempt1": 4,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     6972
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0075~precedent_deviation",
+   "case_id": "FCRM-2026-0075",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0,
+    "faithfulness": 1.0,
+    "answer_relevancy": 1.0,
+    "hallucination_free": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0075~precedent_deviation",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 5329,
+    "output_tokens": 839,
+    "cache_read_tokens": 4077,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.022603,
+    "latency_s": 11.044,
+    "models": [
+     "Opus 5.5"
+    ],
+    "items_accepted": 2,
+    "items_dropped": 0,
+    "claims_attempt1": 2,
+    "verified_attempt1": 2,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     6168
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0079~evidence_recency",
+   "case_id": "FCRM-2026-0079",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0,
+    "faithfulness": 1.0,
+    "answer_relevancy": 1.0,
+    "hallucination_free": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0079~evidence_recency",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 4951,
+    "output_tokens": 557,
+    "cache_read_tokens": 4077,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.015451,
+    "latency_s": 9.558,
+    "models": [
+     "Opus 5.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 1,
+    "verified_attempt1": 1,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     5508
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0085~rule_violation",
+   "case_id": "FCRM-2026-0085",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0,
+    "faithfulness": 1.0,
+    "answer_relevancy": 1.0,
+    "hallucination_free": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0085~rule_violation",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 5242,
+    "output_tokens": 785,
+    "cache_read_tokens": 4077,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.021175,
+    "latency_s": 10.75,
+    "models": [
+     "Opus 5.5"
+    ],
+    "items_accepted": 2,
+    "items_dropped": 0,
+    "claims_attempt1": 2,
+    "verified_attempt1": 2,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     6027
+    ],
+    "tools_called": []
+   }
+  },
+  {
+   "row_id": "FCRM-2026-0089~evidence_recency",
+   "case_id": "FCRM-2026-0089",
+   "metrics": {
+    "planted_error_detection": 1.0,
+    "critic_finding_groundedness": 1.0,
+    "citation_validity": 1.0,
+    "faithfulness": 1.0,
+    "answer_relevancy": 1.0,
+    "hallucination_free": 1.0
+   },
+   "flags": [],
+   "run": {
+    "row_id": "FCRM-2026-0089~evidence_recency",
+    "status": "ok",
+    "verdict": "pass",
+    "stopped_at": null,
+    "reason": null,
+    "attempts": 1,
+    "calls": 1,
+    "input_tokens": 4945,
+    "output_tokens": 620,
+    "cache_read_tokens": 4077,
+    "cache_write_tokens": 0,
+    "cost_usd": 0.016687,
+    "latency_s": 8.757,
+    "models": [
+     "Opus 5.5"
+    ],
+    "items_accepted": 1,
+    "items_dropped": 0,
+    "claims_attempt1": 1,
+    "verified_attempt1": 1,
+    "guards": [
+     {
+      "guard": "input_scan",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "permit",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "budget",
+      "status": "passed",
+      "attempt": null
+     },
+     {
+      "guard": "output_shape",
+      "status": "passed",
+      "attempt": 1
+     },
+     {
+      "guard": "rules",
+      "status": "passed",
+      "attempt": 1
+     }
+    ],
+    "feedback": [],
+    "attempt_tokens": [
+     5565
+    ],
+    "tools_called": []
+   }
+  }
+ ],
+ "timestamp": "2026-10-06T07:28:07.679531Z",
+ "usage": {
+  "calls": 5,
+  "retries": 0,
+  "blocked_rows": 0,
+  "failed_rows": 0,
+  "input_tokens": 26185,
+  "output_tokens": 4055,
+  "cache_read_tokens": 20385,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.108375,
+  "latency_p50_s": 10.75,
+  "latency_max_s": 15.23,
+  "models": [
+   "Opus 5.5"
+  ]
+ },
+ "judge_usage": {
+  "calls": 45,
+  "retries": 0,
+  "blocked_rows": 0,
+  "failed_rows": 0,
+  "input_tokens": 58612,
+  "output_tokens": 28700,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "cost_usd": 0.808448,
+  "latency_p50_s": 6.518432958982885,
+  "latency_max_s": 21.417573958053254,
+  "models": [
+   "Opus 5.5"
+  ]
+ },
+ "sampled": {
+  "n": 5,
+  "of": 61,
+  "seed": 7,
+  "strategy": "demo+stratified",
+  "row_ids": [
+   "FCRM-2026-0151",
+   "FCRM-2026-0075~precedent_deviation",
+   "FCRM-2026-0079~evidence_recency",
+   "FCRM-2026-0085~rule_violation",
+   "FCRM-2026-0089~evidence_recency"
+  ],
+  "demo_row_ids": [
+   "FCRM-2026-0151"
+  ]
+ },
+ "judge": "bedrock"
+}
