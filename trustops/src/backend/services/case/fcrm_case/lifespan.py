@@ -206,7 +206,14 @@ async def register(
     )
     await po_store.ensure_indexes()
     analyst_store = MongoAnalystWriteStore(
-        deps.mongo, db, cases_repo, views.repos, outbox, activity
+        deps.mongo,
+        db,
+        cases_repo,
+        views.repos,
+        outbox,
+        activity,
+        field_sets=field_set_for,
+        type_domains=active_type_domains(),
     )
     await analyst_store.ensure_indexes()
     po_followup_store = MongoPoFollowupStore(

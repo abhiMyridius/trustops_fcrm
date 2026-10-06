@@ -43,7 +43,7 @@ from fcrm_contracts.api.case_internal_assessment import (
     FactorValue,
     RecommendationEdits,
 )
-from fcrm_contracts.enums import GateType, ItemKind, ItemStatus, Role
+from fcrm_contracts.enums import ChangeType, GateType, ItemKind, ItemStatus, Role
 from fcrm_contracts.events.envelope import Envelope
 from fcrm_contracts.events.payloads import (
     CaseClarificationSent,
@@ -148,6 +148,27 @@ class RecommendationChange:
 
 
 @dataclass(frozen=True)
+class OnceRecord:
+    """A row to insert once (a planned control, a gap, a re-run request). Its id is
+    derived from its content, so a row that already exists makes the whole command
+    a replay: nothing else is applied and no event is enqueued.
+    """
+
+    collection: str
+    row_id: str
+    document: Mapping[str, Any]
+
+
+@dataclass(frozen=True)
+class Retag:
+    """The analyst adds a change type: the store resolves the fields and domains
+    that follow in the same transaction.
+    """
+
+    change_type: ChangeType
+
+
+@dataclass(frozen=True)
 class ThreadResolution:
     """The analyst resolved an answered question."""
 
@@ -176,6 +197,8 @@ class AnalystCommand:
         threads: The questions of a round to open, inserted with the gate decision
             that asks them.
         resolutions: Answered questions the analyst resolves.
+        records: Rows to insert once (planned controls, gaps, re-run requests).
+        retag: A change type to add to the case.
     """
 
     case_id: str
@@ -187,6 +210,8 @@ class AnalystCommand:
     recommendation: Optional[RecommendationChange] = None
     threads: Sequence[ClarificationThreadRow] = ()
     resolutions: Sequence[ThreadResolution] = ()
+    records: Sequence[OnceRecord] = ()
+    retag: Optional[Retag] = None
 
 
 def decision_fingerprint(*parts: Any) -> str:

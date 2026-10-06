@@ -1896,8 +1896,15 @@ def analyst_store(
     decided items, the staged activity), over the same stores the routes read.
     """
     from fcrm_case.analyst_write_store import InMemoryAnalystWriteStore
+    from fcrm_case.fieldset_provider import active_type_domains, field_set_for
 
-    return InMemoryAnalystWriteStore(case_store, view_store, assessment_store)
+    return InMemoryAnalystWriteStore(
+        case_store,
+        view_store,
+        assessment_store,
+        field_sets=field_set_for,
+        type_domains=active_type_domains(),
+    )
 
 
 @pytest.fixture

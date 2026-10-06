@@ -751,6 +751,58 @@
         "title": "ChangeType",
         "type": "string"
       },
+      "ChangeTypeBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/change-types``: the analyst adds a change type (adds\nonly, D-03). The reason is recorded and needs 20 characters.",
+        "properties": {
+          "change_type": {
+            "$ref": "#/components/schemas/ChangeType"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "change_type",
+          "reason"
+        ],
+        "title": "ChangeTypeBody",
+        "type": "object"
+      },
+      "ChangeTypeResult": {
+        "additionalProperties": false,
+        "description": "What a re-tag answers: the case's change types and required-field count\nafterwards, and whether it was already tagged (nothing changed).",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "change_types": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeType"
+            },
+            "title": "Change Types",
+            "type": "array"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "required_fields": {
+            "title": "Required Fields",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "case_id",
+          "change_types",
+          "required_fields"
+        ],
+        "title": "ChangeTypeResult",
+        "type": "object"
+      },
       "ClauseDetailOut": {
         "additionalProperties": false,
         "description": "One policy clause as the system of record holds it: ``GET /clauses/{id}``\nand each item of ``GET /internal/clauses`` (H4's input).\n\n``text`` is verbatim from ``clauses.json`` (never generated, never\nrewritten); ``source_ref`` is the structured citation an agent claim carries\nand ``ref`` the human-readable one. ``provenance_kind`` says whether the text\nis a seed verbatim quote or a declared synthetic stand-in (ADR-29).",
@@ -1980,6 +2032,23 @@
           "per_type"
         ],
         "title": "FieldSetOut",
+        "type": "object"
+      },
+      "GapBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/gaps``: the analyst searched the corpus by hand and\nfound nothing for something the case needs.",
+        "properties": {
+          "text": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "GapBody",
         "type": "object"
       },
       "GapQuestionPO": {
@@ -4310,6 +4379,49 @@
         "title": "Page[Proposal]",
         "type": "object"
       },
+      "PlannedControlBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/controls/planned``: a control the business plans but\nhas not built. It is recorded and shown and never scored (rule 7).",
+        "properties": {
+          "control_id": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Control Id"
+          },
+          "description": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "due": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Due",
+            "type": "string"
+          },
+          "owner": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Owner",
+            "type": "string"
+          }
+        },
+        "required": [
+          "description",
+          "owner",
+          "due"
+        ],
+        "title": "PlannedControlBody",
+        "type": "object"
+      },
       "PolicyClauseHit": {
         "additionalProperties": false,
         "description": "One clause hit of a policy search: the verbatim text under the web's\nname (``quote``), both citations, its place in ``corpus/<source>.md`` and\nits scores. ``similarity`` is the fused rank-agreement score in (0, 1];\n``vector_score`` and ``text_score`` are the two rankers' own numbers.",
@@ -5299,6 +5411,31 @@
         "title": "RecordAppend",
         "type": "object"
       },
+      "RecordedWrite": {
+        "additionalProperties": false,
+        "description": "What recording a planned control or a gap answers (201): its id and\nwhether the same one was already recorded.",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "case_id"
+        ],
+        "title": "RecordedWrite",
+        "type": "object"
+      },
       "RefreshRequest": {
         "additionalProperties": false,
         "description": "Non-browser clients may send the refresh token in the body instead\nof relying on the cookie (design A §8.1: \"cookie or {refresh_token}\").\nNot a shared contract shape (no other service calls this): kept local\nto this package rather than added to ``fcrm_contracts`` on this pass.",
@@ -5353,6 +5490,60 @@
           "labels"
         ],
         "title": "RequiredCard",
+        "type": "object"
+      },
+      "RerunBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/runs``: re-run research and assessment, with a reason.",
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "scope": {
+            "default": "full",
+            "enum": [
+              "changed_fields",
+              "full"
+            ],
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "RerunBody",
+        "type": "object"
+      },
+      "RerunResult": {
+        "additionalProperties": false,
+        "description": "The re-run was requested (202); H1 starts it.",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "requested": {
+            "default": true,
+            "title": "Requested",
+            "type": "boolean"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "scope"
+        ],
+        "title": "RerunResult",
         "type": "object"
       },
       "ResolveThreadBody": {
@@ -8434,6 +8625,64 @@
         ]
       }
     },
+    "/api/fcrm/cases/{case_id}/change-types": {
+      "post": {
+        "description": "Add a change type with a reason (adds only): the fields and domains that\nfollow are stored with it, then ``case.retagged`` is emitted.",
+        "operationId": "S1_retag_case_cases__case_id__change_types_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeTypeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeTypeResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Retag Case",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
     "/api/fcrm/cases/{case_id}/clarifications": {
       "post": {
         "description": "Send the round the composer prepared: the same round as ``ask`` with the\nanalyst's own questions (one round, sent once).",
@@ -8864,6 +9113,64 @@
         ]
       }
     },
+    "/api/fcrm/cases/{case_id}/controls/planned": {
+      "post": {
+        "description": "Record a planned control (``case.control_planned``): shown and recorded,\nnever scored (rule 7): it is not a review item, so no score request holds it.",
+        "operationId": "S1_add_planned_control_cases__case_id__controls_planned_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlannedControlBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordedWrite"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Add Planned Control",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
     "/api/fcrm/cases/{case_id}/discard": {
       "post": {
         "description": "Discard an unsubmitted draft, with a reason.",
@@ -9052,6 +9359,64 @@
         "summary": "Upload Documents",
         "tags": [
           "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/gaps": {
+      "post": {
+        "description": "Record a policy gap found by searching the corpus by hand\n(``case.gap_recorded``).",
+        "operationId": "S1_record_gap_cases__case_id__gaps_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GapBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordedWrite"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Record Gap",
+        "tags": [
+          "analyst"
         ]
       }
     },
@@ -9787,6 +10152,64 @@
         "summary": "Get Review",
         "tags": [
           "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/runs": {
+      "post": {
+        "description": "Ask for research and assessment to run again, with a reason\n(``case.rerun_requested``).",
+        "operationId": "S1_request_rerun_cases__case_id__runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RerunBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RerunResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Request Rerun",
+        "tags": [
+          "analyst"
         ]
       }
     },

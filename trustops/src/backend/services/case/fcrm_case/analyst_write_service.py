@@ -42,14 +42,21 @@ from fcrm_common.time import utcnow
 from fcrm_contracts.api.case_analyst_write import (
     AcknowledgeBody,
     AcknowledgeResult,
+    ChangeTypeBody,
+    ChangeTypeResult,
     CompletenessBody,
     CompletenessResult,
     FastLaneBody,
+    GapBody,
     GateWriteResult,
     ItemDecisionBody,
     ItemDecisionResult,
+    PlannedControlBody,
     Recommendation,
     RecommendationEditBody,
+    RecordedWrite,
+    RerunBody,
+    RerunResult,
     ResolveThreadBody,
     RoundBody,
     RoundQuestion,
@@ -91,6 +98,12 @@ from fcrm_case.domain.analyst_commands import (
     resolve_thread_command,
     round_fingerprint,
     unlock_command,
+)
+from fcrm_case.domain.analyst_records import (
+    gap_command,
+    planned_control_command,
+    rerun_command,
+    retag_command,
 )
 from fcrm_case.domain.assessment import (
     CompletenessViewRow,
@@ -753,3 +766,128 @@ class AnalystWriteService:
             )
         )
         return ThreadResolveResult(thread_id=thread_id)
+
+    # -- the analyst's other review actions (scenes 11-14) -----------------------
+
+    def _in_review(self, record: CaseRecord, what: str) -> None:
+        self._require_stage(record, CaseState.REVIEW, f"{what} during review")
+
+    async def add_planned_control(
+        self, principal: Principal, case_id: str, body: PlannedControlBody
+    ) -> RecordedWrite:
+        """Record a planned control: ``case.control_planned``. It is a row of its
+        own, never a review item, so it never enters the score request (rule 7).
+        Recording the same one again replays.
+
+        Raises:
+            ValidationError: ``control_id`` is not a control of this case.
+            WrongStageError: The case is not in review.
+        """
+        record = await self._own_case(case_id, principal)
+        self._in_review(record, "a planned control is recorded")
+        if body.control_id is not None:
+            known = {
+                str(r.subject.get("control_id"))
+                for r in await self._views.list_items(case_id, ItemKind.CONTROL)
+            }
+            if body.control_id not in known:
+                raise ValidationError(
+                    f"{body.control_id} is not a control of this case.",
+                    errors=[{"loc": "body.control_id", "msg": "unknown control"}],
+                )
+        command, planned_id = planned_control_command(
+            case_id=case_id,
+            run_id=self._run_id(record, None),
+            body=body,
+            by=principal.sub,
+            by_name=principal.name,
+            now=utcnow(),
+        )
+        committed = await self._commit(command)
+        return RecordedWrite(
+            id=planned_id, case_id=case_id, replayed=committed.replayed
+        )
+
+    async def record_gap(
+        self, principal: Principal, case_id: str, body: GapBody
+    ) -> RecordedWrite:
+        """Record a policy gap: ``case.gap_recorded``. Recording the same words
+        again replays.
+
+        Raises:
+            WrongStageError: The case is not in review.
+        """
+        record = await self._own_case(case_id, principal)
+        self._in_review(record, "a gap is recorded")
+        command, gap_id = gap_command(
+            case_id=case_id,
+            run_id=self._run_id(record, None),
+            body=body,
+            by=principal.sub,
+            by_name=principal.name,
+            now=utcnow(),
+        )
+        committed = await self._commit(command)
+        return RecordedWrite(id=gap_id, case_id=case_id, replayed=committed.replayed)
+
+    async def retag(
+        self, principal: Principal, case_id: str, body: ChangeTypeBody
+    ) -> ChangeTypeResult:
+        """Add a change type (adds only, D-03): the type joins the case, the
+        fields and domains that follow are stored in the same transaction, and
+        ``case.retagged`` carries the reason. A type the case already has replays.
+
+        Raises:
+            WrongStageError: The case is not in review.
+        """
+        record = await self._own_case(case_id, principal)
+        if body.change_type in record.change_types:
+            return ChangeTypeResult(
+                case_id=case_id,
+                change_types=list(record.change_types),
+                required_fields=len(record.required_fields),
+                replayed=True,
+            )
+        self._in_review(record, "a change type is added")
+        await self._commit(
+            retag_command(
+                case_id=case_id,
+                run_id=self._run_id(record, None),
+                change_type=body.change_type,
+                reason=body.reason,
+                by=principal.sub,
+                by_name=principal.name,
+            )
+        )
+        fresh = await self._cases.get(case_id, with_versions=False)
+        after = fresh if fresh is not None else record
+        return ChangeTypeResult(
+            case_id=case_id,
+            change_types=list(after.change_types),
+            required_fields=len(after.required_fields),
+        )
+
+    async def request_rerun(
+        self, principal: Principal, case_id: str, body: RerunBody
+    ) -> RerunResult:
+        """Ask Caseflow to run research and assessment again, with the reason:
+        ``case.rerun_requested``. The same reason and scope again replays.
+
+        Raises:
+            WrongStageError: The case is not in review.
+        """
+        record = await self._own_case(case_id, principal)
+        self._in_review(record, "a re-run is requested")
+        committed = await self._commit(
+            rerun_command(
+                case_id=case_id,
+                run_id=self._run_id(record, None),
+                body=body,
+                by=principal.sub,
+                by_name=principal.name,
+                now=utcnow(),
+            )
+        )
+        return RerunResult(
+            case_id=case_id, scope=body.scope, replayed=committed.replayed
+        )

@@ -23,7 +23,7 @@ decides none of them new is a replay and changes nothing.
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional, Protocol
@@ -47,7 +47,10 @@ from fcrm_case.domain.analyst_commands import (
     RecommendationChange,
     ThreadResolution,
 )
+from fcrm_case.domain.analyst_records import GapRow, PlannedControlRow
 from fcrm_case.domain.clarifications import ClarificationThreadRow
+from fcrm_case.domain.fieldset import FieldSetData
+from fcrm_case.domain.po_rules import apply_type_delta
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.views import ScoreSnapshotRow
 from fcrm_case.errors import ensure_open
@@ -114,6 +117,14 @@ class AnalystWriteStore(Protocol):
         """The case's questions, oldest round first."""
         ...
 
+    async def planned_controls(self, case_id: str) -> list[PlannedControlRow]:
+        """The planned controls recorded on the case, oldest first."""
+        ...
+
+    async def gaps(self, case_id: str) -> list[GapRow]:
+        """The policy gaps recorded on the case, oldest first."""
+        ...
+
     async def get_thread(
         self, case_id: str, thread_id: str
     ) -> Optional[ClarificationThreadRow]:
@@ -149,6 +160,30 @@ def recommendation_update(
     }, {"locked": True}
 
 
+def retag_changes(
+    record: CaseRecord,
+    command: AnalystCommand,
+    field_sets: Callable[[int], FieldSetData],
+    type_domains: Mapping[str, Sequence[str]],
+) -> dict[str, Any]:
+    """The case-document fields ``command``'s re-tag changes: the confirmed change
+    types with the required fields and domains that follow from them, resolved
+    against the field set the case pinned. Empty when the command re-tags nothing.
+    """
+    if command.retag is None:
+        return {}
+    after = apply_type_delta(
+        record,
+        command.retag.change_type,
+        confirmed=True,
+        field_set=field_sets(record.fieldset_v),
+        type_domains=type_domains,
+    )
+    return after.model_dump(
+        mode="python", include={"change_types", "required_fields", "domains"}
+    )
+
+
 def decision_row(
     command: AnalystCommand,
     gate_id: str,
@@ -179,6 +214,9 @@ class MongoAnalystWriteStore:
         views: The repositories over the view collections.
         outbox: The case service's outbox, so an event commits with its write.
         activity: The activity log (staged rows join the transaction).
+        field_sets: The field set of a pinned version, which a re-tag resolves its
+            fields against.
+        type_domains: The risk domains each change type brings into scope.
     """
 
     def __init__(
@@ -189,16 +227,28 @@ class MongoAnalystWriteStore:
         views: ViewRepos,
         outbox: Outbox,
         activity: MongoActivityLog,
+        *,
+        field_sets: Callable[[int], FieldSetData],
+        type_domains: Mapping[str, Sequence[str]],
     ) -> None:
         self._client = client
+        self._db = db
         self._cases = cases
         self._views = views
         self._outbox = outbox
         self._activity = activity
+        self._field_sets = field_sets
+        self._type_domains = type_domains
         self._decisions: Repository[AnalystDecisionRow] = Repository(
             db["analyst_decisions"], AnalystDecisionRow, id_of=lambda r: r.gate_id
         )
         self._recommendations = db["recommendations"]
+        self._planned: Repository[PlannedControlRow] = Repository(
+            db["planned_controls"], PlannedControlRow, id_of=lambda r: r.planned_id
+        )
+        self._gaps: Repository[GapRow] = Repository(
+            db["gaps"], GapRow, id_of=lambda r: r.gap_id
+        )
         self._threads: Repository[ClarificationThreadRow] = Repository(
             db["clarification_threads"],
             ClarificationThreadRow,
@@ -232,12 +282,19 @@ class MongoAnalystWriteStore:
             return AnalystCommitted(record, replayed=True)
         # State first, events after: the decided items and the recommendation are
         # written before any event reaches the outbox (one transaction either way).
+        if not await self._record_once(session, command):
+            return AnalystCommitted(record, replayed=True)
         if not await self._change_recommendation(session, command):
             return AnalystCommitted(record, replayed=True)
         await self._decide_items(session, command)
         await self._open_round(session, command)
         await self._resolve_threads(session, command)
-        entries = await self._stage(session, command.case_id, command.activity)
+        entries = await self._stage(
+            session,
+            command.case_id,
+            command.activity,
+            self._retag_changes(record, command),
+        )
         for gate in fresh:
             await self._outbox.enqueue(session, gate.event)
         for event in command.events:
@@ -376,22 +433,55 @@ class MongoAnalystWriteStore:
                 f"a review item of case {command.case_id} is no longer there"
             )
 
+    def _collection(self, name: str) -> Any:
+        return self._db[name]
+
+    async def _record_once(
+        self, session: AsyncClientSession, command: AnalystCommand
+    ) -> bool:
+        """Insert the rows the command records once; ``False`` when one already
+        exists (a replay: nothing else of the command is applied).
+        """
+        for record in command.records:
+            result = await self._collection(record.collection).update_one(
+                {"_id": record.row_id},
+                {"$setOnInsert": to_bson(dict(record.document))},
+                upsert=True,
+                session=session,
+            )
+            if result.upserted_id is None:
+                return False
+        return True
+
+    def _retag_changes(
+        self, record: CaseRecord, command: AnalystCommand
+    ) -> dict[str, Any]:
+        """The case-document fields a re-tag changes (the new change type, the
+        fields and the domains that follow from it), or none.
+        """
+        return retag_changes(record, command, self._field_sets, self._type_domains)
+
     async def _stage(
         self,
         session: AsyncClientSession,
         case_id: str,
         events: Sequence[UiEventIn],
+        changes: Optional[dict[str, Any]] = None,
     ) -> tuple[ActivityEntry, ...]:
-        """Allocate ``len(events)`` consecutive seqs on the case and insert the
-        rows (the same ``$inc``-then-``stage`` the PO store does).
+        """Allocate ``len(events)`` consecutive seqs on the case, apply the case
+        ``changes`` and insert the rows (the same ``$inc``-then-``stage`` the PO
+        store does).
         """
         rows = list(events)
-        if not rows:
+        if not rows and not changes:
             return ()
+        update: dict[str, Any] = {}
+        if rows:
+            update["$inc"] = {"activity_seq": len(rows)}
+        if changes:
+            update["$set"] = to_bson(changes)
         bumped = await self._cases.find_one_and_update(
-            {"case_id": case_id},
-            {"$inc": {"activity_seq": len(rows)}},
-            session=session,
+            {"case_id": case_id}, update, session=session
         )
         if bumped is None:
             raise NotFoundError(f"no such case {case_id}")
@@ -428,6 +518,20 @@ class MongoAnalystWriteStore:
             {"thread_id": thread_id, "case_id": case_id}
         )
 
+    async def planned_controls(self, case_id: str) -> list[PlannedControlRow]:
+        return await self._planned.find(
+            {"case_id": case_id},
+            sort=[("created_at", ASCENDING), ("planned_id", ASCENDING)],
+            limit=MAX_ROWS_PER_CASE,
+        )
+
+    async def gaps(self, case_id: str) -> list[GapRow]:
+        return await self._gaps.find(
+            {"case_id": case_id},
+            sort=[("created_at", ASCENDING), ("gap_id", ASCENDING)],
+            limit=MAX_ROWS_PER_CASE,
+        )
+
     async def score_snapshots(self, case_id: str) -> list[ScoreSnapshotRow]:
         return await self._views.score_snapshots.find(
             {"case_id": case_id, "gate_id": {"$ne": None}},
@@ -444,8 +548,11 @@ class InMemoryAnalystWriteStore:
 
     Args:
         cases: The in-memory case store (its records and activity log).
-        views: The in-memory view store (the review items).
-        assessment: The in-memory assessment store (the score snapshots).
+        views: The in-memory view store (the review items and the questions).
+        assessment: The in-memory assessment store (score snapshots, recommendation).
+        field_sets: The field set of a pinned version, which a re-tag resolves its
+            fields against.
+        type_domains: The risk domains each change type brings into scope.
     """
 
     def __init__(
@@ -453,11 +560,19 @@ class InMemoryAnalystWriteStore:
         cases: InMemoryCaseStore,
         views: InMemoryViewStore,
         assessment: InMemoryAssessmentStore,
+        *,
+        field_sets: Callable[[int], FieldSetData],
+        type_domains: Mapping[str, Sequence[str]],
     ) -> None:
         self._cases = cases
         self._views = views
         self._assessment = assessment
+        self._field_sets = field_sets
+        self._type_domains = type_domains
         self.decisions: dict[str, AnalystDecisionRow] = {}
+        #: Rows recorded once, by collection then id (planned controls, gaps,
+        #: re-run requests).
+        self.recorded: dict[str, dict[str, Mapping[str, Any]]] = {}
 
     async def ensure_indexes(self) -> None:
         """Nothing to create."""
@@ -472,8 +587,21 @@ class InMemoryAnalystWriteStore:
         fresh = [g for g in command.gates if g.gate_id not in self.decisions]
         if command.gates and not fresh:
             return AnalystCommitted(record, replayed=True)
+        if not self._record_once(command):
+            return AnalystCommitted(record, replayed=True)
         if not self._change_recommendation(command):
             return AnalystCommitted(record, replayed=True)
+        # State first, events after (the twin of the transaction's order).
+        self._write_rows(command, fresh, now)
+        entries = self._stage_case(record, command)
+        self._cases.events.extend([g.event for g in fresh])
+        self._cases.events.extend(command.events)
+        return AnalystCommitted(record, entries, frozenset(g.gate_id for g in fresh))
+
+    def _write_rows(
+        self, command: AnalystCommand, fresh: list[AnalystGate], now: datetime
+    ) -> None:
+        """The decided items, the opened and resolved questions and the ledger."""
         for item in command.items:
             self._views.items[item.item_id] = self._views.items[
                 item.item_id
@@ -491,18 +619,34 @@ class InMemoryAnalystWriteStore:
                 gate.fingerprint,
                 now,
             )
-            self._cases.events.append(gate.event)
-        self._cases.events.extend(command.events)
+
+    def _stage_case(
+        self, record: CaseRecord, command: AnalystCommand
+    ) -> tuple[ActivityEntry, ...]:
+        """The case document after the command (its re-tag, its activity count)
+        and the activity rows.
+        """
         base = record.activity_seq
         updated = record.model_copy(
-            update={"activity_seq": base + len(command.activity)}
+            update={
+                "activity_seq": base + len(command.activity),
+                **retag_changes(record, command, self._field_sets, self._type_domains),
+            }
         )
         self._cases.records[command.case_id] = updated
-        entries = tuple(
+        return tuple(
             self._cases.activity.stage(command.case_id, base + i + 1, event)
             for i, event in enumerate(command.activity)
         )
-        return AnalystCommitted(record, entries, frozenset(g.gate_id for g in fresh))
+
+    def _record_once(self, command: AnalystCommand) -> bool:
+        """The twin of ``MongoAnalystWriteStore._record_once``."""
+        for record in command.records:
+            rows = self.recorded.setdefault(record.collection, {})
+            if record.row_id in rows:
+                return False
+            rows[record.row_id] = record.document
+        return True
 
     def _resolve(self, command: AnalystCommand, resolution: ThreadResolution) -> None:
         """The twin of ``MongoAnalystWriteStore._resolve_threads`` for one question."""
@@ -572,6 +716,22 @@ class InMemoryAnalystWriteStore:
     ) -> Optional[ClarificationThreadRow]:
         row = self._views.threads.get(thread_id)
         return row if row is not None and row.case_id == case_id else None
+
+    async def planned_controls(self, case_id: str) -> list[PlannedControlRow]:
+        rows = [
+            PlannedControlRow.model_validate(d)
+            for d in self.recorded.get("planned_controls", {}).values()
+            if d["case_id"] == case_id
+        ]
+        return sorted(rows, key=lambda r: (r.created_at, r.planned_id))
+
+    async def gaps(self, case_id: str) -> list[GapRow]:
+        rows = [
+            GapRow.model_validate(d)
+            for d in self.recorded.get("gaps", {}).values()
+            if d["case_id"] == case_id
+        ]
+        return sorted(rows, key=lambda r: (r.created_at, r.gap_id))
 
     async def score_snapshots(self, case_id: str) -> list[ScoreSnapshotRow]:
         rows = [

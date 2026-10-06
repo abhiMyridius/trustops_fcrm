@@ -16,15 +16,22 @@ from fcrm_common.auth import require_roles
 from fcrm_contracts.api.case_analyst_write import (
     AcknowledgeBody,
     AcknowledgeResult,
+    ChangeTypeBody,
+    ChangeTypeResult,
     CompletenessBody,
     CompletenessResult,
     FastLaneBody,
+    GapBody,
     GateWriteResult,
     ItemDecisionBody,
     ItemDecisionResult,
     LockBody,
+    PlannedControlBody,
     Recommendation,
     RecommendationEditBody,
+    RecordedWrite,
+    RerunBody,
+    RerunResult,
     ResolveThreadBody,
     RoundBody,
     ThreadResolveResult,
@@ -146,6 +153,46 @@ async def resolve_thread(
     return await service.resolve_thread(
         principal, case_id, thread_id, body or ResolveThreadBody()
     )
+
+
+@router.post("/cases/{case_id}/controls/planned", status_code=201)
+async def add_planned_control(
+    case_id: str, body: PlannedControlBody, principal: Analyst, service: Service
+) -> RecordedWrite:
+    """Record a planned control (``case.control_planned``): shown and recorded,
+    never scored (rule 7): it is not a review item, so no score request holds it.
+    """
+    return await service.add_planned_control(principal, case_id, body)
+
+
+@router.post("/cases/{case_id}/gaps", status_code=201)
+async def record_gap(
+    case_id: str, body: GapBody, principal: Analyst, service: Service
+) -> RecordedWrite:
+    """Record a policy gap found by searching the corpus by hand
+    (``case.gap_recorded``).
+    """
+    return await service.record_gap(principal, case_id, body)
+
+
+@router.post("/cases/{case_id}/change-types")
+async def retag_case(
+    case_id: str, body: ChangeTypeBody, principal: Analyst, service: Service
+) -> ChangeTypeResult:
+    """Add a change type with a reason (adds only): the fields and domains that
+    follow are stored with it, then ``case.retagged`` is emitted.
+    """
+    return await service.retag(principal, case_id, body)
+
+
+@router.post("/cases/{case_id}/runs", status_code=202)
+async def request_rerun(
+    case_id: str, body: RerunBody, principal: Analyst, service: Service
+) -> RerunResult:
+    """Ask for research and assessment to run again, with a reason
+    (``case.rerun_requested``).
+    """
+    return await service.request_rerun(principal, case_id, body)
 
 
 @router.post("/cases/{case_id}/screening", status_code=202)

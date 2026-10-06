@@ -21,10 +21,7 @@ import { handlerTemplatesOutsideEndpoints, servedRoutes, webRoutes } from './rou
 const PENDING_ROUTES: readonly string[] = [
   // S1 case: PO and analyst case routes, queues, dashboards, integrations, re-flags, harness (32)
   'GET /api/fcrm/cases/{id}/assessment',
-  'POST /api/fcrm/cases/{id}/change-types',
   'GET /api/fcrm/cases/{id}/clarifications',
-  'POST /api/fcrm/cases/{id}/controls/planned',
-  'POST /api/fcrm/cases/{id}/gaps',
   'GET /api/fcrm/cases/{id}/handoff',
   'GET /api/fcrm/cases/{id}/harness',
   'GET /api/fcrm/cases/{id}/policy',
