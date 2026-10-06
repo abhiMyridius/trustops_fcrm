@@ -29,6 +29,7 @@ from fcrm_contracts.api.case_analyst_read import (
     AssessmentSummary,
     DashboardAnalyst,
     HandoffView,
+    HarnessSnapshot,
     OutcomeAnalyst,
     PolicyView,
     QueueItem,
@@ -83,6 +84,11 @@ shared_router = APIRouter(
 
 Analyst = Annotated[Principal, Depends(require_roles(Role.ANALYST))]
 Reader = Annotated[Principal, Depends(require_roles(Role.PO, Role.ANALYST))]
+#: Who may see the harness monitor (ADR-19): never the owner.
+MonitorReader = Annotated[
+    Principal,
+    Depends(require_roles(Role.ANALYST, Role.COMMITTEE, Role.OBSERVER)),
+]
 OutcomeReader = Annotated[
     Principal, Depends(require_roles(Role.ANALYST, Role.COMMITTEE))
 ]
@@ -285,3 +291,15 @@ async def outcome(
     same path by the owner's own routes.
     """
     return await service.outcome(case_id)
+
+
+@router.get("/cases/{case_id}/harness")
+async def harness(
+    case_id: str, principal: MonitorReader, service: Service
+) -> HarnessSnapshot:
+    """The harness monitor: the case's run as Caseflow last pushed it (the agents
+    run against the 120k budget, the guards, the log, the chain check). For the
+    analyst, the committee and the observer; the owner never receives it (ADR-19).
+    404 until a run has pushed a snapshot.
+    """
+    return await service.harness(case_id)

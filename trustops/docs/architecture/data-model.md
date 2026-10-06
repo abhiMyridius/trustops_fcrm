@@ -47,14 +47,30 @@ Written only by H1 through the service-only routes below, read by the analyst ro
 
 ### S1's analyst read surface (lane I3-B1)
 
-Served by `fcrm_case.routes_analyst_read` in the web's shapes (`fcrm_contracts.api.case_analyst_read`, locked to `analyst.ts` and `harness.ts` by a parity test). Every route reads stored rows and computes nothing: a score box is what S2 answered and H1 (or the seed) stored. Two things are stored for the reads' sake:
+Served by `fcrm_case.routes_analyst_read` in the web's shapes (`fcrm_contracts.api.case_analyst_read`, locked to `analyst.ts` and `harness.ts` by a parity test; the few keys a model carries beyond the web type, the review item and gate behind a row, are listed in that test). Every route reads stored rows and computes nothing: a score box is what S2 answered and H1 (or the seed) stored. Three things are stored for the reads' sake:
 
 | Where | Shape and rules |
 |---|---|
 | `cases.review_started_at`, `review_started_by` | Set once, by the case's own analyst, the first time they open `GET /cases/{id}/risk`. Until then the analyst is shown no score for a live case (`ScoreBox.withheld`); a seeded snapshot (`purpose: "seed"`) shows at once. A conditional update (`{review_started_at: null}`), so a repeat keeps the first time |
 | `acknowledgements` | `{case_id, kind: "boundary" \| "band_change", at, ...}`, index `{case_id, at}`. Written by the analyst's `POST acknowledge` (the write lane); read here to say what is still owed on the latest score: a band change is owed until an acknowledgement made after that score, a boundary flag until one exists. H1's own `ack` gates stay the authority for release |
+| `harness_views` | `_id = case_id`; `{case_id, run_id, snapshot: HarnessSnapshot, updated_at}`. Written by H1's `HarnessReporter` through `PUT /internal/cases/{id}/harness` after every step (a replace, so a repeat changes nothing; the log is at most 500 lines, a push that names another case is a 422); read by `GET /cases/{id}/harness` for the analyst, the committee and the observer. **The owner never receives it**: the route refuses the PO role, OPA denies the PO, and a test drives every PO read route with a snapshot stored and asserts none of its text appears |
 
 The queue is **one aggregation** over `cases` (`$match` scope/stage, a `$lookup` of the latest `score_snapshots` row on `{case_id, computed_at}` and of the `critic_views` count, the band filter, a rank by what needs the analyst first, and a `$facet` returning the page and the total); the dashboard is two (a `$facet` over `cases`, and the latest band per case over `score_snapshots`). `cases` gains the index `{state, submitted_at}`.
+
+**What each read is built from**
+
+| Route | Built from |
+|---|---|
+| `GET /queue`, `GET /dashboard/analyst` | `cases`, the latest `score_snapshots` row, `critic_views`; the dashboard's agent evaluation and control health are the seed's reference tables (`fcrm_case.reference`) |
+| `GET /cases/{id}/workbench` | the case, its latest snapshot, `completeness_views` (is the assessment ready), `acknowledgements`, the `case.stage_changed` rows of `activity` (the two clocks), `harness_views` (the chain badge) |
+| `GET .../assessment`, `.../risk`, `.../policy` | `review_items` without the superseded ones, the snapshot of record (every L, I, CE, retention, residual and weight is S2's figure), `critic_views`, `completeness_views`, `intake_views`, `field_values`; a clause's title, source and section come from the corpus file, its quote from the stored item. A control's `weight_norm` is its share of its domain's catalogue weight, the one derived number |
+| `GET .../handoff` | `handoff_views` (the pack and its four checks as Caseflow stored them; before a pack, a preview marked "not yet checked by Caseflow"), `outcomes`, the `pack.released` row of `activity` |
+| `GET .../submissions`, `.../submissions/diff` | `submission_versions`; `fcrm_case.domain.diffing.diff_rows` compares any two |
+| `GET .../activity` | `activity`: one handler for the owner (`PoService`, plain words, unchanged) and the analyst (every row, who did it, the audit record and the gate it cites) |
+| `GET .../outcome` (analyst, committee) | `outcomes` and `conditions`; a seeded closed case reads its outcome from the seed. The owner's plainer shape is served from the same path by the owner's own routes |
+| `GET /internal/cases/{id}/submissions/diff`, `GET /internal/cases/search` | the `submission_diff` and `case_search` tools' service routes (service role only): the tool's own output models; the search ranks stored cases by title words and change types, with each one's recorded outcome |
+
+Two item shapes read: H1's typed items (``fcrm_contracts.api.case_internal_assessment``) and the older flat items the seed wrote for cases that predate this system (a likelihood and an impact are two items; a control carries ``evidence``, no weight). The older ones take their control name and weight from the catalogue and have no factor justification.
 
 ## `fcrm_scoring` (S2)
 

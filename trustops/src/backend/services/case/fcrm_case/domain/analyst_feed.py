@@ -56,8 +56,13 @@ def actor_label(entry: ActivityEntry, record: CaseRecord) -> str:
     return actor.component or actor.id
 
 
-def _record_seq(detail: Mapping[str, Any]) -> Optional[int]:
-    value = detail.get("record_seq")
+def _record_seq(entry: ActivityEntry) -> Optional[int]:
+    """The audit record a row cites: the event's own ``record_seq`` (what
+    Caseflow sends beside an event), else one named in its detail.
+    """
+    if entry.record_seq is not None:
+        return entry.record_seq
+    value: Any = entry.detail.get("record_seq")
     return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
@@ -70,7 +75,7 @@ def activity_analyst(entry: ActivityEntry, record: CaseRecord) -> ActivityAnalys
         actor=actor_label(entry, record),
         type=entry.type,
         text=entry.summary,
-        record_seq=_record_seq(entry.detail),
+        record_seq=_record_seq(entry),
         gate_id=gate if isinstance(gate, str) else None,
     )
 

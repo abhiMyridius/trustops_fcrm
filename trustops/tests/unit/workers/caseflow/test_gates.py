@@ -149,3 +149,25 @@ async def test_a_vote_decision_with_a_reason_is_accepted(store: GateStore) -> No
     doc = await store.get("gate_1")
     assert doc is not None
     assert doc["status"] == GateStatus.DECIDED.value
+
+
+async def test_count_open_for_run_counts_every_type_and_only_that_run(
+    store: GateStore,
+) -> None:
+    for gate_id, gate_type, run_id in (
+        ("gate_a", GateType.PO_CONFIRM_CATEGORY, RUN_ID),
+        ("gate_b", GateType.REVIEW_ITEM, RUN_ID),
+        ("gate_c", GateType.REVIEW_ITEM, "run_other"),
+    ):
+        await store.open(
+            gate_document(
+                gate_id=gate_id,
+                case_id=CASE_ID,
+                run_id=run_id,
+                gate_type=gate_type,
+                required_role=Role.ANALYST,
+            )
+        )
+    assert await store.count_open_for_run(RUN_ID) == 2
+    assert await store.count_open_for_run("run_other") == 1
+    assert await store.count_open_for_run("run_none") == 0

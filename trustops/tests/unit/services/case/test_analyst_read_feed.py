@@ -168,6 +168,26 @@ def test_an_unknown_case_has_no_feed(assessed_case: AssessedCase) -> None:
     assert assessed_case.client.get("/cases/FCRM-2099-0001/activity").status_code == 404
 
 
+def test_a_row_cites_the_record_caseflow_sent_beside_the_event(
+    assessed_case: AssessedCase, add_activity: Callable[..., Any]
+) -> None:
+    assessed_case.update_record(activity_seq=0)
+    add_activity(CASE, "score.computed", "analyst", "Scored", record_seq=52)
+    add_activity(
+        CASE,
+        "score.recomputed",
+        "analyst",
+        "Re-scored",
+        {"record_seq": 11},
+        record_seq=53,
+    )
+    add_activity(CASE, "gate.decided", "analyst", "Decided", {"record_seq": 12})
+    items = {i["id"]: i for i in assessed_case.client.get(ACTIVITY).json()["items"]}
+    assert items["ev_1"]["record_seq"] == 52
+    assert items["ev_2"]["record_seq"] == 53
+    assert items["ev_3"]["record_seq"] == 12
+
+
 # ── the recorded outcome ────────────────────────────────────────────────────────
 
 

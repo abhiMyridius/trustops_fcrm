@@ -63,6 +63,8 @@ internal_case_routes := {
 	["GET", "/internal/cases/{case_id}/recommendation"],
 	["GET", "/internal/cases/{case_id}/submissions/diff"],
 	["GET", "/internal/cases/search"],
+	["PUT", "/internal/cases/{case_id}/harness"],
+	["GET", "/internal/cases/{case_id}/harness"],
 }
 
 test_service_may_call_every_internal_case_route if {

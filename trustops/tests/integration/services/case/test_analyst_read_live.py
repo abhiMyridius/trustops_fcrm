@@ -654,3 +654,142 @@ async def test_a_person_cannot_call_the_service_routes(
 ) -> None:
     refused = await live_analyst.get("/internal/cases/search", params={"q": "payout"})
     assert refused.status_code == 403
+
+
+# ── the harness monitor ─────────────────────────────────────────────────────────
+
+
+async def test_the_harness_snapshot_is_stored_replaced_and_read_by_staff_only(
+    live_case: LiveCase,
+    live_caller: Callable[..., Any],
+    make_harness_push: Callable[..., Any],
+) -> None:
+    case_id = "FCRM-2026-0140"
+    http = live_case.http  # the service account
+    first = make_harness_push(case_id, lines=2, audit_records=40)
+    pushed = await http.put(
+        f"/internal/cases/{case_id}/harness", json=first.model_dump(mode="json")
+    )
+    assert pushed.status_code == 200, pushed.text
+    assert pushed.json()["lines"] == 2
+    second = make_harness_push(case_id, lines=4, audit_records=41)
+    await http.put(
+        f"/internal/cases/{case_id}/harness", json=second.model_dump(mode="json")
+    )
+    stored = await live_case.db["harness_views"].count_documents({"_id": case_id})
+    assert stored == 1
+    analyst = Principal(sub=RAHUL, roles=[Role.ANALYST], name="Rahul", typ="access")
+    async with live_caller(analyst) as client:
+        snapshot = (await client.get(f"/cases/{case_id}/harness")).json()
+        assert [line["seq"] for line in snapshot["log"]] == [1, 2, 3, 4]
+        header = (await client.get(f"/cases/{case_id}/workbench")).json()
+        assert header["audit"] == {"count": 41, "verified": True}
+    observer = Principal(sub="u-obs", roles=[Role.OBSERVER], name="O", typ="access")
+    async with live_caller(observer) as client:
+        assert (await client.get(f"/cases/{case_id}/harness")).status_code == 200
+    owner = await live_case.db["cases"].find_one({"_id": case_id})
+    po = Principal(sub=owner["owner"], roles=[Role.PO], name="PO", typ="access")
+    async with live_caller(po) as client:
+        assert (await client.get(f"/cases/{case_id}/harness")).status_code == 403
+        feed = await client.get(f"/cases/{case_id}/activity")
+        assert "agent line" not in feed.text
+
+
+async def test_a_case_with_no_pushed_snapshot_has_no_monitor(
+    live_analyst: httpx.AsyncClient,
+) -> None:
+    response = await live_analyst.get("/cases/FCRM-2026-0140/harness")
+    assert response.status_code == 404
+
+
+async def test_caseflows_reporter_pushes_into_the_real_s1_and_staff_read_it(
+    live_case: LiveCase, live_caller: Callable[..., Any]
+) -> None:
+    """The H1 side end to end: the reporter assembles its snapshot from a run, an
+    audit chain and the gates, sends it through its own ``CaseClient`` to the live
+    S1 app, and the analyst reads back what it sent.
+    """
+    from datetime import timedelta
+
+    from fcrm_caseflow.clients.case_client import CaseClient
+    from fcrm_caseflow.harness_view import HarnessReporter
+    from fcrm_caseflow.store import (
+        DEFAULT_PINS,
+        case_run_from_document,
+        new_case_run_document,
+    )
+    from fcrm_common.http import ServiceClient
+    from fcrm_contracts.api.audit import AuditRecord, VerifyResult
+
+    case_id = "FCRM-2026-0140"
+    document = new_case_run_document(
+        run_id="run_live", case_id=case_id, pins=DEFAULT_PINS
+    )
+    document["counters"] = {"agents_run": 3, "tokens_used": 30_000}
+    document["trace_id"] = "trace-live-1"
+    run = case_run_from_document(document)
+    base = datetime(2026, 10, 5, 12, tzinfo=UTC)
+    chain = [
+        AuditRecord(
+            case_id=case_id,
+            seq=n,
+            type=kind,
+            actor="system",
+            summary=f"record {n}",
+            data={},
+            prev_hash="0" * 64,
+            hash="1" * 64,
+            created_at=base + timedelta(seconds=n),
+        )
+        for n, kind in enumerate(
+            ("workflow.started", "guard.input", "proposal.research", "score.computed"),
+            start=1,
+        )
+    ]
+
+    class Runs:
+        async def get(self, run_id: str) -> Any:
+            return run
+
+    class Gates:
+        async def count_open_for_run(self, run_id: str) -> int:
+            return 2
+
+    class Chain:
+        async def list_records(self, _case: str) -> list[AuditRecord]:
+            return chain
+
+        async def verify(self, _case: str) -> VerifyResult:
+            return VerifyResult(case_id=case_id, record_count=len(chain), ok=True)
+
+    import httpx as _httpx
+
+    client = ServiceClient(
+        "http://case.test",
+        dependency="case",
+        caller="caseflow",
+        token_secret="x" * 32,
+        transport=_httpx.ASGITransport(app=live_case.app),
+    )
+    try:
+        reporter = HarnessReporter(Runs(), Gates(), Chain(), CaseClient(client))
+        assert await reporter.report(case_id, "run_live") is True
+    finally:
+        await client.aclose()
+
+    analyst = Principal(sub=RAHUL, roles=[Role.ANALYST], name="Rahul", typ="access")
+    async with live_caller(analyst) as http:
+        snapshot = (await http.get(f"/cases/{case_id}/harness")).json()
+        header = (await http.get(f"/cases/{case_id}/workbench")).json()
+    assert snapshot["status"] == "waiting_on_person"
+    assert snapshot["trace_id"] == "trace-live-1"
+    assert snapshot["counters"]["agents_run"] == 3
+    assert snapshot["counters"]["tokens_used"] == 30_000
+    assert snapshot["counters"]["chain_verified"] is True
+    assert [line["who"] for line in snapshot["log"]] == [
+        "H1 core",
+        "P5 guard",
+        "research agent",
+        "S2 scoring",
+    ]
+    assert header["audit"] == {"count": 4, "verified": True}

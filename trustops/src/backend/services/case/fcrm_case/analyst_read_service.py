@@ -21,6 +21,9 @@ from fcrm_contracts.api.case_analyst_read import (
     AssessmentSummary,
     DashboardAnalyst,
     HandoffView,
+    HarnessPush,
+    HarnessPushResult,
+    HarnessSnapshot,
     OutcomeAnalyst,
     PolicyView,
     QueueItem,
@@ -215,6 +218,7 @@ class AnalystReadService:
         completeness = await self._assessment.get_completeness(case_id)
         acks = await self._reads.acknowledgements(case_id)
         spans = await self._reads.stage_spans(case_id)
+        monitor = await self._reads.get_harness(case_id)
         return workbench_header(
             HeaderInputs(
                 record=record,
@@ -223,8 +227,8 @@ class AnalystReadService:
                 has_completeness_view=completeness is not None,
                 acks=acks,
                 spans=spans,
-                audit_count=0,
-                audit_verified=False,
+                audit_count=monitor.counters.audit_records if monitor else 0,
+                audit_verified=monitor.counters.chain_verified if monitor else False,
                 now=self._clock(),
             )
         )
@@ -438,3 +442,38 @@ class AnalystReadService:
             await self._outcomes.list_conditions(case_id),
             seeded_outcomes(),
         )
+
+    # -- the harness monitor --------------------------------------------------------
+
+    async def harness(self, case_id: str) -> HarnessSnapshot:
+        """The latest snapshot of the case's harness run, as Caseflow pushed it.
+
+        Raises:
+            fcrm_common.errors.NotFoundError: no such case, or no run has pushed a
+                snapshot yet (the monitor shows "no harness run is recorded").
+        """
+        await self.case(case_id)
+        snapshot = await self._reads.get_harness(case_id)
+        if snapshot is None:
+            raise NotFoundError(f"no harness run is recorded for case {case_id}")
+        return snapshot
+
+    async def put_harness(self, case_id: str, push: HarnessPush) -> HarnessPushResult:
+        """Store the snapshot Caseflow assembled after a step.
+
+        Raises:
+            fcrm_common.errors.NotFoundError: no such case.
+            fcrm_common.errors.ValidationError: the snapshot names another case.
+        """
+        if push.snapshot.case_id != case_id:
+            raise ValidationError(
+                "The snapshot names another case.",
+                errors=[{"loc": "body.snapshot.case_id", "msg": "does not match"}],
+            )
+        await self.case(case_id)
+        result = await self._reads.put_harness(case_id, push, self._clock())
+        logger.info(
+            "harness snapshot stored",
+            extra={"case_id": case_id, "run_id": push.run_id, "lines": result.lines},
+        )
+        return result

@@ -16,6 +16,7 @@ from typing import Any, Final, Optional
 
 from fcrm_common.errors import UpstreamUnavailableError
 from fcrm_common.http import ServiceClient
+from fcrm_contracts.api.case_analyst_read import HarnessPush, HarnessPushResult
 from fcrm_contracts.api.case_internal import (
     AnalystLoadResponse,
     AssignAnalystRequest,
@@ -70,6 +71,7 @@ RECOMMENDATION_DRAFT_PATH: Final = "/internal/cases/{case_id}/recommendation-dra
 HANDOFF_PATH: Final = "/internal/cases/{case_id}/handoff"
 SCORE_REQUEST_PATH: Final = "/internal/cases/{case_id}/score-request"
 RECOMMENDATION_PATH: Final = "/internal/cases/{case_id}/recommendation"
+HARNESS_PATH: Final = "/internal/cases/{case_id}/harness"
 
 
 def _fill(template: str, **values: str) -> str:
@@ -416,3 +418,17 @@ class CaseClient:
     ) -> ViewWriteResult:
         """``PUT /internal/cases/{case_id}/handoff``."""
         return await self._put_view(HANDOFF_PATH, case_id, body, idempotency_key)
+
+    async def put_harness(self, case_id: str, body: HarnessPush) -> HarnessPushResult:
+        """``PUT /internal/cases/{case_id}/harness``: the monitor's snapshot of the
+        run, stored as the case's latest (a replace, so a repeat changes nothing).
+        """
+        answer = await self._client.request_json(
+            "PUT",
+            _fill(HARNESS_PATH, case_id=case_id),
+            json=_json(body),
+            timeout=CALL_TIMEOUTS,
+        )
+        return parse_body(
+            HarnessPushResult, answer, dependency=DEPENDENCY, route=HARNESS_PATH
+        )

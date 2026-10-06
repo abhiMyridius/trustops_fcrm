@@ -567,14 +567,19 @@ class HarnessCounters(_Dto):
     tokens_budget: int
 
 
+#: The most log lines and guard rows one snapshot carries.
+MAX_HARNESS_LINES = 500
+MAX_HARNESS_GUARDS = 20
+
+
 class HarnessSnapshot(_Dto):
     case_id: str
     trace_id: str
     status: Literal["running", "idle", "waiting_on_person"]
     core: Literal["intake core", "assessment core", "decision core", "oversight core"]
     counters: HarnessCounters
-    guards: list[GuardStatus]
-    log: list[HarnessLine]
+    guards: list[GuardStatus] = Field(max_length=MAX_HARNESS_GUARDS)
+    log: list[HarnessLine] = Field(max_length=MAX_HARNESS_LINES)
     jaeger_url: str
     tokens_note: str
 

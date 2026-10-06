@@ -61,6 +61,7 @@ from fcrm_caseflow.consumers import (
 from fcrm_caseflow.cores import default_handlers
 from fcrm_caseflow.engine import CaseflowEngine, mongo_transact
 from fcrm_caseflow.gates import GateStore
+from fcrm_caseflow.harness_view import HarnessReporter
 from fcrm_caseflow.settings import CaseflowSettings
 from fcrm_caseflow.steps import StepHandler, StepRegistry, StepRunner
 from fcrm_caseflow.store import AGENT_RESULTS_COLLECTION, AgentResultStore, CaseRunStore
@@ -205,6 +206,7 @@ def build_unit(
     outbox = Outbox(outbox_collection)
 
     audit = AuditClient(audit_http)
+    case_client = CaseClient(case_http)
     engine = CaseflowEngine(
         runs_store,
         gate_store,
@@ -221,13 +223,14 @@ def build_unit(
         engine,
         audit,
         timeout_s=settings.step_timeout_s,
-        case=CaseClient(case_http),
+        case=case_client,
         policy=PolicyClient(policy_http, cache=InMemoryTTLCache()),
         agent_results=results_store,
         scoring=ScoringClient(scoring_http),
         decision=DecisionClient(decision_http),
         gates=gate_store,
         decision_votes=DecisionVotesClient(decision_http),
+        reporter=HarnessReporter(runs_store, gate_store, audit, case_client),
     )
 
     case_events_consumer = CaseEventsConsumer(

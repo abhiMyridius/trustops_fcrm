@@ -2344,6 +2344,7 @@ def add_activity(case_service: CaseService) -> Callable[..., list[Any]]:
         summary: str,
         detail: Optional[dict[str, Any]] = None,
         actor: tuple[str, str, str] = ("svc:caseflow", "fcrm_service", "caseflow"),
+        record_seq: Optional[int] = None,
     ) -> Any:
         seq = case_service.store._bump_activity_seq(case_id)
         assert seq is not None
@@ -2356,10 +2357,74 @@ def add_activity(case_service: CaseService) -> Callable[..., list[Any]]:
                 summary=summary,
                 detail=detail or {},
                 actor=UiActor(id=actor[0], role=actor[1], component=actor[2]),
+                record_seq=record_seq,
             ),
         )
 
     return _add
+
+
+@pytest.fixture
+def make_harness_push() -> Callable[..., Any]:
+    """``make_harness_push(case_id, lines=3, trace_id=..., audit_records=67)``: the
+    snapshot Caseflow would push after a step (the demo case's, by default).
+    """
+    from fcrm_contracts.api.case_analyst_read import HarnessPush
+
+    def _make(
+        case_id: str = "FCRM-2026-0151",
+        lines: int = 3,
+        trace_id: str = "trace-9f3a77c1",
+        audit_records: int = 67,
+        verified: bool = True,
+    ) -> HarnessPush:
+        return HarnessPush.model_validate(
+            {
+                "run_id": "run_1",
+                "snapshot": {
+                    "case_id": case_id,
+                    "trace_id": trace_id,
+                    "status": "running",
+                    "core": "assessment core",
+                    "counters": {
+                        "agents_run": 4,
+                        "agents_total": 9,
+                        "guards_passed": 12,
+                        "guards_blocked": 1,
+                        "audit_records": audit_records,
+                        "chain_verified": verified,
+                        "tokens_used": 41200,
+                        "tokens_budget": 120000,
+                    },
+                    "guards": [
+                        {"n": 1, "name": "input scan", "last": "pass", "detail": "ok"},
+                        {
+                            "n": 4,
+                            "name": "output shape",
+                            "last": "block",
+                            "detail": "x",
+                        },
+                    ],
+                    "log": [
+                        {
+                            "seq": n,
+                            "at": "2026-10-05T12:00:00Z",
+                            "who": "assessment agent",
+                            "text": f"agent line {n} secret-agent-output",
+                            "sub": f"#{n} · proposal.assessment",
+                            "level": "info",
+                            "guard": None,
+                            "progress": None,
+                        }
+                        for n in range(1, lines + 1)
+                    ],
+                    "jaeger_url": f"http://localhost:16686/trace/{trace_id}",
+                    "tokens_note": "Counts come from the agents' recorded usage.",
+                },
+            }
+        )
+
+    return _make
 
 
 @pytest.fixture

@@ -17,9 +17,9 @@
 import { describe, expect, it } from 'vitest';
 import { handlerTemplatesOutsideEndpoints, servedRoutes, webRoutes } from './routes';
 
-/** Web routes the backend does not serve yet (51 of 83 after the PO surface landed; 65 on 5 Oct). */
+/** Web routes the backend does not serve yet (29 of 83 after the analyst read surface landed; 51 after the PO surface; 65 on 5 Oct). */
 const PENDING_ROUTES: readonly string[] = [
-  // S1 case: PO and analyst case routes, queues, dashboards, integrations, re-flags, harness (32)
+  // S1 case: the analyst and owner write routes, the inbox and re-flags (19)
   'POST /api/fcrm/cases/{id}/acknowledge',
   'POST /api/fcrm/cases/{id}/change-types',
   'GET /api/fcrm/cases/{id}/clarifications',
@@ -30,7 +30,6 @@ const PENDING_ROUTES: readonly string[] = [
   'POST /api/fcrm/cases/{id}/conditions/{id}/evidence',
   'POST /api/fcrm/cases/{id}/controls/planned',
   'POST /api/fcrm/cases/{id}/gaps',
-  'GET /api/fcrm/cases/{id}/harness',
   'GET /api/fcrm/cases/{id}/inbox',
   'POST /api/fcrm/cases/{id}/items/{id}',
   'GET /api/fcrm/cases/{id}/recommendation',

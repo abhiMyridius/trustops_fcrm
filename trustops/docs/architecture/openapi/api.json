@@ -2586,6 +2586,40 @@
         "title": "GapQuestionPO",
         "type": "object"
       },
+      "GuardStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "last": {
+            "enum": [
+              "pass",
+              "block",
+              "idle"
+            ],
+            "title": "Last",
+            "type": "string"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "n",
+          "name",
+          "last",
+          "detail"
+        ],
+        "title": "GuardStatus",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2683,6 +2717,202 @@
           "outcome"
         ],
         "title": "HandoffView",
+        "type": "object"
+      },
+      "HarnessCounters": {
+        "additionalProperties": false,
+        "properties": {
+          "agents_run": {
+            "title": "Agents Run",
+            "type": "integer"
+          },
+          "agents_total": {
+            "title": "Agents Total",
+            "type": "integer"
+          },
+          "audit_records": {
+            "title": "Audit Records",
+            "type": "integer"
+          },
+          "chain_verified": {
+            "title": "Chain Verified",
+            "type": "boolean"
+          },
+          "guards_blocked": {
+            "title": "Guards Blocked",
+            "type": "integer"
+          },
+          "guards_passed": {
+            "title": "Guards Passed",
+            "type": "integer"
+          },
+          "tokens_budget": {
+            "title": "Tokens Budget",
+            "type": "integer"
+          },
+          "tokens_used": {
+            "title": "Tokens Used",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "agents_run",
+          "agents_total",
+          "guards_passed",
+          "guards_blocked",
+          "audit_records",
+          "chain_verified",
+          "tokens_used",
+          "tokens_budget"
+        ],
+        "title": "HarnessCounters",
+        "type": "object"
+      },
+      "HarnessLine": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "guard": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guard"
+          },
+          "level": {
+            "enum": [
+              "info",
+              "warn",
+              "error"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "sub": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "who": {
+            "title": "Who",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seq",
+          "at",
+          "who",
+          "text",
+          "sub",
+          "level",
+          "guard",
+          "progress"
+        ],
+        "title": "HarnessLine",
+        "type": "object"
+      },
+      "HarnessSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "core": {
+            "enum": [
+              "intake core",
+              "assessment core",
+              "decision core",
+              "oversight core"
+            ],
+            "title": "Core",
+            "type": "string"
+          },
+          "counters": {
+            "$ref": "#/components/schemas/HarnessCounters"
+          },
+          "guards": {
+            "items": {
+              "$ref": "#/components/schemas/GuardStatus"
+            },
+            "maxItems": 20,
+            "title": "Guards",
+            "type": "array"
+          },
+          "jaeger_url": {
+            "title": "Jaeger Url",
+            "type": "string"
+          },
+          "log": {
+            "items": {
+              "$ref": "#/components/schemas/HarnessLine"
+            },
+            "maxItems": 500,
+            "title": "Log",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "running",
+              "idle",
+              "waiting_on_person"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tokens_note": {
+            "title": "Tokens Note",
+            "type": "string"
+          },
+          "trace_id": {
+            "title": "Trace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "trace_id",
+          "status",
+          "core",
+          "counters",
+          "guards",
+          "log",
+          "jaeger_url",
+          "tokens_note"
+        ],
+        "title": "HarnessSnapshot",
         "type": "object"
       },
       "IntakeViewPO": {
@@ -10360,6 +10590,54 @@
           }
         ],
         "summary": "Handoff",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/harness": {
+      "get": {
+        "description": "The harness monitor: the case's run as Caseflow last pushed it (the agents\nrun against the 120k budget, the guards, the log, the chain check). For the\nanalyst, the committee and the observer; the owner never receives it (ADR-19).\n404 until a run has pushed a snapshot.",
+        "operationId": "S1_harness_cases__case_id__harness_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HarnessSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Harness",
         "tags": [
           "analyst"
         ]

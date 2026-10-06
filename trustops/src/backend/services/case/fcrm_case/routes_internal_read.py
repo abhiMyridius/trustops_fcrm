@@ -17,6 +17,11 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, Query
 from fcrm_common.auth import require_roles
 from fcrm_common.errors import ValidationError
+from fcrm_contracts.api.case_analyst_read import (
+    HarnessPush,
+    HarnessPushResult,
+    HarnessSnapshot,
+)
 from fcrm_contracts.enums import ChangeType, Role
 from fcrm_contracts.tools.case_search import CaseSearchOutput
 from fcrm_contracts.tools.submission_diff import SubmissionDiffOutput
@@ -92,3 +97,20 @@ async def submission_diff(
     ``submission_diff`` tool): what a changed-fields re-run re-proposes.
     """
     return await service.tool_diff(case_id, from_version, to_version)
+
+
+@router.put("/cases/{case_id}/harness")
+async def put_harness(
+    case_id: str, body: HarnessPush, service: Service
+) -> HarnessPushResult:
+    """Caseflow's snapshot of its run after a step: stored as the case's latest
+    (a replace, so a repeat changes nothing). Analyst, committee and observer read
+    it through ``GET /cases/{id}/harness``; the owner never does.
+    """
+    return await service.put_harness(case_id, body)
+
+
+@router.get("/cases/{case_id}/harness")
+async def get_harness(case_id: str, service: Service) -> HarnessSnapshot:
+    """The snapshot as stored (404 before the first push)."""
+    return await service.harness(case_id)

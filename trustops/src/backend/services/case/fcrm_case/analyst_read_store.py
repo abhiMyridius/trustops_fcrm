@@ -35,6 +35,11 @@ from datetime import UTC, datetime
 from typing import Any, Final, Optional, Protocol
 
 from fcrm_common.mongo import Repository
+from fcrm_contracts.api.case_analyst_read import (
+    HarnessPush,
+    HarnessPushResult,
+    HarnessSnapshot,
+)
 from fcrm_contracts.enums import CaseState
 from pymongo import ASCENDING, AsyncMongoClient, IndexModel
 from pymongo.asynchronous.collection import AsyncCollection
@@ -141,6 +146,19 @@ class AnalystReadStore(Protocol):
         change type and a geography when those are given; newest first, bounded,
         each with its recorded outcome (one aggregation).
         """
+        ...
+
+    async def put_harness(
+        self, case_id: str, push: HarnessPush, at: datetime
+    ) -> HarnessPushResult:
+        """Store the snapshot H1 assembled as the case's latest (a replace: the
+        same push twice leaves the same state). Staff-only data: nothing here is
+        ever read for an owner.
+        """
+        ...
+
+    async def get_harness(self, case_id: str) -> Optional[HarnessSnapshot]:
+        """The latest snapshot H1 pushed, or ``None`` before the first."""
         ...
 
 
@@ -342,6 +360,7 @@ class MongoAnalystReadStore:
         self._snapshots: AsyncCollection[Any] = db["score_snapshots"]
         self._acks: AsyncCollection[Any] = db["acknowledgements"]
         self._activity: AsyncCollection[Any] = db["activity"]
+        self._harness: AsyncCollection[Any] = db["harness_views"]
         self._submissions: Repository[SubmissionVersionRow] = Repository(
             db["submission_versions"],
             SubmissionVersionRow,
@@ -510,6 +529,26 @@ class MongoAnalystReadStore:
             limit=MAX_SUBMISSIONS,
         )
 
+    async def put_harness(
+        self, case_id: str, push: HarnessPush, at: datetime
+    ) -> HarnessPushResult:
+        await self._harness.replace_one(
+            {"_id": case_id},
+            {
+                "_id": case_id,
+                "case_id": case_id,
+                "run_id": push.run_id,
+                "snapshot": push.snapshot.model_dump(mode="json"),
+                "updated_at": at,
+            },
+            upsert=True,
+        )
+        return HarnessPushResult(case_id=case_id, lines=len(push.snapshot.log))
+
+    async def get_harness(self, case_id: str) -> Optional[HarnessSnapshot]:
+        doc = await self._harness.find_one({"_id": case_id}, projection={"snapshot": 1})
+        return HarnessSnapshot.model_validate(doc["snapshot"]) if doc else None
+
     async def search_candidates(
         self,
         *,
@@ -580,6 +619,7 @@ class InMemoryAnalystReadStore:
         self._activity = activity
         self._submissions = submissions
         self._outcomes = outcomes
+        self.harness: dict[str, HarnessPush] = {}
         self.acks: list[tuple[str, Acknowledgement]] = []
 
     async def ensure_indexes(self) -> None:
@@ -744,3 +784,13 @@ class InMemoryAnalystReadStore:
             )
             for r in found[:MAX_SEARCH_CANDIDATES]
         ]
+
+    async def put_harness(
+        self, case_id: str, push: HarnessPush, at: datetime
+    ) -> HarnessPushResult:
+        self.harness[case_id] = push
+        return HarnessPushResult(case_id=case_id, lines=len(push.snapshot.log))
+
+    async def get_harness(self, case_id: str) -> Optional[HarnessSnapshot]:
+        push = self.harness.get(case_id)
+        return push.snapshot if push is not None else None

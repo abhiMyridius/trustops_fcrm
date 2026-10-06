@@ -190,6 +190,16 @@ class GateStore:
             query["run_id"] = run_id
         return await self._collection.count_documents(query, session=session)
 
+    async def count_open_for_run(
+        self, run_id: str, *, session: Optional[AsyncClientSession] = None
+    ) -> int:
+        """Open gates of every type in ``run_id`` (the harness monitor's "waiting
+        on a person"; ``{run_id, status}`` is indexed).
+        """
+        return await self._collection.count_documents(
+            {"run_id": run_id, "status": GateStatus.OPEN.value}, session=session
+        )
+
     async def close_if_open(
         self,
         gate_id: str,
