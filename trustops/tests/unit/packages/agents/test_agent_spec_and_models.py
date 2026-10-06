@@ -134,6 +134,29 @@ def test_decoding_does_not_make_an_invalid_item_valid() -> None:
         adapter.validate_python("not json at all")
 
 
+def test_an_empty_junk_key_is_dropped_instead_of_failing_the_whole_answer() -> None:
+    """Seen live: ``source_ref_note: null`` on a research item and ``'#': ''`` on a
+    narrative one failed validation and cost a retry of 10 to 25k tokens.
+    """
+    adapter: TypeAdapter[Any] = TypeAdapter(get_spec("research").output_type())
+    junk = {**PRECEDENT, "source_ref_note": None, "#": "", "extra_list": []}
+    items = adapter.validate_python([junk])
+    assert [type(i) for i in items] == [PrecedentMatch]
+
+
+@pytest.mark.parametrize("value", ["a note", 3, ["x"], {"k": "v"}, False])
+def test_a_junk_key_with_something_in_it_still_fails(value: Any) -> None:
+    adapter: TypeAdapter[Any] = TypeAdapter(get_spec("research").output_type())
+    with pytest.raises(ValidationError):
+        adapter.validate_python([{**PRECEDENT, "source_ref_note": value}])
+
+
+def test_an_empty_key_the_contract_has_is_kept_for_the_contract_to_judge() -> None:
+    adapter: TypeAdapter[Any] = TypeAdapter(get_spec("research").output_type())
+    with pytest.raises(ValidationError):  # similarity is a number, not ""
+        adapter.validate_python([{**PRECEDENT, "similarity": ""}])
+
+
 def test_decode_json_text_leaves_everything_else_alone() -> None:
     assert decode_json_text([1, 2]) == [1, 2]
     assert decode_json_text(None) is None

@@ -85,6 +85,47 @@ def test_the_quorum_policy_covers_the_new_queue(definitions: dict[str, Any]) -> 
     assert re.match(policy["pattern"], CASEFLOW_STEPS_QUEUE)
 
 
+def _policy(definitions: dict[str, Any], name: str) -> dict[str, Any]:
+    found: dict[str, Any] = next(
+        p for p in definitions["policies"] if p["name"] == name
+    )
+    return found
+
+
+def test_a_parked_message_is_never_dropped_for_having_been_looked_at(
+    definitions: dict[str, Any],
+) -> None:
+    """The quorum policy's ``delivery-limit: 5`` also matches every ``*.dlq``;
+    a dead-letter queue has no dead-letter exchange of its own, so the sixth
+    delivery of a parked message (an inspect, a failed replay) dropped it
+    silently: measured on a broker with this topology (the seventh look found
+    an empty queue). A higher-priority policy switches the limit off for the
+    dead-letter queues only.
+    """
+    keep = _policy(definitions, "fcrm-dlq-keep")
+    safety = _policy(definitions, "fcrm-quorum-safety")
+    assert keep["priority"] > safety["priority"]
+    assert keep["definition"] == {"delivery-limit": -1}
+    assert keep["apply-to"] == "queues"
+    for queue in definitions["queues"]:
+        name = queue["name"]
+        assert bool(re.search(keep["pattern"], name)) == name.endswith(".dlq"), name
+
+
+def test_the_dlq_policy_leaves_work_and_retry_queues_to_the_quorum_policy(
+    definitions: dict[str, Any],
+) -> None:
+    keep = _policy(definitions, "fcrm-dlq-keep")
+    safety = _policy(definitions, "fcrm-quorum-safety")
+    work_and_retry = [
+        q["name"] for q in definitions["queues"] if not q["name"].endswith(".dlq")
+    ]
+    assert work_and_retry
+    for name in work_and_retry:
+        assert not re.search(keep["pattern"], name)
+        assert re.match(safety["pattern"], name)
+
+
 def test_every_declared_queue_name_is_unique(definitions: dict[str, Any]) -> None:
     names = [q["name"] for q in definitions["queues"]]
     assert len(names) == len(set(names))

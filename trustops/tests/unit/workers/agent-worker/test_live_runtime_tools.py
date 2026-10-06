@@ -195,11 +195,16 @@ def test_the_h2_setting_can_lower_an_agents_cap_but_never_raise_it(
     assert run.tool_call_cap == expected
 
 
-def test_the_cheap_tier_agents_are_offered_no_tool() -> None:
+def test_the_agents_whose_pack_is_complete_are_offered_no_tool() -> None:
     from fcrm_agents.spec import REGISTRY
     from fcrm_contracts.enums import AgentName
 
-    for name in (AgentName.SCREENING, AgentName.INTAKE, AgentName.WATCHLIST):
+    for name in (
+        AgentName.SCREENING,
+        AgentName.INTAKE,
+        AgentName.WATCHLIST,
+        AgentName.EXAMINER,  # the pack holds the chain; a round trip re-sent all of it
+    ):
         assert REGISTRY[name].tool_call_cap == 0, name
 
 
@@ -208,7 +213,7 @@ def test_every_other_agent_may_make_one_tool_call() -> None:
 
     caps = {a.value: s.tool_call_cap for a, s in REGISTRY.items()}
     assert {n: c for n, c in caps.items() if c} == dict.fromkeys(
-        ("research", "assessment", "critic", "narrative", "examiner", "policy_gap"), 1
+        ("research", "assessment", "critic", "narrative", "policy_gap"), 1
     )
 
 
@@ -281,3 +286,42 @@ async def test_a_tool_call_over_the_cap_is_refused_and_the_model_still_answers(
     assert result.attempts[0].tools_called == ["policy_search", "policy_search"]
     assert returns[1] == {"error": TOOL_CAP_MESSAGE}
     assert [type(i) for i in result.accepted] == [ClauseProposal]
+
+
+def _validation_failure() -> Exception:
+    """What Pydantic AI raises when an output tool call fails validation: its own
+    wrapper, with the ``ValidationError`` as the cause.
+    """
+    from pydantic import BaseModel, ValidationError
+    from pydantic_ai import UnexpectedModelBehavior
+
+    class Field(BaseModel):
+        source_ref: dict[str, str]
+
+    class Answer(BaseModel):
+        fields: list[Field]
+
+    try:
+        Answer.model_validate({"fields": [{"source_ref": {}}, {"source_ref": None}]})
+    except ValidationError as err:
+        failure = UnexpectedModelBehavior("Exceeded maximum output retries (0)")
+        failure.__cause__ = err
+        return failure
+    raise AssertionError("the answer was meant to be invalid")
+
+
+def test_a_validation_failure_is_described_by_where_and_what_not_by_the_validator() -> (
+    None
+):
+    """The first live runs logged the repr of the validator ("function-before
+    [functools.partial(...") and cut the line before the problem: the audit record
+    and the retry's feedback said nothing about what to fix.
+    """
+    from fcrm_agent_worker.live_runtime import describe_failure
+
+    text = describe_failure(_validation_failure())
+
+    assert text.startswith("Exceeded maximum output retries (0): ")
+    assert "fields.1.source_ref: Input should be a valid dictionary" in text
+    assert "function-" not in text
+    assert "ValidationError" not in text

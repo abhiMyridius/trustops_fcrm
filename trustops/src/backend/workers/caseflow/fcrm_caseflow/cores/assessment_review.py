@@ -82,14 +82,30 @@ _KIND_NOUNS: Final[Mapping[ItemKind, str]] = {
 # ── the clarification round's answer and the re-run (scene 11) ──────────────────
 
 
+#: The fields research's retrieval is worded from: the description (the policy and
+#: precedent queries), the partner and the corridor (the jurisdiction lines). An
+#: answer that changes none of them cannot change which clauses apply, so the
+#: owner's answer re-runs assessment only (a research job is 12 to 15k tokens of
+#: a case's 120k, and the clauses it proposed stay with their decisions).
+RESEARCH_INPUT_FIELDS: Final = frozenset({"F02", "F06", "F20"})
+
+
+def research_reruns(changed: Sequence[str]) -> bool:
+    """Whether an answer that changed ``changed`` re-runs research too."""
+    return bool(RESEARCH_INPUT_FIELDS & set(changed))
+
+
 def _rerun_jobs(
     record_refs: Mapping[str, Any],
     *,
     scope: str,
     changed: Sequence[str],
     step: HarnessStep,
+    agents: Sequence[AgentName] = (AgentName.RESEARCH, AgentName.ASSESSMENT),
 ) -> tuple[AgentJobSpec, ...]:
-    """Research and assessment, scoped, with the refs H2's context packs read."""
+    """``agents`` (research and assessment unless told otherwise), scoped, with the
+    refs H2's context packs read.
+    """
     return tuple(
         AgentJobSpec(
             AgentDispatch(
@@ -100,7 +116,7 @@ def _rerun_jobs(
             ),
             dict(record_refs),
         )
-        for agent in (AgentName.RESEARCH, AgentName.ASSESSMENT)
+        for agent in agents
     )
 
 
@@ -161,10 +177,16 @@ async def rerun_record(step: HarnessStep, deps: StepDeps) -> StepResult:
         return StepResult(refs_patch={RERUN_PENDING_REF: spec, **version_ref})
     refs = {**scope_refs(record), **version_ref}
     changed = list(spec["changed_fields"])
+    agents = (
+        (AgentName.RESEARCH, AgentName.ASSESSMENT)
+        if research_reruns(changed)
+        else (AgentName.ASSESSMENT,)
+    )
+    what = "Research and assessment" if len(agents) == 2 else "Assessment"
     audit = await deps.append_record(
         step,
         "agent.rerun",
-        "Research and assessment re-run on changed fields only",
+        f"{what} re-run on changed fields only",
         {"changed_fields": changed, "round": spec["round"]},
         actor="system",
     )
@@ -173,13 +195,14 @@ async def rerun_record(step: HarnessStep, deps: StepDeps) -> StepResult:
         step,
         "agent.rerun",
         "analyst",
-        "Research and assessment are re-running on the changed fields",
+        f"{what} {'are' if len(agents) == 2 else 'is'} re-running on the changed "
+        "fields",
         {"changed_fields": changed},
         record_seq=audit.seq,
     )
     return StepResult(
         agent_jobs_to_dispatch=_rerun_jobs(
-            refs, scope="changed_fields", changed=changed, step=step
+            refs, scope="changed_fields", changed=changed, step=step, agents=agents
         ),
         refs_patch={
             RERUN_REF: {
@@ -191,7 +214,7 @@ async def rerun_record(step: HarnessStep, deps: StepDeps) -> StepResult:
             RERUN_PENDING_REF: None,
             **version_ref,
         },
-        counter_deltas={"agents_run": 2},
+        counter_deltas={"agents_run": len(agents)},
     )
 
 

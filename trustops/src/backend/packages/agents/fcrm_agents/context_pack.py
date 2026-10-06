@@ -116,7 +116,7 @@ DEFAULT_SECTION_TOKEN_CAPS: Final[Mapping[str, Mapping[str, int]]] = {
         "answers": 500,
         "owner_facts": 300,
     },
-    "examiner": {"records": 5200, "routing": 400},
+    "examiner": {"records": 6500, "routing": 400},
     "watchlist": {"list_diff": 400, "candidates": 900, "clauses": 300},
     "policy_gap": {"gaps": 1200, "nearest": 1800},
 }

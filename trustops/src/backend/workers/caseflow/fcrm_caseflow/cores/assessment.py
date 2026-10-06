@@ -113,16 +113,22 @@ _DEMO_RULE_COUNT: Final = 8
 # ── screening (scene 8) ─────────────────────────────────────────────────────────
 
 
-def _screening_proposal(result: AgentResult) -> ScreeningProposal:
-    """The screening agent's R4 proposal in ``result``.
-
-    Raises:
-        fcrm_common.errors.NotFoundError: the job kept no proposal.
+def _screening_proposal(result: AgentResult) -> Optional[ScreeningProposal]:
+    """The screening agent's R4 proposal in ``result``, or ``None`` when Guard 4
+    kept none (a claim without a verbatim source is dropped with its whole item on
+    the retry, and the proposal is one item).
     """
     for item in result.accepted():
         if "fast_lane" in item:
             return ScreeningProposal.model_validate(item)
-    raise NotFoundError(f"the screening job {result.job_id} kept no proposal")
+    return None
+
+
+#: What the record says when screening kept no proposal.
+NO_SCREENING_REASON: Final = (
+    "the screening agent's proposal did not pass the source check; the standard "
+    "lane applies"
+)
 
 
 async def screening_publish(step: HarnessStep, deps: StepDeps) -> StepResult:
@@ -130,14 +136,23 @@ async def screening_publish(step: HarnessStep, deps: StepDeps) -> StepResult:
     analyst, record it. When a fast lane is proposed the analyst confirms it at
     the ``fast_lane_confirm`` gate (R4: the agent proposes, a person decides); the
     engine opened that gate with the id written into S1's view.
+
+    A job whose proposal Guard 4 dropped (live: an unsourced claim on the retry)
+    is not a failure of the case: it proposes no fast lane, the case takes the
+    standard lane, and the record says why. The step used to raise, retry three
+    times and dead-letter, leaving the case waiting for a screening result that
+    would never come.
     """
     results = await deps.require_agent_results().list_for(
         step.run_id, AgentName.SCREENING
     )
     result = result_for(results, step, "screening")
     proposal = _screening_proposal(result)
-    fast_lane = proposal.fast_lane
-    reasons = "; ".join(r.text for r in proposal.reasons) or "no reason given"
+    fast_lane = proposal.fast_lane if proposal is not None else False
+    given = list(proposal.reasons) if proposal is not None else []
+    reasons = "; ".join(r.text for r in given) or (
+        NO_SCREENING_REASON if proposal is None else "no reason given"
+    )
     entry = await post_proposal(
         deps,
         step,
@@ -146,7 +161,7 @@ async def screening_publish(step: HarnessStep, deps: StepDeps) -> StepResult:
         payload={
             "summary": f"fast lane: {'yes' if fast_lane else 'no'}",
             "fast_lane": fast_lane,
-            "reasons": [r.model_dump(mode="json") for r in proposal.reasons],
+            "reasons": [r.model_dump(mode="json") for r in given],
         },
         key="screening",
     )
@@ -156,7 +171,7 @@ async def screening_publish(step: HarnessStep, deps: StepDeps) -> StepResult:
         ScreeningPush(
             run_id=step.run_id,
             fast_lane_proposed=fast_lane,
-            reasons=list(proposal.reasons),
+            reasons=given,
             proposal_id=entry.proposal_id,
             gate_id=(
                 deterministic_gate_id(

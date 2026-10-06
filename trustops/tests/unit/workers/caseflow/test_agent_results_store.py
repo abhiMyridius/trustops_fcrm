@@ -73,6 +73,28 @@ async def test_saving_the_same_job_twice_keeps_one_result_and_its_first_time(
     assert again.finished_at == first.finished_at
 
 
+async def test_save_says_whether_the_result_was_new(
+    agent_results: AgentResultStore, session: FakeSession
+) -> None:
+    first = await agent_results.save(done_payload("job_a"), session=session)  # type: ignore[arg-type]
+    again = await agent_results.save(done_payload("job_a"), session=session)  # type: ignore[arg-type]
+    other = await agent_results.save(done_payload("job_b"), session=session)  # type: ignore[arg-type]
+
+    assert (first, again, other) == (True, False, True)
+
+
+async def test_a_second_save_of_a_job_keeps_the_first_result(
+    agent_results: AgentResultStore, session: FakeSession
+) -> None:
+    await agent_results.save(done_payload("job_a"), session=session)  # type: ignore[arg-type]
+    second = done_payload("job_a", model="another-model", attempt=2)
+    await agent_results.save(second, session=session)  # type: ignore[arg-type]
+
+    [kept] = await agent_results.list_for("run_1", AgentName.INTAKE)
+
+    assert (kept.model, kept.attempt) == ("anthropic:claude-haiku", 1)
+
+
 async def test_the_write_goes_through_the_callers_session(
     agent_results: AgentResultStore,
     agent_results_collection: FakeCollection,

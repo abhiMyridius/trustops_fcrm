@@ -19,6 +19,16 @@
         "overflow": "reject-publish",
         "delivery-limit": 5
       }
+    },
+    {
+      "vhost": "/",
+      "name": "fcrm-dlq-keep",
+      "pattern": "\\.dlq$",
+      "apply-to": "queues",
+      "priority": 10,
+      "definition": {
+        "delivery-limit": -1
+      }
     }
   ],
   "exchanges": [

@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from functools import partial
 from typing import Annotated, Any, Final, Optional, Union
 
 from fcrm_contracts.enums import AgentName, Tier
@@ -45,7 +46,27 @@ def _loads(value: Any) -> Any:
     return value
 
 
-def decode_json_text(value: Any) -> Any:
+def _is_empty(value: Any) -> bool:
+    """Whether ``value`` says nothing: ``None``, an empty string, list or object."""
+    return value is None or (isinstance(value, (str, list, dict)) and not value)
+
+
+def _without_empty_unknown_keys(item: Any, known: frozenset[str]) -> Any:
+    """``item`` without the keys no output type has *and* whose value is empty.
+
+    A model sometimes adds a junk key with nothing in it (seen live:
+    ``source_ref_note: null`` on a research item, ``'#': ''`` on a narrative item);
+    the contracts forbid unknown keys, so the whole answer failed and a retry ran
+    (10 to 25k tokens). A key with nothing in it carries nothing to lose; a key with
+    a value is still refused, because that is the model saying something the
+    contract has nowhere to put.
+    """
+    if not isinstance(item, dict):
+        return item
+    return {k: v for k, v in item.items() if k in known or not _is_empty(v)}
+
+
+def decode_json_text(value: Any, known_keys: Optional[frozenset[str]] = None) -> Any:
     """``value`` with JSON that a model sent as *text* decoded: the whole list, or
     an item of it, written as a string instead of an array or an object, and a
     single item sent without its list.
@@ -55,13 +76,31 @@ def decode_json_text(value: Any) -> Any:
     fails validation and costs a whole retry (about 20k tokens for research).
     The text is decoded and then validated against the contract exactly as an
     array would have been; text that is not JSON is left alone to fail.
+
+    With ``known_keys`` (every key any of the agent's output types has), an item's
+    empty keys that are not among them are dropped; see
+    :func:`_without_empty_unknown_keys`.
     """
     value = _loads(value)
     if isinstance(value, dict):
-        return [value]
+        value = [value]
     if isinstance(value, list):
-        return [_loads(item) for item in value]
+        items = [_loads(item) for item in value]
+        if known_keys is not None:
+            items = [_without_empty_unknown_keys(i, known_keys) for i in items]
+        return items
     return value
+
+
+def _known_keys(types: tuple[type[BaseModel], ...]) -> frozenset[str]:
+    """Every key (field name and alias) any of ``types`` has."""
+    keys: set[str] = set()
+    for model in types:
+        for name, info in model.model_fields.items():
+            keys.add(name)
+            if info.alias:
+                keys.add(info.alias)
+    return frozenset(keys)
 
 
 class AgentSpec(BaseModel):
@@ -95,7 +134,11 @@ class AgentSpec(BaseModel):
             if len(self.output_types) == 1
             else Union.__getitem__(self.output_types)
         )
-        return Annotated[list[items], BeforeValidator(decode_json_text)]
+        known = _known_keys(self.output_types)
+        return Annotated[
+            list[items],
+            BeforeValidator(partial(decode_json_text, known_keys=known)),
+        ]
 
 
 def _spec(
@@ -230,7 +273,9 @@ REGISTRY: Final[Mapping[AgentName, AgentSpec]] = {
             (),
             gate=None,
             eval_set="examiner/questions-120",
-            cap=1,
+            # No tool: the pack holds every record, and a round trip re-sent a
+            # 200-record chain (36.8k tokens against a 15k budget).
+            cap=0,
         ),
         _spec(
             A.WATCHLIST,

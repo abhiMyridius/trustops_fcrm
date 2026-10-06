@@ -31,6 +31,7 @@ from collections.abc import Mapping, Sequence
 from datetime import date
 from typing import Any, Final, Optional
 
+from fcrm_contracts.api.audit import AuditRecord
 from fcrm_contracts.api.policy import (
     JurisdictionListOut,
     SearchFilters,
@@ -906,6 +907,39 @@ class NarrativePackBuilder(ContextPackBuilder):
         )
 
 
+#: How much of a record's summary and of its own reason the examiner is shown.
+MAX_SUMMARY_CHARS: Final = 140
+MAX_REASON_CHARS: Final = 200
+#: The engine's step-trace records: their summary says what the step *does* ("update
+#: the item; recompute the score if ..."), not what happened, and one case writes
+#: dozens of them. They stay on the chain (and in its verification); the examiner is
+#: not shown them, which is what lets the whole chain of a case fit its budget.
+TRACE_TYPE_PREFIXES: Final = ("internal.", "agent.done.", "gate.decided.")
+
+
+def record_text(record: AuditRecord) -> str:
+    """A record as the examiner reads and cites it: its summary (capped) and, when
+    the record carries a reason a person gave that the summary does not already
+    hold (an override), that reason. The pack holds the chain and the examiner has
+    no tool to fetch more, so what a "why" question needs has to be on the line;
+    the cited text is the line, so a quote from it always matches.
+    """
+    text = record.summary[:MAX_SUMMARY_CHARS]
+    reason = record.data.get("reason")
+    if (
+        isinstance(reason, str)
+        and reason.strip()
+        and reason.strip() not in record.summary
+    ):
+        text += f" · reason: {reason.strip()[:MAX_REASON_CHARS]}"
+    return text
+
+
+def examiner_records(records: Sequence[AuditRecord]) -> list[AuditRecord]:
+    """The records the examiner is shown: every one but the engine's step trace."""
+    return [r for r in records if not r.type.startswith(TRACE_TYPE_PREFIXES)]
+
+
 class ExaminerPackBuilder(ContextPackBuilder):
     """The question; every audit record of the case (compact); the pinned
     routing rules text. Records only: the examiner adds nothing else."""
@@ -924,20 +958,26 @@ class ExaminerPackBuilder(ContextPackBuilder):
         )
         add_prelude(draft, request, None)
         head = out.records[-1].hash[:8] if out.records else "-"
+        shown = examiner_records(out.records)
         draft.add_line(
             "question",
-            f"{request.question} (chain: {len(out.records)} records, head {head})",
+            f"{request.question} (chain: {len(out.records)} records, head {head}; "
+            f"{len(shown)} shown, the engine's step trace left out)",
         )
         draft.add(
             "records",
             [
-                (f"#{r.seq}", f"#{r.seq} · {r.type} · {r.actor} · {r.summary}")
-                for r in out.records
+                (
+                    f"#{r.seq}",
+                    f"#{r.seq} · {r.type} · {r.actor} · {record_text(r)}",
+                )
+                for r in shown
             ],
         )
-        for record in out.records:
+        for record in shown:
             draft.cite(
-                RecordSourceRef(case_id=request.case_id, seq=record.seq), record.summary
+                RecordSourceRef(case_id=request.case_id, seq=record.seq),
+                record_text(record),
             )
         draft.add(
             "routing",

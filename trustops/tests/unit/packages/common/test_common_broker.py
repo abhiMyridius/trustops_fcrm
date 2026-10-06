@@ -105,6 +105,61 @@ async def test_a_delivery_reaches_consumer_process_with_its_body_and_headers():
     assert headers["attempt"] == 1
 
 
+async def test_a_delivery_carries_its_amqp_properties_so_a_retry_can_resend_them():
+    """A failed message is republished from ``(body, headers)``; without the
+    properties in the headers the retry and dead-letter hops dropped the
+    message id, type and correlation id (seen on a real broker: the parked
+    message had a made-up id).
+    """
+    broker = RabbitBroker(AMQP)
+    consumer = _RecordingConsumer()
+    wire_consumer(
+        broker,
+        consumer,  # type: ignore[arg-type]
+        exchange="agent.jobs",
+        routing_keys=["agent.run"],
+    )
+    async with TestRabbitBroker(broker) as test_broker:
+        await test_broker.publish(
+            b"{}",
+            exchange=passive_exchange("agent.jobs"),
+            routing_key="agent.run",
+            headers={"x-attempt": 1},
+            message_id="evt_1",
+            correlation_id="run_1",
+            message_type="agent.run",
+        )
+    _, headers = consumer.deliveries[0]
+    assert headers["x-attempt"] == 1
+    assert headers["message_id"] == "evt_1"
+    assert headers["correlation_id"] == "run_1"
+    assert headers["type"] == "agent.run"
+
+
+async def test_a_body_that_is_not_json_still_reaches_the_consumer_as_bytes():
+    """FastStream decodes a JSON message before the handler and raises on a
+    body that is not JSON; with manual acks that left the message unacknowledged
+    for good. The consumer must see it (to dead-letter it), whatever its
+    content type says.
+    """
+    broker = RabbitBroker(AMQP)
+    consumer = _RecordingConsumer()
+    wire_consumer(
+        broker,
+        consumer,  # type: ignore[arg-type]
+        exchange="agent.jobs",
+        routing_keys=["agent.run"],
+    )
+    async with TestRabbitBroker(broker) as test_broker:
+        await test_broker.publish(
+            b'{"this is": not json',
+            exchange=passive_exchange("agent.jobs"),
+            routing_key="agent.run",
+            content_type="application/json",
+        )
+    assert [body for body, _ in consumer.deliveries] == [b'{"this is": not json']
+
+
 class _Subscriber:
     """A FastStream subscriber as far as ``wire_consumer_running`` sees one."""
 
