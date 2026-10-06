@@ -115,6 +115,29 @@ class TestNarrativePublish:
             "PO-summary scan · 0 restricted terms"
         )
 
+    async def test_a_condition_with_no_text_is_not_a_condition(
+        self,
+        assessed_case: FakeCaseService,
+        step_deps_factory: DepsFactory,
+        seed_results: Seed,
+    ) -> None:
+        """Live: the narrative sent a condition id "BS" with no text (its business
+        summary in a condition's shape). Kept, it failed S1's activation when the
+        case closed (a condition's text has at least one character) and the case
+        stalled at the decision with a dead-lettered step.
+        """
+        await self._run(
+            step_deps_factory,
+            seed_results,
+            narrative_text("Band 3, driven by the channel."),
+            drafted_condition("CND-1", "DD review filed"),
+            drafted_condition("BS", "  "),
+            business_summary("Ready for committee."),
+        )
+
+        [draft] = assessed_case.views["recommendation-draft"]
+        assert [c["condition_id"] for c in draft["conditions"]] == ["CND-1"]
+
     async def test_the_ledger_entry_carries_the_text_and_conditions_not_the_summary(
         self,
         assessed_case: FakeCaseService,
