@@ -571,17 +571,16 @@ async def test_scenes_eight_to_eleven_assessment_critic_completeness_and_the_rer
         },
     )
     assert await scene.drain() == [StepKind.INTAKE_INGESTED, StepKind.RERUN_RECORD]
-    rerun_research = scene.jobs(AgentName.RESEARCH)[-1]
+    # F11 and F21 are not what research's queries are worded from: only assessment
+    # re-runs (the join completes with its one member), research's clauses stand.
     rerun_assessment = scene.jobs(AgentName.ASSESSMENT)[-1]
-    assert len(scene.jobs(AgentName.RESEARCH)) == 2
-    for job in (rerun_research, rerun_assessment):
-        assert job.scope == "changed_fields"
-        assert job.changed_fields == ["F11", "F21"]
-        assert job.refs["submission_version"] == 2
+    assert len(scene.jobs(AgentName.RESEARCH)) == 1
+    assert rerun_assessment.scope == "changed_fields"
+    assert rerun_assessment.changed_fields == ["F11", "F21"]
+    assert rerun_assessment.refs["submission_version"] == 2
     assert scene.record_types()[-1] == "agent.rerun"
 
     # the re-run proposes the planned corridor review; the score does not move
-    await scene.agent_done(AgentName.RESEARCH)
     await scene.agent_done(
         AgentName.ASSESSMENT,
         control_proposal(

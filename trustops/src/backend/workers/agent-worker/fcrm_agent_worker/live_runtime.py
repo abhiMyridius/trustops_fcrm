@@ -77,7 +77,7 @@ from fcrm_guardrails.base import AUDIT_TYPES
 from fcrm_guardrails.budget import TIER_BUDGETS, AttemptPlan, ModelSlot
 from fcrm_guardrails.context import AvailableSource
 from fcrm_tools import ToolRegistry
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from pydantic_ai import (
     Agent,
     RunUsage,
@@ -161,15 +161,41 @@ def retry_text(user_text: str, feedback: Sequence[str]) -> str:
     return f"{user_text}\n\n{RETRY_HEADER}\n{lines}"
 
 
+MAX_FAILURE_ERRORS: Final = 4
+MAX_FAILURE_CHARS: Final = 600
+
+
+def _where(loc: Sequence[Any]) -> str:
+    """A validation error's path without Pydantic's own type descriptors
+    (``function-before[...]``, ``list[union[...]]``): ``0.ExtractionProposal.
+    fields.8.source_ref``.
+    """
+    return ".".join(
+        str(part)
+        for part in loc
+        if "[" not in str(part) and "function-" not in str(part)
+    )
+
+
 def describe_failure(exc: BaseException) -> str:
     """One line saying why a model call failed: the error and, when Pydantic AI
     wrapped one (an output that failed validation is reported as "exceeded
-    maximum output retries"), what it wrapped."""
+    maximum output retries"), what it wrapped. A validation error is shown as
+    where each problem is and what it is (the first few), not as the repr of the
+    validator it ran: that put the useful part past the point the line was cut,
+    in the audit record and in what the retry was shown.
+    """
     text = str(exc)
     cause = exc.__cause__
-    if cause is not None:
+    if isinstance(cause, ValidationError):
+        problems = "; ".join(
+            f"{_where(err['loc'])}: {err['msg']}"
+            for err in cause.errors()[:MAX_FAILURE_ERRORS]
+        )
+        text = f"{text.split(':')[0]}: {problems}"
+    elif cause is not None:
         text = f"{text}: {type(cause).__name__}: {cause}"
-    return " ".join(text.split())[:400]
+    return " ".join(text.split())[:MAX_FAILURE_CHARS]
 
 
 def _model_name(model: Model) -> str:
@@ -530,8 +556,12 @@ async def run_agent_live(
             "agent": spec.name.value,
             "verdict": run.result.verdict.value,
             "attempts": len(run.result.attempts),
-            "tokens": run.result.tokens_used,
-            "usage": dict(run.usage_total),
+            # Not named "tokens": the log scrubber drops any key with "token" in it.
+            "spent": run.result.tokens_used,
+            "usage": {
+                key.removesuffix("_tokens"): value
+                for key, value in run.usage_total.items()
+            },
         },
     )
     return run.result, run.model_used, run.usage_total

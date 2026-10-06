@@ -164,6 +164,7 @@ def wire_consumer(
             passive_exchange(exchange),
             ack_policy=AckPolicy.MANUAL,
             channel=channel,
+            decoder=_undecoded_body,
         )(_handler_for(consumer))
 
 
@@ -198,13 +199,56 @@ async def wire_consumer_running(
     return added
 
 
+async def _undecoded_body(msg: RabbitMessage) -> bytes:
+    """A FastStream decoder that leaves the body as the bytes it arrived as.
+
+    ``Consumer.process`` parses the envelope itself so that a body that does not
+    parse is a dead letter. FastStream's own decoder runs first, and for a
+    message whose ``content_type`` is ``application/json`` (every message this
+    system publishes) it raises on a body that is not JSON, *before* the handler
+    and with manual acks: the message was then neither acked nor nacked and sat
+    unacknowledged on the channel, holding one of the consumer's prefetch slots
+    until the process restarted (measured on a broker: two such messages stalled
+    a consumer with a prefetch of two; the poison drill D5b covers it).
+    """
+    return msg.body
+
+
+def delivery_headers(msg: RabbitMessage) -> dict[str, Any]:
+    """``msg``'s headers plus its AMQP properties, under the names
+    :func:`fcrm_common.events.message_headers` gives them.
+
+    ``Consumer.process`` republishes a failed message to the retry queue or the
+    dead-letter queue from ``(body, headers)`` alone, and
+    :class:`FastStreamPublisher` lifts ``message_id``, ``correlation_id``,
+    ``content_type`` and ``type`` out of the headers it is given. With only
+    ``msg.headers`` every retry hop dropped them, so a message that parked in a
+    DLQ had lost the id it was published with (and its type and the run it
+    belonged to) and an operator could not find it by that id. The properties
+    are read from the raw delivery, not the parsed message, because FastStream
+    makes up a message id and a correlation id when the sender set none.
+    """
+    headers = dict(msg.headers or {})
+    raw = msg.raw_message
+    for header, attribute in (
+        ("message_id", "message_id"),
+        ("correlation_id", "correlation_id"),
+        ("content_type", "content_type"),
+        ("type", "type"),
+    ):
+        value = getattr(raw, attribute, None)
+        if value is not None:
+            headers.setdefault(header, value)
+    return headers
+
+
 def _handler_for(consumer: Consumer) -> Any:
     """The subscriber callback that hands a delivery to ``consumer.process``."""
 
     async def _consume(msg: RabbitMessage) -> None:
         await consumer.process(
             msg.body,
-            msg.headers,
+            delivery_headers(msg),
             ack=msg.ack,
             nack=lambda requeue: msg.nack(requeue=requeue),
         )

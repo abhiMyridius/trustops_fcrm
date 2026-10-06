@@ -373,6 +373,56 @@ class TestAgentResultsAreKept:
             )
         assert len(agent_results_collection.docs) == 1
 
+    async def test_a_second_done_for_a_finished_job_is_applied_no_second_time(
+        self,
+        engine_factory: EngineFactory,
+        run_store: CaseRunStore,
+        session: FakeSession,
+        outbox_collection: FakeCollection,
+        agent_results: AgentResultStore,
+    ) -> None:
+        """H2 ran a redelivered job again and published a second ``agent.done``
+        under a fresh event id: the consumer's message-id dedupe cannot see it,
+        so the engine must, or the run enqueues a second ``intake.publish``
+        and every ``proposal.*`` record is written twice (found by the
+        resilience drill D1c).
+        """
+        engine = engine_factory(INTAKE_MAP, results=agent_results)
+        run_id, [job] = await _dispatch_intake_jobs(
+            engine, run_store, session, outbox_collection, ("doc_1",)
+        )
+
+        await engine.handle(_env("agent.done", _done(job, run_id), run_id), session)
+        await engine.handle(_env("agent.done", _done(job, run_id), run_id), session)
+
+        publish = [
+            s for s in _steps(outbox_collection) if s.step is StepKind.INTAKE_PUBLISH
+        ]
+        assert len(publish) == 1
+
+    async def test_a_second_done_does_not_replace_the_result_a_step_merged(
+        self,
+        engine_factory: EngineFactory,
+        run_store: CaseRunStore,
+        session: FakeSession,
+        outbox_collection: FakeCollection,
+        agent_results: AgentResultStore,
+    ) -> None:
+        engine = engine_factory(INTAKE_MAP, results=agent_results)
+        run_id, [job] = await _dispatch_intake_jobs(
+            engine, run_store, session, outbox_collection, ("doc_1",)
+        )
+        first = _done(job, run_id)
+        first["output"] = {"accepted": [{"field_id": "from-the-first-run"}]}
+        second = _done(job, run_id)
+        second["output"] = {"accepted": [{"field_id": "from-the-second-run"}]}
+
+        await engine.handle(_env("agent.done", first, run_id), session)
+        await engine.handle(_env("agent.done", second, run_id), session)
+
+        [kept] = await agent_results.list_for(run_id, AgentName.INTAKE)
+        assert kept.accepted() == [{"field_id": "from-the-first-run"}]
+
     async def test_an_engine_without_a_store_keeps_nothing(
         self,
         engine_factory: EngineFactory,

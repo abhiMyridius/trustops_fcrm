@@ -17,7 +17,7 @@
     "test:watch": "vitest",
     "test:e2e": "VITE_API_MODE=msw playwright test --config e2e/playwright.config.ts",
     "test:e2e:ui": "VITE_API_MODE=msw playwright test --config e2e/playwright.config.ts --ui",
-    "test:e2e:live": "playwright test --config e2e/playwright.live.config.ts --pass-with-no-tests",
+    "test:e2e:live": "playwright test --config e2e/playwright.live.config.ts",
     "typecheck": "tsc -b --noEmit"
   },
   "msw": {

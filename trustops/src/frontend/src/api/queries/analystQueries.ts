@@ -26,10 +26,13 @@ export function useAnalystDashboard() {
   return useQuery({ queryKey: keys.dashboard('analyst'), queryFn: () => api<DashboardAnalyst>(paths.cases.analystDashboard) });
 }
 
+/** The most a list route returns in one page (S1 `MAX_PAGE_LIMIT`); the queue screens do not page, so ask for it all. */
+export const QUEUE_PAGE_LIMIT = 200;
+
 export function useQueue(filters: { scope: 'mine' | 'all'; stage?: string; band?: string }) {
   return useQuery({
     queryKey: keys.cases(`queue-${filters.scope}`, { stage: filters.stage ?? '', band: filters.band ?? '' }),
-    queryFn: () => apiList<QueueItem>(paths.cases.queue, { query: filters }),
+    queryFn: () => apiList<QueueItem>(paths.cases.queue, { query: { ...filters, limit: QUEUE_PAGE_LIMIT } }),
   });
 }
 

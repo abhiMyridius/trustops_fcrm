@@ -774,11 +774,19 @@ class AgentResultStore:
 
     async def save(
         self, payload: Mapping[str, Any], *, session: AsyncClientSession
-    ) -> None:
+    ) -> bool:
         """Store the ``agent.done`` ``payload``'s result, once per job.
 
         Only the :class:`~fcrm_contracts.events.payloads.AgentDone` fields are
-        read (a producer's extra keys are ignored).
+        read (a producer's extra keys are ignored). The first result for a job
+        is the one kept: a second ``agent.done`` for it (H2 re-ran a redelivered
+        job and published again under a fresh event id, so the consumer's
+        ``message_id`` dedupe does not see it) leaves the stored result as the
+        step already merged it.
+
+        Returns:
+            ``True`` when this call stored the job's result, ``False`` when one
+            was already stored (the caller must not apply the done again).
 
         Raises:
             pydantic.ValidationError: ``payload`` is not an ``agent.done`` body.
@@ -796,12 +804,13 @@ class AgentResultStore:
             "model": done.model,
             "attempt": done.attempt,
         }
-        await self._collection.update_one(
+        result = await self._collection.update_one(
             {"_id": done.job_id},
-            {"$set": fields, "$setOnInsert": {"finished_at": now}},
+            {"$setOnInsert": {**fields, "finished_at": now}},
             upsert=True,
             session=session,
         )
+        return result.upserted_id is not None
 
     async def list_for(
         self,

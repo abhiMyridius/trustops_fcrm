@@ -4,6 +4,8 @@ sources registered, truncation visible, overflow refused."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Optional
 
@@ -11,6 +13,7 @@ import pytest
 from fcrm_agents import BUILDERS, PackOverflowError, builder_for, estimate_tokens
 from fcrm_agents.builders import (
     FATF_LIST_ID,
+    ExaminerPackBuilder,
     IntakePackBuilder,
     ResearchPackBuilder,
     cite_case,
@@ -27,6 +30,7 @@ from fcrm_agents.context_pack import (
 )
 from fcrm_agents.demo import DEMO_DOCUMENT, demo_request
 from fcrm_agents.spec import get_spec
+from fcrm_contracts.api.audit import AuditRecord
 from fcrm_contracts.enums import AgentName, Domain
 from fcrm_contracts.proposals.provenance import (
     ClauseSourceRef,
@@ -39,6 +43,7 @@ from fcrm_contracts.tools.control_inventory import (
     ControlInventoryInput,
     ControlInventoryOutput,
 )
+from fcrm_guardrails.context import AvailableSource
 from fcrm_seed.loader import load_raw
 from fcrm_tools import (
     DEMO_CASE_ID,
@@ -363,3 +368,105 @@ async def test_the_narrative_pack_registers_the_score_record_its_line_names() ->
     }
     assert "locked result: band 3" in cited[153]
     assert "composite 10.3" in cited[153]
+
+
+async def test_the_examiner_pack_shows_a_records_reason_and_cites_it() -> None:
+    """The examiner has no tool (a round trip re-sent a 200-record chain and blew
+    its budget on the live demo case), so a "why" has to be answerable from the
+    line the pack shows and quotable from the text it cites.
+    """
+    pack = await _examiner_pack(
+        _record(1, "case.created"),
+        _record(2, "human.override", reason="The audit is domestic only."),
+        _record(
+            3, "gate.decided", summary="Explained · Looked at it", reason="Looked at it"
+        ),
+    )
+
+    lines = pack.sections["records"].splitlines()
+    assert lines[0] == "#1 · case.created · u-riyer · summary 1"
+    reason_line = "#2 · human.override · u-riyer · summary 2 · reason: The audit is"
+    assert lines[1] == f"{reason_line} domestic only."
+    assert lines[2].endswith("Explained · Looked at it"), (
+        "a reason the summary has is not repeated"
+    )
+    cited = {
+        s.source_ref.seq: s.text
+        for s in pack.sources
+        if isinstance(s.source_ref, RecordSourceRef)
+    }
+    assert cited[2] == "summary 2 · reason: The audit is domestic only."
+    assert cited[1] == "summary 1"
+
+
+async def test_the_examiner_pack_leaves_out_the_engines_step_trace() -> None:
+    """Dozens of "update the item; recompute the score ..." records pushed the
+    overrides out of the pack on the live demo case (148 of 206 records shown) and
+    the examiner refused a question the chain answers.
+    """
+    pack = await _examiner_pack(
+        _record(1, "case.created"),
+        _record(2, "gate.decided.review_item", actor="system"),
+        _record(3, "internal.critic_dispatch", actor="system"),
+        _record(4, "agent.done.critic", actor="system"),
+        _record(5, "human.override", reason="Domestic scope only."),
+    )
+
+    shown = [line.split(" · ")[1] for line in pack.sections["records"].splitlines()]
+    assert shown == ["case.created", "human.override"]
+    assert "chain: 5 records" in pack.sections["question"]
+    assert "2 shown" in pack.sections["question"]
+    cited = {
+        s.source_ref.seq
+        for s in pack.sources
+        if isinstance(s.source_ref, RecordSourceRef)
+    }
+    assert cited == {1, 5}
+
+
+def _record(
+    seq: int,
+    type_: str,
+    *,
+    actor: str = "u-riyer",
+    summary: str = "",
+    **data: object,
+) -> AuditRecord:
+    return AuditRecord(
+        case_id=DEMO_CASE_ID,
+        seq=seq,
+        type=type_,
+        actor=actor,
+        summary=summary or f"summary {seq}",
+        data=dict(data),
+        prev_hash="0" * 64,
+        hash=f"{seq:064d}",
+        created_at=datetime(2026, 10, 6, tzinfo=UTC),
+    )
+
+
+@dataclass(frozen=True)
+class ExaminerView:
+    """What an examiner pack came to: its sections and the sources it registered."""
+
+    sections: dict[str, str]
+    sources: list[AvailableSource]
+
+
+async def _examiner_pack(*records: AuditRecord) -> ExaminerView:
+    class Stub:
+        calls: list[str] = []
+
+        async def call(self, name: str, request: object, output: type) -> object:
+            return AuditLogOutput(records=list(records))
+
+    draft = PackDraft({"records": 6500, "question": 400})
+    await ExaminerPackBuilder().assemble(
+        demo_request(AgentName.EXAMINER),
+        Stub(),  # type: ignore[arg-type]
+        draft,
+    )
+    return ExaminerView(
+        sections={s.name: s.text for s in draft.sections},
+        sources=list(draft.sources.values()),
+    )

@@ -155,18 +155,32 @@ class TestScreeningPublish:
         puts = assessed_case.calls_to("PUT", "/screening")
         assert puts[0].headers["idempotency-key"] == puts[1].headers["idempotency-key"]
 
-    async def test_a_job_that_kept_no_proposal_is_refused(
+    async def test_a_job_that_kept_no_proposal_takes_the_standard_lane(
         self,
         step_deps_factory: DepsFactory,
         seed_results: Seed,
+        recording_audit: RecordingAudit,
+        assessed_case: FakeCaseService,
     ) -> None:
+        """Live: the retry dropped the screening proposal for an unsourced claim, the
+        step raised, was retried three times and dead-lettered, and the case waited
+        for a screening result that never came. It proposes no fast lane instead.
+        """
         await seed_results("screening", job_id="job_s1")
 
-        with pytest.raises(NotFoundError, match="kept no proposal"):
-            await assessment.screening_publish(
-                harness_step(StepKind.SCREENING_PUBLISH, {"job_id": "job_s1"}),
-                step_deps_factory(make_run(run_id=RUN, state=CaseState.ASSESS)),
-            )
+        result = await assessment.screening_publish(
+            harness_step(StepKind.SCREENING_PUBLISH, {"job_id": "job_s1"}),
+            step_deps_factory(make_run(run_id=RUN, state=CaseState.ASSESS)),
+        )
+
+        [put] = assessed_case.calls_to("PUT", "/screening")
+        assert put.body["fast_lane_proposed"] is False
+        assert put.body["gate_id"] is None
+        assert put.body["reasons"] == []
+        record = _record(recording_audit, "screening.proposed")
+        assert record.summary.startswith("Screening agent · fast lane: no (")
+        assert "standard lane applies" in record.summary
+        assert result.gates_to_open == ()
 
     async def test_no_stored_result_is_a_wiring_fault_named_as_such(
         self, step_deps_factory: DepsFactory

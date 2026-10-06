@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any, Optional
 
+import pytest
 from conftest import (
     FakeCaseService,
     FakeScoringService,
@@ -105,12 +106,16 @@ class TestRerunRecord:
             )
         )
 
-    async def test_with_nothing_to_wait_for_it_records_and_dispatches_both_agents(
+    async def test_an_answer_that_leaves_research_s_inputs_alone_reruns_assessment_only(
         self,
         assessed_case: FakeCaseService,
         step_deps_factory: DepsFactory,
         recording_audit: RecordingAudit,
     ) -> None:
+        """F11 and F21 are not what research's queries are worded from: the clauses
+        it proposed stand, and its 12 to 15k tokens are not spent again (the live
+        demo case was 134k tokens against a 120k cap).
+        """
         payload = {**self.ANSWERED, "added_document_ids": []}
 
         result = await assessment_review.rerun_record(
@@ -121,16 +126,43 @@ class TestRerunRecord:
         assert _record(recording_audit, "owner.answered").summary == (
             "Submission v2 · 2 fields changed · 0 documents added · v1 retained"
         )
+        assert _record(recording_audit, "agent.rerun").summary == (
+            "Assessment re-run on changed fields only"
+        )
+        [assessed] = result.agent_jobs_to_dispatch
+        assert assessed.dispatch.agent is AgentName.ASSESSMENT
+        assert assessed.dispatch.scope == "changed_fields"
+        assert assessed.dispatch.changed_fields == ("F11", "F21")
+        assert assessed.refs["domains"] == ["channel", "geography", "product"]
+        assert assessed.refs["submission_version"] == 2
+        assert result.refs_patch[RERUN_REF]["changed_fields"] == ["F11", "F21"]
+        assert result.refs_patch[RERUN_PENDING_REF] is None
+        assert result.counter_deltas == {"agents_run": 1}
+
+    @pytest.mark.parametrize("field", ["F02", "F06", "F20"])
+    async def test_an_answer_that_changes_what_research_searches_on_reruns_both(
+        self,
+        field: str,
+        assessed_case: FakeCaseService,
+        step_deps_factory: DepsFactory,
+        recording_audit: RecordingAudit,
+    ) -> None:
+        payload = {
+            **self.ANSWERED,
+            "added_document_ids": [],
+            "changed_field_ids": ["F11", field],
+        }
+
+        result = await assessment_review.rerun_record(
+            harness_step(StepKind.RERUN_RECORD, payload), self._deps(step_deps_factory)
+        )
+
         research, assessed = result.agent_jobs_to_dispatch
         assert research.dispatch.agent is AgentName.RESEARCH
         assert assessed.dispatch.agent is AgentName.ASSESSMENT
-        for job in result.agent_jobs_to_dispatch:
-            assert job.dispatch.scope == "changed_fields"
-            assert job.dispatch.changed_fields == ("F11", "F21")
-            assert job.refs["domains"] == ["channel", "geography", "product"]
-            assert job.refs["submission_version"] == 2
-        assert result.refs_patch[RERUN_REF]["changed_fields"] == ["F11", "F21"]
-        assert result.refs_patch[RERUN_PENDING_REF] is None
+        assert _record(recording_audit, "agent.rerun").summary == (
+            "Research and assessment re-run on changed fields only"
+        )
         assert result.counter_deltas == {"agents_run": 2}
 
     async def test_a_document_still_being_read_holds_the_rerun_back(
@@ -178,7 +210,7 @@ class TestRerunRecord:
             step, self._deps(step_deps_factory, {RERUN_PENDING_REF: pending})
         )
 
-        assert len(result.agent_jobs_to_dispatch) == 2
+        assert len(result.agent_jobs_to_dispatch) == 1  # F11: assessment only
         assert _types(recording_audit) == ["agent.rerun"]  # owner.answered came first
         assert result.refs_patch[RERUN_PENDING_REF] is None
 
@@ -194,7 +226,7 @@ class TestRerunRecord:
             self._deps(step_deps_factory),
         )
 
-        assert len(result.agent_jobs_to_dispatch) == 2
+        assert len(result.agent_jobs_to_dispatch) == 1
 
     async def test_a_follow_up_with_nothing_waiting_does_nothing(
         self, assessed_case: FakeCaseService, step_deps_factory: DepsFactory
