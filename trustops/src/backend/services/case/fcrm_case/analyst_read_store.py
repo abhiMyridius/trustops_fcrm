@@ -29,7 +29,7 @@ the moment the analyst first looked at the risk view.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Final, Optional, Protocol
@@ -49,6 +49,7 @@ from fcrm_case.domain.analyst_views import (
     QueueRow,
     StageSpan,
 )
+from fcrm_case.domain.po_rows import SubmissionVersionRow
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.views import ScoreSnapshotRow
 
@@ -58,6 +59,7 @@ logger = logging.getLogger(__name__)
 #: bug from reading an unbounded log.
 MAX_ACKNOWLEDGEMENTS: Final = 100
 MAX_STAGE_CHANGES: Final = 500
+MAX_SUBMISSIONS: Final = 100
 #: A queue page is at most this many rows and starts at most this far in.
 MAX_QUEUE_OFFSET: Final = 10_000
 
@@ -114,6 +116,14 @@ class AnalystReadStore(Protocol):
 
     async def stage_spans(self, case_id: str) -> list[StageSpan]:
         """The stretches the case spent in each state, from its stage-change log."""
+        ...
+
+    async def released_to(self, case_id: str) -> list[str]:
+        """The committee members the case's latest ``pack.released`` entry names."""
+        ...
+
+    async def list_submissions(self, case_id: str) -> list[SubmissionVersionRow]:
+        """The case's frozen submissions, oldest version first (bounded)."""
         ...
 
 
@@ -285,6 +295,11 @@ class MongoAnalystReadStore:
         self._snapshots: AsyncCollection[Any] = db["score_snapshots"]
         self._acks: AsyncCollection[Any] = db["acknowledgements"]
         self._activity: AsyncCollection[Any] = db["activity"]
+        self._submissions: Repository[SubmissionVersionRow] = Repository(
+            db["submission_versions"],
+            SubmissionVersionRow,
+            id_of=lambda r: r.version_id,
+        )
 
     async def ensure_indexes(self) -> None:
         """``cases`` ``{state, submitted_at}`` for the stage-filtered queue and
@@ -427,6 +442,22 @@ class MongoAnalystReadStore:
             [(d["at"], str((d.get("detail") or {}).get("stage", ""))) for d in docs]
         )
 
+    async def released_to(self, case_id: str) -> list[str]:
+        doc = await self._activity.find_one(
+            {"case_id": case_id, "type": "pack.released"},
+            projection={"detail": 1},
+            sort=[("seq", -1)],
+        )
+        names = (doc.get("detail") or {}).get("released_to") if doc else None
+        return [str(n) for n in names or []]
+
+    async def list_submissions(self, case_id: str) -> list[SubmissionVersionRow]:
+        return await self._submissions.find(
+            {"case_id": case_id},
+            sort=[("version", ASCENDING)],
+            limit=MAX_SUBMISSIONS,
+        )
+
 
 # -- the in-memory twin -----------------------------------------------------------
 
@@ -451,6 +482,7 @@ class InMemoryAnalystReadStore:
         snapshots: ``InMemoryAssessmentStore.snapshots`` (``snapshot_id`` to row).
         critic_counts: A callable giving a case's critic finding count.
         activity: ``InMemoryActivityLog.entries``.
+        submissions: The in-memory PO store's frozen submissions.
     """
 
     def __init__(
@@ -459,11 +491,13 @@ class InMemoryAnalystReadStore:
         snapshots: Callable[[], dict[str, ScoreSnapshotRow]],
         critic_counts: Callable[[str], int],
         activity: Callable[[], list[ActivityEntry]],
+        submissions: Callable[[], Iterable[SubmissionVersionRow]] = lambda: (),
     ) -> None:
         self._records = records
         self._snapshots = snapshots
         self._critic_counts = critic_counts
         self._activity = activity
+        self._submissions = submissions
         self.acks: list[tuple[str, Acknowledgement]] = []
 
     async def ensure_indexes(self) -> None:
@@ -580,3 +614,16 @@ class InMemoryAnalystReadStore:
             if e.case_id == case_id and e.type == "case.stage_changed"
         ]
         return spans_from_changes(changes)
+
+    async def released_to(self, case_id: str) -> list[str]:
+        released = [
+            e
+            for e in sorted(self._activity(), key=lambda e: e.seq)
+            if e.case_id == case_id and e.type == "pack.released"
+        ]
+        names = released[-1].detail.get("released_to") if released else None
+        return [str(n) for n in names or []]
+
+    async def list_submissions(self, case_id: str) -> list[SubmissionVersionRow]:
+        rows = [r for r in self._submissions() if r.case_id == case_id]
+        return sorted(rows, key=lambda r: r.version)[:MAX_SUBMISSIONS]

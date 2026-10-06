@@ -1922,6 +1922,7 @@ def analyst_read(
         lambda: assessment_store.snapshots,
         critic_count,
         lambda: case_service.store.activity.entries,
+        lambda: case_service.po.submissions.values(),
     )
     app = case_service.client.app
     app.state.assessment = assessment_store  # type: ignore[attr-defined]
@@ -1991,3 +1992,177 @@ def seeded_analyst_read(
     for snapshot in rows.score_snapshots:
         assessment_store.snapshots[snapshot.snapshot_id] = snapshot
     return analyst_read
+
+
+#: The clause the demo's research agent proposes for the channel domain, as the
+#: stored item carries it (verbatim quote, the corpus's own id).
+DEMO_CLAUSE_ID = "FFIEC-TPPP-04"
+DEMO_CLAUSE_QUOTE = (
+    "…banks should assess the risks of the processor’s customer base, "
+    "transaction volumes and geographic reach…"
+)
+
+
+@dataclass
+class AssessedCase:
+    """The demo case in review with everything the assessment core pushes: the
+    items (factors, controls, a clause, a research gap, a critic finding), the
+    score of record (9.8, Band 2, boundary flag), the completeness report and the
+    critic's view. ``read`` calls as Rahul Iyer, who holds it; review has *not*
+    started, so the score is withheld until he opens the risk view.
+    """
+
+    read: AnalystRead
+    case_id: str
+    items: dict[str, ReviewItemRow]
+    snapshot_id: str
+    finding_item: ReviewItemRow
+    clause_item: ReviewItemRow
+    control_item: ReviewItemRow
+
+    @property
+    def client(self) -> TestClient:
+        """The HTTP client of the wrapped service."""
+        return self.read.client
+
+    def record(self) -> CaseRecord:
+        """The case as stored now."""
+        return self.read.service.store.records[self.case_id]
+
+    def update_record(self, **changes: Any) -> None:
+        """Change fields of the stored case."""
+        records = self.read.service.store.records
+        records[self.case_id] = records[self.case_id].model_copy(update=changes)
+
+    def put_item(self, row: ReviewItemRow) -> None:
+        """Store (or replace) a review item."""
+        self.read.service.views.items[row.item_id] = row
+        self.items[row.item_id] = row
+
+
+@pytest.fixture
+def assessed_case(
+    analyst_read: AnalystRead,
+    stored_case: CaseRecord,
+    demo_review_items: list[ReviewItemRow],
+    make_review_item: Callable[..., ReviewItemRow],
+    make_score_push: Callable[..., Any],
+) -> AssessedCase:
+    """See :class:`AssessedCase`."""
+    from datetime import UTC, datetime, timedelta
+
+    from fcrm_case.assessment_store import body_fingerprint, score_snapshot_for
+    from fcrm_case.domain.assessment import CompletenessViewRow, CriticViewRow
+    from fcrm_contracts.enums import CaseState, ItemKind
+
+    case_id = stored_case.case_id
+    clause = make_review_item(
+        ItemKind.CLAUSE,
+        {"clause_id": DEMO_CLAUSE_ID, "domain": "channel", "corpus_v": 14},
+        {
+            "quote": DEMO_CLAUSE_QUOTE,
+            "applicability": "Partner agents",
+            "confidence": 0.9,
+        },
+    )
+    gap = make_review_item(
+        ItemKind.GAP,
+        {
+            "origin": "research",
+            "domain": "channel",
+            "description": "No clause covers cash pickup at partner agents.",
+            "searched_query": "cash pickup agent",
+            "searched_indexes": ["policy_clauses"],
+            "searched_hits": 0,
+        },
+        {},
+    )
+    finding = make_review_item(
+        ItemKind.CRITIC_FINDING,
+        {
+            "finding_type": "precedent_deviation",
+            "severity": "high",
+            "record_refs": ["#34"],
+            "text": "CTL-T01 rating 7.6 is above the precedent average.",
+            "confidence": 0.8,
+            "quote": "q",
+        },
+        {},
+    )
+    rows = [*demo_review_items, clause, gap, finding]
+    store = analyst_read.service.views
+    for row in rows:
+        store.items[row.item_id] = row
+    push = make_score_push(demo_review_items)
+    snapshot = score_snapshot_for(
+        case_id,
+        push,
+        "key-proposed",
+        body_fingerprint(push),
+        datetime(2026, 10, 5, 12, tzinfo=UTC),
+    )
+    analyst_read.assessment.snapshots[snapshot.snapshot_id] = snapshot
+    analyst_read.assessment.critic[case_id] = CriticViewRow(
+        case_id=case_id,
+        run_id="run_1",
+        findings=[
+            {
+                "finding_id": finding.item_id,
+                "gate_id": finding.gate_id,
+                "finding_type": "precedent_deviation",
+                "severity": "high",
+                "record_refs": ["#34"],
+                "text": "CTL-T01 rating 7.6 is above the precedent average.",
+                "source_ref": {
+                    "kind": "control",
+                    "control_id": "CTL-T01",
+                    "controls_v": 9,
+                },
+                "quote": "q",
+                "confidence": 0.8,
+            }
+        ],
+        counts={"total": 1, "high": 1},
+        updated_at=datetime(2026, 10, 5, 12, tzinfo=UTC),
+    )
+    analyst_read.assessment.completeness[case_id] = CompletenessViewRow(
+        case_id=case_id,
+        run_id="run_1",
+        report={
+            "missing": ["F11"],
+            "stale": ["CTL-T01 evidence"],
+            "contradictory": [],
+            "questions_drafted": 3,
+            "questions_kept": 2,
+        },
+        questions=[],
+        gate_id="gate_completeness",
+        updated_at=datetime(2026, 10, 5, 12, tzinfo=UTC),
+    )
+    held = stored_case.model_copy(
+        update={
+            "state": CaseState.REVIEW,
+            "analyst_id": ANALYST_SUB,
+            "analyst_name": "Rahul Iyer",
+            "run_id": "run_1",
+            "submitted_at": datetime(2026, 10, 1, 9, tzinfo=UTC)
+            + timedelta(minutes=40),
+            "current_submission_v": 2,
+            "change_types": [],
+            "domains": ["channel", "geography", "product"],
+        }
+    )
+    analyst_read.service.store.records[case_id] = held
+    return AssessedCase(
+        read=analyst_read,
+        case_id=case_id,
+        items={r.item_id: r for r in rows},
+        snapshot_id=snapshot.snapshot_id,
+        finding_item=finding,
+        clause_item=clause,
+        control_item=next(
+            r
+            for r in demo_review_items
+            if r.subject.get("control_id") == "CTL-T01" and not r.subject.get("planned")
+        ),
+    )

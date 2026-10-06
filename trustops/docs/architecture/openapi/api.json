@@ -66,6 +66,25 @@
         "title": "AgentEval",
         "type": "object"
       },
+      "AgentFailed": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "step": {
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "reason"
+        ],
+        "title": "AgentFailed",
+        "type": "object"
+      },
       "AnswerItem": {
         "additionalProperties": false,
         "properties": {
@@ -117,6 +136,67 @@
           "answers"
         ],
         "title": "AnswersBody",
+        "type": "object"
+      },
+      "AssessmentSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_failed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentFailed"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/CompletenessSummary"
+          },
+          "critic_findings": {
+            "items": {
+              "$ref": "#/components/schemas/CriticFinding"
+            },
+            "title": "Critic Findings",
+            "type": "array"
+          },
+          "flags": {
+            "items": {
+              "$ref": "#/components/schemas/Flag"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScoreShown"
+              },
+              {
+                "$ref": "#/components/schemas/ScoreWithheld"
+              }
+            ],
+            "title": "Score"
+          },
+          "submission": {
+            "$ref": "#/components/schemas/SubmissionSummary"
+          }
+        },
+        "required": [
+          "ready",
+          "submission",
+          "flags",
+          "completeness",
+          "critic_findings",
+          "score",
+          "agent_failed"
+        ],
+        "title": "AssessmentSummary",
         "type": "object"
       },
       "AssistantStatus": {
@@ -302,6 +382,52 @@
           "count"
         ],
         "title": "BandCount",
+        "type": "object"
+      },
+      "BandCrossed": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "enum": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "title": "From",
+            "type": "integer"
+          },
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "prev_seq": {
+            "title": "Prev Seq",
+            "type": "integer"
+          },
+          "record_seq": {
+            "title": "Record Seq",
+            "type": "integer"
+          },
+          "to": {
+            "enum": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "title": "To",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "record_seq",
+          "hash",
+          "prev_seq"
+        ],
+        "title": "BandCrossed",
         "type": "object"
       },
       "BandDef": {
@@ -883,6 +1009,90 @@
         "title": "ClauseDetailOut",
         "type": "object"
       },
+      "ClauseItem": {
+        "additionalProperties": false,
+        "properties": {
+          "corpus_version": {
+            "title": "Corpus Version",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "pending",
+              "accepted",
+              "removed",
+              "confirmed",
+              "overridden"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "gate_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gate Id"
+          },
+          "gate_open": {
+            "default": false,
+            "title": "Gate Open",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "quote": {
+            "title": "Quote",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "title",
+          "quote",
+          "ref",
+          "corpus_version",
+          "decision",
+          "reason",
+          "item_id"
+        ],
+        "title": "ClauseItem",
+        "type": "object"
+      },
       "ClauseSourceRef": {
         "additionalProperties": false,
         "description": "A clause in the policy corpus.",
@@ -1131,6 +1341,65 @@
           "at"
         ],
         "title": "CommitteeThread",
+        "type": "object"
+      },
+      "CompletenessSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "contradictory": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Contradictory",
+            "type": "array"
+          },
+          "drafted": {
+            "title": "Drafted",
+            "type": "integer"
+          },
+          "gate_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gate Id"
+          },
+          "gate_open": {
+            "default": false,
+            "title": "Gate Open",
+            "type": "boolean"
+          },
+          "kept": {
+            "title": "Kept",
+            "type": "integer"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "stale": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Stale",
+            "type": "array"
+          }
+        },
+        "required": [
+          "missing",
+          "stale",
+          "contradictory",
+          "drafted",
+          "kept"
+        ],
+        "title": "CompletenessSummary",
         "type": "object"
       },
       "Completion": {
@@ -1387,6 +1656,108 @@
         "title": "ControlInventoryOut",
         "type": "object"
       },
+      "ControlItem": {
+        "additionalProperties": false,
+        "properties": {
+          "critic": {
+            "title": "Critic",
+            "type": "boolean"
+          },
+          "decision": {
+            "enum": [
+              "pending",
+              "accepted",
+              "removed",
+              "confirmed",
+              "overridden"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "domain": {
+            "$ref": "#/components/schemas/Domain"
+          },
+          "evidence": {
+            "title": "Evidence",
+            "type": "string"
+          },
+          "evidence_date": {
+            "title": "Evidence Date",
+            "type": "string"
+          },
+          "gate_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gate Id"
+          },
+          "gate_open": {
+            "default": false,
+            "title": "Gate Open",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "override": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Override"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "proposed_rating": {
+            "title": "Proposed Rating",
+            "type": "number"
+          },
+          "rating": {
+            "title": "Rating",
+            "type": "number"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          },
+          "weight_norm": {
+            "title": "Weight Norm",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "domain",
+          "weight_norm",
+          "rating",
+          "proposed_rating",
+          "evidence",
+          "evidence_date",
+          "stale",
+          "decision",
+          "override",
+          "critic",
+          "item_id"
+        ],
+        "title": "ControlItem",
+        "type": "object"
+      },
       "ControlOut": {
         "additionalProperties": false,
         "properties": {
@@ -1481,6 +1852,76 @@
           }
         },
         "title": "CreateCaseBody",
+        "type": "object"
+      },
+      "CriticFinding": {
+        "additionalProperties": false,
+        "properties": {
+          "gate_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gate Id"
+          },
+          "gate_open": {
+            "default": false,
+            "title": "Gate Open",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "records": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "severity": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "severity",
+          "text",
+          "records",
+          "target"
+        ],
+        "title": "CriticFinding",
         "type": "object"
       },
       "DashboardAnalyst": {
@@ -1884,6 +2325,25 @@
         "title": "EmptyBody",
         "type": "object"
       },
+      "FactorAnchor": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "FactorAnchor",
+        "type": "object"
+      },
       "FastLane": {
         "additionalProperties": false,
         "properties": {
@@ -1987,6 +2447,36 @@
         "title": "FieldSetOut",
         "type": "object"
       },
+      "Flag": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "source"
+        ],
+        "title": "Flag",
+        "type": "object"
+      },
       "GapQuestionPO": {
         "additionalProperties": false,
         "properties": {
@@ -2049,6 +2539,92 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HandoffView": {
+        "additionalProperties": false,
+        "properties": {
+          "band": {
+            "anyOf": [
+              {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4
+                ],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Band"
+          },
+          "can_close_delegated": {
+            "title": "Can Close Delegated",
+            "type": "boolean"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OutcomeLine"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pack": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/S1_PackSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "release_checks": {
+            "items": {
+              "$ref": "#/components/schemas/ReleaseCheck"
+            },
+            "title": "Release Checks",
+            "type": "array"
+          },
+          "released_to": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Released To",
+            "type": "array"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "enum": [
+                  "analyst",
+                  "committee"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route"
+          }
+        },
+        "required": [
+          "pack",
+          "release_checks",
+          "route",
+          "band",
+          "can_close_delegated",
+          "released_to",
+          "outcome"
+        ],
+        "title": "HandoffView",
         "type": "object"
       },
       "IntakeViewPO": {
@@ -2524,6 +3100,25 @@
         "title": "OutcomeCondition",
         "type": "object"
       },
+      "OutcomeLine": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "at"
+        ],
+        "title": "OutcomeLine",
+        "type": "object"
+      },
       "OutcomeRecord": {
         "additionalProperties": false,
         "description": "``POST /outcomes`` (service). ``committee`` records what a tallied pack\ndecided (``pack_id`` required, the outcome must be the tallied one);\n``delegated`` records an analyst's close under R1 (no pack, a reason).",
@@ -2641,6 +3236,35 @@
           "round"
         ],
         "title": "OutcomeSet",
+        "type": "object"
+      },
+      "Override": {
+        "additionalProperties": false,
+        "properties": {
+          "by": {
+            "title": "By",
+            "type": "string"
+          },
+          "from": {
+            "title": "From",
+            "type": "number"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "to": {
+            "title": "To",
+            "type": "number"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "by",
+          "reason"
+        ],
+        "title": "Override",
         "type": "object"
       },
       "PackAddendum": {
@@ -2969,6 +3593,66 @@
         "title": "PackControl",
         "type": "object"
       },
+      "PackCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "areas": {
+            "title": "Areas",
+            "type": "integer"
+          },
+          "band": {
+            "enum": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "title": "Band",
+            "type": "integer"
+          },
+          "clauses": {
+            "title": "Clauses",
+            "type": "integer"
+          },
+          "composite": {
+            "title": "Composite",
+            "type": "number"
+          },
+          "controls": {
+            "title": "Controls",
+            "type": "integer"
+          },
+          "gaps": {
+            "title": "Gaps",
+            "type": "integer"
+          },
+          "overrides": {
+            "title": "Overrides",
+            "type": "integer"
+          },
+          "planned": {
+            "title": "Planned",
+            "type": "integer"
+          },
+          "rounds": {
+            "title": "Rounds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "composite",
+          "band",
+          "areas",
+          "controls",
+          "overrides",
+          "planned",
+          "clauses",
+          "gaps",
+          "rounds"
+        ],
+        "title": "PackCounts",
+        "type": "object"
+      },
       "PackCriticFinding": {
         "additionalProperties": false,
         "description": "A critic finding and where it points (``CriticFinding`` in ``analyst.ts``).",
@@ -3226,52 +3910,6 @@
           "areas"
         ],
         "title": "PackScore",
-        "type": "object"
-      },
-      "PackSummary": {
-        "additionalProperties": false,
-        "description": "One pack version in a case's list (``PackSummary`` in ``analyst.ts``).",
-        "properties": {
-          "built_at": {
-            "format": "date-time",
-            "title": "Built At",
-            "type": "string"
-          },
-          "content_hash": {
-            "title": "Content Hash",
-            "type": "string"
-          },
-          "counts": {
-            "$ref": "#/components/schemas/PackSummaryCounts"
-          },
-          "pack_id": {
-            "title": "Pack Id",
-            "type": "string"
-          },
-          "status": {
-            "enum": [
-              "built",
-              "released",
-              "superseded",
-              "decided"
-            ],
-            "title": "Status",
-            "type": "string"
-          },
-          "version": {
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "pack_id",
-          "version",
-          "content_hash",
-          "status",
-          "built_at",
-          "counts"
-        ],
-        "title": "PackSummary",
         "type": "object"
       },
       "PackSummaryCounts": {
@@ -3945,7 +4583,7 @@
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/PackSummary"
+              "$ref": "#/components/schemas/S5_PackSummary"
             },
             "title": "Items",
             "type": "array"
@@ -4141,6 +4779,47 @@
         "title": "PinnedVersionsWeb",
         "type": "object"
       },
+      "PlannedControl": {
+        "additionalProperties": false,
+        "properties": {
+          "control_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Control Id"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "due": {
+            "title": "Due",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "control_id",
+          "description",
+          "owner",
+          "due"
+        ],
+        "title": "PlannedControl",
+        "type": "object"
+      },
       "PolicyClauseHit": {
         "additionalProperties": false,
         "description": "One clause hit of a policy search: the verbatim text under the web's\nname (``quote``), both citations, its place in ``corpus/<source>.md`` and\nits scores. ``similarity`` is the fused rank-agreement score in (0, 1];\n``vector_score`` and ``text_score`` are the two rankers' own numbers.",
@@ -4263,6 +4942,25 @@
         "title": "PolicyClauseHit",
         "type": "object"
       },
+      "PolicyGap": {
+        "additionalProperties": false,
+        "properties": {
+          "recorded": {
+            "title": "Recorded",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "recorded"
+        ],
+        "title": "PolicyGap",
+        "type": "object"
+      },
       "PolicySearchResultOut": {
         "additionalProperties": false,
         "description": "``POST /policy/search`` response (the web's ``PolicySearchResult``).",
@@ -4325,6 +5023,51 @@
           "q"
         ],
         "title": "PolicySearchWebRequest",
+        "type": "object"
+      },
+      "PolicyView": {
+        "additionalProperties": false,
+        "properties": {
+          "clauses": {
+            "items": {
+              "$ref": "#/components/schemas/ClauseItem"
+            },
+            "title": "Clauses",
+            "type": "array"
+          },
+          "corpus_version": {
+            "title": "Corpus Version",
+            "type": "string"
+          },
+          "gap": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PolicyGap"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "guard4_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guard4 Note"
+          }
+        },
+        "required": [
+          "clauses",
+          "gap",
+          "guard4_note",
+          "corpus_version"
+        ],
+        "title": "PolicyView",
         "type": "object"
       },
       "PrecedentHitOut": {
@@ -4740,6 +5483,31 @@
           "results"
         ],
         "title": "PrecedentSearchResponse",
+        "type": "object"
+      },
+      "PreviousScore": {
+        "additionalProperties": false,
+        "properties": {
+          "band": {
+            "enum": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "title": "Band",
+            "type": "integer"
+          },
+          "composite": {
+            "title": "Composite",
+            "type": "number"
+          }
+        },
+        "required": [
+          "composite",
+          "band"
+        ],
+        "title": "PreviousScore",
         "type": "object"
       },
       "PrincipalOut": {
@@ -5190,6 +5958,41 @@
         "title": "RefreshRequest",
         "type": "object"
       },
+      "ReleaseCheck": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "id": {
+            "enum": [
+              "locked",
+              "all_items_reviewed",
+              "boundary_and_band_acknowledged",
+              "business_summary_present"
+            ],
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "ok",
+          "detail"
+        ],
+        "title": "ReleaseCheck",
+        "type": "object"
+      },
       "RequiredCard": {
         "additionalProperties": false,
         "properties": {
@@ -5490,6 +6293,194 @@
         "title": "RevoteResult",
         "type": "object"
       },
+      "RiskArea": {
+        "additionalProperties": false,
+        "properties": {
+          "I": {
+            "title": "I",
+            "type": "integer"
+          },
+          "L": {
+            "title": "L",
+            "type": "integer"
+          },
+          "ce": {
+            "title": "Ce",
+            "type": "number"
+          },
+          "contribution": {
+            "title": "Contribution",
+            "type": "number"
+          },
+          "controls": {
+            "items": {
+              "$ref": "#/components/schemas/ControlItem"
+            },
+            "title": "Controls",
+            "type": "array"
+          },
+          "domain": {
+            "$ref": "#/components/schemas/Domain"
+          },
+          "factor_gate_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Factor Gate Id"
+          },
+          "factor_gate_open": {
+            "default": false,
+            "title": "Factor Gate Open",
+            "type": "boolean"
+          },
+          "factor_item_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Factor Item Id"
+          },
+          "inherent": {
+            "title": "Inherent",
+            "type": "number"
+          },
+          "justification": {
+            "title": "Justification",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "lock_blocking": {
+            "title": "Lock Blocking",
+            "type": "boolean"
+          },
+          "matched_caption": {
+            "title": "Matched Caption",
+            "type": "string"
+          },
+          "residual": {
+            "title": "Residual",
+            "type": "number"
+          },
+          "retention": {
+            "title": "Retention",
+            "type": "number"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "domain",
+          "label",
+          "L",
+          "I",
+          "inherent",
+          "ce",
+          "retention",
+          "residual",
+          "weight",
+          "contribution",
+          "controls",
+          "matched_caption",
+          "justification",
+          "lock_blocking"
+        ],
+        "title": "RiskArea",
+        "type": "object"
+      },
+      "RiskView": {
+        "additionalProperties": false,
+        "properties": {
+          "areas": {
+            "items": {
+              "$ref": "#/components/schemas/RiskArea"
+            },
+            "title": "Areas",
+            "type": "array"
+          },
+          "band_crossed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BandCrossed"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "critic": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CriticFinding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "impact_scale": {
+            "items": {
+              "$ref": "#/components/schemas/FactorAnchor"
+            },
+            "title": "Impact Scale",
+            "type": "array"
+          },
+          "likelihood_scale": {
+            "items": {
+              "$ref": "#/components/schemas/FactorAnchor"
+            },
+            "title": "Likelihood Scale",
+            "type": "array"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "planned": {
+            "items": {
+              "$ref": "#/components/schemas/PlannedControl"
+            },
+            "title": "Planned",
+            "type": "array"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScoreShown"
+              },
+              {
+                "$ref": "#/components/schemas/ScoreWithheld"
+              }
+            ],
+            "title": "Score"
+          }
+        },
+        "required": [
+          "areas",
+          "score",
+          "planned",
+          "critic",
+          "band_crossed",
+          "likelihood_scale",
+          "impact_scale",
+          "model_version"
+        ],
+        "title": "RiskView",
+        "type": "object"
+      },
       "Role": {
         "enum": [
           "fcrm_po",
@@ -5611,6 +6602,96 @@
         "title": "RoutingRulesVersion",
         "type": "object"
       },
+      "S1_PackSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "built_at": {
+            "title": "Built At",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/PackCounts"
+          },
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "built",
+              "released",
+              "superseded",
+              "decided"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pack_id",
+          "version",
+          "content_hash",
+          "status",
+          "built_at",
+          "counts"
+        ],
+        "title": "PackSummary",
+        "type": "object"
+      },
+      "S5_PackSummary": {
+        "additionalProperties": false,
+        "description": "One pack version in a case's list (``PackSummary`` in ``analyst.ts``).",
+        "properties": {
+          "built_at": {
+            "format": "date-time",
+            "title": "Built At",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/PackSummaryCounts"
+          },
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "built",
+              "released",
+              "superseded",
+              "decided"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pack_id",
+          "version",
+          "content_hash",
+          "status",
+          "built_at",
+          "counts"
+        ],
+        "title": "PackSummary",
+        "type": "object"
+      },
       "ScoreRequest": {
         "additionalProperties": false,
         "properties": {
@@ -5693,6 +6774,128 @@
           "boundary_flag"
         ],
         "title": "ScoreResponse",
+        "type": "object"
+      },
+      "ScoreShown": {
+        "additionalProperties": false,
+        "description": "``ScoreBox`` once the analyst has started review: S2's answer as stored.",
+        "properties": {
+          "band": {
+            "enum": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "title": "Band",
+            "type": "integer"
+          },
+          "band_label": {
+            "title": "Band Label",
+            "type": "string"
+          },
+          "band_range": {
+            "title": "Band Range",
+            "type": "string"
+          },
+          "boundary_distance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boundary Distance"
+          },
+          "boundary_flag": {
+            "title": "Boundary Flag",
+            "type": "boolean"
+          },
+          "boundary_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boundary Text"
+          },
+          "composite": {
+            "title": "Composite",
+            "type": "number"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PreviousScore"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "route": {
+            "enum": [
+              "analyst",
+              "committee"
+            ],
+            "title": "Route",
+            "type": "string"
+          },
+          "route_label": {
+            "title": "Route Label",
+            "type": "string"
+          },
+          "withheld": {
+            "const": false,
+            "default": false,
+            "title": "Withheld",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "composite",
+          "band",
+          "band_label",
+          "band_range",
+          "route",
+          "route_label",
+          "boundary_flag",
+          "boundary_distance",
+          "boundary_text",
+          "previous",
+          "model_version"
+        ],
+        "title": "ScoreShown",
+        "type": "object"
+      },
+      "ScoreWithheld": {
+        "additionalProperties": false,
+        "description": "``ScoreBox`` before review starts: no number is sent (design C 2.14).",
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "withheld": {
+            "const": true,
+            "default": true,
+            "title": "Withheld",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ScoreWithheld",
         "type": "object"
       },
       "ScoringModelVersion": {
@@ -6173,6 +7376,47 @@
           "state"
         ],
         "title": "StageStep",
+        "type": "object"
+      },
+      "SubmissionSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "documents": {
+            "title": "Documents",
+            "type": "integer"
+          },
+          "fields_filled": {
+            "title": "Fields Filled",
+            "type": "integer"
+          },
+          "fields_required": {
+            "title": "Fields Required",
+            "type": "integer"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "fields_filled",
+          "fields_required",
+          "documents",
+          "submitted_at"
+        ],
+        "title": "SubmissionSummary",
         "type": "object"
       },
       "SubmitCheck": {
@@ -8160,6 +9404,54 @@
         ]
       }
     },
+    "/api/fcrm/cases/{case_id}/assessment": {
+      "get": {
+        "description": "The Summary tab: what the submission holds, what to notice, the critic's\nfindings, the completeness report and the score box. The score is withheld\nuntil the analyst has opened the risk view.",
+        "operationId": "S1_assessment_cases__case_id__assessment_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssessmentSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Assessment",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
     "/api/fcrm/cases/{case_id}/close": {
       "post": {
         "description": "Ask for a delegated close (R1, Band 1-2).\n\nRefused unless the case is open, the analyst holds it, its latest score\nroutes to the analyst (Band 1-2) and its recommendation is locked; a summary\nthat names a score, band or rating is refused too, because the owner reads\nit. Asking twice with the same content is a no-op; a different second\nrequest is a 409.\n\nRaises:\n    NotFoundError: No such case.\n    ForbiddenError: The caller is not the case's analyst.\n    fcrm_case.errors.CaseClosedError: The case is closed.\n    RuleViolationError: R1: no score yet, or the band routes to committee.\n    GateRequiredError: The recommendation is not locked.\n    ValidationError: The plain summary names a restricted term.",
@@ -8454,6 +9746,54 @@
         "summary": "Upload Documents",
         "tags": [
           "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/handoff": {
+      "get": {
+        "description": "The Handoff tab: the pack Caseflow built (id, version, hash, status), its\nfour release checks, the route and band, and who the committee is.",
+        "operationId": "S1_handoff_cases__case_id__handoff_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoffView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Handoff",
+        "tags": [
+          "analyst"
         ]
       }
     },
@@ -8754,6 +10094,54 @@
         ]
       }
     },
+    "/api/fcrm/cases/{case_id}/policy": {
+      "get": {
+        "description": "The Policy tab: the clauses research proposed, each with its stored\nverbatim quote and source, and its decision; the gap research declared.",
+        "operationId": "S1_policy_cases__case_id__policy_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Policy",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
     "/api/fcrm/cases/{case_id}/review": {
       "get": {
         "description": "The Review & submit tab.",
@@ -8799,6 +10187,54 @@
         "summary": "Get Review",
         "tags": [
           "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/risk": {
+      "get": {
+        "description": "The Risk & Controls tab: the score of record by domain with the controls\nbehind it, the planned controls (never scored) and the critic's banner.\nOpening it is what starts review: the case's own analyst's first read stores\nthe time, once, and the score is shown from then on.",
+        "operationId": "S1_risk_cases__case_id__risk_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Risk",
+        "tags": [
+          "analyst"
         ]
       }
     },

@@ -23,8 +23,11 @@ from fcrm_case.analyst_read_store import MongoAnalystReadStore, QueueQuery
 from fcrm_case.store import build_cases_repository
 from fcrm_common.auth import current_user
 from fcrm_contracts.api.case_analyst_read import (
+    AssessmentSummary,
     DashboardAnalyst,
+    HandoffView,
     QueueItem,
+    RiskView,
     WorkbenchHeader,
 )
 from fcrm_contracts.common import Principal
@@ -333,6 +336,98 @@ async def test_an_acknowledgement_clears_what_is_owed(
         (await analyst.get(f"/cases/{case_id}/workbench")).json()
     )
     assert cleared.pending_acknowledgements == []
+
+
+# ── the tabs ────────────────────────────────────────────────────────────────────
+
+
+async def test_every_review_and_clarification_case_reads_in_every_tab(
+    analyst: httpx.AsyncClient,
+) -> None:
+    for case_id in REVIEW_AND_CLARIFICATION:
+        for tab in ("assessment", "risk", "policy", "handoff"):
+            response = await analyst.get(f"/cases/{case_id}/{tab}")
+            assert response.status_code == 200, (case_id, tab, response.text)
+        risk = RiskView.model_validate(
+            (await analyst.get(f"/cases/{case_id}/risk")).json()
+        )
+        assert risk.score.withheld is False, case_id
+        assert risk.areas, case_id
+        assert all(a.controls for a in risk.areas), case_id
+
+
+async def test_the_demo_case_has_nothing_to_show_at_intake(
+    analyst: httpx.AsyncClient,
+) -> None:
+    summary = AssessmentSummary.model_validate(
+        (await analyst.get("/cases/FCRM-2026-0151/assessment")).json()
+    )
+    assert summary.ready is False
+    assert summary.score.withheld is True
+    risk = RiskView.model_validate(
+        (await analyst.get("/cases/FCRM-2026-0151/risk")).json()
+    )
+    assert risk.areas == []
+
+
+async def test_opening_the_risk_view_stores_review_started_once(
+    live_case: LiveCase, analyst: httpx.AsyncClient
+) -> None:
+    case_id = "FCRM-2026-0140"
+    cases = live_case.db["cases"]
+    before = await cases.find_one({"_id": case_id})
+    assert before["review_started_at"] is None
+    assert (await analyst.get(f"/cases/{case_id}/risk")).status_code == 200
+    first = (await cases.find_one({"_id": case_id}))["review_started_at"]
+    assert first is not None
+    assert (await analyst.get(f"/cases/{case_id}/risk")).status_code == 200
+    assert (await cases.find_one({"_id": case_id}))["review_started_at"] == first
+
+
+async def test_a_pack_and_its_committee_are_read_from_stored_rows(
+    live_case: LiveCase, analyst: httpx.AsyncClient
+) -> None:
+    case_id = "FCRM-2026-0138"
+    await live_case.db["handoff_views"].insert_one(
+        {
+            "_id": case_id,
+            "case_id": case_id,
+            "run_id": "run_1",
+            "pack_id": "pack_live",
+            "pack_version": 1,
+            "content_hash": "a" * 64,
+            "checks": {
+                "locked": True,
+                "all_items_reviewed": True,
+                "boundary_and_band_acknowledged": True,
+                "business_summary_present": True,
+            },
+            "audit_head_seq": 60,
+            "audit_head_hash": "b" * 64,
+            "gate_id": None,
+            "updated_at": datetime(2026, 10, 6, tzinfo=UTC),
+        }
+    )
+    await live_case.db["activity"].insert_one(
+        {
+            "case_id": case_id,
+            "seq": 1,
+            "at": datetime(2026, 10, 6, 1, tzinfo=UTC),
+            "type": "pack.released",
+            "visibility": "analyst",
+            "summary": "Pack v1 released",
+            "detail": {"released_to": ["Ana Mendes", "Joseph Okafor", "Lin Chen"]},
+            "actor": {"id": "svc:case", "role": "system", "component": "case"},
+        }
+    )
+    view = HandoffView.model_validate(
+        (await analyst.get(f"/cases/{case_id}/handoff")).json()
+    )
+    assert view.pack is not None
+    assert (view.pack.pack_id, view.pack.status) == ("pack_live", "released")
+    assert view.released_to == ["Ana Mendes", "Joseph Okafor", "Lin Chen"]
+    assert all(c.ok for c in view.release_checks)
+    assert view.band == 4
 
 
 # ── the one write a read makes ──────────────────────────────────────────────────

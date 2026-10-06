@@ -1,5 +1,5 @@
-"""The analyst's read use cases: the queue, the dashboard and the workbench header
-(and, in the modules beside it, the assessment, risk, policy and handoff views).
+"""The analyst's read use cases: the queue, the dashboard, the workbench header,
+and the assessment, risk, policy and handoff views.
 
 Every answer is built from stored rows; no model is called and nothing here
 computes a score, a band or a recommendation. The service holds no state of its
@@ -17,10 +17,15 @@ from fcrm_common.errors import NotFoundError, ValidationError
 from fcrm_common.pagination import decode_cursor, encode_cursor
 from fcrm_common.time import utcnow
 from fcrm_contracts.api.case_analyst_read import (
+    AssessmentSummary,
     DashboardAnalyst,
+    HandoffView,
+    PolicyView,
     QueueItem,
+    RiskView,
     WorkbenchHeader,
 )
+from fcrm_contracts.api.case_internal_outcome import outcome_label
 from fcrm_contracts.common import Page, Principal
 
 from fcrm_case.analyst_read_store import (
@@ -30,15 +35,29 @@ from fcrm_case.analyst_read_store import (
     QueueQuery,
 )
 from fcrm_case.assessment_store import AssessmentStore
+from fcrm_case.domain.analyst_assessment import (
+    AssessmentInputs,
+    HandoffInputs,
+    RiskInputs,
+    assessment_summary,
+    handoff_view,
+    policy_view,
+    risk_view,
+)
 from fcrm_case.domain.analyst_views import (
     HeaderInputs,
+    assessment_ready,
     dashboard,
+    pending_acknowledgements,
     queue_item,
+    score_visible,
     workbench_header,
 )
 from fcrm_case.domain.record import CaseRecord
-from fcrm_case.reference import control_catalogue
+from fcrm_case.outcome_store import OutcomeStore
+from fcrm_case.reference import clause_catalogue, control_catalogue
 from fcrm_case.store import CaseStore
+from fcrm_case.views_store import ViewStore
 
 logger = logging.getLogger(__name__)
 
@@ -70,18 +89,24 @@ def _offset(cursor: Optional[str]) -> int:
 
 
 class AnalystReadService:
-    """The analyst read use cases over the case, assessment and read stores."""
+    """The analyst read use cases over the case, view, assessment, outcome and
+    read stores.
+    """
 
     def __init__(
         self,
         cases: CaseStore,
         reads: AnalystReadStore,
         assessment: AssessmentStore,
+        views: ViewStore,
+        outcomes: OutcomeStore,
         clock: Callable[[], datetime] = utcnow,
     ) -> None:
         self._cases = cases
         self._reads = reads
         self._assessment = assessment
+        self._views = views
+        self._outcomes = outcomes
         self._clock = clock
 
     async def case(self, case_id: str) -> CaseRecord:
@@ -94,6 +119,8 @@ class AnalystReadService:
         if record is None or record.discarded_at is not None:
             raise NotFoundError(f"no such case {case_id}")
         return record
+
+    # -- queue, dashboard, workbench ------------------------------------------------
 
     async def queue(
         self,
@@ -169,5 +196,105 @@ class AnalystReadService:
                 audit_count=0,
                 audit_verified=False,
                 now=self._clock(),
+            )
+        )
+
+    # -- assessment, risk, policy, handoff ------------------------------------------
+
+    async def assessment(self, case_id: str) -> AssessmentSummary:
+        """The Summary tab: submission, flags, the critic's findings, the
+        completeness report and the score box (withheld until review starts).
+        """
+        record = await self.case(case_id)
+        items = await self._views.list_items(case_id)
+        return assessment_summary(
+            AssessmentInputs(
+                record=record,
+                snapshot=await self._assessment.latest_score(case_id),
+                review_started=record.review_started_at is not None,
+                items=items,
+                fields=await self._views.list_field_values(case_id),
+                documents=await self._views.list_documents(case_id),
+                intake=await self._views.get_intake_view(case_id),
+                critic=await self._assessment.get_critic(case_id),
+                completeness=await self._assessment.get_completeness(case_id),
+            )
+        )
+
+    async def risk(self, principal: Principal, case_id: str) -> RiskView:
+        """The Risk & Controls tab. Opening it is what starts review: the first
+        time the case's own analyst reads it once the assessment has a score, the
+        time is stored (once) and the score is shown from then on.
+        """
+        record = await self.case(case_id)
+        snapshot = await self._assessment.latest_score(case_id)
+        completeness = await self._assessment.get_completeness(case_id)
+        started = record.review_started_at
+        ready = assessment_ready(record, completeness is not None)
+        if (
+            started is None
+            and snapshot is not None
+            and ready
+            and record.analyst_id == principal.sub
+        ):
+            started = await self._reads.mark_review_started(
+                case_id, principal.sub, self._clock()
+            )
+            logger.info(
+                "review started",
+                extra={"case_id": case_id, "analyst": principal.sub},
+            )
+        return risk_view(
+            RiskInputs(
+                record=record,
+                snapshot=snapshot,
+                review_started=started is not None,
+                items=await self._views.list_items(case_id),
+                critic=await self._assessment.get_critic(case_id),
+                completeness_present=completeness is not None,
+                catalogue=control_catalogue(),
+                today=self._clock().date(),
+            )
+        )
+
+    async def policy(self, case_id: str) -> PolicyView:
+        """The Policy tab: the clauses research proposed, each with its stored
+        verbatim quote and its decision, and the gap it declared.
+        """
+        record = await self.case(case_id)
+        completeness = await self._assessment.get_completeness(case_id)
+        return policy_view(
+            record,
+            await self._views.list_items(case_id),
+            clause_catalogue(),
+            assessment_ready(record, completeness is not None),
+        )
+
+    async def handoff(self, case_id: str) -> HandoffView:
+        """The Handoff tab: the pack Caseflow built, its release checks, the
+        route and band and who the committee is, as stored.
+        """
+        record = await self.case(case_id)
+        snapshot = await self._assessment.latest_score(case_id)
+        acks = await self._reads.acknowledgements(case_id)
+        started = record.review_started_at is not None
+        shown = score_visible(snapshot, started)
+        outcome = await self._outcomes.get_outcome(case_id)
+        recorded = outcome if outcome is not None and outcome.outcome else None
+        return handoff_view(
+            HandoffInputs(
+                record=record,
+                snapshot=snapshot,
+                review_started=started,
+                items=await self._views.list_items(case_id),
+                owed=pending_acknowledgements(snapshot, acks) if shown else [],
+                handoff=await self._assessment.get_handoff(case_id),
+                recommendation=await self._assessment.get_recommendation(case_id),
+                catalogue=control_catalogue(),
+                released_to=await self._reads.released_to(case_id),
+                outcome_label=outcome_label(recorded.outcome)
+                if recorded is not None and recorded.outcome is not None
+                else None,
+                outcome_at=recorded.decided_at if recorded is not None else None,
             )
         )
