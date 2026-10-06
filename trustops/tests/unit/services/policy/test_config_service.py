@@ -699,3 +699,43 @@ async def test_two_publishes_cannot_both_build_on_one_version(
             if_match='W/"field-sets:v6:1"',
         )
     assert (await config_store.latest("field-sets")).version == "v7"
+
+
+# ── what a new case pins ────────────────────────────────────────────────────
+
+
+async def test_a_new_case_pins_the_versions_in_force_and_a_publish_moves_them(
+    config_service: ConfigService,
+) -> None:
+    before = await config_service.pinned_versions()
+    assert before.model_dump() == {
+        "scoring_v": 3,
+        "corpus_v": 14,
+        "controls_v": 9,
+        "fieldset_v": 6,
+        "jurisdictions_v": "v2026-06",
+        "routing_v": 4,
+        "prompts_v": "2026-09-28",
+    }
+    await edit(config_service, "field-sets", "max_required", "12")
+    await publish(config_service, "field-sets")
+    await edit(config_service, "scoring-model", "domain_weights.channel", "0.31")
+    await edit(config_service, "scoring-model", "domain_weights.customer", "0.25")
+    await publish(config_service, "scoring-model")
+    await edit(config_service, "jurisdiction-risk", "fatf_sync", "v2026-10-fixture")
+    await publish(config_service, "jurisdiction-risk")
+    after = await config_service.pinned_versions()
+    assert (after.fieldset_v, after.scoring_v, after.jurisdictions_v) == (
+        7,
+        4,
+        "v2026-10-fixture",
+    )
+    assert (after.controls_v, after.routing_v, after.corpus_v) == (9, 4, 14)
+    assert before.fieldset_v == 6  # what a case that pinned it earlier holds
+
+
+async def test_a_draft_that_is_not_published_moves_no_pin(
+    config_service: ConfigService,
+) -> None:
+    await edit(config_service, "control-inventory", "CTL-T01.weight", "0.3")
+    assert (await config_service.pinned_versions()).controls_v == 9

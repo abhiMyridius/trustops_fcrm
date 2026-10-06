@@ -371,3 +371,28 @@ def test_a_read_only_section_cannot_be_published(config_as: Caller) -> None:
         "/config/policy-corpus/draft/publish", json={"note": NOTE}
     )
     assert response.status_code == 409
+
+
+# ── what a new case pins ────────────────────────────────────────────────────
+
+
+def test_the_service_reads_what_a_new_case_pins_and_a_publish_moves_it(
+    config_as: Caller,
+) -> None:
+    service = config_as(Role.SERVICE)
+    pins = service.get("/internal/config/pins")
+    assert pins.status_code == 200, pins.text
+    assert pins.json()["fieldset_v"] == 6
+    client = analyst(config_as)
+    client.put("/config/field-sets/draft", json=DRAFT_BODY)
+    client.post("/config/field-sets/draft/publish", json={"note": NOTE})
+    assert (
+        config_as(Role.SERVICE).get("/internal/config/pins").json()["fieldset_v"] == 7
+    )
+
+
+@pytest.mark.parametrize("role", [Role.ANALYST, Role.COMMITTEE, Role.PO, Role.OBSERVER])
+def test_nobody_but_the_service_reads_the_pins(config_as: Caller, role: Role) -> None:
+    response = config_as(role).get("/internal/config/pins")
+    assert response.status_code == 403
+    assert response.json()["type"].endswith("/forbidden")

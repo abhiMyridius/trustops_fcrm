@@ -49,6 +49,7 @@ from fcrm_contracts.api.policy_config import (
     RoutingRulesSection,
     ScoringModelSection,
 )
+from fcrm_contracts.versions import PinnedVersions
 from fcrm_seed.loader import cases as seed_cases
 from fcrm_seed.loader import load_raw
 from pymongo import AsyncMongoClient
@@ -115,6 +116,23 @@ DRAFT_CHANGED: Final = "Someone changed this draft first. Reload to see the late
 NO_DRAFT: Final = "The draft has no changes: there is nothing to preview or publish."
 
 
+#: The sections a case pins a version of (the categories table is not pinned).
+_PIN_SECTIONS: Final = (
+    "scoring-model",
+    "policy-corpus",
+    "control-inventory",
+    "field-sets",
+    "jurisdiction-risk",
+    "routing-rules",
+    "ai-agents",
+)
+
+
+def _number(label: str) -> int:
+    """``v14`` -> ``14``: the integer a numbered version is pinned as."""
+    return int(label.lstrip("v"))
+
+
 def fingerprint(section: str, note: str) -> str:
     """What makes two publishes "the same request" for an ``Idempotency-Key``."""
     return hashlib.sha256(f"{section}\n{note.strip()}".encode()).hexdigest()
@@ -174,6 +192,24 @@ class ConfigService:
                 )
             )
         return await self._store.seed(snapshots)
+
+    # ── what a new case pins ────────────────────────────────────────────
+
+    async def pinned_versions(self) -> PinnedVersions:
+        """The versions a case created now pins: each section's version in
+        force. A case keeps what it pinned, so a later publish only moves what
+        the next case pins.
+        """
+        in_force = {key: (await self._in_force(key))[1] for key in _PIN_SECTIONS}
+        return PinnedVersions(
+            scoring_v=_number(in_force["scoring-model"]),
+            corpus_v=_number(in_force["policy-corpus"]),
+            controls_v=_number(in_force["control-inventory"]),
+            fieldset_v=_number(in_force["field-sets"]),
+            jurisdictions_v=in_force["jurisdiction-risk"],
+            routing_v=_number(in_force["routing-rules"]),
+            prompts_v=in_force["ai-agents"],
+        )
 
     # ── reading ─────────────────────────────────────────────────────────
 

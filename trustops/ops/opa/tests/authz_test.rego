@@ -757,6 +757,13 @@ test_unknown_configuration_verbs_are_denied_to_every_role if {
 	}
 }
 
+test_the_pinned_versions_are_the_service_accounts_alone if {
+	authz.allow with input as req("fcrm_service", "policy", "GET", "/internal/config/pins")
+	every role in ["fcrm_analyst", "fcrm_committee", "fcrm_po", "fcrm_observer"] {
+		not authz.allow with input as req(role, "policy", "GET", "/internal/config/pins")
+	}
+}
+
 test_routing_rules_read_matrix if {
 	every role in ["fcrm_analyst", "fcrm_committee", "fcrm_service"] {
 		authz.allow with input as req(role, "scoring", "GET", "/routing-rules/{version}")

@@ -4785,6 +4785,51 @@
         "title": "PerTypeFields",
         "type": "object"
       },
+      "PinnedVersions": {
+        "additionalProperties": false,
+        "description": "Recorded once per case run on ``case_runs`` and echoed on every\n``ScoreRequest`` and the audit record for scoring (ADR-16 / design A §5).",
+        "properties": {
+          "controls_v": {
+            "title": "Controls V",
+            "type": "integer"
+          },
+          "corpus_v": {
+            "title": "Corpus V",
+            "type": "integer"
+          },
+          "fieldset_v": {
+            "title": "Fieldset V",
+            "type": "integer"
+          },
+          "jurisdictions_v": {
+            "title": "Jurisdictions V",
+            "type": "string"
+          },
+          "prompts_v": {
+            "title": "Prompts V",
+            "type": "string"
+          },
+          "routing_v": {
+            "title": "Routing V",
+            "type": "integer"
+          },
+          "scoring_v": {
+            "title": "Scoring V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "scoring_v",
+          "corpus_v",
+          "controls_v",
+          "fieldset_v",
+          "jurisdictions_v",
+          "routing_v",
+          "prompts_v"
+        ],
+        "title": "PinnedVersions",
+        "type": "object"
+      },
       "PolicyClauseHit": {
         "additionalProperties": false,
         "description": "One clause hit of a policy search: the verbatim text under the web's\nname (``quote``), both citations, its place in ``corpus/<source>.md`` and\nits scores. ``similarity`` is the fused rank-agreement score in (0, 1];\n``vector_score`` and ``text_score`` are the two rankers' own numbers.",
@@ -11715,6 +11760,34 @@
         "tags": [
           "policy",
           "policy-internal"
+        ]
+      }
+    },
+    "/api/fcrm/policy/internal/config/pins": {
+      "get": {
+        "description": "The versions a case created now pins (the service account's: S1 and H1\nread it when a case opens). A publish moves what the next case pins and\nnever what an open case pinned.",
+        "operationId": "S3_get_pins_internal_config_pins_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PinnedVersions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Pins",
+        "tags": [
+          "policy",
+          "policy-config"
         ]
       }
     },

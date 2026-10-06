@@ -9,6 +9,11 @@ routes by name, and ``require_roles`` refuses it a second time). The router
 carries no authorization of its own because :mod:`fcrm_policy.routes` includes
 it under the router-wide OPA check.
 
+The one route here that is not the analyst's is ``GET /internal/config/pins``:
+the versions a case created now pins, for the service account (S1 and H1 read
+it when a case opens), so that a publish reaches the cases created after it
+and never the ones already open.
+
 Concurrency is the web's ``If-Match``: the draft's ETag names the published
 version it started from and its revision, so an edit made from a stale page is
 a 409. ``POST .../draft/publish`` also honours ``Idempotency-Key``: a retry of
@@ -30,6 +35,7 @@ from fcrm_contracts.api.policy_config import (
 )
 from fcrm_contracts.common import Principal
 from fcrm_contracts.enums import Role
+from fcrm_contracts.versions import PinnedVersions
 
 from fcrm_policy.config_service import ConfigService
 from fcrm_policy.idempotency import IdempotencyKeyHeader, checked_key
@@ -38,6 +44,8 @@ logger = logging.getLogger(__name__)
 
 #: Who may use the configuration routes: the analyst, nobody else.
 CONFIG_ROLES: Final = (Role.ANALYST,)
+#: Who may read what a new case pins: the service account (``/internal/*``).
+PIN_ROLES: Final = (Role.SERVICE,)
 
 router = APIRouter(tags=["policy-config"])
 
@@ -57,6 +65,18 @@ Service = Annotated[ConfigService, Depends(get_config_service)]
 def _actor(principal: Principal) -> str:
     """Who is named in the history: the display name, else the subject."""
     return principal.name or principal.sub
+
+
+@router.get("/internal/config/pins", response_model=PinnedVersions)
+async def get_pins(
+    _principal: Annotated[Principal, Depends(require_roles(*PIN_ROLES))],
+    service: Service,
+) -> PinnedVersions:
+    """The versions a case created now pins (the service account's: S1 and H1
+    read it when a case opens). A publish moves what the next case pins and
+    never what an open case pinned.
+    """
+    return await service.pinned_versions()
 
 
 @router.get("/config/{section}", response_model=ConfigSection)
