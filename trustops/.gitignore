@@ -22,3 +22,7 @@ src/backend/uv.lock.bak
 
 # personal direnv files
 .envrc*
+
+# Playwright outputs (the browser sweep writes screenshots and a JSON report here)
+src/frontend/test-results/
+src/frontend/playwright-report/
