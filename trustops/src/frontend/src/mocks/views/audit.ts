@@ -1,6 +1,7 @@
 /** S4 audit projections: records, chain verify, examiner (grounded in the chain), overrides, agent quality. */
 import type { AuditRecord, VerifyResult } from '@/api/types/analyst';
 import type { AgentQuality, ExaminerAnswer, OverrideRow, VersionsRow } from '@/api/types/config';
+import { isoWeekOf } from '@/lib/isoWeek';
 import { fakeHash, getDB } from '../db';
 import { seed } from '../seed';
 import { nameOf } from '../users';
@@ -73,9 +74,14 @@ export function overrides(agent?: string): OverrideRow[] {
   return rows.filter((r) => !agent || r.agent === agent);
 }
 
-export function agentQuality(week: string): AgentQuality {
+/** The one week the seed publishes, as S4 spells a week (`2026-W40`). */
+export const PUBLISHED_WEEK = isoWeekOf(new Date(`${seed.evals.week}T12:00:00Z`));
+
+/** The published run for `week` (the newest when none is asked for), or `null` when nothing was published for it (S4: 404). */
+export function agentQuality(week: string | null): AgentQuality | null {
+  if (week !== null && week !== PUBLISHED_WEEK) return null;
   return {
-    week: week || seed.evals.week,
+    week: PUBLISHED_WEEK,
     golden_cases: seed.evals.golden_cases,
     regressions: seed.evals.regressions,
     drift: seed.evals.weekly_drift,
