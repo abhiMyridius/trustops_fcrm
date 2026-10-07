@@ -46,7 +46,7 @@ FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:28217/?replicaSet=rs0' uv run --project
 
 `make gate` runs `build --check` and `selfcheck`; the live gate (`evals-gate`) needs a live run and is run on demand.
 
-`--ai-root` points a run at another `ai/` folder: its `tiers.yaml` and its prompts. It needs its own `--results-root`, and the CLI refuses `--baseline` and the shipped `evals/results` folder for any other root, so a result from a copy is never a baseline. The separate economy profile (`make economy-profile`, `make up-economy`, `make evals-economy`) was removed on 7 October 2026 (ADR-62); the CLI keeps this flag.
+`--ai-root` points a run at another `ai/` folder: its `tiers.yaml` and its prompts. It needs its own `--results-root`, and the CLI refuses `--baseline` and the shipped `evals/results` folder for any other root, so a result from a copy is never a baseline. The separate economy profile of 6 October (its own make targets, folder and model file) was removed on 7 October 2026 (ADR-62); the CLI keeps this flag.
 
 ## How a live run works
 
