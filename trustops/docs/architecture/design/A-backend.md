@@ -809,6 +809,8 @@ Guard order per job: 1 input (payload scan) → 2 permit (per tool call) → 3 b
 
 Every line is one JSON object: `ts, level, logger, msg, service, version, env, trace_id, span_id, case_id?, run_id?, job_id?, agent?, gate_id?, user_id? (sub only, never names or emails), http{method, route, status, ms}?, amqp{exchange, routing_key, message_id, attempt}?, dependency?, duration_ms?, error{code, type}?`. No request bodies, tokens, document text, or OTP-like secrets are ever logged; a `redact()` filter drops keys matching `(password|token|secret|authorization)`.
 
+When `OTEL_EXPORTER_OTLP_ENDPOINT` is set, the same records are also exported as OTLP log records (`tracing._OtelLogHandler`), built from the same fields and the same `redact()` (`logging.record_fields`), with the trace and span ids carried natively (ADR-66). stdout stays the system of record; in the `obs` profile the collector forwards them to OpenObserve, the searchable log store (`make up-obs`).
+
 ---
 ## 11. Compose topology
 

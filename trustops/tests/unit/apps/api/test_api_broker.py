@@ -125,6 +125,9 @@ def test_every_service_gets_the_same_publisher_and_lease_holder_and_order_is_rig
     # instrumentation of the app) and each service's own settings need their
     # own environment; none of that is what is under test.
     monkeypatch.setattr(api_lifespan_module, "init_otel", lambda *a, **k: None)
+    monkeypatch.setattr(
+        api_lifespan_module, "shutdown_otel", lambda: events.append("otel.shutdown")
+    )
     monkeypatch.setattr(api_lifespan_module, "configure_logging", lambda *a, **k: None)
     monkeypatch.setattr(
         api_lifespan_module, "_service_settings", lambda mount, api: None
@@ -149,7 +152,8 @@ def test_every_service_gets_the_same_publisher_and_lease_holder_and_order_is_rig
     assert len(holders) == 1
     assert next(iter(holders)).startswith("relay_")
     assert events[0] == "broker.start"
-    assert events[-1] == "broker.stop"
+    # Telemetry is flushed last, after the broker has stopped logging.
+    assert events[-2:] == ["broker.stop", "otel.shutdown"]
     assert events.count("register") == len(MOUNTS) == events.count("unregister")
     assert events.index("unregister") < events.index("broker.stop")
 

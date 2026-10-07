@@ -1,6 +1,6 @@
 # Start, stop and reset
 
-Run everything from the repo root. The compose project is named `trustops`; its volumes are `mongo_data`, `rabbit_data`, `minio_data`, `prometheus_data` and `grafana_data` (`docker-compose.yaml`).
+Run everything from the repo root. The compose project is named `trustops`; its volumes are `mongo_data`, `rabbit_data`, `minio_data`, `prometheus_data`, `grafana_data` and `openobserve_data` (`docker-compose.yaml`).
 
 ## Start
 
@@ -13,7 +13,7 @@ curl -s http://localhost:8080/healthz; echo
 - The first build takes a few minutes. After that `make up` re-uses the images.
 - `api` takes about 85 seconds to become healthy. S3 (policy) embeds the 197 corpus clauses on Bedrock when it starts (commit `5a02c09`). `make up` waits for it; do not read a slow `api` as a failure until `make logs svc=api` shows an error.
 - `make up` creates `.env` and `jwt_keys/` if they are missing and never overwrites them. Put the AWS keys in `.env` before the first `make up`: embeddings and every agent call go to Bedrock. How `api` behaves at start with no keys was not tested by the lane that wrote this page; see [secrets-and-keys.md](secrets-and-keys.md).
-- Other starts: `make up-obs` (adds Jaeger, Prometheus, Grafana, the collector), `make up-cache` (Redis for SSE fan-out), `make up-debug` (publishes infrastructure ports to the host), `make up-dev` (source bind mounts and the Vite dev server). Each is a separate `docker compose up -d` with its own file and profile set; `make down` stops every profile.
+- Other starts: `make up-obs` (adds Jaeger, Prometheus, Grafana, OpenObserve, the collector), `make up-cache` (Redis for SSE fan-out), `make up-debug` (publishes infrastructure ports to the host), `make up-dev` (source bind mounts and the Vite dev server). Each is a separate `docker compose up -d` with its own file and profile set; `make down` stops every profile.
 
 ## Stop
 

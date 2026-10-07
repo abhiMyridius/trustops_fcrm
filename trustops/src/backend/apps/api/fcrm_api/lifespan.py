@@ -33,7 +33,7 @@ from fcrm_common.logging import configure_logging
 from fcrm_common.mongo import mongo_client
 from fcrm_common.service import ServiceDeps
 from fcrm_common.settings import BaseServiceSettings, required_value
-from fcrm_common.tracing import init_otel
+from fcrm_common.tracing import init_otel, shutdown_otel
 
 from fcrm_api import __version__
 from fcrm_api.registry import MOUNTS, ServiceMount
@@ -144,6 +144,9 @@ async def api_lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
 
     async with AsyncExitStack() as stack:
+        # Pushed first, so it runs last: batched spans and log records are
+        # flushed after every client and service has finished logging.
+        stack.callback(shutdown_otel)
         app_mongo = await stack.enter_async_context(mongo_client(app_uri))
         audit_mongo = await stack.enter_async_context(mongo_client(writer_uri))
         evals_mongo = (

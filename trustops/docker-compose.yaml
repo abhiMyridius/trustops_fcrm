@@ -4,7 +4,8 @@
 #   apps    api (X1 identity and S1–S5 as sub-apps), harness (H1–H4 as workers)
 #   edge    gateway (G1), web (W1)
 # Two opt-in profiles, off unless asked for:
-#   obs     otel-collector, jaeger, prometheus, grafana   (`make up-obs`, 12 in all)
+#   obs     otel-collector, jaeger, prometheus, grafana,
+#           openobserve                                   (`make up-obs`, 13 in all)
 #   cache   redis                                          (`make up-cache`; the api
 #           does not fan out over it yet, SSE is in process, see known-gaps)
 # The system is live-only (ADR-27): agents call Amazon Bedrock, there is no
@@ -407,6 +408,9 @@ services:
   #   jaeger          traces UI on 16686 (OTLP from the collector)
   #   prometheus      9090, scrapes the collector and the RabbitMQ plugin
   #   grafana         3000, provisioned datasources + three dashboards
+  #   openobserve     5080, the log store and its search UI (OTLP logs from
+  #                   the collector); sign in with ZO_ROOT_USER_EMAIL and
+  #                   ZO_ROOT_USER_PASSWORD from .env (`make env` generates them)
   # `make up-obs` also sets OTEL_EXPORTER_OTLP_ENDPOINT so the api and harness
   # export to the collector; without it they trace in process and export nothing.
   # Grafana admin: user ${GF_SECURITY_ADMIN_USER:-admin}, password
@@ -420,8 +424,15 @@ services:
     command:
       - --config=/etc/otelcol/collector.yaml
       - --config=/etc/otelcol/env/${ENV:-local}.yaml
+    # The collector signs in to OpenObserve with the same root login (the
+    # basicauth extension in ops/otel/collector.yaml reads these two).
     environment:
       ENV: ${ENV:-local}
+      ZO_ROOT_USER_EMAIL: ${ZO_ROOT_USER_EMAIL:-}
+      ZO_ROOT_USER_PASSWORD: ${ZO_ROOT_USER_PASSWORD:-}
+    depends_on:
+      openobserve:
+        condition: service_started
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${OTLP_GRPC_HOST_PORT:-4317}:4317"
       - "${BIND_ADDRESS:-127.0.0.1}:${OTLP_HTTP_HOST_PORT:-4318}:4318"
@@ -497,9 +508,28 @@ services:
       timeout: 3s
       retries: 30
 
+  # The log store. The standard image is distroless (no shell, no HTTP client),
+  # so like the collector it has no in-container healthcheck: `make up-obs`
+  # probes /healthz from the host. The root login is created on the FIRST start
+  # only; changing the values later needs `make down-v` (deletes the logs too).
+  openobserve:
+    profiles: [obs]
+    image: openobserve/openobserve:v1.0.4
+    restart: unless-stopped
+    environment:
+      ZO_ROOT_USER_EMAIL: ${ZO_ROOT_USER_EMAIL:-}
+      ZO_ROOT_USER_PASSWORD: ${ZO_ROOT_USER_PASSWORD:-}
+      ZO_DATA_DIR: /data
+      ZO_TELEMETRY: "false"
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${OPENOBSERVE_HOST_PORT:-5080}:5080"
+    volumes:
+      - openobserve_data:/data
+
 volumes:
   mongo_data:
   rabbit_data:
   minio_data:
   prometheus_data:
   grafana_data:
+  openobserve_data:

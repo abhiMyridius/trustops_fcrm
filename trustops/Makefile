@@ -33,7 +33,7 @@ COMPOSE_TEST  := docker compose -p trustops-test -f docker-compose.yaml -f compo
 INFRA := mongo rabbitmq minio opa
 APPS  := api harness
 EDGE  := gateway web
-OBS   := otel-collector jaeger prometheus grafana
+OBS   := otel-collector jaeger prometheus grafana openobserve
 
 # OPA: a local binary when present (fast), else the pinned image.
 OPA_VERSION := 1.15.2
@@ -100,7 +100,7 @@ pull: ## pull the pinned registry images (mongo, rabbitmq, minio, opa, gateway);
 	$(COMPOSE) pull --quiet $(INFRA) gateway
 
 # ── run ──────────────────────────────────────────────────────────────────
-.PHONY: up-infra up up-obs up-cache up-debug up-dev down down-v reset ps logs
+.PHONY: up-infra up up-obs obs-env up-cache up-debug up-dev down down-v reset ps logs
 up-infra: env ## infrastructure only (mongo, rabbitmq, minio, opa)
 	$(COMPOSE) up -d $(INFRA)
 	@$(WAIT) --compose "$(COMPOSE)" $(INFRA)
@@ -113,11 +113,18 @@ up: env keys ## the default stack, 8 containers (mongo rabbitmq minio opa api ha
 	$(COMPOSE) up -d --build
 	@$(WAIT) --timeout 600 --compose "$(COMPOSE)" $(INFRA) $(APPS) $(EDGE)
 
-up-obs: env keys ## the default stack plus otel-collector, jaeger, prometheus and grafana (12 containers); services export traces
+obs-env: ## fail early, with the fix, when an older .env has no OpenObserve login (make env never overwrites)
+	@for v in ZO_ROOT_USER_EMAIL ZO_ROOT_USER_PASSWORD; do \
+		grep -q "^$$v=." .env 2>/dev/null || [ -n "$$(printenv $$v)" ] || { \
+			echo "obs-env: .env has no $$v (OpenObserve, the log store). Add the lines ZO_ROOT_USER_EMAIL=admin@trustops.example and ZO_ROOT_USER_PASSWORD=Oo-<openssl rand -hex 14> to .env (OpenObserve needs upper and lower case, a digit and a symbol), then run make up-obs again." >&2; exit 1; }; \
+	done
+
+up-obs: env keys obs-env ## the default stack plus otel-collector, jaeger, prometheus, grafana and openobserve (13 containers); services export traces, metrics and logs
 	$(COMPOSE_OBS) up -d --force-recreate --no-deps opa
 	OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318 $(COMPOSE_OBS) up -d --build
 	@$(WAIT) --timeout 600 --compose "$(COMPOSE_OBS)" $(INFRA) $(OBS) $(APPS) $(EDGE) \
-		--url otel-collector=http://$$($(COMPOSE_OBS) port otel-collector 13133)/
+		--url otel-collector=http://$$($(COMPOSE_OBS) port otel-collector 13133)/ \
+		--url openobserve=http://$$($(COMPOSE_OBS) port openobserve 5080)/healthz
 
 up-cache: env keys ## the default stack plus Redis for SSE fan-out (api uses it via REDIS_URL)
 	$(COMPOSE_CACHE) up -d --force-recreate --no-deps opa

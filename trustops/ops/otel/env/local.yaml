@@ -9,4 +9,4 @@ service:
     metrics:
       exporters: [prometheus, debug]
     logs:
-      exporters: [debug]
+      exporters: [otlphttp/openobserve, debug]

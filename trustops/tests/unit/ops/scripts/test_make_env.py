@@ -84,6 +84,10 @@ def test_secrets_are_fresh_hex_and_dollars_are_escaped_for_compose() -> None:
     )
     second = _assignments(make_env.render(EXAMPLE)[0])
     for name in make_env.SECRETS:
+        if name == "ZO_ROOT_USER_PASSWORD":
+            # Not hex: OpenObserve demands four character classes (below).
+            assert first[name] != second[name], name
+            continue
         assert re.fullmatch(r"[0-9a-f]{48}", first[name]), name
         assert first[name] != second[name], name
     assert first["DEMO_USERS_PASSWORD_HASH"] == "$$2b$$12$$ab"
@@ -107,3 +111,27 @@ def test_main_never_overwrites_and_writes_mode_0600(tmp_path: Path) -> None:
         make_env.main(["--example", str(ROOT / ".env.example"), "--out", str(out)]) == 0
     )
     assert out.read_text(encoding="utf-8") == before
+
+
+def test_the_openobserve_login_is_generated_and_the_password_is_a_secret() -> None:
+    first = _assignments(make_env.render(EXAMPLE)[0])
+    second = _assignments(make_env.render(EXAMPLE)[0])
+    assert first["ZO_ROOT_USER_EMAIL"] == "admin@trustops.example"
+    # A new password every time, so no secret is a constant in the script.
+    assert first["ZO_ROOT_USER_PASSWORD"] != second["ZO_ROOT_USER_PASSWORD"]
+
+
+def test_the_openobserve_password_meets_its_complexity_rule_and_is_env_safe() -> None:
+    # OpenObserve exits on start without a lowercase letter, an uppercase
+    # letter, a digit and a special character (found on the first live run).
+    for _ in range(200):
+        password = make_env.complex_password()
+        assert 8 <= len(password) <= 128
+        assert re.search(r"[a-z]", password)
+        assert re.search(r"[A-Z]", password)
+        assert re.search(r"[0-9]", password)
+        assert re.search(r"[-_.]", password)
+        # Nothing that .env, compose interpolation or basic auth would mangle.
+        assert re.fullmatch(r"[A-Za-z0-9._-]+", password)
+        assert password[0] not in "-_."
+        assert password[-1] not in "-_."

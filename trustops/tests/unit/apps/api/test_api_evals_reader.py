@@ -72,6 +72,7 @@ def _run_api(
         monkeypatch.setenv("MONGODB_URI_EVALS_READER", evals_uri)
     monkeypatch.setattr(api_lifespan_module, "MOUNTS", mounts)
     monkeypatch.setattr(api_lifespan_module, "init_otel", lambda *a, **k: None)
+    monkeypatch.setattr(api_lifespan_module, "shutdown_otel", lambda: None)
     monkeypatch.setattr(api_lifespan_module, "configure_logging", lambda *a, **k: None)
     monkeypatch.setattr(
         api_lifespan_module, "_service_settings", lambda mount, api: None

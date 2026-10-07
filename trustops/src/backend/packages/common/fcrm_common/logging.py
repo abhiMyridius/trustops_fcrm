@@ -104,6 +104,22 @@ def _json_default(value: Any) -> str:
     return str(value)
 
 
+def record_fields(record: logging.LogRecord) -> dict[str, Any]:
+    """The bound context and ``extra=`` fields of ``record``, redacted.
+
+    One definition shared by the stdout JSON line and the OTLP log export, so
+    the two never disagree about which fields exist or which are dropped.
+    Reserved line keys (``ts``, ``level``, ``logger``, ``msg``, ``service``,
+    ``version``, ``env``) are excluded.
+    """
+    extras = {k: v for k, v in record.__dict__.items() if k not in _RECORD_ATTRS}
+    return {
+        key: value
+        for key, value in redact({**_CONTEXT.get(), **extras}).items()
+        if key not in _RESERVED
+    }
+
+
 class JsonFormatter(logging.Formatter):
     """One JSON object per record, with the design A §10.7 field names.
 
@@ -131,10 +147,7 @@ class JsonFormatter(logging.Formatter):
         if trace_id is not None:
             line["trace_id"] = trace_id
             line["span_id"] = span_id
-        extras = {k: v for k, v in record.__dict__.items() if k not in _RECORD_ATTRS}
-        for key, value in redact({**_CONTEXT.get(), **extras}).items():
-            if key not in _RESERVED:
-                line[key] = value
+        line.update(record_fields(record))
         if record.exc_info:
             line["exc_info"] = self.formatException(record.exc_info)
         if record.stack_info:

@@ -170,3 +170,19 @@ Still open:
 - The two live runs that stopped at scene 8 and scene 9, and the one-row eval check (7 of 9, about USD 0.44), were made on Sonnet 4.5. They describe a chain that is no longer committed; the Sonnet 5.5 combination has had no live run since the change.
 - The cost of one complete cycle, about USD 0.47 (0.41 to 0.59), is an estimate from the last complete run's token counts at the verified prices, not a measurement.
 - The running application keeps the chain it was started with: the operator's next `make up` loads the committed one.
+
+## M. After the OTLP logs change (7 October, appended)
+
+Closed:
+
+- The api and harness export their application logs over OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, next to the JSON on stdout, with the same fields and redaction and with trace and span ids (ADR-66). The collector forwards them to OpenObserve (`make up-obs`, http://localhost:5080, stream `trustops`). With the endpoint empty nothing is created and nothing is exported, as before. The api now flushes telemetry last on stop, as the harness already did.
+- Checked live on 7 October with the real `init_otel` and `configure_logging` code, a real collector and a real OpenObserve v1.0.4 in a separate compose project: the record arrived with its message, `case_id`, `run_id`, severity, and the same `trace_id` and `span_id` as the span it was logged in; a `token` extra and a nested `password` were absent. That run also found, and fixed, OpenObserve refusing a lowercase-hex password.
+
+Still open:
+
+- **The composed api and harness have not been run against it.** The live check above bypassed them. Running `make up-obs` rebuilds and restarts the api, which re-embeds the corpus on Bedrock (ADR-59), so it waits for the operator.
+- OpenObserve is a single local node with the root login only: data in the named volume `openobserve_data` (not backed up, no retention set), no TLS, no per-user access. The AWS path ships stdout to CloudWatch instead and is not built.
+- Traces and metrics still go to Jaeger and Prometheus only, so there is no click-through from a trace or a Grafana panel to its logs; search the `trace_id` in OpenObserve.
+- An older `.env` has no OpenObserve login: `make up-obs` stops and says what to add (`make env` never overwrites). The login is stored on the first start, so changing it later needs `make down-v`, which also deletes the stored logs.
+- The standalone per-service and worker entrypoints (`uvicorn <pkg>.main:app`, the four workers run on their own) never call `init_otel`, so they export no traces, metrics or logs. Only the composed `api` and `harness` do.
+- Model calls (Pydantic AI) are not instrumented, so they appear neither as spans nor as log records of their own.
