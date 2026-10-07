@@ -73,7 +73,7 @@ function CorrectDialog({ caseId, row, onClose }: { caseId: string; row: ReviewRo
 function CheckLine({ check, shown }: { check: SubmitCheck; shown: boolean }) {
   if (!shown)
     return (
-      <li className="flex items-center gap-2 text-sm text-text-faint">
+      <li className="flex items-center gap-2 text-sm text-text-muted">
         <CircleDashed aria-hidden size={16} /> Checking {check.label.toLowerCase()}…
       </li>
     );
@@ -190,7 +190,7 @@ export function ReviewSubmitTab() {
             header: 'Value',
             cell: (r) => (
               <div>
-                {r.value ?? <span className="text-text-faint">Not answered</span>}
+                {r.value ?? <span className="text-text-muted">Not answered</span>}
                 {r.original && (
                   <p className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px] text-text-muted">
                     was “{r.original.value}” <SourceChip source={r.original.source} />

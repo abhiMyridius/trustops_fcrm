@@ -41,7 +41,7 @@ export function DiffTable({ diff }: { diff: SubmissionDiff }) {
                   <span className="font-mono text-[12px] text-text-muted">{c.field_id}</span> {c.label}
                 </th>
                 <td className="px-4 py-3 align-top">
-                  <span className={c.before ? 'line-through decoration-danger' : 'text-text-faint'}>{c.before ?? 'not answered'}</span>
+                  <span className={c.before ? 'line-through decoration-danger' : 'text-text-muted'}>{c.before ?? 'not answered'}</span>
                   <div className="mt-1">
                     <ProvenanceTag origin={c.before_origin} />
                   </div>

@@ -120,7 +120,7 @@ function Values({ values }: { values: ValuePO[] }) {
             {v.candidates && v.candidates > 1 && <span className="ml-1 text-[11px] text-warning-text">({v.candidates} candidates found)</span>}
           </span>
         ) : (
-          <span className="text-text-faint">Not yet answered</span>
+          <span className="text-text-muted">Not yet answered</span>
         ),
     },
     { key: 'origin', header: 'Provenance', cell: (v) => <ProvenanceTag origin={v.origin} /> },
