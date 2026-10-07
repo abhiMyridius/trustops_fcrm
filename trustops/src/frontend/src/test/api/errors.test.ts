@@ -5,7 +5,7 @@
  * `type` and nothing else (D-106).
  */
 import { describe, expect, it } from 'vitest';
-import { ApiError, NO_RUN_MESSAGE, isNoRunRecorded, isNotReady, userMessage } from '@/api/errors';
+import { ApiError, NO_RUN_MESSAGE, isNoRunRecorded, isNotReady, signInMessage, userMessage } from '@/api/errors';
 
 const BASE = 'https://trustops.local/errors/';
 
@@ -67,5 +67,23 @@ describe('userMessage', () => {
     expect(userMessage(failure(500, 'internal_error', 'An unexpected error occurred.'))).toBe('An unexpected error occurred.');
     expect(userMessage(new Error('boom'))).toBe('boom');
     expect(userMessage('nope')).toBe('Something went wrong.');
+  });
+});
+
+describe('signInMessage (D-108)', () => {
+  it("shows identity's own words for a refused sign-in, not 'session ended'", () => {
+    expect(signInMessage(failure(401, 'unauthorized', 'Unknown user or wrong password.'))).toBe('Unknown user or wrong password.');
+    expect(signInMessage(failure(401, 'unauthorized', 'Unknown user or wrong password.'))).not.toMatch(/session/i);
+  });
+
+  it('has words of its own when the 401 carries no detail', () => {
+    expect(signInMessage(failure(401, 'unauthorized'))).toBe('Unknown user or wrong password.');
+  });
+
+  it('leaves every other failure to userMessage, and a 401 elsewhere still means the session ended', () => {
+    expect(signInMessage(failure(429, 'too_many_requests', 'Too many sign-in attempts.'))).toBe('Too many sign-in attempts.');
+    expect(signInMessage(failure(503, 'upstream_unavailable', 'The database is unavailable.'))).toBe('The database is unavailable.');
+    expect(signInMessage(new Error('Failed to fetch'))).toBe('Failed to fetch');
+    expect(userMessage(failure(401, 'unauthorized', 'Unknown user or wrong password.'))).toBe('Your session has ended. Sign in again.');
   });
 });

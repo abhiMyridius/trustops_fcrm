@@ -38,6 +38,16 @@ export function isNotReady(err: unknown): boolean {
   return problemEndsWith(err, 409, 'not_ready');
 }
 
+/**
+ * What the login form says when a sign-in is refused. The 401 there is not an ended session (nobody was
+ * signed in): it is identity's own "Unknown user or wrong password.", so that is what the form shows.
+ * Everywhere else a 401 still means the session has ended (`userMessage`).
+ */
+export function signInMessage(err: unknown): string {
+  if (err instanceof ApiError && err.status === 401) return err.problem.detail ?? 'Unknown user or wrong password.';
+  return userMessage(err);
+}
+
 /** The message a person sees for an error. Same copy for "missing" and "not yours" (no hints). */
 export function userMessage(err: unknown): string {
   if (err instanceof ApiError) {
