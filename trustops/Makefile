@@ -95,9 +95,9 @@ keys: ## generate the dev RS256 JWT keypair into jwt_keys/ (FORCE=1 to rotate)
 		&& chmod 600 jwt_keys/jwt.pem && chmod 644 jwt_keys/jwt.pub.pem \
 		&& echo "keys: wrote jwt_keys/jwt.pem (private, 0600) and jwt_keys/jwt.pub.pem; the folder ignores itself in git"; fi
 
-pull: ## pull every pinned image the stack uses (build-only services skipped)
+pull: ## pull the pinned registry images (mongo, rabbitmq, minio, opa, gateway); api, harness and web are built here, never pulled
 	@[ -f .env ] || $(MAKE) --no-print-directory env
-	$(COMPOSE) pull --ignore-buildable --quiet
+	$(COMPOSE) pull --quiet $(INFRA) gateway
 
 # ── run ──────────────────────────────────────────────────────────────────
 .PHONY: up-infra up up-obs up-cache up-debug up-dev down down-v reset ps logs

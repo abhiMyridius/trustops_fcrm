@@ -69,3 +69,19 @@ def test_every_up_target_recreates_opa_before_it_starts_the_stack() -> None:
         assert len(recreate) == 1, target
         assert len(started) == 1, target
         assert recreate[0] < started[0], target
+
+
+def test_pull_names_only_images_that_exist_in_a_registry() -> None:
+    # harness shares the image that api builds (trustops/backend:local), and an
+    # explicit `docker compose pull harness` ignores pull_policy: never and fails
+    # with "pull access denied", which stopped `make bootstrap` on a first run.
+    lines = [
+        ln for ln in _dry_run("pull").splitlines() if "compose" in ln and " pull " in ln
+    ]
+
+    assert len(lines) == 1
+    for registry_service in ("mongo", "rabbitmq", "minio", "opa", "gateway"):
+        assert registry_service in lines[0].split()
+    for built_here in ("api", "harness", "web"):
+        assert built_here not in lines[0].split()
+    assert "--ignore-buildable" not in lines[0]
