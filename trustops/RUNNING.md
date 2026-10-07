@@ -159,6 +159,7 @@ The first start already seeds an empty database (80 cases, the 65 closed cases' 
 | Vite dev server, hot reload against the live backend | http://localhost:5173 (`cd src/frontend && npm ci && npm run dev`) |
 | Vite dev server against the in-browser mock | `npm run dev:msw` in `src/frontend`; no Docker needed |
 | Grafana, Jaeger, Prometheus | http://localhost:3000, :16686, :9090 after `make up-obs`; Grafana user `admin`, password `GF_SECURITY_ADMIN_PASSWORD` from `.env` |
+| OpenObserve, the log store and its search UI | http://localhost:5080 after `make up-obs`; sign in with `ZO_ROOT_USER_EMAIL` and `ZO_ROOT_USER_PASSWORD` from `.env`, open **Logs** and pick the `trustops` stream. The same lines are still on each container's stdout (`docker compose logs api`) |
 | MongoDB (Compass, mongosh), this machine only | `127.0.0.1:27017`, started by `make up`; use `?authSource=admin&directConnection=true` and the root user from `.env` |
 | RabbitMQ management, MinIO console, OPA | http://localhost:15672, :9001, :8181 after `make up-debug` |
 
@@ -236,7 +237,7 @@ If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks
 | `pull` | pull the pinned images | no | no | minutes the first time |
 | `up-infra` | mongo, rabbitmq, minio, opa only | starts it | no | about a minute |
 | `up` | build and start the 8-container default stack | starts it | the corpus embedding at `api` start | build a few minutes, `api` about 85 s |
-| `up-obs` | `up` plus otel-collector, Jaeger, Prometheus, Grafana (12 containers) | starts it | as `up` | as `up` |
+| `up-obs` | `up` plus otel-collector, Jaeger, Prometheus, Grafana, OpenObserve (13 containers) | starts it | as `up` | as `up` |
 | `up-cache` | `up` plus Redis. **Nothing uses Redis today** (the SSE fan-out is not implemented) | starts it | as `up` | as `up` |
 | `up-debug` | `up` with infrastructure and harness health ports published to the host | starts it | as `up` | as `up` |
 | `up-dev` | bind-mounted source, `uvicorn --reload`, the Vite dev server | starts it | as `up` | as `up` |
@@ -360,6 +361,8 @@ On 6 October 2026 `make check` was green on the tree of `53a1476`: 7707 passed, 
 | `mkdir /host_mnt/Users/<you>/Downloads: operation not permitted` | macOS blocks Docker's access to `~/Downloads`: grant it, or move the repository |
 | `audit` restarts with `ChainVerifyFailedError` | the Mongo volume holds audit records written under an older hash format (D-29). `make down-v` and start again |
 | `api` fails asking for `DEMO_USERS_PASSWORD_HASH` | `.env` predates D-25: move it aside and run `make env` |
+| `make up-obs` stops with `obs-env: .env has no ZO_ROOT_USER_PASSWORD` | an older `.env` (`make env` never overwrites): add `ZO_ROOT_USER_EMAIL=admin@trustops.example` and `ZO_ROOT_USER_PASSWORD=Oo-` followed by the output of `openssl rand -hex 14`; OpenObserve needs upper and lower case, a digit and a symbol |
+| OpenObserve restarts and its log says the password is too weak | `ZO_ROOT_USER_PASSWORD` lacks a character class; fix `.env`, then `make down-v` (the login is stored on the first start, and `down-v` deletes the stored logs too) |
 | `up` stops naming `MONGO_EVALS_READER_PASSWORD` | an older `.env`: add the line `MONGO_EVALS_READER_PASSWORD=` followed by any URL-safe string (`openssl rand -hex 16`); no `down-v` needed |
 | The login page shows a password form, not the picker | identity serves the picker only when `DEMO_USERS_ENABLED=true` and `ENV` is `local`, `test` or `ci`. Use `riyer` and the demo password |
 | Dev server says `Port 5173 is already in use` | an earlier `npm run dev` survives: `kill $(lsof -tnP -iTCP:5173 -sTCP:LISTEN)` |
@@ -398,7 +401,7 @@ The full list, each item with its evidence, is `docs/governance/known-gaps.md`. 
 
 | File | Purpose |
 |---|---|
-| `docker-compose.yaml` | the whole stack; profile `obs` adds the four observability containers, profile `cache` adds Redis |
+| `docker-compose.yaml` | the whole stack; profile `obs` adds the five observability containers, profile `cache` adds Redis |
 | `compose.debug.yaml` | publishes RabbitMQ (:5672, :15672), MinIO (:9000, :9001), OPA (:8181), Redis and the harness health port (:9100) to the host. `make up-debug` |
 | `compose.dev.yaml` | bind mounts, `uvicorn --reload`, the Vite dev server, DEBUG logs. `make up-dev` |
 | `compose.test.yaml` | the test stack: in-memory vectors, dummy embeddings for `api`, AWS keys blanked for `api`; project `trustops-test`. Agents still call live Bedrock. The environment check validates it; no make target starts it today |

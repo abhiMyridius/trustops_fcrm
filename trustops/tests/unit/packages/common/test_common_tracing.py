@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import pytest
 from fcrm_common import tracing
 from fcrm_common.logging import get_context
@@ -34,6 +36,23 @@ def test_otlp_signal_endpoints_empty_disables_export(endpoint):
     assert tracing.otlp_signal_endpoints(endpoint) is None
 
 
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "http://otel-collector:4318",
+        "https://adot.example.com:4318/",
+        "http://localhost:4318",
+    ],
+)
+def test_otlp_logs_endpoint_honours_any_endpoint(endpoint):
+    assert tracing.otlp_logs_endpoint(endpoint) == f"{endpoint.rstrip('/')}/v1/logs"
+
+
+@pytest.mark.parametrize("endpoint", ["", "   "])
+def test_otlp_logs_endpoint_empty_disables_export(endpoint):
+    assert tracing.otlp_logs_endpoint(endpoint) is None
+
+
 class RecordingExporter:
     created: list[str] = []
 
@@ -48,6 +67,36 @@ class RecordingExporter:
 
     def force_flush(self, *_args, **_kwargs) -> bool:
         return True
+
+
+class FakeLoggerProvider:
+    """Stands in for the SDK LoggerProvider: no thread, no network."""
+
+    instances: list[FakeLoggerProvider] = []
+
+    def __init__(self, **_kwargs) -> None:
+        self.processors: list[object] = []
+        self.flushed = False
+        self.stopped = False
+        FakeLoggerProvider.instances.append(self)
+
+    def add_log_record_processor(self, processor) -> None:
+        self.processors.append(processor)
+
+    def force_flush(self, *_args, **_kwargs) -> bool:
+        self.flushed = True
+        return True
+
+    def shutdown(self, *_args, **_kwargs) -> None:
+        self.stopped = True
+
+
+def _otel_log_handlers() -> list[logging.Handler]:
+    return [
+        h
+        for h in logging.getLogger().handlers
+        if isinstance(h, tracing._OtelLogHandler)
+    ]
 
 
 class NoopInstrumentor:
@@ -66,10 +115,17 @@ def isolated_otel(monkeypatch):
     """init_otel against fakes: no global provider or class patching leaks."""
     RecordingExporter.created = []
     NoopInstrumentor.calls = []
+    FakeLoggerProvider.instances = []
     installed: dict[str, object] = {}
     monkeypatch.setattr(tracing, "_STATE", tracing._OtelState())
     monkeypatch.setattr(tracing, "OTLPSpanExporter", RecordingExporter)
     monkeypatch.setattr(tracing, "OTLPMetricExporter", RecordingExporter)
+    monkeypatch.setattr(tracing, "OTLPLogExporter", RecordingExporter)
+    monkeypatch.setattr(tracing, "LoggerProvider", FakeLoggerProvider)
+    monkeypatch.setattr(tracing, "BatchLogRecordProcessor", lambda exp: ("batch", exp))
+    monkeypatch.setattr(
+        tracing, "set_logger_provider", lambda p: installed.update(lp=p)
+    )
     monkeypatch.setattr(tracing, "PeriodicExportingMetricReader", lambda exp, **_: None)
     monkeypatch.setattr(tracing, "MeterProvider", lambda **kw: ("meter", kw))
     monkeypatch.setattr(
@@ -84,7 +140,10 @@ def isolated_otel(monkeypatch):
         "PymongoInstrumentor",
     ):
         monkeypatch.setattr(tracing, name, NoopInstrumentor)
-    return installed
+    yield installed
+    # init_otel puts a handler on the process-wide root logger; never leak it.
+    for handler in _otel_log_handlers():
+        logging.getLogger().removeHandler(handler)
 
 
 def test_init_otel_uses_given_non_cluster_endpoint(isolated_otel):
@@ -94,6 +153,7 @@ def test_init_otel_uses_given_non_cluster_endpoint(isolated_otel):
     assert RecordingExporter.created == [
         "http://collector.example.net:4318/v1/traces",
         "http://collector.example.net:4318/v1/metrics",
+        "http://collector.example.net:4318/v1/logs",
     ]
     provider = isolated_otel["tp"]
     assert provider.resource.attributes["service.name"] == "case-service"
@@ -106,6 +166,42 @@ def test_init_otel_empty_endpoint_installs_providers_without_exporter(isolated_o
     assert RecordingExporter.created == []
     assert "tp" in isolated_otel
     assert isolated_otel["mp"][1]["metric_readers"] == []
+    # Export off means no log provider and nothing added to the root logger.
+    assert "lp" not in isolated_otel
+    assert FakeLoggerProvider.instances == []
+    assert _otel_log_handlers() == []
+
+
+def test_init_otel_with_endpoint_installs_one_log_handler(isolated_otel):
+    tracing.init_otel("svc", "1", endpoint="http://collector:4318")
+    [provider] = FakeLoggerProvider.instances
+    assert isolated_otel["lp"] is provider
+    [(kind, exporter)] = provider.processors
+    assert kind == "batch"
+    assert isinstance(exporter, RecordingExporter)
+    assert RecordingExporter.created[-1] == "http://collector:4318/v1/logs"
+    [handler] = _otel_log_handlers()
+    assert handler is tracing._STATE.log_handler
+
+
+def test_attach_log_handler_twice_leaves_one_handler(isolated_otel):
+    provider = FakeLoggerProvider()
+    tracing._attach_log_handler(provider)
+    tracing._attach_log_handler(provider)
+    assert len(_otel_log_handlers()) == 1
+
+
+def test_shutdown_otel_flushes_log_provider_and_removes_handler(isolated_otel):
+    tracing.init_otel("svc", "1", endpoint="http://collector:4318")
+    [provider] = FakeLoggerProvider.instances
+    assert len(_otel_log_handlers()) == 1
+    # The fixture fakes the meter provider as a tuple; this test is about logs.
+    tracing._STATE.meter_provider = None
+    tracing.shutdown_otel()
+    assert provider.flushed
+    assert provider.stopped
+    assert _otel_log_handlers() == []
+    assert tracing._STATE.log_handler is None
 
 
 def test_init_otel_reads_environment_when_endpoint_not_passed(

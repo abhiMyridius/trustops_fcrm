@@ -29,6 +29,7 @@ import logging
 import os
 import re
 import secrets
+import string
 import sys
 from pathlib import Path
 from typing import Optional
@@ -40,6 +41,7 @@ USERNAMES = {
     "RABBITMQ_DEFAULT_USER": "fcrm",
     "MINIO_ROOT_USER": "fcrm-minio",
     "GF_SECURITY_ADMIN_USER": "admin",
+    "ZO_ROOT_USER_EMAIL": "admin@trustops.example",
 }
 SECRETS = (
     "MONGO_INITDB_ROOT_PASSWORD",
@@ -49,6 +51,7 @@ SECRETS = (
     "RABBITMQ_DEFAULT_PASS",
     "MINIO_ROOT_PASSWORD",
     "GF_SECURITY_ADMIN_PASSWORD",
+    "ZO_ROOT_USER_PASSWORD",
     "SERVICE_TOKEN_SECRET",
 )
 LOCAL_DEFAULTS = {
@@ -79,7 +82,14 @@ COMMON_PORTS = (
     ("OPA_HOST_PORT", "OPA policy engine"),
     ("PROMETHEUS_HOST_PORT", "Prometheus"),
     ("JAEGER_UI_HOST_PORT", "Jaeger traces"),
+    ("OPENOBSERVE_HOST_PORT", "OpenObserve logs"),
 )
+#: OpenObserve refuses a root password without a lowercase letter, an uppercase
+#: letter, a digit and a special character (it exits on start otherwise). These
+#: specials are safe unquoted in .env, in compose interpolation (no ``$``) and
+#: in an HTTP basic-auth header (no ``:``).
+PASSWORD_SPECIALS = "-_."
+COMPLEX_PASSWORD_LENGTH = 32
 ASSIGNMENT = re.compile(r"^([A-Z][A-Z0-9_]*)=(.*)$")
 #: ``# [8080]`` or ``# [5173] vite dev server``: the next assignment's default.
 BRACKET_DEFAULT = re.compile(r"^#.*?\[([^\]]+)\]")
@@ -105,6 +115,27 @@ GENERATED_INTRO = """\
 # Local passwords and secrets. The databases are created with these on the
 # first start, so changing them later needs `make down-v` (deletes local data).
 """
+
+
+def complex_password() -> str:
+    """A random password with all four character classes, safe in ``.env``.
+
+    Returns:
+        32 characters: letters and digits, with one special from
+        :data:`PASSWORD_SPECIALS` somewhere in the interior.
+    """
+    alnum = string.ascii_letters + string.digits
+    chars = [
+        secrets.choice(string.ascii_lowercase),
+        secrets.choice(string.ascii_uppercase),
+        secrets.choice(string.digits),
+    ]
+    chars += [secrets.choice(alnum) for _ in range(COMPLEX_PASSWORD_LENGTH - 4)]
+    secrets.SystemRandom().shuffle(chars)
+    chars.insert(
+        secrets.randbelow(len(chars) - 1) + 1, secrets.choice(PASSWORD_SPECIALS)
+    )
+    return "".join(chars)
 
 
 def example_defaults(example: str) -> dict[str, str]:
@@ -159,6 +190,8 @@ def render(
             # literal dollar (bcrypt hashes start with ``$2b$12$``) must be
             # written as ``$$`` or compose silently mangles the value.
             return overrides[name].replace("$", "$$")
+        if name == "ZO_ROOT_USER_PASSWORD":
+            return complex_password()
         if name in SECRETS:
             return secrets.token_hex(24)
         return USERNAMES.get(name) or LOCAL_DEFAULTS.get(name, "")

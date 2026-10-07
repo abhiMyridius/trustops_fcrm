@@ -1,6 +1,7 @@
 # otel-collector (ADR-09, design A §11.5). Every container exports OTLP here
 # (OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318); traces go to
-# Jaeger, metrics are exposed for Prometheus on :8889.
+# Jaeger, metrics are exposed for Prometheus on :8889, logs go to OpenObserve
+# (ADR-66).
 #
 # Started with two --config files that the collector merges:
 #   /etc/otelcol/collector.yaml        this file (every environment)
@@ -8,12 +9,21 @@
 #                                      env/local.yaml adds the debug exporter,
 #                                      so console dumps never run outside
 #                                      ENV=local.
+# The logs pipeline needs the ZO_ROOT_USER_EMAIL / ZO_ROOT_USER_PASSWORD login
+# that compose passes in (the same one OpenObserve is created with).
 # The AWS path swaps the exporters for awsxray / awsemf / awscloudwatchlogs
 # behind an ADOT collector (ops/aws), with the same receivers and processors.
 
 extensions:
   health_check:
     endpoint: 0.0.0.0:13133
+
+  # The OpenObserve root login, sent as HTTP basic auth on every log export.
+  # Read from the environment so no credential lives in this file.
+  basicauth/openobserve:
+    client_auth:
+      username: ${env:ZO_ROOT_USER_EMAIL}
+      password: ${env:ZO_ROOT_USER_PASSWORD}
 
 receivers:
   otlp:
@@ -76,13 +86,21 @@ exporters:
   debug:
     verbosity: basic
 
-  # Outside ENV=local, OTLP logs are dropped: every container already writes
-  # JSON logs with trace ids to stdout (design A §10.7), which is the log
-  # system of record locally; the AWS path ships them to CloudWatch.
-  nop:
+  # The log store (ADR-66). The api and harness export their logs over OTLP
+  # whenever OTEL_EXPORTER_OTLP_ENDPOINT is set; OpenObserve keeps them in the
+  # `trustops` stream, searchable at http://localhost:5080. The JSON each
+  # container writes to stdout stays the system of record (design A §10.7), and
+  # the AWS path ships that to CloudWatch instead of using this exporter. The
+  # endpoint is the organisation path; the exporter appends /v1/logs.
+  otlphttp/openobserve:
+    endpoint: http://openobserve:5080/api/default
+    auth:
+      authenticator: basicauth/openobserve
+    headers:
+      stream-name: trustops
 
 service:
-  extensions: [health_check]
+  extensions: [health_check, basicauth/openobserve]
   telemetry:
     logs:
       level: info
@@ -106,4 +124,4 @@ service:
     logs:
       receivers: [otlp]
       processors: [memory_limiter, attributes/redact, resource, batch]
-      exporters: [nop]
+      exporters: [otlphttp/openobserve]
