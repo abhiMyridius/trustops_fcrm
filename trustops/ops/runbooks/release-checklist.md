@@ -71,11 +71,11 @@ and drive the demo by hand through the web UI on the live stack (RUNNING.md, "Dr
 The live gate is run on demand. Run it on the commit you tag, on the agents whose prompt, model or budget changed since the last committed run, or on all nine:
 
 ```bash
-make evals EVALS_ARGS="--baseline"                # all nine agents, 5 rows each, Bedrock judge: about USD 3 and 7-11 minutes
+make evals EVALS_ARGS="--baseline"                # all nine agents, 5 rows each, Bedrock judge: about USD 1 projected on the committed chain, not measured (USD 3.14 and 7-11 minutes on 6 October with an Opus judge)
 make evals-gate AGENT=research                   # per agent; exit 1 on FAIL
 ```
 
-Commit `evals/results/<date>/` in the same commit as the change that needs it. `--publish` also loads the run into the stack's Mongo so Assurance, Agent quality shows it; it needs `--mongo-uri` or `MONGODB_URI` pointing at a Mongo that may write `fcrm_evals` (the root user, after `make up-debug`). The committed baseline of 6 October passes 8 of 9 gates; assessment fails at `li_within_one` 0.70 against 0.85 and says so (`evals/README.md`). State that in the release notes; do not change the threshold.
+Commit `evals/results/<date>/` in the same commit as the change that needs it. `--publish` also loads the run into the stack's Mongo so Assurance, Agent quality shows it; it needs `--mongo-uri` or `MONGODB_URI` pointing at a Mongo that may write `fcrm_evals` (the root user, after `make up-debug`). The committed baseline of 6 October passes 8 of 9 gates on the 6 October chain (Sonnet 5.5 on mid and strong, Opus 5.5 as the critic and the judge); no baseline exists for the committed chain, whose judge is Nova Pro. Assessment fails at `li_within_one` 0.70 against 0.85 and says so (`evals/README.md`). State that in the release notes; do not change the threshold.
 
 ## 6. G-P1: the clean-clone proof
 
