@@ -1,29 +1,37 @@
 # Running TrustOps
 
-TrustOps checks the financial-crime risk of a change at a bank (a new product, a new country, a new supplier) before the change goes live. These steps start it on your own computer and open it in a browser. The detailed reference for engineers starts at "Reference for engineers" further down.
+TrustOps checks the financial-crime risk of a change at a bank (a new product, a new country, a new supplier) before the change goes live. These steps start it on your own computer and open it in a browser. They work the same on macOS, Linux and Windows (through WSL 2). The detailed reference for engineers starts at "Reference for engineers" further down.
 
 ## Quick start
 
 **What you need, once**
 
-1. **Docker Desktop**, installed and running.
-2. **uv**, a small tool that installs the Python parts. Put it in `~/.local/bin`.
-3. **Amazon AWS keys** that are allowed to use Amazon Bedrock (the AI service). Everything the AI does goes through it and costs money. See "What costs money" below.
-4. Keep the project folder outside `~/Downloads`. Docker on a Mac may refuse to read files from there.
+1. **Docker with Compose v2**, installed and running: Docker Desktop on macOS or Windows, or Docker Engine on Linux.
+2. **git, make, openssl, python3 and curl.** macOS has them once the command-line tools are installed (`xcode-select --install`). On Ubuntu, including Ubuntu in WSL: `sudo apt install git make openssl python3 curl`.
+3. **uv**, a small tool that installs the Python parts: `curl -LsSf https://astral.sh/uv/install.sh | sh` puts it in `~/.local/bin`.
+4. **Amazon AWS keys** that are allowed to use Amazon Bedrock (the AI service). Everything the AI does goes through it and costs money. See "What costs money" below.
+
+**Notes for your system**
+
+- **macOS:** keep the project folder outside `~/Downloads`. Docker may refuse to read files from there.
+- **Windows:** use WSL 2 with Ubuntu, and run every command below in the Ubuntu terminal, not in PowerShell or Command Prompt. Clone the project inside your Linux home folder (for example `~/work`), not under `/mnt/c/`: it is much faster there, and the files keep the line endings the scripts need. Docker Desktop with WSL integration turned on for your Ubuntu, or Docker Engine installed inside WSL, both work. Your Windows browser reaches the app at the same `localhost` address.
+- **Linux:** add yourself to the `docker` group once (`sudo usermod -aG docker $USER`, then sign out and back in), so `docker` and `make` work without `sudo`.
 
 **Steps**
 
-1. Open a terminal and go to the project folder, the one that contains a file called `Makefile`:
+1. Open a terminal, get the code and go to the project folder, the one that contains a file called `Makefile`:
    ```bash
-   cd ~/MacWorkspace/Hackathon/trustops_fcrm/trustops
+   git clone https://github.com/abhiMyridius/trustops_fcrm.git
+   cd trustops_fcrm/trustops
    ```
+   If you already have a copy, just `cd` into its `trustops` folder.
 2. Set up. This is needed the first time only:
    ```bash
    make bootstrap    # installs the tools and downloads the helper programs
    make env          # creates the settings file .env with made-up local passwords
    make keys         # creates the sign-in keys
    ```
-3. Add your AWS keys. Run `open -e .env`, fill in the two lines `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, and save. Never share this file and never commit it to git.
+3. Add your AWS keys. Open `.env` in any text editor (for example `nano .env`, or `code .env` for VS Code), fill in the two lines `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, and save. If your keys are temporary (AWS SSO or an assumed role), also fill `AWS_SESSION_TOKEN`. Never share this file and never commit it to git.
 4. Start the program:
    ```bash
    make up
@@ -53,7 +61,11 @@ TrustOps checks the financial-crime risk of a change at a bank (a new product, a
 | What you see | What to do |
 |---|---|
 | `No rule to make target` | You are in the wrong folder. Go to the folder that contains the `Makefile` (step 1). |
+| `Cannot connect to the Docker daemon` | Docker is not running. Start Docker Desktop, or on Linux and WSL run `sudo service docker start`. |
+| `permission denied while trying to connect to the Docker daemon socket` | Linux: you are not in the `docker` group yet (see "Notes for your system"). |
 | It seems stuck while starting | It is probably still preparing. Wait two minutes and run `make ps`. If a line stays unhealthy, run `make logs svc=api` and read the last lines. |
+| `api` is unhealthy and its log says `Permission denied: '/keys/jwt.pem'` | Linux and WSL: the sign-in key was made before 8 October 2026 and only you could read it. Run `make keys` (it now fixes the permissions) and then `make up` again. |
+| `$'\r': command not found` or `bad interpreter` | Windows changed the line endings of the scripts. Clone the project again inside WSL (see "Notes for your system"). |
 | Errors about AWS keys, region or models | Check the two key lines in `.env`, and that your AWS account allows the AI models listed below. Then run `make up` again. |
 | A case stops moving | Run `make dlq`. If it lists a waiting message, the table "Troubleshooting" further down says how to release it. |
 | You want a clean start | `make demo-reset` resets only the example case. `make seed` reloads all sample data. |
@@ -67,7 +79,7 @@ TrustOps checks the financial-crime risk of a change at a bank (a new product, a
 
 **Look at the database (optional)**
 
-MongoDB is open on your own machine only, at port 27017, as soon as `make up` has finished. In MongoDB Compass, print your connection line first:
+MongoDB is open on your own machine only, at port 27017, as soon as `make up` has finished (on Windows, Compass running in Windows reaches it at the same address). In MongoDB Compass, print your connection line first:
 
 ```bash
 set -a; . ./.env; set +a
@@ -88,17 +100,17 @@ How to set up the repository, start the stack, drive the demo case by hand in th
 Run every command from the folder that holds the `Makefile` (`trustops/` inside the repository). `make` anywhere else fails with `No rule to make target`.
 
 ```bash
-cd ~/MacWorkspace/Hackathon/trustops_fcrm/trustops     # or wherever you cloned it
+cd trustops_fcrm/trustops     # inside your clone
 ```
 
 ## 1. What you need
 
 | Need | Notes |
 |---|---|
-| Docker Desktop with Compose v2, running | The default stack is 8 containers. Under `~/Downloads` macOS may block Docker's file mounts; keep the repository elsewhere (for example `~/MacWorkspace`) or grant Docker access in System Settings, Privacy and Security |
-| `uv` | Installs the Python 3.13 workspace. Put it in `~/.local/bin`; the Makefile adds that to `PATH` |
-| Node 22 and `npm` | Only for `make web-check`, `make web-install` and the dev server. `make up` builds the web image in Docker and needs no host Node |
-| `make`, `openssl`, `python3` | The macOS system versions work (GNU make 3.81). `make keys` uses `openssl`; `make env`, `make seed` and the waiters use `python3` |
+| Docker with Compose v2, running | Docker Desktop (macOS, Windows) or Docker Engine (Linux, or inside WSL 2). The default stack is 8 containers. macOS: under `~/Downloads` Docker's file mounts may be blocked; keep the repository elsewhere or grant Docker access in System Settings, Privacy and Security. Windows: work inside WSL 2 and keep the clone in the Linux file system, not under `/mnt/c/` |
+| `uv` | Installs the Python 3.13 workspace (uv fetches Python 3.13 itself). `curl -LsSf https://astral.sh/uv/install.sh \| sh` puts it in `~/.local/bin`; the Makefile adds that to `PATH` |
+| Node 22 and `npm` | Only for `make web-check`, `make web-install`, the dev server and the browser tests. Any install works as long as `node --version` prints 22 (for example `nvm install 22`, or your package manager). `make up` builds the web image in Docker and needs no host Node |
+| `git`, `make`, `openssl`, `python3`, `curl`, `bash` | GNU make 3.81 or later (the macOS system make works; Linux and WSL ship 4.x). `make keys` uses `openssl`; `make env`, `make seed` and the waiters use `python3`; `make tools` downloads OPA with `curl` and checks it with `sha256sum` or `shasum`. Ubuntu and WSL: `sudo apt install git make openssl python3 curl` |
 | AWS credentials with Amazon Bedrock access in the region of `AWS_DEFAULT_REGION` (default `us-east-1`) | Needed for every agent run and for the corpus embeddings that S3 does when `api` starts. There is no replay or mock mode (ADR-27) |
 | Several minutes and some disk for the first build | The images are built from the repository; `make bootstrap` also pulls the infrastructure images. Disk use was not measured |
 
@@ -119,16 +131,14 @@ One retry per job, and per case 160,000 tokens enforced and 120,000 as the targe
 ```bash
 make bootstrap     # uv sync the workspace, install the opa binary, install git hooks, pull the infrastructure images
 make env           # write .env: generated local passwords, an empty AWS block (never overwrites)
-make keys          # write the RS256 JWT keypair into jwt_keys/ (never overwrites)
+make keys          # write the RS256 JWT keypair into jwt_keys/ (never overwrites; readable by the api container)
 ```
 
-Add the AWS credentials without printing them. Either open `.env` and fill `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in section 1 (the region is pre-filled; uncomment `AWS_SESSION_TOKEN` for SSO or assumed-role keys), or export them in the shell that runs `make up`:
+Add the AWS credentials without printing them. Either open `.env` in any editor (`nano .env`, `code .env`) and fill `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in section 1 (the region is pre-filled; uncomment `AWS_SESSION_TOKEN` for SSO or assumed-role keys), or export them in the shell that runs `make up` (works in bash and zsh):
 
 ```bash
-open -e .env
-# or, for this shell only (zsh):
-read -rs "?AWS_ACCESS_KEY_ID: " AWS_ACCESS_KEY_ID; echo; export AWS_ACCESS_KEY_ID
-read -rs "?AWS_SECRET_ACCESS_KEY: " AWS_SECRET_ACCESS_KEY; echo; export AWS_SECRET_ACCESS_KEY
+printf 'AWS_ACCESS_KEY_ID: ';     read -rs AWS_ACCESS_KEY_ID;     echo; export AWS_ACCESS_KEY_ID
+printf 'AWS_SECRET_ACCESS_KEY: '; read -rs AWS_SECRET_ACCESS_KEY; echo; export AWS_SECRET_ACCESS_KEY
 ```
 
 `AWS_PROFILE` is not passed into the containers. Never commit `.env` or `jwt_keys/` (`ops/runbooks/secrets-and-keys.md`).
@@ -225,15 +235,15 @@ If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks
 
 ## 5. Make targets
 
-"Stack" means `make up` must be running. "Bedrock" means real model calls and real money. Times are what was measured or documented on 6 October 2026 (warm caches, Apple silicon); "not timed" means no measurement exists.
+"Stack" means `make up` must be running. "Bedrock" means real model calls and real money. Times are what was measured or documented on 6 October 2026 on one laptop (Apple silicon, warm caches); expect different times on other machines. "Not timed" means no measurement exists.
 
 | Target | What it does | Stack | Bedrock | Time |
 |---|---|---|---|---|
 | `help` | list targets | no | no | instant |
 | `bootstrap` | `tools`, `uv sync`, install git hooks, `pull` | no | no | minutes the first time (not timed) |
-| `tools` | install the pinned OPA 1.15.2 into `~/.local/bin` if missing | no | no | seconds |
+| `tools` | install the pinned OPA 1.15.2 into `~/.local/bin` if missing (the Linux or macOS build, Intel or ARM, picked from `uname`) | no | no | seconds |
 | `env` | write `.env` from `.env.example` with generated secrets; never overwrites | no | no | seconds |
-| `keys` | write the JWT keypair into `jwt_keys/`; `FORCE=1` rotates | no | no | instant |
+| `keys` | write the JWT keypair into `jwt_keys/` (0644, so the api container's own user can read it on Linux and WSL); an existing key keeps its value and gets those permissions; `FORCE=1` rotates | no | no | instant |
 | `pull` | pull the pinned images | no | no | minutes the first time |
 | `up-infra` | mongo, rabbitmq, minio, opa only | starts it | no | about a minute |
 | `up` | build and start the 8-container default stack | starts it | the corpus embedding at `api` start | build a few minutes, `api` about 85 s |
@@ -322,7 +332,10 @@ make gate          # check, test-int, datasets and eval self-check
 **Browser sweep of every screen (needs the application running on port 8080; makes no AI calls, about nine minutes):**
 
 ```bash
-cd src/frontend && npm run test:e2e:sweep
+cd src/frontend
+npm ci                                  # once per checkout (Node 22 on PATH)
+npx playwright install --with-deps chromium   # once per machine: the test browser (--with-deps installs its Linux libraries; drop it on macOS)
+npm run test:e2e:sweep
 ```
 
 It opens every screen as the product owner, the analyst, a committee member, the observer and a signed-out visitor, clicks every safe button and tab, checks the access rules in both directions, tabs through each page and runs an accessibility scan. It never uploads a document, submits, votes or publishes, so it costs nothing. Its report is `src/frontend/test-results/sweep-report.json`, with screenshots beside it. The results of each level of testing, with dates, are in `docs/governance/test-report.md`.
@@ -351,7 +364,7 @@ On 6 October 2026 `make check` was green on the tree of `53a1476`: 7707 passed, 
 | `make: *** No rule to make target 'bootstrap'` | You are not in the folder with the `Makefile` |
 | `429 Too Many Requests` on login | the login limit is 10 a minute per address, at the gateway and in identity. Wait a minute; reuse tokens |
 | `make up` seems stuck on `api` | it takes about 85 s: S3 embeds 197 clauses on Bedrock. `make logs svc=api` shows progress or an error. With no or expired AWS credentials expect a failure there |
-| Everything stalls after the laptop slept | Docker paused the VM; in-flight Bedrock calls timed out. On the build machine, closing the lid on battery stalled every background job and looked like an API fault (D-50): keep it plugged in with the lid open, or `sudo pmset -a disablesleep 1`, and check `pmset -g log` for sleep events first. Then `make ps`, `make dlq`; replay what is parked (`make dlq-replay q=<queue>`) or `docker compose restart harness` |
+| Everything stalls after the laptop slept | Docker paused its virtual machine; in-flight Bedrock calls timed out. Closing the lid on battery once stalled every background job and looked like an API fault (D-50). Keep the machine awake while a case is running (on macOS, `caffeinate -i` in a second terminal does it). Then `make ps`, `make dlq`; replay what is parked (`make dlq-replay q=<queue>`) or `docker compose restart harness` |
 | A case stops moving | `make dlq` and `make logs svc=harness`; a parked `caseflow.steps` message freezes a run until fixed and replayed (`ops/runbooks/dlq-replay.md`). List every queue with `docker compose exec -T rabbitmq rabbitmqctl -q list_queues name messages consumers` |
 | The case shows "handed to a person" | an agent failed twice and the run is in `handoff`: open the Summary tab and use "Complete by hand" (the form shows what the agent was given). Check Bedrock (`ops/runbooks/bedrock-outage-and-fallbacks.md`); a manual output's claims are not matched to their sources |
 | Every API call returns `503` | OPA is unreachable and the services fail closed. `make ps`, `make logs svc=opa` |
@@ -359,15 +372,20 @@ On 6 October 2026 `make check` was green on the tree of `53a1476`: 7707 passed, 
 | I need to run the demo again | `make demo-reset` (this case only); `make seed` (everything); `make down-v` then `make up` (everything, including volumes) |
 | `port is already allocated` | another stack holds the port. Set the matching `*_HOST_PORT` in `.env` (for example `GATEWAY_HOST_PORT=9080`) |
 | `mkdir /host_mnt/Users/<you>/Downloads: operation not permitted` | macOS blocks Docker's access to `~/Downloads`: grant it, or move the repository |
+| `api` unhealthy, its log says `Permission denied: '/keys/jwt.pem'` | Linux and WSL 2: the api runs as its own user (uid 10001), and a key made by the earlier `make keys` was readable only by you. `make keys` sets 0644 on the existing key without changing it; then `make up` |
+| `$'\r': command not found` or `bad interpreter` in a container | the scripts were checked out with Windows line endings (`core.autocrlf=true` on a clone under `/mnt/c/`). The repository's `.gitattributes` now forces Unix endings; clone again inside the WSL file system |
+| `Cannot connect to the Docker daemon` | Docker is not running: start Docker Desktop, or `sudo service docker start` on Linux and WSL |
+| `permission denied while trying to connect to the Docker daemon socket` | Linux: `sudo usermod -aG docker $USER`, then sign out and back in |
 | `audit` restarts with `ChainVerifyFailedError` | the Mongo volume holds audit records written under an older hash format (D-29). `make down-v` and start again |
 | `api` fails asking for `DEMO_USERS_PASSWORD_HASH` | `.env` predates D-25: move it aside and run `make env` |
 | `make up-obs` stops with `obs-env: .env has no ZO_ROOT_USER_PASSWORD` | an older `.env` (`make env` never overwrites): add `ZO_ROOT_USER_EMAIL=admin@trustops.example` and `ZO_ROOT_USER_PASSWORD=Oo-` followed by the output of `openssl rand -hex 14`; OpenObserve needs upper and lower case, a digit and a symbol |
 | OpenObserve restarts and its log says the password is too weak | `ZO_ROOT_USER_PASSWORD` lacks a character class; fix `.env`, then `make down-v` (the login is stored on the first start, and `down-v` deletes the stored logs too) |
 | `up` stops naming `MONGO_EVALS_READER_PASSWORD` | an older `.env`: add the line `MONGO_EVALS_READER_PASSWORD=` followed by any URL-safe string (`openssl rand -hex 16`); no `down-v` needed |
 | The login page shows a password form, not the picker | identity serves the picker only when `DEMO_USERS_ENABLED=true` and `ENV` is `local`, `test` or `ci`. Use `riyer` and the demo password |
-| Dev server says `Port 5173 is already in use` | an earlier `npm run dev` survives: `kill $(lsof -tnP -iTCP:5173 -sTCP:LISTEN)` |
+| Dev server says `Port 5173 is already in use` | an earlier `npm run dev` survives: `kill $(lsof -tnP -iTCP:5173 -sTCP:LISTEN)` (or `fuser -k 5173/tcp` on Linux) |
 | Every screen errors on the dev server | `npm run dev` is the live mode and proxies to :8080: `make up` first, or use `npm run dev:msw` |
-| `ports are not available ... 6379` | a Homebrew `redis-server` holds the port (only with `up-cache` and `up-debug`): `brew services stop redis` or set `REDIS_HOST_PORT` |
+| `ports are not available ... 6379` | a Redis on your machine holds the port (only with `up-cache` and `up-debug`): stop it (`brew services stop redis` on macOS, `sudo service redis-server stop` on Linux) or set `REDIS_HOST_PORT` |
+| `port is already allocated` on 27017 | a MongoDB on your machine holds the port: add `MONGO_HOST_PORT=27018` to `.env` and `make up` again |
 | A stray `make down-v` deleted my data | there is no backup unless you made one (`ops/runbooks/backup-restore.md`); `make up` reseeds the 80 cases |
 
 More: `ops/runbooks/README.md` indexes one short page per task (start, stop, reset, dead letters, restarts, outages, secrets, backups, audit chain, agent incidents, release).

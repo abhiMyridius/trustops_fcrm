@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Engine path | `/Users/apahuja/MacWorkspace/EVOQ_Applications/AEO/aeocontextjob/evoq_context/` |
+| Engine path | `EVOQ_Applications/AEO/aeocontextjob/evoq_context/` |
 | Repository | `aeocontextjob` (its own git repo), branch `v2_refactor` |
 | Commit | `65024e3318247f1aedcff1872b7a4d6847ca8055` (2026-09-15, "Replace context engine with evoq_context package (v2 refactor)"); working tree clean |
 | Shared contracts | `AEO/contracts/fixtures/vectors_fixture.json` (not under git) copied into the suite's fixtures |

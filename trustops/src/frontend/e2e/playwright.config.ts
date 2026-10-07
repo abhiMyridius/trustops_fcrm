@@ -1,21 +1,8 @@
 /**
  * Playwright config for TrustOps's web app, run against its own MSW-mocked dev server
- * (`npm run dev:msw`), not the composed stack. The live counterpart is playwright.live.config.ts.
- *
- * BUILD-PLAN.md / docs/architecture/design/C-web-tests-ops-sdlc.md describe a `/tests/e2e`
- * Playwright suite with a `baseURL` of `http://localhost:8080` (the nginx gateway in front of
- * the real, composed 23-container stack, `FCRM_LLM_MODE=replay`) driving all 21 demo scenes plus
- * a third-party black-box smoke test. That stack cannot be brought up end to end on this host
- * today (see CLAUDE.md / the integration-lane brief: most services have no real HTTP layer yet,
- * and this machine's Docker Desktop has a `~/Downloads` bind-mount permission issue) -- so this
- * config intentionally does not point at port 8080 or try to start docker-compose.
- *
- * Instead it starts the web app's own standalone dev server (`npm run dev:msw`, MSW-backed,
- * `VITE_API_MODE=msw`) and runs real, scripted browser scenes against it.
- * These are genuine, runnable, passing tests today -- not a live-stack rehearsal. When the real
- * services and the nginx gateway exist, the composed-stack config described in the design doc
- * belongs at the repo-root `tests/e2e/` (per that doc's own tree), reusing these scene scripts
- * with `baseURL` swapped to the gateway and MSW turned off; that migration is not done here.
+ * (`npm run dev:msw`, `VITE_API_MODE=msw`), not the composed stack, so it needs no Docker and
+ * no AWS keys. The suites against the running stack on :8080 are playwright.live.config.ts
+ * (the live scenes) and playwright.sweep.config.ts (the browser sweep of every screen).
  */
 import { defineConfig, devices } from '@playwright/test';
 

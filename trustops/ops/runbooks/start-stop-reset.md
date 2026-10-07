@@ -53,7 +53,7 @@ docker compose exec -T rabbitmq rabbitmqctl -q list_queues name messages consume
 
 ## When the laptop sleeps
 
-Docker Desktop pauses the VM. On wake, containers resume but Bedrock calls that were in flight have timed out, and RabbitMQ may redeliver. Run `make ps`, then `make dlq`. If a `*.dlq` queue holds messages, follow [dlq-replay.md](dlq-replay.md). If a case sits still with empty DLQs, restart the harness (`docker compose restart harness`, see [restart-a-worker.md](restart-a-worker.md)).
+Docker Desktop (macOS, Windows) pauses its virtual machine, and on Linux the whole machine suspends. On wake, containers resume but Bedrock calls that were in flight have timed out, and RabbitMQ may redeliver. Run `make ps`, then `make dlq`. If a `*.dlq` queue holds messages, follow [dlq-replay.md](dlq-replay.md). If a case sits still with empty DLQs, restart the harness (`docker compose restart harness`, see [restart-a-worker.md](restart-a-worker.md)).
 
 ## Checked and not checked
 

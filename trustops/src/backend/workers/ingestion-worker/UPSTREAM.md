@@ -4,10 +4,10 @@
 
 | | |
 |---|---|
-| Engine path | `/Users/apahuja/MacWorkspace/EVOQ_Applications/AEO/aeoingestionjob/evoq_ingestion/` |
+| Engine path | `EVOQ_Applications/AEO/aeoingestionjob/evoq_ingestion/` |
 | Repository | `aeoingestionjob` (its own git repo), branch `v2_refactor` |
 | Commit | `4dfa617c9c19ee4788c835cbc173fa7926cf65b5` (2026-09-15, "Add comprehensive tests for upload pipeline and source handling"); `evoq_ingestion/` clean at that commit |
-| Shared contracts | `/Users/apahuja/MacWorkspace/EVOQ_Applications/AEO/contracts/` (not under git): `canonical_document.md` and `fixtures/corpus/` copied |
+| Shared contracts | `EVOQ_Applications/AEO/contracts/` (not under git): `canonical_document.md` and `fixtures/corpus/` copied |
 | Cloned on | 2026-10-03/04 |
 
 Only the engine was cloned. The AEO host (`app.py`, `jobs/`, `evoqqueue/`, `drivers/`, `config/`) was not: its known bugs (runner always marking COMPLETED, nack without DLQ, timestamp job ids, no lease) are therefore absent here, and the replacement host (`fcrm_ingestion_worker`, FastStream wiring via `fcrm_common`) is TrustOps code.

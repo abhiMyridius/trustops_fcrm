@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Source path | `~/MacWorkspace/EVOQ_Applications/AEO/evoqidentityservice/` |
+| Source path | `EVOQ_Applications/AEO/evoqidentityservice/` |
 | Repository | `evoqidentityservice` (its own CodeCommit git repo) |
 | Commit | `3390ce93ebb2d092760e86163a15bfcc49dd040b` ("fixed dockerignore issue"); working tree clean |
 | Cloned on | 2026-10-04 |

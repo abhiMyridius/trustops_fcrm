@@ -3,7 +3,7 @@
 React 19 + TypeScript (strict, `noUncheckedIndexedAccess`, `verbatimModuleSyntax`) + Vite 8 + Tailwind v4 + TanStack Query 5 + React Router 7 + MSW 2. Rebuilt from scratch (ADR-06); FCRM_v2 contributed tokens and IA only.
 
 ```bash
-export PATH="$HOME/.local/node22/bin:$PATH"
+node --version     # must print v22 (any install: nvm, fnm, a package manager); npm ci once per checkout
 npm run dev        # :5173, live: Vite proxies /api to the gateway on :8080 (the stack must be up)
 npm run dev:msw    # :5173, VITE_API_MODE=msw: the in-browser mock backend from the P7 seed, no stack needed
 npm run typecheck  # tsc -b --noEmit
