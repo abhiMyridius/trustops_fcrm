@@ -16,7 +16,8 @@ export function SimpleBarChart({
   const vertical = layout === 'vertical';
   return (
     <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 400, height: 200 }}>
-      <BarChart data={data} layout={vertical ? 'vertical' : 'horizontal'} margin={{ top: 16, right: 28, bottom: 4, left: vertical ? 8 : -12 }}>
+      {/* No accessibility layer: it puts tabindex=0 on the svg, inside the card's aria-hidden picture. The figures are in the card's table. */}
+      <BarChart accessibilityLayer={false} data={data} layout={vertical ? 'vertical' : 'horizontal'} margin={{ top: 16, right: 28, bottom: 4, left: vertical ? 8 : -12 }}>
         <CartesianGrid stroke={CHART.grid} horizontal={!vertical} vertical={vertical} />
         {vertical ? (
           <>

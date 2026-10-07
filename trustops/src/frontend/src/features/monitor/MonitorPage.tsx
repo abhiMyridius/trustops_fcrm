@@ -64,7 +64,15 @@ export function MonitorPage() {
   }, [lines, paused]);
 
   if (q.isPending) return <SkeletonCard lines={6} label="Loading harness" />;
-  if (q.isError) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
+  // The loaded page's h1 sits in its header; the error and "no run recorded" views keep a heading of their own.
+  if (q.isError) {
+    return (
+      <>
+        <h1 className="sr-only">Harness monitor · {caseId}</h1>
+        <ErrorState error={q.error} onRetry={() => void q.refetch()} />
+      </>
+    );
+  }
   const h = q.data;
   const ratio = (h.counters.tokens_used / h.counters.tokens_budget) * 100;
 

@@ -757,6 +757,7 @@ Redis (X7, cache only): `jwks:{kid}` 10 min; `validate:{sha256(token)}` 60 s (fa
 ```
 FcrmError(code: str, status: int, detail: str, extra: dict)          # base; never raised directly
 ├── NotFound(404, "not_found")
+│   └── NoRunRecorded(404, "no_run_recorded")  # the case exists but no run has recorded anything (the harness monitor of a seeded case); the web shows information, not an error
 ├── Conflict(409, "conflict")                 # duplicate vote, round already open, idempotency replay mismatch
 ├── ValidationFailed(422, "validation_failed", errors[])
 ├── Unauthorized(401, "unauthorized") · Forbidden(403, "forbidden") · AuthzUnavailable(503, "authz_unavailable")

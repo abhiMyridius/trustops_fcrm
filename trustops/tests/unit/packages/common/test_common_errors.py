@@ -15,6 +15,7 @@ from pymongo.errors import DuplicateKeyError, ServerSelectionTimeoutError
 
 CASES = [
     (errors.NotFoundError, 404, "not_found", "Not found"),
+    (errors.NoRunRecordedError, 404, "no_run_recorded", "No run recorded"),
     (errors.ValidationError, 422, "validation_failed", "Validation failed"),
     (errors.ConflictError, 409, "conflict", "Conflict"),
     (errors.RuleViolationError, 409, "rule_violation", "Rule violation"),
@@ -106,6 +107,14 @@ def test_error_defaults_detail_to_title_and_keeps_extra():
     assert err.extra == {"rule_id": "R6"}
     assert err.type_uri.endswith("/rule_violation")
     assert isinstance(err, errors.ConflictError)
+
+
+def test_no_run_recorded_is_a_404_the_plain_not_found_handler_would_also_catch():
+    err = errors.NoRunRecordedError("no harness run is recorded for case C-1")
+    assert isinstance(err, errors.NotFoundError)
+    assert err.status_code == 404
+    assert err.type_uri == "https://trustops.local/errors/no_run_recorded"
+    assert err.type_uri != errors.NotFoundError().type_uri
 
 
 def test_request_validation_maps_to_422_problem_without_input_echo():

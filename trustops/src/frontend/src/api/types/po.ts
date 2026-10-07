@@ -211,13 +211,6 @@ export interface ActivityEventPO {
   text: string;
 }
 
-/** What the PO learns about the audit chain: that it verifies, and how long it is (design A §2.4). */
-export interface ChainStatusPO {
-  ok: boolean;
-  count: number;
-  verified_at: string;
-}
-
 export interface Integration {
   id: string;
   name: string;

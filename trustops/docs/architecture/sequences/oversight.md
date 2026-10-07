@@ -101,7 +101,7 @@ sequenceDiagram
 | `GET /agent-quality?week=` | analyst, committee, observer | each agent's primary eval metric in the week's latest run, regressions, drift against the previous week; 404 when nothing was published (the web's empty state) |
 | `GET /agent-quality/dashboard` | analyst, committee, observer | the latest published self-contained dashboard, `text/html` under `default-src 'none'; style-src 'unsafe-inline'`, no script, no frame, no form |
 
-The overrides and versions are case data: analysts only. The agent quality is not case data, so the observer (ADR-19) may read it; the PO reads none of this, and no row carries a score, a band or a model id (the eval documents hold labels only). The eval results are in `fcrm_evals`, read through S4's **own read-only credential** (`MONGODB_URI_EVALS_READER`, role `fcrmEvalsReadOnly`: `find` on `eval_runs` and `eval_dashboards`); the insert-only audit role never reaches beyond `fcrm_audit`, and without the credential these two routes answer 503.
+The overrides and versions are case data: analysts only. The agent quality is not case data, so S4's OPA rows let the committee and the observer's tokens read it through the API; the screen is the analyst's alone (Assurance › Agent quality). ADR-19 gives the observer the harness monitor and nothing else, so the web offers the observer no page that calls these routes. The PO reads none of this, and no row carries a score, a band or a model id (the eval documents hold labels only). The eval results are in `fcrm_evals`, read through S4's **own read-only credential** (`MONGODB_URI_EVALS_READER`, role `fcrmEvalsReadOnly`: `find` on `eval_runs` and `eval_dashboards`); the insert-only audit role never reaches beyond `fcrm_audit`, and without the credential these two routes answer 503.
 
 ## Who sees what
 
@@ -110,7 +110,8 @@ The overrides and versions are case data: analysts only. The agent quality is no
 | Ask the examiner, read an answer | no | yes | yes | no | answers only |
 | Re-flags (list, acknowledge) | no | yes | no | no | creates, never acknowledges |
 | Overrides, versions | no | yes | no | no | no |
-| Agent quality and dashboard | no | yes | yes | yes | no |
+| Agent quality and dashboard, by the API | no | yes | yes | yes | no |
+| Agent quality screen (the web) | no | yes | no | no | no |
 
 ## Failure semantics
 

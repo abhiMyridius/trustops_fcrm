@@ -1,6 +1,7 @@
 /** S4 audit projections: records, chain verify, examiner (grounded in the chain), overrides, agent quality. */
 import type { AuditRecord, VerifyResult } from '@/api/types/analyst';
 import type { AgentQuality, ExaminerAnswer, OverrideRow, VersionsRow } from '@/api/types/config';
+import { isoWeekOf } from '@/lib/isoWeek';
 import { fakeHash, getDB } from '../db';
 import { seed } from '../seed';
 import { nameOf } from '../users';
@@ -14,7 +15,7 @@ export function records(caseId: string): AuditRecord[] {
 /** Re-walks the chain: each record's prev_hash must equal the previous hash and its hash must recompute. */
 export function verify(caseId: string): VerifyResult {
   const recs = getDB().demo.audit;
-  if (!isDemo(caseId)) return { ok: true, count: 0, head_hash: '', first_broken_seq: null, verified_at: new Date().toISOString() };
+  if (!isDemo(caseId)) return { case_id: caseId, record_count: 0, ok: true, first_break_seq: null };
   let prev = fakeHash('genesis:' + seed.demo.id);
   let broken: number | null = null;
   for (const r of recs) {
@@ -25,7 +26,7 @@ export function verify(caseId: string): VerifyResult {
     }
     prev = r.hash;
   }
-  return { ok: broken === null, count: recs.length, head_hash: recs[recs.length - 1]?.hash ?? '', first_broken_seq: broken, verified_at: new Date().toISOString() };
+  return { case_id: caseId, record_count: recs.length, ok: broken === null, first_break_seq: broken };
 }
 
 /**
@@ -73,9 +74,14 @@ export function overrides(agent?: string): OverrideRow[] {
   return rows.filter((r) => !agent || r.agent === agent);
 }
 
-export function agentQuality(week: string): AgentQuality {
+/** The one week the seed publishes, as S4 spells a week (`2026-W40`). */
+export const PUBLISHED_WEEK = isoWeekOf(new Date(`${seed.evals.week}T12:00:00Z`));
+
+/** The published run for `week` (the newest when none is asked for), or `null` when nothing was published for it (S4: 404). */
+export function agentQuality(week: string | null): AgentQuality | null {
+  if (week !== null && week !== PUBLISHED_WEEK) return null;
   return {
-    week: week || seed.evals.week,
+    week: PUBLISHED_WEEK,
     golden_cases: seed.evals.golden_cases,
     regressions: seed.evals.regressions,
     drift: seed.evals.weekly_drift,

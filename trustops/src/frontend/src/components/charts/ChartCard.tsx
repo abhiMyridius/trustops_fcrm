@@ -25,7 +25,8 @@ export function ChartCard({
 }) {
   return (
     <Card title={title} subtitle={insight}>
-      <div aria-hidden style={{ height }} className="w-full">
+      {/* Hidden from assistive technology, so also out of the tab order: `inert` keeps anything inside from taking focus. */}
+      <div aria-hidden inert style={{ height }} className="w-full">
         {children}
       </div>
       <table className="sr-only">

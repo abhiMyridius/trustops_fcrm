@@ -1,6 +1,7 @@
-/** S4 audit stand-in. The PO receives only {ok, count, verified_at} from verify (design A §2.4). */
+/** S4 audit stand-in. The PO reads nothing from S4: verify is analyst and committee only (OPA rows audit-get-verify-all-*). */
 import { HttpResponse, http } from 'msw';
 import { API_PREFIX, paths } from '@/api/endpoints';
+import { ISO_WEEK } from '@/lib/isoWeek';
 import { body, guarded, page, problem } from '../http';
 import { seed } from '../seed';
 import { agentQuality, examiner, overrides, records, verify, versionsFor } from '../views/audit';
@@ -14,11 +15,9 @@ export const auditHandlers = [
       return page(records(caseId));
     }),
   ),
+  // S4 answers analyst and committee (and the service); the PO and the observer get 403, as the real OPA rows say.
   http.get(`${API_PREFIX}/audit/verify/:caseId`, ({ request, params }) =>
-    guarded(request, 'any', ({ role }) => {
-      const v = verify(String(params.caseId));
-      return HttpResponse.json(role === 'fcrm_po' ? { ok: v.ok, count: v.count, verified_at: v.verified_at } : v);
-    }),
+    guarded(request, ['fcrm_analyst', 'fcrm_committee'], () => HttpResponse.json(verify(String(params.caseId)))),
   ),
   http.post(paths.audit.examinerAsk, ({ request }) =>
     guarded(request, ['fcrm_analyst'], async () => {
@@ -30,8 +29,15 @@ export const auditHandlers = [
   http.get(paths.audit.overrides, ({ request }) =>
     guarded(request, ['fcrm_analyst'], () => page(overrides(new URL(request.url).searchParams.get('agent') ?? undefined))),
   ),
+  // The agents' quality is not case data: analyst, committee and observer may read it (S4's OPA rows). The week is
+  // an ISO week or absent (the newest); anything else is a 422, and a week with no published run is a 404.
   http.get(paths.audit.agentQuality, ({ request }) =>
-    guarded(request, ['fcrm_analyst'], () => HttpResponse.json(agentQuality(new URL(request.url).searchParams.get('week') ?? ''))),
+    guarded(request, ['fcrm_analyst', 'fcrm_committee', 'fcrm_observer'], () => {
+      const week = new URL(request.url).searchParams.get('week');
+      if (week !== null && !ISO_WEEK.test(week)) return problem(422, 'Validation failed', 'The request did not match the expected schema.');
+      const quality = agentQuality(week);
+      return quality ? HttpResponse.json(quality) : problem(404, 'Not found', 'No agent evaluation has been published for that week.');
+    }),
   ),
   http.get(`${API_PREFIX}/audit/versions/:caseId`, ({ request, params }) =>
     guarded(request, ['fcrm_analyst'], () => page(versionsFor(String(params.caseId)))),

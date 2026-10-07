@@ -9,7 +9,7 @@ import { Activity, ExternalLink, ShieldCheck } from 'lucide-react';
 import { useAcknowledge, useWorkbench } from '@/api/queries/analystQueries';
 import { useHarness } from '@/api/queries/harnessQueries';
 import { useCaseStream, useStreamStatus } from '@/api/sse/useCaseStream';
-import { userMessage } from '@/api/errors';
+import { NO_RUN_MESSAGE, isNoRunRecorded, userMessage } from '@/api/errors';
 import { StageTracker } from '@/components/domain/StageTracker';
 import { TwoClocks } from '@/components/domain/TwoClocks';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -28,7 +28,7 @@ function HarnessDrawer({ caseId, open, onClose }: { caseId: string; open: boolea
   const h = useHarness(caseId, { poll: open && stream !== 'live' });
   return (
     <Drawer open={open} onClose={onClose} title="Harness · live agent state" width="sm">
-      {h.isError && <p className="text-sm text-text-muted">No harness run is recorded for this case.</p>}
+      {h.isError && <p className="text-sm text-text-muted">{isNoRunRecorded(h.error) ? NO_RUN_MESSAGE : userMessage(h.error)}</p>}
       {h.data && (
         <dl className="grid grid-cols-2 gap-3 text-sm">
           <dt className="text-text-muted">Core</dt>

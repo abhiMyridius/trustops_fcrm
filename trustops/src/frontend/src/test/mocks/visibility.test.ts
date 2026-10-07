@@ -23,7 +23,6 @@ const PO_PATHS = [
   paths.cases.outcome(DEMO),
   paths.cases.activity(DEMO),
   paths.cases.integrations,
-  paths.audit.verify(DEMO),
 ];
 
 /** The PO routes that return a list; each answers a Page (the web unwraps it with apiList). */
@@ -67,6 +66,13 @@ describe('BB-02 · the PO never receives score, band, rating, clause, vote or ha
     expect((await call(token, paths.cases.workbench(DEMO))).status).toBe(403);
     expect((await call(token, paths.cases.risk(DEMO))).status).toBe(403);
     expect((await call(token, paths.decision.committeeQueue)).status).toBe(403);
+  });
+
+  it('answers 403 to the PO on the audit chain: S4 serves verify to the analyst and the committee only', async () => {
+    resetMockState('closed');
+    const token = await tokenFor(USERS.priya);
+    expect((await call(token, paths.audit.verify(DEMO))).status).toBe(403);
+    expect((await call(token, paths.audit.records)).status).toBe(403);
   });
 });
 

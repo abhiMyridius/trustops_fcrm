@@ -28,7 +28,9 @@
   /* Text */
   --color-text-primary: #0c2226;
   --color-text-secondary: #285055;
-  --color-text-muted: #52787d;
+  /* Muted text: #4a6c70 is 5.7:1 on white and at least 4.5:1 on every tint it sits on (ink-2 to ink-4, the surface and
+     semantic tints); the earlier #52787d was 4.8:1 on white but 3.9 to 4.4:1 on the tinted table heads and tab bars (D-110). */
+  --color-text-muted: #4a6c70;
   --color-text-faint: #9caaab;
   --color-text-on-dark: #ffffff;
   --color-text-on-dark-muted: #c7d5d5;

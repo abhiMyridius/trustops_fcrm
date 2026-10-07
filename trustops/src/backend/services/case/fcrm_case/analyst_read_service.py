@@ -13,7 +13,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Optional
 
-from fcrm_common.errors import NotFoundError, ValidationError
+from fcrm_common.errors import NoRunRecordedError, NotFoundError, ValidationError
 from fcrm_common.pagination import decode_cursor, encode_cursor
 from fcrm_common.time import utcnow
 from fcrm_contracts.api.case_analyst_read import (
@@ -457,13 +457,16 @@ class AnalystReadService:
         """The latest snapshot of the case's harness run, as Caseflow pushed it.
 
         Raises:
-            fcrm_common.errors.NotFoundError: no such case, or no run has pushed a
-                snapshot yet (the monitor shows "no harness run is recorded").
+            fcrm_common.errors.NotFoundError: no such case.
+            fcrm_common.errors.NoRunRecordedError: the case exists but no run has
+                pushed a snapshot yet (a seeded case, or one still at intake). It is
+                a 404 whose problem type ends in ``/no_run_recorded``, which the
+                monitor shows as information, not as an error.
         """
         await self.case(case_id)
         snapshot = await self._reads.get_harness(case_id)
         if snapshot is None:
-            raise NotFoundError(f"no harness run is recorded for case {case_id}")
+            raise NoRunRecordedError(f"no harness run is recorded for case {case_id}")
         return snapshot
 
     async def put_harness(self, case_id: str, push: HarnessPush) -> HarnessPushResult:

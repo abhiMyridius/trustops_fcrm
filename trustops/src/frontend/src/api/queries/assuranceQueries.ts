@@ -59,9 +59,14 @@ export function useOverrides(filters: { agent?: string }) {
   });
 }
 
-export function useAgentQuality(week: string) {
+/**
+ * Agent quality for an ISO week (`2026-W40`, see lib/isoWeek.ts), or for the newest published week when
+ * none is given. S4 answers 404 when nothing was published for the week (the tab's empty state) and 422
+ * for a week that is not in ISO form, so callers pass the result of `weekParam`, never a raw date.
+ */
+export function useAgentQuality(week?: string) {
   return useQuery({
-    queryKey: keys.audit('agent-quality', { week }),
+    queryKey: keys.audit('agent-quality', { week: week ?? 'latest' }),
     queryFn: () => api<AgentQuality>(paths.audit.agentQuality, { query: { week } }),
   });
 }

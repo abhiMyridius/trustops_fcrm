@@ -169,7 +169,7 @@ Every seeded user shares one password, `demo-password-2026` (override with `make
 | Product owner | Priya Nair, `pnair` (also `tgold`, `skim`, `mros`, `ldia`) | `/` | her cases, documents, the questions FCRM asks her, conditions, the plain outcome. **Never** a score, band, rating, critic finding, vote or harness event; 403 on the monitor and on every analyst, scoring and decision route |
 | FCRM analyst | Rahul Iyer, `riyer` (also `mshah`, `dbrooks`) | `/analyst` | the queue, the workbench for a case (summary, submission, inbox, policy, risk and controls, recommendation, handoff, activity), Assurance (ask the examiner, overrides, watchlist, agent quality), Configuration (eight sections), the harness monitor |
 | Risk committee | Ana Mendes `amendes`, Joseph Okafor `jokafor`, Lin Chen `lchen` | `/committee` | the packs released to them, the pack (read-only), questions, their own vote. Other votes stay hidden until all three are cast |
-| Observer | Panel Observer, `observer` | `/monitor/<case>` | the harness monitor and agent quality only; no pack, no audit records |
+| Observer | Panel Observer, `observer` | `/monitor/<case>` | the harness monitor only (ADR-19): it is the one screen the web gives this role, and the monitor of a case with no run says so as information. No pack, no audit records, no Assurance screens. The API's OPA rows would still answer this token on `GET /audit/agent-quality` (agent quality is not case data), but no observer page calls it |
 
 The demo needs five people (Priya, Rahul, Ana, Joseph, Lin) across three working roles. Services also call each other with a service account (HMAC tokens); it is not a person and cannot decide a gate (Guard 7).
 

@@ -9,7 +9,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowRight, KeyRound, ShieldCheck } from 'lucide-react';
 import { api } from '@/api/client';
-import { userMessage } from '@/api/errors';
+import { signInMessage, userMessage } from '@/api/errors';
 import { useDemoUsers } from '@/api/queries/authQueries';
 import type { DemoUser } from '@/api/types/common';
 import { useAuth } from '@/auth/AuthProvider';
@@ -88,7 +88,7 @@ export function LoginPage() {
       const role = principal.roles[0];
       navigate(next && next.startsWith('/') ? next : role ? homeFor(role) : '/', { replace: true });
     } catch (err) {
-      toast.error('Sign-in failed', userMessage(err));
+      toast.error('Sign-in failed', signInMessage(err));
     } finally {
       setBusy(null);
     }

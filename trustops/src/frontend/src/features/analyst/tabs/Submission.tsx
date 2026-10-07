@@ -52,7 +52,7 @@ export function SubmissionTab() {
       header: 'Value',
       cell: (f) => (
         <div>
-          {f.value ?? <span className="text-text-faint">open</span>}
+          {f.value ?? <span className="text-text-muted">open</span>}
           {f.was && (
             <p className="text-[11px] text-text-muted">
               was {f.was.value} ({f.was.source})

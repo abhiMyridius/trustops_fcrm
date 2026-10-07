@@ -30,8 +30,6 @@ export interface Visit {
 export interface VisitOptions {
   /** Extra wait after the page looks ready, for secondary queries to land and console errors to surface. */
   settleMs?: number;
-  /** Desired-behaviour defects that already own a red Retry banner on this page (see 04-desired.spec.ts). */
-  knownBanner?: 'E1' | 'E2';
   /** A page that is meant to redirect or refuse; the judge does not require a heading for it. */
   allowNoHeading?: boolean;
   /** Extra problems found by the caller (for example a tab that did not become selected). */
@@ -125,16 +123,11 @@ export function judge(v: Visit, opts: VisitOptions = {}): { result: Result; prob
   const problems: string[] = [];
   const known: string[] = [];
   if (!v.landmark) problems.push('no main landmark');
-  const bannerOwned = Boolean(opts.knownBanner) && v.retryBanners.length > 0;
-  if (!v.heading && !opts.allowNoHeading && !bannerOwned) problems.push('no page heading');
-  if (!v.heading && bannerOwned) known.push(`${opts.knownBanner}: the page has no heading while the error banner shows`);
+  if (!v.heading && !opts.allowNoHeading) problems.push('no page heading');
   for (const e of v.watch.pageErrors) problems.push(`uncaught page error: ${e}`);
   for (const e of v.watch.consoleErrors) problems.push(`console.error: ${e}`);
   for (const f of v.watch.failed) problems.push(`${f.status >= 500 ? 'server error' : 'unexpected'} ${f.status} on ${f.method} ${f.path}`);
-  if (v.retryBanners.length > 0) {
-    if (opts.knownBanner) known.push(`${opts.knownBanner}: red error banner with Retry (${v.retryBanners[0]?.slice(0, 80)})`);
-    else problems.push(`red error banner with a Retry button: ${v.retryBanners[0]?.slice(0, 120)}`);
-  }
+  if (v.retryBanners.length > 0) problems.push(`red error banner with a Retry button: ${v.retryBanners[0]?.slice(0, 120)}`);
   return { result: problems.length > 0 ? 'fail' : 'pass', problems, known };
 }
 

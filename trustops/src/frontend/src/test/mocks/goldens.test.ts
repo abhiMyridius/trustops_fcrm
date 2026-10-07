@@ -58,7 +58,7 @@ describe('demo goldens through the API', () => {
     const t = await tokenFor(USERS.rahul);
     const v = await json<VerifyResult>(await call(t, paths.audit.verify(DEMO)));
     expect(v.ok).toBe(true);
-    expect(v.count).toBe(67);
+    expect(v.record_count).toBe(67);
     const h = await json<HarnessSnapshot>(await call(t, paths.cases.harness(DEMO)));
     expect(h.counters.audit_records).toBe(67);
     expect(h.counters.tokens_used).toBeLessThanOrEqual(h.counters.tokens_budget);

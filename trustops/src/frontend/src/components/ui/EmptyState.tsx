@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { Inbox, RotateCcw, TriangleAlert } from 'lucide-react';
-import { ApiError, userMessage } from '@/api/errors';
+import { ApiError, isNoRunRecorded, userMessage } from '@/api/errors';
 import { getTraceId } from '@/api/client';
+import { Banner } from './Banner';
 import { Button } from './Button';
 
 export function EmptyState({ title, body, action, icon }: { title: string; body?: ReactNode; action?: ReactNode; icon?: ReactNode }) {
@@ -17,8 +18,19 @@ export function EmptyState({ title, body, action, icon }: { title: string; body?
   );
 }
 
-/** Inline query error with the server message, the trace id and Retry; the rest of the page stays usable. */
+/**
+ * Inline query error with the server message, the trace id and Retry; the rest of the page stays usable.
+ * One answer is not an error: "no run is recorded" (the case exists, nothing ran yet) is shown as a calm
+ * information message with no Retry, because trying again changes nothing.
+ */
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+  if (isNoRunRecorded(error)) {
+    return (
+      <Banner tone="info" live="polite" title="No run recorded yet">
+        {userMessage(error)}
+      </Banner>
+    );
+  }
   const trace = error instanceof ApiError ? error.traceId : getTraceId();
   return (
     <div role="alert" className="flex flex-col gap-2 rounded-lg border border-danger bg-danger-bg px-5 py-4">
