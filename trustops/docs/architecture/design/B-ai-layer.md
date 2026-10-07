@@ -1,5 +1,14 @@
 # B · AI layer design: agents, context, guards, runtime, memory, evals, tokens
 
+> **Design as written on 3 October 2026, kept as the record of the design stage.** It was the input the build lanes coded from, so it is not rewritten to match the code. Where the built system differs, the departure has a decision row; read `BUILD-PLAN.md` "Status as built" first, then `docs/governance/decision-log.md`. What is not done is in `docs/governance/known-gaps.md`. Values marked **(proposed)** below were proposals at the time; the ADR rows say which were accepted.
+>
+> The departures that matter most for this document:
+> - **Models**: the committed chain has no Opus and no Sonnet 5; mid and strong run Sonnet 4.5, the judge Nova Pro (ADR-62, superseding the tiers in section 1). Model ids live only in `ai/models/tiers.yaml`.
+> - **Token budgets** come from measured p90 plus about 30% (ADR-48, ADR-55, ADR-62), and the per-case cap is a ledger in H1 (ADR-50), not the per-run figures written here.
+> - **Evals** use a plain async runner with a DeepEval judge, code in `src/backend/packages/evals`, not `pydantic_evals` under `/evals`; a gate is the primary metric alone (ADR-43, `evals/README.md`).
+> - **No replay or mock model mode**: agents call live Bedrock; the golden figures are unit tests (ADR-27). Embeddings are Bedrock Titan with in-memory vectors by default (ADR-49).
+> - Thin eval datasets and other departures from section 7 are listed in `docs/governance/known-gaps.md`.
+
 Status: design for implementation by Claude Code subagents without further human input. Written 3 Oct 2026 (build day 1 of 6; submission 9 Oct).
 Sources: 00-synthesis, B-build-plan (v1.3), C-blueprint-flow (v2), F-walkthrough-seed, E-aeo-reuse §9, A-problem-statement, CLAUDE.md. Decisions already made by the lead are restated as "decided"; everything this document adds is marked "(proposed)".
 

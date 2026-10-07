@@ -2,6 +2,103 @@
 
 One MongoDB database per service (no service reads another's database directly — BUILD-PLAN §3.1). This document lists each collection, its owning service, and the Pydantic contract that defines its shape; the contract, not this prose, is authoritative when they disagree.
 
+## Overview
+
+The core of the model: one case and what each service keeps about it. Every link between two databases is an id (`case_id`, `pack_id`, a version string) resolved by an API call, never a join or a cross-database read. S1's view collections (`score_snapshots`, `critic_views`, `handoff_views` and the others below) are copies written by H1 so that S1 can answer each role's reads alone; the record of truth for a score is S2's computation, for a proposal S4's ledger, and for a vote S5. Configuration and lookup collections (field sets, the eight config sections, idempotency keys, outboxes) are left out of the picture.
+
+```mermaid
+erDiagram
+  %% fcrm_case (S1)
+  CASE ||--o{ FIELD_VALUE : "has (case:field)"
+  CASE ||--o{ DOCUMENT : "uploads"
+  CASE ||--o{ SUBMISSION_VERSION : "frozen per submit"
+  CASE ||--o{ REVIEW_ITEM : "clause, factor, control, critic finding"
+  CASE ||--o{ ANALYST_DECISION : "one per gate"
+  CASE ||--o{ CLARIFICATION_THREAD : "one round"
+  CASE ||--o{ SCORE_SNAPSHOT : "view of S2's score"
+  CASE ||--o{ CONDITION : "after outcome"
+  %% fcrm_scoring (S2), fcrm_policy (S3): versioned reference data, pinned by the case
+  SCORE_SNAPSHOT }o--|| SCORING_MODEL_VERSION : "computed under"
+  REVIEW_ITEM }o--o| CLAUSE : "quotes (clause_id, corpus_v)"
+  REVIEW_ITEM }o--o| CONTROL : "rates (control_id, controls_v)"
+  %% fcrm_audit (S4)
+  CASE ||--o{ PROPOSAL : "evidence ledger {case_id, seq}"
+  CASE ||--o{ AUDIT_RECORD : "hash chain {case_id, seq}"
+  PROPOSAL ||--o{ REVIEW_ITEM : "becomes"
+  %% fcrm_decision (S5)
+  CASE ||--o{ PACK : "frozen snapshot, versioned"
+  PACK ||--o{ VOTE : "{pack_id, round, member_id}"
+  PACK ||--o{ OUTCOME : "one per round"
+  PACK ||--o{ COMMITTEE_QUESTION : "R6 thread + addendum"
+  %% fcrm_harness (H1)
+  CASE ||--o{ CASE_RUN : "runs"
+  CASE_RUN ||--o{ RUN_EVENT : "append-only"
+  CASE_RUN ||--o{ AGENT_JOB : "one model call each"
+  CASE_RUN ||--o{ GATE : "human checkpoints"
+  CASE ||--|| CASE_BUDGET : "token ledger"
+  AGENT_JOB ||--o{ MODEL_CALL : "attempts"
+
+  CASE {
+    string case_id PK "FCRM-2026-NNNN"
+    string state
+    string owner
+    string analyst_id
+    int fieldset_v "pinned"
+  }
+  SUBMISSION_VERSION {
+    string case_id FK
+    int version "unique per case, never updated"
+  }
+  REVIEW_ITEM {
+    string item_id PK
+    string kind
+    string status
+    string proposal_id FK
+  }
+  SCORE_SNAPSHOT {
+    string snapshot_id PK
+    float composite
+    int band
+    string route
+    bool boundary_flag
+  }
+  PROPOSAL {
+    string proposal_id PK
+    string case_id FK
+    int seq
+    string agent
+    string prompt_v
+    string supersedes
+  }
+  AUDIT_RECORD {
+    string case_id FK
+    int seq
+    string type
+    string prev_hash
+    string hash
+  }
+  PACK {
+    string pack_id PK
+    string case_id FK
+    int version
+    string content_hash
+  }
+  VOTE {
+    string pack_id FK
+    int round
+    string member_id
+    string option
+    bool voided
+  }
+  CASE_RUN {
+    string run_id PK
+    string case_id FK
+    string state
+  }
+```
+
+Read the diagram with three rules from the decision log: the ledgers and snapshots in it are never rewritten (a later proposal or review item is a new row that names the one it supersedes, a voided vote keeps its seat, a pack is frozen and hashed); `audit_records` is written only by the insert-only `fcrm_audit_writer` user (`docs/governance/audit-chain.md`); and the owner's responses are built from these rows by `fcrm_case.po_views` without any score, band, rating, vote or pack field (ADR-32).
+
 ## `fcrm_case` (S1)
 
 | Collection | Shape | Notes |

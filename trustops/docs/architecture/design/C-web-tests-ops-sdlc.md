@@ -1,5 +1,15 @@
 # C · Web, tests, ops and the AI-driven SDLC harness — design
 
+> **Design as written on 3 October 2026, kept as the record of the design stage.** It was the input the build lanes coded from, so it is not rewritten to match the code. Where the built system differs, the departure has a decision row; read `BUILD-PLAN.md` "Status as built" first, then `docs/governance/decision-log.md`. What is not done is in `docs/governance/known-gaps.md`. Values marked **(proposed)** below were proposals at the time; the ADR rows say which were accepted.
+>
+> The departures that matter most for this document:
+> - The web is in **`src/frontend`**, not `src/web`, rebuilt from scratch with FCRM_v2's tokens and information architecture only (ADR-06, ADR-25).
+> - **No generated client**: `make api-gen` is not wired; the web's types are hand-written and `src/test/contract/paths.test.ts` checks every route it calls against the OpenAPI export. The web's route names became the API contract, so section 1.4's endpoint names are superseded (ADR-30).
+> - **C-07 is reversed**: there is no `replay` or `mock` LLM mode (ADR-27). The deterministic demo is the MSW mock backend (`npm run dev:msw`); the live suites call Bedrock.
+> - **C-08 is reversed**: tests never sit beside source; they live under `tests/unit` and `tests/integration` (Python) and `src/frontend/src/test` (web).
+> - **C-09 and C-11**: `make nightly` is not wired, and the Claude Code hook scripts are committed but not registered; the git hooks are the enforced commit gate. Eight containers publish only the gateway on 8080 (ADR-26, ADR-63).
+> - **C-04**: the observer's web is the monitor only (ADR-64). The UX decisions are collected in `docs/architecture/ux-decisions.md`.
+
 Status: design for implementation by Claude Code subagents, 3 Oct 2026. Six build days remain (submission 9 Oct).
 Inputs: A-problem-statement, 00-synthesis, C-blueprint-flow (incl. v2 update), D-prototype (§1, §13, §14, §15), F-walkthrough-seed, CLAUDE.md, FCRM_v2/src/index.css.
 Companion designs: A (harness, agents, guards) and B (services, data, events). Where this document names an endpoint or event, the name is **(proposed)** and binds to design B's OpenAPI once published; the web client is generated, so renames cost one regeneration.
