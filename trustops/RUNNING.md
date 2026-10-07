@@ -251,10 +251,10 @@ If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks
 | `check` | the commit gate: ruff, format, mypy, OPA check and tests, `ai-check`, unit tests, env contract, web typecheck and vitest | no (needs Docker for `compose config`) | no | 355 s measured (unit tests 288 s) |
 | `lint`, `format-check`, `typecheck` | ruff, ruff format, mypy over every package | no | no | under 2 s warm |
 | `opa-check`, `opa-test` | Rego check and 120 Rego tests | no | no | 0.1 s, 12 s |
-| `test-unit`, `test` | the 7689 unit tests (`-m "not integration and not e2e"`) | no | no | about 290 s |
+| `test-unit`, `test` | the 7707 unit tests (`-m "not integration and not e2e"`) | no | no | about 290 s |
 | `compose-check` | `.env.example` against the compose files, `compose config` of each file set | no (needs Docker) | no | 1.4 s |
 | `web-install` | `npm ci` in `src/frontend` | no | no | not timed |
-| `web-check` | web typecheck and 164 vitest tests | no | no | 17 s |
+| `web-check` | web typecheck and 239 vitest tests | no | no | 17 s |
 | `gate` | `check`, `test-int`, `fcrm_evals build --check`, `selfcheck` | needs Docker | no | more than `check` (not timed) |
 | `test-int`, `test-integration` | every integration-marked test under `tests/` (`pytest -m integration tests`): the 464 under `tests/integration` on testcontainers or on `FCRM_TEST_MONGO_URI`, and the 74 `*_live.py` tests under `tests/unit`, which need `FCRM_TEST_MONGO_URI` and skip without it (the target says so) | needs Docker, not the stack | no | not timed through make; all of them took 192 to 225 s on a throwaway replica set |
 | `ai-check` | `ai/_tools/validate_ai.py` (registry, tool permits, OPA decisions, and the rule that no model id appears outside `ai/models/tiers.yaml` in `ai/`, `src/`, `evals/` or `ops/`) and `compute_locks.py --check` | no | no | under 10 s |
@@ -313,10 +313,18 @@ Every route is in `docs/architecture/openapi/api.json` (112 paths); the roles ar
 ## 7. Check the code (no stack)
 
 ```bash
-make check         # about 8 minutes: ruff, format, mypy over 618 files, OPA, 7689 unit tests, env contract, web typecheck and 164 vitest tests
+make check         # about 8 minutes: ruff, format, mypy over 618 files, OPA, 7707 unit tests, env contract, web typecheck and 239 vitest tests
 make test-int      # every integration-marked test: tests/integration on testcontainers (needs Docker), the *_live.py tests under tests/unit when FCRM_TEST_MONGO_URI is set
 make gate          # check, test-int, datasets and eval self-check
 ```
+
+**Browser sweep of every screen (needs the application running on port 8080; makes no AI calls, about nine minutes):**
+
+```bash
+cd src/frontend && npm run test:e2e:sweep
+```
+
+It opens every screen as the product owner, the analyst, a committee member, the observer and a signed-out visitor, clicks every safe button and tab, checks the access rules in both directions, tabs through each page and runs an accessibility scan. It never uploads a document, submits, votes or publishes, so it costs nothing. Its report is `src/frontend/test-results/sweep-report.json`, with screenshots beside it. The results of each level of testing, with dates, are in `docs/governance/test-report.md`.
 
 To point the integration tests at a Mongo replica set you started yourself (never the stack's Mongo; the tests create and drop their own databases):
 
@@ -333,7 +341,7 @@ On 6 October the whole integration-marked set (464 plus 74) run this way, with n
 
 Web checks on their own: `cd src/frontend && npm ci && npm test && npm run typecheck && npm run lint`. Playwright scenes against the mock: `npm run test:e2e` (4 specs, not run by the lane that wrote this file).
 
-On 6 October 2026 `make check` was green on the tree of `8b55edd`: 7689 passed, 4 skipped, 590 deselected (integration, e2e and resilience marks), 121 of 121 Rego tests, 164 web tests.
+On 6 October 2026 `make check` was green on the tree of `53a1476`: 7707 passed, 4 skipped, 590 deselected (integration, e2e and resilience marks), 121 of 121 Rego tests, 239 web tests.
 
 ## 8. Troubleshooting
 

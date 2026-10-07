@@ -19,6 +19,8 @@ Who may see what. This is rule 3 ("the PO view has no restricted fields") made c
 | Config (field sets, controls, corpus, routing, etc.) | no | yes, owns it | no | read-only |
 | Token/cost figures | no | yes (Assurance → Agent quality) | no | yes |
 
+**Note, 7 Oct 2026 (D-109, ADR-64).** The table states what the API allows. In the web the observer is limited to the harness monitor (ADR-19, ADR-37), so the observer's "yes" for Agent quality and for the token and cost figures is an API permission that no screen uses; the committee has no Agent quality screen either. Tightening `ops/opa/data/permissions.json` to match is left to the operator.
+
 ## Enforcement points
 
 1. **Response shape** — `CaseDetailPO` has no score/band/rating field at all; there is no masking step to forget. (`src/packages/contracts/fcrm_contracts/api/case_po.py`)

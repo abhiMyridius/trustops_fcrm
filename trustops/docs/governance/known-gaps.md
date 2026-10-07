@@ -142,3 +142,18 @@ Still open:
 
 - **No eval baseline and no complete live pass for the committed chain** (D-100, D-95). The 8 of 9 gates and the 21 of 21 run were measured on the previous chain. The committed chain's own checks so far: a one-row-per-agent eval run (7 of 9 gates, about USD 0.44) and two live runs that stopped at scene 8 and 9.
 - A Sonnet 4.5 token costs about 1.5 times a Sonnet 5.5 token at the verified prices, so a demo run costs more than the earlier figure of about USD 0.6 to 1.0 on the previous chain; it was not re-measured.
+
+## K. After the browser sweep of 7 October (appended)
+
+Closed in code, not yet confirmed on the live application:
+
+- The seven sweep defects (D-105 to D-111) are fixed on main with tests (D-112). The running application still has the old build until `make up`; the sweep is then run again to confirm.
+
+Still open:
+
+- The API's access rows still let the observer and the committee read agent quality, but no screen shows it to them (D-109, ADR-64).
+- The owner's chain-status contract (`case_po.ChainStatusPO`, design A section 2.4) has no route and is unused since D-105.
+- Several Dashboard chart captions are static copy that can contradict live data (for example "week of 2026-09-28", "12 of 80 reached the Risk Committee").
+- `ai/agents/examiner.agent.yaml` names the observer under "Assurance, Ask" although the web gives the observer no such screen; left because editing under `ai/` means regenerating the locks.
+- The monitor's counters, guard strip and log filters have never been seen in the browser sweep, because no sample case has a run.
+- `CLAUDE.md` carries old test counts (7,689 unit, 164 web); it was not edited because another session has an unsaved edit in that file.

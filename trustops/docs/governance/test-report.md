@@ -16,6 +16,8 @@ The numbers come from commands and committed files: the last full `make check`, 
 | AI quality tests (evals) | **Partly**: 8 of 9 gates on the earlier model set; a one-row check on the current set ran end to end (7 of 9) and shows the test system works; it is not a quality result | 6 Oct |
 | Browser sweep of every screen (new) | **Failed, fixes in progress**: 32 of 43 tests passed; every one of the 11 failures traces to a real defect (D-105 to D-110) | 7 Oct |
 
+**Update, later on 7 Oct 2026 (the table above is the earlier snapshot and is not edited).** The final code (`53a1476`) passes `make check` with 7,707 code tests (4 skipped), 239 web tests, 121 access-rule tests and 813 AI-layer checks; the web tests grew from 164 with the fixes below. The seven browser-sweep defects are fixed in the code and covered by unit tests (closing row D-112), **but the running application still held the old build, so the sweep has not been re-run and none of the fixes is confirmed on the live app yet.** The steps to confirm them are the first item under "What is still open".
+
 ## The browser sweep
 
 **What it did.** A Playwright suite (`src/frontend/e2e/sweep-live/`) opened every screen of the running application as each of the four roles (product owner, analyst, committee member, observer) and as a signed-out visitor. It clicked every tab and every button that is safe to click, tried every role against the other roles' screens, scanned the product owner's pages for restricted words, checked sign-in and sign-out, tabbed through every page, and ran an accessibility scan on each. It made **no AI calls**: it never uploaded a document, submitted a case, asked the examiner, searched the policy corpus, voted, or published a configuration. The three actions it did change were tidied up in the same test: a new draft case was discarded, an integration was connected and disconnected, and one configuration draft was opened in the impact preview and discarded.
@@ -47,7 +49,7 @@ Each cell reads passed / failed / not run.
 - Sign-in for each role, a reload on a deep link, sign-out ending the session, and the return-to-page link all work.
 - Keyboard use: every page can be reached with Tab, focus is visible, the skip link comes first, there are no traps, and every control has a name a screen reader can read.
 
-**What failed.** Seven defects, found by the sweep and recorded in `defect-trail.md`:
+**What failed.** Seven defects, found by the sweep and recorded in `defect-trail.md`. All seven are now fixed in the code (merge `53a1476`, closing row D-112) and covered by unit tests, but the running application still held the old build when this was written, so none of them is confirmed on the live app until it is rebuilt with `make up` and the sweep is run again. The table is what the sweep saw on 7 October, before the fixes:
 
 | Id | Where | What happened | Should be |
 |---|---|---|---|
@@ -69,7 +71,7 @@ Not defects, left as they are: four buttons that only show "not available in thi
 
 ## The other levels, in detail
 
-**Code checks.** Run by `make check` before every commit. The last full run was on the final code of the model change (7 Oct): style and type checks clean, 7,689 code tests passed and 4 skipped, 121 access-rule tests, 813 AI-layer checks, the settings check, and 164 web tests. The same checks pass on every commit through the git hooks, which test what each commit changes.
+**Code checks.** Run by `make check` before every commit. The last full run was on the final code (7 Oct, `53a1476`): style and type checks clean, 7,707 code tests passed and 4 skipped, 121 access-rule tests, 813 AI-layer checks, the settings check, and 239 web tests (the web tests grew from 164 with the fixes below). The same checks pass on every commit through the git hooks, which test what each commit changes.
 
 **Database tests.** The code against a real MongoDB on a throwaway copy: 525 passed, 14 skipped on 6 October; the skips are 7 that need a message queue, 6 named black-box skips and 1 missing sample document. After the clean-up changes only the case, common and audit parts were run again (all passed). The whole set has not been run on the final code.
 
@@ -93,6 +95,6 @@ Not defects, left as they are: four buttons that only show "not available in thi
 
 ## What is still open
 
-1. **The seven sweep defects** are being fixed. After the application is rebuilt (`make up`) the sweep is run again and this report is updated with the result.
+1. **Confirm the seven sweep fixes on the live app.** Run `make up` (it rebuilds and restarts the application and keeps your data; the only AI cost is the API re-preparing its policy search, under one cent), then `cd src/frontend && npm run test:e2e:sweep` (about nine minutes, no AI calls). The expected result: the two "expected behaviour" checks and the wrong-password check pass, the Verify chain button no longer crashes, and the accessibility failures drop. This report is then updated with the result.
 2. **A complete live pass on the current models** (D-95, D-100) needs your approval: one `make e2e`, then `make evals` for a new quality baseline.
 3. Heavy-load speed and other browsers were not part of this build and were not tested.
