@@ -17,7 +17,7 @@ Seven guards run in a fixed order (`ai/guards/guards.yaml`). Every one that fire
 |---|---|---|
 | 1 input scan | injection patterns, personal data (masked before any agent reads it) | `guard.input` |
 | 2 permit | a tool the agent is not allowed (OPA, default deny, fail closed) | `guard.permit` |
-| 3 budget | a call over its tier budget (15k, 11k, 24k, 15k tokens per attempt) or its wall clock | `guard.budget`, `agent.failed` |
+| 3 budget | a call over its tier budget (cheap 15k, mid 15k, strong 24k, judge 28k tokens per attempt) or its wall clock | `guard.budget`, `agent.failed` |
 | 4 output shape | a bad schema, an unresolved source, a paraphrased quote, restricted terms in PO text, an ungrounded number | `guard.output` per attempt, `agent.retry` |
 | 5 rules | the eight rules as pure functions | the refusal reason of the attempt (`guard.output`, or `agent.failed` on the last attempt) |
 | 6 critic | a rating the critic disputes (scheduled by H1 after scoring) | `critic.findings` |
@@ -35,7 +35,7 @@ A refused attempt is retried once on the fallback model with the refusal reasons
 | A wrong number or clause in a released pack | it passed review | the committee question path (R6): answer with `numbers_changed`, unlock with a reason, supersede, new pack, every vote re-requested |
 | A score, band, rating or restricted term in anything a PO can read | **P1**: a product rule is broken | stop; capture the response; write a failing test first (`tests/integration/blackbox/test_bb_02_po_no_restricted_fields.py` is the model); add a defect row; fix the fence, not the symptom |
 | A document that tried to instruct the agent | Guard 1 | check `guard.input` for the case; the document is blocked or annotated, not read as an instruction |
-| Cost above plan | a tier budget or the 120k case cap | read [../reports/token-analysis.md](../reports/token-analysis.md); H1 does not yet enforce the 120k cap across jobs |
+| Cost above plan | a tier budget, or the case's tokens over the 120k target | read [../reports/token-analysis.md](../reports/token-analysis.md); H1's ledger refuses a dispatch past the enforced 160,000 and opens a handoff, and the monitor reports against the 120,000 target (ADR-50) |
 
 ## Reproduce a decision from the trail
 
