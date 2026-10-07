@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import { Lock, LockOpen } from 'lucide-react';
 import { useLock, useRecommendation, useSaveRecommendation, useUnlock } from '@/api/queries/analystQueries';
-import { ApiError, userMessage } from '@/api/errors';
+import { ApiError, isNotReady, userMessage } from '@/api/errors';
 import type { Recommendation, WorkbenchHeader } from '@/api/types/analyst';
 import { ConditionTable } from '@/components/domain/ConditionTable';
 import { ReasonDialog } from '@/components/domain/ReasonDialog';
@@ -156,6 +156,15 @@ export function RecommendationTab() {
   const w = useOutletContext<WorkbenchHeader>();
   useDocumentTitle('Recommendation', id);
   const q = useRecommendation(id);
+  // No assessment run (`is_demo` is false: a seeded case, or one not yet opened by a first upload) means the
+  // narrative never drafted anything, so S1's 409 not_ready is information. A case with a run keeps the red error.
+  if (q.isError && !w.is_demo && isNotReady(q.error)) {
+    return (
+      <Banner tone="info" live="polite" title="No recommendation drafted">
+        No recommendation is drafted for this case: it has no assessment run, so the narrative agent has not drafted one. Seeded cases never have a run.
+      </Banner>
+    );
+  }
   // Keyed on the server's version of the text so a saved or locked recommendation re-seeds the editor.
   return (
     <QueryState query={q}>

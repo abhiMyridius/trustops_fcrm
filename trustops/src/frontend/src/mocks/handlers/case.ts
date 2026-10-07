@@ -364,7 +364,14 @@ export const caseHandlers = [
       return HttpResponse.json(AV.policy(id(params)), { status: 201 });
     }),
   ),
-  http.get(`${P}/recommendation`, ({ request, params }) => guarded(request, ['fcrm_analyst'], () => ok(AV.recommendation(id(params))))),
+  http.get(`${P}/recommendation`, ({ request, params }) =>
+    guarded(request, ['fcrm_analyst'], () => {
+      const caseId = id(params);
+      // A seeded case has no assessment run, so the narrative never drafted one: S1 answers 409 not_ready.
+      if (seedCase(caseId) && !isDemo(caseId)) return problem(409, 'Not ready', 'the narrative has not drafted the recommendation yet');
+      return ok(AV.recommendation(caseId));
+    }),
+  ),
   http.put(`${P}/recommendation`, ({ request, params }) =>
     guarded(request, ['fcrm_analyst'], async () => {
       if (!isDemo(id(params))) return problem(409, 'Read-only', 'Only FCRM-2026-0151 is live in mock mode.');
@@ -403,7 +410,8 @@ export const caseHandlers = [
       const caseId = id(params);
       if (!caseExists(caseId)) return notFound();
       const snap = harness(caseId);
-      return snap ? HttpResponse.json(snap) : problem(404, 'No run', 'No harness run is recorded for this case in the seed; FCRM-2026-0151 is the live case.');
+      // The title's slug is the problem type S1 sends (`.../no_run_recorded`), which the web reads as information.
+      return snap ? HttpResponse.json(snap) : problem(404, 'No run recorded', `no harness run is recorded for case ${caseId}`);
     }),
   ),
   http.get(`${P}/stream`, ({ request }) =>
