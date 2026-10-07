@@ -65,6 +65,17 @@ TrustOps checks the financial-crime risk of a change at a bank (a new product, a
 - `make evals` (the AI quality test) cost about three dollars on the earlier setup.
 - `make check`, the code checks, is free.
 
+**Look at the database (optional)**
+
+MongoDB is open on your own machine only, at port 27017, as soon as `make up` has finished. In MongoDB Compass, print your connection line first:
+
+```bash
+set -a; . ./.env; set +a
+echo "mongodb://$MONGO_INITDB_ROOT_USERNAME:$MONGO_INITDB_ROOT_PASSWORD@127.0.0.1:27017/?authSource=admin&directConnection=true"
+```
+
+Paste the printed line into Compass as the connection string. The cases are in the database `fcrm_case`, collection `cases`. If Compass says the port is taken, another Mongo is already using 27017: add `MONGO_HOST_PORT=27018` to `.env`, run `make up` again and use 27018 in the line above.
+
 ---
 
 ## Reference for engineers
@@ -137,7 +148,7 @@ make seed          # force-reload the seed and stage the three demo PDFs in MinI
 
 The first start already seeds an empty database (80 cases, the 65 closed cases' nine-record audit chains, 12 users, the policy corpus). `make seed` is what stages the PDFs and gives you a clean slate again.
 
-`make up` runs `mongo`, `rabbitmq`, `minio`, `opa`, `api` (identity and S1-S5 in one process), `harness` (H1 Caseflow, H2 agent worker, H3 ingestion, H4 context in one process), `gateway` and `web`. Only the gateway publishes a port on your machine (8080).
+`make up` runs `mongo`, `rabbitmq`, `minio`, `opa`, `api` (identity and S1-S5 in one process), `harness` (H1 Caseflow, H2 agent worker, H3 ingestion, H4 context in one process), `gateway` and `web`. Only the gateway publishes the web app on your machine (port 8080), and MongoDB is published on 127.0.0.1:27017 for Compass and mongosh.
 
 ## 3. URLs and who you can be
 
@@ -148,6 +159,7 @@ The first start already seeds an empty database (80 cases, the 65 closed cases' 
 | Vite dev server, hot reload against the live backend | http://localhost:5173 (`cd src/frontend && npm ci && npm run dev`) |
 | Vite dev server against the in-browser mock | `npm run dev:msw` in `src/frontend`; no Docker needed |
 | Grafana, Jaeger, Prometheus | http://localhost:3000, :16686, :9090 after `make up-obs`; Grafana user `admin`, password `GF_SECURITY_ADMIN_PASSWORD` from `.env` |
+| MongoDB (Compass, mongosh), this machine only | `127.0.0.1:27017`, started by `make up`; use `?authSource=admin&directConnection=true` and the root user from `.env` |
 | RabbitMQ management, MinIO console, OPA | http://localhost:15672, :9001, :8181 after `make up-debug` |
 
 Every seeded user shares one password, `demo-password-2026` (override with `make env DEMO_PASSWORD=...` before `.env` exists). On the login page "Sign in with corporate SSO" opens a picker of the seeded users; if identity does not serve the picker the page shows a username and password form. The username is the seed id without `u-` (`riyer` or `u-riyer` both work).
@@ -378,7 +390,7 @@ The full list, each item with its evidence, is `docs/governance/known-gaps.md`. 
 | File | Purpose |
 |---|---|
 | `docker-compose.yaml` | the whole stack; profile `obs` adds the four observability containers, profile `cache` adds Redis |
-| `compose.debug.yaml` | publishes Mongo (:27017), RabbitMQ (:5672, :15672), MinIO (:9000, :9001), OPA (:8181), Redis and the harness health port (:9100) to the host. `make up-debug` |
+| `compose.debug.yaml` | publishes RabbitMQ (:5672, :15672), MinIO (:9000, :9001), OPA (:8181), Redis and the harness health port (:9100) to the host. `make up-debug` |
 | `compose.dev.yaml` | bind mounts, `uvicorn --reload`, the Vite dev server, DEBUG logs. `make up-dev` |
 | `compose.test.yaml` | the test stack: in-memory vectors, dummy embeddings for `api`, AWS keys blanked for `api`; project `trustops-test`. Agents still call live Bedrock. The environment check validates it; no make target starts it today |
 

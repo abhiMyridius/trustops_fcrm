@@ -133,6 +133,11 @@ services:
       MONGO_AUDIT_WRITER_PASSWORD: ${MONGO_AUDIT_WRITER_PASSWORD:?set MONGO_AUDIT_WRITER_PASSWORD in .env}
       MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?set MONGO_APP_PASSWORD in .env}
       MONGO_EVALS_READER_PASSWORD: ${MONGO_EVALS_READER_PASSWORD:?set MONGO_EVALS_READER_PASSWORD in .env}
+    ports:
+      # For Compass and mongosh on this machine. Local only unless BIND_ADDRESS is
+      # changed. Host clients need ?directConnection=true: the replica set
+      # advertises its member as mongo:27017, which the host cannot resolve.
+      - "${BIND_ADDRESS:-127.0.0.1}:${MONGO_HOST_PORT:-27017}:27017"
     volumes:
       - mongo_data:/data/db
       - ./ops/mongo/entrypoint.sh:/opt/fcrm/entrypoint.sh:ro

@@ -3,19 +3,13 @@
 #   make up-debug    (= docker compose -f docker-compose.yaml -f compose.debug.yaml
 #                       up -d --build)
 #
-# The default stack publishes exactly one port, the gateway's, so nothing
-# bypasses its auth_request. Use this overlay when you need a host client on
-# an infrastructure service (mongosh, the RabbitMQ management UI, the MinIO
-# console, OPA's REST API) or the harness's health endpoint. Every port can be
-# moved with its *_HOST_PORT variable and binds to ${BIND_ADDRESS:-127.0.0.1}.
-#
-# Host MongoDB clients need ?directConnection=true: the replica set
-# advertises its member as mongo:27017, which the host cannot resolve.
+# The default stack publishes two ports, both on this machine only: the gateway's
+# (the web app) and MongoDB's (for Compass and mongosh). Use this overlay when you
+# also need a host client on RabbitMQ (management UI), MinIO (console), OPA (REST
+# API) or Redis, or the harness's health endpoint. Every port can be moved with
+# its *_HOST_PORT variable and binds to ${BIND_ADDRESS:-127.0.0.1}.
 
 services:
-  mongo:
-    ports:
-      - "${BIND_ADDRESS:-127.0.0.1}:${MONGO_HOST_PORT:-27017}:27017"
   rabbitmq:
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${RABBITMQ_HOST_PORT:-5672}:5672"
