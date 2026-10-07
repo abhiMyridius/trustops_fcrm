@@ -2,7 +2,7 @@
 provenance, and drives the cost estimate.
 
 The figures asserted here are the ones read from the AWS Price List API on
-6 Oct 2026 (Sonnet 4.5 on 7 Oct 2026), in ``us-east-1``: the Regional rate card
+6 Oct 2026, in ``us-east-1``: the Regional rate card
 that the ``us.`` geographic cross-Region inference profiles bill at. A price
 change is a deliberate edit of the file and of these constants together.
 """
@@ -30,7 +30,7 @@ ONE_MILLION = 1_000_000
 #: model label -> (input, output, cache_read, cache_write) USD per 1M tokens.
 VERIFIED_PRICES: dict[str, tuple[float, float, float | None, float | None]] = {
     "Haiku 4.5": (1.10, 5.50, 0.11, 1.375),
-    "Sonnet 4.5": (3.30, 16.50, 0.33, 4.125),
+    "Sonnet 5.5": (2.20, 11.00, 0.22, 2.75),
     "Nova Lite": (0.06, 0.24, 0.015, 0.0),
     "Nova Pro": (0.80, 3.20, 0.20, 0.0),
     "Titan Text Embeddings V2": (0.02, 0.0, None, None),
@@ -111,7 +111,7 @@ def test_the_table_holds_the_verified_aws_figures(price_table: PriceTable) -> No
     [
         # 500k uncached input, 400k read, 100k written, 100k output, by hand.
         ("Haiku 4.5", 0.5 * 1.10 + 0.4 * 0.11 + 0.1 * 1.375 + 0.1 * 5.50),
-        ("Sonnet 4.5", 0.5 * 3.30 + 0.4 * 0.33 + 0.1 * 4.125 + 0.1 * 16.50),
+        ("Sonnet 5.5", 0.5 * 2.20 + 0.4 * 0.22 + 0.1 * 2.75 + 0.1 * 11.00),
         ("Nova Lite", 0.5 * 0.06 + 0.4 * 0.015 + 0.1 * 0.0 + 0.1 * 0.24),
         ("Nova Pro", 0.5 * 0.80 + 0.4 * 0.20 + 0.1 * 0.0 + 0.1 * 3.20),
     ],
@@ -133,15 +133,15 @@ def test_known_token_counts_give_the_known_dollar_amounts(
     price_table: PriceTable,
 ) -> None:
     """Spot checks written out as dollars, so a wrong rate cannot hide in a sum."""
-    sonnet = _id_of(price_table, "Sonnet 4.5")
-    assert price_table.cost(sonnet, input_tokens=ONE_MILLION) == pytest.approx(3.30)
-    assert price_table.cost(sonnet, output_tokens=ONE_MILLION) == pytest.approx(16.5)
+    sonnet = _id_of(price_table, "Sonnet 5.5")
+    assert price_table.cost(sonnet, input_tokens=ONE_MILLION) == pytest.approx(2.20)
+    assert price_table.cost(sonnet, output_tokens=ONE_MILLION) == pytest.approx(11.0)
     assert price_table.cost(
         sonnet, input_tokens=ONE_MILLION, cache_read_tokens=ONE_MILLION
-    ) == pytest.approx(0.33)
+    ) == pytest.approx(0.22)
     assert price_table.cost(
         sonnet, input_tokens=ONE_MILLION, cache_write_tokens=ONE_MILLION
-    ) == pytest.approx(4.125)
+    ) == pytest.approx(2.75)
     nova_pro = _id_of(price_table, "Nova Pro")
     assert price_table.cost(nova_pro, input_tokens=ONE_MILLION) == pytest.approx(0.80)
     assert price_table.cost(nova_pro, output_tokens=ONE_MILLION) == pytest.approx(3.2)
@@ -160,7 +160,7 @@ def test_the_usage_meter_prices_each_call_at_its_own_model(
     """A run that falls back mid-row is costed call by call."""
     meter = UsageMeter(price_table)
     meter.record(
-        _id_of(price_table, "Sonnet 4.5"),
+        _id_of(price_table, "Sonnet 5.5"),
         input_tokens=ONE_MILLION,
         output_tokens=ONE_MILLION,
     )
@@ -169,8 +169,8 @@ def test_the_usage_meter_prices_each_call_at_its_own_model(
         input_tokens=ONE_MILLION,
         output_tokens=ONE_MILLION,
     )
-    assert meter.cost_usd == pytest.approx(3.30 + 16.5 + 0.80 + 3.20)
-    assert meter.as_usage().cost_usd == pytest.approx(23.8)
+    assert meter.cost_usd == pytest.approx(2.20 + 11.0 + 0.80 + 3.20)
+    assert meter.as_usage().cost_usd == pytest.approx(17.2)
 
 
 def test_a_verified_table_says_so_with_its_region_and_date(

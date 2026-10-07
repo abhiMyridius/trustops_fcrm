@@ -1,6 +1,7 @@
-"""The tier chains of ``ai/models/tiers.yaml`` hold no Opus and no Sonnet 5 (ADR-62),
-keep the critic independent of the assessor (ADR-04), retry a strong-tier agent
-on a model that can do it, and carry no model that no chain uses."""
+"""The tier chains of ``ai/models/tiers.yaml`` hold no Opus (ADR-62, ADR-65), keep the
+critic independent of the assessor (ADR-04), retry a strong-tier agent on a model
+that can do it, set ``effort`` only where a model takes it, and carry no model that
+no chain uses."""
 
 from __future__ import annotations
 
@@ -11,7 +12,7 @@ import pytest
 import yaml
 
 TIERS_YAML = Path(__file__).resolve().parents[4] / "ai" / "models" / "tiers.yaml"
-BANNED_LABELS = ("Opus", "Sonnet 5")
+BANNED_LABELS = ("Opus",)
 
 
 @pytest.fixture(name="config")
@@ -28,13 +29,13 @@ def _labels(config: dict[str, Any], tier: str) -> list[str]:
     return [config["models"][model]["label"] for model in _chain(config, tier)]
 
 
-def test_no_chain_holds_an_opus_or_a_sonnet_5(config: dict[str, Any]) -> None:
+def test_no_chain_holds_an_opus(config: dict[str, Any]) -> None:
     for tier in config["tiers"]:
         for label in _labels(config, tier):
             assert not label.startswith(BANNED_LABELS), (tier, label)
 
 
-def test_no_model_entry_or_price_row_names_an_opus_or_a_sonnet_5(
+def test_no_model_entry_or_price_row_names_an_opus(
     config: dict[str, Any],
 ) -> None:
     labels = [entry["label"] for entry in config["models"].values()]
@@ -59,8 +60,8 @@ def test_a_strong_tier_retry_runs_on_a_model_that_can_do_the_work(
     # research and assessment schemas on a retry in the live runs of 6 Oct (D-95).
     strong = _labels(config, "strong")
 
-    assert strong[0] == "Sonnet 4.5"
-    assert strong[1] == "Sonnet 4.5"
+    assert strong[0] == "Sonnet 5.5"
+    assert strong[1] == "Sonnet 5.5"
 
 
 def test_every_model_entry_is_used_by_a_chain_and_has_a_price_row(
