@@ -1,4 +1,76 @@
-# Running and checking TrustOps
+# Running TrustOps
+
+TrustOps checks the financial-crime risk of a change at a bank (a new product, a new country, a new supplier) before the change goes live. These steps start it on your own computer and open it in a browser. The detailed reference for engineers starts at "Reference for engineers" further down.
+
+## Quick start
+
+**What you need, once**
+
+1. **Docker Desktop**, installed and running.
+2. **uv**, a small tool that installs the Python parts. Put it in `~/.local/bin`.
+3. **Amazon AWS keys** that are allowed to use Amazon Bedrock (the AI service). Everything the AI does goes through it and costs money. See "What costs money" below.
+4. Keep the project folder outside `~/Downloads`. Docker on a Mac may refuse to read files from there.
+
+**Steps**
+
+1. Open a terminal and go to the project folder, the one that contains a file called `Makefile`:
+   ```bash
+   cd ~/MacWorkspace/Hackathon/trustops_fcrm/trustops
+   ```
+2. Set up. This is needed the first time only:
+   ```bash
+   make bootstrap    # installs the tools and downloads the helper programs
+   make env          # creates the settings file .env with made-up local passwords
+   make keys         # creates the sign-in keys
+   ```
+3. Add your AWS keys. Run `open -e .env`, fill in the two lines `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, and save. Never share this file and never commit it to git.
+4. Start the program:
+   ```bash
+   make up
+   ```
+   The first time takes several minutes while it builds. It then waits about a minute and a half more while the AI search prepares itself. When it prints `ready`, it is running. `make ps` should show every line as healthy.
+5. Load the sample data and the demo documents (about another minute and a half):
+   ```bash
+   make seed
+   ```
+6. Open http://localhost:8080 in your browser and sign in. Every sample user has the same password, `demo-password-2026`:
+
+   | Who | User name | What they do |
+   |---|---|---|
+   | Priya Nair | `pnair` | the product owner who raises the change |
+   | Rahul Iyer | `riyer` | the analyst who reviews it |
+   | Ana Mendes, Joseph Okafor, Lin Chen | `amendes`, `jokafor`, `lchen` | the risk committee that votes |
+
+7. Try the example case, FCRM-2026-0151 (money transfers from the US to Mexico). Either follow "Drive the demo by hand" below, or let a script play all five people with `make demo`. The script uses the AI and costs money, so only run it when you mean to.
+8. Stop when you are done:
+   ```bash
+   make down         # stops everything and keeps your data
+   make down-v       # stops everything and deletes your data
+   ```
+
+**If something goes wrong**
+
+| What you see | What to do |
+|---|---|
+| `No rule to make target` | You are in the wrong folder. Go to the folder that contains the `Makefile` (step 1). |
+| It seems stuck while starting | It is probably still preparing. Wait two minutes and run `make ps`. If a line stays unhealthy, run `make logs svc=api` and read the last lines. |
+| Errors about AWS keys, region or models | Check the two key lines in `.env`, and that your AWS account allows the AI models listed below. Then run `make up` again. |
+| A case stops moving | Run `make dlq`. If it lists a waiting message, the table "Troubleshooting" further down says how to release it. |
+| You want a clean start | `make demo-reset` resets only the example case. `make seed` reloads all sample data. |
+
+**What costs money**
+
+- Starting the program costs under one cent each time, because it prepares the AI search.
+- Running the demo (by script or by hand) costs roughly one dollar, a little more with the current models. That figure was measured on the earlier model setup and has not been measured again.
+- `make evals` (the AI quality test) cost about three dollars on the earlier setup.
+- `make check`, the code checks, is free.
+
+---
+
+## Reference for engineers
+
+Everything below is detailed reference: the exact models, every command, the 21 demo scenes, troubleshooting and the file layout. Terms such as ADR and D-number point to the decision log and the defect list in `docs/governance`.
+
 
 How to set up the repository, start the stack, drive the demo case by hand in the web UI, run the checks and fix what goes wrong. Written on 6 October 2026 from the repository at that date, with the model chain, its budgets and its cost figures updated on 7 October 2026 (ADR-62); every command below was either run, expanded with `make -n`, or checked against the Makefile, the compose files and `docs/architecture/openapi/api.json`. What was not run is said in "What is not done and not verified".
 
@@ -273,7 +345,6 @@ On 6 October 2026 `make check` was green on the tree of `8b55edd`: 7689 passed, 
 | Dev server says `Port 5173 is already in use` | an earlier `npm run dev` survives: `kill $(lsof -tnP -iTCP:5173 -sTCP:LISTEN)` |
 | Every screen errors on the dev server | `npm run dev` is the live mode and proxies to :8080: `make up` first, or use `npm run dev:msw` |
 | `ports are not available ... 6379` | a Homebrew `redis-server` holds the port (only with `up-cache` and `up-debug`): `brew services stop redis` or set `REDIS_HOST_PORT` |
-| The examiner question errors after a minute | the answer took longer than 60 s and the API answered 202; the web does not poll for it (known gap). Read it with `GET /api/fcrm/audit/examiner/answers/<question_id>` |
 | A stray `make down-v` deleted my data | there is no backup unless you made one (`ops/runbooks/backup-restore.md`); `make up` reseeds the 80 cases |
 
 More: `ops/runbooks/README.md` indexes one short page per task (start, stop, reset, dead letters, restarts, outages, secrets, backups, audit chain, agent incidents, release).
@@ -296,8 +367,6 @@ The full list, each item with its evidence, is `docs/governance/known-gaps.md`. 
 - **S1 pins the versions S3 holds in force** (`GET /internal/config/pins`, cached 5 s) and reads a published field set from S3; when S3 does not answer in a few seconds it pins the seed's versions and logs a warning naming the case. Proved on a real replica set, not yet in the composed stack.
 - **The per-case token cap is enforced across jobs by a ledger: 160,000 enforced, 120,000 target** (ADR-50); a run that needs retries can use most of the cap.
 - **Redis does nothing** (`make up-cache`); **S3 Vectors is not in the image** (vectors are in memory; each `api` start embeds the corpus).
-- **The web examiner does not handle a 202.**
-- **Two integration mismatches are open defects:** the `evidence_store` agent tool reads a different shape than S1 answers (D-52), and the web's decide call for a clause or control may not resolve the item id (D-53). If a review decision errors on the first item, that is D-53.
 - The black-box tests under `tests/integration` run in process. The live ones (`make e2e`) read a completed demo, and the twelve resilience drills have run live (`docs/architecture/resilience.md`); neither has been run on the committed model chain (D-95, D-100).
 - **The assessment agent fails its eval gate** (`li_within_one` 0.70 against 0.85); eight of nine agents pass (`evals/results/2026-10-06/gate.json`). That run was on the previous chain, and there is no committed eval baseline for the committed chain: a run of one row per agent on it gave 7 of 9 gates at about USD 0.44 and is not a baseline.
 - **The policy corpus and demo documents are synthetic**, 193 of 197 clauses generated (ADR-29). No OCR, no SharePoint.
@@ -311,6 +380,6 @@ The full list, each item with its evidence, is `docs/governance/known-gaps.md`. 
 | `docker-compose.yaml` | the whole stack; profile `obs` adds the four observability containers, profile `cache` adds Redis |
 | `compose.debug.yaml` | publishes Mongo (:27017), RabbitMQ (:5672, :15672), MinIO (:9000, :9001), OPA (:8181), Redis and the harness health port (:9100) to the host. `make up-debug` |
 | `compose.dev.yaml` | bind mounts, `uvicorn --reload`, the Vite dev server, DEBUG logs. `make up-dev` |
-| `compose.test.yaml` | the test stack: in-memory vectors, dummy embeddings for `api`, AWS keys blanked for `api`; project `trustops-test`. Agents still call live Bedrock. Used by the unwired `make e2e` |
+| `compose.test.yaml` | the test stack: in-memory vectors, dummy embeddings for `api`, AWS keys blanked for `api`; project `trustops-test`. Agents still call live Bedrock. The environment check validates it; no make target starts it today |
 
 `.env` has three sections: (1) the AWS block (the only place a person must add anything), (2) optional host ports, commented out, (3) generated passwords and secrets. `.env.example` is the full reference for every variable, and `make compose-check` keeps it equal to the compose files. A host port is the number on your machine for a container; by default only the gateway publishes one. A generated password cannot change after the first start without `make down-v`, except `MONGO_APP_PASSWORD`, `MONGO_AUDIT_WRITER_PASSWORD` and `MONGO_EVALS_READER_PASSWORD` (`ops/runbooks/secrets-and-keys.md`).
