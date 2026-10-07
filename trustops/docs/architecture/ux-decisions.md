@@ -50,6 +50,38 @@ Figma and Excalidraw, which the brief suggests, were not used: a working React p
 | UX-17 | **Light theme only, Myridius tokens, no hard-coded colours** outside `design/tokens.css` | The prototype and brand are light only; one token file keeps the contrast test meaningful | `src/frontend/src/design/tokens.css` | ADR-06, D-97 |
 | UX-18 | **Out of scope on purpose**: mobile layout, notification settings, a PO "AI configuration" page (it would let an owner tune the agents that assess them) and the prototype's Templates page (now a required-fields card in Review & submit). SharePoint is listed on Integrations as "not connected" | Scope for nine days; the AI configuration page broke the rule that a party cannot tune its own gate | `docs/requirements/source/00-README.md`; teardown section 15 | D-92, ADR-17 |
 
+## Screens
+
+Captured on 7 October 2026 from the web against its mock backend (`npm run dev:msw`, which serves the P7 seed with no stack and no model calls), at 1440 × 900, using the login page's demo scenarios for case FCRM-2026-0151. The figures are the seed's, not a live run's. Against the mock the monitor shows "reconnecting" because the mock serves no event stream.
+
+**The owner's case (UX-2, UX-4, UX-6).** Priya sees her case's progress in five plain stages, the change types the assistant proposed with the source of each, and her own completion. There is no score, band or rating anywhere on the page, because her responses carry none.
+
+![Owner's case overview](img/ux/po-case-overview.png)
+
+**The analyst's summary (UX-7, UX-11).** The critic's findings and the intake flags, each with its source chip; the completeness report the narrative agent drafted; and "Score withheld" until the analyst has reviewed the proposals.
+
+![Analyst summary with the score withheld](img/ux/analyst-summary.png)
+
+**Policy, word for word (UX-4, UX-6).** Each clause is quoted verbatim with its source, edition, page and corpus version, and is accepted or removed on its own. The banner notes that an attempt which paraphrased a clause was rejected by Guard 4 and retried.
+
+![Policy tab with verbatim clauses](img/ux/analyst-policy.png)
+
+**Risk and controls before review (UX-4, UX-7).** Ratings open only after the clauses are decided. The critic's finding on CTL-T01 sits above the ratings, and the score stays withheld.
+
+![Risk and controls with the score withheld](img/ux/analyst-risk-controls.png)
+
+**The override, with its reason and its consequence (UX-5, UX-13).** Overriding CTL-T01 from the proposed 7.6 to 4.5 shows the scoring engine's preview before anything is saved (composite 9.8 → 10.4, Band 3) and warns that the route changes and needs acknowledgement. "Override with reason" stays disabled until the reason is long enough. The browser computes none of these numbers.
+
+![Override dialog with the scoring preview](img/ux/analyst-override-dialog.png)
+
+**The committee's hidden vote (UX-9).** One of three votes is in and its choice is hidden; a vote needs one of four outcomes and a written rationale.
+
+![Committee vote with hidden ballots](img/ux/committee-vote.png)
+
+**The harness monitor (UX-8).** Agents run, guards passed and blocked, the audit chain, and tokens against the per-case budget, with the last result of each of the seven guards and the step-by-step log. The owner gets 403 on this route.
+
+![Harness monitor](img/ux/harness-monitor.png)
+
 ## What the prototype taught, and what was not carried over
 
 The teardown (`docs/requirements/research/04-prototype-fcrm-v2-notes.md`, section 15) lists the prototype's defects. The ones that changed the UX: per-item confirmation and boundary acknowledgement were not enforced (UX-4, and the analyst's Acknowledge action); the committee pack was live rather than frozen (now a hashed, versioned pack); a vote's choice leaked through the API before reveal (UX-9); completion had three client-side formulas (UX-13); the owner could tune the agents that assessed them (UX-18); notifications were never produced (out of scope, not faked).
