@@ -42,6 +42,6 @@ describe('PO Dashboard (2.2) · visibility guard mirroring BB-02', () => {
 
   it('a PO on an analyst route is sent to their own home, with no hint the route exists', async () => {
     const { router } = renderApp('/analyst/config', { as: USERS.priya });
-    await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/po'));
   });
 });

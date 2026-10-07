@@ -13,7 +13,7 @@ export function Avatar({ name, size = 'md', decorative = false }: { name: string
       role={decorative ? undefined : 'img'}
       aria-label={decorative ? undefined : name}
       aria-hidden={decorative || undefined}
-      className={cn('inline-flex shrink-0 items-center justify-center rounded-full bg-quantum-leaf-tint-2 font-bold text-carbon-moss', dims)}
+      className={cn('inline-flex shrink-0 items-center justify-center rounded-full bg-pulse-green-tint-2 font-bold text-quantum-leaf', dims)}
     >
       {initials(name)}
     </span>

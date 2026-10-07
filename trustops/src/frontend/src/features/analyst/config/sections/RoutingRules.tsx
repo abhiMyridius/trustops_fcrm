@@ -10,7 +10,7 @@ export function RoutingRules({ s }: { s: ConfigSectionBase<'routing-rules', Rout
         <ol className="flex flex-col gap-2 text-sm">
           {s.data.rules.map((r) => (
             <li key={r.id} className="flex gap-3">
-              <span className="font-mono text-[12px] font-bold text-carbon-moss">{r.id}</span>
+              <span className="font-mono text-[12px] font-bold text-quantum-leaf">{r.id}</span>
               <span>{r.rule}</span>
             </li>
           ))}

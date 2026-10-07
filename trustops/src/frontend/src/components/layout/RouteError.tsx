@@ -22,7 +22,7 @@ export function RouteError() {
     <main id="main" className="flex min-h-full items-center justify-center bg-surface-tertiary p-8">
       <div role="alert" className="max-w-md rounded-xl border border-border bg-surface p-8 text-center shadow-md">
         <TriangleAlert aria-hidden size={36} className="mx-auto text-danger" />
-        <h1 className="mt-3 text-xl font-bold">{missing ? 'This page is not in your view' : 'Something went wrong'}</h1>
+        <h1 className="mt-3 text-xl font-extrabold tracking-tight">{missing ? 'This page is not in your view' : 'Something went wrong'}</h1>
         <p className="mt-2 text-sm text-text-secondary">
           {missing
             ? 'Check the address, or go back to your home page.'

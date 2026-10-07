@@ -6,6 +6,7 @@ import { paths } from '@/api/endpoints';
 import { server } from '@/mocks/server';
 import { renderApp } from '../render';
 import { violations } from '../axe';
+import { USERS } from '../fixtures';
 
 // The route chunks load lazily; with the whole suite running in parallel the first render can take longer than 1 s.
 configure({ asyncUtilTimeout: 5000 });
@@ -31,7 +32,7 @@ describe('LoginPage (2.1)', () => {
     const { router } = renderApp('/login');
     await userEvent.click(await screen.findByRole('button', { name: 'Sign in with corporate SSO' }));
     await userEvent.click(await screen.findByRole('button', { name: /Priya Nair/ }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/po'));
     expect(await screen.findByRole('heading', { level: 1, name: /Welcome back, Priya/ })).toBeInTheDocument();
   });
 
@@ -47,6 +48,19 @@ describe('LoginPage (2.1)', () => {
     expect(screen.getByText('Unknown user or wrong password.')).toBeInTheDocument();
     expect(screen.queryByText(/session has ended/i)).not.toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/login');
+  });
+
+  it('signing out lands on a plain /login, without next', async () => {
+    const { router } = renderApp('/po', { as: USERS.priya });
+    await userEvent.click(await screen.findByRole('button', { name: /Account menu for Priya Nair/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Sign out' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+    expect(router.state.location.search).toBe('');
+  });
+
+  it('sends a signed-in PO from / to /po', async () => {
+    const { router } = renderApp('/', { as: USERS.priya });
+    await waitFor(() => expect(router.state.location.pathname).toBe('/po'));
   });
 
   it('redirects a signed-out visitor to /login with next', async () => {

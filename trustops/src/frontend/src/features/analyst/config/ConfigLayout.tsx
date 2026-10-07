@@ -31,7 +31,7 @@ export function ConfigLayout() {
               className={({ isActive }) =>
                 cn(
                   'whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium hover:no-underline',
-                  isActive ? 'bg-carbon-moss text-text-on-dark' : 'text-text-secondary hover:bg-surface',
+                  isActive ? 'bg-virtual-tide-tint font-semibold text-quantum-leaf' : 'text-text-secondary hover:bg-surface',
                 )
               }
             >

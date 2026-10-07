@@ -36,7 +36,7 @@ export function ConditionTable({
     <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-sm">
         <caption className="sr-only">{caption}</caption>
-        <thead className="bg-surface-tertiary text-left text-[11px] uppercase tracking-wide text-text-muted">
+        <thead className="bg-surface-tertiary text-left text-[11px] font-semibold uppercase tracking-overline text-text-muted">
           <tr>
             <th scope="col" className="px-4 py-2.5">
               Condition

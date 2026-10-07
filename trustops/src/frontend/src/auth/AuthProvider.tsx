@@ -20,14 +20,25 @@ export interface AuthContextValue {
   role: Role | null;
   login: (username: string, password?: string) => Promise<Principal>;
   logout: () => Promise<void>;
+  /** True after the person chose to sign out (not after an expired session): the guard then sends them to a plain /login. */
+  endedByUser: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+/** GET auth/me as either backend answers it: the live identity names the id `sub` and carries no title. */
+type MeBody = Omit<Principal, 'id' | 'title'> & { id?: string; sub?: string; title?: string };
+
+async function fetchMe(): Promise<Principal> {
+  const me = await api<MeBody>(paths.auth.me);
+  return { id: me.id ?? me.sub ?? '', name: me.name, roles: me.roles, title: me.title ?? '', unit: me.unit };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<Status>('loading');
   const [user, setUser] = useState<Principal | null>(null);
+  const [endedByUser, setEndedByUser] = useState(false);
 
   const signOutLocally = useCallback(() => {
     setAccessToken(null);
@@ -46,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const me = await api<Principal>(paths.auth.me);
+        const me = await fetchMe();
         if (!cancelled) {
           setUser(me);
           setStatus('signed_in');
@@ -63,12 +74,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (username: string, password?: string) => {
-      const res = await api<LoginResponse>(paths.auth.login, { method: 'POST', body: { username, password: password ?? '' } });
+      // The identity service's LoginRequest names the login field `email` and accepts a seed id there.
+      const res = await api<LoginResponse>(paths.auth.login, { method: 'POST', body: { email: username, password: password ?? '' } });
       setAccessToken(res.access_token);
+      // The live login body carries only the token; the profile comes from auth/me.
+      const me = res.user ?? (await fetchMe());
       qc.clear();
-      setUser(res.user);
+      setUser(me);
+      setEndedByUser(false);
       setStatus('signed_in');
-      return res.user;
+      return me;
     },
     [qc],
   );
@@ -76,12 +91,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     // Sign out locally even when the server call fails: the access token only ever lived in memory.
     await api(paths.auth.logout, { method: 'POST', body: {} }).catch(() => undefined);
+    setEndedByUser(true);
     signOutLocally();
   }, [signOutLocally]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user, role: user ? primaryRole(user.roles) : null, login, logout }),
-    [status, user, login, logout],
+    () => ({ status, user, role: user ? primaryRole(user.roles) : null, login, logout, endedByUser }),
+    [status, user, login, logout, endedByUser],
   );
 
   return <AuthContext value={value}>{children}</AuthContext>;

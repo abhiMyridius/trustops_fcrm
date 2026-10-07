@@ -19,6 +19,8 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { useToast } from '@/components/ui/Toast';
+import { WaveOrnament } from '@/components/ui/WaveOrnament';
+import { BrandMark } from '@/components/ui/BrandMark';
 import { useDocumentTitle } from '@/lib/a11y';
 
 const demoMode = (import.meta.env.VITE_DEMO_USERS ?? 'true') === 'true';
@@ -46,8 +48,8 @@ function ScenarioSwitch() {
   });
   if (!scenarios.data) return null;
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border-strong bg-surface-tertiary p-4">
-      <p className="text-[12px] font-semibold uppercase tracking-wide text-text-muted">Mock backend only · demo starting point</p>
+    <div className="flex flex-col gap-2 rounded-md border border-dashed border-border-strong bg-surface p-4">
+      <p className="text-[12px] font-semibold uppercase tracking-overline text-text-muted">Mock backend only · demo starting point</p>
       <div className="flex flex-wrap items-end gap-2">
         <Select
           label="Scenario for FCRM-2026-0151"
@@ -96,24 +98,27 @@ export function LoginPage() {
 
   return (
     <main id="main" className="grid w-full grid-cols-1 lg:grid-cols-[1.1fr_1fr]">
-      <section className="hidden flex-col justify-between p-12 text-text-on-dark lg:flex">
-        <img src="/brand-mark.svg" alt="Myridius" className="h-5 w-auto self-start rounded bg-surface px-2 py-1" />
-        <div className="max-w-md">
-          <p className="text-[13px] font-semibold uppercase tracking-wide text-quantum-leaf">TrustOps · FCRM risk assessment workbench</p>
-          <p className="mt-3 text-4xl font-bold leading-tight">One governed place for change risk assessments</p>
+      <section className="relative hidden flex-col justify-between overflow-hidden p-12 text-text-on-dark lg:flex">
+        <WaveOrnament tone="dark" className="no-print" />
+        <div className="relative z-10 max-w-md">
+          <p className="text-[13px] font-semibold uppercase tracking-overline text-pulse-green">TrustOps · FCRM risk assessment workbench</p>
+          <p className="mt-3 text-4xl font-extrabold leading-[1.1] tracking-tight">One governed place for change risk assessments</p>
           <ul className="mt-6 flex flex-col gap-2 text-sm text-text-on-dark-muted">
             <li>Scores come only from the deterministic engine; agents propose, people decide.</li>
             <li>Policy is quoted word for word with its source.</li>
             <li>Every decision is written to a hash-chained audit trail.</li>
           </ul>
         </div>
-        <p className="text-[12px] text-text-on-dark-muted">Synthetic data only. Genius Hacks Q3 2026.</p>
+        <div className="relative z-10 flex flex-col items-start gap-3">
+          <BrandMark tone="dark" className="h-9" />
+          <p className="text-[12px] text-text-on-dark-muted">Synthetic data only. Genius Hacks Q3 2026.</p>
+        </div>
       </section>
 
-      <section className="flex items-center justify-center bg-surface p-6 sm:p-10">
+      <section className="flex items-center justify-center bg-linen p-6 sm:p-10">
         <div className="flex w-full max-w-md flex-col gap-6">
           <div>
-            <h1 className="text-2xl font-bold text-text-primary">Sign in to TrustOps</h1>
+            <h1 className="text-2xl font-extrabold tracking-tight text-text-primary">Sign in to TrustOps</h1>
             <p className="mt-1 text-sm font-semibold text-text-secondary lg:hidden">One governed place for change risk assessments</p>
             <p className="mt-2 text-sm text-text-secondary">Your role and what you can see are set by the bank&apos;s directory, not by this app.</p>
           </div>
@@ -127,14 +132,14 @@ export function LoginPage() {
               <p className="text-[13px] text-text-muted">Demo directory: choose a seeded person. No password is collected in demo mode.</p>
               {users.data?.map((g) => (
                 <fieldset key={g.role} className="m-0 flex flex-col gap-1.5 border-0 p-0">
-                  <legend className="mb-1 text-[12px] font-semibold uppercase tracking-wide text-text-muted">{g.label}</legend>
+                  <legend className="mb-1 text-[12px] font-semibold uppercase tracking-overline text-text-muted">{g.label}</legend>
                   {g.users.map((u: DemoUser) => (
                     <button
                       key={u.username}
                       type="button"
                       onClick={() => void signIn(u.username)}
                       disabled={busy !== null}
-                      className="flex cursor-pointer items-center gap-3 rounded-lg border border-border px-3 py-2.5 text-left hover:border-carbon-moss hover:bg-surface-tertiary disabled:cursor-wait"
+                      className="flex cursor-pointer items-center gap-3 rounded-md border border-border bg-surface px-3 py-2.5 text-left hover:border-virtual-tide hover:shadow-sm disabled:cursor-wait"
                     >
                       <Avatar name={u.name} size="sm" decorative />
                       <span className="min-w-0 flex-1">

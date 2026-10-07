@@ -19,7 +19,7 @@
 
   html {
     font-size: 14px;
-    line-height: 1.5;
+    line-height: 1.6;
     -webkit-text-size-adjust: 100%;
   }
 
@@ -45,6 +45,13 @@
     margin: 0;
   }
 
+  h1,
+  h2,
+  h3 {
+    line-height: 1.2;
+    letter-spacing: var(--tracking-headline);
+  }
+
   ul,
   ol {
     padding: 0;
@@ -66,16 +73,16 @@
   }
 
   a {
-    color: var(--color-carbon-moss);
+    color: var(--color-virtual-tide-text);
     text-decoration: none;
   }
   a:hover {
-    color: var(--color-carbon-moss-hover);
+    color: var(--color-virtual-tide);
     text-decoration: underline;
   }
 
   ::selection {
-    background: var(--color-quantum-leaf-tint-2);
+    background: var(--color-pulse-green-tint-2);
   }
 
   /* Numbers line up in tables and score boxes. */
@@ -91,6 +98,23 @@
   outline: none;
   box-shadow: var(--focus-ring);
   border-radius: var(--radius-sm);
+}
+
+/* Text controls get the brand's input focus (guide §7.3): a 2px Virtual Tide border and a soft
+   4px halo, keeping their own 12px radius. Checkboxes and radios keep the generic ring above. */
+input:not([type='checkbox']):not([type='radio']):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border-color: var(--color-virtual-tide);
+  box-shadow: 0 0 0 4px var(--color-virtual-tide-ring);
+  border-radius: var(--radius-md);
+}
+
+/* Brand signature: a dark surface that fades to transparent (guide §6.3), used by the monitor hero. */
+.surface-dark-card {
+  background: var(--gradient-dark-card), var(--color-carbon-moss);
+  border: 1px solid var(--color-pulse-green-alpha-12);
+  border-radius: var(--radius-xl);
 }
 
 .sr-only {

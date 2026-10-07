@@ -43,7 +43,7 @@ const SURFACES = [
   'color-success-bg',
   'color-warning-bg',
   'color-danger-bg',
-  'color-quantum-leaf-tint-3',
+  'color-pulse-green-tint-3',
 ];
 
 describe('muted text colour', () => {

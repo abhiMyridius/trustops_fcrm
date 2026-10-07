@@ -1,4 +1,5 @@
 import type { AgentsData, ConfigSectionBase } from '@/api/types/config';
+import { AiLabel } from '@/components/ui/AiMark';
 import { Badge, Tag } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Card } from '@/components/ui/Card';
@@ -17,7 +18,7 @@ export function AIAgents({ s }: { s: ConfigSectionBase<'ai-agents', AgentsData> 
         {s.data.agents.map((a) => (
           <Card
             key={a.name}
-            title={a.name}
+            title={<AiLabel>{a.name}</AiLabel>}
             headingLevel={3}
             subtitle={`${a.tier} tier · ${a.budget}`}
             actions={<DraftEdit section={s.section} etag={s.draft.etag} path={`${a.name}.tier`} label={`${a.name} tier`} current={a.tier} />}

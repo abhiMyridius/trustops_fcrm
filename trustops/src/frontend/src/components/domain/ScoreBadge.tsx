@@ -31,7 +31,7 @@ export function ScoreBadge({ composite, band, bandLabel, bandRange, routeLabel, 
   return (
     <div className={cn('inline-flex flex-col gap-1 rounded-lg border-l-4 px-4 py-3', tone.badge)}>
       <div className="flex items-baseline gap-3">
-        <span className="text-3xl font-bold tabular-nums">{formatFixed(composite)}</span>
+        <span className="text-3xl font-extrabold tracking-tight tabular-nums">{formatFixed(composite)}</span>
         <span className="text-sm font-bold">
           {bandName(band, bandLabel)} of 4{bandRange ? ` (${bandRange})` : ''}
         </span>

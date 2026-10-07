@@ -49,7 +49,8 @@ export interface LoginResponse {
   access_token: string;
   token_type: 'bearer';
   expires_in: number;
-  user: Principal;
+  /** Present in the mock only; the live identity returns the token alone and the app reads auth/me. */
+  user?: Principal;
 }
 
 export interface DemoUser {

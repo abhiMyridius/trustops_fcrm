@@ -9,6 +9,7 @@ import type { PackView } from '@/api/types/committee';
 import { PackSection } from '@/components/domain/PackSection';
 import { ScoreBadge } from '@/components/domain/ScoreBadge';
 import { ConditionTable } from '@/components/domain/ConditionTable';
+import { AiLabel } from '@/components/ui/AiMark';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { useDocumentTitle } from '@/lib/a11y';
@@ -68,7 +69,9 @@ export function PackTab() {
       <PackSection n={2} title="Analyst's recommendation">
         <p className="font-semibold">{OUTCOME_LABEL[p.recommendation.outcome]}</p>
         <p className="mt-1">{p.recommendation.text}</p>
-        <p className="mt-1 text-[12px] text-text-muted">Drafted by the narrative agent · {p.recommendation.edits_by_analyst} edits by the analyst</p>
+        <p className="mt-1 text-[12px] text-text-muted">
+          <AiLabel size={13}>Drafted by the narrative agent · {p.recommendation.edits_by_analyst} edits by the analyst</AiLabel>
+        </p>
       </PackSection>
       <PackSection n={3} title="Boundary flag and acknowledgement">
         <p>{p.boundary.text}</p>

@@ -22,7 +22,7 @@ interface Screen {
 
 const SCREENS: Screen[] = [
   // Product owner (2.2–2.10)
-  { name: '2.2 PO dashboard', as: USERS.priya, scenario: 'fresh', route: '/', expect: /Welcome back, Priya/ },
+  { name: '2.2 PO dashboard', as: USERS.priya, scenario: 'fresh', route: '/po', expect: /Welcome back, Priya/ },
   { name: '2.3 PO my queue', as: USERS.priya, scenario: 'fresh', route: '/queue', expect: /Instant account-to-account transfers/ },
   { name: '2.4 PO documents', as: USERS.priya, scenario: 'fresh', route: `/case/${C}/documents`, expect: /Use the demo's two files/ },
   { name: '2.5 PO overview', as: USERS.priya, scenario: 'submitted', route: `/case/${C}/overview`, expect: /Proposed change types/ },

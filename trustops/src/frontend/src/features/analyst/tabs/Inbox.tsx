@@ -7,6 +7,7 @@ import { useOutletContext, useParams } from 'react-router-dom';
 import { useClarifications, useResolveThread, useSendRound } from '@/api/queries/analystQueries';
 import { userMessage } from '@/api/errors';
 import type { DraftQuestion, WorkbenchHeader } from '@/api/types/analyst';
+import { AiLabel } from '@/components/ui/AiMark';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
@@ -25,7 +26,7 @@ function Composer({ caseId, drafted }: { caseId: string; drafted: DraftQuestion[
   const toast = useToast();
   const kept = qs.filter((q) => q.keep);
   return (
-    <Card title="Clarification round · draft" subtitle="Drafted by the narrative agent from the completeness report. You keep, drop or edit each question.">
+    <Card title={<AiLabel>Clarification round · draft</AiLabel>} subtitle="Drafted by the narrative agent from the completeness report. You keep, drop or edit each question.">
       <ul className="flex flex-col gap-4">
         {qs.map((q, i) => (
           <li key={q.id} className="flex flex-col gap-2 rounded-lg border border-border p-3">

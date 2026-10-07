@@ -11,7 +11,7 @@ export function DiffTable({ diff }: { diff: SubmissionDiff }) {
           <caption className="sr-only">
             Changes from submission v{diff.from} to v{diff.to}
           </caption>
-          <thead className="bg-surface-tertiary text-left text-[12px] uppercase tracking-wide text-text-muted">
+          <thead className="bg-surface-tertiary text-left text-[12px] font-semibold uppercase tracking-overline text-text-muted">
             <tr>
               <th scope="col" className="px-4 py-2.5">
                 Field

@@ -11,6 +11,7 @@ import { ApiError, isNotReady, userMessage } from '@/api/errors';
 import type { Recommendation, WorkbenchHeader } from '@/api/types/analyst';
 import { ConditionTable } from '@/components/domain/ConditionTable';
 import { ReasonDialog } from '@/components/domain/ReasonDialog';
+import { AiLabel } from '@/components/ui/AiMark';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
@@ -39,7 +40,7 @@ function Editor({ caseId, rec, readOnly }: { caseId: string; rec: Recommendation
     <div className="flex flex-col gap-5">
       <Card
         title="Recommendation"
-        subtitle={`Drafted by the ${rec.drafted_by} · ${rec.edits_by_analyst} edit${rec.edits_by_analyst === 1 ? '' : 's'} by the analyst`}
+        subtitle={<AiLabel size={14}>{`Drafted by the ${rec.drafted_by} · ${rec.edits_by_analyst} edit${rec.edits_by_analyst === 1 ? '' : 's'} by the analyst`}</AiLabel>}
         actions={rec.locked ? <Badge tone="success" icon={<Lock aria-hidden size={12} />}>Locked</Badge> : <Badge tone="warning">Draft</Badge>}
       >
         <div className="flex flex-col gap-4">

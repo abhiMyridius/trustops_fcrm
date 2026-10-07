@@ -2,11 +2,12 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { CloudUpload, FileText, Loader2, Sparkles } from 'lucide-react';
+import { CloudUpload, FileText } from 'lucide-react';
 import { useDocuments, useUploadDocuments } from '@/api/queries/caseQueries';
 import { useStreamStatus } from '@/api/sse/useCaseStream';
 import { userMessage } from '@/api/errors';
 import { CompletionRing } from '@/components/domain/CompletionRing';
+import { AiMark } from '@/components/ui/AiMark';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
@@ -87,7 +88,7 @@ export function DocumentsTab() {
                 }}
                 onDragLeave={() => setDragging(false)}
                 onDrop={onDrop}
-                className={`flex flex-col items-center gap-3 rounded-lg border-2 border-dashed px-6 py-8 text-center ${dragging ? 'border-teal bg-success-bg' : 'border-border-strong bg-surface-tertiary'}`}
+                className={`flex flex-col items-center gap-3 rounded-lg border-2 border-dashed px-6 py-8 text-center ${dragging ? 'border-virtual-tide bg-success-bg' : 'border-border-strong bg-surface-tertiary'}`}
               >
                 <CloudUpload aria-hidden size={28} className="text-text-muted" />
                 <p className="text-sm font-semibold">Drop files here, or browse</p>
@@ -158,11 +159,7 @@ export function DocumentsTab() {
           <div className="flex flex-col gap-5">
             <Card title="Assistant" headingLevel={2}>
               <p className="flex items-start gap-2 text-sm" role="status" aria-live="polite">
-                {v.assistant.state === 'reading' ? (
-                  <Loader2 aria-hidden size={16} className="mt-0.5 shrink-0 animate-spin text-teal" />
-                ) : (
-                  <Sparkles aria-hidden size={16} className="mt-0.5 shrink-0 text-teal" />
-                )}
+                <AiMark size={18} className="mt-0.5" />
                 <span>{v.assistant.line}</span>
               </p>
               {v.assistant.state === 'done' && v.documents.length > 0 && (

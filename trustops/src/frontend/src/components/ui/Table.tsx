@@ -54,7 +54,7 @@ export function Table<T>({ columns, rows, rowKey, caption, loading, empty, rowCl
   const pad = dense ? 'px-3 py-2' : 'px-4 py-3';
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-surface">
+    <div className="overflow-x-auto rounded-md border border-border bg-surface">
       <table className="w-full border-collapse text-sm">
         <caption className={cn(captionVisible ? 'px-4 py-2 text-left text-xs text-text-muted' : 'sr-only')}>{caption}</caption>
         <thead className="sticky top-0 z-[1] bg-surface-tertiary">
@@ -68,7 +68,7 @@ export function Table<T>({ columns, rows, rowKey, caption, loading, empty, rowCl
                   scope="col"
                   aria-sort={ariaSort}
                   className={cn(
-                    'border-b border-border text-left text-[12px] font-semibold uppercase tracking-wide text-text-muted',
+                    'border-b border-border text-left text-[12px] font-semibold uppercase tracking-overline text-text-muted',
                     pad,
                     c.align === 'right' && 'text-right',
                     c.align === 'center' && 'text-center',

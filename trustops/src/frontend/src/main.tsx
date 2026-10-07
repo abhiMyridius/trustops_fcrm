@@ -9,6 +9,8 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 import { AppProviders, makeQueryClient } from '@/app/providers';
 import { createAppRouter } from '@/app/router';
+import '@fontsource-variable/montserrat';
+import '@fontsource-variable/montserrat/wght-italic.css';
 import '@/design/index.css';
 
 async function start(): Promise<void> {

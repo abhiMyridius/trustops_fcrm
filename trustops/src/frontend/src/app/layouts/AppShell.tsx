@@ -25,6 +25,7 @@ import { DEMO_CASE_ID, ROLE_LABEL } from '@/auth/roles';
 import type { Role } from '@/api/types/common';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
+import { BrandMark } from '@/components/ui/BrandMark';
 import { Button } from '@/components/ui/Button';
 import { Dropdown } from '@/components/ui/Dropdown';
 import { useToast } from '@/components/ui/Toast';
@@ -39,7 +40,7 @@ interface NavItem {
 
 const NAV: Record<Role, NavItem[]> = {
   fcrm_po: [
-    { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+    { to: '/po', label: 'Dashboard', icon: LayoutDashboard, end: true },
     { to: '/queue', label: 'My queue', icon: ClipboardList },
     { to: '/integrations', label: 'Integrations', icon: Plug },
   ],
@@ -79,36 +80,35 @@ export function AppShell() {
   }
 
   return (
-    <div className="flex h-full min-h-screen bg-surface-tertiary">
+    <div className="flex min-h-screen bg-surface-tertiary">
       <a href="#main" className="skip-link">
         Skip to content
       </a>
       <aside
         aria-label="Primary"
         className={cn(
-          'no-print sticky top-0 flex h-screen shrink-0 flex-col border-r border-border bg-surface transition-[width] duration-200',
-          collapsed ? 'w-[68px]' : 'w-[232px]',
+          'no-print sticky top-0 flex h-screen shrink-0 flex-col bg-carbon-moss text-text-on-dark transition-[width] duration-200',
+          collapsed ? 'w-[72px]' : 'w-[260px]',
         )}
       >
-        <div className={cn('flex flex-col gap-3 border-b border-border-hairline py-5', collapsed ? 'px-3' : 'px-5')}>
-          <div className={cn('flex items-center', collapsed ? 'justify-center' : 'justify-between')}>
-            {!collapsed && <img src="/brand-mark.svg" alt="Myridius" className="h-4 w-auto" />}
+        <div className={cn('flex flex-col gap-3 border-b border-pulse-green-alpha-12 py-5', collapsed ? 'px-3' : 'px-5')}>
+          <div className={cn('flex items-center', collapsed ? 'justify-center' : 'justify-end')}>
             <button
               type="button"
               onClick={() => setCollapsed((v) => !v)}
               aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               aria-expanded={!collapsed}
-              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-text-muted hover:bg-surface-tertiary"
+              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-text-on-dark-muted hover:bg-pulse-green-alpha-6 hover:text-text-on-dark"
             >
               {collapsed ? <ChevronRight aria-hidden size={16} /> : <ChevronLeft aria-hidden size={16} />}
             </button>
           </div>
           {collapsed ? (
-            <span className="text-center text-[19px] font-bold text-carbon-moss">T</span>
+            <span className="text-center text-[19px] font-extrabold text-text-on-dark">T</span>
           ) : (
             <div className="flex flex-col leading-tight">
-              <span className="text-[21px] font-bold tracking-tight text-carbon-moss">TrustOps</span>
-              <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">Risk Assessment Workbench</span>
+              <span className="text-[21px] font-extrabold tracking-tight text-text-on-dark">TrustOps</span>
+              <span className="mt-1 text-[10px] font-semibold uppercase tracking-overline text-pulse-green">Risk Assessment Workbench</span>
             </div>
           )}
         </div>
@@ -119,7 +119,7 @@ export function AppShell() {
             </Button>
           </div>
         )}
-        <nav aria-label="Main" className={cn('mt-4 flex flex-col gap-0.5', collapsed ? 'px-2.5' : 'px-3')}>
+        <nav aria-label="Main" className="mt-4 flex flex-col gap-0.5">
           {items.map((it) => (
             <NavLink
               key={it.to}
@@ -128,28 +128,36 @@ export function AppShell() {
               title={collapsed ? it.label : undefined}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-2.5 rounded-md py-2.5 text-[14px] font-medium transition-colors hover:no-underline',
-                  collapsed ? 'justify-center px-2.5' : 'px-3',
-                  isActive ? 'bg-border-subtle font-semibold text-carbon-moss-hover' : 'text-text-secondary hover:bg-surface-tertiary',
+                  'relative flex items-center gap-3 py-2.5 text-[14px] font-medium transition-colors hover:no-underline',
+                  collapsed ? 'justify-center px-0' : 'px-5',
+                  isActive
+                    ? 'bg-pulse-green-alpha-6 font-semibold text-text-on-dark before:absolute before:inset-y-1.5 before:left-0 before:w-1 before:rounded-r-full before:bg-pulse-green'
+                    : 'text-text-on-dark-muted hover:bg-pulse-green-alpha-6 hover:text-text-on-dark',
                 )
               }
             >
-              <it.icon aria-hidden size={17} className="shrink-0" />
+              <it.icon aria-hidden size={20} className="shrink-0" />
               <span className={cn(collapsed && 'sr-only')}>{it.label}</span>
             </NavLink>
           ))}
         </nav>
         {!collapsed && (
-          <div className="mt-auto border-t border-border-hairline px-5 py-4 text-[11px] text-text-muted">
-            Synthetic data only · seed P7
-            <br />
-            Nothing is approved or rejected automatically.
+          <div className="mt-auto flex flex-col items-start gap-3 border-t border-pulse-green-alpha-12 px-5 py-4">
+            <BrandMark tone="dark" className="h-8" />
+            <p className="text-[11px] text-text-on-dark-muted">
+              Synthetic data only · seed P7
+              <br />
+              Nothing is approved or rejected automatically.
+            </p>
           </div>
         )}
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header data-chrome className="no-print sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b border-border bg-surface px-6">
+        <header
+          data-chrome
+          className="no-print sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b border-border bg-linen/85 px-6 backdrop-blur-md backdrop-saturate-[1.4]"
+        >
           <div className="flex items-center gap-2">
             <Badge tone="neutral">{ROLE_LABEL[role]}</Badge>
           </div>

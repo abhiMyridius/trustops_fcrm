@@ -57,8 +57,8 @@ export function RiskMatrix({ areas }: { areas: RiskArea[] }) {
           const cy = (5 - a.I) * CELL + CELL / 2 - 1;
           return (
             <g key={a.domain}>
-              <circle cx={cx} cy={cy} r={8} fill="none" stroke="var(--color-carbon-moss)" strokeWidth={2} />
-              <circle cx={cx} cy={cy} r={3.5} fill="var(--color-carbon-moss)" />
+              <circle cx={cx} cy={cy} r={8} fill="none" stroke="var(--color-quantum-leaf)" strokeWidth={2} />
+              <circle cx={cx} cy={cy} r={3.5} fill="var(--color-quantum-leaf)" />
             </g>
           );
         })}
