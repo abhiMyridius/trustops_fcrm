@@ -27,6 +27,7 @@ from fcrm_guardrails.rules.r3_po_no_restricted import check as r3_check
 
 if TYPE_CHECKING:
     from conftest import CaseService
+    from fcrm_case.po_followup_store import InMemoryPoFollowupStore
 
 CASE = "FCRM-2026-0151"
 OWNER = "u-pnair"
@@ -574,6 +575,133 @@ def test_a_requested_but_unset_outcome_is_not_decided(decided: CaseService) -> N
     decided.outcomes.outcomes[CASE] = row.model_copy(update={"status": "requested"})
 
     assert decided.client.get(f"/cases/{CASE}/outcome").json()["decided"] is False
+
+
+# ── a seeded closed case (D-111) ────────────────────────────────────────────────
+
+SEEDED_CLOSED = "FCRM-2026-0118"  # Priya's, closed 15 Jun with approve_with_conditions
+OUTCOME_SENTENCE = {
+    Outcome.APPROVE: "Approved",
+    Outcome.APPROVE_WITH_CONDITIONS: "Approved with conditions",
+    Outcome.DEFER: "Deferred",
+    Outcome.REJECT: "Rejected",
+}
+
+
+@pytest.fixture
+def seeded_owner(
+    seeded_service: CaseService,
+    followup_store: InMemoryPoFollowupStore,
+    act_as: Callable[[Role, str], None],
+) -> CaseService:
+    """The seeded S1 slice with the follow-up store wired, called as Priya Nair,
+    who owns case 0118.
+    """
+    seeded_service.client.app.state.po_followup_store = followup_store  # type: ignore[attr-defined]
+    act_as(Role.PO, OWNER)
+    return seeded_service
+
+
+def test_a_seeded_closed_case_reads_its_seeded_outcome_not_no_decision_yet(
+    seeded_owner: CaseService,
+) -> None:
+    response = seeded_owner.client.get(f"/cases/{SEEDED_CLOSED}/outcome")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["decided"] is True
+    assert body["outcome_label"] == "Approved with conditions"
+    assert body["decided_at"].startswith("2026-06-15T17:00")
+    assert body["plain_summary"] is None
+    assert body["reminder_days"] == 14
+    assert_plain(body)
+
+
+def test_every_seeded_closed_case_reads_the_label_the_seed_keeps_for_its_owner(
+    seeded_owner: CaseService, act_as: Callable[[Role, str], None]
+) -> None:
+    from fcrm_case.reference import seeded_outcomes
+    from fcrm_seed.loader import cases as seed_cases
+
+    owners = {str(c["id"]): str(c["owner"]) for c in seed_cases()}
+    seeded = seeded_outcomes()
+    assert len(seeded) == 65
+
+    for case_id, label in seeded.items():
+        act_as(Role.PO, owners[case_id])
+        response = seeded_owner.client.get(f"/cases/{case_id}/outcome")
+        body = response.json()
+        assert response.status_code == 200, (case_id, response.text)
+        assert body["decided"] is True, case_id
+        assert body["outcome_label"] == OUTCOME_SENTENCE[Outcome(label)], case_id
+        assert_plain(body)
+
+
+def test_a_seeded_case_that_is_still_open_has_no_decision_yet(
+    seeded_owner: CaseService, act_as: Callable[[Role, str], None]
+) -> None:
+    from fcrm_seed.loader import cases as seed_cases
+
+    open_case = next(c for c in seed_cases() if c["stage"] == "under_assessment")
+    act_as(Role.PO, str(open_case["owner"]))
+
+    body = seeded_owner.client.get(f"/cases/{open_case['id']}/outcome").json()
+
+    assert body["decided"] is False
+    assert body["outcome_label"] is None
+
+
+def test_another_owner_still_gets_a_404_for_a_seeded_closed_case(
+    seeded_owner: CaseService, act_as: Callable[[Role, str], None]
+) -> None:
+    act_as(Role.PO, STRANGER)
+
+    response = seeded_owner.client.get(f"/cases/{SEEDED_CLOSED}/outcome")
+
+    assert response.status_code == 404
+    assert "Approved" not in response.text
+
+
+def test_an_outcome_row_s1_recorded_wins_over_the_seed(
+    seeded_owner: CaseService,
+) -> None:
+    seeded_owner.outcomes.outcomes[SEEDED_CLOSED] = OutcomeRow(
+        case_id=SEEDED_CLOSED,
+        status="set",
+        outcome=Outcome.DEFER,
+        mode="committee",
+        decided_by="svc:caseflow",
+        decided_at=datetime(2026, 10, 6, 12, tzinfo=UTC),
+        pack_id="pack_secret",
+        reason="Analyst reason: Band 3",
+        plain_summary="Your change is deferred until the audit completes.",
+        condition_ids=[],
+    )
+
+    body = seeded_owner.client.get(f"/cases/{SEEDED_CLOSED}/outcome").json()
+
+    assert body["outcome_label"] == "Deferred"
+    assert body["plain_summary"] == "Your change is deferred until the audit completes."
+    assert body["decided_at"].startswith("2026-10-06T12:00")
+
+
+def test_seeded_outcome_needs_a_closed_case_and_a_label_from_the_seed() -> None:
+    from fcrm_case.domain.record import CaseRecord
+    from fcrm_case.po_followup_views import seeded_outcome
+
+    base = CaseRecord.model_construct(
+        case_id="C-1",
+        state=CaseState.CLOSED,
+        decided_at=datetime(2026, 6, 15, 17, tzinfo=UTC),
+        outcome_summary=None,
+    )
+    closed = seeded_outcome(base, {"C-1": "approve"})
+    assert closed is not None
+    assert (closed.outcome, closed.decided_at) == (Outcome.APPROVE, base.decided_at)
+    assert seeded_outcome(base, {}) is None
+    assert seeded_outcome(base, {"C-2": "approve"}) is None
+    open_case = base.model_copy(update={"state": CaseState.DECIDE})
+    assert seeded_outcome(open_case, {"C-1": "approve"}) is None
 
 
 def test_the_outcome_labels_are_the_four_the_rest_of_s1_uses() -> None:

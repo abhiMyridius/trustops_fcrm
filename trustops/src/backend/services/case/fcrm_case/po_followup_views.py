@@ -15,7 +15,7 @@ committee voted, the rationale, the pack or the numbers.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Final, Optional
 
@@ -27,7 +27,7 @@ from fcrm_contracts.api.case_po import (
     ThreadAnswer,
     ThreadPO,
 )
-from fcrm_contracts.enums import Outcome
+from fcrm_contracts.enums import CaseState, Outcome
 
 from fcrm_case.domain.activity import names_a_restricted_term
 from fcrm_case.domain.clarifications import ClarificationThreadRow, open_threads
@@ -143,6 +143,36 @@ def condition_po(row: ConditionRow, owner_sub: str) -> ConditionPO:
             "status": status,
             "mine": row.owner_id is not None and row.owner_id == owner_sub,
         }
+    )
+
+
+def seeded_outcome(
+    record: CaseRecord, seeded: Mapping[str, str]
+) -> Optional[DecidedOutcome]:
+    """What the owner of a *seeded* closed case may read: the label the seed keeps
+    for it and the date it was decided.
+
+    The seed stores a closed case's outcome only in ``seed.json``, so S1's
+    ``outcomes`` collection has no row for it and the owner's read would say "no
+    decision yet" under a Closed banner. A case S1 closed itself always has its
+    row, which the caller reads first, so this never stands in for a real outcome.
+    The seed has no owner-facing summary, so there is none (``plain_summary`` stays
+    whatever the record carries, ``None`` for a seeded case).
+
+    Args:
+        record: The case, as the owner may read it.
+        seeded: ``{case id: outcome}`` from the seed.
+
+    Returns:
+        The decided outcome for a closed case with a seeded label, else ``None``.
+    """
+    label = seeded.get(record.case_id)
+    if record.state is not CaseState.CLOSED or label is None:
+        return None
+    return DecidedOutcome(
+        outcome=Outcome(label),
+        plain_summary=record.outcome_summary,
+        decided_at=record.decided_at,
     )
 
 

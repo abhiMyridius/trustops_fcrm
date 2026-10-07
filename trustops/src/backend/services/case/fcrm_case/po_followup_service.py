@@ -63,9 +63,11 @@ from fcrm_case.po_followup_views import (
     condition_po,
     inbox_view,
     outcome_view,
+    seeded_outcome,
 )
 from fcrm_case.po_text import clean, reject_reserved_terms
 from fcrm_case.po_uploads import DocumentIntake
+from fcrm_case.reference import seeded_outcomes
 from fcrm_case.sse import ActivityWriter
 from fcrm_case.store import CaseStore
 from fcrm_case.views_store import ViewStore
@@ -291,8 +293,11 @@ class PoFollowupService:
         """The plain outcome: the label, the owner-facing summary, the date and the
         conditions in words. No score, band, rating, vote or rationale.
         """
-        await self._owned(case_id, principal, write=False)
+        record = await self._owned(case_id, principal, write=False)
         decided = await self._store.decided_outcome(case_id)
+        if decided is None:
+            # A seeded closed case has no outcome row, only the seed's label.
+            decided = seeded_outcome(record, seeded_outcomes())
         conditions = await self._store.conditions(case_id) if decided else []
         return outcome_view(decided, conditions, principal.sub)
 
