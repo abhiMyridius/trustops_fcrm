@@ -232,31 +232,33 @@ for (const role of ROLE_KEYS) {
 
     if (role === 'observer') {
       test('the observer can open the monitor and has no other screen', async () => {
-        const v = await visit(s, `/monitor/${EXAMPLE}`, { knownBanner: 'E1' });
-        recordVisit(s, 'fences', 'observer opens the harness monitor', v, { knownBanner: 'E1' });
+        const v = await visit(s, `/monitor/${EXAMPLE}`);
+        recordVisit(s, 'fences', 'observer opens the harness monitor', v);
         // The sidebar of a signed-in shell lists only what the role may open. The observer's monitor has no shell.
         const links = await s.page.locator('a[href]').evaluateAll((as) => as.map((a) => a.getAttribute('href') ?? ''));
         const foreign = links.filter((h) => /^\/(analyst|committee|queue|integrations|case)/.test(h));
         record({ area: 'fences', role, name: 'monitor page links to no other role screen', result: foreign.length === 0 ? 'pass' : 'fail', detail: foreign.length === 0 ? 'no links to other screens' : foreign.join(', ') });
         expect.soft(foreign).toEqual([]);
 
-        // RUNNING.md section 3: the observer sees "the harness monitor and agent quality only".
+        // ADR-19 gives the observer the harness monitor and nothing else (D-109: RUNNING.md and the architecture
+        // notes now say so). The web has no observer page for agent quality: the Assurance screens are the
+        // analyst's, so the observer is sent back to the monitor.
         const aq = await visit(s, '/analyst/assurance/agent-quality', { allowNoHeading: true });
-        const reachable = new URL(aq.finalUrl, BASE_URL).pathname.includes('agent-quality');
+        const kept = new URL(aq.finalUrl, BASE_URL).pathname.startsWith('/monitor/');
         record({
           area: 'fences',
           role,
-          name: 'observer can open agent quality (RUNNING.md says the observer sees the monitor and agent quality)',
-          result: reachable ? 'pass' : 'fail',
+          name: 'observer has no agent quality screen: sent back to the harness monitor (ADR-19)',
+          result: kept ? 'pass' : 'fail',
           route: '/analyst/assurance/agent-quality',
           finalUrl: aq.finalUrl,
-          detail: reachable ? 'agent quality opened' : `no screen for it: the app sent the observer to ${aq.finalUrl}. The API allows the observer (GET /audit/agent-quality is not 403).`,
+          detail: kept ? `sent to ${aq.finalUrl}` : `the observer reached ${aq.finalUrl}, an Assurance screen`,
           screenshot: aq.screenshot ?? undefined,
         });
-        expect.soft(reachable, 'observer reaches agent quality').toBe(true);
+        expect.soft(kept, 'observer is kept to the monitor').toBe(true);
 
         const res = await api.get('/api/fcrm/audit/agent-quality', { headers: { Authorization: `Bearer ${s.watch.bearer}` } });
-        record({ area: 'fences', role, name: 'API: agent quality is not refused to the observer', result: res.status() !== 403 && res.status() !== 401 ? 'pass' : 'fail', status: res.status(), detail: `answered ${res.status()} (404 means no eval run is published)` });
+        record({ area: 'fences', role, name: 'API: agent quality is not refused to the observer (OPA row, documented in RUNNING.md; no observer page calls it)', result: res.status() !== 403 && res.status() !== 401 ? 'pass' : 'fail', status: res.status(), detail: `answered ${res.status()} (404 means no eval run is published)` });
         expect.soft(res.status()).not.toBe(403);
       });
     }

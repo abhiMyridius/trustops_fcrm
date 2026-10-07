@@ -113,7 +113,8 @@ test('a wrong password gives a clear message, not a stack trace', async ({ brows
     }
     const body = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
     const stackLike = /Traceback|\bat \S+\.(ts|js|py)|TypeError|Internal Server Error|\{"|\bstack\b|<html/i.test(body);
-    const clear = /sign-in failed/i.test(message) && /incorrect|invalid|wrong|not recognis|unauthori|try again|credentials|password/i.test(message);
+    // D-108: a refused sign-in is not an ended session, so the toast must not say "session".
+    const clear = /sign-in failed/i.test(message) && /incorrect|invalid|wrong|not recognis|unauthori|try again|credentials|password/i.test(message) && !/session/i.test(message);
     const stayed = page.url().includes('/login');
     const ok = clear && !stackLike && stayed;
     record({ area: 'signin', role: 'anonymous', name: 'wrong password: a clear message, no stack trace, stays on the login page', result: ok ? 'pass' : 'fail', finalUrl: page.url().replace(BASE_URL, ''), detail: `message: "${message.slice(0, 160)}"; stack-like text=${stackLike}; stayed on login=${stayed}` });

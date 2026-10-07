@@ -1,13 +1,18 @@
 /**
- * E. Desired behaviour. These two checks describe how the app SHOULD behave and are expected to FAIL today.
- * They are written normally (no test.fail, no skip) so the failure is reported:
+ * E. Desired behaviour. These checks describe how the app should behave when there is nothing to show
+ * yet, and are written normally (no test.fail, no skip) so a regression is reported:
  *
- *  1. A case with no assessment run has no harness run, and the monitor should say so as information
- *     ("no run is recorded yet"), not show a red error banner with a Retry button. Today the API answers
- *     404 and the page shows the red banner "This case is not in your view." with Retry.
- *  2. The analyst's Recommendation tab on a case whose narrative agent has not drafted one should show an
- *     informational message, not a red error with Retry. Today the API answers 409 not_ready and the tab
- *     shows the red banner.
+ *  1. A case with no assessment run has no harness run, and the monitor says so as information
+ *     ("No run is recorded for this case yet") with no red banner and no Retry, under a heading
+ *     (D-106). S1 answers 404 with the problem type no_run_recorded; a missing or not-yours case
+ *     still answers the plain not_found and the red "not in your view".
+ *  2. The analyst's Recommendation tab on a case whose narrative agent has not drafted one shows an
+ *     informational message, not a red error with Retry. A case with no assessment run reads
+ *     "No recommendation is drafted for this case" (D-106); the example case 0151 at intake shows
+ *     "Not submitted yet".
+ *
+ * Both failed against the application as first swept (a red "This case is not in your view." with
+ * Retry, and a red 409 not_ready with Retry) and are expected to pass once it is rebuilt.
  */
 import { test, expect } from '@playwright/test';
 import { record, type Result } from './lib/report';
@@ -28,7 +33,7 @@ const NO_RUN_INFO = /no (harness )?run (is|has been|was) recorded( yet)?|no run 
 const NO_RECOMMENDATION_INFO = /no recommendation|not (been )?drafted|has not drafted|no draft|not available yet|not ready yet/i;
 
 async function judgeMonitor(s: Session, id: string, label: string): Promise<void> {
-  const v = await visit(s, `/monitor/${id}`, { knownBanner: 'E1' });
+  const v = await visit(s, `/monitor/${id}`);
   const red = await redErrorWithRetry(s);
   const text = await mainText(s);
   const hasInfo = NO_RUN_INFO.test(text);
@@ -86,7 +91,7 @@ test.describe('E2: the analyst Recommendation tab with no drafted recommendation
   for (const which of ['seeded', 'example'] as const) {
     test(`analyst, ${which === 'seeded' ? 'a seeded case in review' : 'the example case 0151'}: the Recommendation tab shows information, not a red error with Retry`, async () => {
       const id = which === 'example' ? EXAMPLE_CASE : ((await analystCases(analyst)).find((c) => c.stage === 'review')?.id ?? 'FCRM-2026-0137');
-      const v = await visit(analyst, `/analyst/case/${id}/recommendation`, { knownBanner: 'E2' });
+      const v = await visit(analyst, `/analyst/case/${id}/recommendation`);
       const red = await redErrorWithRetry(analyst);
       const text = await mainText(analyst);
       const hasInfo = NO_RECOMMENDATION_INFO.test(text) || /not submitted yet/i.test(text);

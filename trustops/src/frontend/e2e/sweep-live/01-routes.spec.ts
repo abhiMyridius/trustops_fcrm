@@ -3,8 +3,9 @@
  * reach, and every tab of the case pages of several seeded cases of different stages and of the example
  * case 0151. Each page must render a main landmark and a heading, raise no uncaught error and no
  * console.error, answer nothing at 500 or above, answer nothing at 4xx outside the allow-list
- * (lib/allowlist.ts), and show no red error banner with a Retry button (the two banners that are
- * wanted gone are owned by 04-desired.spec.ts and only noted here).
+ * (lib/allowlist.ts), and show no red error banner with a Retry button. (The monitor of a case with no
+ * run and the Recommendation tab of a case with no run used to own such a banner; D-106 made both
+ * information, and 04-desired.spec.ts checks their wording.)
  *
  * Not visited by URL: /case/new, because opening it creates a draft case (the "New case" test in
  * 03-controls.spec.ts creates one and discards it).
@@ -89,7 +90,8 @@ for (const role of ROLE_KEYS) {
 }
 
 async function topLevel(s: Session, role: RoleKey): Promise<Target[]> {
-  const monitor = (id: string): Target => ({ url: `/monitor/${id}`, name: `harness monitor ${id}`, opts: { knownBanner: 'E1' } });
+  // A case with no run shows "no run is recorded" as information (D-106): no red banner, and a heading.
+  const monitor = (id: string): Target => ({ url: `/monitor/${id}`, name: `harness monitor ${id}` });
   switch (role) {
     case 'po':
       return [
@@ -147,7 +149,7 @@ async function caseTargets(s: Session, role: RoleKey): Promise<{ url: string; la
     case 'analyst': {
       const cases = await analystCases(s);
       const ids = [{ id: EXAMPLE_CASE, stage: 'draft' }, ...cases.filter((c) => c.id !== EXAMPLE_CASE)];
-      return ids.map((c) => ({ url: `/analyst/case/${c.id}`, label: `case ${c.id} (${c.stage})`, perTab: { Recommendation: { knownBanner: 'E2' as const } } }));
+      return ids.map((c) => ({ url: `/analyst/case/${c.id}`, label: `case ${c.id} (${c.stage})` }));
     }
     case 'committee':
       return (await committeeCases(s)).slice(0, 4).map((c) => ({ url: `/committee/case/${c.id}`, label: `pack ${c.id} (${c.status})` }));

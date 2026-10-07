@@ -17,13 +17,19 @@ export const ALLOWED_4XX: Allowed[] = [
     method: 'GET',
     path: /^\/api\/fcrm\/cases\/[^/]+\/harness$/,
     status: 404,
-    why: 'The 79 seeded cases and the draft 0151 have no harness run; S1 answers 404 "no harness run is recorded". Seed semantics, not a fault.',
+    why: 'The 79 seeded cases and the draft 0151 have no harness run; S1 answers 404 with the problem type no_run_recorded ("no harness run is recorded"). The monitor shows it as information (D-106). Seed semantics, not a fault.',
   },
   {
     method: 'GET',
     path: /^\/api\/fcrm\/cases\/[^/]+\/recommendation$/,
     status: 409,
-    why: 'Seeded cases and 0151 have no narrative-agent draft; S1 answers 409 not_ready. Seed semantics, not a fault.',
+    why: 'Seeded cases and 0151 have no narrative-agent draft; S1 answers 409 not_ready, which the Recommendation tab shows as information for a case with no run (D-106). Seed semantics, not a fault.',
+  },
+  {
+    method: 'GET',
+    path: /^\/api\/fcrm\/audit\/agent-quality$/,
+    status: 404,
+    why: 'No evaluation run is published yet (or none for the week): S4 answers 404 and the Agent quality tab shows the empty state "No evaluation run is published for this week yet" (D-107). A 422 is not allowed: the tab sends an ISO week or none.',
   },
   {
     method: 'POST',

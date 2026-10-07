@@ -153,6 +153,8 @@ interface AxeViolation {
   id: string;
   impact: string | null;
   help: string;
+  /** How many elements axe flagged; `nodes` keeps the first three only, to keep the report small. */
+  total: number;
   nodes: { target: string[]; html: string }[];
 }
 
@@ -161,7 +163,7 @@ async function axe(page: Page): Promise<AxeViolation[]> {
   return page.evaluate(async () => {
     const run = (window as unknown as { axe: { run: (c: Document, o: unknown) => Promise<{ violations: AxeViolation[] }> } }).axe.run;
     const res = await run(document, { resultTypes: ['violations'] });
-    return res.violations.map((v) => ({ id: v.id, impact: v.impact, help: v.help, nodes: v.nodes.slice(0, 3).map((n) => ({ target: n.target, html: n.html.slice(0, 140) })) }));
+    return res.violations.map((v) => ({ id: v.id, impact: v.impact, help: v.help, total: v.nodes.length, nodes: v.nodes.slice(0, 3).map((n) => ({ target: n.target, html: n.html.slice(0, 140) })) }));
   });
 }
 
@@ -205,7 +207,7 @@ async function check(s: Session, url: string, label: string): Promise<void> {
     name: `${label}: axe scan`,
     result: axeResult,
     route: url,
-    detail: violations.length === 0 ? 'no violations' : violations.map((v) => `${v.id} (${v.impact}, ${v.nodes.length}+ node(s))`).join('; '),
+    detail: violations.length === 0 ? 'no violations' : violations.map((v) => `${v.id} (${v.impact}, ${v.total} node(s))`).join('; '),
     data: { violations },
   });
   expect.soft(severe.map((v) => `${v.id} (${v.impact}): ${v.nodes[0]?.target.join(' ')}`), `${role} ${label}: serious or critical axe violations`).toEqual([]);
