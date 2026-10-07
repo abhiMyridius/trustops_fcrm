@@ -146,6 +146,7 @@ export type PlanKind =
   | 'toggle'
   | 'stub'
   | 'retry'
+  | 'verify'
   | 'print'
   | 'disabled'
   | 'field'
@@ -193,6 +194,7 @@ export function plan(c: Control): Plan {
   if (c.role === 'checkbox') return FILTER_CHECKBOXES.test(c.name) ? { kind: 'checkbox-filter', reason: 'filter' } : { kind: 'field', reason: 'form field; left alone' };
   if (c.role === 'textbox') return { kind: 'field', reason: 'text field; typed into only by the dedicated tidy tests' };
   if (/^retry$/i.test(c.name)) return { kind: 'retry', reason: 'repeats the failed read' };
+  if (/^verify chain$/i.test(c.name)) return { kind: 'verify', reason: 'read-only check of the audit hash chain' };
   if (/^harness$/i.test(c.name)) return { kind: 'drawer-opener', reason: 'opens the harness drawer' };
   if (/^(pause scroll|resume)$/i.test(c.name)) return { kind: 'toggle', reason: 'log scroll toggle' };
   if (/^copy log$/i.test(c.name)) return { kind: 'toggle', reason: 'copies the log to the clipboard' };

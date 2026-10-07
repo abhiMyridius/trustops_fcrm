@@ -126,8 +126,6 @@ for (const role of ROLE_KEYS) {
       test('"New case" creates a draft and "Discard" removes it again', async () => {
         const { page } = s;
         await visit(s, '/', { settleMs: 400 });
-        const before = await page.getByRole('main').innerText();
-        void before;
         let id = '';
         let discarded = false;
         try {

@@ -178,12 +178,10 @@ async function run(s: Session, ctx: PageContext, c: Control, p: Plan, loc: Locat
       const first = await loc.getAttribute('aria-expanded');
       await loc.click();
       await page.waitForTimeout(300);
-      const second = await page.locator('[data-sweep-id]').evaluateAll((els) => els.length).catch(() => 0);
       const btn = page.getByRole('button', { name: /^(collapse|expand) sidebar$/i });
       const flipped = (await btn.getAttribute('aria-expanded')) !== first;
       await btn.click();
       await page.waitForTimeout(300);
-      void second;
       return finish(flipped ? 'pass' : 'fail', flipped ? 'collapses and expands the sidebar' : 'aria-expanded did not change');
     }
     case 'sort': {
@@ -260,6 +258,14 @@ async function run(s: Session, ctx: PageContext, c: Control, p: Plan, loc: Locat
       const text = t.infos[0] ?? '';
       await dismissToasts(page);
       return finish('info', text ? `stub: toast says "${text.slice(0, 110)}"` : 'clicking it did nothing visible');
+    }
+    case 'verify': {
+      await loc.click();
+      const banner = page.getByRole('status').filter({ hasText: /records/ }).first();
+      const shown = await banner.waitFor({ state: 'visible', timeout: 8000 }).then(() => true, () => false);
+      const text = shown ? (await banner.innerText()).replace(/\s+/g, ' ') : '';
+      const broken = /broken/i.test(text);
+      return finish(shown && !broken ? 'pass' : 'fail', shown ? `chain check says: ${text.slice(0, 120)}` : 'no result banner appeared after Verify chain');
     }
     case 'retry': {
       await loc.click();

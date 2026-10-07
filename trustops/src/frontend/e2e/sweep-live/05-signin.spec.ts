@@ -5,7 +5,7 @@
  * reach the password form (the only place a wrong password can be typed) the test makes the picker's
  * request answer 404, which is what a non-demo environment does, and then types a wrong password.
  */
-import { test, expect, request as pwRequest } from '@playwright/test';
+import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test';
 import { record, type Result, type RoleKey } from './lib/report';
 import { BASE_URL, ROLES, ROLE_KEYS } from './lib/session';
 import { PageWatch } from './lib/watch';
@@ -27,6 +27,15 @@ const DEEP_LINK: Record<RoleKey, (analystCase: string) => string> = {
 };
 
 test.describe.configure({ timeout: 10 * 60_000 });
+
+/** The gateway allows ten sign-ins a minute per address (burst five); a 429 is waited out, not reported. */
+async function postLogin(api: APIRequestContext, username: string, password: string) {
+  for (let attempt = 1; ; attempt += 1) {
+    const res = await api.post('/api/fcrm/auth/login', { data: { username, password } });
+    if (res.status() !== 429 || attempt >= 6) return res;
+    await new Promise((resolve) => setTimeout(resolve, 7_000));
+  }
+}
 
 for (const role of ROLE_KEYS) {
   test(`the ${role} signs in, lands home, survives a reload on a deep link, and signs out`, async ({ browser }) => {
@@ -94,7 +103,14 @@ test('a wrong password gives a clear message, not a stack trace', async ({ brows
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     const toast = page.locator('[aria-live][aria-relevant] [role="alert"]').first();
     await toast.waitFor({ state: 'visible', timeout: 15_000 });
-    const message = (await toast.innerText()).replace(/\s+/g, ' ');
+    let message = (await toast.innerText()).replace(/\s+/g, ' ');
+    for (let attempt = 0; attempt < 4 && /too many/i.test(message); attempt += 1) {
+      await page.waitForTimeout(8_000); // rate limited by the gateway: try again
+      await page.getByRole('button', { name: 'Dismiss notification' }).click().catch(() => undefined);
+      await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+      await page.locator('[aria-live][aria-relevant] [role="alert"]').first().waitFor({ state: 'visible', timeout: 15_000 });
+      message = (await page.locator('[aria-live][aria-relevant] [role="alert"]').first().innerText()).replace(/\s+/g, ' ');
+    }
     const body = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
     const stackLike = /Traceback|\bat \S+\.(ts|js|py)|TypeError|Internal Server Error|\{"|\bstack\b|<html/i.test(body);
     const clear = /sign-in failed/i.test(message) && /incorrect|invalid|wrong|not recognis|unauthori|try again|credentials|password/i.test(message);
@@ -110,8 +126,8 @@ test('a wrong password gives a clear message, not a stack trace', async ({ brows
 
   // The same refusal straight from the API: problem+json, not a stack trace, no hint which part was wrong.
   const api = await pwRequest.newContext({ baseURL: BASE_URL });
-  const bad = await api.post('/api/fcrm/auth/login', { data: { username: 'riyer', password: 'not-the-password' } });
-  const unknown = await api.post('/api/fcrm/auth/login', { data: { username: 'nobody-here', password: 'not-the-password' } });
+  const bad = await postLogin(api, 'riyer', 'not-the-password');
+  const unknown = await postLogin(api, 'nobody-here', 'not-the-password');
   const badBody = await bad.text();
   const unknownBody = await unknown.text();
   const sameShape = bad.status() === unknown.status() && JSON.parse(badBody).detail === JSON.parse(unknownBody).detail;
@@ -129,8 +145,13 @@ test('a signed-out deep link goes to sign in and returns to the same page afterw
     await page.goto(deep);
     await page.waitForURL(/\/login\?next=/, { timeout: 15_000 });
     await page.getByRole('button', { name: 'Sign in with corporate SSO' }).click();
-    await page.getByRole('button', { name: /Sign in as Ana Mendes/ }).click();
-    await page.waitForURL((u) => !u.pathname.endsWith('/login'), { timeout: 20_000 });
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      await page.getByRole('button', { name: /Sign in as Ana Mendes/ }).click();
+      const left = await page.waitForURL((u) => !u.pathname.endsWith('/login'), { timeout: 8_000 }).then(() => true, () => false);
+      if (left) break;
+      await page.waitForTimeout(8_000); // rate limited by the gateway: wait out the window and try again
+    }
+    await page.waitForURL((u) => !u.pathname.endsWith('/login'), { timeout: 10_000 });
     const back = page.url().replace(BASE_URL, '');
     record({ area: 'signin', role: 'committee', name: 'sign-in from a deep link returns to that page (?next=)', result: back === deep ? 'pass' : 'fail', route: deep, finalUrl: back, detail: back === deep ? 'back on the deep link' : `went to ${back}` });
     expect.soft(back).toBe(deep);
