@@ -9,7 +9,7 @@
  * Not visited by URL: /case/new, because opening it creates a draft case (the "New case" test in
  * 03-controls.spec.ts creates one and discards it).
  */
-import { test, expect } from '@playwright/test';
+import { test } from '@playwright/test';
 import { record, type RoleKey } from './lib/report';
 import { closeSession, openSession, ROLE_KEYS, type Session } from './lib/session';
 import { analystCases, committeeCases, poCases, CLOSED_CASE, EXAMPLE_CASE } from './lib/cases';
