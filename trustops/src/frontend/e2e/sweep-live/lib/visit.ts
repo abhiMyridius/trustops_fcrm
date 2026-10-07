@@ -42,7 +42,7 @@ const LOADING = '[role="status"][aria-label^="Loading"], [role="status"][aria-la
 const RATE_LIMIT_PAUSE_MS = 5_000;
 const MAX_ATTEMPTS = 3;
 
-async function settle(page: Page, settleMs: number): Promise<void> {
+export async function settle(page: Page, settleMs: number): Promise<void> {
   await page.waitForLoadState('load');
   // A heading, or an error alert for a page that failed to load its data (such a page has no heading).
   await page
