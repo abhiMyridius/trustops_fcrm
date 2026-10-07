@@ -131,7 +131,7 @@ async def test_the_usage_is_reported_by_label_never_by_model_id(
     llm, _client, meter = judge_llm("a reply")
     await llm.a_generate("grade this")
     usage = meter.as_usage()
-    assert usage.models == ["Opus 5.5"]
+    assert usage.models == ["Nova Pro"]
     assert settings.model_id not in usage.model_dump_json()
 
 

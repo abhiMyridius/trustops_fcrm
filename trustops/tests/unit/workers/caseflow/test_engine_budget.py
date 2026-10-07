@@ -171,7 +171,7 @@ async def test_the_critic_is_reserved_when_the_pair_settles_and_is_published(
     [critic] = _jobs(outbox_collection)
     assert critic.agent is AgentName.CRITIC
     assert ledger.spent == 66_500
-    assert ledger.reserved == 20_000
+    assert ledger.reserved == 28_000
     assert ledger.jobs[critic.job_id].reserved == reservation_tokens(AgentName.CRITIC)
     assert ledger.jobs[critic.job_id].status is JobStatus.RESERVED
 
@@ -234,7 +234,7 @@ async def test_a_dispatch_the_cap_refuses_is_not_published_and_hands_the_case_of
     await engine.handle(_done("job_r", "research", 1_500), session)
     await engine.handle(_done("job_s", "assessment", 1_500), session)
 
-    # 108,000 spent, nothing held: the critic's 20,000 would make 128,000.
+    # 108,000 spent, nothing held: the critic's 28,000 would make 136,000.
     run = await run_store.get(RUN_ID)
     assert run is not None
     assert run.state is CaseState.HANDOFF
@@ -246,7 +246,7 @@ async def test_a_dispatch_the_cap_refuses_is_not_published_and_hands_the_case_of
     assert refusal.data["spent"] == 108_000
     assert refusal.data["reserved"] == 0
     assert refusal.data["cap"] == CAP
-    assert refusal.data["requested"] == 20_000
+    assert refusal.data["requested"] == 28_000
     assert "budget_exhausted" in refusal.summary
     types = [r.type for r in recording_audit.records]
     assert types.index("budget.exhausted") < types.index("agent.failed.after_retry")

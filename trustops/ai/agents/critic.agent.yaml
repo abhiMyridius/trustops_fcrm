@@ -9,8 +9,8 @@ purpose: >-
 lifecycle_state: critic
 trigger: "H1 after score.returned for the run; the state machine cannot enter completeness until the critic's agent.done lands or the job hands off"
 tier: judge                                   # a different model than the assessor (ADR-04)
-budget_tier: judge                            # judge budget 20k / 180 s (ai/models/tiers.yaml)
-budget: {tokens: 20000, wall_s: 180, retries: 1}
+budget_tier: judge                            # judge budget 28k / 180 s (ai/models/tiers.yaml)
+budget: {tokens: 28000, wall_s: 180, retries: 1}
 tools: [evidence_ledger, precedent_search, rules_check]
 tool_caps: {evidence_ledger: 1, precedent_search: 1, rules_check: 1}
 tool_call_cap: 1                                    # one tool call: measured, the models call tools the pack makes unnecessary and each call re-sends the request (budget in tiers.yaml)

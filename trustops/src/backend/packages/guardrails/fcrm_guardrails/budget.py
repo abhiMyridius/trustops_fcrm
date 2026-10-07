@@ -76,7 +76,7 @@ TIER_BUDGETS: Final[Mapping[Tier, TierBudget]] = {
     Tier.CHEAP: TierBudget(Tier.CHEAP, tokens=15_000, wall_s=60),
     Tier.MID: TierBudget(Tier.MID, tokens=15_000, wall_s=120),
     Tier.STRONG: TierBudget(Tier.STRONG, tokens=24_000, wall_s=180),
-    Tier.JUDGE: TierBudget(Tier.JUDGE, tokens=20_000, wall_s=180),
+    Tier.JUDGE: TierBudget(Tier.JUDGE, tokens=28_000, wall_s=180),
 }
 
 CASE_TOKEN_CAP: Final[int] = 160_000

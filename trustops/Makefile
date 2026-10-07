@@ -27,7 +27,6 @@ COMPOSE_CACHE := $(COMPOSE) --profile cache
 COMPOSE_ALL   := $(COMPOSE) --profile obs --profile cache
 COMPOSE_DEV   := $(COMPOSE) -f compose.dev.yaml
 COMPOSE_DEBUG := $(COMPOSE) -f compose.debug.yaml
-COMPOSE_ECONOMY := $(COMPOSE) -f .economy/compose.override.yaml
 COMPOSE_TEST  := docker compose -p trustops-test -f docker-compose.yaml -f compose.test.yaml
 
 # The default stack: infrastructure, the two Python processes, the edge.
@@ -101,7 +100,7 @@ pull: ## pull every pinned image the stack uses (build-only services skipped)
 	$(COMPOSE) pull --ignore-buildable --quiet
 
 # ── run ──────────────────────────────────────────────────────────────────
-.PHONY: up-infra up up-obs up-cache up-debug up-dev economy-profile up-economy down down-v reset ps logs
+.PHONY: up-infra up up-obs up-cache up-debug up-dev down down-v reset ps logs
 up-infra: env ## infrastructure only (mongo, rabbitmq, minio, opa)
 	$(COMPOSE) up -d $(INFRA)
 	@$(WAIT) --compose "$(COMPOSE)" $(INFRA)
@@ -134,16 +133,6 @@ up-dev: env keys ## default stack with bind-mounted source, uvicorn --reload and
 	$(COMPOSE_DEV) up -d --force-recreate --no-deps opa
 	$(COMPOSE_DEV) up -d --build
 	@$(WAIT) --timeout 600 --compose "$(COMPOSE_DEV)" $(INFRA) $(APPS) $(EDGE)
-
-economy-profile: ## .economy/: a copy of ai/ with no Sonnet or Opus in any tier chain (Haiku and Nova), for cost-capped live checks; ai/ is untouched
-	$(UV_RUN) python ops/scripts/economy_profile.py
-
-up-economy: env keys economy-profile ## the default stack with api and harness on the economy profile (no Sonnet or Opus); `make up` puts the shipped tiers back
-	$(COMPOSE_ECONOMY) up -d --force-recreate --no-deps opa
-	@# economy-profile rewrites .economy/, so a running api or harness holds a mount of the deleted folder
-	$(COMPOSE_ECONOMY) up -d --build --force-recreate --no-deps api harness
-	$(COMPOSE_ECONOMY) up -d --build
-	@$(WAIT) --timeout 600 --compose "$(COMPOSE_ECONOMY)" $(INFRA) $(APPS) $(EDGE)
 
 down: ## stop the stack (every profile), keep volumes
 	$(COMPOSE_ALL) down --remove-orphans
@@ -234,7 +223,7 @@ gate: check ## push / task-done gate: check plus the parts other lanes have wire
 	@echo "gate: pending pieces, not yet run: contracts (oasdiff, event schemas), semgrep; evals-gate needs a live run (make evals)"
 
 # ── integration, e2e, resilience, evals ──────────────────────────────────
-.PHONY: test-int test-integration e2e resilience evals evals-economy evals-full evals-gate nightly
+.PHONY: test-int test-integration e2e resilience evals evals-full evals-gate nightly
 test-int: ## every integration-marked test under tests/ (tests/integration on Docker or FCRM_TEST_MONGO_URI; the *_live.py tests under tests/unit need FCRM_TEST_MONGO_URI)
 	@if [ -z "$$FCRM_TEST_MONGO_URI" ]; then \
 		echo "test-int: FCRM_TEST_MONGO_URI is not set. tests/integration starts its own containers (needs Docker); the *_live.py tests under tests/unit will SKIP, not pass." >&2; \
@@ -272,9 +261,6 @@ EVALS := $(UV_RUN) python -m fcrm_evals
 
 evals: ## live agent evals on Bedrock over a sampled slice (5 rows per agent, seed 7, concurrency 3); AGENT=<a> for one; writes evals/results/<date>/ and dashboard.html
 	$(EVALS) run --producer live --sample 5 --seed 7 --judge bedrock --concurrency 3 $(if $(AGENT),--agent $(AGENT)) $(EVALS_ARGS)
-
-evals-economy: economy-profile ## live evals on the economy profile (no Sonnet or Opus) into .economy/evals-results; never a baseline and never in evals/results
-	$(EVALS) run --producer live --sample 5 --seed 7 --judge bedrock --concurrency 3 --ai-root .economy/ai --results-root .economy/evals-results $(if $(AGENT),--agent $(AGENT)) $(EVALS_ARGS)
 
 evals-full: ## live agent evals over every row of every dataset (slow, several times the cost of `make evals`)
 	$(EVALS) run --producer live --sample 0 --judge bedrock --concurrency 3 $(if $(AGENT),--agent $(AGENT)) $(EVALS_ARGS)

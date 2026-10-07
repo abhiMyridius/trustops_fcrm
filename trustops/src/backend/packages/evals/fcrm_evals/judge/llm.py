@@ -1,8 +1,8 @@
 """The judge model: DeepEval's ``AmazonBedrockModel`` on the ``judge`` tier.
 
 ``ai/models/tiers.yaml`` gives the ``judge`` tier a different model from the
-assessor it grades (ADR-04): the strong tier runs on Sonnet-class models, the
-judge on Opus-class, so an agent is never graded by itself. This module reads
+assessor it grades (ADR-04): the strong tier runs on a Claude model, the judge
+on a model of another family, so an agent is never graded by itself. This module reads
 the tier's primary model, its output cap and its price from that file; no
 model id is written here.
 

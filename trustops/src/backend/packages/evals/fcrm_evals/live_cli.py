@@ -187,8 +187,8 @@ def _mongo_uri(args: argparse.Namespace) -> Optional[str]:
 def ai_root_refusal(args: argparse.Namespace) -> Optional[str]:
     """Why a run on a non-shipped ``ai/`` root may not go ahead, or ``None``.
 
-    A run on another root (the economy profile of ``make economy-profile``)
-    measures other models than the ones that ship, so it may not become the
+    A run on another root (a copy of ``ai/`` with other models or prompts)
+    measures something other than what ships, so it may not become the
     baseline and may not write into the shipped results folder, whose trend line
     and ``latest`` link every later gate reads.
     """
@@ -519,9 +519,9 @@ def add_live_arguments(run: argparse.ArgumentParser) -> None:
         "--ai-root",
         type=Path,
         default=DEFAULT_AI_ROOT,
-        help="the ai/ folder whose tiers.yaml and prompts the run uses; "
-        "`make economy-profile` writes a copy with no Sonnet or Opus (needs its "
-        "own --results-root, and is never a baseline)",
+        help="the ai/ folder whose tiers.yaml and prompts the run uses, for "
+        "trying a variant without touching the shipped one (needs its own "
+        "--results-root, and is never a baseline)",
     )
     run.add_argument(
         "--baseline", action="store_true", help="make this run the baseline"

@@ -48,15 +48,16 @@ embeddings:
 #               demo case's narrative is 8k clean and 13k on its retried attempt (the pack plus
 #               Guard 4's reasons plus its first answer), which blocked it at 11k (first full live run)
 #   strong 24k  research and assessment, effort low, one tool round trip: p90 18k
-#   judge  20k  critic, effort low: 5-7k an attempt, 11-12k with a tool round trip on the eval
-#               sample, 16.4k on the live demo case (16 controls: the pack and the one tool
-#               round trip re-sent), which blocked it at 15k (first full live run, 6 Oct)
+#   judge  28k  critic: on Opus (until 7 Oct) 5-7k an attempt, 11-12k with a tool round trip on
+#               the eval sample, 16.4k on the live demo case (16 controls: the pack and the one
+#               tool round trip re-sent). On Nova Pro the critic used 21.9k on a live run and was
+#               blocked at 20k (6 Oct, D-95), so the tier is 28k, about 28% over that one
+#               measurement; it is a single observation, not a p90 (ADR-62)
 #
-# `effort` (output_config.effort) is low on every tier that thinks. Measured on the
-# gate sample, medium against low: the critic spent 8-14k tokens an attempt against
-# 5-7k, assessment 19k against 11k on the demo case, and the gate metrics did not
-# move (critic planted_error_detection 1.0 both, research clause_recall 1.0 both,
-# assessment li_within_one 0.6 against 0.7, which is label noise, evals/README.md).
+# `effort` (output_config.effort) is set on a tier only when a model of its chain takes
+# it (`effort_param` below). None does since 7 Oct 2026, so no tier sets it. On Sonnet 5.5
+# and Opus 5.5, which these tiers used before, low against medium cut the critic from
+# 8-14k tokens an attempt to 5-7k and moved no gate metric (evals/README.md).
 # A run that would need more is blocked on its budget (agent.failed, the handoff
 # gate), never silently cut. `max_tokens` is the cap on ONE REQUEST's output,
 # thinking included; it was 2000/3500/5000/4000 and cut a critic, an assessment
@@ -73,10 +74,9 @@ tiers:
     cache_min_prefix_tokens: 4096  # Haiku-class minimum; cheap system prompts stay below it, so no cache point is emitted
     used_by: [screening, intake, watchlist]
   mid:
-    primary: us.anthropic.claude-sonnet-5-5
+    primary: us.anthropic.claude-sonnet-4-5-20250929-v1:0
     fallbacks:
       - us.anthropic.claude-haiku-4-5-20251001-v1:0
-    effort: low                    # output_config.effort for the chain's thinking models; see the models block
     max_tokens: 4000
     wall_clock_s: 120
     retries: 1
@@ -84,11 +84,13 @@ tiers:
     cache_min_prefix_tokens: 1024
     used_by: [narrative, examiner, policy_gap]
   strong:
-    primary: us.anthropic.claude-sonnet-5-5
+    primary: us.anthropic.claude-sonnet-4-5-20250929-v1:0
     fallbacks:
-      - us.anthropic.claude-opus-5-5
+      # A retry runs on fallbacks[0] alone (ADR-14): research and assessment retry
+      # on Sonnet 4.5 itself, because a Guard 4 retry on Haiku or Nova failed both
+      # agents' schemas in the live runs of 6 Oct (D-95). Nova Pro is the last resort.
+      - us.anthropic.claude-sonnet-4-5-20250929-v1:0
       - us.amazon.nova-pro-v1:0
-    effort: low
     max_tokens: 8000
     wall_clock_s: 180
     retries: 1
@@ -96,16 +98,16 @@ tiers:
     cache_min_prefix_tokens: 1024
     used_by: [research, assessment]
   judge:
-    # Runs on a different model than the assessor it checks (ADR-04): the
-    # strong tier's primary is Sonnet, so the critic's primary is Opus.
-    primary: us.anthropic.claude-opus-5-5
+    # Runs on a different model than the assessor it checks (ADR-04): the strong
+    # tier's primary is Sonnet 4.5, so the critic's primary is Nova Pro, a different
+    # family. No Opus anywhere (ADR-62).
+    primary: us.amazon.nova-pro-v1:0
     fallbacks:
-      - us.anthropic.claude-sonnet-5-5
-    effort: low
+      - us.anthropic.claude-haiku-4-5-20251001-v1:0
     max_tokens: 8000
     wall_clock_s: 180
     retries: 1
-    budget: {tokens: 20000, wall_s: 180, retries: 1}
+    budget: {tokens: 28000, wall_s: 180, retries: 1}
     cache_min_prefix_tokens: 1024
     used_by: [critic, eval judges]
 
@@ -124,34 +126,30 @@ per_case_budget_tokens: 160000
 per_case_target_tokens: 120000
 
 # Request constraints per model, read by the fcrm_agents runtime when it
-# builds ModelSettings. Taken from the Claude API reference (Sept 2026); the
-# Bedrock Converse surface is expected to behave the same, and the agents lane
-# confirms with one live call per model before relying on it.
-#  - temperature: Sonnet 5.5 rejects non-default sampling values and Opus 5.5
-#    rejects sampling parameters entirely, so the runtime OMITS temperature
-#    for those ids (there is no replay mode, ADR-27).
-#  - forced_tool_choice: Sonnet 5.5 and Opus 5.5 reject tool_choice any/tool.
-#    If Pydantic AI's ToolOutput forces the output tool, use tool_choice auto
-#    plus the prompt's "output exactly one object" line (or PromptedOutput)
-#    and let Guard 4 reject a missing output.
-#  - thinking: neither model can switch thinking off; it is adaptive, and its
-#    tokens come out of max_tokens. Measured live on Bedrock (6 Oct 2026, a
-#    forced-style tool call with max_tokens 2000): at the default effort Sonnet
-#    5.5 spent 795 output tokens and Opus 5.5 1134, both with a reasoning block;
-#    with output_config.effort low, 594 and 497, none. Bedrock accepts the
-#    field on both (additionalModelRequestFields); it rejects thinking
-#    between_tools on Opus and thinking disabled on both.
-#  - effort_param: the model takes output_config.effort. The runtime sends it,
-#    at the tier's `effort`, to that model only (fcrm_agents.models.model_defaults);
-#    Bedrock rejects the field on Haiku and Nova, so it is never chain-wide.
+# builds ModelSettings. Taken from the Claude API reference (Sept 2026) and probed
+# on Bedrock (6 Oct 2026).
+#  - temperature: a number is sent as the sampling temperature; `omit` sends none,
+#    for a model that rejects sampling parameters (no model in a chain needs it now).
+#  - forced_tool_choice: `allowed` models accept tool_choice any/tool; a `rejected`
+#    model does not (the runtime then uses tool_choice auto plus the prompt's
+#    "output exactly one object" line and lets Guard 4 reject a missing output);
+#    `unverified` has not been probed (the Nova models).
+#  - thinking: off_by_default (Haiku 4.5 and Sonnet 4.5 reason only when asked),
+#    none (Nova), or adaptive_always (a model that cannot switch it off; its tokens
+#    come out of max_tokens; Sonnet 5.5 and Opus 5.5 were such models).
+#  - effort_param: the model takes output_config.effort. The runtime sends it, at
+#    the tier's `effort`, to that model only (fcrm_agents.models.model_defaults);
+#    Bedrock rejects the field on Haiku, Sonnet 4.5 and Nova, so it is never
+#    chain-wide. No model in a chain takes it now, so no tier sets `effort`.
 #  - prompt_cache: the model takes a cachePoint after the system prompt and after
-#    the tool definitions (probed live, 6 Oct 2026: Haiku 4.5, Sonnet 5.5 and
-#    Opus 5.5 accept both; the Nova models reject one in the tool list). A prefix
-#    under the model's minimum is not cached and is not an error (Haiku wrote
-#    nothing at about 1k tokens, Sonnet and Opus cached 856).
+#    the tool definitions (probed live, 6 Oct 2026: Haiku 4.5 and Sonnet 4.5 accept
+#    both; the Nova models reject one in the tool list). A prefix under the
+#    model's minimum is not cached and is not an error.
 #  - label: the name a report may print for the model. Committed result files
 #    live under /evals, where no model id may appear (ADR-04), so the evals
 #    report every model by this label (fcrm_evals.usage.PriceTable.label).
+# Sonnet 4.5 is in the chains since 7 Oct 2026 (ADR-62). Its id was verified by live
+# calls on Bedrock on 6 Oct (a full agent run and an eval run both answered on it).
 models:
   us.anthropic.claude-haiku-4-5-20251001-v1:0:
     family: anthropic
@@ -160,22 +158,12 @@ models:
     forced_tool_choice: allowed
     thinking: off_by_default
     prompt_cache: true
-  us.anthropic.claude-sonnet-5-5:
+  us.anthropic.claude-sonnet-4-5-20250929-v1:0:
     family: anthropic
-    label: "Sonnet 5.5"
-    temperature: omit
-    forced_tool_choice: rejected
-    thinking: adaptive_always
-    effort_param: true
-    prompt_cache: true
-  us.anthropic.claude-opus-5-5:
-    family: anthropic
-    label: "Opus 5.5"
-    temperature: omit
-    forced_tool_choice: rejected
-    thinking: adaptive_always
-    effort_default: medium
-    effort_param: true
+    label: "Sonnet 4.5"
+    temperature: 0
+    forced_tool_choice: allowed
+    thinking: off_by_default
     prompt_cache: true
   us.amazon.nova-lite-v1:0:
     family: amazon
@@ -197,7 +185,8 @@ models:
 #
 # VERIFIED on 6 Oct 2026 from the AWS Price List API (`aws pricing get-products`,
 # region us-east-1, list versions 20260930001912 for the Claude models and
-# 20261005210410 for Nova and Titan). Every row carries its own `status`,
+# 20261005210410 for Nova and Titan); the Sonnet 4.5 row was read from the same
+# Claude list on 7 Oct 2026. Every row carries its own `status`,
 # `source` and `retrieved_on`; a report prints "verified" only when every row is.
 #  - Rate card: the ids above are `us.` GEOGRAPHIC cross-Region inference
 #    profiles. AWS bills those at the standard (Regional) rate; a `global.`
@@ -205,9 +194,9 @@ models:
 #    "Route model inference requests across AWS Regions": Cost, Geographic
 #    "Standard pricing", Global "Approximately 10% savings"; Anthropic's pricing
 #    page: "Regional and multi-region endpoints include a 10% premium over
-#    global endpoints"). For Haiku 4.5, Sonnet 5.5 and Opus 5.5 every Regional
-#    row of the Price List is exactly 1.10x its Global row, and the Global row is
-#    Anthropic's list price, so the Anthropic rows below are the list price x 1.10.
+#    global endpoints"). For Haiku 4.5 and Sonnet 4.5 every Regional row of the
+#    Price List is exactly 1.10x its Global row, and the Global row is Anthropic's
+#    list price, so the Anthropic rows below are the list price x 1.10.
 #  - cache_write is the 5-minute write, which a cachePoint without a ttl uses;
 #    1-hour writes (2x the Global input price) are not used.
 #  - Nova: input and output are the on-demand rows, cache_read the cached-input
@@ -227,7 +216,7 @@ prices_usd_per_mtok:
   status: verified
   region: us-east-1
   rate_card: Regional (geographic cross-Region), on-demand standard
-  retrieved_on: "2026-10-06"
+  retrieved_on: "2026-10-07"
   rows:
     us.anthropic.claude-haiku-4-5-20251001-v1:0:
       input: 1.10
@@ -244,32 +233,20 @@ prices_usd_per_mtok:
         list 20260930001912, effective 2026-09-01; the same five rates appear
         under service code AmazonBedrockService "Claude Haiku 4.5" (list
         20260930223049).
-    us.anthropic.claude-sonnet-5-5:
-      input: 2.20
-      output: 11.00
-      cache_read: 0.22
-      cache_write: 2.75
+    us.anthropic.claude-sonnet-4-5-20250929-v1:0:
+      input: 3.30
+      output: 16.50
+      cache_read: 0.33
+      cache_write: 4.125
       status: verified
-      retrieved_on: "2026-10-06"
+      retrieved_on: "2026-10-07"
       source: >-
         AWS Price List API, service code AmazonBedrockFoundationModels,
-        servicename "Claude Sonnet 5.5 (Amazon Bedrock Edition)", regionCode
-        us-east-1, usagetypes USE1-MP:USE1_input_tokens_standard,
-        output_tokens_standard, cache_read_tokens_standard,
-        cache_write_tokens_standard, list 20260930001912, effective 2026-09-01.
-    us.anthropic.claude-opus-5-5:
-      input: 4.40
-      output: 22.00
-      cache_read: 0.22
-      cache_write: 5.50
-      status: verified
-      retrieved_on: "2026-10-06"
-      source: >-
-        AWS Price List API, service code AmazonBedrockFoundationModels,
-        servicename "Claude Opus 5.5 (Amazon Bedrock Edition)", regionCode
-        us-east-1, usagetypes USE1-MP:USE1_input_tokens_standard,
-        output_tokens_standard, cache_read_tokens_standard,
-        cache_write_tokens_standard, list 20260930001912, effective 2026-09-01.
+        servicename "Claude Sonnet 4.5 (Amazon Bedrock Edition)", regionCode
+        us-east-1, Regional usagetypes USE1-MP:USE1_InputTokenCount,
+        _OutputTokenCount, _CacheReadInputTokenCount, _CacheWriteInputTokenCount
+        (the 5-minute write), list 20260930001912, effective 2026-09-01; each is
+        exactly 1.10x its _Global row (3.00, 15.00, 0.30, 3.75).
     us.amazon.nova-lite-v1:0:
       input: 0.06
       output: 0.24

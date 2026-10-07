@@ -342,16 +342,14 @@ def test_the_retry_chain_keeps_the_same_defaults_on_the_fallbacks() -> None:
 
 
 @pytest.mark.skipif(not HAS_AI, reason="ai/ lane absent")
-def test_the_real_tiers_ask_the_thinking_models_for_a_bounded_effort() -> None:
+def test_a_real_tier_sets_effort_only_when_a_model_of_its_chain_takes_it() -> None:
     config = load_tiers_config(REPO_AI)
-    for tier in (Tier.MID, Tier.STRONG, Tier.JUDGE):
+    for tier in Tier:
         chain = tier_models(tier, config)
-        assert chain.effort in {"low", "medium"}
-        assert chain.effort_models
-        assert chain.primary in chain.effort_models
-    cheap = tier_models(Tier.CHEAP, config)
-    assert cheap.effort is None
-    assert cheap.effort_models == ()
+        assert (chain.effort is not None) == bool(chain.effort_models), tier
+        if chain.effort is not None:
+            assert chain.effort in {"low", "medium"}
+            assert chain.primary in chain.effort_models
 
 
 @pytest.mark.skipif(not HAS_AI, reason="ai/ lane absent")

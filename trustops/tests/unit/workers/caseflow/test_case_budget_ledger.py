@@ -56,7 +56,7 @@ def test_the_collection_the_enforced_cap_and_the_target_are_the_designed_ones() 
 def test_a_dispatch_reserves_one_attempt_of_the_tier_not_the_retry() -> None:
     assert reservation_tokens(AgentName.SCREENING) == 15_000
     assert reservation_tokens(AgentName.RESEARCH) == 24_000
-    assert reservation_tokens(AgentName.CRITIC) == 20_000
+    assert reservation_tokens(AgentName.CRITIC) == 28_000
     assert reservation_tokens(AgentName.NARRATIVE) == 15_000
     # The design's x (1 + retries) would hold 96k for the research pair alone.
     assert reservation_tokens(AgentName.RESEARCH) * 2 < CASE_TOKEN_CAP // 2
@@ -136,11 +136,11 @@ async def test_a_dispatch_that_would_pass_the_cap_is_refused_and_changes_nothing
     budget_store: CaseBudgetStore, session: FakeSession
 ) -> None:
     await reserve(budget_store, session, job("job_a", AgentName.RESEARCH))
-    await settle(budget_store, session, "job_a", AgentName.RESEARCH, 100_000)
+    await settle(budget_store, session, "job_a", AgentName.RESEARCH, 92_000)
 
-    # 100,000 spent + 20,000 for the critic is exactly the cap: allowed.
+    # 92,000 spent + 28,000 for the critic is exactly the cap: allowed.
     assert await reserve(budget_store, session, job("job_c", AgentName.CRITIC))
-    await settle(budget_store, session, "job_c", AgentName.CRITIC, 20_000)
+    await settle(budget_store, session, "job_c", AgentName.CRITIC, 28_000)
     before = await budget_store.get(CASE_ID)
     assert before is not None
     assert before.headroom == 0
