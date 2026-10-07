@@ -30,7 +30,7 @@ sequenceDiagram
     S2-->>H1: 9.8, Band 2, boundary_flag=true, distance=0.3
     H1->>S4: score.computed, boundary.flagged
 
-    H1->>H2: agent.run critic (judge tier, Opus 5.5)
+    H1->>H2: agent.run critic (judge tier, Nova Pro)
     H2-->>H1: CriticFinding[] (precedent_deviation: CTL-T01 7.6 vs 4.9 avg)
     Note over H1: AGENT_DONE_CRITIC -> COMPLETENESS
 

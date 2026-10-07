@@ -1,6 +1,8 @@
 # Token analysis
 
-How many tokens the nine agents use, what was wrong with the first design's budgets, what changed, and what is left. Every number below is read from a committed file; the file is named next to it. Cost is an estimate: tokens times the list prices in `ai/models/tiers.yaml`, which are verified (AWS Price List API, us-east-1, Regional rate card, retrieved 2026-10-06; each row names its source). Reconcile against the AWS bill.
+How many tokens the nine agents use, what was wrong with the first design's budgets, what changed, and what is left. Every number below is read from a committed file; the file is named next to it. Cost is an estimate: tokens times the list prices in `ai/models/tiers.yaml`, which are verified (AWS Price List API, us-east-1, Regional rate card, retrieved 2026-10-06, the Sonnet 4.5 row 2026-10-07; each row names its source). Reconcile against the AWS bill.
+
+**Note, 7 October 2026 (ADR-62): the committed model chain changed after this page was written.** Sonnet 4.5 replaced Sonnet 5.5 on the mid and strong tiers, Nova Pro replaced Opus 5.5 on the judge tier, and the judge budget went from 20,000 to 28,000 tokens an attempt. Every figure in sections 1 to 6 was measured on the previous chain, with Sonnet 5.5 and Opus 5.5, and none has been re-measured; the measured tables are left as they were. The Sonnet 5.5 and Opus 5.5 rows left the price table, so the dollar figures below cannot be recomputed from `tiers.yaml` any more: they used Sonnet 5.5 at 2.20 in and 11.00 out and Opus 5.5 at 4.40 and 22.00 (USD per million tokens, Regional rate card, us-east-1). The committed rates are Haiku 4.5 1.10 and 5.50, Sonnet 4.5 3.30 and 16.50 (cache read 0.33, cache write 4.125), Nova Lite 0.06 and 0.24, Nova Pro 0.80 and 3.20. Sonnet 4.5 costs 1.5 times Sonnet 5.5 per token.
 
 **Dollar figures are recomputed.** The committed `index.json` files of the runs below were written at the earlier placeholder rates, so they show lower dollars (`price_status` in each). Every figure on this page is the run's recorded tokens at the verified prices. Every Anthropic rate is exactly 1.10x its placeholder (input, output, cache read, cache write), so an Anthropic call costs 1.10x what its file records, whichever models split a row. Rows that include Nova Lite (the cheap tier's fallback) are within USD 0.01 of that rule per run. The demo case's figure comes from the script's own total (no committed file records its per-call models), so it is the earlier figure of about 0.45 times 1.10, rounded. Tokens are unchanged.
 
@@ -17,6 +19,8 @@ Sources used throughout:
 Scope: this is the runtime token story of the product's agents. Build-time tokens (Claude Code sessions that wrote the repository) are not measured: `make build-usage` is not wired and `ops/token-analysis/` does not exist.
 
 ## 1. The budgets as built, by agent
+
+*Note, 7 October 2026 (ADR-62): the chain and budget columns below are those of 6 October. The mid (11,000) and judge (15,000) budgets shown were raised to 15,000 and 20,000 before 7 October (`docs/architecture/design/B-ai-layer.md` section 11). The committed chain is cheap Haiku 4.5 then Nova Lite (15,000), mid Sonnet 4.5 then Haiku 4.5 (15,000), strong Sonnet 4.5, Sonnet 4.5 again, then Nova Pro (24,000), and judge Nova Pro then Haiku 4.5 (28,000). The p50, p90 and max columns were measured on the previous chain and do not carry over. The critic row is the clearest case: its p90 of 11,695 is an Opus 5.5 figure, and one live run of the critic on Nova Pro used 21,851 tokens and was blocked at 20,000 (D-95). 28,000 rests on that one observation.*
 
 A tier's budget is what **one attempt** may spend, every request of it included (a tool round trip re-sends the request). It is set from the p90 of measured attempts times about 1.3 (tiers, evals README "Budgets from measured usage"). One retry per job (ADR-14), 120,000 tokens per case (tiers `per_case_budget_tokens`).
 
@@ -38,6 +42,8 @@ Wall clocks: cheap 60 s, mid 120 s, strong and judge 180 s (tiers). Output cap p
 
 ## 2. What the agents used in the gate run
 
+*Note, 7 October 2026 (ADR-62): measured at `7249d2a` on the previous chain. The judge row is Opus 5.5; the committed judge is Nova Pro. No run of this shape exists on the committed chain.*
+
 Run 2 (`make evals` at `7249d2a`: 5 rows per agent, 1 for policy_gap, seed 7, Bedrock judge). Agent tokens are input plus output as the `usage` block of each `<agent>.live.json` reports them; cache reads and writes are reported apart by Bedrock.
 
 | Agent | Rows | Model calls | Agent tokens | Per row | Cache read | Cache write | Agent cost (USD) |
@@ -55,9 +61,11 @@ Run 2 (`make evals` at `7249d2a`: 5 rows per agent, 1 for policy_gap, seed 7, Be
 | Judge (Opus 5.5, 132 calls, grades narrative, examiner and critic) | | 132 | 235,700 | | 0 | 0 | 2.525 |
 | **Run total** | | | **525,250** | | | | **3.145** |
 
-Reading it: the cheap tier is cheap in tokens as well as in price (screening and watchlist about 3.2 to 3.6k a row, no cache because their prompts stay under the Haiku cache minimum of 4,096 tokens, tiers `cache_min_prefix_tokens`). Research is the most expensive agent (it makes a tool call, so it sends its request twice; its one retry is in the 10 calls). Cache reads are 150,546 tokens, billed at a tenth of the input rate or less (tiers prices: 0.1x for Haiku and Sonnet, 0.05x for Opus). **The judge is 80% of an eval run's cost** (2.53 of 3.14 USD): it grades every row on faithfulness, relevancy and hallucination, three votes on the narrative.
+Reading it: the cheap tier is cheap in tokens as well as in price (screening and watchlist about 3.2 to 3.6k a row, no cache because their prompts stay under the Haiku cache minimum of 4,096 tokens, tiers `cache_min_prefix_tokens`). Research is the most expensive agent (it makes a tool call, so it sends its request twice; its one retry is in the 10 calls). Cache reads are 150,546 tokens, billed at a tenth of the input rate or less (prices of 6 October: 0.1x for Haiku and Sonnet 5.5, 0.05x for Opus 5.5). **The judge is 80% of an eval run's cost** (2.53 of 3.14 USD): it grades every row on faithfulness, relevancy and hallucination, three votes on the narrative.
 
 ## 3. What was wrong before
+
+*Note, 7 October 2026 (ADR-62): run 1 was also measured on the previous chain. Finding 4 describes a failure of Sonnet 5.5 and Opus 5.5, which are in no chain now.*
 
 The first live run (run 1, `make evals` at `4c715bb`, the system as shipped) passed 1 of 9 gates. The token findings (evals README, "What stops the agents", defects D-46 and D-47):
 
@@ -73,6 +81,8 @@ The first live run (run 1, `make evals` at `4c715bb`, the system as shipped) pas
 Run 1 spent 608,534 agent tokens and about USD 2.16 on agents (730,715 tokens and USD 3.46 with the judge) and completed 7 of its 41 rows (screening 0 of 5, intake 0, research 0, assessment 1, critic 0, narrative 1, examiner 5, watchlist 0, policy_gap 0 of 1).
 
 ## 4. What changed
+
+*Note, 7 October 2026 (ADR-62): measured on the previous chain. The effort setting in the sixth row applied to Sonnet 5.5 and Opus 5.5; no tier sets effort since 7 October, because no model of the committed chain takes it. The budgets in the first row are those of the morning of 6 October (section 1 has the committed ones).*
 
 | Change | Effect, with evidence | Commit |
 |---|---|---|
@@ -101,6 +111,8 @@ The agents' own cost fell because they stopped being blocked and retried; the ju
 
 ## 5. One case against the 120,000 cap
 
+*Note, 7 October 2026 (ADR-62): measured at `7249d2a` on the previous chain and not repeated on the committed chain. The last complete live 21-scene run (18:25 IST on 6 October, commits `e4c14f6` plus `4e156a1`) was on the previous chain too: 157,345 of the 160,000 enforced cap. Since this section was written H1 enforces the per-case ledger (ADR-50): it reserves one attempt of a job's tier before publishing the job, so the critic reserves 28,000 on the committed chain, and the cap is 160,000 enforced with 120,000 as the target. Point 3 below says the cap is not enforced across jobs; that was true at `7249d2a`.*
+
 `ops/scripts/demo_case_tokens.py` runs every agent once on FCRM-2026-0151 with the real pack builders, the seed-backed tools, the rendered prompts and the shipped budgets, live, and sums what H1 would sum (input plus output). One run, at `7249d2a`, before `research.system` v3:
 
 | | Tokens |
@@ -122,6 +134,8 @@ Three honest points:
 
 ## 6. What an eval run costs
 
+*Note, 7 October 2026 (ADR-62): every row below was measured on the previous chain, with Opus 5.5 as the judge. The only cost measured on the committed chain is a plumbing run of one row per agent: 7 of 9 gates at about USD 0.44, not a baseline, files not committed. Sonnet 4.5 costs 1.5 times Sonnet 5.5 per token and Nova Pro costs less than Opus 5.5 (0.80 and 3.20 against 4.40 and 22.00), so the totals below do not carry over to the committed chain.*
+
 | Run | Tokens | USD | Source |
 |---|---|---|---|
 | `make evals` (5 rows per agent, Bedrock judge), run 2 | 525,250 | 3.14 (agents 0.62, judge 2.53) | `evals/results/2026-10-06/index.json` |
@@ -135,9 +149,11 @@ Three honest points:
 
 ## 7. The next optimisations, in order of value
 
+*Note, 7 October 2026 (ADR-62): item 1 was done after this list was written, in the form ADR-50 chose: H1 enforces the per-case ledger and reserves one attempt of a job's tier (not a measured p90), so the critic reserves 28,000 on the committed chain. The other items are as they were, and every figure behind them was measured on the previous chain.*
+
 1. **Enforce the per-case ledger across jobs in H1, and fix Guard 3's reservation** (reserve a measured p90, release on completion). Today the 120k cap is a number H1 reports, not a limit it enforces.
 2. **Drop empty unknown keys at the decode step.** The model adds a key like `source_ref_note: null` now and then; the contracts forbid extra keys, so one stray key fails the whole answer and the retry costs a full second attempt (research row 0122: a 23.6k retry). The fix was not made so that the committed run is the code that ships.
-3. **A judge cache.** A re-grade pays the judge again. The judge is 80% of an eval run.
+3. **A judge cache.** A re-grade pays the judge again. The judge was 80% of an eval run on the previous chain, with Opus 5.5 as the judge; the share on Nova Pro is not measured.
 4. **Cache the cheap tier.** Its prompts are under the 4,096-token Haiku minimum, so no cache point is emitted and screening, intake and watchlist read nothing from cache (tiers, run 2). A longer shared prefix would qualify; whether it pays is unmeasured.
 5. **Re-measure the demo case after `research.system` v3**, and measure the second intake window instead of estimating it.
 6. **Reconcile the price table with the AWS bill.** The prices are verified against the AWS Price List (6 Oct 2026), not against an invoice; the first month's bill is the check on the rate card (a `global.` inference profile would be about 10% cheaper, at the cost of data residency).
@@ -146,8 +162,8 @@ Three honest points:
 ## How to reproduce
 
 ```bash
-make evals                                                                    # about USD 3, 7 to 11 minutes; writes evals/results/<date>/
-uv run --project src/backend --all-packages python ops/scripts/demo_case_tokens.py   # about USD 0.50; add --only research,assessment for a subset
+make evals                                                                    # about USD 3, 7 to 11 minutes on the previous chain (not re-measured); writes evals/results/<date>/
+uv run --project src/backend --all-packages python ops/scripts/demo_case_tokens.py   # about USD 0.50 on the previous chain (not re-measured); add --only research,assessment for a subset
 make up-obs && make token-report                                              # runtime per-agent report from Prometheus
 ```
 

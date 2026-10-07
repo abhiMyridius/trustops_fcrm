@@ -2,6 +2,8 @@
 
 Per-agent evaluation for TrustOps' nine agents: datasets, deterministic metrics, an LLM judge, a runner that calls the agents **live on Amazon Bedrock**, the promotion gate, a Markdown report and a one-page dashboard. The design is in `docs/architecture/design/B-ai-layer.md` §7; this file says what exists, how to run it, what a run measures and what the first real run found.
 
+**Note, 7 October 2026 (ADR-62): the committed model chain changed.** Sonnet 4.5 replaced Sonnet 5.5 on the mid and strong tiers, Nova Pro replaced Opus 5.5 on the judge tier, and no Opus remains in any chain. Every measurement in this file was made on the previous chain: the committed baseline of 8 of 9 gates (run `7249d2a`), the cost of about USD 3 a run, the demo case's token figures and the budgets' p90 columns. None has been repeated on the committed chain, so there is no committed eval baseline for it, and `baseline.json` still points at the run of the previous chain. A run of one row per agent on the committed chains gave 7 of 9 gates at about USD 0.44; it checked the runner, the Nova Pro judge and the dashboard, it is not a baseline, and its files are not committed. The tables below are left as measured.
+
 ## Layout
 
 | Path | Holds |
@@ -21,10 +23,11 @@ Per-agent evaluation for TrustOps' nine agents: datasets, deterministic metrics,
 Run these from the repo root. `make evals` needs the AWS credentials of the shell's environment (the standard chain) and calls Bedrock.
 
 ```bash
-make evals                        # live, 5 rows per agent, seed 7, concurrency 3, Bedrock judge: about 7 minutes, USD 3
+make evals                        # live, 5 rows per agent, seed 7, concurrency 3, Bedrock judge: about 7 minutes, USD 3 (measured on the previous chain; not re-measured on the committed one)
 make evals AGENT=research         # one agent
 make evals EVALS_ARGS="--baseline --publish"   # also make this run the baseline, and load it into Mongo
 make evals EVALS_ARGS="--judge fake"           # no judge calls: the stand-in judge, labelled FAKE everywhere
+make evals EVALS_ARGS="--ai-root <a copy of ai/> --results-root <its own folder>"   # try another chain or prompt set without touching the shipped ai/; never a baseline
 make evals-full                   # every row of every dataset (slow, several times the cost)
 make evals-gate AGENT=research    # the promotion gate on the newest run; exit 1 on FAIL
 
@@ -43,13 +46,15 @@ FCRM_TEST_MONGO_URI='mongodb://127.0.0.1:28217/?replicaSet=rs0' uv run --project
 
 `make gate` runs `build --check` and `selfcheck`; the live gate (`evals-gate`) needs a live run and is run on demand.
 
+`--ai-root` points a run at another `ai/` folder: its `tiers.yaml` and its prompts. It needs its own `--results-root`, and the CLI refuses `--baseline` and the shipped `evals/results` folder for any other root, so a result from a copy is never a baseline. The separate economy profile of 6 October (its own make targets, folder and model file) was removed on 7 October 2026 (ADR-62); the CLI keeps this flag.
+
 ## How a live run works
 
 For each agent, `python -m fcrm_evals run --producer live` does this, with no stand-in in the path:
 
 1. **Sample.** `--sample N --seed S` draws N rows of the agent's dataset. The demo-case rows (FCRM-2026-0151) are always in. The rest are drawn by a seeded RNG, round-robin across the label a metric needs, because precision is undefined on a slice with no predicted positive: screening's 18 fast-lane rows in 100, watchlist's 3 re-flag rows in 29, examiner's unanswerable questions, the critic's three planted-error types. The same seed gives the same rows. `--row-ids` selects exact rows.
 2. **Build the pack.** `RowPackBuilder` renders the row into a `ContextPack` under the real builders' section names, order, caps and line formats (`fcrm_agents.builders`). The row's own `sources` become the pack's sources, widened the way production registers a case (`cite_case`: the field lines and the identity line the pack prints), so a quote the agent copies from what it was shown verifies against Guard 4 and one it invents does not. The `citation_validity` metric checks against the same list (`fcrm_evals.live.shown_sources`), never a narrower one.
-3. **Run the agent.** H2's `run_agent_live`: Guards 1 to 5, the seed-backed tools, a real `FallbackModel` on the agent's tier, the system prompt rendered (`fcrm_prompts.InstructionRenderer`, the same renderer H2 uses), the tier's token budget (cheap 15k, mid 15k, strong 24k, judge 20k tokens an attempt, set from measured usage, below) and its one retry. Every request is metered (tokens, latency, the model that answered).
+3. **Run the agent.** H2's `run_agent_live`: Guards 1 to 5, the seed-backed tools, a real `FallbackModel` on the agent's tier, the system prompt rendered (`fcrm_prompts.InstructionRenderer`, the same renderer H2 uses), the tier's token budget (cheap 15k, mid 15k, strong 24k, judge 28k tokens an attempt; the judge was 20k until 7 October 2026; set from measured usage, below) and its one retry. Every request is metered (tokens, latency, the model that answered).
 4. **Never fabricate.** A blocked run returns no items and a `blocked` flag with the guard that stopped it and Guard 4's feedback; a run that cannot build its pack or raises is `failed`. The metrics then score the empty output, which is what the agent produced. Failures are isolated per row and counted.
 5. **Score.** The 27 deterministic metrics, plus, for narrative, examiner and critic, DeepEval's faithfulness, answer relevancy and hallucination metrics on the `judge` tier, and the real `narrative_faithfulness` judge (`--judge-votes K`).
 6. **Gate.** One verdict per agent: the primary metric measured and at its threshold, no worse than the baseline's when there is one, **and at least 80% of the sampled rows completed**. The last rule is new and deliberate: a primary metric averaged over the one row that did produce an output reads as a pass for an agent that was refused on the other four (the first run's narrative gate did exactly that).
@@ -64,9 +69,11 @@ For each agent, `python -m fcrm_evals run --producer live` does this, with no st
 
 ### Cost and its caveat
 
-Cost is an **estimate**: tokens from each Bedrock response times the list prices in `ai/models/tiers.yaml`. Those prices are **verified**: each row was read from the AWS Price List API on 6 Oct 2026 (us-east-1, the Regional rate card that the `us.` geographic cross-Region profiles bill at) and names its source. Every cost line says so: the dashboard header, the report note and `index.json` (`price_note`) print "verified AWS list prices, us-east-1, retrieved 2026-10-06", or "unverified for: <models>" if a row is ever not verified. Reconcile against the AWS bill. The dollar figures in this README and in `ops/reports/token-analysis.md` are recomputed from each run's recorded tokens at the verified prices; the committed `index.json`, `report.md` and `dashboard.html` of the earlier runs were written at the earlier placeholder rates (`price_status` in their `index.json`), so they show lower figures (every Anthropic rate is exactly 1.10x its placeholder, so an Anthropic call costs 1.10x what its file records). Models are reported by the `label` `tiers.yaml` gives them (`Haiku 4.5`, `Opus 5.5`), never by id: result files live under `evals/` where ADR-04 forbids model ids, and every file a run writes passes through a redactor.
+Cost is an **estimate**: tokens from each Bedrock response times the list prices in `ai/models/tiers.yaml`. Those prices are **verified**: each row was read from the AWS Price List API on 6 Oct 2026, the Sonnet 4.5 row on 7 Oct 2026 (us-east-1, the Regional rate card that the `us.` geographic cross-Region profiles bill at) and names its source. Every cost line says so: the dashboard header, the report note and `index.json` (`price_note`) print "verified AWS list prices, us-east-1, retrieved 2026-10-07" (the latest row date), or "unverified for: <models>" if a row is ever not verified. Reconcile against the AWS bill. The dollar figures in this README and in `ops/reports/token-analysis.md` are recomputed from each run's recorded tokens at the verified prices; the committed `index.json`, `report.md` and `dashboard.html` of the earlier runs were written at the earlier placeholder rates (`price_status` in their `index.json`), so they show lower figures (every Anthropic rate is exactly 1.10x its placeholder, so an Anthropic call costs 1.10x what its file records). The Sonnet 5.5 and Opus 5.5 rows left the price table on 7 October 2026 with the models; the figures here for runs on them are those runs' recorded tokens at the rows' verified rates (Sonnet 5.5 2.20 in and 11.00 out, Opus 5.5 4.40 and 22.00, USD per million tokens). The judge is Nova Pro now (0.80 and 3.20), so a run's judge share is not the 80% that `ops/reports/token-analysis.md` measured with Opus 5.5; no 5-row run has been made on the committed chain. Models are reported by the `label` `tiers.yaml` gives them (`Haiku 4.5`, `Nova Pro`), never by id: result files live under `evals/` where ADR-04 forbids model ids, and every file a run writes passes through a redactor.
 
 ## The first live run (measured, not seeded)
+
+*Measured on the previous chain (Sonnet 5.5 and Opus 5.5 answered, as the totals say). The committed chain changed on 7 October 2026 (ADR-62).*
 
 `evals/results/2026-10-05/` is the baseline: `make evals` at `4c715bb`, 5 rows per agent, seed 7, Bedrock judge, the system as shipped (`raw` prompts, shipped budgets). **1 of 9 gates PASS.** The agents ran once, at `4c715bb`; the run's verdicts and judge grades were rebuilt at `8c5c9c8` from its saved outputs (`rerender` for the completion rule, `rejudge` for the corrected judge context), which is why `index.json` carries the earlier sha and the judge cost of 54 calls was paid twice (about USD 1.3 each). The numbers below are the files' (`gate.json`, `index.json`); they replace the "seeded targets" the seed's `evals` block carried (intake 96.4%, research 99.1%, screening 96.2% ...), which the system as shipped does not meet.
 
@@ -101,6 +108,8 @@ The examiner is the one agent that ran to completion on every row, so its judge 
 `evals/results/2026-10-05-diagnostic-rendered-x5/`: `--instructions rendered --token-budget-factor 5 --judge fake`, 5 rows per agent, about USD 4.7 and 1.4M tokens. **2 of 9 PASS** (intake: `field_extraction_accuracy` 1.00, source span 1.00, gap-question precision 1.00, citation validity 1.00 on the one completed row, and `category_f1` 0.00 because no category was proposed; examiner: grounding 1.00, `refusal_rate` 1.00, `must_cite_coverage` 0.89). The other seven are blocked by findings 2 to 5 above, which is the point of the diagnostic: with the budget out of the way the agents are stopped by their contracts and prompts, not by the model. This run uses the heuristic stand-in judge and says so; it is not a baseline.
 
 ## The second live run (after the first run's findings were fixed)
+
+*Measured on the previous chain, and still the committed baseline (`baseline.json`). The committed chain changed on 7 October 2026 (ADR-62); the 8 of 9 below does not describe it.*
 
 `evals/results/2026-10-06/` is `make evals` at `7249d2a`: 5 rows per agent, seed 7, Bedrock judge, the system as shipped (rendered prompts, the budgets of `ai/models/tiers.yaml`, thinking effort low). **8 of 9 gates PASS** (the first run: 1 of 9). `evals/results/2026-10-06-run1/` is the same command at `ac4b7d3`, two fixes earlier (also 8 of 9); it is kept because it shows what the later fixes were for: its screening rows spent a retry on a quote the case source did not hold, and its `citation_validity` for screening read 0.33 against a source list narrower than the one Guard 4 had accepted.
 
@@ -142,6 +151,8 @@ What each fix measured, against the first run's seven findings (and three the wo
 
 ### Finding 5, before and after: a forced-style tool call and hidden reasoning
 
+*Probed on Sonnet 5.5 and Opus 5.5, which are in no chain since 7 October 2026 (ADR-62). No model of the committed chain takes `effort`, so no tier sets it; the probe was not repeated on the committed chain.*
+
 A live probe through the runtime's own model wiring (`fcrm_agents.models`: the tier's primary model alone, `ToolOutput(list[Finding])`, one review task of four records, `retries=0`). Sonnet 5.5 and Opus 5.5 think adaptively and cannot switch it off; what changed is `output_config.effort`.
 
 | Tier (model) | `max_tokens` | Effort | Output tokens | Reasoning block | Findings returned |
@@ -158,6 +169,8 @@ A live probe through the runtime's own model wiring (`fcrm_agents.models`: the t
 At the default effort the judge tier spends up to 920 of 1,200 tokens before the answer; at low it spends 448 and emits no reasoning block. The probe's task is small, so it does not starve the call at 1,200 (the first run's critic rows did at 2,000 on a real pack, and a cut-off tool call arrives as `{}`); the measured effect is 12 to 51% fewer output tokens and no reasoning block. The retry also stops halving the allowance (`max_tokens_factor` is 1.0 on every attempt), and `max_tokens` is 4,000 / 4,000 / 8,000 / 8,000 (was 2,000 / 3,500 / 5,000 / 4,000). Haiku and Nova reject the field, so it is a per-model default (`effort_param` in `tiers.yaml`), never chain-wide. On the gate sample, effort medium against low left the metrics where they were (critic detection 1.0 both, research recall 1.0 both) and cost the critic 8 to 14k tokens an attempt against 5 to 7k.
 
 ### Budgets from measured usage
+
+*Measured on the previous chain on 6 October. The "Tier budget" column shows the budgets of those gate runs (mid 11,000, judge 15,000). The committed budgets are cheap 15,000, mid 15,000, strong 24,000 and judge 28,000 (ADR-62). The critic's p90 of 11,695 is an Opus 5.5 figure and says nothing about Nova Pro, on which one live run used 21,851 tokens and was blocked at 20,000 (D-95); 28,000 rests on that one observation.*
 
 `budget.tokens` is what one attempt may spend, every request of it included (a tool round trip re-sends the request). It is set from the p90 of measured attempts times about 1.3, and a unit test (`tests/unit/packages/agents/test_budgets_agree.py`) keeps `tiers.yaml`, Guard 3's table and the nine agent specs equal. Tokens of one attempt, input plus output, over the ten attempts of the two 6 Oct gate runs (five rows each, `ac4b7d3` and `7249d2a`), with the demo case's own jobs (below) where they are larger:
 
@@ -176,6 +189,8 @@ At the default effort the judge tier spends up to 920 of 1,200 tokens before the
 The cheap tier's 15k is set by intake's real demo windows (6 to 12k an attempt, p90 11.5k), not by the gate sample's two-line briefs. The five-row samples are small; the budgets are the measured ones, not a promise for a larger document: an attempt that needs more is blocked on its budget (`agent.failed`, the handoff gate), never silently cut. The first design's budgets (cheap 6k, mid 12k, strong 20k, judge 20k) could not hold any real run; the first run's rows cost 6.7 to 26k.
 
 ### The demo case against the 120k per-case cap
+
+*Measured at `7249d2a` on the previous chain; not repeated on the committed chain. Since then H1 enforces a per-case ledger (ADR-50): it reserves one attempt of a job's tier before publishing the job, so the critic reserves 28,000, and the cap is 160,000 enforced with 120,000 as the target (`docs/architecture/sequences/token-ledger.md`). The last paragraph of this section describes the code at `7249d2a`, before the ledger.*
 
 `python ops/scripts/demo_case_tokens.py` (live; about USD 0.50) runs every agent once on FCRM-2026-0151 with the **real** pack builders over the seed-backed tools, the rendered prompts and the shipped budgets, and sums what the model calls used. One run, at `7249d2a`:
 
@@ -198,10 +213,12 @@ Counting cache reads and writes the same run is 160,350 tokens (Bedrock reports 
 
 ### Where it still fails, with the evidence
 
+*As of the previous chain. Whether the assessment agent passes its gate on the committed chain is not known: no full-sample run exists on it.*
+
 - **assessment `li_within_one` 0.70 against 0.85: FAIL, and not fixable by behaviour.** Finding 5 below: a constant L 3, I 3 earns 0.61 on all 136 labelled domains, the best constant per domain 0.68, and the same title and domain carries more than one (L, I) pair in 37 of 77 groups. The first 6 Oct run scored 0.60, this one 0.70 on the same five rows (0080: 1.0, 0117: 0.5, 0128: 0.5, 0140: 1.0, 0151: 0.67): chance. The agent's other metrics are real: `evidence_date_exact` 1.00, `citation_validity` 1.00, control-match precision 0.79 and recall 0.60 (below 0.90). The threshold, the rows and the metric are untouched.
 - **Non-primary metrics under their lines** (the gate does not read them): `narrative_faithfulness` 0.20 (the demo row 1.0; four rows whose packs hold only a composite, a band and a driver score 0.60 to 0.70 from the judge, whose reasoning is not stored: my reading is that the recommended outcome and the "not evidenced" sentences are claims those three facts do not support, unverified); `category_f1` 0.67 (finding 9); `precedent_top1` 0.00 (finding 7); `must_cite_coverage` 0.89 (examiner, one of nine required citations missing on one question); control-match precision and recall above.
 - **The model adds a junk key now and then, and the job pays a retry.** `ClauseProposal.source_ref_note: null` (research row 0122 of this run) and `'#': ''` (a narrative item in the first 6 Oct run) are keys outside the contract with an empty value; the contracts forbid extra keys, so one such item fails the whole answer (27 and 30 validation errors) and the retry runs on the tier's fallback model. Both retries recovered. Dropping empty unknown keys at the decode step would avoid them; it was not done, so that the committed run is the code that ships.
-- **The retry runs on the fallback model** (ADR-14), and for the mid tier that is Haiku: the first 6 Oct run's retried narrative row came back from Haiku with two invented conditions (`VENDOR-ELS-001` and `-002`) where the pack held no overridden control, planned control or gap. It was not retried in the second run, so this is unmeasured there.
+- **The retry runs on the fallback model** (ADR-14), and for the mid tier that is Haiku: the first 6 Oct run's retried narrative row came back from Haiku with two invented conditions (`VENDOR-ELS-001` and `-002`) where the pack held no overridden control, planned control or gap. It was not retried in the second run, so this is unmeasured there. Since 7 October 2026 the strong tier's first fallback is Sonnet 4.5 itself, so research and assessment retry on Sonnet 4.5 (ADR-62).
 
 ## Datasets (real sizes)
 
@@ -246,7 +263,7 @@ Several metrics reuse merged code instead of re-implementing it:
 - `suggestion_novelty` uses `quote_match.match_quote`.
 - Critic and examiner grounding resolve record refs against chains from `fcrm_audit.chain`. Each chain must pass `verify_chain` first, so a tampered chain grounds nothing.
 
-**The judge.** DeepEval 4.2.8's `FaithfulnessMetric`, `AnswerRelevancyMetric` and `HallucinationMetric` run on its `AmazonBedrockModel` (`BedrockJudgeLLM`) on the `judge` tier of `ai/models/tiers.yaml`: a model other than the assessor it grades (ADR-04). They read the pack the agent was shown (identity, versions and every fact line), not the dataset row. `hallucination_free` is DeepEval's hallucination score as it now reads (1 = no contradiction; the brief's "1 − score" for the older direction), checked ≥ 0.90. `narrative_faithfulness` keeps the design's rubric (every claim traceable 0.5, no invented number 0.3, emphasis on the real driver 0.2; pass ≥ 0.8; k votes) and takes its text from the prompt `narrative.judge` under `ai/prompts`. A row the judge cannot grade is *not measured*, counted and logged, never scored. `FakeJudge` (`--judge fake`) is a heuristic stand-in, not a model, and every output of such a run says FAKE.
+**The judge.** DeepEval 4.2.8's `FaithfulnessMetric`, `AnswerRelevancyMetric` and `HallucinationMetric` run on its `AmazonBedrockModel` (`BedrockJudgeLLM`) on the `judge` tier of `ai/models/tiers.yaml`: a model other than the assessor it grades (ADR-04). On the committed chain that is Nova Pro, against Sonnet 4.5 on the assessor's side; the critic and the judge that grades its output are both Nova Pro, as both were Opus 5.5 before. They read the pack the agent was shown (identity, versions and every fact line), not the dataset row. `hallucination_free` is DeepEval's hallucination score as it now reads (1 = no contradiction; the brief's "1 − score" for the older direction), checked ≥ 0.90. `narrative_faithfulness` keeps the design's rubric (every claim traceable 0.5, no invented number 0.3, emphasis on the real driver 0.2; pass ≥ 0.8; k votes) and takes its text from the prompt `narrative.judge` under `ai/prompts`. A row the judge cannot grade is *not measured*, counted and logged, never scored. `FakeJudge` (`--judge fake`) is a heuristic stand-in, not a model, and every output of such a run says FAKE.
 
 **Gate (design B §6.4).** A candidate passes only if all hold: its primary metric is measured; it is ≥ its threshold; it is ≥ the baseline minus the tolerance (0 for deterministic metrics, 0.01 for a judge-graded primary); and, for a live run, at least 80% of the sampled rows completed. Sampled runs are only comparable with the same `--seed`.
 
