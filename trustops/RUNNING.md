@@ -1,6 +1,6 @@
 # Running and checking TrustOps
 
-How to set up the repository, start the stack, drive the demo case by hand in the web UI, run the checks and fix what goes wrong. Written on 6 October 2026 from the repository at that date; every command below was either run, expanded with `make -n`, or checked against the Makefile, the compose files and `docs/architecture/openapi/api.json`. What was not run is said in "What is not done and not verified".
+How to set up the repository, start the stack, drive the demo case by hand in the web UI, run the checks and fix what goes wrong. Written on 6 October 2026 from the repository at that date, with the model chain, its budgets and its cost figures updated on 7 October 2026 (ADR-62); every command below was either run, expanded with `make -n`, or checked against the Makefile, the compose files and `docs/architecture/openapi/api.json`. What was not run is said in "What is not done and not verified".
 
 Run every command from the folder that holds the `Makefile` (`trustops/` inside the repository). `make` anywhere else fails with `No rule to make target`.
 
@@ -24,12 +24,12 @@ The models the stack calls are named in `ai/models/tiers.yaml` and nowhere else.
 | Tier | Used by | Chain (attempt 1) | Budget per attempt |
 |---|---|---|---|
 | cheap | screening, intake, watchlist | Haiku 4.5, then Nova Lite | 15,000 tokens, 60 s |
-| mid | narrative, examiner, policy_gap | Sonnet 5.5, then Haiku 4.5 | 11,000 tokens, 120 s |
-| strong | research, assessment | Sonnet 5.5, then Opus 5.5, then Nova Pro | 24,000 tokens, 180 s |
-| judge | critic (and the eval judge) | Opus 5.5, then Sonnet 5.5 | 15,000 tokens, 180 s |
+| mid | narrative, examiner, policy_gap | Sonnet 4.5, then Haiku 4.5 | 15,000 tokens, 120 s |
+| strong | research, assessment | Sonnet 4.5, then Sonnet 4.5, then Nova Pro | 24,000 tokens, 180 s |
+| judge | critic (and the eval judge) | Nova Pro, then Haiku 4.5 | 28,000 tokens, 180 s |
 | embeddings | S3 policy search, H4 index builds | Titan Embed Text v2, 1024 dimensions | |
 
-One retry per job, and 120,000 tokens per case (`ai/models/tiers.yaml`). Details and the failure behaviour: `ops/runbooks/bedrock-outage-and-fallbacks.md`.
+One retry per job, and per case 160,000 tokens enforced and 120,000 as the target (`ai/models/tiers.yaml`). A retry runs on the fallbacks alone, so research and assessment retry on Sonnet 4.5. There is no Opus and no Sonnet 5 in any chain (ADR-62). Details and the failure behaviour: `ops/runbooks/bedrock-outage-and-fallbacks.md`.
 
 ## 2. First run
 
@@ -174,7 +174,7 @@ If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks
 | `gate` | `check`, `test-int`, `fcrm_evals build --check`, `selfcheck` | needs Docker | no | more than `check` (not timed) |
 | `test-int`, `test-integration` | every integration-marked test under `tests/` (`pytest -m integration tests`): the 464 under `tests/integration` on testcontainers or on `FCRM_TEST_MONGO_URI`, and the 74 `*_live.py` tests under `tests/unit`, which need `FCRM_TEST_MONGO_URI` and skip without it (the target says so) | needs Docker, not the stack | no | not timed through make; all of them took 192 to 225 s on a throwaway replica set |
 | `ai-check` | `ai/_tools/validate_ai.py` (registry, tool permits, OPA decisions, and the rule that no model id appears outside `ai/models/tiers.yaml` in `ai/`, `src/`, `evals/` or `ops/`) and `compute_locks.py --check` | no | no | under 10 s |
-| `evals` | live agent evals, 5 rows per agent, Bedrock judge; writes `evals/results/<date>/` | no | **yes**, about USD 3 | 7 to 11 minutes |
+| `evals` | live agent evals, 5 rows per agent, Bedrock judge; writes `evals/results/<date>/`. `EVALS_ARGS="--ai-root <copy of ai/> --results-root <own folder>"` tries a variant without touching the shipped `ai/`; its result is never a baseline | no | **yes**, about USD 3 measured on the previous chain, not re-measured on the committed one | 7 to 11 minutes on the previous chain |
 | `evals-full` | every row of every dataset | no | **yes**, several times `evals` | slow |
 | `evals-gate AGENT=<a>` | the promotion gate for one agent on the newest run | no | no | seconds |
 | `openapi` | export the merged OpenAPI to `docs/architecture/openapi/api.json` | no | no | seconds |
@@ -186,12 +186,9 @@ If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks
 | `rotate-keys` | `keys FORCE=1`, then restart `api`; everyone signs in again | yes | no | the `api` restart, about 85 s |
 | `seed-verify` | the live stack holds the seed: 80 cases, the stage distribution, the demo case untouched, a chain that verifies | yes | no | seconds |
 | `verify case=<id>` | verify one case's audit chain through S4 | yes | no | seconds |
-| `demo` | `demo-reset`, then the 21 scenes of case 0151 through the gateway as the five users, printing the live numbers | yes | **yes**: 100k to 160k tokens, about USD 0.6 to 1.0 on the shipped chain (ask first, ADR-59) | 4 to 5 minutes |
+| `demo` | `demo-reset`, then the 21 scenes of case 0151 through the gateway as the five users, printing the live numbers | yes | **yes**: 100k to 160k tokens, about USD 0.6 to 1.0, measured on the previous chain and not re-measured on the committed one, where Sonnet 4.5 costs about 1.5 times Sonnet 5.5 per token (ask first, ADR-59) | 4 to 5 minutes on the previous chain |
 | `e2e` | `demo`, then the live black-box rules (BB-03, 06, 08, 09, 13, 14) and the Playwright live scenes | yes | **yes**: the demo's | the demo plus a few minutes |
 | `resilience` | kill and restart drills; the ones that restart a container need `DISRUPTIVE=1`, the ones that call AWS or restart the api need `AWS=1` (`docs/architecture/resilience.md`) | yes | with `AWS=1`: 3 to 5 intake calls (Haiku, under USD 0.10) and api restarts (Titan embeddings, cents) | about 15 to 18 minutes for all twelve |
-| `economy-profile` | write `.economy/`: a copy of `ai/` with no Opus and no Sonnet 5 in any tier chain, and a compose override | no | no | seconds |
-| `up-economy` | the default stack with api and harness on the economy profile (`make up` puts the shipped tiers back); restarts the api, which embeds the clauses on Titan | no | cents (embeddings) | about 2 minutes |
-| `evals-economy` | live evals on the economy profile into `.economy/evals-results`; never a baseline and never in `evals/results`; `EVALS_ARGS="--sample 1"` for one row per agent | no | **yes**: about USD 0.44 for one row per agent | minutes |
 | `nightly`, `contracts`, `api-gen`, `locks`, `build-usage`, `backup`, `restore` | **not wired**: print "not yet wired" and exit 1 | | | |
 
 `make -n <target>` prints what a target would run without running it.
@@ -283,10 +280,10 @@ More: `ops/runbooks/README.md` indexes one short page per task (start, stop, res
 
 ## 9. Cost and tokens
 
-- **Per agent run:** tokens per attempt are capped by tier: 15,000 (cheap), 11,000 (mid), 24,000 (strong), 15,000 (judge), with one retry; a run that needs more is blocked and handed to a person, never silently cut (`ai/models/tiers.yaml`).
-- **Per case:** 120,000 tokens. One measured run of the demo case's eleven agent jobs used 114,626 tokens (about USD 0.50), 91,000 when every job answered first time, before `research.system` v3 (`evals/README.md`). H1 sums the total; it does not yet stop a case at the cap. The static walkthrough's "16.9k" is a script, not a measurement.
-- **An eval run:** `make evals` is about USD 3 and 7 to 11 minutes (USD 2.86 on 6 October: agents 0.56, judge 2.30). `make evals-full` is several times that. The judge is 80% of the cost; `EVALS_ARGS="--judge fake"` skips it and says FAKE on every output.
-- **Hand-driving the demo** costs roughly the agents' share of one case, plus the corpus embedding at each `api` start. The prices in `ai/models/tiers.yaml` are verified AWS list prices (AWS Price List API, us-east-1, 6 Oct 2026; each row names its source); confirm them against the AWS bill.
+- **Per agent run:** tokens per attempt are capped by tier: 15,000 (cheap), 15,000 (mid), 24,000 (strong), 28,000 (judge), with one retry; a run that needs more is blocked and handed to a person, never silently cut (`ai/models/tiers.yaml`).
+- **Per case:** 160,000 tokens enforced by H1's ledger and 120,000 as the target (ADR-50). One measured run of the demo case's eleven agent jobs used 114,626 tokens (about USD 0.50), 91,000 when every job answered first time, before `research.system` v3 (`evals/README.md`); the last complete live run used 157,345 tokens. Both were measured on the previous model chain (Sonnet 5.5 and Opus 5.5) and not repeated on the committed one. The static walkthrough's "16.9k" is a script, not a measurement.
+- **An eval run:** `make evals` was about USD 3 and 7 to 11 minutes on the previous chain (USD 2.86 on 6 October: agents 0.56, judge 2.30); it has not been re-measured on the committed chain. `make evals-full` is several times that. The judge was 80% of the cost with Opus 5.5 as the judge (it is Nova Pro now, so the share is not measured); `EVALS_ARGS="--judge fake"` skips it and says FAKE on every output.
+- **Hand-driving the demo** costs roughly the agents' share of one case, plus the corpus embedding at each `api` start. The prices in `ai/models/tiers.yaml` are verified AWS list prices (AWS Price List API, us-east-1, 6 Oct 2026, the Sonnet 4.5 row 7 Oct 2026; each row names its source); confirm them against the AWS bill.
 - Full analysis: `ops/reports/token-analysis.md`.
 
 ## 10. What is not done and not verified
@@ -294,7 +291,7 @@ More: `ops/runbooks/README.md` indexes one short page per task (start, stop, res
 The full list, each item with its evidence, is `docs/governance/known-gaps.md`. The ones that change what you can do:
 
 - `make nightly`, `make contracts`, `make api-gen`, `make locks`, `make build-usage`, `make backup` and `make restore` print "not yet wired". `make demo`, `make e2e`, `make seed-verify`, `make verify` and `make resilience` are wired; the golden numbers (9.8 to 10.4, 2-1, 67 records) are unit tests, and a live run prints its own.
-- **No complete live acceptance pass on the final build.** The last 21-scene pass is 21 of 21 on the shipped chain before the clean-up merges; on cheaper chains (`make up-economy`: no Opus, no Sonnet 5) runs stopped at scene 3, 8 or 9, because the shipped prompts and budgets were measured on Sonnet 5.5 and Opus 5.5 (D-95).
+- **No complete live acceptance pass on the committed chain.** The last 21-scene pass is 21 of 21 on the previous chain (Sonnet 5.5 and Opus 5.5) before the clean-up merges. Two live runs on the chains that are now committed (they ran as the economy profile) stopped early: at scene 9, where assessment kept 3 of 19 claims after Guard 4 so the case had no controls, and at scene 8, where the critic on Nova Pro passed its 20,000 budget (now 28,000). Runs on Haiku and Nova only stopped at scene 3 and scene 8. The prompts and thresholds were measured on Sonnet 5.5 and Opus 5.5 (D-95).
 - **A manual output (a run completed from `handoff`) is less machine-verified than an agent's:** its claims are not matched against their sources; the record says so.
 - **S1 pins the versions S3 holds in force** (`GET /internal/config/pins`, cached 5 s) and reads a published field set from S3; when S3 does not answer in a few seconds it pins the seed's versions and logs a warning naming the case. Proved on a real replica set, not yet in the composed stack.
 - **The per-case token cap is enforced across jobs by a ledger: 160,000 enforced, 120,000 target** (ADR-50); a run that needs retries can use most of the cap.
@@ -302,7 +299,7 @@ The full list, each item with its evidence, is `docs/governance/known-gaps.md`. 
 - **The web examiner does not handle a 202.**
 - **Two integration mismatches are open defects:** the `evidence_store` agent tool reads a different shape than S1 answers (D-52), and the web's decide call for a clause or control may not resolve the item id (D-53). If a review decision errors on the first item, that is D-53.
 - **No live end-to-end suite and no resilience drills.** The black-box tests run in process.
-- **The assessment agent fails its eval gate** (`li_within_one` 0.70 against 0.85); eight of nine agents pass (`evals/results/2026-10-06/gate.json`).
+- **The assessment agent fails its eval gate** (`li_within_one` 0.70 against 0.85); eight of nine agents pass (`evals/results/2026-10-06/gate.json`). That run was on the previous chain, and there is no committed eval baseline for the committed chain: a run of one row per agent on it gave 7 of 9 gates at about USD 0.44 and is not a baseline.
 - **The policy corpus and demo documents are synthetic**, 193 of 197 clauses generated (ADR-29). No OCR, no SharePoint.
 - **Identity is a demo directory** with one shared password and one JWT key; no TLS; single-node Mongo and RabbitMQ.
 - The AWS path (`ops/aws/README.md`) is a design; nothing was deployed.
