@@ -130,3 +130,15 @@ Still open:
 - The Guard 4 retry model for the cheap tier (D-96).
 - The stack was left running the economy profile, not the shipped tiers, until `make up` is run (it restarts the api, which embeds the clauses on Titan).
 - A job parked in `agent-worker.run.dlq` by a transport failure (a Bedrock timeout on every delivery) may leave the case waiting with no signal; no drill covers it (D-98).
+
+## J. After the model change of 7 October (appended)
+
+Closed:
+
+- The committed chain has no Opus and no Sonnet 5: Sonnet 4.5 on the mid and strong tiers, Nova Pro on the judge, the judge budget at 28,000 tokens, the Sonnet 4.5 price read from the AWS Price List (ADR-62, D-99). A unit test fails if either returns to a chain.
+- The economy profile is retired (its builder, file, make targets and tests); the chain it ran is now the committed chain.
+
+Still open:
+
+- **No eval baseline and no complete live pass for the committed chain** (D-100, D-95). The 8 of 9 gates and the 21 of 21 run were measured on the previous chain. The committed chain's own checks so far: a one-row-per-agent eval run (7 of 9 gates, about USD 0.44) and two live runs that stopped at scene 8 and 9.
+- A Sonnet 4.5 token costs about 1.5 times a Sonnet 5.5 token at the verified prices, so a demo run costs more than the earlier figure of about USD 0.6 to 1.0 on the previous chain; it was not re-measured.
