@@ -102,6 +102,21 @@ class NotFoundError(FcrmError):
     title = "Not found"
 
 
+class NoRunRecordedError(NotFoundError):
+    """The case exists but no assessment run has recorded anything for the
+    thing asked for yet (the harness monitor of a seeded case, or of a case
+    whose first upload has not opened a run). It is still a 404, so a caller
+    that only knows ``NotFoundError`` keeps working, but its ``type`` ends in
+    ``/no_run_recorded`` so the web can show "no run yet" as information
+    instead of "this case is not in your view". Raise it only after the case
+    itself was found: a missing or not-yours case stays the plain
+    :class:`NotFoundError`.
+    """
+
+    code = "no_run_recorded"
+    title = "No run recorded"
+
+
 class ValidationError(FcrmError):
     """A request is well-formed JSON but violates a domain rule on its
     fields (design A's ``ValidationFailed``). Distinct from

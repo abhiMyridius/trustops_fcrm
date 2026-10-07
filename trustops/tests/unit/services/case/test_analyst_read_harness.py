@@ -41,6 +41,53 @@ def test_there_is_no_monitor_until_caseflow_has_pushed_one(
     assert assessed_case.client.get(PUBLIC).status_code == 404
 
 
+def test_a_case_with_no_run_answers_a_404_the_web_can_tell_from_not_in_your_view(
+    assessed_case: AssessedCase,
+) -> None:
+    response = assessed_case.client.get(PUBLIC)
+
+    assert response.status_code == 404
+    assert response.headers["content-type"] == "application/problem+json"
+    body = response.json()
+    assert body["type"] == "https://trustops.local/errors/no_run_recorded"
+    assert body["title"] == "No run recorded"
+    assert body["status"] == 404
+    assert body["detail"] == f"no harness run is recorded for case {CASE}"
+    assert body["instance"] == PUBLIC
+
+
+def test_the_service_read_of_a_case_with_no_run_says_the_same(
+    assessed_case: AssessedCase, act_as: Callable[[Role, str], None]
+) -> None:
+    act_as(Role.SERVICE, "svc:caseflow")
+
+    body = assessed_case.client.get(INTERNAL).json()
+
+    assert body["type"].endswith("/no_run_recorded")
+
+
+def test_a_case_that_does_not_exist_keeps_the_plain_not_found(
+    assessed_case: AssessedCase,
+) -> None:
+    response = assessed_case.client.get("/cases/FCRM-2099-0001/harness")
+
+    assert response.status_code == 404
+    body = response.json()
+    assert body["type"] == "https://trustops.local/errors/not_found"
+    assert "harness" not in body["detail"]
+
+
+def test_the_first_push_ends_the_no_run_answer(
+    assessed_case: AssessedCase,
+    make_harness_push: Callable[..., Any],
+    act_as: Callable[[Role, str], None],
+) -> None:
+    assert assessed_case.client.get(PUBLIC).json()["type"].endswith("no_run_recorded")
+    assert push(assessed_case, make_harness_push(), act_as).status_code == 200
+
+    assert assessed_case.client.get(PUBLIC).status_code == 200
+
+
 @pytest.mark.parametrize("role", [Role.ANALYST, Role.COMMITTEE, Role.OBSERVER])
 def test_the_analyst_committee_and_observer_read_the_snapshot(
     assessed_case: AssessedCase,
@@ -227,7 +274,7 @@ def test_a_push_writes_no_activity_row_the_owner_or_the_stream_could_carry(
 def test_a_seeded_case_reads_404_until_a_run_pushes(
     seeded_analyst_read: AnalystRead,
 ) -> None:
-    assert (
-        seeded_analyst_read.client.get("/cases/FCRM-2026-0140/harness").status_code
-        == 404
-    )
+    response = seeded_analyst_read.client.get("/cases/FCRM-2026-0140/harness")
+
+    assert response.status_code == 404
+    assert response.json()["type"].endswith("/no_run_recorded")
