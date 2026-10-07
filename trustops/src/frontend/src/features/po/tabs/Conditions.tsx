@@ -5,7 +5,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useConditionEvidence, useOutcomePO } from '@/api/queries/caseQueries';
-import { useVerifyChain } from '@/api/queries/auditPublicQueries';
 import { userMessage } from '@/api/errors';
 import { ConditionTable } from '@/components/domain/ConditionTable';
 import { Banner } from '@/components/ui/Banner';
@@ -22,7 +21,6 @@ export function ConditionsTab() {
   const { id = '' } = useParams();
   useDocumentTitle('Conditions', id);
   const q = useOutcomePO(id);
-  const verify = useVerifyChain(id, Boolean(q.data?.decided));
   const evidence = useConditionEvidence(id);
   const toast = useToast();
   const [target, setTarget] = useState<string | null>(null);
@@ -57,11 +55,6 @@ export function ConditionsTab() {
             <p className="text-[12px] text-text-muted">
               Reminders are sent {o.reminder_days} days before each due date. Scores, bands, control ratings and policy clauses are not part of this view.
             </p>
-            {verify.data && (
-              <p className="text-[12px] text-text-muted">
-                Case record: {verify.data.count} records · {verify.data.ok ? 'chain verified' : 'chain check failed'}
-              </p>
-            )}
             <Modal
               open={target !== null}
               onClose={() => setTarget(null)}

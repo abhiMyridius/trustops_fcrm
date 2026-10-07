@@ -1,4 +1,4 @@
-/** S4 audit stand-in. The PO receives only {ok, count, verified_at} from verify (design A §2.4). */
+/** S4 audit stand-in. The PO reads nothing from S4: verify is analyst and committee only (OPA rows audit-get-verify-all-*). */
 import { HttpResponse, http } from 'msw';
 import { API_PREFIX, paths } from '@/api/endpoints';
 import { body, guarded, page, problem } from '../http';
@@ -14,11 +14,9 @@ export const auditHandlers = [
       return page(records(caseId));
     }),
   ),
+  // S4 answers analyst and committee (and the service); the PO and the observer get 403, as the real OPA rows say.
   http.get(`${API_PREFIX}/audit/verify/:caseId`, ({ request, params }) =>
-    guarded(request, 'any', ({ role }) => {
-      const v = verify(String(params.caseId));
-      return HttpResponse.json(role === 'fcrm_po' ? { ok: v.ok, count: v.record_count, verified_at: new Date().toISOString() } : v);
-    }),
+    guarded(request, ['fcrm_analyst', 'fcrm_committee'], () => HttpResponse.json(verify(String(params.caseId)))),
   ),
   http.post(paths.audit.examinerAsk, ({ request }) =>
     guarded(request, ['fcrm_analyst'], async () => {
