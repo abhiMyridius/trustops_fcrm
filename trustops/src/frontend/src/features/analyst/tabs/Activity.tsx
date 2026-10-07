@@ -12,7 +12,7 @@ import { QueryState } from '@/components/ui/QueryState';
 import { Select } from '@/components/ui/Select';
 import { useToast } from '@/components/ui/Toast';
 import { useDocumentTitle } from '@/lib/a11y';
-import { formatDateTime, shortHash } from '@/lib/format';
+import { chainSummary, formatDateTime } from '@/lib/format';
 
 export function AnalystActivityTab() {
   const { id = '' } = useParams();
@@ -52,8 +52,8 @@ export function AnalystActivityTab() {
               </Button>
             </div>
             {verify.data && (
-              <Banner tone={verify.data.ok ? 'success' : 'danger'} live="polite">
-                {verify.data.count} records · {verify.data.ok ? 'chain verified' : `chain broken at #${verify.data.first_broken_seq}`} · head {shortHash(verify.data.head_hash)}
+              <Banner tone={verify.data.ok === true ? 'success' : 'danger'} live="polite">
+                {chainSummary(verify.data)}
               </Banner>
             )}
             {rows.length === 0 ? (

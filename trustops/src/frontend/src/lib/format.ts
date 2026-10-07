@@ -1,4 +1,5 @@
 /** Display formatting only. No business arithmetic: values arrive computed from the server. */
+import type { VerifyResult } from '@/api/types/analyst';
 import type { ChangeType, Outcome } from '@/api/types/common';
 
 const dateFmt = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
@@ -50,8 +51,22 @@ export function formatFixed(n: number, places = 1): string {
   return n.toFixed(places);
 }
 
-export function shortHash(hash: string): string {
+export function shortHash(hash: string | null | undefined): string {
+  if (!hash) return '—';
   return hash.length > 10 ? `${hash.slice(0, 4)}…${hash.slice(-4)}` : hash;
+}
+
+/**
+ * The line the Verify chain banner shows: "9 records, chain verified" or "9 records, chain broken at
+ * record 4". It reads the answer defensively: a field the server did not send leaves its words out
+ * instead of throwing, so a changed or partial answer can never take the page down.
+ */
+export function chainSummary(result: Partial<VerifyResult>): string {
+  const count = result.record_count;
+  const records = typeof count === 'number' ? `${count} ${count === 1 ? 'record' : 'records'}, ` : '';
+  if (result.ok === true) return `${records}chain verified`;
+  const at = result.first_break_seq;
+  return `${records}${typeof at === 'number' ? `chain broken at record ${at}` : 'chain could not be verified'}`;
 }
 
 export const CHANGE_TYPE_LABEL: Record<ChangeType, string> = {

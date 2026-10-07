@@ -83,3 +83,16 @@ export function servedRoutes(): Set<string> {
   }
   return served;
 }
+
+interface ApiSchema {
+  properties?: Record<string, unknown>;
+  required?: string[];
+}
+
+/** A named schema of the backend's OpenAPI: its field names and which of them are required. */
+export function openApiSchema(name: string): { fields: string[]; required: string[] } {
+  const doc = JSON.parse(readFileSync(API_JSON, 'utf8')) as { components: { schemas: Record<string, ApiSchema> } };
+  const schema = doc.components.schemas[name];
+  if (!schema) throw new Error(`the OpenAPI export has no schema ${name}`);
+  return { fields: Object.keys(schema.properties ?? {}).sort(), required: [...(schema.required ?? [])].sort() };
+}

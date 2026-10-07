@@ -404,12 +404,12 @@ export interface AuditRecord {
   prev_hash: string;
 }
 
+/** `GET audit/verify/{case}`: S4's `fcrm_contracts.api.audit.VerifyResult`, field for field. */
 export interface VerifyResult {
+  case_id: string;
+  record_count: number;
   ok: boolean;
-  count: number;
-  head_hash: string;
-  first_broken_seq: number | null;
-  verified_at: string;
+  first_break_seq: number | null;
 }
 
 export interface Reflag {

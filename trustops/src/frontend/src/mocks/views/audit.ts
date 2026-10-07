@@ -14,7 +14,7 @@ export function records(caseId: string): AuditRecord[] {
 /** Re-walks the chain: each record's prev_hash must equal the previous hash and its hash must recompute. */
 export function verify(caseId: string): VerifyResult {
   const recs = getDB().demo.audit;
-  if (!isDemo(caseId)) return { ok: true, count: 0, head_hash: '', first_broken_seq: null, verified_at: new Date().toISOString() };
+  if (!isDemo(caseId)) return { case_id: caseId, record_count: 0, ok: true, first_break_seq: null };
   let prev = fakeHash('genesis:' + seed.demo.id);
   let broken: number | null = null;
   for (const r of recs) {
@@ -25,7 +25,7 @@ export function verify(caseId: string): VerifyResult {
     }
     prev = r.hash;
   }
-  return { ok: broken === null, count: recs.length, head_hash: recs[recs.length - 1]?.hash ?? '', first_broken_seq: broken, verified_at: new Date().toISOString() };
+  return { case_id: caseId, record_count: recs.length, ok: broken === null, first_break_seq: broken };
 }
 
 /**

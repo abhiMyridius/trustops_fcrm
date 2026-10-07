@@ -17,7 +17,7 @@ export const auditHandlers = [
   http.get(`${API_PREFIX}/audit/verify/:caseId`, ({ request, params }) =>
     guarded(request, 'any', ({ role }) => {
       const v = verify(String(params.caseId));
-      return HttpResponse.json(role === 'fcrm_po' ? { ok: v.ok, count: v.count, verified_at: v.verified_at } : v);
+      return HttpResponse.json(role === 'fcrm_po' ? { ok: v.ok, count: v.record_count, verified_at: new Date().toISOString() } : v);
     }),
   ),
   http.post(paths.audit.examinerAsk, ({ request }) =>
