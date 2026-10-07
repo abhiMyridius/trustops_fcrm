@@ -157,3 +157,16 @@ Still open:
 - `ai/agents/examiner.agent.yaml` names the observer under "Assurance, Ask" although the web gives the observer no such screen; left because editing under `ai/` means regenerating the locks.
 - The monitor's counters, guard strip and log filters have never been seen in the browser sweep, because no sample case has a run.
 - `CLAUDE.md` carries old test counts (7,689 unit, 164 web); it was not edited because another session has an unsaved edit in that file.
+
+## L. After the move back to Sonnet 5.5 (7 October, appended)
+
+Closed:
+
+- The committed chain is Haiku 4.5, Sonnet 5.5, Nova Pro and Nova Lite, with no Opus (ADR-65). The code, the tests and `ai/models/tiers.yaml` agree; the prose is being brought into line.
+
+Still open:
+
+- **No complete live pass and no eval baseline for the exact committed combination** (D-95, D-100). The eval baseline (8 of 9 gates) and the last complete 21-of-21 run were measured with Sonnet 5.5 on mid and strong and an Opus critic; the committed chain differs in the critic (Nova Pro, 28,000 tokens), which has had only a one-row eval check and one live run that hit its old 20,000 limit.
+- The two live runs that stopped at scene 8 and scene 9, and the one-row eval check (7 of 9, about USD 0.44), were made on Sonnet 4.5. They describe a chain that is no longer committed; the Sonnet 5.5 combination has had no live run since the change.
+- The cost of one complete cycle, about USD 0.47 (0.41 to 0.59), is an estimate from the last complete run's token counts at the verified prices, not a measurement.
+- The running application keeps the chain it was started with: the operator's next `make up` loads the committed one.
