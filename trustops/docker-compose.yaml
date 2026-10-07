@@ -320,6 +320,8 @@ services:
   harness:
     <<: *worker
     image: trustops/backend:local
+    # Built by `api`; never pulled from a registry.
+    pull_policy: never
     command: ["python", "-m", "fcrm_harness"]
     depends_on:
       mongo:
