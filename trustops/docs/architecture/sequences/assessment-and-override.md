@@ -20,7 +20,7 @@ sequenceDiagram
 
     H1->>H2: agent.run research (parallel)
     H1->>H2: agent.run assessment (parallel)
-    H2->>Br: strong tier, 2 calls
+    H2->>Br: strong tier (Sonnet 5.5), 2 calls
     Br-->>H2: ClauseProposal[], PrecedentMatch[] / FactorProposal[], ControlProposal[]
     H2-->>H1: agent.done (both)
     Note over H1: AGENT_DONE_ASSESS_BOTH -> CRITIC
