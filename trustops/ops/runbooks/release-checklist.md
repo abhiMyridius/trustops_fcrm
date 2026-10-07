@@ -58,10 +58,11 @@ make gate        # check, make test-int (testcontainers: needs Docker), fcrm_eva
 
 `make gate` ends by printing which pieces are not wired (contracts diff, semgrep; the live eval gate needs a live run). `make test-int` runs the 464 tests under `tests/integration`; set `FCRM_TEST_MONGO_URI` to a throwaway replica set to use your own Mongo (see CLAUDE.md). The other 74 integration-marked tests live in `tests/unit/**/*_live.py` and no make target runs them; run them too: `FCRM_TEST_MONGO_URI=... uv run --project src/backend --all-packages pytest -m integration tests/integration tests/unit`. On 6 October that command, against a throwaway replica set and no stack, gave 525 passed and 14 skipped in 192 to 225 s (7 skips need `FCRM_TEST_RABBITMQ_URL`, 6 are the named black-box skips, 1 is a missing real-document fixture).
 
-`make e2e` is not wired and prints "not yet wired". In its place:
+`make e2e` plays the demo case by script and then runs the live rule tests and the Playwright scenes that read a finished demo. It calls Bedrock (about USD 0.47 a cycle on the committed chain, an estimate), so it needs the operator's approval first. Without any AI call, run:
 
 ```bash
 cd src/frontend && npm run test:e2e && cd ../..        # Playwright scenes against the in-browser mock backend (4 specs)
+cd src/frontend && npm run test:e2e:sweep && cd ../..  # every screen as all four roles on the running app, no AI calls, about 9 minutes
 ```
 
 and drive the demo by hand through the web UI on the live stack (RUNNING.md, "Drive the demo by hand"), saving the screenshots and the final `GET /api/fcrm/audit/verify/FCRM-2026-0151` answer.
@@ -91,7 +92,7 @@ make ps
 curl -s http://localhost:8080/healthz; echo
 ```
 
-Then log in as each persona, drive the demo case, and check the chain. Record: time to healthy, the live composite before and after the override, the vote outcome, the audit record count, the token total the monitor shows (`/monitor/FCRM-2026-0151`), and `GET /api/fcrm/audit/verify/FCRM-2026-0151`. `make seed-verify` and `make demo` are not wired, so the proof today is this hand-driven run, watched by a person, not an assertion script.
+Then log in as each persona, drive the demo case, and check the chain. Record: time to healthy, the live composite before and after the override, the vote outcome, the audit record count, the token total the monitor shows (`/monitor/FCRM-2026-0151`), and `GET /api/fcrm/audit/verify/FCRM-2026-0151`. `make seed-verify` checks the seed through the gateway, and `make demo` plays the case by script (it calls Bedrock, so it needs the operator's approval); a hand-driven run watched by a person remains the proof a reviewer will ask for.
 
 ## 7. Documents
 
