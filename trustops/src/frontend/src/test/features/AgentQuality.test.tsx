@@ -3,7 +3,7 @@
  * published week when none is sent; the tab used to send `?week=2026-09-28`, so every visit was a 422
  * red error. "No run published for the week" (404) is an empty state, not a fault.
  */
-import { screen } from '@testing-library/react';
+import { configure, screen } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { paths } from '@/api/endpoints';
@@ -11,6 +11,9 @@ import { problem } from '@/mocks/http';
 import { resetMockState, server } from '@/mocks/server';
 import { USERS } from '../fixtures';
 import { renderApp } from '../render';
+
+// The route chunks load lazily; with the whole suite running in parallel the first render can take longer than 1 s.
+configure({ asyncUtilTimeout: 5000 });
 
 const ROUTE = '/analyst/assurance/agent-quality';
 

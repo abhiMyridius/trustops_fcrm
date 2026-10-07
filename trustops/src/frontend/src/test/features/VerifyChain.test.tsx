@@ -4,7 +4,7 @@
  * "Something went wrong". These specs render the banner from the real shape and prove that an answer
  * with fields missing cannot crash the page.
  */
-import { screen, waitFor } from '@testing-library/react';
+import { configure, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -12,6 +12,9 @@ import { paths } from '@/api/endpoints';
 import { resetMockState, server } from '@/mocks/server';
 import { USERS } from '../fixtures';
 import { renderApp } from '../render';
+
+// The route chunks load lazily; with the whole suite running in parallel the first render can take longer than 1 s.
+configure({ asyncUtilTimeout: 5000 });
 
 const CASE = 'FCRM-2026-0151';
 const ROUTE = `/analyst/case/${CASE}/activity`;

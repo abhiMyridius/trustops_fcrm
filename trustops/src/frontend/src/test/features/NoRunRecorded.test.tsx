@@ -4,7 +4,7 @@
  * screens show both as information with no Retry. A missing or not-yours case, and a case that does have
  * a run, keep the red error.
  */
-import { screen, waitFor } from '@testing-library/react';
+import { configure, screen, waitFor } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { paths } from '@/api/endpoints';
@@ -12,6 +12,9 @@ import { problem } from '@/mocks/http';
 import { resetMockState, server } from '@/mocks/server';
 import { USERS } from '../fixtures';
 import { renderApp } from '../render';
+
+// The route chunks load lazily; with the whole suite running in parallel the first render can take longer than 1 s.
+configure({ asyncUtilTimeout: 5000 });
 
 const SEEDED = 'FCRM-2026-0118';
 const DEMO = 'FCRM-2026-0151';

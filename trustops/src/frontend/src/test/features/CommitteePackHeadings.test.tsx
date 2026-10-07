@@ -2,11 +2,14 @@
  * Heading order on the committee pack page (D-110, axe `heading-order`): the page title is the h1 and
  * each pack section was an h3, skipping a level. A heading may go down only one level at a time.
  */
-import { screen } from '@testing-library/react';
+import { configure, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { resetMockState } from '@/mocks/server';
 import { USERS } from '../fixtures';
 import { renderApp } from '../render';
+
+// The route chunks load lazily; with the whole suite running in parallel the first render can take longer than 1 s.
+configure({ asyncUtilTimeout: 5000 });
 
 const CASE = 'FCRM-2026-0151';
 

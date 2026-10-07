@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { configure, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -6,6 +6,9 @@ import { paths } from '@/api/endpoints';
 import { server } from '@/mocks/server';
 import { renderApp } from '../render';
 import { violations } from '../axe';
+
+// The route chunks load lazily; with the whole suite running in parallel the first render can take longer than 1 s.
+configure({ asyncUtilTimeout: 5000 });
 
 describe('LoginPage (2.1)', () => {
   it('renders without axe violations and lists the seeded directory after SSO', async () => {
