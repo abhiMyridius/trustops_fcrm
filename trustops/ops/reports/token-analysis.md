@@ -149,6 +149,8 @@ Three honest points:
 
 ## 7. The next optimisations, in order of value
 
+*Note, 7 October 2026 (ADR-62): item 1 was done after this list was written, in the form ADR-50 chose: H1 enforces the per-case ledger and reserves one attempt of a job's tier (not a measured p90), so the critic reserves 28,000 on the committed chain. The other items are as they were, and every figure behind them was measured on the previous chain.*
+
 1. **Enforce the per-case ledger across jobs in H1, and fix Guard 3's reservation** (reserve a measured p90, release on completion). Today the 120k cap is a number H1 reports, not a limit it enforces.
 2. **Drop empty unknown keys at the decode step.** The model adds a key like `source_ref_note: null` now and then; the contracts forbid extra keys, so one stray key fails the whole answer and the retry costs a full second attempt (research row 0122: a 23.6k retry). The fix was not made so that the committed run is the code that ships.
 3. **A judge cache.** A re-grade pays the judge again. The judge was 80% of an eval run on the previous chain, with Opus 5.5 as the judge; the share on Nova Pro is not measured.
