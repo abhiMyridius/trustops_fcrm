@@ -306,6 +306,18 @@ def test_a_failing_step_reports_the_tail_of_its_output(
         seed_reset.run_step(["docker"], "dropping")
 
 
+def test_a_stopped_stack_is_explained_with_the_command_that_starts_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *a, **k: _Done(1, b"", b'service "mongo" is not running\n'),
+    )
+    with pytest.raises(seed_reset.ResetError, match="Start it with `make up`"):
+        seed_reset.run_step(["docker"], "dropping")
+
+
 def test_a_timeout_and_a_missing_docker_become_reset_errors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

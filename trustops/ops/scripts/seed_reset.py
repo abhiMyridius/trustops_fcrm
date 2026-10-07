@@ -281,7 +281,13 @@ def run_step(
         logger.info("  %s", line)
     if done.returncode != 0:
         tail = " | ".join(output.splitlines()[-3:])
-        raise ResetError(f"{description}: exit {done.returncode}: {tail}")
+        hint = ""
+        if "is not running" in output:
+            hint = (
+                " The application is not running. Start it with `make up`, wait "
+                "until it prints `ready`, then run this command again."
+            )
+        raise ResetError(f"{description}: exit {done.returncode}: {tail}{hint}")
     return output
 
 
