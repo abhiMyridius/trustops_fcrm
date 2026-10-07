@@ -1,0 +1,25 @@
+# Unix line endings in every checkout, whatever the operating system. A clone
+# on Windows with core.autocrlf=true would otherwise turn the shell scripts,
+# the Makefile and the container entrypoints to CRLF, and they stop with
+# "$'\r': command not found" or "bad interpreter" inside Linux containers.
+* text=auto eol=lf
+
+# Binary: never touched.
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.zip   binary
+*.gz    binary
+*.docx  binary
+*.xlsx  binary
+*.pptx  binary
+
+# Two pasted meeting transcripts were committed with CRLF; keep them byte for byte.
+trascript*.txt -text

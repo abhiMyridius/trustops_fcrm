@@ -9,7 +9,7 @@ Never commit `.env` or `jwt_keys/`. Never read either into a chat, a log or a ti
 | Local service passwords (Mongo root, app, audit writer, evals reader; RabbitMQ; MinIO; Grafana) | `.env`, mode 0600 | `make env` writes random hex values once and never overwrites the file | compose interpolation; each container gets only its own (no blanket `env_file`) |
 | `SERVICE_TOKEN_SECRET` | `.env` | `make env`, random hex | identity mints HMAC `fcrm_service` tokens for H1, H2 and S5; services verify them |
 | `DEMO_USERS_PASSWORD_HASH` | `.env` | `make env`: a bcrypt hash of `DEMO_PASSWORD` (default `demo-password-2026`), written with `$$` so compose does not expand it | identity: every seeded user shares this hash |
-| JWT signing keypair | `jwt_keys/jwt.pem` (0600) and `jwt.pub.pem` | `make keys` (RS256, 2048 bits) | `api` reads `/keys/jwt.pem` read-only; identity signs, every service verifies through JWKS |
+| JWT signing keypair | `jwt_keys/jwt.pem` and `jwt.pub.pem`, both 0644 in a 0755 folder | `make keys` (RS256, 2048 bits) | `api` reads `/keys/jwt.pem` read-only as its own user (uid 10001), so the key must be readable by others on the host: Docker on Linux and in WSL 2 keeps host permissions, and a 0600 key stops the api at start. A local key for synthetic data only; a deployment takes it from a secret store (`../aws/README.md`) |
 | AWS credentials | `.env` section 1, or your shell | you | `api` (embeddings) and `harness` (agents) get `AWS_DEFAULT_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`; no other container gets them |
 
 Containers see different Mongo users. `fcrm_app` (every service and worker) has readWrite on the six non-audit databases and nothing on `fcrm_audit`. `fcrm_audit_writer` (S4 only, inside `api`) can `find` and `insert` on the append-only audit collections and nothing else. `fcrm_evals_reader` (S4) can `find` on `eval_runs` and `eval_dashboards` (`ops/mongo/init/02-users.js`). The `api` container holds all three URIs, because identity, S1-S5 share one process (ADR-26); the `harness` holds only `fcrm_app`.
@@ -19,10 +19,10 @@ Containers see different Mongo users. `fcrm_app` (every service and worker) has 
 Add them without printing them. Either edit the three lines in section 1 of `.env` in your editor, or export them in the shell that runs `make up` (compose reads the shell before `.env`, so nothing is written to disk):
 
 ```bash
-open -e .env                                   # fill AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY; AWS_DEFAULT_REGION is pre-filled
-# or, for one shell session:
-read -rs "?AWS_ACCESS_KEY_ID: " AWS_ACCESS_KEY_ID; echo; export AWS_ACCESS_KEY_ID
-read -rs "?AWS_SECRET_ACCESS_KEY: " AWS_SECRET_ACCESS_KEY; echo; export AWS_SECRET_ACCESS_KEY
+nano .env                                      # or any editor: fill AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY; AWS_DEFAULT_REGION is pre-filled
+# or, for one shell session (bash and zsh):
+printf 'AWS_ACCESS_KEY_ID: ';     read -rs AWS_ACCESS_KEY_ID;     echo; export AWS_ACCESS_KEY_ID
+printf 'AWS_SECRET_ACCESS_KEY: '; read -rs AWS_SECRET_ACCESS_KEY; echo; export AWS_SECRET_ACCESS_KEY
 ```
 
 - Temporary (SSO or assumed-role) credentials also need `AWS_SESSION_TOKEN`; uncomment that line in `.env`. They expire; when they do, agent runs fail at the model call until you replace them and run `docker compose up -d` (a changed value recreates the container).
@@ -58,7 +58,8 @@ The databases are created with the passwords of the first start. `ops/mongo/init
 
 ## Checked and not checked
 
-- Run: `make keys` twice (the first writes `jwt_keys/jwt.pem` at mode 0600; the second refuses to overwrite; `git status` does not list `jwt_keys/`), and `make -n rotate-keys`.
+- Run: `make keys` twice (the first writes `jwt_keys/jwt.pem` at mode 0644; the second keeps the key and only resets its permissions; `git status` does not list `jwt_keys/`), and `make -n rotate-keys`. `tests/unit/ops/test_makefile_targets.py` runs the recipe on a scratch folder, including the repair of a 0600 key.
+- On 8 October 2026 a fresh start on Docker inside WSL 2 failed with the api unhealthy: the earlier recipe wrote the key at 0600, which the container user could not read. Docker Desktop on macOS had hidden the difference.
 - Checked against code and config: the file names and modes (`ops/scripts/make_env.py`, the `keys` target), the per-container variable lists (`docker-compose.yaml`), the Mongo roles (`02-users.js`), the single-keypair design and JWKS cache (`jwtkeys.py`, `fcrm_common/auth.py`).
-- The `read -rs` lines use zsh syntax and were not run.
+- The `read -rs` lines are written for bash and zsh alike and were not run.
 - Needs the live stack: that every session ends after `make rotate-keys` (read from token verification, not tested), and the password-rotation paths.

@@ -1,6 +1,7 @@
 # TrustOps · root Makefile (design A §11.6, design C §3.3/§4.2, BUILD-PLAN §7).
 #
-# Works with the macOS system make (GNU make 3.81). `make help` lists every
+# Works with GNU make 3.81 and later (3.81 is the macOS system make; Linux and
+# WSL 2 ship 4.x) and bash. `make help` lists every
 # target. Targets that depend on a lane that has not landed yet still exist
 # and fail loudly with "not yet wired — pending <lane>", so the whole
 # intended surface is visible and nothing silently no-ops.
@@ -76,7 +77,8 @@ tools: ## install the pinned opa into ~/.local/bin if missing (uv is a prerequis
 		os=$$(uname -s | tr A-Z a-z); arch=$$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/'); \
 		url=https://github.com/open-policy-agent/opa/releases/download/v$(OPA_VERSION)/opa_$${os}_$${arch}_static; \
 		mkdir -p $(HOME)/.local/bin && curl -fsSL -o $(HOME)/.local/bin/opa.tmp "$$url" \
-		&& curl -fsSL "$$url.sha256" | awk '{print $$1"  $(HOME)/.local/bin/opa.tmp"}' | shasum -a 256 -c - \
+		&& sha=$$(command -v sha256sum || echo 'shasum -a 256') \
+		&& curl -fsSL "$$url.sha256" | awk '{print $$1"  $(HOME)/.local/bin/opa.tmp"}' | $$sha -c - \
 		&& chmod +x $(HOME)/.local/bin/opa.tmp && mv $(HOME)/.local/bin/opa.tmp $(HOME)/.local/bin/opa \
 		&& echo "tools: installed opa $(OPA_VERSION) to ~/.local/bin"; fi
 
@@ -87,13 +89,22 @@ env: ## create .env from .env.example with generated local secrets (never overwr
 		&& $(PYTHON) ops/scripts/make_env.py --example .env.example --out .env --set "DEMO_USERS_PASSWORD_HASH=$$hash" \
 		&& echo "env: seeded users log in with the demo password '$(DEMO_PASSWORD)' (override with DEMO_PASSWORD=...)"; fi
 
-keys: ## generate the dev RS256 JWT keypair into jwt_keys/ (FORCE=1 to rotate)
-	@if [ -f jwt_keys/jwt.pem ] && [ -z "$(FORCE)" ]; then echo "keys: jwt_keys/jwt.pem exists (FORCE=1 to rotate)"; else \
-		mkdir -p jwt_keys && chmod 700 jwt_keys && printf '*\n' > jwt_keys/.gitignore \
+# The api container runs as its own user (uid 10001, src/backend/Dockerfile),
+# not as you. Docker Desktop on macOS hides that difference on a bind mount;
+# Docker on Linux and in WSL 2 does not, and a 0600 key stops the api at start
+# ("Permission denied: '/keys/jwt.pem'"). So the dev key is 0644 in a 0755
+# folder, and an existing key is brought to that too.
+# It is a local signing key for synthetic data; a deployment takes the key
+# from a secret store (ops/aws/README.md), never from this folder.
+keys: ## generate the dev RS256 JWT keypair into jwt_keys/ (FORCE=1 to rotate); readable by the api container
+	@if [ -f jwt_keys/jwt.pem ] && [ -z "$(FORCE)" ]; then \
+		chmod 755 jwt_keys && chmod 644 jwt_keys/*.pem \
+		&& echo "keys: jwt_keys/jwt.pem exists (FORCE=1 to rotate); permissions set so the api container can read it"; else \
+		mkdir -p jwt_keys && chmod 755 jwt_keys && printf '*\n' > jwt_keys/.gitignore \
 		&& openssl genrsa -out jwt_keys/jwt.pem 2048 2>/dev/null \
 		&& openssl rsa -in jwt_keys/jwt.pem -pubout -out jwt_keys/jwt.pub.pem 2>/dev/null \
-		&& chmod 600 jwt_keys/jwt.pem && chmod 644 jwt_keys/jwt.pub.pem \
-		&& echo "keys: wrote jwt_keys/jwt.pem (private, 0600) and jwt_keys/jwt.pub.pem; the folder ignores itself in git"; fi
+		&& chmod 644 jwt_keys/jwt.pem jwt_keys/jwt.pub.pem \
+		&& echo "keys: wrote jwt_keys/jwt.pem and jwt_keys/jwt.pub.pem (0644, so the api container can read them); the folder ignores itself in git"; fi
 
 pull: ## pull the pinned registry images (mongo, rabbitmq, minio, opa, gateway); api, harness and web are built here, never pulled
 	@[ -f .env ] || $(MAKE) --no-print-directory env

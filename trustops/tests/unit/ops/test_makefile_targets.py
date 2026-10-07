@@ -85,3 +85,56 @@ def test_pull_names_only_images_that_exist_in_a_registry() -> None:
     for built_here in ("api", "harness", "web"):
         assert built_here not in lines[0].split()
     assert "--ignore-buildable" not in lines[0]
+
+
+def _make_keys(cwd: Path) -> None:
+    # Runs the real recipe (openssl, chmod) in a scratch folder: ``make -f`` with
+    # the repository's Makefile writes jwt_keys/ relative to ``cwd``.
+    subprocess.run(
+        ["make", "-f", str(ROOT / "Makefile"), "keys"],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=60,
+    )
+
+
+def _mode(path: Path) -> int:
+    return path.stat().st_mode & 0o777
+
+
+def test_keys_writes_a_key_the_api_container_user_can_read(tmp_path: Path) -> None:
+    # The api runs as uid 10001; on Docker for Linux and WSL 2 a bind-mounted
+    # 0600 key owned by the operator is unreadable and the api never starts.
+    _make_keys(tmp_path)
+
+    keys = tmp_path / "jwt_keys"
+    assert _mode(keys) == 0o755
+    assert _mode(keys / "jwt.pem") == 0o644
+    assert _mode(keys / "jwt.pub.pem") == 0o644
+    assert (keys / ".gitignore").read_text() == "*\n"
+
+
+def test_keys_repairs_an_existing_key_without_rotating_it(tmp_path: Path) -> None:
+    # A key written by the earlier recipe (0700 folder, 0600 key) is fixed by
+    # the next `make up`, which depends on `keys`.
+    _make_keys(tmp_path)
+    keys = tmp_path / "jwt_keys"
+    original = (keys / "jwt.pem").read_bytes()
+    keys.chmod(0o700)
+    (keys / "jwt.pem").chmod(0o600)
+
+    _make_keys(tmp_path)
+
+    assert _mode(keys) == 0o755
+    assert _mode(keys / "jwt.pem") == 0o644
+    assert (keys / "jwt.pem").read_bytes() == original
+
+
+def test_tools_verifies_the_opa_download_without_requiring_shasum() -> None:
+    # shasum ships with perl on macOS; a slim Linux or WSL image may have only
+    # coreutils' sha256sum, which the recipe prefers when present.
+    recipe = (ROOT / "Makefile").read_text()
+
+    assert "command -v sha256sum || echo 'shasum -a 256'" in recipe
