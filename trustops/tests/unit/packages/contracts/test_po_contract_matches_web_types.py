@@ -293,7 +293,10 @@ def web_interfaces() -> list[str]:
 
 def test_the_web_types_are_found() -> None:
     names = web_interfaces()
-    assert len(names) >= 25
+    # 25 until D-105 dropped ChainStatusPO from po.ts: the PO has no chain-status
+    # route (S4 serves verify to the analyst and the committee only).
+    # case_po.ChainStatusPO stays as design A section 2.4's shape.
+    assert len(names) >= 24
     assert {
         "CasePO",
         "IntakeViewPO",
