@@ -209,14 +209,14 @@ Read this first:
 - Nothing is approved or rejected automatically. At every step the next move is a person's.
 - Leave a second window on `/monitor/FCRM-2026-0151` (as Rahul) to watch agents, guards, audit records and tokens as they happen.
 - To start over: `make demo-reset` (deletes only this case's data).
-- Do not press "New case" on the dashboard for the canonical run: it mints a different case id. Open 0151 from My queue.
+- Do not create a new case for the canonical run: open 0151 from My queue. "New case" opens a form and creates nothing until you select Create case (ADR-72). It offers two paths: "Let TrustOps read my documents" (lands on Documents) or "I'll choose the change types and fill in the details" (pick from the six types, then fill the required fields on Overview; documents are optional). Either way it mints a new case id, not 0151.
 
 The 21 scenes are the walkthrough's (`docs/requirements/research/06-walkthrough-seed-extraction.md`, section 3.10 lists the audit records each writes). The flow behind them is in `docs/architecture/sequences/`.
 
 | # | Scene | As | Where | Do | Expect |
 |---|---|---|---|---|---|
 | 1 | Sign in | Priya | `/login`, then `/po` | sign in | the dashboard: active cases, awaiting my answer, average days, open conditions, My cases. No risk number anywhere |
-| 2 | New case | Priya | `/queue`, then `/case/FCRM-2026-0151` | open the seeded draft | the case id, stage Intake, tabs Overview, Documents, Review, Inbox, Activity, Conditions. Nothing is on record until the first write; the first upload opens the run (`case.created`, `workflow.started`) |
+| 2 | New case | Priya | `/queue`, then `/case/FCRM-2026-0151` | open the seeded draft | the case id, stage Intake, tabs Overview, Documents, Review, Inbox, Activity, Conditions. Nothing is on record until the first write; the first upload opens the run (`case.created`, `workflow.started`). On Overview you can later add a change type the assistant missed, or remove one with a reason, until you submit (`case.types_changed`) |
 | 3 | Upload | Priya | `/case/FCRM-2026-0151/documents` | click "Use the demo's two files" (or Browse your own PDFs) | both files go Stored, Scanned, Read; the Assistant card narrates. H3 converts to Markdown with page:line anchors after Guard 1 (injection scan, PII masking); H2 runs the intake agent once per document (cheap tier). Tens of seconds, not instant. A scanned PDF is refused (no OCR) |
 | 4 | Proposals | Priya | `/case/.../overview` | Confirm or Remove each proposed change type (a removal needs a reason); read the "Values found" with their source chips | proposed change types (the demo expects vendor onboarding, new geography, new product) and the values each with a page and line. Confirming the last type resolves the field set; the case shows how many fields are required and how many are filled |
 | 5 | Reuse | Priya | same page, "A similar case you can reuse from" | tick values, "Reuse" | a precedent from S3's search (the demo expects FCRM-2026-0118); reused values carry provenance "reused" |
