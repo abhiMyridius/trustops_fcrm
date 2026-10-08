@@ -716,6 +716,28 @@ class CaseRunStore:
         )
         return [recorded_transition_from_document(doc) async for doc in cursor]
 
+    async def submitted_at(
+        self, run_id: str, *, session: Optional[AsyncClientSession] = None
+    ) -> Optional[datetime]:
+        """When ``run_id`` was submitted: the ``at`` of its first
+        ``case.submitted`` transition row, or ``None`` if it has none. Read
+        only; it feeds ``fcrm_case_submit_to_decide_seconds``.
+        """
+        doc = await self._run_events.find_one(
+            {
+                "run_id": run_id,
+                "kind": TRANSITION_KIND,
+                "data.trigger": Trigger.CASE_SUBMITTED.value,
+            },
+            sort=[("seq", ASCENDING)],
+            projection={"at": 1},
+            session=session,
+        )
+        if doc is None:
+            return None
+        at = doc.get("at")
+        return at if isinstance(at, datetime) else None
+
 
 AGENT_RESULTS_COLLECTION: Final = "agent_results"
 

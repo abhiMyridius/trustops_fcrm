@@ -29,6 +29,7 @@ H1's for the same job; S4 orders them by arrival.
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Final, Optional
@@ -40,6 +41,7 @@ from fcrm_agents.context_pack import (
     PackBuildError,
     PackOverflowError,
 )
+from fcrm_agents.pricing import PriceTable
 from fcrm_agents.runtime import AgentRunResult, RunVerdict
 from fcrm_agents.spec import AgentSpec, get_spec
 from fcrm_common.events import (
@@ -50,6 +52,7 @@ from fcrm_common.events import (
     publish,
 )
 from fcrm_common.logging import bound_context
+from fcrm_common.metrics import FcrmMetrics, get_metrics
 from fcrm_common.mongo import Document
 from fcrm_contracts.api.audit import RecordAppend
 from fcrm_contracts.enums import AgentName
@@ -66,6 +69,13 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from fcrm_agent_worker.audit_client import AuditClient
+from fcrm_agent_worker.job_metrics import (
+    OUTCOME_CONTEXT_PACK_ERROR,
+    JobUsage,
+    job_outcome,
+    metered_factory,
+    record_job_metrics,
+)
 from fcrm_agent_worker.live_runtime import (
     ModelFactory,
     live_model_for_slot,
@@ -290,6 +300,7 @@ class AgentJobConsumer(Consumer):
         client: Optional[AsyncMongoClient[Document]] = None,
         max_attempts: int = 3,
         raw_inputs: Optional[RawInputsSink] = None,
+        metrics: Optional[FcrmMetrics] = None,
     ) -> None:
         """Wire one job's dependencies.
 
@@ -321,6 +332,9 @@ class AgentJobConsumer(Consumer):
             raw_inputs: Where a failed job's inputs are kept for the
                 human handoff; ``None`` keeps none (a failure then names
                 no ``raw_inputs_ref``).
+            metrics: The instruments each finished job is recorded into
+                (:mod:`fcrm_agent_worker.job_metrics`); the process-wide set
+                by default, an in-memory one in tests.
         """
         super().__init__(
             AGENT_WORKER_RUN_QUEUE,
@@ -334,6 +348,8 @@ class AgentJobConsumer(Consumer):
         self._permit = PermitGuard(permit_client)
         self._audit = audit
         self._tiers_config = tiers_config
+        self._metrics = metrics if metrics is not None else get_metrics()
+        self._prices = PriceTable.from_tiers(tiers_config)
         self._instructions_for = instructions_for
         self._model_factory = model_factory
         self._tool_call_cap = tool_call_cap
@@ -352,18 +368,21 @@ class AgentJobConsumer(Consumer):
                 is allowed to propagate into the same retry/DLQ path).
         """
         job = JobPayload.model_validate(envelope.payload)
+        started = time.perf_counter()
         with bound_context(
             case_id=job.case_id,
             run_id=job.run_id,
             job_id=job.job_id,
             agent=job.agent.value,
         ):
+            spec = get_spec(job.agent)
             pack = await self._build_pack(job)
             if pack is None:
+                self._record(job, spec, started, OUTCOME_CONTEXT_PACK_ERROR)
                 return
 
-            spec = get_spec(job.agent)
             budget = CaseBudget(job.case_id)
+            job_usage = JobUsage()
             result, model_used, usage = await run_agent_live(
                 spec,
                 pack,
@@ -375,13 +394,14 @@ class AgentJobConsumer(Consumer):
                     job.agent, pack.mode, pack.versions
                 ),
                 tiers_config=self._tiers_config,
-                model_factory=self._model_factory,
+                model_factory=metered_factory(self._model_factory, job_usage),
                 tool_call_cap=self._tool_call_cap,
                 starting_attempt=job.attempt,
             )
             attempt_count = len(result.attempts) or job.attempt
             if result.verdict in (RunVerdict.PASS, RunVerdict.PASS_WITH_DROPS):
                 await self._publish_done(job, result, model_used, usage, attempt_count)
+                self._record(job, spec, started, job_outcome(result), job_usage, result)
                 await self._write_audit_entries(job, audit_entries(result, spec))
                 return
             reason = self._failure_reason(result)
@@ -393,9 +413,32 @@ class AgentJobConsumer(Consumer):
                 raw_inputs_ref=ref,
                 usage=usage,
             )
+            self._record(job, spec, started, job_outcome(result), job_usage, result)
             await self._write_audit_entries(
                 job, audit_entries(result, spec, failed_reason=reason)
             )
+
+    def _record(
+        self,
+        job: JobPayload,
+        spec: AgentSpec,
+        started: float,
+        outcome: str,
+        usage: Optional[JobUsage] = None,
+        result: Optional[AgentRunResult] = None,
+    ) -> None:
+        """Record the finished job's metrics, after its terminal event is out
+        (a failed publish raises first, so a broker retry is not counted)."""
+        record_job_metrics(
+            self._metrics,
+            self._prices,
+            agent=job.agent.value,
+            tier=spec.tier.value,
+            elapsed_ms=(time.perf_counter() - started) * 1000.0,
+            outcome=outcome,
+            usage=usage,
+            result=result,
+        )
 
     async def _build_pack(self, job: JobPayload) -> Optional[ContextPack]:
         """The job's context pack, or ``None`` after reporting ``agent.failed``.

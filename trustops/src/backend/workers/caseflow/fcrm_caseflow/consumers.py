@@ -11,9 +11,10 @@ step to :class:`~fcrm_caseflow.steps.StepRunner`.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable
 from typing import Final, Optional
 
-from fcrm_common.events import Consumer, Publisher
+from fcrm_common.events import Consumer, Disposition, Publisher
 from fcrm_common.mongo import Document
 from fcrm_contracts.events.envelope import Envelope
 from fcrm_contracts.events.payloads import HarnessStep
@@ -21,7 +22,11 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from fcrm_caseflow.engine import CaseflowEngine
+from fcrm_caseflow.engine import (
+    CaseflowEngine,
+    discard_pending_metrics,
+    flush_pending_metrics,
+)
 from fcrm_caseflow.steps import StepRunner
 from fcrm_caseflow.topology import (
     CASEFLOW_AGENT_RESULTS_QUEUE,
@@ -38,6 +43,26 @@ from fcrm_caseflow.topology import (
 #: Steps are idempotent by step id, so more attempts only delay a permanent
 #: failure's trip to the dead-letter queue.
 STEP_MAX_ATTEMPTS: Final = 8
+
+
+async def _apply_then_flush(applying: Awaitable[Disposition]) -> Disposition:
+    """Await one delivery's ``applying`` (the base ``_apply``, not yet started)
+    and record the engine's metrics only if it committed something new
+    (``PROCESSED``).
+
+    The engine buffers its observations per transaction attempt
+    (:func:`~fcrm_caseflow.engine.flush_pending_metrics`); the buffer
+    is cleared first so a delivery the handler never reaches (a duplicate, or
+    ``harness.step`` here) cannot flush an earlier failed attempt's values. A
+    raised delivery records nothing.
+    """
+    discard_pending_metrics()
+    disposition = await applying
+    if disposition is Disposition.PROCESSED:
+        flush_pending_metrics()
+    else:
+        discard_pending_metrics()
+    return disposition
 
 
 class CaseEventsConsumer(Consumer):
@@ -74,6 +99,10 @@ class CaseEventsConsumer(Consumer):
             return
         await self._engine.handle(envelope, session)
 
+    async def _apply(self, envelope: Envelope) -> Disposition:
+        """Dedupe and handle in one transaction, then record the metrics."""
+        return await _apply_then_flush(super()._apply(envelope))
+
 
 class AgentResultsConsumer(Consumer):
     """Consumes :data:`~fcrm_caseflow.topology.CASEFLOW_AGENT_RESULTS_QUEUE`."""
@@ -100,6 +129,10 @@ class AgentResultsConsumer(Consumer):
         self, envelope: Envelope, session: Optional[AsyncClientSession]
     ) -> None:
         await self._engine.handle(envelope, session)
+
+    async def _apply(self, envelope: Envelope) -> Disposition:
+        """Dedupe and handle in one transaction, then record the metrics."""
+        return await _apply_then_flush(super()._apply(envelope))
 
 
 class HarnessStepConsumer(Consumer):

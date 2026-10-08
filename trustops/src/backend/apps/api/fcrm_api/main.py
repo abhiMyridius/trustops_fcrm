@@ -13,7 +13,7 @@ from fcrm_common.health import ReadinessProbe, build_health_router
 
 from fcrm_api import __version__
 from fcrm_api.lifespan import api_lifespan
-from fcrm_api.middleware import ComponentContextMiddleware
+from fcrm_api.middleware import ComponentContextMiddleware, HttpMetricsMiddleware
 from fcrm_api.registry import MOUNTS
 
 
@@ -32,6 +32,9 @@ def create_app() -> FastAPI:
     app.include_router(build_health_router(app.state.probe))
     for mount in MOUNTS:
         sub = mount.create_app(standalone=False)
+        # Added first so it runs inside the component context: its log lines
+        # carry the component too.
+        sub.add_middleware(HttpMetricsMiddleware, component_id=mount.component_id)
         sub.add_middleware(ComponentContextMiddleware, component_id=mount.component_id)
         app.state.mounted[mount.component_id] = sub
         app.mount(mount.prefix, sub, name=mount.component_id)

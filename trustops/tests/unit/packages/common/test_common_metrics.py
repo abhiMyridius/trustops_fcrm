@@ -13,6 +13,9 @@ EXPECTED = {
     "fcrm_agent_cost_usd_total",
     "fcrm_agent_latency_ms",
     "fcrm_gate_wait_seconds",
+    "fcrm_guard_results_total",
+    "fcrm_case_stage_transitions_total",
+    "fcrm_case_submit_to_decide_seconds",
     "fcrm_override_total",
     "fcrm_outbox_lag_seconds",
     "fcrm_queue_depth",
@@ -42,6 +45,9 @@ def test_get_metrics_records_every_named_instrument():
     m.agent_cost_usd_total.add(0.012, labels)
     m.agent_latency_ms.record(3400, labels)
     m.gate_wait_seconds.record(42, {"gate_type": "review_item"})
+    m.guard_results_total.add(1, {"guard": "output_shape", "result": "block"})
+    m.case_stage_transitions_total.add(1, {"to": "closed"})
+    m.case_submit_to_decide_seconds.record(86400.0)
     m.override_total.add(1, {"agent": "assessment"})
     m.outbox_lag_seconds.set(0.4, {"outbox": "fcrm_case.outbox"})
     m.queue_depth.set(3, {"queue": "agent-worker.run"})

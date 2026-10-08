@@ -43,7 +43,14 @@ from fcrm_contracts.api.case_internal_assessment import (
     FactorValue,
     RecommendationEdits,
 )
-from fcrm_contracts.enums import ChangeType, GateType, ItemKind, ItemStatus, Role
+from fcrm_contracts.enums import (
+    AgentName,
+    ChangeType,
+    GateType,
+    ItemKind,
+    ItemStatus,
+    Role,
+)
 from fcrm_contracts.events.envelope import Envelope
 from fcrm_contracts.events.payloads import (
     CaseClarificationSent,
@@ -76,6 +83,19 @@ ALLOWED_DECISIONS: Final[Mapping[ItemKind, frozenset[str]]] = {
     ItemKind.FACTOR: frozenset({"confirm", "override", "adjust"}),
     ItemKind.CRITIC_FINDING: frozenset({"explain"}),
 }
+
+#: The agent that proposed each kind of review item (mirrors the drafts in H1's
+#: ``fcrm_caseflow.cores.assessment_items``); the item does not store it.
+AGENT_FOR_KIND: Final[Mapping[ItemKind, AgentName]] = {
+    ItemKind.CLAUSE: AgentName.RESEARCH,
+    ItemKind.FACTOR: AgentName.ASSESSMENT,
+    ItemKind.CONTROL: AgentName.ASSESSMENT,
+    ItemKind.CRITIC_FINDING: AgentName.CRITIC,
+}
+
+#: The decisions where the analyst disagreed with the agent's proposal (counted
+#: as ``fcrm_override_total``).
+OVERRIDING_DECISIONS: Final = frozenset({"override", "adjust", "remove"})
 
 #: The status each decision leaves an item in.
 STATUS_FOR: Final[Mapping[str, ItemStatus]] = {

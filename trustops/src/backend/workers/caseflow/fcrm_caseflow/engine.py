@@ -49,10 +49,14 @@ from __future__ import annotations
 import dataclasses
 import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from contextvars import ContextVar
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any, Optional, Protocol
 
 from fcrm_common.events import build_envelope
 from fcrm_common.ids import deterministic_id, new_id
+from fcrm_common.metrics import FcrmMetrics, get_metrics
 from fcrm_common.mongo import Document, with_transaction
 from fcrm_common.outbox import Outbox
 from fcrm_contracts.api.audit import RecordAppend
@@ -63,6 +67,7 @@ from fcrm_contracts.events.payloads import AgentFailed, GateOpened, HarnessStep
 from fcrm_guardrails.base import AUDIT_TYPES, GuardName, GuardResult, GuardStatus
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.errors import PyMongoError
 
 from fcrm_caseflow.audit_client import AuditClient
 from fcrm_caseflow.audit_map import RECORDS_FOR, STEP_FOR
@@ -145,6 +150,116 @@ _PO_ACTION_GATES = frozenset(
         GateType.PO_ANSWER_GAPS.value,
     }
 )
+
+#: The metric errors :func:`flush_pending_metrics` drops with a warning: a
+#: metric never breaks the consumer that recorded it.
+_METRIC_ERRORS = (ValueError, TypeError, KeyError, AttributeError)
+
+
+class _Instrument(StrEnum):
+    """The H1 instrument an :class:`_Observation` is recorded into (named after
+    its :class:`~fcrm_common.metrics.FcrmMetrics` field).
+    """
+
+    STAGE_TRANSITION = "case_stage_transitions_total"
+    SUBMIT_TO_DECIDE = "case_submit_to_decide_seconds"
+    GATE_WAIT = "gate_wait_seconds"
+
+
+@dataclasses.dataclass(frozen=True)
+class _Observation:
+    """One metric value waiting for its transaction to commit, with the
+    instrument set of the engine that observed it.
+    """
+
+    metrics: FcrmMetrics
+    instrument: _Instrument
+    value: float
+    attributes: Mapping[str, str]
+
+
+#: The observations of the current attempt, per asyncio task. A transaction may
+#: run its callback more than once, and a failed one is retried as a new
+#: delivery, so nothing is recorded at the commit point itself: each attempt
+#: starts an empty buffer (:func:`_begin_metrics_attempt`, at the top of
+#: :meth:`CaseflowEngine.handle` and of :meth:`CaseflowEngine.complete_step`'s
+#: transaction) and the caller flushes it only after the commit
+#: (:func:`flush_pending_metrics`). A crash between commit and flush loses the
+#: observations; nothing is ever counted twice.
+_PENDING_METRICS: ContextVar[Optional[list[_Observation]]] = ContextVar(
+    "fcrm_caseflow_pending_metrics", default=None
+)
+
+
+def _begin_metrics_attempt() -> None:
+    """Start an empty observation buffer for this transaction attempt."""
+    _PENDING_METRICS.set([])
+
+
+def _buffer_metric(observation: _Observation) -> None:
+    """Keep ``observation`` until the current attempt's commit is flushed."""
+    pending = _PENDING_METRICS.get()
+    if pending is None:
+        pending = []
+        _PENDING_METRICS.set(pending)
+    pending.append(observation)
+
+
+def _record_metric(observation: _Observation) -> None:
+    """Record one observation into its instrument."""
+    metrics = observation.metrics
+    if observation.instrument is _Instrument.STAGE_TRANSITION:
+        metrics.case_stage_transitions_total.add(
+            observation.value, observation.attributes
+        )
+    elif observation.instrument is _Instrument.SUBMIT_TO_DECIDE:
+        metrics.case_submit_to_decide_seconds.record(
+            observation.value, observation.attributes
+        )
+    else:
+        metrics.gate_wait_seconds.record(observation.value, observation.attributes)
+
+
+def flush_pending_metrics() -> None:
+    """Record the current attempt's buffered observations and clear them.
+
+    Call it only after the attempt's transaction committed: the Caseflow
+    consumers do so for a ``PROCESSED`` delivery
+    (:mod:`fcrm_caseflow.consumers`), and :meth:`CaseflowEngine.complete_step`
+    after its transaction returns. A value the SDK refuses is logged and
+    dropped; a metric never fails the caller.
+    """
+    pending = _PENDING_METRICS.get()
+    _PENDING_METRICS.set(None)
+    for observation in pending or ():
+        try:
+            _record_metric(observation)
+        except _METRIC_ERRORS as exc:
+            logger.warning(
+                "caseflow metric dropped",
+                extra={
+                    "metric": observation.instrument.value,
+                    "error": {"type": type(exc).__name__},
+                },
+            )
+
+
+def discard_pending_metrics() -> None:
+    """Drop the current attempt's buffered observations unrecorded (its
+    transaction did not commit, or committed nothing new).
+    """
+    _PENDING_METRICS.set(None)
+
+
+def _seconds_between(start: datetime, end: datetime) -> float:
+    """``end - start`` in seconds, never negative (clock skew between S1 and
+    H1); a naive datetime is taken as UTC.
+    """
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=UTC)
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=UTC)
+    return max(0.0, (end - start).total_seconds())
 
 
 class Transact(Protocol):
@@ -239,6 +354,10 @@ class CaseflowEngine:
         budgets: The per-case token ledger (:mod:`fcrm_caseflow.budget`):
             every job is reserved before it is published and settled when its
             result arrives. Without it no cap is enforced.
+        metrics: Instrument set for the stage-transition, submit-to-decide
+            and gate-wait metrics (defaults to the process-wide one). They
+            are buffered per attempt and recorded by :meth:`flush_metrics`
+            once the transaction has committed.
     """
 
     def __init__(
@@ -256,6 +375,7 @@ class CaseflowEngine:
         oversight: Optional[OversightRuns] = None,
         raw_inputs: Optional[RawInputsReader] = None,
         budgets: Optional[CaseBudgetStore] = None,
+        metrics: Optional[FcrmMetrics] = None,
     ) -> None:
         self._runs = runs
         self._gates = gates
@@ -269,6 +389,66 @@ class CaseflowEngine:
         self._oversight = oversight
         self._raw_inputs = raw_inputs
         self._budgets = budgets
+        self._metrics = metrics if metrics is not None else get_metrics()
+
+    # -- metrics, recorded only after a commit --------------------------
+
+    def flush_metrics(self) -> None:
+        """Record the current attempt's buffered observations; call it only
+        after the attempt's transaction committed (:func:`flush_pending_metrics`).
+        """
+        flush_pending_metrics()
+
+    def discard_metrics(self) -> None:
+        """Drop the current attempt's buffered observations unrecorded
+        (:func:`discard_pending_metrics`).
+        """
+        discard_pending_metrics()
+
+    async def _observe_transition(
+        self, run: CaseRun, result: TransitionResult, session: AsyncClientSession
+    ) -> None:
+        """Buffer the metrics of one persisted transition: a move into a new
+        state counts once under ``to`` (a self-loop is not a move), and a move
+        into CLOSED also buffers the time since the run's ``case.submitted``
+        (skipped when the run has no such row).
+        """
+        if result.to_state == result.from_state:
+            return
+        _buffer_metric(
+            _Observation(
+                self._metrics,
+                _Instrument.STAGE_TRANSITION,
+                1.0,
+                {"to": result.to_state.value},
+            )
+        )
+        closed_at = run.snapshot.closed_at
+        if result.to_state is not CaseState.CLOSED or closed_at is None:
+            return
+        try:
+            submitted = await self._runs.submitted_at(
+                run.snapshot.run_id, session=session
+            )
+        except PyMongoError as exc:
+            logger.warning(
+                "submit time unreadable; submit-to-decide not recorded",
+                extra={
+                    "case_id": run.snapshot.case_id,
+                    "error": {"type": type(exc).__name__},
+                },
+            )
+            return
+        if submitted is None:
+            return
+        _buffer_metric(
+            _Observation(
+                self._metrics,
+                _Instrument.SUBMIT_TO_DECIDE,
+                _seconds_between(submitted, datetime.fromisoformat(closed_at)),
+                {},
+            )
+        )
 
     async def handle(
         self, envelope: Envelope, session: Optional[AsyncClientSession]
@@ -306,6 +486,7 @@ class CaseflowEngine:
                 ".build_app) so every state write commits with its outbox "
                 "row atomically"
             )
+        _begin_metrics_attempt()
         if envelope.type in NON_CASE_EVENT_TYPES:
             logger.debug("skipped %s: not a case event", envelope.type)
             return
@@ -588,6 +769,16 @@ class CaseflowEngine:
             typ="access",
         )
         await self._gates.decide(decision, principal, session=session)
+        opened_at = gate_doc.get("opened_at")
+        if isinstance(opened_at, datetime):
+            _buffer_metric(
+                _Observation(
+                    self._metrics,
+                    _Instrument.GATE_WAIT,
+                    _seconds_between(opened_at, decision.decided_at),
+                    {"gate_type": str(gate_doc["gate_type"])},
+                )
+            )
 
     async def _decide_gate(
         self, envelope: Envelope, session: AsyncClientSession
@@ -917,6 +1108,7 @@ class CaseflowEngine:
             context=ctx,
             session=session,
         )
+        await self._observe_transition(run, result, session)
         if ctx.band is not None and ctx.band != run.band:
             await self._runs.set_band(run.snapshot.run_id, ctx.band, session=session)
             run = dataclasses.replace(run, band=ctx.band)
@@ -1172,7 +1364,8 @@ class CaseflowEngine:
         second time), publish the agent jobs, enqueue the follow-up steps,
         announce the UI events, merge refs, bump counters, record the band,
         and finally resume the internal chain (which proceeds only if no step
-        is still pending).
+        is still pending). The transitions' metrics are recorded after the
+        transaction commits (:meth:`flush_metrics`).
 
         Args:
             run_id: The run the step belongs to.
@@ -1195,9 +1388,13 @@ class CaseflowEngine:
             )
 
         async def work(session: AsyncClientSession) -> None:
+            _begin_metrics_attempt()
             await self._complete_step_in(run_id, step_id, result, step, session)
 
         await self._transact(work)
+        # Reached only once the transaction committed. A failed attempt's
+        # observations stay unflushed and the next attempt starts empty.
+        self.flush_metrics()
 
     async def _complete_step_in(
         self,

@@ -2,30 +2,40 @@
 design A §1.4).
 
 Metrics go through the OTel metrics API and leave the process on the same
-OTLP exporter as traces (:func:`fcrm_common.tracing.init_otel`); the
-collector's ``prometheus`` exporter exposes them to Prometheus and Grafana.
-There is no separate Prometheus client in the process.
+OTLP/HTTP exporter as traces and logs (:func:`fcrm_common.tracing.init_otel`);
+the collector forwards them to OpenObserve, where they are searched and
+charted under these exact names (ADR-68, ADR-72). There is no Prometheus
+client, exporter or server anywhere.
 
-Instrument names are exactly the dashboard names. Units are carried in the
-descriptions rather than the OTel ``unit`` field on purpose: the
-collector's Prometheus translation appends a unit suffix
-(``fcrm_http_latency_ms`` would become ``..._ms_milliseconds``), which
-would break the dashboard queries.
+Instrument names are the names a person types into OpenObserve. Units are
+carried in the descriptions rather than the OTel ``unit`` field on purpose,
+so a store that appends unit suffixes cannot rename them.
 
 Label (attribute) keys per instrument:
 
 =============================  =========================================
 ``fcrm_http_requests_total``   ``service, method, route, status``
 ``fcrm_http_latency_ms``       ``service, method, route, status``
-``fcrm_agent_tokens_total``    ``agent, model, tier`` (+ ``direction``)
+``fcrm_agent_tokens_total``    ``agent, model, tier, direction`` (input is the
+                               uncached part; cache_read/cache_write separate,
+                               so a plain sum is the billed total)
 ``fcrm_agent_cost_usd_total``  ``agent, model, tier``
-``fcrm_agent_latency_ms``      ``agent, model, tier, outcome``
+``fcrm_agent_latency_ms``      ``agent, tier, outcome``
+``fcrm_guard_results_total``   ``guard, result`` (``pass`` or ``block``)
 ``fcrm_gate_wait_seconds``     ``gate_type``
+``fcrm_case_stage_transitions_total`` ``to`` (the state entered; moves only)
+``fcrm_case_submit_to_decide_seconds`` (no labels)
 ``fcrm_override_total``        ``agent``
 ``fcrm_outbox_lag_seconds``    ``service``
 ``fcrm_queue_depth``           ``queue``
 ``fcrm_budget_used_ratio``     ``agent`` (never ``case_id``: cardinality)
 =============================  =========================================
+
+``model`` is always the id of the model that answered (one of the few in
+``tiers.yaml``), never a ``FallbackModel``'s joined name; ``case_id``,
+``job_id`` and ``run_id`` are never labels on any instrument (they belong on
+traces and logs). Keeping every label set small and closed is what keeps the
+metric series countable.
 """
 
 from __future__ import annotations
@@ -54,6 +64,9 @@ class FcrmMetrics:
     agent_cost_usd_total: Counter
     agent_latency_ms: Histogram
     gate_wait_seconds: Histogram
+    case_stage_transitions_total: Counter
+    case_submit_to_decide_seconds: Histogram
+    guard_results_total: Counter
     override_total: Counter
     outbox_lag_seconds: Gauge
     queue_depth: Gauge
@@ -83,6 +96,24 @@ def build_metrics(meter: Meter) -> FcrmMetrics:
         gate_wait_seconds=meter.create_histogram(
             "fcrm_gate_wait_seconds",
             description="Time a human gate stayed open before a decision (s).",
+        ),
+        case_stage_transitions_total=meter.create_counter(
+            "fcrm_case_stage_transitions_total",
+            description=(
+                "Case runs entering a state (to=<state>); a self-loop that "
+                "stays in its state is not counted."
+            ),
+        ),
+        case_submit_to_decide_seconds=meter.create_histogram(
+            "fcrm_case_submit_to_decide_seconds",
+            description="From case.submitted to the case closing (s).",
+        ),
+        guard_results_total=meter.create_counter(
+            "fcrm_guard_results_total",
+            description=(
+                "Guard verdicts on agent jobs: result=pass (passed, masked or "
+                "annotated) or block (blocked, or a retry that Guard 4 asked for)."
+            ),
         ),
         override_total=meter.create_counter(
             "fcrm_override_total",

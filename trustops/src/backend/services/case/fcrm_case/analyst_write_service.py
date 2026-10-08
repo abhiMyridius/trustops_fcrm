@@ -38,6 +38,7 @@ from fcrm_common.errors import (
     NotFoundError,
     ValidationError,
 )
+from fcrm_common.metrics import FcrmMetrics, get_metrics
 from fcrm_common.time import utcnow
 from fcrm_contracts.api.case_analyst_write import (
     AcknowledgeBody,
@@ -82,6 +83,8 @@ from fcrm_case.analyst_write_store import AnalystCommitted, AnalystWriteStore
 from fcrm_case.assessment_store import AssessmentStore
 from fcrm_case.domain.activity import names_a_restricted_term
 from fcrm_case.domain.analyst_commands import (
+    AGENT_FOR_KIND,
+    OVERRIDING_DECISIONS,
     AnalystCommand,
     ack_command,
     ack_kind_of,
@@ -147,6 +150,8 @@ class AnalystWriteService:
         writer: Publishes committed activity rows to the case stream.
         config: The field sets by version: a re-tag resolves the type's fields
             against the field set the case pinned.
+        metrics: The instrument set ``fcrm_override_total`` is recorded on; the
+            process-wide one when omitted (tests inject their own).
     """
 
     def __init__(
@@ -158,6 +163,7 @@ class AnalystWriteService:
         store: AnalystWriteStore,
         writer: ActivityWriter,
         config: PolicyConfig,
+        metrics: Optional[FcrmMetrics] = None,
     ) -> None:
         self._cases = cases
         self._views = views
@@ -165,6 +171,7 @@ class AnalystWriteService:
         self._store = store
         self._writer = writer
         self._config = config
+        self._metrics = metrics if metrics is not None else get_metrics()
 
     # -- plumbing ----------------------------------------------------------------
 
@@ -204,6 +211,31 @@ class AnalystWriteService:
         committed = await self._store.commit(command)
         self._publish(committed)
         return committed
+
+    def _count_override(self, kind: ItemKind, decision: str) -> None:
+        """Count one committed decision that disagreed with an agent's proposal
+        (``fcrm_override_total{agent}``).
+
+        Called only after the commit and never for a replay, so a retry is not
+        counted twice. A metric failure is logged and never reaches the request.
+        """
+        if decision not in OVERRIDING_DECISIONS:
+            return
+        agent = AGENT_FOR_KIND.get(kind)
+        if agent is None:
+            logger.debug(
+                "override not counted: no agent proposes this kind",
+                extra={"item_kind": kind.value, "decision": decision},
+            )
+            return
+        try:
+            self._metrics.override_total.add(1, {"agent": agent.value})
+        except (ValueError, TypeError, KeyError, AttributeError):
+            logger.warning(
+                "override metric not recorded",
+                extra={"agent": agent.value, "decision": decision},
+                exc_info=True,
+            )
 
     async def _replayed(self, gate_id: str, fingerprint: str) -> bool:
         """Whether ``gate_id`` was decided before with this very decision.
@@ -275,6 +307,8 @@ class AnalystWriteService:
             now=utcnow(),
         )
         committed = await self._commit(command)
+        if not committed.replayed:
+            self._count_override(row.kind, body.decision)
         logger.info(
             "item decided",
             extra={

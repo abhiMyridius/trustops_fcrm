@@ -149,6 +149,7 @@ def get_analyst_write_service(request: Request) -> AnalystWriteService:
         store=_wired(request, "analyst_store"),
         writer=get_writer(request),
         config=get_policy_config(request),
+        metrics=getattr(request.app.state, "metrics", None),
     )
 
 
