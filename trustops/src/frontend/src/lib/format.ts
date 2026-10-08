@@ -78,6 +78,19 @@ export const CHANGE_TYPE_LABEL: Record<ChangeType, string> = {
   new_segment: 'New customer segment',
 };
 
+/** One plain line per change type for the New case form and the Add change type list (ADR-75). */
+export const CHANGE_TYPE_HINT: Record<ChangeType, string> = {
+  new_product: 'Something customers have not been offered before.',
+  new_feature: 'A change to a product customers already use.',
+  process_change: 'A new or different way of doing an internal process.',
+  vendor_onboarding: 'A new vendor, partner or other third party.',
+  new_geography: 'A country, corridor or region the bank does not serve yet.',
+  new_segment: 'A group of customers the bank does not serve yet.',
+};
+
+/** The six change types in the order the forms list them. */
+export const CHANGE_TYPES = Object.keys(CHANGE_TYPE_LABEL) as ChangeType[];
+
 export const OUTCOME_LABEL: Record<Outcome, string> = {
   approve: 'Approve',
   approve_with_conditions: 'Approve with conditions',

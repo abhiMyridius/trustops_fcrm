@@ -129,7 +129,11 @@ for (const role of ROLE_KEYS) {
         let id = '';
         let discarded = false;
         try {
+          // ADR-75: New case opens a form; the AI-assisted path (the default) is created on "Create case".
           await page.getByRole('complementary', { name: 'Primary' }).getByRole('button', { name: 'New case' }).click();
+          await page.waitForURL(/\/case\/new$/, { timeout: 20_000 });
+          await page.getByLabel(/^Title/).fill('Sweep draft (discarded by the sweep)');
+          await page.getByRole('button', { name: 'Create case' }).click();
           await page.waitForURL(/\/case\/FCRM-\d{4}-\d+\/documents$/, { timeout: 20_000 });
           id = /(FCRM-\d{4}-\d+)/.exec(page.url())?.[1] ?? '';
           await settle(page, 600);

@@ -72,6 +72,7 @@ QueueStage = Literal[
     "review",
     "awaiting_business",
     "recommend",
+    "handoff",
     "committee",
     "closed",
     "fast_lane",
@@ -166,6 +167,9 @@ def read_service(
         get_outcomes(request),
         get_analyst_store(request),
         clock,
+        # Optional on purpose: only the Summary of a case in handoff reads it, so a
+        # deployment that has not wired it still answers every other read.
+        handoffs=getattr(request.app.state, "handoffs", None),
     )
 
 

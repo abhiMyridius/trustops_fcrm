@@ -150,12 +150,16 @@ class CaseCreatedData(EventPayload):
     """``case.created``'s ``data``: what H1 needs to open a run. ``pins`` are
     the versions active when the case was created; H1 falls back to its own
     placeholder pins when a producer omits them (``store.DEFAULT_PINS``).
+    ``change_types`` are the types the owner chose herself (the manual path,
+    ADR-75): H1 records them and the field set they resolve when it opens the
+    run. Empty on the AI-assisted path, where the assistant proposes them.
     """
 
     title: Optional[str] = None
     unit: Optional[str] = None
     change_types: list[ChangeType] = Field(default_factory=list)
     pins: Optional[PinnedVersions] = None
+    intake_mode: Optional[Literal["ai_assisted", "manual"]] = None
 
 
 class CaseCreated(EventPayload):
@@ -218,11 +222,55 @@ class CaseClarificationSent(EventPayload):
     question_count: int = 0
 
 
+class CaseQuestionAsked(EventPayload):
+    """``case.question_asked`` (ADR-73): the analyst asked the owner questions
+    outside the clarification round, one thread per question. It decides no gate
+    and pauses no clock; Caseflow only records it.
+    """
+
+    case_id: str
+    actor: str
+    thread_ids: list[str] = Field(default_factory=list)
+    question_count: int = 0
+
+
+class CaseQuestionAnswered(EventPayload):
+    """``case.question_answered`` (ADR-73): the owner answered one ad-hoc
+    question. ``changed_field_ids`` are the fields whose value the answer changed
+    (``submission_version`` is the version it froze, ``None`` when it changed
+    none); Caseflow re-runs research and assessment on them only when the run is
+    in review and no agent is running, and otherwise leaves the analyst a flag.
+    """
+
+    case_id: str
+    actor: str
+    thread_id: str
+    question_id: str
+    changed_field_ids: list[str] = Field(default_factory=list)
+    added_document_ids: list[str] = Field(default_factory=list)
+    submission_version: Optional[int] = None
+
+
 class CaseRetagged(EventPayload):
     case_id: str
     actor: str
     change_type: ChangeType
     reason: str
+
+
+class CaseTypesChanged(EventPayload):
+    """S1 -> H1 (ADR-75): the owner added or removed a change type outside a
+    ``po_confirm_category`` gate (a type the assistant never proposed, or a
+    change to a proposal whose gate was decided before). ``change_types`` is
+    the case's list after the change; a removal carries its reason.
+    """
+
+    case_id: str
+    actor: str
+    change_type: ChangeType
+    action: Literal["added", "removed"]
+    reason: Optional[str] = None
+    change_types: list[ChangeType] = Field(default_factory=list)
 
 
 class CaseRerunRequested(EventPayload):
@@ -246,6 +294,32 @@ class CaseControlPlanned(EventPayload):
     case_id: str
     actor: str
     planned_control: dict[str, Any] = Field(default_factory=dict)
+
+
+class CaseClauseAdded(EventPayload):
+    """The analyst added a clause from a corpus search (ADR-74). It is stored in
+    S1 as an accepted ``clause`` item with no gate, its text read from S3 at the
+    case's pinned corpus version; clauses never enter the score.
+    """
+
+    case_id: str
+    actor: str
+    item_id: str
+    clause_id: str
+    corpus_v: int
+    reason: str
+    title: Optional[str] = None
+    ref: Optional[str] = None
+
+
+class CaseClauseRemoved(EventPayload):
+    """The analyst removed a clause they had added (ADR-74), with a reason."""
+
+    case_id: str
+    actor: str
+    item_id: str
+    clause_id: str
+    reason: str
 
 
 class CaseLocked(EventPayload):

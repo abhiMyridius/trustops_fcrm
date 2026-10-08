@@ -19,6 +19,7 @@ import type {
   POStage,
   ReviewRowPO,
   ReviewViewPO,
+  ThreadPO,
   ValuePO,
 } from '@/api/types/po';
 import { GAP_FIELDS, REUSABLE, filledCount, requiredCount, roundAnswered, THREAD_IDS } from '../actions';
@@ -153,6 +154,45 @@ function seedNextAction(c: SeedCase): string {
   return 'Nothing needed from you';
 }
 
+/** The demo's change types in display order: the assistant's three, then any the owner added (ADR-75). */
+function demoTypeOrder(): string[] {
+  const d = getDB().demo;
+  return [...seed.demo.change_types, ...Object.keys(d.types).filter((t) => !seed.demo.change_types.includes(t))];
+}
+
+/** A created case's required fields with what the owner typed (ADR-75's manual path). */
+function createdValues(id: string): ValuePO[] {
+  const c = createdCase(id);
+  if (!c) return [];
+  const always = new Set(seed.field_set.always_required.map((f) => f.id));
+  return requiredFieldIds(c.types ?? []).map((fid) => {
+    const value = c.values?.[fid] ?? null;
+    return {
+      field_id: fid,
+      label: FIELD_LABEL[fid] ?? fid,
+      value,
+      origin: value ? 'owner_declared' : 'open',
+      source: value ? src('owner declared') : null,
+      candidates: null,
+      always_required: always.has(fid),
+    };
+  });
+}
+
+function createdCompletion(id: string): Completion {
+  const values = createdValues(id);
+  const filled = values.filter((v) => v.value).length;
+  const alwaysFilled = values.filter((v) => v.value && v.always_required).length;
+  return completion(filled, values.length, alwaysFilled);
+}
+
+function createdNextAction(id: string): string {
+  const c = createdCase(id);
+  if (!c) return '';
+  if (c.docs.length) return 'Review & submit';
+  return c.mode === 'manual' ? 'Fill in the details, then review & submit' : 'Upload what you already have';
+}
+
 function seedCompletion(c: SeedCase): Completion {
   const req = Math.min(requiredFieldIds(c.change_types).length, seed.field_set.max_required);
   return completion(req, req, 6);
@@ -167,7 +207,7 @@ export function poListItem(id: string): CasePOListItem | null {
     return {
       id,
       title: seed.demo.title,
-      change_types: asTypes(seed.demo.change_types.filter((t) => d.types[t]?.status !== 'removed')),
+      change_types: asTypes(demoTypeOrder().filter((t) => d.types[t]?.status !== 'removed')),
       stage,
       stage_label: STAGE_LABEL[stage],
       next_action: demoNextAction(),
@@ -183,13 +223,13 @@ export function poListItem(id: string): CasePOListItem | null {
     return {
       id,
       title: created.title,
-      change_types: [],
+      change_types: asTypes(created.types ?? []),
       stage: 'draft',
       stage_label: 'Draft',
-      next_action: created.docs.length ? 'Review & submit' : 'Upload what you already have',
+      next_action: createdNextAction(id),
       analyst_name: null,
       submitted: null,
-      completion_pct: 0,
+      completion_pct: createdCompletion(id).pct,
       due: null,
       needs_response: true,
     };
@@ -270,6 +310,7 @@ export function poCase(id: string): CasePO | null {
       completion: demoCompletion(),
       closed: d.closed,
       inbox_open: d.roundSent ? THREAD_IDS.filter((t) => !d.threadAnswers[t]).length : 0,
+      intake_mode: 'ai_assisted',
     };
   }
   const created = createdCase(id);
@@ -279,7 +320,7 @@ export function poCase(id: string): CasePO | null {
       title: created.title,
       unit: created.unit,
       owner_name: nameOf(created.owner),
-      change_types: [],
+      change_types: item.change_types,
       stage: 'draft',
       stage_label: 'Draft',
       lifecycle: steps(PO_STEPS, 0),
@@ -287,9 +328,10 @@ export function poCase(id: string): CasePO | null {
       submitted: null,
       analyst_name: null,
       next_action: item.next_action,
-      completion: completion(0, seed.field_set.always_required.length, 0),
+      completion: createdCompletion(id),
       closed: false,
       inbox_open: 0,
+      intake_mode: created.mode ?? 'ai_assisted',
     };
   }
   const c = seedCase(id)!;
@@ -309,6 +351,7 @@ export function poCase(id: string): CasePO | null {
     completion: seedCompletion(c),
     closed: c.stage === 'closed',
     inbox_open: c.stage === 'awaiting_business' ? 1 : 0,
+    intake_mode: 'ai_assisted',
   };
 }
 
@@ -408,12 +451,13 @@ export function poIntake(id: string): IntakeViewPO | null {
     return {
       ready: d.intakeReady,
       change_types: d.intakeReady
-        ? seed.demo.change_types.map((t) => ({
+        ? demoTypeOrder().map((t) => ({
             type: asTypes([t])[0]!,
             label: seed.change_types[t] ?? t,
             status: d.types[t]?.status ?? 'proposed',
-            source: src(TYPE_SOURCE[t]),
+            source: d.types[t]?.origin === 'owner' ? null : src(TYPE_SOURCE[t]),
             reason: d.types[t]?.reason ?? null,
+            origin: d.types[t]?.origin ?? 'assistant',
           }))
         : [],
       values: d.intakeReady ? values : [],
@@ -441,14 +485,23 @@ export function poIntake(id: string): IntakeViewPO | null {
   }
   const created = createdCase(id);
   if (created) {
+    const types = created.types ?? [];
+    const ready = (created.docs.length > 0 && created.readingStartedAt === null) || types.length > 0;
     return {
-      ready: created.docs.length > 0 && created.readingStartedAt === null,
-      change_types: [],
-      values: [],
+      ready,
+      change_types: types.map((t) => ({
+        type: asTypes([t])[0]!,
+        label: seed.change_types[t] ?? t,
+        status: 'confirmed',
+        source: null,
+        reason: null,
+        origin: 'owner',
+      })),
+      values: types.length ? createdValues(id) : [],
       precedent: null,
       gaps: [],
-      completion: completion(0, seed.field_set.always_required.length, 0),
-      required_fields: null,
+      completion: createdCompletion(id),
+      required_fields: types.length ? createdValues(id).length : null,
       field_set_version: seed.field_set.version,
       candidates_found: 0,
     };
@@ -457,7 +510,14 @@ export function poIntake(id: string): IntakeViewPO | null {
   if (!c) return null;
   return {
     ready: true,
-    change_types: c.change_types.map((t) => ({ type: asTypes([t])[0]!, label: seed.change_types[t] ?? t, status: 'confirmed', source: null, reason: null })),
+    change_types: c.change_types.map((t) => ({
+      type: asTypes([t])[0]!,
+      label: seed.change_types[t] ?? t,
+      status: 'confirmed',
+      source: null,
+      reason: null,
+      origin: 'assistant',
+    })),
     values: requiredFieldIds(c.change_types).map((fid) => ({
       field_id: fid,
       label: FIELD_LABEL[fid] ?? fid,
@@ -493,7 +553,7 @@ export function poReview(id: string): ReviewViewPO | null {
     always_required: v.always_required,
   }));
   const comp = intake.completion;
-  const types = isDemo(id) ? Object.entries(d.types).filter(([, t]) => t.status !== 'removed').map(([k]) => k) : [];
+  const types = isDemo(id) ? Object.entries(d.types).filter(([, t]) => t.status !== 'removed').map(([k]) => k) : (createdCase(id)?.types ?? []);
   const labels = requiredFieldIds(types).map((f) => `${f} ${FIELD_LABEL[f] ?? ''}`.trim());
   const submitted = isDemo(id) ? d.submitted : !createdCase(id);
   return {
@@ -534,7 +594,9 @@ export function poInbox(id: string): InboxPO | null {
                 threads: [
                   {
                     id: `th_${c.id}`,
+                    kind: 'round',
                     round: 1,
+                    field_id: null,
                     field_label: 'Supporting evidence',
                     question: 'Please attach the latest evidence for the control your team named in the submission.',
                     status: 'open',
@@ -544,11 +606,22 @@ export function poInbox(id: string): InboxPO | null {
               },
             ]
           : [],
+      questions: [],
       banner: null,
     };
   }
   const d = getDB().demo;
-  if (!d.roundSent) return { rounds: [], banner: null };
+  const questions: ThreadPO[] = d.adhoc.map((q) => ({
+    id: q.id,
+    kind: 'adhoc',
+    round: 0,
+    field_id: q.field_id,
+    field_label: q.field_id ? (FIELD_LABEL[q.field_id] ?? 'Your submission') : 'Your submission',
+    question: q.text,
+    status: q.answer ? 'answered' : 'open',
+    answer: q.answer ? { text: q.answer.text, documents: q.answer.documents, at: q.answer.at } : null,
+  }));
+  if (!d.roundSent) return { rounds: [], questions, banner: null };
   return {
     rounds: [
       {
@@ -561,7 +634,9 @@ export function poInbox(id: string): InboxPO | null {
           const a = d.threadAnswers[tid];
           return {
             id: tid,
+            kind: 'round' as const,
             round: 1,
+            field_id: /F\d{2,3}/.exec(q?.field ?? '')?.[0] ?? null,
             field_label: meta.label,
             question: q?.q ?? '',
             status: a ? 'answered' : 'open',
@@ -573,6 +648,7 @@ export function poInbox(id: string): InboxPO | null {
         }),
       },
     ],
+    questions,
     banner: roundAnswered() ? 'Saved as submission v2. The original is kept. FCRM sees exactly what changed.' : null,
   };
 }

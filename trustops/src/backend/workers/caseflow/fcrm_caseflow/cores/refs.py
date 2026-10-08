@@ -27,6 +27,11 @@ RERUN_REF: Final = "rerun"
 #: ``{"changed_fields", "doc_ids", "round", "submission_version"}``.
 RERUN_PENDING_REF: Final = "rerun_pending"
 
+#: A re-run on an owner's changed fields is in flight (set when it is dispatched,
+#: cleared when its results are published). With the engine's pending agents it
+#: tells an ad-hoc answer whether the agents are idle (ADR-73).
+RERUN_ACTIVE_REF: Final = "rerun_active"
+
 #: The pack of the current lock: ``pack_id``, ``pack_version``, ``pack_hash``.
 PACK_REF: Final = "pack"
 

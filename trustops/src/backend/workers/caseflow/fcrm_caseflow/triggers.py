@@ -59,9 +59,23 @@ class Trigger(StrEnum):
     # re-checks whether every item and acknowledgement is now done.
     GATE_DECIDED_ACK = "gate.decided.ack"
     CASE_RETAGGED = "case.retagged"
+    # The owner added or removed a change type outside a po_confirm_category
+    # gate (ADR-75): a self-loop in INTAKE whose step records it and the field
+    # set it resolves.
+    CASE_TYPES_CHANGED = "case.types_changed"
     CASE_RERUN_REQUESTED = "case.rerun_requested"
     CASE_GAP_RECORDED = "case.gap_recorded"
     CASE_CONTROL_PLANNED = "case.control_planned"
+    # The analyst added a clause from a corpus search, or removed one they added
+    # (ADR-74). Step-only, like ``GATE_DECIDED_ACK``: no transition, the run does
+    # not move (review or recommend); the step writes the audit record.
+    CASE_CLAUSE_ADDED = "case.clause_added"
+    CASE_CLAUSE_REMOVED = "case.clause_removed"
+    # The analyst asked the owner an ad-hoc question, or the owner answered one
+    # (ADR-73). Self-loops in every state from TRIAGE to DECIDE and in HANDOFF:
+    # the run never moves on them; the work is the step they enqueue.
+    CASE_QUESTION_ASKED = "case.question_asked"
+    CASE_QUESTION_ANSWERED = "case.question_answered"
     ALL_ITEMS_DECIDED = "internal.all_items_decided"
 
     AGENT_DONE_NARRATIVE_RECOMMENDATION = "agent.done.narrative.recommendation"

@@ -77,7 +77,7 @@ export function AnalystQueue() {
       sortValue: (r) => r.stage_label,
       cell: (r) => (
         <div className="flex flex-col gap-1">
-          <Badge tone={r.is_new ? 'warning' : r.stage === 'closed' ? 'neutral' : 'info'}>{r.stage_label}</Badge>
+          <Badge tone={r.is_new || r.stage === 'handoff' ? 'warning' : r.stage === 'closed' ? 'neutral' : 'info'}>{r.stage_label}</Badge>
           <FastLaneConfirm row={r} />
         </div>
       ),
@@ -126,6 +126,7 @@ export function AnalystQueue() {
             { value: 'assessing', label: 'Assessing' },
             { value: 'review', label: 'Review' },
             { value: 'awaiting_business', label: 'Awaiting business' },
+            { value: 'handoff', label: 'Handed to you (agent failed)' },
             { value: 'fast_lane', label: 'Fast lane' },
             { value: 'committee', label: 'Committee' },
             { value: 'closed', label: 'Closed (all scope)' },

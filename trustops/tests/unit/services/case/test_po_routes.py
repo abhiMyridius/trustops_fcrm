@@ -16,7 +16,7 @@ import hashlib
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 from fcrm_case.domain.views import ReviewItemRow
@@ -234,7 +234,8 @@ class TestCreate:
             {"title": "x" * 201},
             {"unit": "y" * 81},
             {"owner": "u-someone"},
-            {"change_types": []},
+            {"mode": "automatic"},
+            {"change_types": ["not_a_type"]},
             [],
         ],
     )
@@ -784,6 +785,245 @@ class TestConfirmingChangeTypes:
             if i.subject.get("change_type") == "new_product"
         )
         assert item.status.value == "proposed"
+
+
+class TestCreateManual:
+    """ADR-75: the New case form's two paths. The manual path names the
+    owner's own change types; nothing about ``{}`` changes."""
+
+    BODY: ClassVar[dict[str, Any]] = {
+        "title": "Wallet top-ups in Canada",
+        "unit": "Cards",
+        "mode": "manual",
+        "change_types": ["new_geography", "new_product"],
+    }
+
+    def test_the_owner_types_set_the_fields_and_domains_at_once(
+        self, scene: CaseService
+    ) -> None:
+        created = scene.client.post("/cases", json=self.BODY)
+        assert created.status_code == 201
+        body = created.json()
+        assert body["change_types"] == ["new_geography", "new_product"]
+        assert body["intake_mode"] == "manual"
+        assert body["next_action"] == "Fill in the details, then review & submit"
+        assert body["completion"]["required"] == 6 + 4 + 5
+        record = scene.store.records[body["id"]]
+        assert record.intake_mode == "manual"
+        assert record.domains == ["geography", "product"]
+        assert len(record.required_fields) == 6 + 4 + 5
+
+    def test_case_created_carries_the_types_for_h1_to_record(
+        self, scene: CaseService
+    ) -> None:
+        scene.client.post("/cases", json=self.BODY)
+        (event,) = events(scene, "case.created")
+        assert event.payload["data"]["change_types"] == ["new_geography", "new_product"]
+        assert event.payload["data"]["intake_mode"] == "manual"
+
+    def test_the_owner_sees_how_many_types_she_chose(self, scene: CaseService) -> None:
+        case_id = scene.client.post("/cases", json=self.BODY).json()["id"]
+        feed = scene.client.get(f"/cases/{case_id}/activity").json()["items"]
+        assert [f["text"] for f in feed] == ["You created the case with 2 change types"]
+
+    def test_a_type_named_twice_counts_once(self, scene: CaseService) -> None:
+        body = {**self.BODY, "change_types": ["new_product", "new_product"]}
+        assert scene.client.post("/cases", json=body).json()["change_types"] == [
+            "new_product"
+        ]
+
+    def test_the_manual_path_needs_a_type(self, scene: CaseService) -> None:
+        response = scene.client.post("/cases", json={**self.BODY, "change_types": []})
+        assert response.status_code == 422
+        assert response.json()["detail"] == "Choose at least one change type."
+        assert events(scene, "case.created") == []
+
+    def test_the_ai_assisted_path_takes_no_types(self, scene: CaseService) -> None:
+        response = scene.client.post(
+            "/cases", json={"mode": "ai_assisted", "change_types": ["new_product"]}
+        )
+        assert response.status_code == 422
+        assert "assistant proposes the change types" in response.json()["detail"]
+
+    def test_an_ai_assisted_case_still_starts_with_no_type(
+        self, scene: CaseService
+    ) -> None:
+        body = scene.client.post(
+            "/cases", json={"title": "x", "mode": "ai_assisted"}
+        ).json()
+        assert (body["change_types"], body["intake_mode"]) == ([], "ai_assisted")
+        assert body["next_action"] == "Upload what you already have"
+
+    def test_the_overview_of_a_manual_case_is_ready_with_her_types(
+        self, scene: CaseService
+    ) -> None:
+        case_id = scene.client.post("/cases", json=self.BODY).json()["id"]
+        intake = scene.client.get(f"/cases/{case_id}/intake").json()
+        assert intake["ready"] is True
+        assert [
+            (c["type"], c["status"], c["origin"]) for c in intake["change_types"]
+        ] == [
+            ("new_geography", "confirmed", "owner"),
+            ("new_product", "confirmed", "owner"),
+        ]
+        assert intake["change_types"][0]["source"] is None
+        assert len(intake["values"]) == 15
+        assert intake["required_fields"] == 15
+
+    def test_a_manual_case_submits_with_no_document_once_filled(
+        self, scene: CaseService
+    ) -> None:
+        case_id = scene.client.post("/cases", json=self.BODY).json()["id"]
+        rows = scene.client.get(f"/cases/{case_id}/review").json()["rows"]
+        for row in rows:
+            filled = scene.client.post(
+                f"/cases/{case_id}/intake/values/{row['field_id']}",
+                json={"decision": "correct", "value": f"Value of {row['field_id']}"},
+            )
+            assert filled.status_code == 200, filled.text
+        checks = scene.client.post(f"/cases/{case_id}/validate", json={}).json()
+        assert checks["ok"] is True, checks
+        submitted = scene.client.post(f"/cases/{case_id}/submit", json={})
+        assert submitted.status_code == 200, submitted.text
+        (event,) = events(scene, "case.submitted")
+        assert event.payload["change_types"] == ["new_geography", "new_product"]
+        assert event.payload["four_submit_checks_passed"] is True
+        assert events(scene, "gate.decided") == []
+
+
+class TestOwnerChangeTypes:
+    """ADR-75: the owner adds any type the case does not hold and removes any
+    type it holds, until she submits."""
+
+    def url(self, change_type: str, case: str = CASE) -> str:
+        return f"/cases/{case}/intake/categories/{change_type}"
+
+    def test_adding_a_type_never_proposed_changes_the_case_and_tells_h1(
+        self, ready: CaseService
+    ) -> None:
+        response = ready.client.post(self.url("new_segment"), json={"decision": "add"})
+        assert response.status_code == 200
+        record = ready.store.records[CASE]
+        assert [t.value for t in record.change_types] == ["new_segment"]
+        assert record.domains == ["customer"]
+        assert len(record.required_fields) == 6 + 3
+        listed = response.json()["change_types"]
+        assert (listed[-1]["type"], listed[-1]["status"], listed[-1]["origin"]) == (
+            "new_segment",
+            "confirmed",
+            "owner",
+        )
+        assert [c["origin"] for c in listed[:3]] == ["assistant"] * 3
+        (event,) = events(ready, "case.types_changed")
+        assert event.payload["action"] == "added"
+        assert event.payload["change_types"] == ["new_segment"]
+        assert event.payload["reason"] is None
+        assert event.run_id == RUN
+        assert events(ready, "gate.decided") == []
+
+    def test_an_addition_may_carry_a_reason(self, ready: CaseService) -> None:
+        ready.client.post(
+            self.url("new_segment"),
+            json={"decision": "add", "reason": "Students are a new segment"},
+        )
+        (event,) = events(ready, "case.types_changed")
+        assert event.payload["reason"] == "Students are a new segment"
+
+    def test_adding_twice_is_one_change(self, ready: CaseService) -> None:
+        first = ready.client.post(self.url("new_segment"), json={"decision": "add"})
+        again = ready.client.post(self.url("new_segment"), json={"decision": "add"})
+        assert first.json() == again.json()
+        assert len(events(ready, "case.types_changed")) == 1
+
+    def test_removing_an_owner_type_needs_a_reason(self, ready: CaseService) -> None:
+        ready.client.post(self.url("new_segment"), json={"decision": "add"})
+        refused = ready.client.post(
+            self.url("new_segment"), json={"decision": "remove"}
+        )
+        assert refused.status_code == 422
+        removed = ready.client.post(
+            self.url("new_segment"),
+            json={"decision": "remove", "reason": "Added by mistake, not a segment"},
+        )
+        assert removed.status_code == 200
+        assert ready.store.records[CASE].change_types == []
+        assert "new_segment" not in {c["type"] for c in removed.json()["change_types"]}
+        added, gone = events(ready, "case.types_changed")
+        assert (gone.payload["action"], gone.payload["reason"]) == (
+            "removed",
+            "Added by mistake, not a segment",
+        )
+
+    def test_removing_a_type_the_case_does_not_hold_is_a_404(
+        self, ready: CaseService
+    ) -> None:
+        response = ready.client.post(
+            self.url("new_segment"),
+            json={"decision": "remove", "reason": "Nothing to remove here at all"},
+        )
+        assert response.status_code == 404
+
+    def test_adding_a_proposed_type_confirms_its_proposal(
+        self, ready: CaseService
+    ) -> None:
+        body = ready.client.post(self.url("new_product"), json={"decision": "add"})
+        assert body.status_code == 200
+        (event,) = events(ready, "gate.decided")
+        assert event.payload["decision"] == "confirm"
+        assert events(ready, "case.types_changed") == []
+        proposal = next(
+            c for c in body.json()["change_types"] if c["type"] == "new_product"
+        )
+        assert (proposal["status"], proposal["origin"]) == ("confirmed", "assistant")
+
+    def test_a_decided_proposal_changed_again_reaches_h1_as_types_changed(
+        self, ready: CaseService
+    ) -> None:
+        ready.client.post(self.url("new_product"), json={"decision": "confirm"})
+        ready.client.post(
+            self.url("new_product"),
+            json={"decision": "remove", "reason": "Reconsidered after the review"},
+        )
+        ready.client.post(self.url("new_product"), json={"decision": "add"})
+        assert len(events(ready, "gate.decided")) == 1
+        removed, added = events(ready, "case.types_changed")
+        assert (removed.payload["action"], added.payload["action"]) == (
+            "removed",
+            "added",
+        )
+        assert removed.payload["reason"] == "Reconsidered after the review"
+        assert [t.value for t in ready.store.records[CASE].change_types] == [
+            "new_product"
+        ]
+
+    def test_the_seeded_draft_asks_h1_to_open_its_run_first(
+        self, scene: CaseService
+    ) -> None:
+        response = scene.client.post(
+            self.url("new_geography"), json={"decision": "add"}
+        )
+        assert response.status_code == 200
+        types = [e.type for e in scene.store.events]
+        assert types == ["case.created", "case.types_changed"]
+        assert scene.store.records[CASE].run_requested is True
+        intake = response.json()
+        assert intake["ready"] is True
+        assert [c["type"] for c in intake["change_types"]] == ["new_geography"]
+
+    def test_the_owner_sees_what_she_added(self, ready: CaseService) -> None:
+        ready.client.post(self.url("new_segment"), json={"decision": "add"})
+        feed = ready.client.get(f"/cases/{CASE}/activity").json()["items"]
+        assert feed[0]["text"] == "You added change type: new customer segment"
+
+    def test_a_submitted_case_takes_no_type_change(
+        self, scene: CaseService, fill_and_submit: Callable[..., None]
+    ) -> None:
+        fill_and_submit(CASE, PO)
+        response = scene.client.post(self.url("new_segment"), json={"decision": "add"})
+        assert response.status_code == 409
+        assert all(
+            t.value != "new_segment" for t in scene.store.records[CASE].change_types
+        )
 
 
 class TestCorrectingValues:

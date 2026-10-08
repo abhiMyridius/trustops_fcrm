@@ -32,6 +32,8 @@ from fcrm_contracts.api.case_analyst_write import (
     ItemDecisionResult,
     LockBody,
     PlannedControlBody,
+    QuestionsBody,
+    QuestionsResult,
     Recommendation,
     RecommendationEditBody,
     RecordedWrite,
@@ -150,6 +152,20 @@ async def send_round(
     analyst's own questions (one round, sent once).
     """
     return await service.send_round(principal, case_id, body)
+
+
+@router.post("/cases/{case_id}/questions", status_code=201)
+async def ask_owner(
+    case_id: str, body: QuestionsBody, principal: Analyst, service: Service
+) -> QuestionsResult:
+    """Ask the owner one or more questions at any stage from triage to an
+    unlocked recommendation (ADR-73): one thread per question, then
+    ``case.question_asked``. No gate is decided and the analyst clock keeps
+    running; the one clarification round (D-16) is untouched. A question that
+    names a reserved term is refused (422), and so is one asked at a stage that
+    takes none (409 ``wrong_stage``).
+    """
+    return await service.ask_owner(principal, case_id, body)
 
 
 @router.post("/cases/{case_id}/clarifications/{thread_id}/resolve")

@@ -13,6 +13,12 @@ export type POStage =
   | 'decision'
   | 'closed';
 
+/** How the owner started the case (ADR-75): upload documents for the assistant, or choose the types herself. */
+export type IntakeMode = 'ai_assisted' | 'manual';
+
+/** Who put a change type on the case: the assistant proposed it, or the owner added it (ADR-75). */
+export type TypeOrigin = 'assistant' | 'owner';
+
 export interface CasePOListItem {
   id: string;
   title: string;
@@ -51,6 +57,7 @@ export interface CasePO {
   completion: Completion;
   closed: boolean;
   inbox_open: number;
+  intake_mode: IntakeMode;
 }
 
 export type DocumentStatus = 'uploading' | 'stored' | 'scanned' | 'read';
@@ -79,6 +86,7 @@ export interface CategoryProposalPO {
   status: 'proposed' | 'confirmed' | 'removed';
   source: SourceRef | null;
   reason: string | null;
+  origin: TypeOrigin;
 }
 
 export interface ValuePO {
@@ -171,7 +179,11 @@ export interface SubmitResult {
 
 export interface ThreadPO {
   id: string;
+  /** `round`: FCRM's clarification round; `adhoc`: a question asked at another time (ADR-73, round 0). */
+  kind: 'round' | 'adhoc';
   round: number;
+  /** The field the question is about, so the answer can set its new value; null when none. */
+  field_id: string | null;
   field_label: string;
   question: string;
   status: 'open' | 'answered';
@@ -183,6 +195,8 @@ export interface ThreadPO {
 
 export interface InboxPO {
   rounds: { round: number; from: string; sent_at: string; threads: ThreadPO[] }[];
+  /** The analyst's ad-hoc questions (ADR-73), oldest first. */
+  questions: ThreadPO[];
   banner: string | null;
 }
 

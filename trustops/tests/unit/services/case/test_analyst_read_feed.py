@@ -188,6 +188,74 @@ def test_a_row_cites_the_record_caseflow_sent_beside_the_event(
     assert items["ev_3"]["record_seq"] == 12
 
 
+def owner_voice(
+    assessed_case: AssessedCase, add_activity: Callable[..., Any]
+) -> AssessedCase:
+    """The demo case with the lines written to its owner (D-119)."""
+    assessed_case.update_record(activity_seq=0)
+    owner = ("u-pnair", "fcrm_po", "case")
+    add_activity(
+        CASE, "case.submitted", "po", "You submitted the case (v1)", actor=owner
+    )
+    add_activity(CASE, "case.answered", "po", "You answered 13 questions", actor=owner)
+    add_activity(
+        CASE,
+        "case.assigned",
+        "po",
+        "Your case was assigned to Rahul Iyer",
+        {"analyst_name": "Rahul Iyer"},
+    )
+    add_activity(
+        CASE,
+        "case.assigned",
+        "po",
+        "Rahul Iyer is now handling your case",
+        {"analyst_name": "Rahul Iyer"},
+        actor=("svc:case", "system", "case"),
+    )
+    add_activity(
+        CASE, "document.stored", "po", "You uploaded your-terms.pdf", actor=owner
+    )
+    add_activity(
+        CASE, "fieldset.resolved", "po", "13 fields are required for your change"
+    )
+    add_activity(CASE, "outcome.delivered", "all", "Your change was decided: Approved")
+    return assessed_case
+
+
+def test_the_analyst_reads_the_owners_lines_in_the_third_person(
+    assessed_case: AssessedCase, add_activity: Callable[..., Any]
+) -> None:
+    case = owner_voice(assessed_case, add_activity)
+    items = case.client.get(ACTIVITY).json()["items"]
+    texts = {i["id"]: i["text"] for i in items}
+    assert texts == {
+        "ev_1": "Priya Nair submitted the case (v1)",
+        "ev_2": "Priya Nair answered 13 questions",
+        "ev_3": "Case assigned to Rahul Iyer",
+        "ev_4": "Case assigned to Rahul Iyer",
+        "ev_5": "Priya Nair uploaded your-terms.pdf",
+        "ev_6": "13 fields are required for the change",
+        "ev_7": "The change was decided: Approved",
+    }
+    assert not any(t.startswith(("You ", "Your ")) for t in texts.values())
+
+
+def test_the_owner_still_reads_their_own_lines_as_you(
+    assessed_case: AssessedCase,
+    add_activity: Callable[..., Any],
+    act_as: Callable[[Role, str], None],
+) -> None:
+    case = owner_voice(assessed_case, add_activity)
+    act_as(Role.PO, PO)
+    items = case.client.get(ACTIVITY).json()["items"]
+    texts = {i["id"]: i["text"] for i in items}
+    assert texts["ev_1"] == "You submitted the case (v1)"
+    assert texts["ev_3"] == "Your case was assigned to Rahul Iyer"
+    assert texts["ev_6"] == "13 fields are required for your change"
+    assert {i["actor"] for i in items if i["id"] in ("ev_1", "ev_2")} == {"You"}
+
+
 # ── the recorded outcome ────────────────────────────────────────────────────────
 
 

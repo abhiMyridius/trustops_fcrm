@@ -35,6 +35,7 @@ from fcrm_common.time import utcnow
 from fcrm_contracts.api.case_internal import UiEventIn
 from pymongo import ASCENDING, AsyncMongoClient, IndexModel, UpdateOne
 from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.errors import BulkWriteError
 
 from fcrm_case.activity_log import MongoActivityLog
 from fcrm_case.analyst_errors import RecommendationLockedError
@@ -284,6 +285,8 @@ class MongoAnalystWriteStore:
         # written before any event reaches the outbox (one transaction either way).
         if not await self._record_once(session, command):
             return AnalystCommitted(record, replayed=True)
+        if not await self._insert_items(session, command):
+            return AnalystCommitted(record, replayed=True)
         if not await self._change_recommendation(session, command):
             return AnalystCommitted(record, replayed=True)
         await self._decide_items(session, command)
@@ -371,8 +374,26 @@ class MongoAnalystWriteStore:
     async def _open_round(
         self, session: AsyncClientSession, command: AnalystCommand
     ) -> None:
-        """Insert the questions of the round the command asks."""
-        await self._threads.insert_many(command.threads, session=session)
+        """Insert the questions the command asks (a round, or ad-hoc questions).
+
+        Raises:
+            ConflictError: A question with that id exists (another send of ad-hoc
+                questions took the same numbers at the same moment; ADR-73).
+        """
+        if not command.threads:
+            return
+        try:
+            await self._threads.insert_many(command.threads, session=session)
+        except BulkWriteError as exc:
+            logger.warning(
+                "a question id was taken while it was being asked",
+                extra={"case_id": command.case_id},
+            )
+            raise ConflictError(
+                "another question was sent to the owner at the same moment; "
+                "send yours again",
+                case_id=command.case_id,
+            ) from exc
 
     async def _resolve_threads(
         self, session: AsyncClientSession, command: AnalystCommand
@@ -446,6 +467,26 @@ class MongoAnalystWriteStore:
             result = await self._collection(record.collection).update_one(
                 {"_id": record.row_id},
                 {"$setOnInsert": to_bson(dict(record.document))},
+                upsert=True,
+                session=session,
+            )
+            if result.upserted_id is None:
+                return False
+        return True
+
+    async def _insert_items(
+        self, session: AsyncClientSession, command: AnalystCommand
+    ) -> bool:
+        """Insert the review items the command adds (ADR-74); ``False`` when one
+        already exists (a replay: nothing else of the command is applied).
+        """
+        repo = self._views.review_items
+        for item in command.new_items:
+            document = repo.to_document(item)
+            row_id = document.pop("_id")
+            result = await repo.collection.update_one(
+                {"_id": row_id},
+                {"$setOnInsert": document},
                 upsert=True,
                 session=session,
             )
@@ -599,6 +640,8 @@ class InMemoryAnalystWriteStore:
             return AnalystCommitted(record, replayed=True)
         if not self._record_once(command):
             return AnalystCommitted(record, replayed=True)
+        if not self._insert_items(command):
+            return AnalystCommitted(record, replayed=True)
         if not self._change_recommendation(command):
             return AnalystCommitted(record, replayed=True)
         # State first, events after (the twin of the transaction's order).
@@ -658,6 +701,14 @@ class InMemoryAnalystWriteStore:
             rows[record.row_id] = record.document
         return True
 
+    def _insert_items(self, command: AnalystCommand) -> bool:
+        """The twin of ``MongoAnalystWriteStore._insert_items``."""
+        if any(item.item_id in self._views.items for item in command.new_items):
+            return False
+        for item in command.new_items:
+            self._views.items[item.item_id] = item
+        return True
+
     def _resolve(self, command: AnalystCommand, resolution: ThreadResolution) -> None:
         """The twin of ``MongoAnalystWriteStore._resolve_threads`` for one question."""
         thread = self._views.threads.get(resolution.thread_id)
@@ -709,6 +760,13 @@ class InMemoryAnalystWriteStore:
             if row is None or row.case_id != command.case_id:
                 raise ConflictError(
                     f"a review item of case {command.case_id} is no longer there"
+                )
+        for thread in command.threads:
+            if thread.thread_id in self._views.threads:
+                raise ConflictError(
+                    "another question was sent to the owner at the same moment; "
+                    "send yours again",
+                    case_id=command.case_id,
                 )
 
     async def get_decision(self, gate_id: str) -> Optional[AnalystDecisionRow]:

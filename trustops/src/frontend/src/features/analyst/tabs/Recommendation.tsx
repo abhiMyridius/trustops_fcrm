@@ -157,12 +157,22 @@ export function RecommendationTab() {
   const w = useOutletContext<WorkbenchHeader>();
   useDocumentTitle('Recommendation', id);
   const q = useRecommendation(id);
-  // No assessment run (`is_demo` is false: a seeded case, or one not yet opened by a first upload) means the
-  // narrative never drafted anything, so S1's 409 not_ready is information. A case with a run keeps the red error.
-  if (q.isError && !w.is_demo && isNotReady(q.error)) {
+  // S1's 409 not_ready is information, not a failure (D-106, D-118). With no assessment run (`is_demo` is false:
+  // a seeded case, or one not yet opened by a first upload) the narrative never drafts one; with a run it has
+  // not drafted one yet, and the banner says what it waits for. Every other error stays red with Retry.
+  if (q.isError && isNotReady(q.error)) {
+    if (!w.is_demo) {
+      return (
+        <Banner tone="info" live="polite" title="No recommendation drafted">
+          No recommendation is drafted for this case: it has no assessment run, so the narrative agent has not drafted one. Seeded cases never have a run.
+        </Banner>
+      );
+    }
     return (
-      <Banner tone="info" live="polite" title="No recommendation drafted">
-        No recommendation is drafted for this case: it has no assessment run, so the narrative agent has not drafted one. Seeded cases never have a run.
+      <Banner tone="info" live="polite" title="Not drafted yet">
+        {w.stage === 'handoff'
+          ? 'The narrative agent has not drafted the recommendation yet: it is waiting for the step handed to you on the Summary tab.'
+          : 'The narrative agent has not drafted the recommendation yet: it is drafted once every review decision is made.'}
       </Banner>
     );
   }

@@ -47,6 +47,7 @@ STEP_FOR: Final[Mapping[Trigger, StepKind]] = MappingProxyType(
         Trigger.AGENT_DONE_INTAKE: K.INTAKE_PUBLISH,
         Trigger.GATE_DECIDED_PO_CONFIRM_CATEGORY_ALL: K.INTAKE_FIELDSET_RESOLVED,
         Trigger.GATE_DECIDED_PO_ACTION: K.INTAKE_PO_ACTION,
+        Trigger.CASE_TYPES_CHANGED: K.INTAKE_TYPES_CHANGED,
         Trigger.CASE_SUBMITTED: K.SUBMIT_RECORD,
         Trigger.TRIAGE_DISPATCH: K.TRIAGE_ASSIGN,
         # assessment (scenes 8-16)
@@ -63,8 +64,13 @@ STEP_FOR: Final[Mapping[Trigger, StepKind]] = MappingProxyType(
         Trigger.GATE_DECIDED_ACK: K.REVIEW_ACK,
         Trigger.CASE_GAP_RECORDED: K.GAP_RECORD,
         Trigger.CASE_CONTROL_PLANNED: K.CONTROL_PLANNED,
+        Trigger.CASE_CLAUSE_ADDED: K.CLAUSE_RECORD,
+        Trigger.CASE_CLAUSE_REMOVED: K.CLAUSE_RECORD,
         Trigger.CASE_RETAGGED: K.RETAG_RECORD,
         Trigger.CASE_RERUN_REQUESTED: K.RERUN_REQUESTED,
+        # ad-hoc questions to the owner (ADR-73)
+        Trigger.CASE_QUESTION_ASKED: K.QUESTION_ASKED,
+        Trigger.CASE_QUESTION_ANSWERED: K.QUESTION_ANSWERED,
         Trigger.ALL_ITEMS_DECIDED: K.STATE_PUSH,
         Trigger.AGENT_DONE_NARRATIVE_RECOMMENDATION: K.NARRATIVE_PUBLISH,
         Trigger.CASE_LOCKED: K.LOCK_BUILD_PACK,
@@ -101,7 +107,14 @@ RECORDS_FOR: Final[Mapping[StepKind, tuple[str, ...]]] = MappingProxyType(
         # intake (scenes 2-7)
         # S1 writes no audit records of its own; the steps record what the PO and
         # S1 did on the chain, so scenes 2-7 read as the walkthrough's.
-        K.INTAKE_OPEN: ("case.created", "workflow.started"),
+        # A manual case (ADR-75) also records the types its owner chose and the
+        # field set they resolve when the run opens.
+        K.INTAKE_OPEN: (
+            "case.created",
+            "workflow.started",
+            "case.types_changed",
+            "fieldset.resolved",
+        ),
         K.INTAKE_DOCUMENT_STORED: ("document.stored",),  # + ingest.run, by the engine
         K.INTAKE_INGESTED: ("guard.input",),
         K.INTAKE_INGEST_FAILED: ("guard.input",),
@@ -119,6 +132,7 @@ RECORDS_FOR: Final[Mapping[StepKind, tuple[str, ...]]] = MappingProxyType(
             "values.reused",
             "owner.answered",
         ),
+        K.INTAKE_TYPES_CHANGED: ("case.types_changed", "fieldset.resolved"),
         K.SUBMIT_RECORD: ("gate.validation", "case.submitted"),
         K.TRIAGE_ASSIGN: ("triage.assigned", "eval.recorded"),
         # assessment (scenes 8-9)
@@ -150,8 +164,12 @@ RECORDS_FOR: Final[Mapping[StepKind, tuple[str, ...]]] = MappingProxyType(
         K.REVIEW_ACK: ("gate.decided",),
         K.GAP_RECORD: ("gap.recorded",),
         K.CONTROL_PLANNED: ("control.planned",),
+        # ADR-74: one of the two, by the trigger (an added or a removed clause).
+        K.CLAUSE_RECORD: ("clause.added", "clause.removed"),
         K.RETAG_RECORD: ("fieldset.resolved",),
         K.RERUN_REQUESTED: ("agent.rerun",),
+        K.QUESTION_ASKED: ("question.asked",),
+        K.QUESTION_ANSWERED: ("question.answered", "agent.rerun"),
         # recommendation and pack (scenes 15-16)
         K.NARRATIVE_PUBLISH: ("proposal.narrative", "guard.output"),
         K.LOCK_BUILD_PACK: (

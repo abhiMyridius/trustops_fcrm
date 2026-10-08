@@ -18,7 +18,7 @@ Each has a matching `<exchange>.dlx` dead-letter exchange and per-queue retry qu
 ## Event types by phase
 
 **Case lifecycle (S1 → H1)**
-`case.created` · `case.document_stored` · `case.submitted` · `case.answered` · `case.retagged` · `case.rerun_requested` · `case.gap_recorded` · `case.locked` · `case.unlocked` · `case.close_requested` · `case.closed`
+`case.created` · `case.document_stored` · `case.submitted` · `case.answered` · `case.retagged` · `case.types_changed` (ADR-75: the owner added or removed a change type outside a gate) · `case.rerun_requested` · `case.gap_recorded` · `case.locked` · `case.unlocked` · `case.close_requested` · `case.closed`
 
 **Conditions (oversight, post-close; D-19a's 14-day reminder)**
 `condition.activated` · `condition.updated` · `condition.completed` · `condition.reminder_due`
@@ -38,7 +38,13 @@ Each has a matching `<exchange>.dlx` dead-letter exchange and per-queue retry qu
 **Live wiring (ADR-28)**
 `harness.step` · `pack.released` · `vote.tallied` · `committee.question_asked` · `committee.answered` · `case.clarification_sent` · `case.control_planned` · `jurisdiction.list_published` · `examiner.asked`
 
-That is 66 event types in the committed catalogue (`len(EVENT_TYPES) == 66`, locked by `tests/unit/packages/contracts/test_event_payloads.py` — the design docs' "30 event types" was an earlier estimate before every row of the transition table was transcribed into code; 57 was the count before the live wiring added the nine above; the catalogue, not an estimate, is current).
+**A clause the analyst adds from a corpus search (ADR-74)**
+`case.clause_added` · `case.clause_removed` (S1 → H1, payloads `CaseClauseAdded{case_id, actor, item_id, clause_id, corpus_v, reason, title, ref}` and `CaseClauseRemoved{case_id, actor, item_id, clause_id, reason}`; step-only triggers `CASE_CLAUSE_ADDED` / `CASE_CLAUSE_REMOVED` start `clause.record`, the run does not move) · `clause.added` · `clause.removed` (the audit records that step writes)
+
+**Ad-hoc questions to the owner (ADR-73)**
+`case.question_asked` · `case.question_answered` (S1 → H1) · `question.asked` · `question.answered` (the records H1's steps write for them)
+
+That is 75 event types in the committed catalogue (`len(EVENT_TYPES) == 75`, locked by `tests/unit/packages/contracts/test_event_payloads.py` — the design docs' "30 event types" was an earlier estimate before every row of the transition table was transcribed into code; 57 was the count before the live wiring added the nine above, and ADR-74 added the four of an analyst's clause; the catalogue, not an estimate, is current).
 
 ### Live wiring: the nine types added with ADR-28
 
@@ -56,9 +62,18 @@ All nine publish to `case.events` (topic) with the event type as routing key, th
 | `jurisdiction.list_published` | S3 | H1 (oversight: names no case, so it gets a harness run of its own; `watchlist.publish` asks S1 for the candidates and dispatches the watchlist agent) | `JurisdictionListPublished{version, added, removed, fixture}` |
 | `examiner.asked` | S4, published directly after the question is stored (the insert-only audit role cannot update, so it has no outbox relay) | H1 (oversight: `examiner.answer` records the question and dispatches the examiner agent on the case's run, or an oversight run) | `ExaminerAsked{case_id, question_id, question, asked_by}` |
 
+### Ad-hoc questions: the four types added with ADR-73
+
+| Type | Publisher | Consumer | Payload model (`fcrm_contracts.events.payloads`) |
+|---|---|---|---|
+| `case.question_asked` | S1 (`POST /cases/{id}/questions`, same transaction as the threads) | H1 (`CASE_QUESTION_ASKED`, a self-loop in every state from TRIAGE to DECIDE and in HANDOFF; step `question.asked`) | `CaseQuestionAsked{case_id, actor, thread_ids, question_count}` |
+| `case.question_answered` | S1 (the owner's answer to an ad-hoc thread, same transaction as the answer, the values and the frozen version) | H1 (`CASE_QUESTION_ANSWERED`, the same self-loops; step `question.answered` re-runs research and assessment on the changed fields only in REVIEW with no agent running) | `CaseQuestionAnswered{case_id, actor, thread_id, question_id, changed_field_ids, added_document_ids, submission_version}` |
+| `question.asked` | H1's `question.asked` step | S4 (audit record) | record data `{thread_ids, question_count}` |
+| `question.answered` | H1's `question.answered` step | S4 (audit record) | record data `{thread_id, question_id, changed_fields, added_documents, submission_version, rerun}` |
+
 `harness.step` carries agent output in `args.payload` (H1 holds no other copy of the proposals). It is harness data: S1's SSE stream must never forward the `harness.` prefix to a PO.
 
-The other live-wiring payload models, for events already in the catalogue: `CaseCreated`, `CaseDocumentStored`, `CaseSubmitted` (S1→H1, guard `four_submit_checks_passed`), `CaseAnswered`, `CaseRetagged`, `CaseRerunRequested` (guard `rerun_reason`), `CaseGapRecorded`, `CaseLocked`, `CaseUnlocked` (guard `unlock_reason`), `CaseCloseRequested` (`band`), `GateDecided`, `IngestRun`/`IngestDone`/`IngestFailed` (H1↔H3), `IndexBuild`/`IndexBuilt`/`IndexFailed` (S3↔H4), `VoteCastPayload` (never the option), `VoteNoMajority`, `VoteRerequested`, `OutcomeSetPayload` (H1 reacts only to `mode: delegated`). `JobPayload` gains `refs` (the context-pack inputs H1 supplies) and `AgentDone` gains an optional `fast_lane_proposed`.
+The other live-wiring payload models, for events already in the catalogue: `CaseCreated`, `CaseDocumentStored`, `CaseSubmitted` (S1→H1, guard `four_submit_checks_passed`), `CaseAnswered`, `CaseRetagged`, `CaseTypesChanged` (ADR-75; `CaseCreatedData` also gains `intake_mode`), `CaseRerunRequested` (guard `rerun_reason`), `CaseGapRecorded`, `CaseLocked`, `CaseUnlocked` (guard `unlock_reason`), `CaseCloseRequested` (`band`), `GateDecided`, `IngestRun`/`IngestDone`/`IngestFailed` (H1↔H3), `IndexBuild`/`IndexBuilt`/`IndexFailed` (S3↔H4), `VoteCastPayload` (never the option), `VoteNoMajority`, `VoteRerequested`, `OutcomeSetPayload` (H1 reacts only to `mode: delegated`). `JobPayload` gains `refs` (the context-pack inputs H1 supplies) and `AgentDone` gains an optional `fast_lane_proposed`.
 
 ### What S5 publishes, and when
 

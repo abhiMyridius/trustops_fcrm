@@ -90,6 +90,9 @@ class TestStepFor:
             Trigger.AGENT_DONE_WATCHLIST,
             Trigger.AGENT_FAILED_WATCHLIST,
             Trigger.GATE_DECIDED_REFLAG_ACK,
+            # a clause the analyst added or removed (ADR-74)
+            Trigger.CASE_CLAUSE_ADDED,
+            Trigger.CASE_CLAUSE_REMOVED,
         }
         legal = {t.trigger for t in TRANSITIONS} | step_only
         assert set(STEP_FOR) <= legal

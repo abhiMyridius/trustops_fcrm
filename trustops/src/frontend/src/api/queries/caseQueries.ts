@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, apiList } from '../client';
 import { paths } from '../endpoints';
 import { keys } from '../keys';
+import type { ChangeType } from '../types/common';
 import type {
   ActivityEventPO,
   CasePO,
@@ -12,6 +13,7 @@ import type {
   InboxPO,
   Integration,
   IntakeViewPO,
+  IntakeMode,
   OutcomePO,
   ReviewViewPO,
   SubmitResult,
@@ -83,10 +85,18 @@ function useCaseMutation<TVars, TResult>(id: string, fn: (vars: TVars) => Promis
   });
 }
 
+/** `POST /cases` (ADR-75): `{}` still raises an AI-assisted draft; the New case form sends the title, unit and path. */
+export interface CreateCaseBody {
+  title?: string;
+  unit?: string;
+  mode?: IntakeMode;
+  change_types?: ChangeType[];
+}
+
 export function useCreateCase() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { title?: string; unit?: string }) => api<CasePO>(paths.cases.create, { method: 'POST', body }),
+    mutationFn: (body: CreateCaseBody) => api<CasePO>(paths.cases.create, { method: 'POST', body }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['cases'] }),
   });
 }
@@ -101,7 +111,7 @@ export function useUploadDocuments(id: string) {
 }
 
 export function useConfirmCategory(id: string) {
-  return useCaseMutation(id, (v: { type: string; decision: 'confirm' | 'remove'; reason?: string }) =>
+  return useCaseMutation(id, (v: { type: string; decision: 'confirm' | 'remove' | 'add'; reason?: string }) =>
     api<IntakeViewPO>(paths.cases.intakeCategory(id, v.type), { method: 'POST', body: { decision: v.decision, reason: v.reason } }),
   );
 }
@@ -137,8 +147,13 @@ export function useDiscardDraft(id: string) {
 }
 
 export function useAnswerThread(id: string) {
-  return useCaseMutation(id, (v: { thread_id: string; text: string; documents: string[] }) =>
-    api(paths.cases.answerThread(id, v.thread_id), { method: 'POST', body: { text: v.text, documents: v.documents } }),
+  return useCaseMutation(
+    id,
+    (v: { thread_id: string; text: string; documents: string[]; field_values?: { field_id: string; value: string }[] }) =>
+      api(paths.cases.answerThread(id, v.thread_id), {
+        method: 'POST',
+        body: { text: v.text, documents: v.documents, field_values: v.field_values ?? [] },
+      }),
   );
 }
 

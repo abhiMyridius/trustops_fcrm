@@ -1,12 +1,14 @@
 /**
- * 2.5 PO Overview: proposed change types (confirm one by one; remove needs a reason), extracted
- * values with sources, the precedent panel (title, unit, closed month only) and blocking questions.
+ * 2.5 PO Overview: change types (confirm a proposal one by one, add a type, remove any type with a
+ * reason; ADR-75), the required values with sources (filled in here on the manual path), the precedent
+ * panel (title, unit, closed month only) and blocking questions.
  */
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Check, X } from 'lucide-react';
-import { useAnswerGaps, useConfirmCategory, useIntake, useReuse } from '@/api/queries/caseQueries';
+import { Check, PenLine, Plus, X } from 'lucide-react';
+import { useAnswerGaps, useCasePO, useConfirmCategory, useIntake, useReuse } from '@/api/queries/caseQueries';
 import { userMessage } from '@/api/errors';
+import type { ChangeType } from '@/api/types/common';
 import type { CategoryProposalPO, IntakeViewPO, ValuePO } from '@/api/types/po';
 import { CompletionRing } from '@/components/domain/CompletionRing';
 import { ProvenanceTag } from '@/components/domain/ProvenanceTag';
@@ -21,20 +23,31 @@ import { Checkbox } from '@/components/ui/Checkbox';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Input } from '@/components/ui/Input';
 import { QueryState } from '@/components/ui/QueryState';
+import { Select } from '@/components/ui/Select';
 import { Table, type Column } from '@/components/ui/Table';
 import { useToast } from '@/components/ui/Toast';
 import { useDocumentTitle } from '@/lib/a11y';
+import { CHANGE_TYPES, CHANGE_TYPE_HINT, CHANGE_TYPE_LABEL } from '@/lib/format';
+import { ValueDialog } from '../ValueDialog';
 
-function ChangeTypes({ caseId, types }: { caseId: string; types: CategoryProposalPO[] }) {
+function ChangeTypes({ caseId, intake, editable }: { caseId: string; intake: IntakeViewPO; editable: boolean }) {
+  const types = intake.change_types;
   const decide = useConfirmCategory(caseId);
   const toast = useToast();
   const [removing, setRemoving] = useState<CategoryProposalPO | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [adding, setAdding] = useState('');
+  const proposed = types.some((t) => t.origin === 'assistant');
+  // A type the case holds or the assistant still proposes is not offered; a removed proposal can come back.
+  const remaining = CHANGE_TYPES.filter((t) => !types.some((x) => x.type === t && x.status !== 'removed'));
+  const choice = remaining.includes(adding as ChangeType) ? adding : '';
 
-  async function confirm(t: CategoryProposalPO) {
-    setBusy(t.type);
+  async function run(type: string, decision: 'confirm' | 'add', done?: string) {
+    setBusy(`${decision}:${type}`);
     try {
-      await decide.mutateAsync({ type: t.type, decision: 'confirm' });
+      await decide.mutateAsync({ type, decision });
+      if (done) toast.success(done);
+      if (decision === 'add') setAdding('');
     } catch (err) {
       toast.error('Not saved', userMessage(err));
     } finally {
@@ -42,31 +55,53 @@ function ChangeTypes({ caseId, types }: { caseId: string; types: CategoryProposa
     }
   }
 
+  const held = types.filter((t) => t.status === 'confirmed').length;
+  const count =
+    intake.required_fields !== null
+      ? ` ${intake.required_fields} required field${intake.required_fields === 1 ? '' : 's'} for ${held === 1 ? 'this type' : `these ${held} types`}.`
+      : '';
+
   return (
-    <Card title={<AiLabel>Proposed change types</AiLabel>} subtitle="The assistant proposed these from your documents. Confirm or remove each one.">
+    <Card
+      title={proposed ? <AiLabel>Proposed change types</AiLabel> : 'Change types'}
+      subtitle={
+        proposed
+          ? 'The assistant proposed these from your documents. Confirm or remove each one, or add a type it missed.'
+          : 'The types you chose. They decide which details you fill in. Add or remove a type while the case is a draft.'
+      }
+    >
       <ul className="flex flex-col gap-2">
         {types.map((t) => (
           <li key={t.type} className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-4 py-3">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold">{t.label}</p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
-                <SourceChip source={t.source} />
+                {t.origin === 'owner' ? <span className="text-[12px] text-text-muted">Added by you</span> : <SourceChip source={t.source} />}
                 {t.reason && <span className="text-[12px] text-text-muted">Removed: {t.reason}</span>}
               </div>
             </div>
             {t.status === 'proposed' ? (
-              <div className="flex gap-2">
-                <Button size="sm" variant="primary" onClick={() => void confirm(t)} loading={busy === t.type} aria-label={`Confirm ${t.label}`}>
-                  Confirm
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setRemoving(t)} aria-label={`Remove ${t.label}`}>
-                  Remove…
-                </Button>
-              </div>
+              editable && (
+                <div className="flex gap-2">
+                  <Button size="sm" variant="primary" onClick={() => void run(t.type, 'confirm')} loading={busy === `confirm:${t.type}`} aria-label={`Confirm ${t.label}`}>
+                    Confirm
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setRemoving(t)} aria-label={`Remove ${t.label}`}>
+                    Remove…
+                  </Button>
+                </div>
+              )
             ) : t.status === 'confirmed' ? (
-              <Badge tone="success" icon={<Check aria-hidden size={12} />}>
-                Confirmed by you
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge tone="success" icon={<Check aria-hidden size={12} />}>
+                  {t.origin === 'owner' ? 'Chosen by you' : 'Confirmed by you'}
+                </Badge>
+                {editable && (
+                  <Button size="sm" variant="ghost" onClick={() => setRemoving(t)} aria-label={`Remove ${t.label}`}>
+                    Remove…
+                  </Button>
+                )}
+              </div>
             ) : (
               <Badge tone="danger" icon={<X aria-hidden size={12} />}>
                 Removed
@@ -75,15 +110,35 @@ function ChangeTypes({ caseId, types }: { caseId: string; types: CategoryProposa
           </li>
         ))}
       </ul>
-      <Banner tone="rule" className="mt-4" title="You confirm, the assistant does not.">
-        Confirming fixes the list of required fields{types.every((t) => t.status !== 'proposed') ? '' : ' (18 for these three types)'}. There is no confirm-all
-        button: each type is one decision.
+      {editable && remaining.length > 0 && (
+        <form
+          className="mt-4 flex flex-wrap items-end gap-3"
+          aria-label="Add change type"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (choice) void run(choice, 'add', `${CHANGE_TYPE_LABEL[choice as ChangeType]} added`);
+          }}
+        >
+          <Select
+            label="Add change type"
+            wrapperClassName="min-w-[240px] flex-1"
+            value={choice}
+            onChange={(e) => setAdding(e.target.value)}
+            options={[{ value: '', label: 'Choose a type' }, ...remaining.map((t) => ({ value: t, label: `${CHANGE_TYPE_LABEL[t]} · ${CHANGE_TYPE_HINT[t]}` }))]}
+          />
+          <Button type="submit" variant="secondary" icon={<Plus aria-hidden size={14} />} disabled={!choice} loading={busy === `add:${choice}`}>
+            Add
+          </Button>
+        </form>
+      )}
+      <Banner tone="rule" className="mt-4" title="You decide the types, the assistant does not.">
+        The change types fix the list of required fields.{count} There is no confirm-all button: each type is one decision.
       </Banner>
       <ReasonDialog
         open={removing !== null}
         onClose={() => setRemoving(null)}
         title={`Remove "${removing?.label ?? ''}"?`}
-        context="Removing a type changes which fields are required. The reason is recorded next to the assistant's proposal."
+        context="Removing a type changes which fields are required. The reason is recorded in the audit trail."
         confirmLabel="Remove type"
         danger
         onConfirm={async ({ reason }) => {
@@ -94,7 +149,8 @@ function ChangeTypes({ caseId, types }: { caseId: string; types: CategoryProposa
   );
 }
 
-function Values({ values }: { values: ValuePO[] }) {
+function Values({ caseId, values, editable, manual }: { caseId: string; values: ValuePO[]; editable: boolean; manual: boolean }) {
+  const [editing, setEditing] = useState<ValuePO | null>(null);
   const columns: Column<ValuePO>[] = [
     {
       key: 'field',
@@ -126,10 +182,34 @@ function Values({ values }: { values: ValuePO[] }) {
     },
     { key: 'origin', header: 'Provenance', cell: (v) => <ProvenanceTag origin={v.origin} /> },
     { key: 'source', header: 'Source', cell: (v) => <SourceChip source={v.source} /> },
+    {
+      key: 'edit',
+      header: <span className="sr-only">Edit</span>,
+      cell: (v) =>
+        editable ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={<PenLine aria-hidden size={13} />}
+            onClick={() => setEditing(v)}
+            aria-label={`${v.value ? 'Correct' : 'Fill in'} ${v.field_id} ${v.label}`}
+          >
+            {v.value ? 'Edit' : 'Fill in'}
+          </Button>
+        ) : null,
+    },
   ];
   return (
-    <Card title={<AiLabel>Values found</AiLabel>} subtitle="Every value shows its source. If the assistant cannot point to a source, the value is not shown at all.">
+    <Card
+      title={manual ? 'Details to fill in' : <AiLabel>Values found</AiLabel>}
+      subtitle={
+        manual
+          ? 'Fill in each required field. Documents are optional; add them on the Documents tab if you have them.'
+          : 'Every value shows its source. If the assistant cannot point to a source, the value is not shown at all.'
+      }
+    >
       <Table caption="Required field values" columns={columns} rows={values} rowKey={(v) => v.field_id} dense />
+      <ValueDialog key={editing?.field_id ?? 'none'} caseId={caseId} row={editing} onClose={() => setEditing(null)} />
     </Card>
   );
 }
@@ -230,6 +310,9 @@ export function OverviewTab() {
   const { id = '' } = useParams();
   useDocumentTitle('Overview', id);
   const q = useIntake(id);
+  const header = useCasePO(id);
+  const editable = header.data?.stage === 'draft';
+  const manual = header.data?.intake_mode === 'manual';
   return (
     <QueryState query={q} label="Loading overview">
       {(intake) =>
@@ -242,10 +325,10 @@ export function OverviewTab() {
         ) : (
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_300px]">
             <div className="flex flex-col gap-5">
-              {intake.change_types.length > 0 && <ChangeTypes caseId={id} types={intake.change_types} />}
+              {intake.change_types.length > 0 && <ChangeTypes caseId={id} intake={intake} editable={editable} />}
               {intake.precedent && <Precedent caseId={id} intake={intake} />}
               <Gaps caseId={id} intake={intake} />
-              {intake.values.length > 0 ? <Values values={intake.values} /> : <EmptyState title="No values proposed for this case" body="The assistant found no values in the uploaded documents. Add a document that states them." />}
+              {intake.values.length > 0 ? <Values caseId={id} values={intake.values} editable={editable} manual={manual} /> : <EmptyState title="No values proposed for this case" body="The assistant found no values in the uploaded documents. Add a document that states them." />}
             </div>
             <div className="flex flex-col gap-5">
               <Card title="Completion">

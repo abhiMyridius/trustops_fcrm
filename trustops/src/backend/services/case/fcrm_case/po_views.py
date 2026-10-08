@@ -68,6 +68,7 @@ from fcrm_case.domain.views import (
     IntakeViewRow,
     ReviewItemRow,
 )
+from fcrm_case.reference import change_type_labels
 
 #: Working days FCRM aims to take from a submission to a decision-ready case.
 TARGET_BUSINESS_DAYS: Final = 2
@@ -208,7 +209,7 @@ def list_item(
         change_types=list(record.change_types),
         stage=stage,
         stage_label=stage_label(stage),
-        next_action=next_action(stage, summary),
+        next_action=next_action(stage, summary, manual=_is_manual(record)),
         analyst_name=record.analyst_name,
         submitted=_date(record.submitted_at),
         completion_pct=completion.pct if shown else None,
@@ -234,10 +235,11 @@ def case_po(
         created=record.created_at.date().isoformat(),
         submitted=_date(record.submitted_at),
         analyst_name=record.analyst_name,
-        next_action=next_action(stage, summary),
+        next_action=next_action(stage, summary, manual=_is_manual(record)),
         completion=completion_for(record, summary, field_set),
         closed=stage == "closed",
         inbox_open=summary.open_threads,
+        intake_mode=record.intake_mode,
     )
 
 
@@ -394,7 +396,41 @@ def _category_po(
         reason=item.decided.reason
         if item.status == ItemStatus.REMOVED and item.decided
         else None,
+        origin="assistant",
     )
+
+
+def _owner_type_po(change_type: ChangeType) -> CategoryProposalPO:
+    """A change type the owner put on the case herself (ADR-75): confirmed by
+    her, with no source in a document.
+    """
+    return CategoryProposalPO(
+        type=change_type,
+        label=change_type_labels().get(change_type.value, change_type.value),
+        status="confirmed",
+        source=None,
+        reason=None,
+        origin="owner",
+    )
+
+
+def change_types_po(
+    record: CaseRecord,
+    categories: Sequence[ReviewItemRow],
+    docs: Mapping[str, DocumentRow],
+) -> list[CategoryProposalPO]:
+    """Every change type the Overview lists, each once: the assistant's
+    proposals (whatever the owner decided), then the types the owner added
+    that the assistant never proposed, in the order she added them.
+    """
+    proposed = [_category_po(c, docs) for c in categories]
+    seen = {c.type for c in proposed}
+    owned = [_owner_type_po(t) for t in record.change_types if t not in seen]
+    return [*proposed, *owned]
+
+
+def _is_manual(record: CaseRecord) -> bool:
+    return record.intake_mode == "manual"
 
 
 def _gap_po(item: ReviewItemRow, rows: Mapping[str, FieldValueRow]) -> GapQuestionPO:
@@ -476,10 +512,12 @@ def intake_view(
     completion = completion_dto(
         required, filled, record.completion_threshold, field_set
     )
-    ready = intake is not None
+    # A case the owner typed up herself (the manual path, or a type she added
+    # before the assistant read anything) is ready as soon as it holds a type.
+    ready = intake is not None or bool(record.change_types)
     return IntakeViewPO(
         ready=ready,
-        change_types=[_category_po(c, by_doc) for c in categories] if ready else [],
+        change_types=change_types_po(record, categories, by_doc) if ready else [],
         values=(
             [_value_po(d, by_field.get(d.field_id), by_doc) for d in required]
             if ready

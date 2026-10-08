@@ -104,10 +104,13 @@ async def test_an_ingest_result_leaves_intake_and_clarification_where_they_are(
     assert after.snapshot.version == version + 1, "recorded as a transition"
 
 
-async def test_an_ingest_result_after_intake_is_an_illegal_transition(
+async def test_an_ingest_result_where_no_document_is_taken_is_an_illegal_transition(
     engine: CaseflowEngine, run_store: CaseRunStore, session: FakeSession
 ) -> None:
-    run = await _run_in(engine, run_store, session, CaseState.REVIEW)
+    # A document reaches H3 at intake, in a clarification round, or with the
+    # answer to an ad-hoc question at any stage the analyst holds the case
+    # (ADR-73); REVIEW_AND_SUBMIT takes none.
+    run = await _run_in(engine, run_store, session, CaseState.REVIEW_AND_SUBMIT)
     with pytest.raises(IllegalTransition):
         await engine.handle(
             _env("ingest.done", {"job_id": "job_1"}, run.snapshot.run_id), session

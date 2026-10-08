@@ -7,8 +7,8 @@
  * run and the Recommendation tab of a case with no run used to own such a banner; D-106 made both
  * information, and 04-desired.spec.ts checks their wording.)
  *
- * Not visited by URL: /case/new, because opening it creates a draft case (the "New case" test in
- * 03-controls.spec.ts creates one and discards it).
+ * Not visited by URL: /case/new. Opening it no longer creates a draft (ADR-75: it is a form); the
+ * "New case" test in 03-controls.spec.ts fills the form, creates one draft and discards it.
  */
 import { test } from '@playwright/test';
 import { record, type RoleKey } from './lib/report';

@@ -34,6 +34,7 @@ from fcrm_contracts.api.case_analyst_read import (
     WorkbenchHeader,
 )
 from fcrm_contracts.common import Page, Principal
+from fcrm_contracts.enums import CaseState
 from fcrm_contracts.tools.submission_diff import SubmissionDiffOutput
 
 from fcrm_case.analyst_read_store import (
@@ -55,6 +56,7 @@ from fcrm_case.domain.analyst_assessment import (
     risk_view,
 )
 from fcrm_case.domain.analyst_feed import activity_analyst, outcome_analyst
+from fcrm_case.domain.analyst_handoff import open_gates
 from fcrm_case.domain.analyst_submissions import (
     submission_diff,
     submission_version,
@@ -73,6 +75,7 @@ from fcrm_case.domain.analyst_views import (
 from fcrm_case.domain.assessment import CompletenessViewRow
 from fcrm_case.domain.diffing import RowDiff, SubmissionVersionNotFoundError, diff_rows
 from fcrm_case.domain.record import CaseRecord
+from fcrm_case.handoff_store import HandoffGateStore
 from fcrm_case.outcome_store import OutcomeStore
 from fcrm_case.reference import clause_catalogue, control_catalogue, seeded_outcomes
 from fcrm_case.store import CaseStore
@@ -126,6 +129,8 @@ class AnalystReadService:
     """The analyst read use cases over the case, view, assessment, outcome and
     read stores, and the analyst's ledger (the gates they decided, the planned
     controls and policy gaps they recorded), which lane I3-B2's write routes keep.
+    ``handoffs`` (the handoff gates S1 was told of) names the failed jobs on the
+    Summary of a case in ``handoff``; without it the banner names no agent.
     """
 
     def __init__(
@@ -137,8 +142,11 @@ class AnalystReadService:
         outcomes: OutcomeStore,
         decisions: AnalystWriteStore,
         clock: Callable[[], datetime] = utcnow,
+        *,
+        handoffs: Optional[HandoffGateStore] = None,
     ) -> None:
         self._cases = cases
+        self._handoffs = handoffs
         self._reads = reads
         self._assessment = assessment
         self._views = views
@@ -255,14 +263,19 @@ class AnalystReadService:
     # -- assessment, risk, policy, handoff ------------------------------------------
 
     async def clarifications(self, case_id: str) -> ClarificationsView:
-        """The Inbox tab: the drafted questions and the round the owner holds."""
+        """The Inbox tab: the drafted questions, the round the owner holds, the
+        ad-hoc questions (ADR-73) and the values the owner changed since the
+        agents last scored the case.
+        """
         record = await self.case(case_id)
         completeness = await self._assessment.get_completeness(case_id)
+        snapshot = await self._assessment.latest_score(case_id)
         return clarifications_view(
             record,
             completeness,
             await self._completeness_decided(completeness),
             await self._decisions.threads(case_id),
+            snapshot.computed_at if snapshot is not None else None,
         )
 
     async def assessment(self, case_id: str) -> AssessmentSummary:
@@ -271,6 +284,12 @@ class AnalystReadService:
         """
         record = await self.case(case_id)
         items = await self._views.list_items(case_id)
+        decided = await self._decisions.decided_gate_ids(case_id)
+        gates = (
+            open_gates(await self._handoffs.for_case(case_id), decided, record.run_id)
+            if record.state is CaseState.HANDOFF and self._handoffs is not None
+            else []
+        )
         return assessment_summary(
             AssessmentInputs(
                 record=record,
@@ -282,7 +301,8 @@ class AnalystReadService:
                 intake=await self._views.get_intake_view(case_id),
                 critic=await self._assessment.get_critic(case_id),
                 completeness=await self._assessment.get_completeness(case_id),
-                decided_gate_ids=await self._decisions.decided_gate_ids(case_id),
+                decided_gate_ids=decided,
+                handoff_gates=gates,
             )
         )
 

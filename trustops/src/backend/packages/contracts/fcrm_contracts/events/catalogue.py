@@ -13,6 +13,7 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "case.submitted",
         "case.answered",
         "case.retagged",
+        "case.types_changed",  # S1 -> H1: the owner added or removed a type (ADR-75)
         "case.rerun_requested",
         "case.gap_recorded",
         "case.locked",
@@ -80,5 +81,16 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "case.control_planned",  # S1 -> H1
         "jurisdiction.list_published",  # S3 -> H1 (watchlist)
         "examiner.asked",  # S4 -> H1 (examiner)
+        # a clause the analyst adds from a corpus search (ADR-74)
+        "case.clause_added",  # S1 -> H1
+        "case.clause_removed",  # S1 -> H1
+        "clause.added",  # the audit record H1 writes for it
+        "clause.removed",  # the audit record H1 writes for its removal
+        # ad-hoc questions to the owner (ADR-73): the events S1 publishes and the
+        # records H1's steps write for them
+        "case.question_asked",  # S1 -> H1
+        "case.question_answered",  # S1 -> H1
+        "question.asked",
+        "question.answered",
     }
 )

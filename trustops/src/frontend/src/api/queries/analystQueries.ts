@@ -7,12 +7,15 @@ import type {
   ActivityAnalyst,
   AssessmentSummary,
   ClarificationsView,
+  ClauseAddBody,
+  ClauseAddResult,
   DashboardAnalyst,
   HandoffCompleted,
   HandoffGates,
   HandoffView,
   PolicySearchResult,
   PolicyView,
+  QuestionsResult,
   QueueItem,
   Recommendation,
   RiskView,
@@ -149,6 +152,13 @@ export function useSendRound(id: string) {
   );
 }
 
+/** Ask the owner one or more questions at any stage from triage to an unlocked recommendation (ADR-73). */
+export function useAskOwner(id: string) {
+  return useCaseMutation(id, (questions: { text: string; anchor: string | null }[]) =>
+    api<QuestionsResult>(paths.cases.questions(id), { method: 'POST', body: { questions } }),
+  );
+}
+
 export function useResolveThread(id: string) {
   return useCaseMutation(id, (threadId: string) => api(paths.cases.resolveThread(id, threadId), { method: 'POST', body: {} }));
 }
@@ -167,6 +177,11 @@ export function usePolicySearch(id: string) {
   return useMutation({
     mutationFn: (q: string) => api<PolicySearchResult>(paths.policy.search, { method: 'POST', body: { q, case_id: id } }),
   });
+}
+
+/** ADR-74: add a clause from a corpus search to the case, accepted, with a reason (20+ characters). */
+export function useAddClause(id: string) {
+  return useCaseMutation(id, (v: ClauseAddBody) => api<ClauseAddResult>(paths.cases.clauses(id), { method: 'POST', body: v }));
 }
 
 export function useRecordGap(id: string) {

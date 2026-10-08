@@ -18,8 +18,6 @@ import {
   ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
-import { useCreateCase } from '@/api/queries/caseQueries';
-import { userMessage } from '@/api/errors';
 import { useAuth } from '@/auth/AuthProvider';
 import { DEMO_CASE_ID, ROLE_LABEL } from '@/auth/roles';
 import type { Role } from '@/api/types/common';
@@ -28,7 +26,6 @@ import { Badge } from '@/components/ui/Badge';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { Button } from '@/components/ui/Button';
 import { Dropdown } from '@/components/ui/Dropdown';
-import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
 
 interface NavItem {
@@ -57,22 +54,10 @@ const NAV: Record<Role, NavItem[]> = {
 export function AppShell() {
   const { user, role, logout } = useAuth();
   const navigate = useNavigate();
-  const toast = useToast();
-  const create = useCreateCase();
   const [collapsed, setCollapsed] = useState(false);
 
   if (!user || !role) return null;
   const items = NAV[role];
-
-  async function newCase() {
-    try {
-      const c = await create.mutateAsync({});
-      navigate(`/case/${c.id}/documents`);
-      toast.success(`Case ${c.id} created`, 'The case id is issued first; upload what you already have.');
-    } catch (err) {
-      toast.error('Could not create the case', userMessage(err));
-    }
-  }
 
   async function signOut(to: string) {
     await logout();
@@ -114,7 +99,7 @@ export function AppShell() {
         </div>
         {role === 'fcrm_po' && (
           <div className={cn('mt-4', collapsed ? 'px-2.5' : 'px-3')}>
-            <Button variant="primary" className="w-full" onClick={() => void newCase()} loading={create.isPending} icon={<Plus aria-hidden size={16} />} aria-label="New case">
+            <Button variant="primary" className="w-full" onClick={() => navigate('/case/new')} icon={<Plus aria-hidden size={16} />} aria-label="New case">
               {!collapsed && 'New case'}
             </Button>
           </div>

@@ -59,6 +59,7 @@ PO_DETAIL = CasePO(
     ),
     closed=True,
     inbox_open=0,
+    intake_mode="ai_assisted",
 )
 
 PO_OUTCOME = OutcomePO(

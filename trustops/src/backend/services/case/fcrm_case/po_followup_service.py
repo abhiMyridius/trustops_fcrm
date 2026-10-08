@@ -17,6 +17,10 @@ Rules this module holds:
   creates the next submission (v2) in the same transaction as the answer and tells
   Caseflow (``case.answered``) which fields changed and which documents were
   added; Caseflow re-reads and re-runs on those.
+* **An ad-hoc question is answered on its own (ADR-73).** Its answer freezes the
+  next submission only when it changed a value or added a document, and always
+  tells Caseflow (``case.question_answered``), which records it and re-runs the
+  agents on the changed fields only when the run is in review; no answer is lost.
 * **The owner's words are checked, the analyst's are not repeated.** What the
   owner types may not name a reserved term (their own page would be refused by the
   response guard); what staff wrote shows only when it is safe to.
@@ -181,7 +185,11 @@ class PoFollowupService:
             field_ids=[w.field_id for w in writes],
             at=now,
             by=principal.sub,
+            values={w.field_id: w.value for w in writes if w.value is not None},
         )
+        adhoc = thread.kind == "adhoc"
+        where = "" if adhoc else f" (round {thread.round})"
+        kind = "question.answered" if adhoc else "thread.answered"
         committed = await self._store.commit(
             FollowupCommand(
                 case_id=case_id,
@@ -193,15 +201,14 @@ class PoFollowupService:
                 activity=[
                     po_row(
                         principal.sub,
-                        "thread.answered",
+                        kind,
                         "You answered a question from FCRM",
                         {"round": thread.round},
                     ),
                     staff_row(
                         principal.sub,
-                        "thread.answered",
-                        f"The owner answered question {thread.question_id} "
-                        f"(round {thread.round})",
+                        kind,
+                        f"The owner answered question {thread.question_id}{where}",
                         {"round": thread.round, "thread_id": thread_id},
                     ),
                     *added.activity,
@@ -283,7 +290,7 @@ class PoFollowupService:
             files,
             actor=principal.sub,
             now=utcnow(),
-            raised_in_round=thread.round,
+            raised_in_round=thread.round if thread.kind == "round" else None,
         )
         return _Added(stored.rows, stored.events, [d.event for d in stored.activity])
 

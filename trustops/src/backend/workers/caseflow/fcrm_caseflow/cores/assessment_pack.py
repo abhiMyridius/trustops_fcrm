@@ -465,6 +465,41 @@ def _record_seqs(refs: Sequence[object]) -> list[int]:
     return seqs
 
 
+def is_analyst_clause(row: ReviewItemInternal) -> bool:
+    """Whether ``row`` is a clause the analyst added from a corpus search
+    (ADR-74): accepted when added, with no gate.
+    """
+    return row.kind is ItemKind.CLAUSE and row.subject.get("origin") == "analyst"
+
+
+def pack_clause(row: ReviewItemInternal) -> dict[str, Any]:
+    """A clause as the pack quotes it: verbatim from the item. A clause the
+    analyst added (ADR-74) also carries its title and source reference as S3 gave
+    them, who added it and why; an agent's clause keeps its earlier shape, so the
+    snapshot (and its hash) of a case without one is unchanged.
+    """
+    clause_id = str(row.subject["clause_id"])
+    corpus = f"corpus v{row.subject.get('corpus_v')}"
+    if not is_analyst_clause(row):
+        return {
+            "id": clause_id,
+            "title": clause_id,
+            "quote": str(row.proposed.get("quote", "")),
+            "ref": corpus,
+        }
+    ref = str(row.subject.get("ref") or "")
+    return {
+        "id": clause_id,
+        "title": str(row.subject.get("title") or clause_id),
+        "quote": str(row.proposed.get("quote", "")),
+        "ref": f"{ref} · {corpus}" if ref else corpus,
+        "added_by": str(
+            row.subject.get("added_by_name") or row.subject.get("added_by") or ""
+        ),
+        "added_reason": str(row.subject.get("added_reason") or ""),
+    }
+
+
 def build_pack_snapshot(inputs: PackInputs) -> dict[str, Any]:
     """The frozen content of the pack: ``PackView``'s body (design C §1.4, the
     web's ``PackView`` less the fields S5 adds: id, version, hash, status, the
@@ -540,12 +575,7 @@ def build_pack_snapshot(inputs: PackInputs) -> dict[str, Any]:
             if r.status is ItemStatus.REMOVED and r.decided is not None
         ],
         "clauses": [
-            {
-                "id": str(r.subject["clause_id"]),
-                "title": str(r.subject["clause_id"]),
-                "quote": str(r.proposed.get("quote", "")),
-                "ref": f"corpus v{r.subject.get('corpus_v')}",
-            }
+            pack_clause(r)
             for r in current
             if r.kind is ItemKind.CLAUSE and r.status is not ItemStatus.REMOVED
         ],
@@ -808,6 +838,10 @@ def reopen_gates(
     for row in items:
         if row.kind not in GATED_KINDS or row.item_id in replaced:
             continue
+        if is_analyst_clause(row):
+            # The analyst's own clause never had a gate (ADR-74): its reason was
+            # the decision, and it is removed through S1 without one.
+            continue
         key = f"{row.item_id}@{step.step_id}"
         gates.append(
             GateSpec(
@@ -909,6 +943,8 @@ __all__ = [
     "HANDLERS",
     "PackInputs",
     "build_pack_snapshot",
+    "is_analyst_clause",
+    "pack_clause",
     "narrative_publish",
     "lock_build_pack",
     "pack_approved",

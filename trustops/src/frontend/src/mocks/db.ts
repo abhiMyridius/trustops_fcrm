@@ -59,11 +59,32 @@ export interface PlannedEntry {
   due: string;
 }
 
+export interface AnalystClauseEntry {
+  reason: string;
+  by: string;
+  removed: boolean;
+  removeReason: string | null;
+}
+
+/** An ad-hoc question the analyst asked the owner outside the round (ADR-73). */
+export interface AdhocEntry {
+  id: string;
+  question_id: string;
+  text: string;
+  anchor: string | null;
+  field_id: string | null;
+  opened_at: string;
+  answer: { text: string; documents: string[]; at: string; values: Record<string, string>; changed: string[] } | null;
+  submission_version: number | null;
+  resolved: boolean;
+}
+
 export interface DemoState {
   docs: DocEntry[];
   readingStartedAt: number | null;
   intakeReady: boolean;
-  types: Record<string, { status: 'proposed' | 'confirmed' | 'removed'; reason: string | null }>;
+  /** `origin: 'owner'` marks a type the owner added herself (ADR-75); the rest are the assistant's proposals. */
+  types: Record<string, { status: 'proposed' | 'confirmed' | 'removed'; reason: string | null; origin?: 'owner' }>;
   reused: boolean;
   gapsAnswered: boolean;
   corrected: boolean;
@@ -73,7 +94,12 @@ export interface DemoState {
   roundSent: boolean;
   threadAnswers: Record<string, { text: string; documents: string[]; at: string }>;
   resolved: string[];
+  adhoc: AdhocEntry[];
+  /** The latest submission version an ad-hoc answer froze (null: none yet). */
+  adhocVersion: number | null;
   clauses: Record<string, { decision: 'pending' | 'accepted' | 'removed'; reason: string | null }>;
+  /** ADR-74: clauses the analyst added from a corpus search, by clause id (absent in an older saved state). */
+  analystClauses?: Record<string, AnalystClauseEntry>;
   gapRecorded: boolean;
   controls: Record<string, { decision: 'pending' | 'confirmed' | 'overridden'; rating: number; reason: string | null }>;
   planned: PlannedEntry[];
@@ -104,6 +130,12 @@ export interface CreatedCase {
   docs: DocEntry[];
   readingStartedAt: number | null;
   discarded: boolean;
+  /** ADR-75: the path chosen on the New case form; optional so a stored session from before still loads. */
+  mode?: 'ai_assisted' | 'manual';
+  /** The owner's own change types (the manual path, or added on the case). */
+  types?: string[];
+  /** Values the owner typed by hand, by field id. */
+  values?: Record<string, string>;
 }
 
 export interface ConfigState {
@@ -126,7 +158,7 @@ export interface DB {
   config: Record<string, ConfigState>;
 }
 
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STORAGE_KEY = 'trustops.mock.db';
 export const SCENARIO_KEY = 'trustops.mock.scenario';
 
@@ -208,6 +240,8 @@ function initialDemo(): DemoState {
     roundSent: false,
     threadAnswers: {},
     resolved: [],
+    adhoc: [],
+    adhocVersion: null,
     clauses,
     gapRecorded: false,
     controls,

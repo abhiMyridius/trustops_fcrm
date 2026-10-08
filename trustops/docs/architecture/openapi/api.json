@@ -155,6 +155,35 @@
         "title": "ActivityEventPO",
         "type": "object"
       },
+      "AdhocQuestion": {
+        "additionalProperties": false,
+        "description": "One question the analyst asks the owner outside the round. ``anchor`` is\nthe field (or control) it is about, as a round question's is; the owner reads\nthe field's label, never a control id.",
+        "properties": {
+          "anchor": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor"
+          },
+          "text": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "AdhocQuestion",
+        "type": "object"
+      },
       "AgentEval": {
         "additionalProperties": false,
         "properties": {
@@ -186,7 +215,15 @@
       },
       "AgentFailed": {
         "additionalProperties": false,
+        "description": "The Summary's handoff banner (D-117): ``title`` is its heading, ``reason``\none sentence naming what failed (the web adds what to do), ``step`` the stage\nthe run was in, and ``failures`` every open handoff gate, oldest first.",
         "properties": {
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/FailedStep"
+            },
+            "title": "Failures",
+            "type": "array"
+          },
           "reason": {
             "title": "Reason",
             "type": "string"
@@ -194,11 +231,17 @@
           "step": {
             "title": "Step",
             "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
           }
         },
         "required": [
           "step",
-          "reason"
+          "reason",
+          "title",
+          "failures"
         ],
         "title": "AgentFailed",
         "type": "object"
@@ -976,6 +1019,14 @@
             "title": "Inbox Open",
             "type": "integer"
           },
+          "intake_mode": {
+            "enum": [
+              "ai_assisted",
+              "manual"
+            ],
+            "title": "Intake Mode",
+            "type": "string"
+          },
           "lifecycle": {
             "items": {
               "$ref": "#/components/schemas/StageStep"
@@ -1042,7 +1093,8 @@
           "next_action",
           "completion",
           "closed",
-          "inbox_open"
+          "inbox_open",
+          "intake_mode"
         ],
         "title": "CasePO",
         "type": "object"
@@ -1219,11 +1271,13 @@
       },
       "CategoryDecisionBody": {
         "additionalProperties": false,
+        "description": "``confirm`` or ``remove`` a type the assistant proposed, or ``add`` any\nchange type the case does not hold yet (ADR-75; adding one the assistant\nproposed confirms that proposal). ``remove`` also takes off a type the\nowner added. A removal needs a reason; an addition's reason is optional.",
         "properties": {
           "decision": {
             "enum": [
               "confirm",
-              "remove"
+              "remove",
+              "add"
             ],
             "title": "Decision",
             "type": "string"
@@ -1252,6 +1306,14 @@
         "properties": {
           "label": {
             "title": "Label",
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "assistant",
+              "owner"
+            ],
+            "title": "Origin",
             "type": "string"
           },
           "reason": {
@@ -1293,7 +1355,8 @@
           "label",
           "status",
           "source",
-          "reason"
+          "reason",
+          "origin"
         ],
         "title": "CategoryProposalPO",
         "type": "object"
@@ -1451,6 +1514,21 @@
       "ClarificationsView": {
         "additionalProperties": false,
         "properties": {
+          "ask_blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ask Blocked Reason"
+          },
+          "can_ask": {
+            "title": "Can Ask",
+            "type": "boolean"
+          },
           "can_send": {
             "title": "Can Send",
             "type": "boolean"
@@ -1466,11 +1544,25 @@
             "title": "Drafted",
             "type": "array"
           },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/ThreadAnalyst"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
           "rounds": {
             "items": {
               "$ref": "#/components/schemas/ClarificationRound"
             },
             "title": "Rounds",
+            "type": "array"
+          },
+          "values_changed": {
+            "items": {
+              "$ref": "#/components/schemas/FieldChange"
+            },
+            "title": "Values Changed",
             "type": "array"
           }
         },
@@ -1478,9 +1570,77 @@
           "drafted",
           "rounds",
           "can_send",
-          "clock_paused"
+          "clock_paused",
+          "questions",
+          "can_ask",
+          "ask_blocked_reason",
+          "values_changed"
         ],
         "title": "ClarificationsView",
+        "type": "object"
+      },
+      "ClauseAddBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/clauses``: the clause id of a search hit and why it\napplies to the case (at least :data:`REASON_MIN_CHARS` characters, the\noverride reason rule).",
+        "properties": {
+          "clause_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Clause Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "clause_id",
+          "reason"
+        ],
+        "title": "ClauseAddBody",
+        "type": "object"
+      },
+      "ClauseAddResult": {
+        "additionalProperties": false,
+        "description": "What adding a clause answers (201): the review item it became, the corpus\nversion its text was read at, and whether the same addition was already\nstored (a replay announces nothing).",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "clause_id": {
+            "title": "Clause Id",
+            "type": "string"
+          },
+          "corpus_version": {
+            "title": "Corpus Version",
+            "type": "string"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "status": {
+            "const": "accepted",
+            "default": "accepted",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id",
+          "case_id",
+          "clause_id",
+          "corpus_version"
+        ],
+        "title": "ClauseAddResult",
         "type": "object"
       },
       "ClauseDetailOut": {
@@ -1600,6 +1760,28 @@
       "ClauseItem": {
         "additionalProperties": false,
         "properties": {
+          "added_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added By"
+          },
+          "added_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added Reason"
+          },
           "corpus_version": {
             "title": "Corpus Version",
             "type": "string"
@@ -1637,6 +1819,15 @@
           },
           "item_id": {
             "title": "Item Id",
+            "type": "string"
+          },
+          "origin": {
+            "default": "agent",
+            "enum": [
+              "agent",
+              "analyst"
+            ],
+            "title": "Origin",
             "type": "string"
           },
           "quote": {
@@ -2896,8 +3087,25 @@
       },
       "CreateCaseBody": {
         "additionalProperties": false,
-        "description": "``POST /cases``: both fields are optional; the web posts ``{}``.",
+        "description": "``POST /cases``: every field is optional, so ``{}`` still raises an\nAI-assisted draft (ADR-75 keeps that). The web's New case form posts the\ntitle, the unit and the path the owner chose; the manual path names the\nchange types she chose (at least one), the AI-assisted path names none.",
         "properties": {
+          "change_types": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeType"
+            },
+            "maxItems": 6,
+            "title": "Change Types",
+            "type": "array"
+          },
+          "mode": {
+            "default": "ai_assisted",
+            "enum": [
+              "ai_assisted",
+              "manual"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
           "title": {
             "anyOf": [
               {
@@ -3698,6 +3906,38 @@
         "title": "FactorAnchor",
         "type": "object"
       },
+      "FailedStep": {
+        "additionalProperties": false,
+        "description": "One job an agent failed on both tries, waiting for the analyst: the agent,\nthe stage the run was in (``None`` when the gate did not say) and its gate.",
+        "properties": {
+          "agent": {
+            "title": "Agent",
+            "type": "string"
+          },
+          "gate_id": {
+            "title": "Gate Id",
+            "type": "string"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          }
+        },
+        "required": [
+          "agent",
+          "step",
+          "gate_id"
+        ],
+        "title": "FailedStep",
+        "type": "object"
+      },
       "FastLaneBody": {
         "additionalProperties": false,
         "description": "``POST /cases/{id}/screening``: the analyst confirms or declines the fast\nlane the screening agent proposed (R4). Declining needs a reason.",
@@ -3727,6 +3967,31 @@
           "decision"
         ],
         "title": "FastLaneBody",
+        "type": "object"
+      },
+      "FieldChange": {
+        "additionalProperties": false,
+        "description": "A value the owner set with an answer: the field, its label and the value.",
+        "properties": {
+          "field_id": {
+            "title": "Field Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field_id",
+          "label",
+          "value"
+        ],
+        "title": "FieldChange",
         "type": "object"
       },
       "FieldDef": {
@@ -4634,6 +4899,13 @@
             ],
             "title": "Banner"
           },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/ThreadPO"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
           "rounds": {
             "items": {
               "$ref": "#/components/schemas/InboxRound"
@@ -4644,6 +4916,7 @@
         },
         "required": [
           "rounds",
+          "questions",
           "banner"
         ],
         "title": "InboxPO",
@@ -6185,6 +6458,28 @@
       "PackClause": {
         "additionalProperties": false,
         "properties": {
+          "added_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added By"
+          },
+          "added_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added Reason"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -8835,6 +9130,58 @@
           "created"
         ],
         "title": "PublishedVersionOut",
+        "type": "object"
+      },
+      "QuestionsBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/questions``: ask the owner one or more questions at any\nstage from triage to an unlocked recommendation (ADR-73). Each question opens\na thread of its own; none decides a gate or pauses the analyst's clock.",
+        "properties": {
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/AdhocQuestion"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Questions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questions"
+        ],
+        "title": "QuestionsBody",
+        "type": "object"
+      },
+      "QuestionsResult": {
+        "additionalProperties": false,
+        "description": "What asking answers (201): the threads the questions are in (an open\nthread that already asks the same question is reused, not opened twice) and\nwhether nothing new was asked.",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "questions": {
+            "title": "Questions",
+            "type": "integer"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "thread_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Thread Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "case_id",
+          "questions"
+        ],
+        "title": "QuestionsResult",
         "type": "object"
       },
       "QueueItem": {
@@ -11762,6 +12109,14 @@
             "title": "Id",
             "type": "string"
           },
+          "kind": {
+            "enum": [
+              "round",
+              "adhoc"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
           "question": {
             "title": "Question",
             "type": "string"
@@ -11782,6 +12137,7 @@
         },
         "required": [
           "id",
+          "kind",
           "round",
           "anchor",
           "question",
@@ -11874,6 +12230,24 @@
             "title": "Documents",
             "type": "array"
           },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/FieldChange"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "submission_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submission Version"
+          },
           "text": {
             "title": "Text",
             "type": "string"
@@ -11883,7 +12257,9 @@
           "text",
           "documents",
           "at",
-          "by"
+          "by",
+          "fields",
+          "submission_version"
         ],
         "title": "ThreadAnswerView",
         "type": "object"
@@ -11940,12 +12316,31 @@
               }
             ]
           },
+          "field_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Id"
+          },
           "field_label": {
             "title": "Field Label",
             "type": "string"
           },
           "id": {
             "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "round",
+              "adhoc"
+            ],
+            "title": "Kind",
             "type": "string"
           },
           "question": {
@@ -11967,7 +12362,9 @@
         },
         "required": [
           "id",
+          "kind",
           "round",
+          "field_id",
           "field_label",
           "question",
           "status",
@@ -14664,6 +15061,64 @@
         ]
       }
     },
+    "/api/fcrm/cases/{case_id}/clauses": {
+      "post": {
+        "description": "Add a clause found by searching the corpus, with a reason of at least 20\ncharacters. It is accepted when added (no gate) and never scored. 409\n``wrong_stage`` outside review or an unlocked recommendation, 409\n``clause_on_case`` when it is already on the case and not removed, 422 when the\npinned corpus has no such quotable clause, 503 when S3 cannot be read (nothing\nis stored). The same addition again replays.",
+        "operationId": "S1_add_clause_cases__case_id__clauses_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClauseAddBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClauseAddResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Add Clause",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
     "/api/fcrm/cases/{case_id}/close": {
       "post": {
         "description": "Ask for a delegated close (R1, Band 1-2).\n\nRefused unless the case is open, the analyst holds it, its latest score\nroutes to the analyst (Band 1-2) and its recommendation is locked; a summary\nthat names a score, band or rating is refused too, because the owner reads\nit. Asking twice with the same content is a no-op; a different second\nrequest is a 409.\n\nRaises:\n    NotFoundError: No such case.\n    ForbiddenError: The caller is not the case's analyst.\n    fcrm_case.errors.CaseClosedError: The case is closed.\n    RuleViolationError: R1: no score yet, or the band routes to committee.\n    GateRequiredError: The recommendation is not locked.\n    ValidationError: The plain summary names a restricted term.",
@@ -15924,6 +16379,64 @@
           }
         ],
         "summary": "Policy",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/questions": {
+      "post": {
+        "description": "Ask the owner one or more questions at any stage from triage to an\nunlocked recommendation (ADR-73): one thread per question, then\n``case.question_asked``. No gate is decided and the analyst clock keeps\nrunning; the one clarification round (D-16) is untouched. A question that\nnames a reserved term is refused (422), and so is one asked at a stage that\ntakes none (409 ``wrong_stage``).",
+        "operationId": "S1_ask_owner_cases__case_id__questions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionsResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ask Owner",
         "tags": [
           "analyst"
         ]
@@ -19189,6 +19702,7 @@
                     "review",
                     "awaiting_business",
                     "recommend",
+                    "handoff",
                     "committee",
                     "closed",
                     "fast_lane"

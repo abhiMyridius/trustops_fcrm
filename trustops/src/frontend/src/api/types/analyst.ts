@@ -131,7 +131,8 @@ export interface AssessmentSummary {
   };
   critic_findings: CriticFinding[];
   score: ScoreBox;
-  agent_failed: { step: string; reason: string } | null;
+  /** The handoff banner (D-117): `title`, then `reason` (one sentence naming what failed), then `failures` when several. */
+  agent_failed: { step: string; reason: string; title: string; failures: { agent: string; step: string | null; gate_id: string }[] } | null;
 }
 
 /** A job an agent failed twice on, waiting for the analyst (`GET /cases/{id}/handoff/gates`). */
@@ -199,20 +200,51 @@ export interface SubmissionDiff {
   added_documents: string[];
 }
 
+/** A value the owner set with an answer. */
+export interface FieldChange {
+  field_id: string;
+  label: string;
+  value: string;
+}
+
 export interface ThreadAnalyst {
   id: string;
+  /** `round`: the one clarification round (D-16); `adhoc`: asked at another time (ADR-73, round 0). */
+  kind: 'round' | 'adhoc';
   round: number;
   anchor: string;
   question: string;
   status: 'open' | 'answered' | 'resolved';
-  answer: { text: string; documents: string[]; at: string; by: string } | null;
+  answer: {
+    text: string;
+    documents: string[];
+    at: string;
+    by: string;
+    fields: { field_id: string; label: string; value: string }[];
+    submission_version: number | null;
+  } | null;
+}
+
+/** What `POST /cases/{id}/questions` answers (ADR-73). */
+export interface QuestionsResult {
+  case_id: string;
+  questions: number;
+  thread_ids?: string[];
+  replayed?: boolean;
 }
 
 export interface ClarificationsView {
   drafted: DraftQuestion[];
   rounds: { round: number; sent_at: string; to: string; threads: ThreadAnalyst[] }[];
+  /** The round can be composed and sent: the completeness gate is open and undecided (D-120). */
   can_send: boolean;
   clock_paused: boolean;
+  /** Ad-hoc questions (ADR-73), oldest first. */
+  questions: ThreadAnalyst[];
+  can_ask: boolean;
+  ask_blocked_reason: string | null;
+  /** Values the owner changed after the agents last scored the case. */
+  values_changed: { field_id: string; label: string; value: string }[];
 }
 
 export type ItemDecision = 'pending' | 'accepted' | 'removed' | 'confirmed' | 'overridden';
@@ -226,6 +258,10 @@ export interface ClauseItem {
   corpus_version: string;
   decision: ItemDecision;
   reason: string | null;
+  /** ADR-74: `analyst` for a clause the analyst added from a corpus search (accepted when added). */
+  origin?: 'agent' | 'analyst';
+  added_by?: string | null;
+  added_reason?: string | null;
 }
 
 export interface PolicyView {
@@ -235,10 +271,39 @@ export interface PolicyView {
   corpus_version: string;
 }
 
+/** One clause hit of a corpus search: the verbatim text (`quote`), both citations and its place in the source. */
+export interface PolicySearchHit {
+  clause_id: string;
+  source_id?: string;
+  title: string;
+  quote: string;
+  ref: string;
+  source_ref?: { kind: 'clause'; clause_id: string; corpus_v: number };
+  page?: number | null;
+  line_start?: number | null;
+  line_end?: number | null;
+  quotable?: boolean;
+}
+
 export interface PolicySearchResult {
   query: string;
-  results: { clause_id: string; title: string; quote: string; ref: string }[];
+  results: PolicySearchHit[];
   corpus_version: string;
+}
+
+/** `POST /cases/{id}/clauses` (ADR-74): the clause id of a search hit and why it applies; never its text. */
+export interface ClauseAddBody {
+  clause_id: string;
+  reason: string;
+}
+
+export interface ClauseAddResult {
+  item_id: string;
+  case_id: string;
+  clause_id: string;
+  corpus_version: string;
+  status: 'accepted';
+  replayed: boolean;
 }
 
 export interface ControlItem {

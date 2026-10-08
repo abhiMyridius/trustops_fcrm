@@ -229,3 +229,37 @@ Still open:
 - A metric observation is dropped if a process dies between its transaction's commit and the flush that records it (Caseflow records only after commit, never twice).
 - `fcrm_queue_depth` is still defined but never recorded; queue depths come from RabbitMQ's own `rabbitmq_queue_messages_ready`.
 - The design documents (`docs/architecture/design/A-backend.md`, `C-web-tests-ops-sdlc.md`) and BUILD-PLAN still describe Prometheus, Grafana and a gRPC receiver; they are the design record, and ADR-72 is the change.
+
+## Q. A clause the analyst adds from a corpus search (8 October, appended)
+
+Built (ADR-74): `POST /cases/{id}/clauses`, the Policy tab's "Add to case" with a reason, the `clause.added` and `clause.removed` audit records, the pack's "added by the analyst" line. Unit tests with fakes only.
+
+Still open:
+
+- **Not run on the live stack.** S1 reading the clause from the real S3 at the pinned corpus version, H1 writing the record to the real S4 and the pack carrying the clause were proved with fakes and the in-memory stores, not end to end.
+- The narrative agent does not see a clause the analyst added (its context pack reads the S4 proposal ledger); the clause reaches the committee through the pack. Giving it to the narrative changes a live model's input and needs a live eval (ADR-59).
+- A later re-run of research may propose the same clause again as a new item beside the analyst's; the analyst then accepts or removes the duplicate.
+
+## R. New case form, manual path and owner-added change types (8 October, appended)
+
+Built (ADR-75): New case opens a form and creates nothing until "Create case"; an AI-assisted path and a manual path; the owner adds or removes change types on the case until she submits; H1 records each change (`case.types_changed`) and the field set it resolves. Checked with unit tests, fakes and vitest only.
+
+Still open:
+
+- **Not run live.** No manual case has been driven past submit on the composed stack. Screening, research and assessment then work from typed values and no document; the unit tests prove the run reaches screening, not how the agents fare without document quotes. That needs a Bedrock run, so it waits for the operator (ADR-59).
+- If every change type the assistant proposes was already added by the owner, no `po_confirm_category` gate opens, so the questions-only intake round (which follows the last category decision) does not run. The owner's own `fieldset.resolved` stands and she fills the open fields herself.
+- On the AI-assisted path the web offers "Add change type" only once the assistant's proposals are on Overview; before that Overview shows "Nothing proposed yet". The route accepts an addition at any time before submit.
+- In MSW mode (`dev:msw`, vitest) a case created from the form can be filled in and its types changed, but not submitted: the mock submits only FCRM-2026-0151.
+
+## S. Ad-hoc questions to the owner (ADR-73, D-120; 8 October, appended)
+
+Closed:
+
+- The analyst can ask the owner questions at any stage from triage to an unlocked recommendation (ADR-73), and the clarification round's composer shows before the round is sent (D-120). Unit tests cover the route, the stages, the PO text fence, the owner's answer, the frozen version, H1's transitions and steps; vitest covers the composer and the owner's answer.
+
+Still open:
+
+- **Not run on the live stack.** No live check was made (a live H1 re-run calls Bedrock, ADR-59): the ask, the owner's answer, the `question.*` records on the chain and the REVIEW re-run on changed fields are proved only with fakes and the MSW mock.
+- An answer that changes a value outside REVIEW, or while agents run, is recorded and flagged ("values changed since the agents ran"), not re-run: the analyst asks for a re-run in review. The flag clears when the agents next score the case, whatever that re-run's scope was.
+- A re-run marker (`rerun_active`) left set by a run that never published (a budget refusal handed to a person) keeps later answers from re-running on their own until a re-run publishes; they are flagged instead.
+- The MSW mock re-runs nothing, and its Submission tab does not list the version an ad-hoc answer froze.

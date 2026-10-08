@@ -1,8 +1,7 @@
 /** 2.2 PO Dashboard. Reads cases/dashboard (PO shape: no band, score, analyst notes or committee state). */
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import { usePODashboard, useCreateCase } from '@/api/queries/caseQueries';
-import { userMessage } from '@/api/errors';
+import { usePODashboard } from '@/api/queries/caseQueries';
 import type { CasePOListItem } from '@/api/types/po';
 import { useAuth } from '@/auth/AuthProvider';
 import { KpiCard } from '@/components/charts/KpiCard';
@@ -14,7 +13,6 @@ import { Button } from '@/components/ui/Button';
 import { ErrorState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Table, type Column } from '@/components/ui/Table';
-import { useToast } from '@/components/ui/Toast';
 import { useDocumentTitle } from '@/lib/a11y';
 import { CHANGE_TYPE_LABEL, caseShortId, formatFixed } from '@/lib/format';
 
@@ -25,18 +23,7 @@ export function PODashboard() {
   useDocumentTitle('Dashboard');
   const { user } = useAuth();
   const q = usePODashboard();
-  const create = useCreateCase();
   const navigate = useNavigate();
-  const toast = useToast();
-
-  async function newCase() {
-    try {
-      const c = await create.mutateAsync({});
-      navigate(`/case/${c.id}/documents`);
-    } catch (err) {
-      toast.error('Could not create the case', userMessage(err));
-    }
-  }
 
   const columns: Column<CasePOListItem>[] = [
     {
@@ -59,14 +46,15 @@ export function PODashboard() {
         title={`Welcome back, ${user?.name.split(' ')[0] ?? ''}`}
         subtitle="Your change cases and what each one needs from you."
         actions={
-          <Button variant="primary" icon={<Plus aria-hidden size={16} />} onClick={() => void newCase()} loading={create.isPending}>
+          <Button variant="primary" icon={<Plus aria-hidden size={16} />} onClick={() => navigate('/case/new')}>
             New case
           </Button>
         }
       />
       <Banner tone="info" title={<AiLabel>Starting a new change?</AiLabel>}>
-        Upload what you already have first: a business case, a contract, a vendor letter. The assistant reads it, proposes the change types and
-        fills what it can, each value with its source. You confirm; nothing is decided for you.
+        Select New case. Upload what you already have (a business case, a contract, a vendor letter) and the assistant proposes the change
+        types and fills what it can, each value with its source. Or choose the change types yourself and fill in the details. Either way you
+        confirm; nothing is decided for you.
       </Banner>
       {q.isError && <ErrorState error={q.error} onRetry={() => void q.refetch()} />}
       <section aria-label="Key figures" className="grid grid-cols-2 gap-4 lg:grid-cols-4">

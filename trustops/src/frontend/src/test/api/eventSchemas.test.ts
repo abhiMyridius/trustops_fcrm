@@ -44,7 +44,7 @@ describe('invalidationMap', () => {
   }
 
   it('maps the whole clarification.* and thread.* families to the inbox and clarifications', () => {
-    for (const type of ['clarification.sent', 'clarification.answered', 'thread.updated', 'thread.opened']) {
+    for (const type of ['clarification.sent', 'clarification.answered', 'thread.updated', 'thread.opened', 'question.asked', 'question.answered', 'values.changed']) {
       expect(caseKeys(type).sort(), type).toEqual(['clarifications', 'inbox']);
     }
   });

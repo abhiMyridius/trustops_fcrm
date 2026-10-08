@@ -13,7 +13,7 @@ assign a score into.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from fcrm_contracts.enums import CaseState, ChangeType
 from fcrm_contracts.versions import PinnedVersions
@@ -98,6 +98,10 @@ class CaseRecord(BaseModel):
     created_by: str
     analyst_id: Optional[str] = None
     state: CaseState = CaseState.INTAKE
+    # The state H1's run was in when an agent failed after its retry and the run
+    # moved to ``handoff`` (H1's ``suspended_from``): where the analyst picks the
+    # step up. Set by the state patch into ``handoff``, cleared by the one out.
+    handoff_from: Optional[CaseState] = None
     change_types: list[ChangeType]
     # The display names behind ``owner``/``analyst_id`` (user ids), stored when
     # the case is created or assigned so a read never calls X1.
@@ -108,6 +112,9 @@ class CaseRecord(BaseModel):
     # asked to open its run. A seeded draft (the demo case) starts False and
     # is set by the owner's first write.
     run_requested: bool = False
+    # How the owner started the case (ADR-75): the assistant reads documents
+    # and proposes the change types, or the owner chose them herself.
+    intake_mode: Literal["ai_assisted", "manual"] = "ai_assisted"
     domains: list[str] = Field(default_factory=list)
     geographies: list[str] = Field(default_factory=list)
     stage_flags: StageFlags = Field(default_factory=StageFlags)

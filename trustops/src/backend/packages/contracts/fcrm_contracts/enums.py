@@ -183,6 +183,7 @@ class StepKind(StrEnum):
     INTAKE_PUBLISH = "intake.publish"
     INTAKE_FIELDSET_RESOLVED = "intake.fieldset_resolved"
     INTAKE_PO_ACTION = "intake.po_action"
+    INTAKE_TYPES_CHANGED = "intake.types_changed"
     SUBMIT_RECORD = "submit.record"
     TRIAGE_ASSIGN = "triage.assign"
     SCREENING_PUBLISH = "screening.publish"
@@ -199,6 +200,9 @@ class StepKind(StrEnum):
     CONTROL_PLANNED = "control.planned"
     RETAG_RECORD = "retag.record"
     RERUN_REQUESTED = "rerun.requested"
+    #: The analyst added a clause from a corpus search, or removed one they added
+    #: (ADR-74): ``clause.added`` / ``clause.removed`` on the chain, no state change.
+    CLAUSE_RECORD = "clause.record"
     NARRATIVE_PUBLISH = "narrative.publish"
     LOCK_BUILD_PACK = "lock.build_pack"
     PACK_APPROVED = "pack.approved"
@@ -214,6 +218,10 @@ class StepKind(StrEnum):
     EXAMINER_ANSWER = "examiner.answer"
     WATCHLIST_PUBLISH = "watchlist.publish"
     REFLAG_ACK = "reflag.ack"
+    # An ad-hoc question to the owner, asked and answered (ADR-73): recorded at
+    # any stage; an answer that changes a field re-runs the agents in REVIEW.
+    QUESTION_ASKED = "question.asked"
+    QUESTION_ANSWERED = "question.answered"
     STATE_PUSH = "state.push"
 
 

@@ -2,6 +2,7 @@
 import { HttpResponse, http } from 'msw';
 import { API_PREFIX, paths } from '@/api/endpoints';
 import type { ConfigSectionKey } from '@/api/types/config';
+import { mockCorpus } from '../corpus';
 import { persist } from '../db';
 import { body, guarded, problem } from '../http';
 import { seed } from '../seed';
@@ -23,11 +24,23 @@ export const policyHandlers = [
       const words = q.split(/\s+/).filter((w) => w.length > 2);
       // Cash-pickup agent networks are the seeded gap: corpus v14 has no clause for them.
       const gapQuery = /cash|pickup|pick-up/.test(q);
+      const version = Number(seed.corpus.version.replace(/^v/, '')) || 0;
       const results = gapQuery
         ? []
-        : seed.demo.clauses
+        : mockCorpus()
             .filter((c) => words.some((w) => `${c.title} ${c.quote}`.toLowerCase().includes(w)))
-            .map((c) => ({ clause_id: c.clause_id, title: c.title, quote: c.quote, ref: c.ref }));
+            .map((c) => ({
+              clause_id: c.clause_id,
+              source_id: c.src,
+              title: c.title,
+              quote: c.quote,
+              ref: c.ref,
+              source_ref: { kind: 'clause' as const, clause_id: c.clause_id, corpus_v: version },
+              page: null,
+              line_start: null,
+              line_end: null,
+              quotable: c.quotable,
+            }));
       return HttpResponse.json({ query: b.q ?? '', results, corpus_version: seed.corpus.version });
     }),
   ),

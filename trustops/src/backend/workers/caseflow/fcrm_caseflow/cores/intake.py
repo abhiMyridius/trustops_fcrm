@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Final, Optional
 
 from fcrm_common.errors import ConflictError, NotFoundError
@@ -46,11 +46,12 @@ from fcrm_contracts.api.case_internal import (
     ReusableField,
     StatePatch,
 )
-from fcrm_contracts.enums import AgentName, CaseState, GateType, StepKind
+from fcrm_contracts.enums import AgentName, CaseState, ChangeType, GateType, StepKind
 from fcrm_contracts.events.payloads import (
     CaseCreated,
     CaseDocumentStored,
     CaseSubmitted,
+    CaseTypesChanged,
     GateDecided,
     HarnessStep,
     IngestDone,
@@ -60,8 +61,13 @@ from fcrm_contracts.events.payloads import (
 from fcrm_caseflow import routing
 from fcrm_caseflow.clients.policy_client import PrecedentHit
 from fcrm_caseflow.cores.assessment_scope import scope_refs
-from fcrm_caseflow.cores.intake_merge import MergedIntake, merge_intake
+from fcrm_caseflow.cores.intake_merge import (
+    CHANGE_TYPE_LABELS,
+    MergedIntake,
+    merge_intake,
+)
 from fcrm_caseflow.cores.intake_records import (
+    change_type_label,
     plural,
     record_answer,
     record_category_decision,
@@ -193,7 +199,26 @@ async def intake_open(step: HarnessStep, deps: StepDeps) -> StepResult:
         "Case moved to intake",
         {"stage": CaseState.INTAKE.value},
     )
-    return StepResult()
+    declared = created.data.change_types
+    if not declared:
+        return StepResult()
+    # The manual path (ADR-75): the owner chose the types herself, so the
+    # chain records them and the field set they resolve now, with no gate.
+    names = ", ".join(CHANGE_TYPE_LABELS[t].lower() for t in declared)
+    await deps.append_record(
+        step,
+        "case.types_changed",
+        f"Owner chose {plural(len(declared), 'change type')}: {names}",
+        {
+            "added": [t.value for t in declared],
+            "removed": [],
+            "reason": None,
+            "change_types": [t.value for t in declared],
+            "intake_mode": created.data.intake_mode or "manual",
+        },
+        actor=created.actor,
+    )
+    return StepResult(refs_patch=await _resolve_fieldset(step, deps, record))
 
 
 # --- scene 3: documents --------------------------------------------------------
@@ -281,9 +306,11 @@ def _after_ingest(deps: StepDeps, record: CaseRecordInternal) -> StepResult:
     agent per document, once none is still being read. In a clarification round a
     document the owner added with an answer is not read by the intake agent; if
     that answer is waiting for it, the assessment core's ``rerun.record`` step
-    runs again to dispatch the re-run.
+    runs again to dispatch the re-run. The same holds in review for a document
+    the owner added with an ad-hoc answer whose re-run waits for it (ADR-73); at
+    any other stage the document is recorded and extracted, and nothing follows.
     """
-    if deps.run.state is CaseState.CLARIFICATION:
+    if deps.run.state in (CaseState.CLARIFICATION, CaseState.REVIEW):
         if deps.run.refs.get(RERUN_PENDING_REF):
             return StepResult(
                 follow_up_steps=(
@@ -587,6 +614,24 @@ def _gates_for(
     return (*categories, *gaps, *values, *reuse)
 
 
+def _owner_types(
+    record: CaseRecordInternal, refs: Mapping[str, Any]
+) -> frozenset[ChangeType]:
+    """The change types the owner put on the case herself before the
+    assistant proposed them (ADR-75): held by S1 but never pushed as a
+    proposal. Such a type gets no ``po_confirm_category`` gate and no second
+    item: the owner already decided it, and a gate nobody can decide would
+    keep ``fieldset.resolved`` from ever firing. A type pushed in an earlier
+    round stays a proposal, however the owner decided it since (a run that
+    published before ``intake_types_pushed`` existed pushed every proposal).
+    """
+    previous = refs.get("intake_types_pushed")
+    if previous is None:
+        previous = refs.get("intake_types_proposed")
+    pushed = {str(t) for t in previous or ()}
+    return frozenset(t for t in record.change_types if t.value not in pushed)
+
+
 async def intake_publish(step: HarnessStep, deps: StepDeps) -> StepResult:
     """Every intake job of the round is done: merge their proposals (one
     candidate per field, the most confident), look for a precedent, push it all
@@ -611,6 +656,9 @@ async def intake_publish(step: HarnessStep, deps: StepDeps) -> StepResult:
     published = {str(j) for j in deps.run.refs.get("intake_published_jobs") or ()}
     new_results = [r for r in results if r.job_id not in published]
     fresh = merge_intake(new_results, run_id=step.run_id, labels=labels)
+    owners = _owner_types(record, deps.run.refs)
+    categories = [c for c in merged.categories if c.change_type not in owners]
+    pushable = replace(merged, categories=tuple(categories))
 
     precedent = await _precedent(deps, record, merged)
     await case.put_intake(
@@ -619,7 +667,7 @@ async def intake_publish(step: HarnessStep, deps: StepDeps) -> StepResult:
             run_id=step.run_id,
             candidates_found=merged.candidates_found,
             values=list(merged.values),
-            categories=list(merged.categories),
+            categories=categories,
             gaps=list(merged.gaps),
             precedent=precedent,
             flags=list(merged.flags),
@@ -647,6 +695,7 @@ async def intake_publish(step: HarnessStep, deps: StepDeps) -> StepResult:
         "intake_published_jobs": sorted(r.job_id for r in results),
         "intake_doc_ids": list(merged.doc_ids),
         "intake_types_proposed": [c.change_type.value for c in merged.categories],
+        "intake_types_pushed": [c.change_type.value for c in categories],
         "intake_values_proposed": len(merged.values),
     }
     if precedent is not None:
@@ -654,7 +703,7 @@ async def intake_publish(step: HarnessStep, deps: StepDeps) -> StepResult:
         refs["precedent_similarity"] = precedent.similarity
         refs["precedent_closed_month"] = precedent.closed_month
     return StepResult(
-        gates_to_open=_gates_for(merged, precedent),
+        gates_to_open=_gates_for(pushable, precedent),
         refs_patch=refs,
         # The intake agents' tokens count against the case's 120k like every
         # other agent's: the first live run's monitor left them out (a replayed
@@ -674,6 +723,16 @@ async def intake_fieldset_resolved(step: HarnessStep, deps: StepDeps) -> StepRes
     decided = _payload(step, GateDecided)
     record = await deps.require_case().get_record(step.case_id)
     await record_category_decision(step, deps, decided)
+    return StepResult(refs_patch=await _resolve_fieldset(step, deps, record))
+
+
+async def _resolve_fieldset(
+    step: HarnessStep, deps: StepDeps, record: CaseRecordInternal
+) -> dict[str, Any]:
+    """Record ``fieldset.resolved`` for the types S1 holds on ``record`` (the
+    union of their fields), show the owner the required count and return the
+    refs that remember it.
+    """
     required = len(record.required_field_ids)
     types = len(record.change_types)
     audit = await deps.append_record(
@@ -697,9 +756,34 @@ async def intake_fieldset_resolved(step: HarnessStep, deps: StepDeps) -> StepRes
         {"required_fields": required, "change_types": types},
         record_seq=audit.seq,
     )
-    return StepResult(
-        refs_patch={"fieldset_resolved": True, "required_fields": required}
+    return {"fieldset_resolved": True, "required_fields": required}
+
+
+async def intake_types_changed(step: HarnessStep, deps: StepDeps) -> StepResult:
+    """``case.types_changed`` (ADR-75): the owner added or removed a change
+    type with no open gate to carry it. Record who did what (with the reason
+    for a removal) and the field set S1 now holds. Nothing moves and no agent
+    runs: a type the owner chose herself needs no confirming.
+    """
+    changed = _payload(step, CaseTypesChanged)
+    record = await deps.require_case().get_record(step.case_id)
+    label = change_type_label(changed.change_type.value)
+    reason = f" · {changed.reason}" if changed.reason else ""
+    await deps.append_record(
+        step,
+        "case.types_changed",
+        f"Owner {changed.action} change type: {label}{reason}",
+        {
+            "added": [changed.change_type.value] if changed.action == "added" else [],
+            "removed": (
+                [changed.change_type.value] if changed.action == "removed" else []
+            ),
+            "reason": changed.reason,
+            "change_types": [t.value for t in changed.change_types],
+        },
+        actor=changed.actor,
     )
+    return StepResult(refs_patch=await _resolve_fieldset(step, deps, record))
 
 
 async def intake_po_action(step: HarnessStep, deps: StepDeps) -> StepResult:
@@ -874,6 +958,7 @@ HANDLERS: Final[Mapping[StepKind, StepHandler]] = {
     StepKind.INTAKE_PUBLISH: intake_publish,
     StepKind.INTAKE_FIELDSET_RESOLVED: intake_fieldset_resolved,
     StepKind.INTAKE_PO_ACTION: intake_po_action,
+    StepKind.INTAKE_TYPES_CHANGED: intake_types_changed,
     StepKind.SUBMIT_RECORD: submit_record,
     StepKind.TRIAGE_ASSIGN: triage_assign,
 }

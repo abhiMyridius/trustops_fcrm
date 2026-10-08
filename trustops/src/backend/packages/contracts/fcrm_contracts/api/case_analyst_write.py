@@ -244,6 +244,62 @@ class ResolveThreadBody(BaseModel):
     note: Optional[str] = Field(default=None, max_length=MAX_TEXT_CHARS)
 
 
+# ── ad-hoc questions to the owner (ADR-73) ──────────────────────────────────────
+
+#: The most questions one ``POST /cases/{id}/questions`` may ask.
+MAX_ADHOC_QUESTIONS: Final = 10
+
+
+class AdhocQuestion(BaseModel):
+    """One question the analyst asks the owner outside the round. ``anchor`` is
+    the field (or control) it is about, as a round question's is; the owner reads
+    the field's label, never a control id.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1, max_length=MAX_TEXT_CHARS)
+    anchor: Optional[str] = Field(default=None, max_length=64)
+
+    @field_validator("text")
+    @classmethod
+    def _trim_text(cls, value: str) -> str:
+        text = value.strip()
+        if not text:
+            raise ValueError("a question needs words")
+        return text
+
+    @field_validator("anchor")
+    @classmethod
+    def _trim_anchor(cls, value: Optional[str]) -> Optional[str]:
+        return _stripped(value) or None
+
+
+class QuestionsBody(BaseModel):
+    """``POST /cases/{id}/questions``: ask the owner one or more questions at any
+    stage from triage to an unlocked recommendation (ADR-73). Each question opens
+    a thread of its own; none decides a gate or pauses the analyst's clock.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    questions: list[AdhocQuestion] = Field(min_length=1, max_length=MAX_ADHOC_QUESTIONS)
+
+
+class QuestionsResult(BaseModel):
+    """What asking answers (201): the threads the questions are in (an open
+    thread that already asks the same question is reused, not opened twice) and
+    whether nothing new was asked.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    questions: int
+    thread_ids: list[str] = Field(default_factory=list)
+    replayed: bool = False
+
+
 # ── the analyst's other review actions ──────────────────────────────────────────
 
 

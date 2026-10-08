@@ -31,7 +31,7 @@ const SCREENS: Screen[] = [
   { name: '2.8 PO conditions', as: USERS.priya, scenario: 'closed', route: `/case/${C}/conditions`, expect: /Corridor-scope vendor DD review completed and filed/ },
   { name: '2.9 PO activity', as: USERS.priya, scenario: 'closed', route: `/case/${C}/activity`, expect: /You submitted the case \(v1\)/ },
   { name: '2.10 PO integrations', as: USERS.priya, scenario: 'fresh', route: '/integrations', expect: /Connected \(demo\)/ },
-  { name: 'PO new case', as: USERS.priya, scenario: 'fresh', route: '/case/new', expect: /FCRM-2026-0152/ },
+  { name: 'PO new case', as: USERS.priya, scenario: 'fresh', route: '/case/new', expect: /How do you want to start?/ },
   // Analyst (2.11–2.24)
   { name: '2.11 analyst dashboard', as: USERS.rahul, scenario: 'submitted', route: '/analyst', expect: /Band distribution · 80 seeded cases/ },
   { name: '2.12 analyst queue', as: USERS.rahul, scenario: 'submitted', route: '/analyst/queue', expect: /KYC vendor renewal/ },

@@ -4,6 +4,7 @@
  * and appends the seed audit record(s) that the walkthrough attaches to that step.
  */
 import { appendExtra, appendSeed, getDB, hasRecord, persist, sceneTime, type VoteEntry } from './db';
+import { corpusClause } from './corpus';
 import { score, type EngineArea } from './engine';
 import { seed, type SeedDomain } from './seed';
 import { nameOf } from './users';
@@ -22,7 +23,7 @@ export class MockError extends Error {
 const demo = () => getDB().demo;
 const REASON_MIN = 20;
 
-function requireReason(reason: string | undefined | null, what: string): string {
+export function requireReason(reason: string | undefined | null, what: string): string {
   const r = (reason ?? '').trim();
   if (r.length < REASON_MIN) throw new MockError(422, 'Reason required', `${what} needs a reason of at least ${REASON_MIN} characters (rule 6).`);
   return r;
@@ -62,14 +63,31 @@ export function uploadDemoDocs(names: string[], now = Date.now()): void {
   persist();
 }
 
-export function decideType(type: string, decision: 'confirm' | 'remove', reason?: string): void {
+export function decideType(type: string, decision: 'confirm' | 'remove' | 'add', reason?: string): void {
   requireOpen();
   const d = demo();
   if (!d.intakeReady) throw new MockError(409, 'not_ready', 'The AI is still reading your documents.');
   if (d.submitted) throw new MockError(409, 'submitted', 'Change types are fixed once the case is submitted.');
   const t = d.types[type];
-  if (!t) throw new MockError(404, 'Not found', `No proposed change type ${type}.`);
-  if (decision === 'confirm') {
+  const label = seed.change_types[type] ?? type;
+  // ADR-75: a type the assistant never proposed is the owner's own: added or taken off, no gate.
+  if (!t || t.origin === 'owner') {
+    if (decision === 'add') {
+      if (!t) {
+        d.types[type] = { status: 'confirmed', reason: null, origin: 'owner' };
+        appendExtra('case.types_changed', 'S1', `Owner added change type: ${label.toLowerCase()}`);
+      }
+    } else if (decision === 'remove' && t) {
+      requireReason(reason, 'Removing a change type');
+      delete d.types[type];
+      appendExtra('case.types_changed', 'S1', `Owner removed change type: ${label.toLowerCase()} · reason recorded`);
+    } else {
+      throw new MockError(404, 'Not found', `No proposed change type ${type}.`);
+    }
+    persist();
+    return;
+  }
+  if (decision === 'confirm' || decision === 'add') {
     t.status = 'confirmed';
     t.reason = null;
     const n = TYPE_RECORD[type];
@@ -82,7 +100,8 @@ export function decideType(type: string, decision: 'confirm' | 'remove', reason?
     appendExtra('gate.decided', 'S1', `PO removed change type: ${seed.change_types[type] ?? type} · reason recorded`);
   }
   const allDecided = Object.values(d.types).every((x) => x.status !== 'proposed');
-  if (allDecided && Object.values(d.types).filter((x) => x.status === 'confirmed').length === 3) appendSeed(14);
+  const proposedConfirmed = Object.values(d.types).filter((x) => x.status === 'confirmed' && x.origin !== 'owner').length;
+  if (allDecided && proposedConfirmed === 3) appendSeed(14);
   persist();
 }
 
@@ -214,10 +233,13 @@ export function decideCompleteness(decision: 'ask' | 'proceed'): void {
 export function sendRound(questions: { id: string; keep: boolean; text: string }[]): void {
   requireOpen();
   const d = demo();
-  if (d.completeness !== 'ask') throw new MockError(409, 'no_round', 'Choose "Ask now" on the Summary tab before sending a round.');
+  if (!hasRecord(35)) throw new MockError(409, 'not_ready', 'The completeness report is still being drafted.');
+  if (d.completeness === 'proceed') throw new MockError(409, 'already_decided', 'The completeness decision was already recorded.');
   if (d.roundSent) throw new MockError(409, 'round_open', 'One round, field-anchored, sent once (D-16).');
   const kept = questions.filter((q) => q.keep);
   if (kept.length === 0) throw new MockError(422, 'No questions', 'Keep at least one question or proceed without a round.');
+  // D-120: the send is what decides the gate, with the questions the analyst kept and edited.
+  d.completeness = 'ask';
   d.roundSent = true;
   appendSeed(36);
   persist();
@@ -270,8 +292,93 @@ export function reviewStarted(): boolean {
   return completenessResolved && clausesDone;
 }
 
+// ---------------------------------------------------------------- ad-hoc questions (ADR-73)
+
+const ADHOC_PREFIX = 'aq_';
+
+export function isAdhocThread(threadId: string): boolean {
+  return threadId.startsWith(ADHOC_PREFIX);
+}
+
+/** Why the analyst may not ask the owner now, or null when they may (the backend's rule, ADR-73). */
+export function askBlockedReason(): string | null {
+  const d = demo();
+  if (d.closed) return 'The case is closed.';
+  if (d.packReleasedAt) return 'The case is with the decision makers. A question to the owner waits until it is back in review.';
+  if (d.locked) return 'The recommendation is locked. Unlock it with a reason to ask the owner.';
+  if (!d.submitted) return 'The case is not with an analyst yet.';
+  return null;
+}
+
+export function askOwner(questions: { text: string; anchor: string | null }[]): string[] {
+  requireOpen();
+  const d = demo();
+  const blocked = askBlockedReason();
+  if (blocked) throw new MockError(409, 'wrong_stage', blocked);
+  if (questions.length === 0) throw new MockError(422, 'No questions', 'Ask at least one question.');
+  const ids: string[] = [];
+  questions.forEach((q, i) => {
+    const text = q.text.trim();
+    if (!text) throw new MockError(422, 'Question required', `Question ${i + 1} needs words.`);
+    const words = restrictedTermsIn(text);
+    if (words.length) throw new MockError(422, 'Reserved word', `Question ${i + 1} contains a word the system reserves (${words.join(', ')}). Please rephrase it.`);
+  });
+  for (const q of questions) {
+    const text = q.text.trim();
+    const open = d.adhoc.find((a) => a.text === text && a.anchor === q.anchor && !a.answer);
+    if (open) {
+      ids.push(open.id);
+      continue;
+    }
+    const n = d.adhoc.length + 1;
+    const field = q.anchor && /^F\d{2,3}$/.test(q.anchor) ? q.anchor : null;
+    d.adhoc.push({
+      id: `${ADHOC_PREFIX}${n}`,
+      question_id: `A${n}`,
+      text,
+      anchor: q.anchor,
+      field_id: field,
+      opened_at: new Date().toISOString(),
+      answer: null,
+      submission_version: null,
+      resolved: false,
+    });
+    ids.push(`${ADHOC_PREFIX}${n}`);
+  }
+  appendExtra('question.asked', 'H1', `${questions.length} question(s) sent to the owner outside the clarification round · analyst clock keeps running`);
+  persist();
+  return ids;
+}
+
+export function answerAdhoc(threadId: string, text: string, documents: string[], values: { field_id: string; value: string }[]): void {
+  requireOpen();
+  const d = demo();
+  const q = d.adhoc.find((a) => a.id === threadId);
+  if (!q) throw new MockError(404, 'Not found', 'No such question.');
+  if (!text.trim()) throw new MockError(422, 'Answer required', 'Write an answer before sending.');
+  if (q.answer) throw new MockError(409, 'thread_not_open', 'This question is not waiting for an answer.');
+  const set: Record<string, string> = {};
+  for (const v of values) if (v.value.trim()) set[v.field_id] = v.value.trim();
+  const changed = Object.keys(set);
+  if (changed.length || documents.length) {
+    const base = d.adhocVersion ?? (roundAnswered() ? 2 : 1);
+    d.adhocVersion = base + 1;
+    q.submission_version = d.adhocVersion;
+  }
+  q.answer = { text: text.trim(), documents, at: new Date().toISOString(), values: set, changed };
+  appendExtra('question.answered', 'H1', `Owner answered question ${q.question_id} · ${changed.length} field(s) changed`);
+  persist();
+}
+
 export function resolveThread(threadId: string): void {
   const d = demo();
+  if (isAdhocThread(threadId)) {
+    const q = d.adhoc.find((a) => a.id === threadId);
+    if (!q?.answer) throw new MockError(409, 'not_answered', 'A question is resolved after the owner answers it.');
+    q.resolved = true;
+    persist();
+    return;
+  }
   if (!d.threadAnswers[threadId]) throw new MockError(409, 'not_answered', 'A question is resolved after the owner answers it.');
   if (!d.resolved.includes(threadId)) d.resolved.push(threadId);
   persist();
@@ -303,6 +410,45 @@ export function decideClause(id: string, decision: 'accept' | 'remove', reason?:
     c.decision = 'removed';
     appendExtra('gate.decided', 'S1', `Clause removed: ${id} · reason recorded`);
   }
+  persist();
+}
+
+/** ADR-74: add a clause from the corpus to the case, accepted, with a reason. The same addition again replays. */
+export function addClause(clauseId: string, reason: string | undefined, by: string): { replayed: boolean } {
+  requireOpen();
+  requireUnlocked();
+  requireReviewOpen();
+  const d = demo();
+  const r = requireReason(reason, 'Adding a clause');
+  const clause = corpusClause(clauseId);
+  if (!clause) throw new MockError(422, 'Not in the corpus', `${clauseId} is not a clause of corpus ${seed.corpus.version}, the version this case pinned.`);
+  if (!clause.quotable) throw new MockError(422, 'Not quotable', `${clauseId} is a catalogue entry whose text may not be quoted.`);
+  const mine = d.analystClauses?.[clauseId];
+  if (mine && !mine.removed) {
+    if (mine.reason === r) return { replayed: true };
+    throw new MockError(409, 'clause_on_case', `Clause ${clauseId} is already on the case (you added it).`);
+  }
+  const proposed = d.clauses[clauseId];
+  if (!mine && proposed && proposed.decision !== 'removed') {
+    const how = proposed.decision === 'pending' ? 'research proposed it; accept it instead' : 'research proposed it and it is accepted';
+    throw new MockError(409, 'clause_on_case', `Clause ${clauseId} is already on the case (${how}).`);
+  }
+  d.analystClauses = { ...(d.analystClauses ?? {}), [clauseId]: { reason: r, by, removed: false, removeReason: null } };
+  appendExtra('clause.added', 'S1', `Clause ${clauseId} added from the corpus by the analyst · quoted verbatim · not scored`);
+  persist();
+  return { replayed: false };
+}
+
+/** ADR-74: remove a clause the analyst added, with a reason. */
+export function removeAnalystClause(clauseId: string, reason: string | undefined): void {
+  requireOpen();
+  requireUnlocked();
+  const mine = demo().analystClauses?.[clauseId];
+  if (!mine) throw new MockError(404, 'Not found', `No clause ${clauseId} added by the analyst.`);
+  if (mine.removed) throw new MockError(409, 'gate_already_decided', `Clause ${clauseId} was already removed.`);
+  mine.removeReason = requireReason(reason, 'Removing a clause');
+  mine.removed = true;
+  appendExtra('clause.removed', 'S1', `Clause ${clauseId} removed by the analyst · reason recorded`);
   persist();
 }
 

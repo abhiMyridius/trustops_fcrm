@@ -155,6 +155,25 @@ def test_a_handoff_state_reports_the_failed_agent(
     assert summary.agent_failed is not None
 
 
+def test_the_handoff_banner_names_the_agent_from_the_open_gate(
+    assessed_case: AssessedCase,
+    make_handoff_gate: Callable[..., Any],
+    decide_gate: Callable[..., None],
+) -> None:
+    assessed_case.update_record(state=CaseState.HANDOFF, handoff_from=CaseState.REVIEW)
+    make_handoff_gate(agent="research", gate_id="gate_h1", job_id="job_r1")
+    make_handoff_gate(agent="narrative", gate_id="gate_h0", job_id="job_n0")
+    decide_gate("gate_h0", "handoff", "complete")
+    summary = AssessmentSummary.model_validate(get(assessed_case, "assessment"))
+    failed = summary.agent_failed
+    assert failed is not None
+    assert failed.title == "Research step handed to you"
+    assert (
+        failed.reason == "The research agent failed on both tries in the assess stage."
+    )
+    assert [f.gate_id for f in failed.failures] == ["gate_h1"]
+
+
 # ── policy ──────────────────────────────────────────────────────────────────────
 
 
@@ -844,10 +863,16 @@ def test_the_inbox_lists_the_drafted_questions_and_whether_a_round_can_go(
         ("Q2", False, None),
     ]
     assert before.drafted[1].dropped_reason == "Not anchored to a field"
+    # The case is in review: the completeness gate is behind it.
     assert (before.rounds, before.can_send, before.clock_paused) == ([], False, False)
-    decide_gate("gate_completeness", "completeness", "ask", CASE)
-    asked = ClarificationsView.model_validate(get(assessed_case, "clarifications"))
-    assert asked.can_send is True
+    records = assessed_case.read.service.store.records
+    records[CASE] = records[CASE].model_copy(update={"state": CaseState.COMPLETENESS})
+    # D-120: at the gate, undecided, the round is composed and sent from the inbox.
+    at_gate = ClarificationsView.model_validate(get(assessed_case, "clarifications"))
+    assert at_gate.can_send is True
+    decide_gate("gate_completeness", "completeness", "proceed", CASE)
+    decided = ClarificationsView.model_validate(get(assessed_case, "clarifications"))
+    assert decided.can_send is False
 
 
 def test_the_inbox_shows_the_round_with_the_owners_answers_and_the_paused_clock(

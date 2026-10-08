@@ -12,6 +12,11 @@ submission (when the answer closes the round; decided inside the transaction, so
 two answers arriving together cannot both think the other is still open), the
 activity rows and the outbox events commit together or not at all.
 
+An answer to an ad-hoc question (ADR-73) closes no round: the store decides,
+inside the same transaction, which fields the answer changed (a value equal to
+the one held changes nothing), freezes the next submission when a value changed
+or a document was added, and always enqueues ``case.question_answered``.
+
 **Reads are fenced at the data layer.** The outcome and the conditions are read
 with a projection that leaves out what only staff may see (the analyst's reason
 and request, the condition's provenance and review note), so a view built from
@@ -44,7 +49,10 @@ from fcrm_case.domain.clarifications import ClarificationThreadRow, open_threads
 from fcrm_case.domain.po_followup import (
     EvidenceWrite,
     FollowupCommand,
+    answer_rows,
+    answer_submission,
     case_answered_envelope,
+    case_question_answered_envelope,
     condition_evidence_envelope,
     evidence_changes,
     po_row,
@@ -53,7 +61,12 @@ from fcrm_case.domain.po_followup import (
 )
 from fcrm_case.domain.po_rows import SubmissionVersionRow
 from fcrm_case.domain.record import CaseRecord
-from fcrm_case.domain.views import ConditionRow, field_value_id
+from fcrm_case.domain.views import (
+    ConditionRow,
+    DocumentRow,
+    FieldValueRow,
+    field_value_id,
+)
 from fcrm_case.errors import ensure_open
 from fcrm_case.store import InMemoryCaseStore
 from fcrm_case.views_store import InMemoryViewStore, ViewRepos, next_field_row
@@ -162,6 +175,75 @@ def _stripped(row: ConditionRow) -> ConditionRow:
     return row.model_copy(update={"source": {}, "pack_id": None, "note": None})
 
 
+def changed_by(
+    command: FollowupCommand, previous: dict[str, FieldValueRow]
+) -> list[str]:
+    """The fields of ``command`` whose value differs from the one held
+    (``previous`` by field id): an equal value changes nothing.
+    """
+    return [
+        w.field_id
+        for w in command.fields
+        if w.field_id not in previous or previous[w.field_id].value != w.value
+    ]
+
+
+@dataclass(frozen=True)
+class AdhocAnswered:
+    """What an ad-hoc answer leaves for the transaction to write: the frozen
+    submission (or ``None``), the event, the extra activity rows and the fields
+    it changed.
+    """
+
+    submission: Optional[SubmissionVersionRow]
+    event: Envelope
+    rows: list[UiEventIn]
+    changed: list[str]
+
+
+def adhoc_answered(
+    *,
+    command: FollowupCommand,
+    record: CaseRecord,
+    thread: ClarificationThreadRow,
+    changed: list[str],
+    field_rows: Sequence[FieldValueRow],
+    documents: Sequence[DocumentRow],
+    now: datetime,
+) -> AdhocAnswered:
+    """Shape what an ad-hoc answer writes (both stores read this): a submission
+    when a value changed or a document was added, and ``case.question_answered``.
+    """
+    added = [d.doc_id for d in command.documents]
+    submission: Optional[SubmissionVersionRow] = None
+    rows: list[UiEventIn] = []
+    if changed or added:
+        submission = answer_submission(
+            record=record,
+            changed_field_ids=changed,
+            field_rows=field_rows,
+            documents=documents,
+            now=now,
+            by=command.actor,
+        )
+        labels = {d.field_id: d.label for d in record.required_fields}
+        rows = answer_rows(
+            command.actor,
+            thread,
+            [labels.get(f, f) for f in changed],
+            submission.version,
+        )
+    event = case_question_answered_envelope(
+        record=record,
+        thread=thread,
+        changed_field_ids=changed,
+        added_document_ids=added,
+        version=submission.version if submission is not None else None,
+        by=command.actor,
+    )
+    return AdhocAnswered(submission, event, rows, changed)
+
+
 def round_rows(
     command: FollowupCommand, thread: ClarificationThreadRow, version: int
 ) -> list[UiEventIn]:
@@ -266,18 +348,24 @@ class MongoPoFollowupStore:
                 return FollowupCommitted(record, replayed=True)
         if command.answer is not None:
             thread = await self._answer(session, command)
-            await self._write_fields(session, command, now)
+            written = await self._write_fields(session, command, now)
             if command.documents:
                 await self._views.documents.insert_many(
                     command.documents, session=session
                 )
             events.extend(command.events)
-            closed = await self._close_round(session, record, thread, command, now)
-            if closed is not None:
-                submission, envelope = closed
-                version = submission.version
-                events.append(envelope)
-                rows.extend(round_rows(command, thread, version))
+            if thread.kind == "adhoc":
+                version = await self._adhoc(
+                    session, record, thread, command, written, now, events, rows
+                )
+            else:
+                closed = await self._close_round(session, record, thread, command, now)
+                if closed is not None:
+                    submission, envelope = closed
+                    version = submission.version
+                    events.append(envelope)
+                    rows.extend(round_rows(command, thread, version))
+            if version is not None:
                 changes["current_submission_v"] = version
         entries = await self._touch_case(session, record, rows, changes)
         for event in events:
@@ -320,15 +408,19 @@ class MongoPoFollowupStore:
 
     async def _write_fields(
         self, session: AsyncClientSession, command: FollowupCommand, now: datetime
-    ) -> None:
+    ) -> list[str]:
+        """Write the values the answer sets; returns the fields whose value
+        changed.
+        """
         if not command.fields:
-            return
+            return []
         repo = self._views.field_values
         ids = [field_value_id(command.case_id, w.field_id) for w in command.fields]
         stored = await repo.collection.find(
             {"_id": {"$in": ids}}, session=session
         ).to_list()
         previous = {d["_id"]: repo.from_document(d) for d in stored}
+        changed = changed_by(command, {r.field_id: r for r in previous.values()})
         operations = []
         for write, row_id in zip(command.fields, ids, strict=True):
             row = next_field_row(
@@ -346,6 +438,61 @@ class MongoPoFollowupStore:
                 ReplaceOne({"_id": row_id}, repo.to_document(row), upsert=True)
             )
         await repo.collection.bulk_write(operations, ordered=True, session=session)
+        return changed
+
+    async def _adhoc(
+        self,
+        session: AsyncClientSession,
+        record: CaseRecord,
+        thread: ClarificationThreadRow,
+        command: FollowupCommand,
+        changed: list[str],
+        now: datetime,
+        events: list[Envelope],
+        rows: list[UiEventIn],
+    ) -> Optional[int]:
+        """An ad-hoc answer (ADR-73): note on the thread which fields it changed,
+        freeze the next submission when a value changed or a document was added,
+        and enqueue ``case.question_answered``. Returns the version it froze.
+        """
+        field_rows: list[FieldValueRow] = []
+        documents: list[DocumentRow] = []
+        if changed or command.documents:
+            field_rows = await self._views.field_values.find(
+                {"case_id": command.case_id}, limit=MAX_ROWS_PER_CASE, session=session
+            )
+            documents = await self._views.documents.find(
+                {"case_id": command.case_id},
+                sort=[("uploaded_at", ASCENDING)],
+                limit=MAX_ROWS_PER_CASE,
+                session=session,
+            )
+        answered = adhoc_answered(
+            command=command,
+            record=record,
+            thread=thread,
+            changed=changed,
+            field_rows=field_rows,
+            documents=documents,
+            now=now,
+        )
+        version: Optional[int] = None
+        if answered.submission is not None:
+            await self._submissions.insert_one(answered.submission, session=session)
+            version = answered.submission.version
+        await self._threads.collection.update_one(
+            {"_id": thread.thread_id},
+            {
+                "$set": {
+                    "answer.changed_field_ids": answered.changed,
+                    "resulting_version": version,
+                }
+            },
+            session=session,
+        )
+        events.append(answered.event)
+        rows.extend(answered.rows)
+        return version
 
     async def _close_round(
         self,
@@ -587,6 +734,14 @@ class InMemoryPoFollowupStore:
         version, or ``None`` while the round stays open.
         """
         assert command.answer is not None
+        changed = changed_by(
+            command,
+            {
+                r.field_id: r
+                for r in self._views.field_values.values()
+                if r.case_id == command.case_id
+            },
+        )
         self._views.threads[thread.thread_id] = thread.model_copy(
             update={"status": "answered", "answer": command.answer.answer}
         )
@@ -595,20 +750,78 @@ class InMemoryPoFollowupStore:
         for doc in command.documents:
             self._views.documents[doc.doc_id] = doc
         events.extend(command.events)
+        if thread.kind == "adhoc":
+            version = self._adhoc(record, thread, command, changed, now, events, rows)
+            self._count_open(command.case_id)
+            return version
         closed = self._close_round(record, thread, command, now)
-        self._po.open_threads[command.case_id] = len(
-            [
-                t
-                for t in self._views.threads.values()
-                if t.case_id == command.case_id and t.status == "awaiting_response"
-            ]
-        )
+        self._count_open(command.case_id)
         if closed is None:
             return None
         submission, envelope = closed
         events.append(envelope)
         rows.extend(round_rows(command, thread, submission.version))
         return submission.version
+
+    def _count_open(self, case_id: str) -> None:
+        """The open-question count the owner's list reads."""
+        self._po.open_threads[case_id] = len(
+            [
+                t
+                for t in self._views.threads.values()
+                if t.case_id == case_id and t.status == "awaiting_response"
+            ]
+        )
+
+    def _adhoc(
+        self,
+        record: CaseRecord,
+        thread: ClarificationThreadRow,
+        command: FollowupCommand,
+        changed: list[str],
+        now: datetime,
+        events: list[Envelope],
+        rows: list[UiEventIn],
+    ) -> Optional[int]:
+        """The twin of ``MongoPoFollowupStore._adhoc``."""
+        answered = adhoc_answered(
+            command=command,
+            record=record,
+            thread=thread,
+            changed=changed,
+            field_rows=[
+                r
+                for r in self._views.field_values.values()
+                if r.case_id == record.case_id
+            ],
+            documents=sorted(
+                (
+                    d
+                    for d in self._views.documents.values()
+                    if d.case_id == record.case_id
+                ),
+                key=lambda d: (d.uploaded_at, d.doc_id),
+            ),
+            now=now,
+        )
+        version: Optional[int] = None
+        if answered.submission is not None:
+            self._po.submissions[answered.submission.version_id] = answered.submission
+            version = answered.submission.version
+        held = self._views.threads[thread.thread_id]
+        answer = held.answer
+        assert answer is not None
+        self._views.threads[thread.thread_id] = held.model_copy(
+            update={
+                "answer": answer.model_copy(
+                    update={"changed_field_ids": answered.changed}
+                ),
+                "resulting_version": version,
+            }
+        )
+        events.append(answered.event)
+        rows.extend(answered.rows)
+        return version
 
     def _plan_answer(
         self, command: FollowupCommand

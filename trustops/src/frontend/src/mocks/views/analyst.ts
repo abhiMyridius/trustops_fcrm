@@ -1,4 +1,5 @@
 /** Analyst projections (S1 case_analyst + S2 score snapshots). */
+import { corpusClause } from '../corpus';
 import type {
   ActivityAnalyst,
   AssessmentSummary,
@@ -24,6 +25,7 @@ import type {
 import type { Domain } from '@/api/types/common';
 import {
   THREAD_IDS,
+  askBlockedReason,
   demoScore,
   lockBlockers,
   pendingAcks,
@@ -437,7 +439,19 @@ export function submissionDiff(id: string, from: number, to: number): Submission
 }
 
 export function clarifications(id: string): ClarificationsView | null {
-  if (!isDemo(id)) return seedCase(id) ? { drafted: [], rounds: [], can_send: false, clock_paused: false } : null;
+  if (!isDemo(id))
+    return seedCase(id)
+      ? {
+          drafted: [],
+          rounds: [],
+          can_send: false,
+          clock_paused: false,
+          questions: [],
+          can_ask: false,
+          ask_blocked_reason: 'Only FCRM-2026-0151 is live in mock mode.',
+          values_changed: [],
+        }
+      : null;
   const d = getDB().demo;
   const qs = seed.demo.questions;
   const drafted = assessmentDone()
@@ -461,18 +475,44 @@ export function clarifications(id: string): ClarificationsView | null {
               const a = d.threadAnswers[tid];
               return {
                 id: tid,
+                kind: 'round' as const,
                 round: 1,
                 anchor: qs[i]?.field ?? '',
                 question: qs[i]?.q ?? '',
-                status: d.resolved.includes(tid) ? 'resolved' : a ? 'answered' : 'open',
-                answer: a ? { ...a, by: nameOf(seed.demo.owner) } : null,
+                status: d.resolved.includes(tid) ? ('resolved' as const) : a ? ('answered' as const) : ('open' as const),
+                answer: a ? { ...a, by: nameOf(seed.demo.owner), fields: [], submission_version: roundAnswered() ? 2 : null } : null,
               };
             }),
           },
         ]
       : [],
-    can_send: d.completeness === 'ask' && !d.roundSent,
+    // D-120: the round is composed and sent while the completeness gate is open and undecided.
+    can_send: hasRecord(35) && d.completeness === null && !d.roundSent,
     clock_paused: d.roundSent && !roundAnswered(),
+    questions: d.adhoc.map((q) => ({
+      id: q.id,
+      kind: 'adhoc' as const,
+      round: 0,
+      anchor: q.anchor ?? '',
+      question: q.text,
+      status: q.resolved ? ('resolved' as const) : q.answer ? ('answered' as const) : ('open' as const),
+      answer: q.answer
+        ? {
+            text: q.answer.text,
+            documents: q.answer.documents,
+            at: q.answer.at,
+            by: nameOf(seed.demo.owner),
+            fields: q.answer.changed.map((f) => ({ field_id: f, label: FIELD_LABEL[f] ?? f, value: q.answer?.values[f] ?? '' })),
+            submission_version: q.submission_version,
+          }
+        : null,
+    })),
+    can_ask: askBlockedReason() === null,
+    ask_blocked_reason: askBlockedReason(),
+    // The mock re-runs nothing: a value the owner changed stays flagged until the analyst asks for a re-run.
+    values_changed: d.adhoc.flatMap((q) =>
+      (q.answer?.changed ?? []).map((f) => ({ field_id: f, label: FIELD_LABEL[f] ?? f, value: q.answer?.values[f] ?? '' })),
+    ),
   };
 }
 
@@ -483,18 +523,40 @@ export function policy(id: string): PolicyView | null {
   }
   const d = getDB().demo;
   const ready = assessmentDone();
-  const clauses: ClauseItem[] = ready
-    ? seed.demo.clauses.map((c) => ({
-        id: c.clause_id,
+  const mine = d.analystClauses ?? {};
+  const proposed: ClauseItem[] = seed.demo.clauses
+    // A removed clause the analyst added again is listed once, as the analyst's (ADR-74).
+    .filter((c) => !(c.clause_id in mine))
+    .map((c) => ({
+      id: c.clause_id,
+      source: c.src,
+      title: c.title,
+      quote: c.quote,
+      ref: c.ref,
+      corpus_version: seed.corpus.version,
+      decision: d.clauses[c.clause_id]?.decision ?? 'pending',
+      reason: d.clauses[c.clause_id]?.reason ?? null,
+    }));
+  const added: ClauseItem[] = Object.entries(mine).flatMap(([clauseId, a]) => {
+    const c = corpusClause(clauseId);
+    if (!c) return [];
+    return [
+      {
+        id: clauseId,
         source: c.src,
         title: c.title,
         quote: c.quote,
         ref: c.ref,
         corpus_version: seed.corpus.version,
-        decision: d.clauses[c.clause_id]?.decision ?? 'pending',
-        reason: d.clauses[c.clause_id]?.reason ?? null,
-      }))
-    : [];
+        decision: a.removed ? ('removed' as const) : ('accepted' as const),
+        reason: a.removed ? a.removeReason : a.reason,
+        origin: 'analyst' as const,
+        added_by: a.by,
+        added_reason: a.reason,
+      },
+    ];
+  });
+  const clauses: ClauseItem[] = ready ? [...proposed, ...added].sort((x, y) => x.id.localeCompare(y.id)) : [];
   return {
     clauses,
     gap: ready ? { text: seed.demo.clause_gap, recorded: d.gapRecorded } : null,
@@ -733,7 +795,19 @@ export function handoff(id: string): HandoffView | null {
 export function activityAnalyst(id: string): ActivityAnalyst[] | null {
   if (!isDemo(id)) {
     const po = poActivity(id);
-    return po ? po.map((e) => ({ id: e.id, at: e.at, actor: e.actor === 'You' ? 'Product owner' : e.actor, type: 'case.event', text: e.text, record_seq: null })) : null;
+    // Staff read the owner's lines in the third person, as S1 answers them (D-119).
+    const c = seedCase(id);
+    const owner = c ? nameOf(c.owner) : 'The product owner';
+    return po
+      ? po.map((e) => ({
+          id: e.id,
+          at: e.at,
+          actor: e.actor === 'You' ? owner : e.actor,
+          type: 'case.event',
+          text: e.text.replace(/^You /, `${owner} `),
+          record_seq: null,
+        }))
+      : null;
   }
   return getDB()
     .demo.audit.map((a) => ({ id: `rec_${a.seq}`, at: a.at, actor: a.by, type: a.type, text: a.what, record_seq: a.seq }))

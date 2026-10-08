@@ -1,7 +1,7 @@
 """The analyst's write use cases (scenes 8-16): decide an item, acknowledge a
 boundary or band change, confirm the fast lane, answer the completeness gate, ask
-the owner a round of questions, edit and lock the recommendation, record a
-planned control or a gap, re-tag.
+the owner a round of questions or an ad-hoc question at any time (ADR-73), edit
+and lock the recommendation, record a planned control or a gap, re-tag.
 
 Each method resolves the analyst's own case, decides what the action does and
 hands the store ONE :class:`~fcrm_case.domain.analyst_commands.AnalystCommand`;
@@ -40,6 +40,7 @@ from fcrm_common.errors import (
 )
 from fcrm_common.metrics import FcrmMetrics, get_metrics
 from fcrm_common.time import utcnow
+from fcrm_contracts.api.case_analyst_clause import ClauseAddBody, ClauseAddResult
 from fcrm_contracts.api.case_analyst_write import (
     AcknowledgeBody,
     AcknowledgeResult,
@@ -53,6 +54,8 @@ from fcrm_contracts.api.case_analyst_write import (
     ItemDecisionBody,
     ItemDecisionResult,
     PlannedControlBody,
+    QuestionsBody,
+    QuestionsResult,
     Recommendation,
     RecommendationEditBody,
     RecordedWrite,
@@ -68,8 +71,8 @@ from fcrm_contracts.common import Principal
 from fcrm_contracts.enums import CaseState, GateType, ItemKind
 from pydantic import ValidationError as PydanticValidationError
 
+from fcrm_case.analyst_clause_service import AnalystClauseService
 from fcrm_case.analyst_errors import (
-    DecisionNotAllowedError,
     GateAlreadyDecidedError,
     ItemSupersededError,
     NoOpenGateError,
@@ -85,9 +88,11 @@ from fcrm_case.domain.activity import names_a_restricted_term
 from fcrm_case.domain.analyst_commands import (
     AGENT_FOR_KIND,
     OVERRIDING_DECISIONS,
+    AdhocAsk,
     AnalystCommand,
     ack_command,
     ack_kind_of,
+    ask_adhoc_command,
     ask_round_command,
     decide_item_command,
     decision_fingerprint,
@@ -114,7 +119,15 @@ from fcrm_case.domain.assessment import (
     current_items,
     resolve_item,
 )
-from fcrm_case.domain.clarifications import anchor_parts, is_field_id
+from fcrm_case.domain.clarifications import (
+    ClarificationThreadRow,
+    adhoc_question_id,
+    adhoc_threads,
+    anchor_parts,
+    ask_blocked_reason,
+    is_field_id,
+    round_threads,
+)
 from fcrm_case.domain.recommendation_edits import (
     RecommendationState,
     apply_edit,
@@ -172,6 +185,13 @@ class AnalystWriteService:
         self._writer = writer
         self._config = config
         self._metrics = metrics if metrics is not None else get_metrics()
+        self._clauses = AnalystClauseService(
+            views=views,
+            assessment=assessment,
+            store=store,
+            writer=writer,
+            config=config,
+        )
 
     # -- plumbing ----------------------------------------------------------------
 
@@ -284,9 +304,9 @@ class AnalystWriteService:
             )
         item_id = row.item_id
         if row.gate_id is None:
-            raise DecisionNotAllowedError(
-                f"item {item_id} has no gate to decide", item_id=item_id
-            )
+            # Only a clause the analyst added has no gate and still takes a
+            # decision (ADR-74); anything else is refused there.
+            return await self._clauses.decide(principal, record, row, body)
         plan = plan_item_decision(row, body)
         if await self._replayed(row.gate_id, item_fingerprint(body)):
             return ItemDecisionResult(
@@ -712,7 +732,8 @@ class AnalystWriteService:
             )
         if known is not None:
             thread_ids = [
-                t.thread_id for t in await self._store.threads(record.case_id)
+                t.thread_id
+                for t in round_threads(await self._store.threads(record.case_id))
             ]
             return CompletenessResult(
                 case_id=record.case_id,
@@ -726,7 +747,11 @@ class AnalystWriteService:
             record, CaseState.COMPLETENESS, "the completeness gate is decided first"
         )
         labels = {d.field_id: d.label for d in record.required_fields}
-        await self._check_questions(record, questions, labels)
+        await self._check_questions(
+            record,
+            [(f"Question {q.id}", q.text, q.anchor) for q in questions],
+            labels,
+        )
         command = ask_round_command(
             case_id=record.case_id,
             run_id=self._run_id(record, view.run_id),
@@ -751,11 +776,12 @@ class AnalystWriteService:
     async def _check_questions(
         self,
         record: CaseRecord,
-        questions: list[RoundQuestion],
+        questions: list[tuple[str, str, Optional[str]]],
         labels: dict[str, str],
     ) -> None:
-        """Each question is read by the owner, so it may not name a reserved term,
-        and each anchor must be a field of the case or one of its controls.
+        """Each question (``(what, text, anchor)``) is read by the owner, so it may
+        not name a reserved term, and each anchor must be a field of the case or
+        one of its controls.
         """
         controls = {
             str(r.subject.get("control_id"))
@@ -769,16 +795,96 @@ class AnalystWriteService:
             for control_id, ref in control_catalogue().items()
             if ref.domain in record.domains
         }
-        for question in questions:
-            reject_reserved_terms(
-                question.text, f"Question {question.id}", loc="body.questions"
-            )
-            for part in anchor_parts(question.anchor):
+        for what, text, anchor in questions:
+            reject_reserved_terms(text, what, loc="body.questions")
+            for part in anchor_parts(anchor):
                 if not ((is_field_id(part) and part in labels) or part in controls):
                     raise ValidationError(
                         f"{part} is not a field or a control of this case.",
                         errors=[{"loc": "body.questions", "msg": "unknown anchor"}],
                     )
+
+    # -- ad-hoc questions to the owner, at any stage (ADR-73) --------------------
+
+    async def ask_owner(
+        self, principal: Principal, case_id: str, body: QuestionsBody
+    ) -> QuestionsResult:
+        """Ask the owner one or more questions outside the round: one thread per
+        question, then ``case.question_asked``, committed together. No gate is
+        decided and the analyst's clock keeps running, so the round (D-16) is
+        untouched. A question an open ad-hoc thread already asks, with the same
+        anchor, reuses that thread; when every question does, nothing is written
+        (a replay).
+
+        Raises:
+            WrongStageError: The case is at a stage where no question may be asked
+                (not yet with the analyst, locked, with the committee).
+            ValidationError: A question repeats another of the body, names a
+                reserved term the owner may not read, or is anchored to something
+                that is not the case's.
+            NotReadyError: Caseflow has not opened a run for the case yet.
+        """
+        record = await self._own_case(case_id, principal)
+        blocked = ask_blocked_reason(record)
+        if blocked is not None:
+            raise WrongStageError(
+                f"{blocked} (the case is at {record.state.value})",
+                case_id=case_id,
+                stage=record.state.value,
+            )
+        asked = [(q.text, q.anchor) for q in body.questions]
+        if len(set(asked)) != len(asked):
+            raise ValidationError(
+                "Each question may be asked once per send.",
+                errors=[{"loc": "body.questions", "msg": "duplicate question"}],
+            )
+        labels = {d.field_id: d.label for d in record.required_fields}
+        await self._check_questions(
+            record,
+            [
+                (f"Question {n}", q.text, q.anchor)
+                for n, q in enumerate(body.questions, start=1)
+            ],
+            labels,
+        )
+        existing = adhoc_threads(await self._store.threads(case_id))
+        open_by_words = {
+            (t.text, t.anchor): t for t in existing if t.status == "awaiting_response"
+        }
+        fresh = [q for q in asked if q not in open_by_words]
+        if not fresh:
+            return QuestionsResult(
+                case_id=case_id,
+                questions=len(asked),
+                thread_ids=[open_by_words[q].thread_id for q in asked],
+                replayed=True,
+            )
+        questions = [
+            AdhocAsk(adhoc_question_id(len(existing) + n), text, anchor)
+            for n, (text, anchor) in enumerate(fresh, start=1)
+        ]
+        command = ask_adhoc_command(
+            case_id=case_id,
+            run_id=self._run_id(record, None),
+            questions=questions,
+            labels=labels,
+            by=principal.sub,
+            by_name=principal.name,
+            now=utcnow(),
+        )
+        await self._commit(command)
+        opened: dict[tuple[str, Optional[str]], ClarificationThreadRow] = {
+            (t.text, t.anchor): t for t in command.threads
+        }
+        logger.info(
+            "ad-hoc questions asked",
+            extra={"case_id": case_id, "questions": len(command.threads)},
+        )
+        return QuestionsResult(
+            case_id=case_id,
+            questions=len(asked),
+            thread_ids=[(opened.get(q) or open_by_words[q]).thread_id for q in asked],
+        )
 
     async def resolve_thread(
         self,
@@ -942,3 +1048,15 @@ class AnalystWriteService:
         return RerunResult(
             case_id=case_id, scope=body.scope, replayed=committed.replayed
         )
+
+    # -- a clause from the corpus (ADR-74) -----------------------------------------
+
+    async def add_clause(
+        self, principal: Principal, case_id: str, body: ClauseAddBody
+    ) -> ClauseAddResult:
+        """Add a clause found by searching the corpus to the case, accepted, its
+        text read from S3 at the pinned corpus version
+        (:class:`~fcrm_case.analyst_clause_service.AnalystClauseService`).
+        """
+        record = await self._own_case(case_id, principal)
+        return await self._clauses.add(principal, record, body)

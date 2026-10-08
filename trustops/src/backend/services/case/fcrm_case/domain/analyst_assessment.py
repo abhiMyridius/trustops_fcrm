@@ -33,7 +33,6 @@ from datetime import date, datetime
 from typing import Any, Final, Optional
 
 from fcrm_contracts.api.case_analyst_read import (
-    AgentFailed,
     AssessmentSummary,
     ClarificationRound,
     ClarificationsView,
@@ -43,6 +42,7 @@ from fcrm_contracts.api.case_analyst_read import (
     CriticFinding,
     DraftQuestion,
     FactorAnchor,
+    FieldChange,
     Flag,
     HandoffView,
     ItemDecision,
@@ -65,6 +65,12 @@ from fcrm_contracts.api.case_analyst_read import (
 from fcrm_contracts.api.case_po import SourceRef
 from fcrm_contracts.enums import CaseState, Domain, ItemKind, ItemStatus
 
+from fcrm_case.domain.analyst_clauses import (
+    added_reason,
+    is_analyst_clause,
+    shown_clause_rows,
+)
+from fcrm_case.domain.analyst_handoff import HandoffGateRow, agent_failed_notice
 from fcrm_case.domain.analyst_records import GapRow, PlannedControlRow
 from fcrm_case.domain.analyst_views import assessment_ready, band_no, score_box
 from fcrm_case.domain.assessment import (
@@ -74,7 +80,13 @@ from fcrm_case.domain.assessment import (
     RecommendationRow,
     current_items,
 )
-from fcrm_case.domain.clarifications import ClarificationThreadRow
+from fcrm_case.domain.clarifications import (
+    ClarificationThreadRow,
+    adhoc_threads,
+    ask_blocked_reason,
+    round_threads,
+    values_changed_since,
+)
 from fcrm_case.domain.completion import compute_completion
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.views import (
@@ -388,6 +400,8 @@ class AssessmentInputs:
     critic: Optional[CriticViewRow]
     completeness: Optional[CompletenessViewRow]
     decided_gate_ids: frozenset[str]
+    #: The handoff gates still open (read only while the case is in ``handoff``).
+    handoff_gates: Sequence[HandoffGateRow] = ()
 
 
 def assessment_summary(inputs: AssessmentInputs) -> AssessmentSummary:
@@ -434,12 +448,9 @@ def assessment_summary(inputs: AssessmentInputs) -> AssessmentSummary:
         completeness=completeness,
         critic_findings=critic_findings(inputs.critic, inputs.items) if ready else [],
         score=box,
-        agent_failed=AgentFailed(
-            step="agent run",
-            reason="An agent failed twice. The case is with you: nothing was skipped.",
-        )
-        if record.state is CaseState.HANDOFF
-        else None,
+        agent_failed=agent_failed_notice(
+            record.state, record.handoff_from, inputs.handoff_gates
+        ),
     )
 
 
@@ -468,12 +479,12 @@ def clause_items(
     shown by its id with no source (never an invented one).
     """
     items: list[ClauseItem] = []
-    for row in current_items(rows):
-        if row.kind is not ItemKind.CLAUSE:
-            continue
+    for row in shown_clause_rows(rows):
         clause_id = _text(row.subject.get("clause_id"))
         known = catalogue.get(clause_id)
-        if known is None:
+        # A clause the analyst added carries the citation S3 gave it (ADR-74).
+        mine = is_analyst_clause(row)
+        if known is None and not mine:
             logger.warning(
                 "clause item names a clause the corpus does not hold",
                 extra={"case_id": row.case_id, "clause_id": clause_id},
@@ -481,16 +492,29 @@ def clause_items(
         items.append(
             ClauseItem(
                 id=clause_id,
-                source=known.source if known else "",
-                title=known.title if known else clause_id,
+                source=_text(row.subject.get("source_id"))
+                if mine
+                else (known.source if known else ""),
+                title=_text(row.subject.get("title") or clause_id)
+                if mine
+                else (known.title if known else clause_id),
                 quote=_text(row.proposed.get("quote")),
-                ref=known.ref if known else "",
+                ref=_text(row.subject.get("ref"))
+                if mine
+                else (known.ref if known else ""),
                 corpus_version=_corpus(row),
                 decision=decision_of(row),
                 reason=row.decided.reason if row.decided is not None else None,
                 item_id=row.item_id,
                 gate_id=row.gate_id,
                 gate_open=gate_open(row),
+                origin="analyst" if mine else "agent",
+                added_by=_text(
+                    row.subject.get("added_by_name") or row.subject.get("added_by")
+                )
+                if mine
+                else None,
+                added_reason=added_reason(row),
             )
         )
     return sorted(items, key=lambda c: c.id)
@@ -915,7 +939,7 @@ def handoff_view(inputs: HandoffInputs) -> HandoffView:
     )
 
 
-# -- the clarification round -------------------------------------------------------
+# -- the clarification round and the ad-hoc questions -----------------------------
 
 _THREAD_STATUS: Final = {
     "awaiting_response": "open",
@@ -924,10 +948,17 @@ _THREAD_STATUS: Final = {
 }
 
 
-def _thread(row: ClarificationThreadRow) -> ThreadAnalyst:
+def _field_change(field_id: str, value: str, labels: Mapping[str, str]) -> FieldChange:
+    return FieldChange(
+        field_id=field_id, label=labels.get(field_id, field_id), value=value
+    )
+
+
+def _thread(row: ClarificationThreadRow, labels: Mapping[str, str]) -> ThreadAnalyst:
     answer = row.answer
     return ThreadAnalyst(
         id=row.thread_id,
+        kind=row.kind,
         round=row.round,
         anchor=row.anchor or "",
         question=row.text,
@@ -937,6 +968,11 @@ def _thread(row: ClarificationThreadRow) -> ThreadAnalyst:
             documents=list(answer.documents),
             at=answer.at.isoformat(),
             by=answer.by,
+            fields=[
+                _field_change(f, answer.values.get(f, ""), labels)
+                for f in answer.changed_field_ids
+            ],
+            submission_version=row.resulting_version,
         )
         if answer is not None
         else None,
@@ -948,11 +984,19 @@ def clarifications_view(
     completeness: Optional[CompletenessViewRow],
     decided: Optional[str],
     threads: Sequence[ClarificationThreadRow],
+    scored_at: Optional[datetime] = None,
 ) -> ClarificationsView:
     """The Inbox tab: the questions the narrative agent drafted (with the ones it
     dropped and why), the round the analyst sent (each question with the owner's
-    answer, in the analyst's terms: the anchor may name a control), whether a round
-    can still be sent and whether the analyst's clock is paused on the owner.
+    answer, in the analyst's terms: the anchor may name a control), whether the
+    round can still be composed and sent, whether the analyst's clock is paused on
+    the owner, and the ad-hoc questions (ADR-73) with whether one may be asked now
+    and which values the owner changed since the agents last scored the case
+    (``scored_at``).
+
+    The round can be sent while the completeness gate is open and undecided
+    (D-120: "Ask now" opens the composer; only its send decides the gate, with the
+    questions the analyst kept and edited).
     """
     drafted = [
         DraftQuestion(
@@ -964,21 +1008,34 @@ def clarifications_view(
         )
         for q in (completeness.questions if completeness is not None else [])
     ]
+    labels = {d.field_id: d.label for d in record.required_fields}
+    in_round = round_threads(threads)
     by_round: dict[int, list[ClarificationThreadRow]] = {}
-    for row in threads:
+    for row in in_round:
         by_round.setdefault(row.round, []).append(row)
     rounds = [
         ClarificationRound(
             round=number,
             sent_at=min(r.opened_at for r in rows).isoformat(),
             to=record.owner_name or record.owner,
-            threads=[_thread(r) for r in sorted(rows, key=lambda r: r.question_id)],
+            threads=[
+                _thread(r, labels) for r in sorted(rows, key=lambda r: r.question_id)
+            ],
         )
         for number, rows in sorted(by_round.items())
     ]
+    blocked = ask_blocked_reason(record)
+    changed = values_changed_since(threads, scored_at)
     return ClarificationsView(
         drafted=drafted,
         rounds=rounds,
-        can_send=decided == "ask" and not threads,
-        clock_paused=any(r.status == "awaiting_response" for r in threads),
+        can_send=completeness is not None
+        and decided is None
+        and not in_round
+        and record.state is CaseState.COMPLETENESS,
+        clock_paused=any(r.status == "awaiting_response" for r in in_round),
+        questions=[_thread(r, labels) for r in adhoc_threads(threads)],
+        can_ask=blocked is None,
+        ask_blocked_reason=blocked,
+        values_changed=[_field_change(f, v, labels) for f, v in changed.items()],
     )
