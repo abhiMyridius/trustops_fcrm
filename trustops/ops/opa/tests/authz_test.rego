@@ -749,6 +749,7 @@ test_po_denied_every_analyst_route if {
 		["POST", "/cases/{case_id}/screening"],
 		["POST", "/cases/{case_id}/completeness"],
 		["POST", "/cases/{case_id}/clarifications"],
+		["POST", "/cases/{case_id}/questions"],
 		["POST", "/cases/{case_id}/acknowledge"],
 		["POST", "/cases/{case_id}/controls/planned"],
 		["POST", "/cases/{case_id}/gaps"],
@@ -879,6 +880,7 @@ analyst_write_routes := {
 	["POST", "/cases/{case_id}/completeness"],
 	["POST", "/cases/{case_id}/clarifications"],
 	["POST", "/cases/{case_id}/clarifications/{thread_id}/resolve"],
+	["POST", "/cases/{case_id}/questions"],
 	["POST", "/cases/{case_id}/change-types"],
 	["POST", "/cases/{case_id}/controls/planned"],
 	["POST", "/cases/{case_id}/gaps"],
@@ -939,6 +941,15 @@ test_no_other_role_may_answer_or_evidence if {
 		every r in po_followup_writes {
 			not authz.allow with input as req(role, "case", r[0], r[1])
 		}
+	}
+}
+
+# ADR-73: the analyst asks the owner an ad-hoc question at any stage; nobody else
+# may, and the service account is denied (Guard 7: a person asks).
+test_only_the_analyst_asks_the_owner_an_adhoc_question if {
+	authz.allow with input as req("fcrm_analyst", "case", "POST", "/cases/{case_id}/questions")
+	every role in {"fcrm_po", "fcrm_committee", "fcrm_observer", "fcrm_service"} {
+		not authz.allow with input as req(role, "case", "POST", "/cases/{case_id}/questions")
 	}
 }
 

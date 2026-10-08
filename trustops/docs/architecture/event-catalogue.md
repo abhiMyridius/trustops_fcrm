@@ -38,7 +38,10 @@ Each has a matching `<exchange>.dlx` dead-letter exchange and per-queue retry qu
 **Live wiring (ADR-28)**
 `harness.step` · `pack.released` · `vote.tallied` · `committee.question_asked` · `committee.answered` · `case.clarification_sent` · `case.control_planned` · `jurisdiction.list_published` · `examiner.asked`
 
-That is 66 event types in the committed catalogue (`len(EVENT_TYPES) == 66`, locked by `tests/unit/packages/contracts/test_event_payloads.py` — the design docs' "30 event types" was an earlier estimate before every row of the transition table was transcribed into code; 57 was the count before the live wiring added the nine above; the catalogue, not an estimate, is current).
+**Ad-hoc questions to the owner (ADR-73)**
+`case.question_asked` · `case.question_answered` (S1 → H1) · `question.asked` · `question.answered` (the records H1's steps write for them)
+
+That is 70 event types in the committed catalogue (`len(EVENT_TYPES) == 70`; 66 before ADR-73 added the four above, locked by `tests/unit/packages/contracts/test_event_payloads.py` — the design docs' "30 event types" was an earlier estimate before every row of the transition table was transcribed into code; 57 was the count before the live wiring added the nine above; the catalogue, not an estimate, is current).
 
 ### Live wiring: the nine types added with ADR-28
 
@@ -55,6 +58,15 @@ All nine publish to `case.events` (topic) with the event type as routing key, th
 | `case.control_planned` | S1 | H1 (`CASE_CONTROL_PLANNED`, REVIEW self-loop; a planned control is never scored) | `CaseControlPlanned{case_id, actor, planned_control}` |
 | `jurisdiction.list_published` | S3 | H1 (oversight: names no case, so it gets a harness run of its own; `watchlist.publish` asks S1 for the candidates and dispatches the watchlist agent) | `JurisdictionListPublished{version, added, removed, fixture}` |
 | `examiner.asked` | S4, published directly after the question is stored (the insert-only audit role cannot update, so it has no outbox relay) | H1 (oversight: `examiner.answer` records the question and dispatches the examiner agent on the case's run, or an oversight run) | `ExaminerAsked{case_id, question_id, question, asked_by}` |
+
+### Ad-hoc questions: the four types added with ADR-73
+
+| Type | Publisher | Consumer | Payload model (`fcrm_contracts.events.payloads`) |
+|---|---|---|---|
+| `case.question_asked` | S1 (`POST /cases/{id}/questions`, same transaction as the threads) | H1 (`CASE_QUESTION_ASKED`, a self-loop in every state from TRIAGE to DECIDE and in HANDOFF; step `question.asked`) | `CaseQuestionAsked{case_id, actor, thread_ids, question_count}` |
+| `case.question_answered` | S1 (the owner's answer to an ad-hoc thread, same transaction as the answer, the values and the frozen version) | H1 (`CASE_QUESTION_ANSWERED`, the same self-loops; step `question.answered` re-runs research and assessment on the changed fields only in REVIEW with no agent running) | `CaseQuestionAnswered{case_id, actor, thread_id, question_id, changed_field_ids, added_document_ids, submission_version}` |
+| `question.asked` | H1's `question.asked` step | S4 (audit record) | record data `{thread_ids, question_count}` |
+| `question.answered` | H1's `question.answered` step | S4 (audit record) | record data `{thread_id, question_id, changed_fields, added_documents, submission_version, rerun}` |
 
 `harness.step` carries agent output in `args.payload` (H1 holds no other copy of the proposals). It is harness data: S1's SSE stream must never forward the `harness.` prefix to a PO.
 

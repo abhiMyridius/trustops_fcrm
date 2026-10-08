@@ -24,6 +24,7 @@ import type {
 import type { Domain } from '@/api/types/common';
 import {
   THREAD_IDS,
+  askBlockedReason,
   demoScore,
   lockBlockers,
   pendingAcks,
@@ -437,7 +438,19 @@ export function submissionDiff(id: string, from: number, to: number): Submission
 }
 
 export function clarifications(id: string): ClarificationsView | null {
-  if (!isDemo(id)) return seedCase(id) ? { drafted: [], rounds: [], can_send: false, clock_paused: false } : null;
+  if (!isDemo(id))
+    return seedCase(id)
+      ? {
+          drafted: [],
+          rounds: [],
+          can_send: false,
+          clock_paused: false,
+          questions: [],
+          can_ask: false,
+          ask_blocked_reason: 'Only FCRM-2026-0151 is live in mock mode.',
+          values_changed: [],
+        }
+      : null;
   const d = getDB().demo;
   const qs = seed.demo.questions;
   const drafted = assessmentDone()
@@ -461,18 +474,44 @@ export function clarifications(id: string): ClarificationsView | null {
               const a = d.threadAnswers[tid];
               return {
                 id: tid,
+                kind: 'round' as const,
                 round: 1,
                 anchor: qs[i]?.field ?? '',
                 question: qs[i]?.q ?? '',
-                status: d.resolved.includes(tid) ? 'resolved' : a ? 'answered' : 'open',
-                answer: a ? { ...a, by: nameOf(seed.demo.owner) } : null,
+                status: d.resolved.includes(tid) ? ('resolved' as const) : a ? ('answered' as const) : ('open' as const),
+                answer: a ? { ...a, by: nameOf(seed.demo.owner), fields: [], submission_version: roundAnswered() ? 2 : null } : null,
               };
             }),
           },
         ]
       : [],
-    can_send: d.completeness === 'ask' && !d.roundSent,
+    // D-120: the round is composed and sent while the completeness gate is open and undecided.
+    can_send: hasRecord(35) && d.completeness === null && !d.roundSent,
     clock_paused: d.roundSent && !roundAnswered(),
+    questions: d.adhoc.map((q) => ({
+      id: q.id,
+      kind: 'adhoc' as const,
+      round: 0,
+      anchor: q.anchor ?? '',
+      question: q.text,
+      status: q.resolved ? ('resolved' as const) : q.answer ? ('answered' as const) : ('open' as const),
+      answer: q.answer
+        ? {
+            text: q.answer.text,
+            documents: q.answer.documents,
+            at: q.answer.at,
+            by: nameOf(seed.demo.owner),
+            fields: q.answer.changed.map((f) => ({ field_id: f, label: FIELD_LABEL[f] ?? f, value: q.answer?.values[f] ?? '' })),
+            submission_version: q.submission_version,
+          }
+        : null,
+    })),
+    can_ask: askBlockedReason() === null,
+    ask_blocked_reason: askBlockedReason(),
+    // The mock re-runs nothing: a value the owner changed stays flagged until the analyst asks for a re-run.
+    values_changed: d.adhoc.flatMap((q) =>
+      (q.answer?.changed ?? []).map((f) => ({ field_id: f, label: FIELD_LABEL[f] ?? f, value: q.answer?.values[f] ?? '' })),
+    ),
   };
 }
 

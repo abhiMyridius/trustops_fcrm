@@ -59,6 +59,19 @@ export interface PlannedEntry {
   due: string;
 }
 
+/** An ad-hoc question the analyst asked the owner outside the round (ADR-73). */
+export interface AdhocEntry {
+  id: string;
+  question_id: string;
+  text: string;
+  anchor: string | null;
+  field_id: string | null;
+  opened_at: string;
+  answer: { text: string; documents: string[]; at: string; values: Record<string, string>; changed: string[] } | null;
+  submission_version: number | null;
+  resolved: boolean;
+}
+
 export interface DemoState {
   docs: DocEntry[];
   readingStartedAt: number | null;
@@ -73,6 +86,9 @@ export interface DemoState {
   roundSent: boolean;
   threadAnswers: Record<string, { text: string; documents: string[]; at: string }>;
   resolved: string[];
+  adhoc: AdhocEntry[];
+  /** The latest submission version an ad-hoc answer froze (null: none yet). */
+  adhocVersion: number | null;
   clauses: Record<string, { decision: 'pending' | 'accepted' | 'removed'; reason: string | null }>;
   gapRecorded: boolean;
   controls: Record<string, { decision: 'pending' | 'confirmed' | 'overridden'; rating: number; reason: string | null }>;
@@ -126,7 +142,7 @@ export interface DB {
   config: Record<string, ConfigState>;
 }
 
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STORAGE_KEY = 'trustops.mock.db';
 export const SCENARIO_KEY = 'trustops.mock.scenario';
 
@@ -208,6 +224,8 @@ function initialDemo(): DemoState {
     roundSent: false,
     threadAnswers: {},
     resolved: [],
+    adhoc: [],
+    adhocVersion: null,
     clauses,
     gapRecorded: false,
     controls,

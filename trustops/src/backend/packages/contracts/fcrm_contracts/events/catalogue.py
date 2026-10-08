@@ -80,5 +80,11 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "case.control_planned",  # S1 -> H1
         "jurisdiction.list_published",  # S3 -> H1 (watchlist)
         "examiner.asked",  # S4 -> H1 (examiner)
+        # ad-hoc questions to the owner (ADR-73): the events S1 publishes and the
+        # records H1's steps write for them
+        "case.question_asked",  # S1 -> H1
+        "case.question_answered",  # S1 -> H1
+        "question.asked",
+        "question.answered",
     }
 )

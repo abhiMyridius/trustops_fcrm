@@ -218,6 +218,35 @@ class CaseClarificationSent(EventPayload):
     question_count: int = 0
 
 
+class CaseQuestionAsked(EventPayload):
+    """``case.question_asked`` (ADR-73): the analyst asked the owner questions
+    outside the clarification round, one thread per question. It decides no gate
+    and pauses no clock; Caseflow only records it.
+    """
+
+    case_id: str
+    actor: str
+    thread_ids: list[str] = Field(default_factory=list)
+    question_count: int = 0
+
+
+class CaseQuestionAnswered(EventPayload):
+    """``case.question_answered`` (ADR-73): the owner answered one ad-hoc
+    question. ``changed_field_ids`` are the fields whose value the answer changed
+    (``submission_version`` is the version it froze, ``None`` when it changed
+    none); Caseflow re-runs research and assessment on them only when the run is
+    in review and no agent is running, and otherwise leaves the analyst a flag.
+    """
+
+    case_id: str
+    actor: str
+    thread_id: str
+    question_id: str
+    changed_field_ids: list[str] = Field(default_factory=list)
+    added_document_ids: list[str] = Field(default_factory=list)
+    submission_version: Optional[int] = None
+
+
 class CaseRetagged(EventPayload):
     case_id: str
     actor: str

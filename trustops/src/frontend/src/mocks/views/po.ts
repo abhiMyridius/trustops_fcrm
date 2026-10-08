@@ -19,6 +19,7 @@ import type {
   POStage,
   ReviewRowPO,
   ReviewViewPO,
+  ThreadPO,
   ValuePO,
 } from '@/api/types/po';
 import { GAP_FIELDS, REUSABLE, filledCount, requiredCount, roundAnswered, THREAD_IDS } from '../actions';
@@ -534,7 +535,9 @@ export function poInbox(id: string): InboxPO | null {
                 threads: [
                   {
                     id: `th_${c.id}`,
+                    kind: 'round',
                     round: 1,
+                    field_id: null,
                     field_label: 'Supporting evidence',
                     question: 'Please attach the latest evidence for the control your team named in the submission.',
                     status: 'open',
@@ -544,11 +547,22 @@ export function poInbox(id: string): InboxPO | null {
               },
             ]
           : [],
+      questions: [],
       banner: null,
     };
   }
   const d = getDB().demo;
-  if (!d.roundSent) return { rounds: [], banner: null };
+  const questions: ThreadPO[] = d.adhoc.map((q) => ({
+    id: q.id,
+    kind: 'adhoc',
+    round: 0,
+    field_id: q.field_id,
+    field_label: q.field_id ? (FIELD_LABEL[q.field_id] ?? 'Your submission') : 'Your submission',
+    question: q.text,
+    status: q.answer ? 'answered' : 'open',
+    answer: q.answer ? { text: q.answer.text, documents: q.answer.documents, at: q.answer.at } : null,
+  }));
+  if (!d.roundSent) return { rounds: [], questions, banner: null };
   return {
     rounds: [
       {
@@ -561,7 +575,9 @@ export function poInbox(id: string): InboxPO | null {
           const a = d.threadAnswers[tid];
           return {
             id: tid,
+            kind: 'round' as const,
             round: 1,
+            field_id: /F\d{2,3}/.exec(q?.field ?? '')?.[0] ?? null,
             field_label: meta.label,
             question: q?.q ?? '',
             status: a ? 'answered' : 'open',
@@ -573,6 +589,7 @@ export function poInbox(id: string): InboxPO | null {
         }),
       },
     ],
+    questions,
     banner: roundAnswered() ? 'Saved as submission v2. The original is kept. FCRM sees exactly what changed.' : null,
   };
 }

@@ -58,10 +58,15 @@ export const invalidationMap: Record<string, string[]> = {
   'pack.updated': ['handoff'],
 };
 
-/** Whole families of event types (`clarification.*`, `thread.*`) that refresh the inbox screens. */
+/**
+ * Whole families of event types (`clarification.*`, `thread.*`, and since ADR-73 `question.*` and
+ * `values.*`, the ad-hoc questions and the values an answer changed) that refresh the inbox screens.
+ */
 const PREFIX_RULES: ReadonlyArray<readonly [string, string[]]> = [
   ['clarification.', CLARIFICATION_KEYS],
   ['thread.', CLARIFICATION_KEYS],
+  ['question.', CLARIFICATION_KEYS],
+  ['values.', CLARIFICATION_KEYS],
 ];
 
 /** `harness.*`, `agent.*` and `guard.*` events also refresh the harness monitor snapshot. */

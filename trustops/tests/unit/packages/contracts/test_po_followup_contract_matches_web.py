@@ -1,11 +1,12 @@
 """Drift lock: ``fcrm_contracts.api.case_po_followup`` accepts what the web's PO
 screens post (ADR-30), read from the TypeScript, not a copy of it.
 
-``useAnswerThread`` posts ``{ text, documents }`` (the thread id is in the path) and
-``useConditionEvidence`` posts ``{ note }``. The Python bodies must take every key the
-web sends; the one key they take that the web does not send yet (``field_values``)
-is a documented extension. The response models are the PO models already locked
-against ``po.ts`` by ``test_po_contract_matches_web_types``.
+``useAnswerThread`` posts ``{ text, documents, field_values }`` (the thread id is in
+the path; ``field_values`` since ADR-73, so the owner can set a field's new value
+with the answer) and ``useConditionEvidence`` posts ``{ note }``. The Python bodies
+must take every key the web sends and nothing it does not. The response models are
+the PO models already locked against ``po.ts`` by
+``test_po_contract_matches_web_types``.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ QUERIES = (
 
 #: hook -> (model, keys the model takes that the web does not send yet)
 HOOKS = {
-    "useAnswerThread": ("ThreadAnswerBody", frozenset({"field_values"})),
+    "useAnswerThread": ("ThreadAnswerBody", frozenset()),
     "useConditionEvidence": ("ConditionEvidenceBody", frozenset()),
 }
 
@@ -64,5 +65,5 @@ def test_the_body_takes_nothing_the_web_does_not_send_but_its_extension(
 
 
 def test_the_checker_is_not_vacuous() -> None:
-    assert posted_keys("useAnswerThread") == {"text", "documents"}
+    assert posted_keys("useAnswerThread") == {"text", "documents", "field_values"}
     assert posted_keys("useConditionEvidence") == {"note"}

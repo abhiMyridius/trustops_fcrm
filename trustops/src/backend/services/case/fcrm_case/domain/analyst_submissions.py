@@ -49,7 +49,8 @@ def _by(record: CaseRecord, row: SubmissionVersionRow) -> str:
 
 def version_label(record: CaseRecord, row: SubmissionVersionRow) -> str:
     """``v1 (as submitted 2026-10-01 09:40)``, ``v2 (after round 1, 14:05, Priya
-    Nair)`` or ``v3 (owner correction, ...)``.
+    Nair)``, ``v3 (owner correction, ...)`` or ``v4 (owner answer, 15:10, Priya
+    Nair)`` (an ad-hoc answer that changed a value, ADR-73).
     """
     if row.reason == "round":
         clock = row.captured_at.astimezone(UTC).strftime("%H:%M")
@@ -57,6 +58,9 @@ def version_label(record: CaseRecord, row: SubmissionVersionRow) -> str:
         return f"v{row.version} (after round {row.round or 1}, {clock}, {who})"
     if row.reason == "correction":
         return f"v{row.version} (owner correction, {_stamp(row)})"
+    if row.reason == "answer":
+        clock = row.captured_at.astimezone(UTC).strftime("%H:%M")
+        return f"v{row.version} (owner answer, {clock}, {_by(record, row)})"
     return f"v{row.version} (as submitted {_stamp(row)})"
 
 

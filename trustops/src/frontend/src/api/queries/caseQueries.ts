@@ -137,8 +137,13 @@ export function useDiscardDraft(id: string) {
 }
 
 export function useAnswerThread(id: string) {
-  return useCaseMutation(id, (v: { thread_id: string; text: string; documents: string[] }) =>
-    api(paths.cases.answerThread(id, v.thread_id), { method: 'POST', body: { text: v.text, documents: v.documents } }),
+  return useCaseMutation(
+    id,
+    (v: { thread_id: string; text: string; documents: string[]; field_values?: { field_id: string; value: string }[] }) =>
+      api(paths.cases.answerThread(id, v.thread_id), {
+        method: 'POST',
+        body: { text: v.text, documents: v.documents, field_values: v.field_values ?? [] },
+      }),
   );
 }
 

@@ -25,7 +25,11 @@ from fcrm_common.events import build_envelope
 from fcrm_contracts.api.case_internal import UiActor, UiEventIn
 from fcrm_contracts.enums import Role
 from fcrm_contracts.events.envelope import Envelope
-from fcrm_contracts.events.payloads import CaseAnswered, CaseEvent
+from fcrm_contracts.events.payloads import (
+    CaseAnswered,
+    CaseEvent,
+    CaseQuestionAnswered,
+)
 
 from fcrm_case.domain.clarifications import (
     ClarificationThreadRow,
@@ -193,6 +197,102 @@ def case_answered_envelope(
         case_id=record.case_id,
         run_id=record.run_id,
     )
+
+
+def answer_submission(
+    *,
+    record: CaseRecord,
+    changed_field_ids: Sequence[str],
+    field_rows: Sequence[FieldValueRow],
+    documents: Sequence[DocumentRow],
+    now: datetime,
+    by: str,
+) -> SubmissionVersionRow:
+    """The next frozen submission after an ad-hoc answer changed a value or
+    added a document (ADR-73): every required field as it stands now, every
+    document the case holds, and which fields the answer changed.
+    """
+    version = (record.current_submission_v or 1) + 1
+    values = snapshot_values(
+        record.required_fields, {r.field_id: r for r in field_rows}
+    )
+    return SubmissionVersionRow(
+        version_id=submission_version_id(record.case_id, version),
+        case_id=record.case_id,
+        version=version,
+        captured_at=now,
+        captured_by=CapturedBy(sub=by, role=Role.PO.value),
+        reason="answer",
+        round=None,
+        change_types=[t.value for t in record.change_types],
+        field_values=values,
+        document_ids=[d.doc_id for d in documents],
+        changed_field_ids=list(changed_field_ids),
+        completion=SnapshotCompletion(
+            filled=sum(1 for v in values.values() if v.origin != "open"),
+            required=len(values),
+        ),
+    )
+
+
+def case_question_answered_envelope(
+    *,
+    record: CaseRecord,
+    thread: ClarificationThreadRow,
+    changed_field_ids: Sequence[str],
+    added_document_ids: Sequence[str],
+    version: Optional[int],
+    by: str,
+) -> Envelope:
+    """``case.question_answered``: the owner answered an ad-hoc question; Caseflow
+    records it and, when a value changed, re-runs research and assessment on it
+    in review or flags it to the analyst elsewhere (ADR-73).
+    """
+    payload = CaseQuestionAnswered(
+        case_id=record.case_id,
+        actor=by,
+        thread_id=thread.thread_id,
+        question_id=thread.question_id,
+        changed_field_ids=list(changed_field_ids),
+        added_document_ids=list(added_document_ids),
+        submission_version=version,
+    )
+    return build_envelope(
+        "case.question_answered",
+        payload.model_dump(mode="json"),
+        case_id=record.case_id,
+        run_id=record.run_id,
+    )
+
+
+def answer_rows(
+    actor: str,
+    thread: ClarificationThreadRow,
+    changed_labels: Sequence[str],
+    version: int,
+) -> list[UiEventIn]:
+    """The activity rows an ad-hoc answer that froze ``version`` adds: the
+    owner's own line and the analyst's, which names the fields that changed.
+    """
+    what = ", ".join(changed_labels) if changed_labels else "documents added"
+    return [
+        po_row(
+            actor,
+            "submission.created",
+            f"Your answer is saved as version {version}",
+            {"submission_version": version},
+        ),
+        staff_row(
+            actor,
+            "submission.created",
+            f"The owner's answer to question {thread.question_id} changed {what}: "
+            f"submission v{version} saved",
+            {
+                "thread_id": thread.thread_id,
+                "submission_version": version,
+            },
+        ),
+    ]
 
 
 def condition_evidence_envelope(row: ConditionRow, write: EvidenceWrite) -> Envelope:

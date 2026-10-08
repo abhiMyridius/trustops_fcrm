@@ -2351,6 +2351,17 @@ def analyst_read(
 
 
 @pytest.fixture
+def questions_service(
+    clarification_service: CaseService, analyst_read: AnalystRead
+) -> CaseService:
+    """:func:`clarification_service` with the analyst read store wired too, so a
+    test can ask the owner ad-hoc questions (ADR-73) and read the Inbox view
+    (``GET clarifications``) of the same case; called as Rahul Iyer.
+    """
+    return clarification_service
+
+
+@pytest.fixture
 def decide_gate(analyst_store: InMemoryAnalystWriteStore) -> Callable[..., None]:
     """``decide_gate(gate_id, gate_type, decision, case_id=...)``: put a row in the
     analyst's ledger, as the analyst's write routes do when a gate is decided.

@@ -56,6 +56,7 @@ export const paths = {
     completeness: (id: string) => `${API_PREFIX}/cases/${e(id)}/completeness`,
     clarifications: (id: string) => `${API_PREFIX}/cases/${e(id)}/clarifications`,
     resolveThread: (id: string, threadId: string) => `${API_PREFIX}/cases/${e(id)}/clarifications/${e(threadId)}/resolve`,
+    questions: (id: string) => `${API_PREFIX}/cases/${e(id)}/questions`,
     policy: (id: string) => `${API_PREFIX}/cases/${e(id)}/policy`,
     risk: (id: string) => `${API_PREFIX}/cases/${e(id)}/risk`,
     item: (id: string, itemId: string) => `${API_PREFIX}/cases/${e(id)}/items/${e(itemId)}`,

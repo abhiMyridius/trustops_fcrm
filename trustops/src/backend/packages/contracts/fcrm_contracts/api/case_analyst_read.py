@@ -277,15 +277,33 @@ class AssessmentSummary(_Dto):
 # --- clarifications ---------------------------------------------------------------
 
 
+class FieldChange(_Dto):
+    """A value the owner set with an answer: the field, its label and the value."""
+
+    field_id: str
+    label: str
+    value: str
+
+
 class ThreadAnswerView(_Dto):
     text: str
     documents: list[str]
     at: str
     by: str
+    # The values the answer changed and the submission version it froze (an
+    # ad-hoc answer that changed nothing freezes none; ADR-73).
+    fields: list[FieldChange]
+    submission_version: Optional[int]
+
+
+ThreadKind = Literal["round", "adhoc"]
 
 
 class ThreadAnalyst(_Dto):
     id: str
+    # ``round`` for the one clarification round (D-16), ``adhoc`` for a question
+    # the analyst asked at another time (ADR-73; its ``round`` is 0).
+    kind: ThreadKind
     round: int
     anchor: str
     question: str
@@ -303,8 +321,18 @@ class ClarificationRound(_Dto):
 class ClarificationsView(_Dto):
     drafted: list[DraftQuestion]
     rounds: list[ClarificationRound]
+    # The formal round can be composed and sent: the completeness gate is open
+    # and undecided (D-120: the drafted questions are edited before the send).
     can_send: bool
     clock_paused: bool
+    # Ad-hoc questions (ADR-73), oldest first, and whether one may be asked now
+    # (with the reason when not).
+    questions: list[ThreadAnalyst]
+    can_ask: bool
+    ask_blocked_reason: Optional[str]
+    # Values the owner changed in an ad-hoc answer after the agents last scored
+    # the case: what the analyst is told the agents have not read yet.
+    values_changed: list[FieldChange]
 
 
 # --- submissions -----------------------------------------------------------------

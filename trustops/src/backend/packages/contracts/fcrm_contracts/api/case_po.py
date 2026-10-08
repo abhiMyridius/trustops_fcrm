@@ -298,7 +298,13 @@ class ThreadAnswer(_Dto):
 
 class ThreadPO(_Dto):
     id: str
+    # ``round``: a question of FCRM's one clarification round; ``adhoc``: a
+    # question the analyst asked at another time (ADR-73; its ``round`` is 0).
+    kind: Literal["round", "adhoc"]
     round: int
+    # The field the question is about, so the owner can set its new value with
+    # the answer; ``None`` when it is about nothing the owner can name.
+    field_id: Optional[str]
     field_label: str
     question: str
     status: Literal["open", "answered"]
@@ -320,6 +326,8 @@ class InboxRound(_Dto):
 
 class InboxPO(_Dto):
     rounds: list[InboxRound]
+    # The analyst's ad-hoc questions (ADR-73), oldest first.
+    questions: list[ThreadPO]
     banner: Optional[str]
 
 

@@ -42,6 +42,7 @@ HOOKS: dict[str, tuple[str, str | None]] = {
     "useAcknowledge": ("AcknowledgeBody", None),
     "useCompleteness": ("CompletenessBody", None),
     "useSendRound": ("RoundBody", None),
+    "useAskOwner": ("QuestionsBody", None),
     "useResolveThread": ("ResolveThreadBody", None),
     "useRetag": ("ChangeTypeBody", None),
     "useFastLane": ("FastLaneBody", None),
@@ -230,6 +231,16 @@ def test_the_recommendation_response_has_exactly_the_web_keys() -> None:
     assert all(f.is_required() for f in write.Recommendation.model_fields.values())
 
 
+def test_the_questions_result_has_exactly_the_web_keys() -> None:
+    """ADR-73: what ``POST /cases/{id}/questions`` answers."""
+    members = interface_members("QuestionsResult")
+    fields = write.QuestionsResult.model_fields
+
+    assert set(members) == set(fields)
+    for name, optional in members.items():
+        assert optional is not fields[name].is_required(), name
+
+
 def test_the_restricted_scan_has_exactly_the_web_keys() -> None:
     source = ANALYST_TYPES.read_text(encoding="utf-8")
     match = re.search(r"restricted_scan:\s*\{([^}]*)\}", source)
@@ -244,6 +255,7 @@ def test_the_checker_is_not_vacuous() -> None:
     assert set(interface_members("Recommendation")) >= {"narrative", "locked"}
     assert web_body_keys("useDecideItem") == {"decision", "value", "reason"}
     assert web_body_keys("useResolveThread") == set()
+    assert web_body_keys("useAskOwner") == {"questions"}
     assert web_body_keys("useRetag") == {"change_type", "reason"}
     assert web_body_keys("useSaveRecommendation") == {
         "narrative",

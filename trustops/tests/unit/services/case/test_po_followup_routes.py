@@ -189,7 +189,7 @@ def test_an_empty_inbox_has_no_rounds(
 
     body = clarification_service.client.get(f"/cases/{CASE}/inbox").json()
 
-    assert body == {"rounds": [], "banner": None}
+    assert body == {"rounds": [], "questions": [], "banner": None}
 
 
 # ── answering ───────────────────────────────────────────────────────────────────
