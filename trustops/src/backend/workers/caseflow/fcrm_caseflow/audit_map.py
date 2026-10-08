@@ -68,6 +68,9 @@ STEP_FOR: Final[Mapping[Trigger, StepKind]] = MappingProxyType(
         Trigger.CASE_CLAUSE_REMOVED: K.CLAUSE_RECORD,
         Trigger.CASE_RETAGGED: K.RETAG_RECORD,
         Trigger.CASE_RERUN_REQUESTED: K.RERUN_REQUESTED,
+        # ad-hoc questions to the owner (ADR-73)
+        Trigger.CASE_QUESTION_ASKED: K.QUESTION_ASKED,
+        Trigger.CASE_QUESTION_ANSWERED: K.QUESTION_ANSWERED,
         Trigger.ALL_ITEMS_DECIDED: K.STATE_PUSH,
         Trigger.AGENT_DONE_NARRATIVE_RECOMMENDATION: K.NARRATIVE_PUBLISH,
         Trigger.CASE_LOCKED: K.LOCK_BUILD_PACK,
@@ -165,6 +168,8 @@ RECORDS_FOR: Final[Mapping[StepKind, tuple[str, ...]]] = MappingProxyType(
         K.CLAUSE_RECORD: ("clause.added", "clause.removed"),
         K.RETAG_RECORD: ("fieldset.resolved",),
         K.RERUN_REQUESTED: ("agent.rerun",),
+        K.QUESTION_ASKED: ("question.asked",),
+        K.QUESTION_ANSWERED: ("question.answered", "agent.rerun"),
         # recommendation and pack (scenes 15-16)
         K.NARRATIVE_PUBLISH: ("proposal.narrative", "guard.output"),
         K.LOCK_BUILD_PACK: (

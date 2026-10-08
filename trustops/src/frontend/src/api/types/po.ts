@@ -179,7 +179,11 @@ export interface SubmitResult {
 
 export interface ThreadPO {
   id: string;
+  /** `round`: FCRM's clarification round; `adhoc`: a question asked at another time (ADR-73, round 0). */
+  kind: 'round' | 'adhoc';
   round: number;
+  /** The field the question is about, so the answer can set its new value; null when none. */
+  field_id: string | null;
   field_label: string;
   question: string;
   status: 'open' | 'answered';
@@ -191,6 +195,8 @@ export interface ThreadPO {
 
 export interface InboxPO {
   rounds: { round: number; from: string; sent_at: string; threads: ThreadPO[] }[];
+  /** The analyst's ad-hoc questions (ADR-73), oldest first. */
+  questions: ThreadPO[];
   banner: string | null;
 }
 

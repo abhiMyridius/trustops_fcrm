@@ -469,6 +469,17 @@
         "effect": "allow"
       },
       {
+        "id": "case-post-cases-id-questions-analyst",
+        "description": "ask the owner an ad-hoc question at any stage (ADR-73)",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/questions",
+        "roles": [
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
         "id": "case-post-cases-id-acknowledge-analyst",
         "description": "gate ack (R3 boundary / band change)",
         "service": "case",
@@ -1766,6 +1777,17 @@
         "service": "case",
         "method": "POST",
         "path": "/cases/{id}/clarifications",
+        "roles": [
+          "fcrm_service"
+        ],
+        "effect": "deny"
+      },
+      {
+        "id": "deny-case-post-cases-id-questions",
+        "description": "Guard 7: a question to the owner is asked by the analyst, never the service account (ADR-73)",
+        "service": "case",
+        "method": "POST",
+        "path": "/cases/{id}/questions",
         "roles": [
           "fcrm_service"
         ],

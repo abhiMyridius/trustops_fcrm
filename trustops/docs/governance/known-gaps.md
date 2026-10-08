@@ -235,3 +235,16 @@ Still open:
 - If every change type the assistant proposes was already added by the owner, no `po_confirm_category` gate opens, so the questions-only intake round (which follows the last category decision) does not run. The owner's own `fieldset.resolved` stands and she fills the open fields herself.
 - On the AI-assisted path the web offers "Add change type" only once the assistant's proposals are on Overview; before that Overview shows "Nothing proposed yet". The route accepts an addition at any time before submit.
 - In MSW mode (`dev:msw`, vitest) a case created from the form can be filled in and its types changed, but not submitted: the mock submits only FCRM-2026-0151.
+
+## R. Ad-hoc questions to the owner (ADR-73, D-120; 8 October, appended)
+
+Closed:
+
+- The analyst can ask the owner questions at any stage from triage to an unlocked recommendation (ADR-73), and the clarification round's composer shows before the round is sent (D-120). Unit tests cover the route, the stages, the PO text fence, the owner's answer, the frozen version, H1's transitions and steps; vitest covers the composer and the owner's answer.
+
+Still open:
+
+- **Not run on the live stack.** No live check was made (a live H1 re-run calls Bedrock, ADR-59): the ask, the owner's answer, the `question.*` records on the chain and the REVIEW re-run on changed fields are proved only with fakes and the MSW mock.
+- An answer that changes a value outside REVIEW, or while agents run, is recorded and flagged ("values changed since the agents ran"), not re-run: the analyst asks for a re-run in review. The flag clears when the agents next score the case, whatever that re-run's scope was.
+- A re-run marker (`rerun_active`) left set by a run that never published (a budget refusal handed to a person) keeps later answers from re-running on their own until a re-run publishes; they are flagged instead.
+- The MSW mock re-runs nothing, and its Submission tab does not list the version an ad-hoc answer froze.

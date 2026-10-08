@@ -68,7 +68,7 @@ class SubmissionVersionRow(BaseModel):
     version: int
     captured_at: datetime
     captured_by: CapturedBy
-    reason: Literal["submit", "round", "correction"]
+    reason: Literal["submit", "round", "correction", "answer"]
     round: Optional[int] = None
     change_types: list[str] = Field(default_factory=list)
     field_values: dict[str, SnapshotValue] = Field(default_factory=dict)

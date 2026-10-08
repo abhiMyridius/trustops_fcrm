@@ -155,6 +155,35 @@
         "title": "ActivityEventPO",
         "type": "object"
       },
+      "AdhocQuestion": {
+        "additionalProperties": false,
+        "description": "One question the analyst asks the owner outside the round. ``anchor`` is\nthe field (or control) it is about, as a round question's is; the owner reads\nthe field's label, never a control id.",
+        "properties": {
+          "anchor": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor"
+          },
+          "text": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "AdhocQuestion",
+        "type": "object"
+      },
       "AgentEval": {
         "additionalProperties": false,
         "properties": {
@@ -1485,6 +1514,21 @@
       "ClarificationsView": {
         "additionalProperties": false,
         "properties": {
+          "ask_blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ask Blocked Reason"
+          },
+          "can_ask": {
+            "title": "Can Ask",
+            "type": "boolean"
+          },
           "can_send": {
             "title": "Can Send",
             "type": "boolean"
@@ -1500,11 +1544,25 @@
             "title": "Drafted",
             "type": "array"
           },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/ThreadAnalyst"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
           "rounds": {
             "items": {
               "$ref": "#/components/schemas/ClarificationRound"
             },
             "title": "Rounds",
+            "type": "array"
+          },
+          "values_changed": {
+            "items": {
+              "$ref": "#/components/schemas/FieldChange"
+            },
+            "title": "Values Changed",
             "type": "array"
           }
         },
@@ -1512,7 +1570,11 @@
           "drafted",
           "rounds",
           "can_send",
-          "clock_paused"
+          "clock_paused",
+          "questions",
+          "can_ask",
+          "ask_blocked_reason",
+          "values_changed"
         ],
         "title": "ClarificationsView",
         "type": "object"
@@ -3907,6 +3969,31 @@
         "title": "FastLaneBody",
         "type": "object"
       },
+      "FieldChange": {
+        "additionalProperties": false,
+        "description": "A value the owner set with an answer: the field, its label and the value.",
+        "properties": {
+          "field_id": {
+            "title": "Field Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field_id",
+          "label",
+          "value"
+        ],
+        "title": "FieldChange",
+        "type": "object"
+      },
       "FieldDef": {
         "additionalProperties": false,
         "properties": {
@@ -4812,6 +4899,13 @@
             ],
             "title": "Banner"
           },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/ThreadPO"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
           "rounds": {
             "items": {
               "$ref": "#/components/schemas/InboxRound"
@@ -4822,6 +4916,7 @@
         },
         "required": [
           "rounds",
+          "questions",
           "banner"
         ],
         "title": "InboxPO",
@@ -9037,6 +9132,58 @@
         "title": "PublishedVersionOut",
         "type": "object"
       },
+      "QuestionsBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/questions``: ask the owner one or more questions at any\nstage from triage to an unlocked recommendation (ADR-73). Each question opens\na thread of its own; none decides a gate or pauses the analyst's clock.",
+        "properties": {
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/AdhocQuestion"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Questions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questions"
+        ],
+        "title": "QuestionsBody",
+        "type": "object"
+      },
+      "QuestionsResult": {
+        "additionalProperties": false,
+        "description": "What asking answers (201): the threads the questions are in (an open\nthread that already asks the same question is reused, not opened twice) and\nwhether nothing new was asked.",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "questions": {
+            "title": "Questions",
+            "type": "integer"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "thread_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Thread Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "case_id",
+          "questions"
+        ],
+        "title": "QuestionsResult",
+        "type": "object"
+      },
       "QueueItem": {
         "additionalProperties": false,
         "properties": {
@@ -11962,6 +12109,14 @@
             "title": "Id",
             "type": "string"
           },
+          "kind": {
+            "enum": [
+              "round",
+              "adhoc"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
           "question": {
             "title": "Question",
             "type": "string"
@@ -11982,6 +12137,7 @@
         },
         "required": [
           "id",
+          "kind",
           "round",
           "anchor",
           "question",
@@ -12074,6 +12230,24 @@
             "title": "Documents",
             "type": "array"
           },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/FieldChange"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "submission_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submission Version"
+          },
           "text": {
             "title": "Text",
             "type": "string"
@@ -12083,7 +12257,9 @@
           "text",
           "documents",
           "at",
-          "by"
+          "by",
+          "fields",
+          "submission_version"
         ],
         "title": "ThreadAnswerView",
         "type": "object"
@@ -12140,12 +12316,31 @@
               }
             ]
           },
+          "field_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Id"
+          },
           "field_label": {
             "title": "Field Label",
             "type": "string"
           },
           "id": {
             "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "round",
+              "adhoc"
+            ],
+            "title": "Kind",
             "type": "string"
           },
           "question": {
@@ -12167,7 +12362,9 @@
         },
         "required": [
           "id",
+          "kind",
           "round",
+          "field_id",
           "field_label",
           "question",
           "status",
@@ -16182,6 +16379,64 @@
           }
         ],
         "summary": "Policy",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/questions": {
+      "post": {
+        "description": "Ask the owner one or more questions at any stage from triage to an\nunlocked recommendation (ADR-73): one thread per question, then\n``case.question_asked``. No gate is decided and the analyst clock keeps\nrunning; the one clarification round (D-16) is untouched. A question that\nnames a reserved term is refused (422), and so is one asked at a stage that\ntakes none (409 ``wrong_stage``).",
+        "operationId": "S1_ask_owner_cases__case_id__questions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionsResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ask Owner",
         "tags": [
           "analyst"
         ]

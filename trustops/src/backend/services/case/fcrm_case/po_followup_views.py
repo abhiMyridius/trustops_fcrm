@@ -30,7 +30,12 @@ from fcrm_contracts.api.case_po import (
 from fcrm_contracts.enums import CaseState, Outcome
 
 from fcrm_case.domain.activity import names_a_restricted_term
-from fcrm_case.domain.clarifications import ClarificationThreadRow, open_threads
+from fcrm_case.domain.clarifications import (
+    ClarificationThreadRow,
+    adhoc_threads,
+    open_threads,
+    round_threads,
+)
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.views import ConditionRow
 from fcrm_case.po_followup_store import DecidedOutcome
@@ -81,7 +86,9 @@ def thread_po(row: ClarificationThreadRow) -> ThreadPO:
     )
     return ThreadPO(
         id=row.thread_id,
+        kind=row.kind,
         round=row.round,
+        field_id=row.field_ids[0] if row.field_ids else None,
         field_label=plain(row.field_label, FALLBACK_FIELD_LABEL),
         question=plain(row.text, QUESTION_FALLBACK),
         status="open" if row.status == "awaiting_response" else "answered",
@@ -90,12 +97,12 @@ def thread_po(row: ClarificationThreadRow) -> ThreadPO:
 
 
 def inbox_view(record: CaseRecord, rows: Sequence[ClarificationThreadRow]) -> InboxPO:
-    """The owner's inbox: the questions by round, and a thank-you once the last
-    round is answered.
+    """The owner's inbox: the questions by round, the analyst's ad-hoc questions
+    (ADR-73) oldest first, and a thank-you once the last round is answered.
     """
     sender = record.analyst_name or "FCRM"
     by_round: dict[int, list[ClarificationThreadRow]] = {}
-    for row in rows:
+    for row in round_threads(rows):
         by_round.setdefault(row.round, []).append(row)
     rounds = [
         InboxRound.model_validate(
@@ -110,7 +117,11 @@ def inbox_view(record: CaseRecord, rows: Sequence[ClarificationThreadRow]) -> In
         )
         for number, group in sorted(by_round.items())
     ]
-    return InboxPO(rounds=rounds, banner=_banner(by_round))
+    return InboxPO(
+        rounds=rounds,
+        questions=[thread_po(r) for r in adhoc_threads(rows)],
+        banner=_banner(by_round),
+    )
 
 
 def _banner(by_round: dict[int, list[ClarificationThreadRow]]) -> Optional[str]:

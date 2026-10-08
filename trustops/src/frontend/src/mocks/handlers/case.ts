@@ -238,8 +238,10 @@ export const caseHandlers = [
     guarded(request, ['fcrm_po'], async ({ user }) => {
       const caseId = id(params);
       if (!ownedBy(caseId, user.id) || !isDemo(caseId)) return notFound();
-      const b = await body<{ text: string; documents?: string[] }>(request);
-      A.answerThread(String(params.tid), b.text ?? '', b.documents ?? []);
+      const b = await body<{ text: string; documents?: string[]; field_values?: { field_id: string; value: string }[] }>(request);
+      const tid = String(params.tid);
+      if (A.isAdhocThread(tid)) A.answerAdhoc(tid, b.text ?? '', b.documents ?? [], b.field_values ?? []);
+      else A.answerThread(tid, b.text ?? '', b.documents ?? []);
       return HttpResponse.json(PO.poInbox(caseId));
     }),
   ),
@@ -313,6 +315,15 @@ export const caseHandlers = [
       const b = await body<{ questions: { id: string; keep: boolean; text: string }[] }>(request);
       A.sendRound(b.questions ?? []);
       return HttpResponse.json(AV.clarifications(id(params)), { status: 201 });
+    }),
+  ),
+  // ADR-73: an ad-hoc question to the owner, at any stage from triage to an unlocked recommendation.
+  http.post(`${P}/questions`, ({ request, params }) =>
+    guarded(request, ['fcrm_analyst'], async () => {
+      if (!isDemo(id(params))) return problem(409, 'Read-only', 'Only FCRM-2026-0151 is live in mock mode.');
+      const b = await body<{ questions: { text: string; anchor: string | null }[] }>(request);
+      const threadIds = A.askOwner(b.questions ?? []);
+      return HttpResponse.json({ case_id: id(params), questions: threadIds.length, thread_ids: threadIds, replayed: false }, { status: 201 });
     }),
   ),
   http.post(`${P}/clarifications/:tid/resolve`, ({ request, params }) =>

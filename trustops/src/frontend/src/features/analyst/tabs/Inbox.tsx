@@ -1,12 +1,15 @@
 /**
  * 2.16 Workbench Inbox: the drafted round (keep/drop, edit text, every question anchored to a field
  * or control) and sent rounds with the owner's answers. Guard 5 batch rule: one round, sent once.
+ * The round is composed here while the completeness gate is open: its send decides the gate (D-120).
+ * ADR-73: the analyst may also ask the owner a question at any time from triage to an unlocked
+ * recommendation; such questions do not pause the analyst clock and the round stays as it is.
  */
 import { useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
-import { useClarifications, useResolveThread, useSendRound } from '@/api/queries/analystQueries';
+import { useAskOwner, useClarifications, useResolveThread, useSendRound } from '@/api/queries/analystQueries';
 import { userMessage } from '@/api/errors';
-import type { DraftQuestion, WorkbenchHeader } from '@/api/types/analyst';
+import type { DraftQuestion, ThreadAnalyst, WorkbenchHeader } from '@/api/types/analyst';
 import { AiLabel } from '@/components/ui/AiMark';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
@@ -14,6 +17,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Input } from '@/components/ui/Input';
 import { QueryState } from '@/components/ui/QueryState';
 import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
@@ -59,9 +63,105 @@ function Composer({ caseId, drafted }: { caseId: string; drafted: DraftQuestion[
         >
           Send round · {kept.length} questions
         </Button>
-        <span className="text-[12px] text-text-muted">One round, field-anchored, sent once.</span>
+        <span className="text-[12px] text-text-muted">One round, field-anchored, sent once. Sending it records your decision to ask.</span>
       </div>
     </Card>
+  );
+}
+
+type Draft = { key: number; text: string; anchor: string };
+
+/** ADR-73: one or more questions to the owner, at any stage from triage to an unlocked recommendation. */
+function AskOwner({ caseId, owner }: { caseId: string; owner: string }) {
+  const [drafts, setDrafts] = useState<Draft[]>([{ key: 1, text: '', anchor: '' }]);
+  const ask = useAskOwner(caseId);
+  const toast = useToast();
+  const ready = drafts.filter((d) => d.text.trim());
+  const update = (key: number, patch: Partial<Draft>) => setDrafts((xs) => xs.map((x) => (x.key === key ? { ...x, ...patch } : x)));
+  return (
+    <Card title="Ask the owner" subtitle={`Questions go to ${owner} now, at any stage. They do not pause your clock and do not use up the clarification round.`}>
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          ask.mutate(
+            ready.map((d) => ({ text: d.text.trim(), anchor: d.anchor.trim() || null })),
+            {
+              onSuccess: () => {
+                toast.success('Sent to the owner', 'The answer arrives in this inbox. Your clock keeps running.');
+                setDrafts([{ key: Date.now(), text: '', anchor: '' }]);
+              },
+              onError: (err) => toast.error('Not sent', userMessage(err)),
+            },
+          );
+        }}
+      >
+        {drafts.map((d, i) => (
+          <div key={d.key} className="flex flex-col gap-2 rounded-lg border border-border p-3">
+            <Textarea label={`Question ${i + 1}`} value={d.text} rows={2} onChange={(e) => update(d.key, { text: e.target.value })} />
+            <Input
+              label="About field or control (optional)"
+              hint="A field id such as F11 lets the owner set its new value with the answer."
+              value={d.anchor}
+              onChange={(e) => update(d.key, { anchor: e.target.value })}
+            />
+            {drafts.length > 1 && (
+              <div>
+                <Button size="sm" variant="ghost" onClick={() => setDrafts((xs) => xs.filter((x) => x.key !== d.key))}>
+                  Remove question {i + 1}
+                </Button>
+              </div>
+            )}
+          </div>
+        ))}
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="submit" variant="primary" disabled={ready.length === 0} loading={ask.isPending}>
+            Send · {ready.length} {ready.length === 1 ? 'question' : 'questions'}
+          </Button>
+          <Button size="sm" variant="secondary" disabled={drafts.length >= 10} onClick={() => setDrafts((xs) => [...xs, { key: Date.now(), text: '', anchor: '' }])}>
+            Add another question
+          </Button>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
+function ThreadItem({ t, onResolve, resolving }: { t: ThreadAnalyst; onResolve: (id: string) => void; resolving: boolean }) {
+  return (
+    <li className="flex flex-col gap-2 rounded-lg border border-border p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Badge tone="info">Anchor: {t.anchor || 'none'}</Badge>
+        <Badge tone={t.status === 'open' ? 'warning' : t.status === 'resolved' ? 'neutral' : 'success'}>{t.status}</Badge>
+      </div>
+      <p className="text-sm">{t.question}</p>
+      {t.answer && (
+        <div className="rounded-md bg-surface-tertiary p-3 text-[13px]">
+          <p className="font-semibold">
+            {t.answer.by} · {formatDateTime(t.answer.at)}
+          </p>
+          <p className="mt-1">{t.answer.text}</p>
+          {t.answer.documents.length > 0 && <p className="mt-1 text-text-secondary">Attached: {t.answer.documents.join(', ')}</p>}
+          {t.answer.fields.length > 0 && (
+            <ul className="mt-1 text-text-secondary" aria-label="Values the owner changed">
+              {t.answer.fields.map((f) => (
+                <li key={f.field_id}>
+                  Changed {f.label} ({f.field_id}): {f.value}
+                </li>
+              ))}
+            </ul>
+          )}
+          {t.answer.submission_version !== null && <p className="mt-1 text-text-muted">Saved as submission v{t.answer.submission_version}</p>}
+        </div>
+      )}
+      {t.status === 'answered' && (
+        <div>
+          <Button size="sm" variant="secondary" loading={resolving} onClick={() => onResolve(t.id)}>
+            Resolve
+          </Button>
+        </div>
+      )}
+    </li>
   );
 }
 
@@ -72,6 +172,7 @@ export function AnalystInboxTab() {
   const q = useClarifications(id);
   const resolve = useResolveThread(id);
   const toast = useToast();
+  const onResolve = (threadId: string) => resolve.mutate(threadId, { onError: (e) => toast.error('Not resolved', userMessage(e)) });
   return (
     <QueryState query={q} label="Loading inbox">
       {(v) => (
@@ -81,45 +182,50 @@ export function AnalystInboxTab() {
               Sent to {w.owner_name}. Analyst clock paused; total clock keeps running.
             </Banner>
           )}
+          {v.values_changed.length > 0 && (
+            <Banner tone="warning" live="polite" title="Values changed since the agents ran">
+              {w.owner_name} changed {v.values_changed.map((f) => `${f.label} (${f.field_id})`).join(', ')} in an answer. In review the agents re-run on the
+              changed fields on their own; at any other stage, ask for a re-run in review if it matters.
+            </Banner>
+          )}
           {v.can_send && <Composer key={v.drafted.map((d) => d.id).join('|')} caseId={id} drafted={v.drafted} />}
+          {v.can_ask ? (
+            <AskOwner caseId={id} owner={w.owner_name} />
+          ) : (
+            v.ask_blocked_reason && <p className="text-[13px] text-text-secondary">Ask the owner: {v.ask_blocked_reason}</p>
+          )}
+          {v.questions.length > 0 && (
+            <Card title={`Questions to ${w.owner_name}`} subtitle="Asked outside the clarification round. The analyst clock keeps running.">
+              <ul className="flex flex-col gap-3">
+                {v.questions.map((t) => (
+                  <ThreadItem key={t.id} t={t} onResolve={onResolve} resolving={resolve.isPending} />
+                ))}
+              </ul>
+            </Card>
+          )}
           {!v.can_send && v.rounds.length === 0 && (
             <EmptyState
               title="No clarification round"
-              body={w.completeness_decision === 'proceed' ? 'You chose to proceed without a round.' : 'Decide on the Summary tab: ask now, or proceed.'}
+              body={
+                w.completeness_decision === 'proceed'
+                  ? 'You chose to proceed without a round.'
+                  : 'The completeness report decides it: ask now from the Summary tab, or proceed.'
+              }
             />
           )}
           {v.rounds.map((r) => (
             <Card key={r.round} title={`Round ${r.round} · sent ${formatDateTime(r.sent_at)} to ${r.to}`}>
               <ul className="flex flex-col gap-3">
                 {r.threads.map((t) => (
-                  <li key={t.id} className="flex flex-col gap-2 rounded-lg border border-border p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <Badge tone="info">Anchor: {t.anchor}</Badge>
-                      <Badge tone={t.status === 'open' ? 'warning' : t.status === 'resolved' ? 'neutral' : 'success'}>{t.status}</Badge>
-                    </div>
-                    <p className="text-sm">{t.question}</p>
-                    {t.answer && (
-                      <div className="rounded-md bg-surface-tertiary p-3 text-[13px]">
-                        <p className="font-semibold">
-                          {t.answer.by} · {formatDateTime(t.answer.at)}
-                        </p>
-                        <p className="mt-1">{t.answer.text}</p>
-                        {t.answer.documents.length > 0 && <p className="mt-1 text-text-secondary">Attached: {t.answer.documents.join(', ')}</p>}
-                      </div>
-                    )}
-                    {t.status === 'answered' && (
-                      <div>
-                        <Button size="sm" variant="secondary" loading={resolve.isPending} onClick={() => resolve.mutate(t.id, { onError: (e) => toast.error('Not resolved', userMessage(e)) })}>
-                          Resolve
-                        </Button>
-                      </div>
-                    )}
-                  </li>
+                  <ThreadItem key={t.id} t={t} onResolve={onResolve} resolving={resolve.isPending} />
                 ))}
               </ul>
             </Card>
           ))}
-          <Banner tone="rule">One round, field-anchored, sent once. Answers arrive as a new submission version; v1 stays untouched.</Banner>
+          <Banner tone="rule">
+            One round, field-anchored, sent once; it pauses your clock. Questions outside the round can go at any time and do not. Answers that change a value
+            arrive as a new submission version; v1 stays untouched.
+          </Banner>
         </div>
       )}
     </QueryState>

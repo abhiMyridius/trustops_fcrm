@@ -25,6 +25,8 @@ from fcrm_contracts.events.payloads import (
     CaseDocumentStored,
     CaseGapRecorded,
     CaseLocked,
+    CaseQuestionAnswered,
+    CaseQuestionAsked,
     CaseRerunRequested,
     CaseRetagged,
     CaseSubmitted,
@@ -87,6 +89,14 @@ CLAUSE_EVENT_TYPES = {
     "clause.removed",
 }
 
+#: The types ADR-73 added for the analyst's ad-hoc questions to the owner.
+ADR_73_EVENT_TYPES = {
+    "case.question_asked",
+    "case.question_answered",
+    "question.asked",
+    "question.answered",
+}
+
 # Annex E, verbatim: the step kinds H1 may enqueue.
 ANNEX_E_STEP_KINDS = {
     "intake.open",
@@ -130,6 +140,9 @@ ANNEX_E_STEP_KINDS = {
     "watchlist.publish",
     "reflag.ack",
     "state.push",
+    # ADR-73: the ad-hoc questions to the owner
+    "question.asked",
+    "question.answered",
 }
 
 # One example payload per model, as a producer would build it.
@@ -183,6 +196,21 @@ EXAMPLES: dict[type[BaseModel], dict[str, Any]] = {
         "round": 1,
         "thread_ids": ["thr_1", "thr_2"],
         "question_count": 2,
+    },
+    CaseQuestionAsked: {
+        "case_id": CASE,
+        "actor": "u-riyer",
+        "thread_ids": ["thr_a1"],
+        "question_count": 1,
+    },
+    CaseQuestionAnswered: {
+        "case_id": CASE,
+        "actor": "u-pnair",
+        "thread_id": "thr_a1",
+        "question_id": "A1",
+        "changed_field_ids": ["F11"],
+        "added_document_ids": [],
+        "submission_version": 3,
     },
     CaseRetagged: {
         "case_id": CASE,
@@ -427,11 +455,14 @@ class TestCatalogue:
 
     def test_the_catalogue_count_is_locked(self) -> None:
         """57 before the live wiring, plus the nine above, plus ADR-72's
-        ``case.types_changed`` and the four of an analyst's clause (ADR-74). A
-        change here is a contract change: update docs/architecture/event-catalogue.md
-        too.
+        ``case.types_changed``, the four of an analyst's clause (ADR-74) and
+        ADR-73's four. A change here is a contract change: update
+        docs/architecture/event-catalogue.md too.
         """
-        assert len(EVENT_TYPES) == 71
+        assert len(EVENT_TYPES) == 75
+
+    def test_the_adr_73_types_are_catalogued(self) -> None:
+        assert ADR_73_EVENT_TYPES <= EVENT_TYPES
 
     def test_every_catalogued_type_is_dotted(self) -> None:
         assert all("." in t for t in EVENT_TYPES)

@@ -15,6 +15,7 @@ import type {
   HandoffView,
   PolicySearchResult,
   PolicyView,
+  QuestionsResult,
   QueueItem,
   Recommendation,
   RiskView,
@@ -148,6 +149,13 @@ export function useCompleteHandoff(id: string) {
 export function useSendRound(id: string) {
   return useCaseMutation(id, (questions: { id: string; text: string; anchor: string | null; keep: boolean }[]) =>
     api(paths.cases.clarifications(id), { method: 'POST', body: { questions } }),
+  );
+}
+
+/** Ask the owner one or more questions at any stage from triage to an unlocked recommendation (ADR-73). */
+export function useAskOwner(id: string) {
+  return useCaseMutation(id, (questions: { text: string; anchor: string | null }[]) =>
+    api<QuestionsResult>(paths.cases.questions(id), { method: 'POST', body: { questions } }),
   );
 }
 

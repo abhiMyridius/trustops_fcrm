@@ -233,10 +233,13 @@ export function decideCompleteness(decision: 'ask' | 'proceed'): void {
 export function sendRound(questions: { id: string; keep: boolean; text: string }[]): void {
   requireOpen();
   const d = demo();
-  if (d.completeness !== 'ask') throw new MockError(409, 'no_round', 'Choose "Ask now" on the Summary tab before sending a round.');
+  if (!hasRecord(35)) throw new MockError(409, 'not_ready', 'The completeness report is still being drafted.');
+  if (d.completeness === 'proceed') throw new MockError(409, 'already_decided', 'The completeness decision was already recorded.');
   if (d.roundSent) throw new MockError(409, 'round_open', 'One round, field-anchored, sent once (D-16).');
   const kept = questions.filter((q) => q.keep);
   if (kept.length === 0) throw new MockError(422, 'No questions', 'Keep at least one question or proceed without a round.');
+  // D-120: the send is what decides the gate, with the questions the analyst kept and edited.
+  d.completeness = 'ask';
   d.roundSent = true;
   appendSeed(36);
   persist();
@@ -289,8 +292,93 @@ export function reviewStarted(): boolean {
   return completenessResolved && clausesDone;
 }
 
+// ---------------------------------------------------------------- ad-hoc questions (ADR-73)
+
+const ADHOC_PREFIX = 'aq_';
+
+export function isAdhocThread(threadId: string): boolean {
+  return threadId.startsWith(ADHOC_PREFIX);
+}
+
+/** Why the analyst may not ask the owner now, or null when they may (the backend's rule, ADR-73). */
+export function askBlockedReason(): string | null {
+  const d = demo();
+  if (d.closed) return 'The case is closed.';
+  if (d.packReleasedAt) return 'The case is with the decision makers. A question to the owner waits until it is back in review.';
+  if (d.locked) return 'The recommendation is locked. Unlock it with a reason to ask the owner.';
+  if (!d.submitted) return 'The case is not with an analyst yet.';
+  return null;
+}
+
+export function askOwner(questions: { text: string; anchor: string | null }[]): string[] {
+  requireOpen();
+  const d = demo();
+  const blocked = askBlockedReason();
+  if (blocked) throw new MockError(409, 'wrong_stage', blocked);
+  if (questions.length === 0) throw new MockError(422, 'No questions', 'Ask at least one question.');
+  const ids: string[] = [];
+  questions.forEach((q, i) => {
+    const text = q.text.trim();
+    if (!text) throw new MockError(422, 'Question required', `Question ${i + 1} needs words.`);
+    const words = restrictedTermsIn(text);
+    if (words.length) throw new MockError(422, 'Reserved word', `Question ${i + 1} contains a word the system reserves (${words.join(', ')}). Please rephrase it.`);
+  });
+  for (const q of questions) {
+    const text = q.text.trim();
+    const open = d.adhoc.find((a) => a.text === text && a.anchor === q.anchor && !a.answer);
+    if (open) {
+      ids.push(open.id);
+      continue;
+    }
+    const n = d.adhoc.length + 1;
+    const field = q.anchor && /^F\d{2,3}$/.test(q.anchor) ? q.anchor : null;
+    d.adhoc.push({
+      id: `${ADHOC_PREFIX}${n}`,
+      question_id: `A${n}`,
+      text,
+      anchor: q.anchor,
+      field_id: field,
+      opened_at: new Date().toISOString(),
+      answer: null,
+      submission_version: null,
+      resolved: false,
+    });
+    ids.push(`${ADHOC_PREFIX}${n}`);
+  }
+  appendExtra('question.asked', 'H1', `${questions.length} question(s) sent to the owner outside the clarification round · analyst clock keeps running`);
+  persist();
+  return ids;
+}
+
+export function answerAdhoc(threadId: string, text: string, documents: string[], values: { field_id: string; value: string }[]): void {
+  requireOpen();
+  const d = demo();
+  const q = d.adhoc.find((a) => a.id === threadId);
+  if (!q) throw new MockError(404, 'Not found', 'No such question.');
+  if (!text.trim()) throw new MockError(422, 'Answer required', 'Write an answer before sending.');
+  if (q.answer) throw new MockError(409, 'thread_not_open', 'This question is not waiting for an answer.');
+  const set: Record<string, string> = {};
+  for (const v of values) if (v.value.trim()) set[v.field_id] = v.value.trim();
+  const changed = Object.keys(set);
+  if (changed.length || documents.length) {
+    const base = d.adhocVersion ?? (roundAnswered() ? 2 : 1);
+    d.adhocVersion = base + 1;
+    q.submission_version = d.adhocVersion;
+  }
+  q.answer = { text: text.trim(), documents, at: new Date().toISOString(), values: set, changed };
+  appendExtra('question.answered', 'H1', `Owner answered question ${q.question_id} · ${changed.length} field(s) changed`);
+  persist();
+}
+
 export function resolveThread(threadId: string): void {
   const d = demo();
+  if (isAdhocThread(threadId)) {
+    const q = d.adhoc.find((a) => a.id === threadId);
+    if (!q?.answer) throw new MockError(409, 'not_answered', 'A question is resolved after the owner answers it.');
+    q.resolved = true;
+    persist();
+    return;
+  }
   if (!d.threadAnswers[threadId]) throw new MockError(409, 'not_answered', 'A question is resolved after the owner answers it.');
   if (!d.resolved.includes(threadId)) d.resolved.push(threadId);
   persist();

@@ -71,6 +71,11 @@ class Trigger(StrEnum):
     # not move (review or recommend); the step writes the audit record.
     CASE_CLAUSE_ADDED = "case.clause_added"
     CASE_CLAUSE_REMOVED = "case.clause_removed"
+    # The analyst asked the owner an ad-hoc question, or the owner answered one
+    # (ADR-73). Self-loops in every state from TRIAGE to DECIDE and in HANDOFF:
+    # the run never moves on them; the work is the step they enqueue.
+    CASE_QUESTION_ASKED = "case.question_asked"
+    CASE_QUESTION_ANSWERED = "case.question_answered"
     ALL_ITEMS_DECIDED = "internal.all_items_decided"
 
     AGENT_DONE_NARRATIVE_RECOMMENDATION = "agent.done.narrative.recommendation"

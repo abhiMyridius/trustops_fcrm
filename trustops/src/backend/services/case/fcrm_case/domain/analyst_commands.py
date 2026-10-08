@@ -48,6 +48,7 @@ from fcrm_contracts.events.envelope import Envelope
 from fcrm_contracts.events.payloads import (
     CaseClarificationSent,
     CaseLocked,
+    CaseQuestionAsked,
     CaseUnlocked,
     GateDecided,
 )
@@ -56,6 +57,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from fcrm_case.analyst_errors import DecisionNotAllowedError
 from fcrm_case.domain.clarifications import (
+    ADHOC_ROUND,
     ClarificationThreadRow,
     anchored_field_ids,
     field_label_for,
@@ -866,6 +868,7 @@ def resolve_thread_command(
     now: datetime,
 ) -> AnalystCommand:
     """The command that resolves an answered question."""
+    where = "" if thread.kind == "adhoc" else f" (round {thread.round})"
     return AnalystCommand(
         case_id=case_id,
         actor=by,
@@ -874,9 +877,90 @@ def resolve_thread_command(
             activity_row(
                 by,
                 "thread.resolved",
-                f"{by_name} resolved question {thread.question_id} "
-                f"(round {thread.round})",
+                f"{by_name} resolved question {thread.question_id}{where}",
                 {"round": thread.round, "thread_id": thread.thread_id},
             )
+        ],
+    )
+
+
+# ── ad-hoc questions to the owner (ADR-73) ──────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class AdhocAsk:
+    """One ad-hoc question to open: its id (``A1``...), the words, the anchor."""
+
+    question_id: str
+    text: str
+    anchor: Optional[str]
+
+
+def ask_adhoc_command(
+    *,
+    case_id: str,
+    run_id: str,
+    questions: Sequence[AdhocAsk],
+    labels: Mapping[str, str],
+    by: str,
+    by_name: str,
+    now: datetime,
+) -> AnalystCommand:
+    """The command that asks the owner ad-hoc questions: one thread per question
+    (``kind`` ``adhoc``, ``round`` 0) and ``case.question_asked`` naming them,
+    committed together. It decides no gate and pauses no clock, so the D-16
+    round and its one-round rule are untouched (ADR-73).
+    """
+    threads = [
+        ClarificationThreadRow(
+            thread_id=thread_id_for(case_id, ADHOC_ROUND, q.question_id),
+            case_id=case_id,
+            kind="adhoc",
+            round=ADHOC_ROUND,
+            question_id=q.question_id,
+            text=q.text,
+            anchor=q.anchor,
+            field_ids=anchored_field_ids(q.anchor),
+            field_label=field_label_for(q.anchor, labels),
+            opened_at=now,
+            opened_by=by,
+        )
+        for q in questions
+    ]
+    asked = build_envelope(
+        "case.question_asked",
+        CaseQuestionAsked(
+            case_id=case_id,
+            actor=by,
+            thread_ids=[t.thread_id for t in threads],
+            question_count=len(threads),
+        ).model_dump(mode="json"),
+        case_id=case_id,
+        run_id=run_id,
+    )
+    noun = "a question" if len(threads) == 1 else f"{len(threads)} questions"
+    ids = ", ".join(t.question_id for t in threads)
+    return AnalystCommand(
+        case_id=case_id,
+        actor=by,
+        events=[asked],
+        threads=threads,
+        activity=[
+            activity_row(
+                by,
+                "question.asked",
+                f"{by_name} asked the owner {noun} ({ids}) · the analyst clock "
+                "keeps running",
+                {
+                    "questions": len(threads),
+                    "thread_ids": [t.thread_id for t in threads],
+                },
+            ),
+            po_visible_row(
+                by,
+                "question.asked",
+                f"FCRM has {noun} for you",
+                {"questions": len(threads)},
+            ),
         ],
     )

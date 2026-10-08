@@ -42,6 +42,7 @@ from fcrm_contracts.api.case_analyst_read import (
     CriticFinding,
     DraftQuestion,
     FactorAnchor,
+    FieldChange,
     Flag,
     HandoffView,
     ItemDecision,
@@ -79,7 +80,13 @@ from fcrm_case.domain.assessment import (
     RecommendationRow,
     current_items,
 )
-from fcrm_case.domain.clarifications import ClarificationThreadRow
+from fcrm_case.domain.clarifications import (
+    ClarificationThreadRow,
+    adhoc_threads,
+    ask_blocked_reason,
+    round_threads,
+    values_changed_since,
+)
 from fcrm_case.domain.completion import compute_completion
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.views import (
@@ -932,7 +939,7 @@ def handoff_view(inputs: HandoffInputs) -> HandoffView:
     )
 
 
-# -- the clarification round -------------------------------------------------------
+# -- the clarification round and the ad-hoc questions -----------------------------
 
 _THREAD_STATUS: Final = {
     "awaiting_response": "open",
@@ -941,10 +948,17 @@ _THREAD_STATUS: Final = {
 }
 
 
-def _thread(row: ClarificationThreadRow) -> ThreadAnalyst:
+def _field_change(field_id: str, value: str, labels: Mapping[str, str]) -> FieldChange:
+    return FieldChange(
+        field_id=field_id, label=labels.get(field_id, field_id), value=value
+    )
+
+
+def _thread(row: ClarificationThreadRow, labels: Mapping[str, str]) -> ThreadAnalyst:
     answer = row.answer
     return ThreadAnalyst(
         id=row.thread_id,
+        kind=row.kind,
         round=row.round,
         anchor=row.anchor or "",
         question=row.text,
@@ -954,6 +968,11 @@ def _thread(row: ClarificationThreadRow) -> ThreadAnalyst:
             documents=list(answer.documents),
             at=answer.at.isoformat(),
             by=answer.by,
+            fields=[
+                _field_change(f, answer.values.get(f, ""), labels)
+                for f in answer.changed_field_ids
+            ],
+            submission_version=row.resulting_version,
         )
         if answer is not None
         else None,
@@ -965,11 +984,19 @@ def clarifications_view(
     completeness: Optional[CompletenessViewRow],
     decided: Optional[str],
     threads: Sequence[ClarificationThreadRow],
+    scored_at: Optional[datetime] = None,
 ) -> ClarificationsView:
     """The Inbox tab: the questions the narrative agent drafted (with the ones it
     dropped and why), the round the analyst sent (each question with the owner's
-    answer, in the analyst's terms: the anchor may name a control), whether a round
-    can still be sent and whether the analyst's clock is paused on the owner.
+    answer, in the analyst's terms: the anchor may name a control), whether the
+    round can still be composed and sent, whether the analyst's clock is paused on
+    the owner, and the ad-hoc questions (ADR-73) with whether one may be asked now
+    and which values the owner changed since the agents last scored the case
+    (``scored_at``).
+
+    The round can be sent while the completeness gate is open and undecided
+    (D-120: "Ask now" opens the composer; only its send decides the gate, with the
+    questions the analyst kept and edited).
     """
     drafted = [
         DraftQuestion(
@@ -981,21 +1008,34 @@ def clarifications_view(
         )
         for q in (completeness.questions if completeness is not None else [])
     ]
+    labels = {d.field_id: d.label for d in record.required_fields}
+    in_round = round_threads(threads)
     by_round: dict[int, list[ClarificationThreadRow]] = {}
-    for row in threads:
+    for row in in_round:
         by_round.setdefault(row.round, []).append(row)
     rounds = [
         ClarificationRound(
             round=number,
             sent_at=min(r.opened_at for r in rows).isoformat(),
             to=record.owner_name or record.owner,
-            threads=[_thread(r) for r in sorted(rows, key=lambda r: r.question_id)],
+            threads=[
+                _thread(r, labels) for r in sorted(rows, key=lambda r: r.question_id)
+            ],
         )
         for number, rows in sorted(by_round.items())
     ]
+    blocked = ask_blocked_reason(record)
+    changed = values_changed_since(threads, scored_at)
     return ClarificationsView(
         drafted=drafted,
         rounds=rounds,
-        can_send=decided == "ask" and not threads,
-        clock_paused=any(r.status == "awaiting_response" for r in threads),
+        can_send=completeness is not None
+        and decided is None
+        and not in_round
+        and record.state is CaseState.COMPLETENESS,
+        clock_paused=any(r.status == "awaiting_response" for r in in_round),
+        questions=[_thread(r, labels) for r in adhoc_threads(threads)],
+        can_ask=blocked is None,
+        ask_blocked_reason=blocked,
+        values_changed=[_field_change(f, v, labels) for f, v in changed.items()],
     )

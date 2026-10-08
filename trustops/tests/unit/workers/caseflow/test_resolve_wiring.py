@@ -196,8 +196,8 @@ class TestNewLiteralTriggers:
     @pytest.mark.parametrize(
         ("state", "trigger"),
         [
-            (CaseState.TRIAGE, Trigger.INGEST_DONE),
-            (CaseState.REVIEW, Trigger.INGEST_FAILED),
+            (CaseState.REVIEW_AND_SUBMIT, Trigger.INGEST_DONE),
+            (CaseState.CLOSED, Trigger.INGEST_FAILED),
             (CaseState.INTAKE, Trigger.CASE_CONTROL_PLANNED),
             (CaseState.DECIDE, Trigger.CASE_CONTROL_PLANNED),
         ],

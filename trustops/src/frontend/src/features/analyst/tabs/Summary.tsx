@@ -1,7 +1,9 @@
 /**
  * 2.14 Workbench Summary: flags with sources, completeness report, critic banner, and the score box,
  * which is WITHHELD until review starts (the server does not send the number before then).
- * Completeness gate (D-16): Ask now (one batched round) or Enough to assess · proceed.
+ * Completeness gate (D-16): Ask now (opens the round's composer in the Inbox, where the send decides the
+ * gate with the questions kept and edited, D-120) or Enough to assess · proceed. ADR-73: a link to ask
+ * the owner a question at any time, from the moment the case is assigned.
  */
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { EyeOff, Flag } from 'lucide-react';
@@ -82,6 +84,20 @@ function HandedToYou({ caseId, failed }: { caseId: string; failed: NonNullable<A
   );
 }
 
+/** ADR-73: the analyst may ask the owner a question at any stage; the Inbox holds the composer. */
+function AskOwnerLink({ caseId, closed }: { caseId: string; closed: boolean }) {
+  const navigate = useNavigate();
+  if (closed) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-[13px] text-text-secondary">
+      <Button size="sm" variant="secondary" onClick={() => navigate(`/analyst/case/${caseId}/inbox`)}>
+        Ask the owner a question
+      </Button>
+      <span>Any time, from the Inbox. It does not pause your clock.</span>
+    </div>
+  );
+}
+
 export function SummaryTab() {
   const { id = '' } = useParams();
   const w = useOutletContext<WorkbenchHeader>();
@@ -104,15 +120,20 @@ export function SummaryTab() {
               <Banner tone="info" title="The assessment core is waiting for this step">
                 The steps after it run once you complete it. This page updates as they finish.
               </Banner>
+              <AskOwnerLink caseId={id} closed={w.closed} />
             </div>
           ) : (
-            <Banner tone="info" live="polite" title="The assessment core is running">
-              Screening, research, assessment, critic and the completeness report run before you start. This page updates as they finish.
-            </Banner>
+            <div className="flex flex-col gap-4">
+              <Banner tone="info" live="polite" title="The assessment core is running">
+                Screening, research, assessment, critic and the completeness report run before you start. This page updates as they finish.
+              </Banner>
+              <AskOwnerLink caseId={id} closed={w.closed} />
+            </div>
           )
         ) : (
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_360px]">
             <div className="flex flex-col gap-5">
+              <AskOwnerLink caseId={id} closed={w.closed} />
               {a.agent_failed && <HandedToYou caseId={id} failed={a.agent_failed} />}
               {a.critic_findings.length > 0 && (
                 <Banner tone="danger" title={`Critic · ${a.critic_findings.length} findings (${a.critic_findings[0]?.severity})`}>
@@ -166,16 +187,7 @@ export function SummaryTab() {
                 </p>
                 {w.completeness_decision === null && !w.closed && w.is_demo && (
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <Button
-                      variant="primary"
-                      loading={decide.isPending && decide.variables?.decision === 'ask'}
-                      onClick={() =>
-                        decide.mutate(
-                          { decision: 'ask' },
-                          { onSuccess: () => navigate(`/analyst/case/${id}/inbox`), onError: (e) => toast.error('Not saved', userMessage(e)) },
-                        )
-                      }
-                    >
+                    <Button variant="primary" onClick={() => navigate(`/analyst/case/${id}/inbox`)}>
                       Ask now ({a.completeness.kept} questions)
                     </Button>
                     <Button

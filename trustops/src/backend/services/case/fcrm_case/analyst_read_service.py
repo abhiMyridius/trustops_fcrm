@@ -263,14 +263,19 @@ class AnalystReadService:
     # -- assessment, risk, policy, handoff ------------------------------------------
 
     async def clarifications(self, case_id: str) -> ClarificationsView:
-        """The Inbox tab: the drafted questions and the round the owner holds."""
+        """The Inbox tab: the drafted questions, the round the owner holds, the
+        ad-hoc questions (ADR-73) and the values the owner changed since the
+        agents last scored the case.
+        """
         record = await self.case(case_id)
         completeness = await self._assessment.get_completeness(case_id)
+        snapshot = await self._assessment.latest_score(case_id)
         return clarifications_view(
             record,
             completeness,
             await self._completeness_decided(completeness),
             await self._decisions.threads(case_id),
+            snapshot.computed_at if snapshot is not None else None,
         )
 
     async def assessment(self, case_id: str) -> AssessmentSummary:

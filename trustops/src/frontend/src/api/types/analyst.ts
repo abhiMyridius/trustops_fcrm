@@ -200,20 +200,51 @@ export interface SubmissionDiff {
   added_documents: string[];
 }
 
+/** A value the owner set with an answer. */
+export interface FieldChange {
+  field_id: string;
+  label: string;
+  value: string;
+}
+
 export interface ThreadAnalyst {
   id: string;
+  /** `round`: the one clarification round (D-16); `adhoc`: asked at another time (ADR-73, round 0). */
+  kind: 'round' | 'adhoc';
   round: number;
   anchor: string;
   question: string;
   status: 'open' | 'answered' | 'resolved';
-  answer: { text: string; documents: string[]; at: string; by: string } | null;
+  answer: {
+    text: string;
+    documents: string[];
+    at: string;
+    by: string;
+    fields: { field_id: string; label: string; value: string }[];
+    submission_version: number | null;
+  } | null;
+}
+
+/** What `POST /cases/{id}/questions` answers (ADR-73). */
+export interface QuestionsResult {
+  case_id: string;
+  questions: number;
+  thread_ids?: string[];
+  replayed?: boolean;
 }
 
 export interface ClarificationsView {
   drafted: DraftQuestion[];
   rounds: { round: number; sent_at: string; to: string; threads: ThreadAnalyst[] }[];
+  /** The round can be composed and sent: the completeness gate is open and undecided (D-120). */
   can_send: boolean;
   clock_paused: boolean;
+  /** Ad-hoc questions (ADR-73), oldest first. */
+  questions: ThreadAnalyst[];
+  can_ask: boolean;
+  ask_blocked_reason: string | null;
+  /** Values the owner changed after the agents last scored the case. */
+  values_changed: { field_id: string; label: string; value: string }[];
 }
 
 export type ItemDecision = 'pending' | 'accepted' | 'removed' | 'confirmed' | 'overridden';

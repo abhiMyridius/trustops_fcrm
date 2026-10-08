@@ -86,5 +86,11 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "case.clause_removed",  # S1 -> H1
         "clause.added",  # the audit record H1 writes for it
         "clause.removed",  # the audit record H1 writes for its removal
+        # ad-hoc questions to the owner (ADR-73): the events S1 publishes and the
+        # records H1's steps write for them
+        "case.question_asked",  # S1 -> H1
+        "case.question_answered",  # S1 -> H1
+        "question.asked",
+        "question.answered",
     }
 )

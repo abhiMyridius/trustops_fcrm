@@ -82,6 +82,7 @@ from fcrm_caseflow.cores.assessment_score import (
 from fcrm_caseflow.cores.intake_records import plural, short
 from fcrm_caseflow.cores.refs import (
     PUBLISHED_JOBS_REF,
+    RERUN_ACTIVE_REF,
     RERUN_REF,
     SCORE_SUMMARY_REF,
 )
@@ -484,6 +485,7 @@ async def _publish_assessment(
         refs_patch={
             SCORE_SUMMARY_REF: outcome.summary(seq),
             PUBLISHED_JOBS_REF: sorted(published | fresh),
+            **({RERUN_ACTIVE_REF: None} if rerun else {}),
         },
         band=outcome.band,
         counter_deltas={"tokens_used": tokens_of(fresh_results)},

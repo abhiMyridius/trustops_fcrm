@@ -306,9 +306,11 @@ def _after_ingest(deps: StepDeps, record: CaseRecordInternal) -> StepResult:
     agent per document, once none is still being read. In a clarification round a
     document the owner added with an answer is not read by the intake agent; if
     that answer is waiting for it, the assessment core's ``rerun.record`` step
-    runs again to dispatch the re-run.
+    runs again to dispatch the re-run. The same holds in review for a document
+    the owner added with an ad-hoc answer whose re-run waits for it (ADR-73); at
+    any other stage the document is recorded and extracted, and nothing follows.
     """
-    if deps.run.state is CaseState.CLARIFICATION:
+    if deps.run.state in (CaseState.CLARIFICATION, CaseState.REVIEW):
         if deps.run.refs.get(RERUN_PENDING_REF):
             return StepResult(
                 follow_up_steps=(
