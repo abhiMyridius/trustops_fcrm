@@ -214,6 +214,10 @@ class StepKind(StrEnum):
     EXAMINER_ANSWER = "examiner.answer"
     WATCHLIST_PUBLISH = "watchlist.publish"
     REFLAG_ACK = "reflag.ack"
+    # An ad-hoc question to the owner, asked and answered (ADR-73): recorded at
+    # any stage; an answer that changes a field re-runs the agents in REVIEW.
+    QUESTION_ASKED = "question.asked"
+    QUESTION_ANSWERED = "question.answered"
     STATE_PUSH = "state.push"
 
 

@@ -126,6 +126,9 @@ ANNEX_E_STEP_KINDS = {
     "watchlist.publish",
     "reflag.ack",
     "state.push",
+    # ADR-73: the ad-hoc questions to the owner
+    "question.asked",
+    "question.answered",
 }
 
 # One example payload per model, as a producer would build it.

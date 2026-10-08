@@ -19,6 +19,7 @@ from fcrm_caseflow.cores import (
     handoff,
     intake,
     oversight,
+    questions,
 )
 from fcrm_caseflow.steps import StepHandler
 
@@ -39,6 +40,7 @@ def default_handlers() -> dict[StepKind, StepHandler]:
         closing.HANDLERS,
         oversight.HANDLERS,
         handoff.HANDLERS,
+        questions.HANDLERS,
     ):
         clash = merged.keys() & table.keys()
         if clash:

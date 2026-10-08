@@ -477,6 +477,75 @@ _CLOSED_HANDOFF = [
     ),
 ]
 
+# --- ad-hoc questions to the owner (ADR-73) ------------------------------------
+# The analyst may ask the owner a question at any stage from triage to an unlocked
+# recommendation (S1 refuses the rest), and the owner may answer it later, even
+# once the pack is with the committee. Every row is a self-loop: the run never
+# moves on a question, the analyst's clock is not paused (``round_open`` is the
+# D-16 round's alone), and the work is the step the trigger enqueues. Only in
+# REVIEW, with no agent running, does an answer that changed a value re-run
+# research and assessment on the changed fields (the step decides, from the run
+# it reads; ``AGENT_DONE_RERUN_BOTH`` then returns the run to REVIEW as for the
+# analyst's own re-run). Elsewhere the values are recorded and the analyst is
+# told they changed since the agents ran, so no answer is lost and no re-run
+# races a running agent.
+ADHOC_QUESTION_STATES: tuple[CaseState, ...] = (
+    S.TRIAGE,
+    S.SCREENING,
+    S.ASSESS,
+    S.CRITIC,
+    S.COMPLETENESS,
+    S.CLARIFICATION,
+    S.REVIEW,
+    S.RECOMMEND,
+    S.DECIDE,
+    S.HANDOFF,
+)
+
+_ADHOC_QUESTIONS: list[Transition] = [
+    *(
+        Transition(
+            state,
+            Trigger.CASE_QUESTION_ASKED,
+            state,
+            "record question.asked; the analyst clock keeps running (ADR-73)",
+        )
+        for state in ADHOC_QUESTION_STATES
+    ),
+    *(
+        Transition(
+            state,
+            Trigger.CASE_QUESTION_ANSWERED,
+            state,
+            "record question.answered; re-run research+assessment on the changed "
+            "fields when no agent is running (ADR-73)"
+            if state is S.REVIEW
+            else "record question.answered; flag the values that changed since "
+            "the agents ran (ADR-73)",
+        )
+        for state in ADHOC_QUESTION_STATES
+    ),
+    # A document the owner adds with an ad-hoc answer is stored, recorded and
+    # extracted at whatever stage it arrives (INTAKE and CLARIFICATION have their
+    # own rows above); no agent reads it until one runs again.
+    *(
+        Transition(
+            state,
+            trigger,
+            state,
+            "the owner added a document with an answer: record it and hand it to "
+            "H3; a re-run in REVIEW waits for it (ADR-73)",
+        )
+        for state in ADHOC_QUESTION_STATES
+        if state is not S.CLARIFICATION
+        for trigger in (
+            Trigger.CASE_DOCUMENT_STORED,
+            Trigger.INGEST_DONE,
+            Trigger.INGEST_FAILED,
+        )
+    ),
+]
+
 TRANSITIONS: list[Transition] = [
     *_INTAKE,
     *_TRIAGE_SCREENING,
@@ -487,6 +556,7 @@ TRANSITIONS: list[Transition] = [
     *_RECOMMEND_DELEGATED,
     *_DECIDE,
     *_CLOSED_HANDOFF,
+    *_ADHOC_QUESTIONS,
 ]
 
 # Any state, on agent.failed after its one retry, goes to HANDOFF — this

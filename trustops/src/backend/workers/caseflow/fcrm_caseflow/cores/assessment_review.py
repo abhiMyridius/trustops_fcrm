@@ -25,7 +25,7 @@ import logging
 from collections.abc import Mapping, Sequence
 from typing import Any, Final, Optional
 
-from fcrm_contracts.api.case_internal import ReviewItemInternal
+from fcrm_contracts.api.case_internal import CaseRecordInternal, ReviewItemInternal
 from fcrm_contracts.enums import AgentName, ItemKind, StepKind
 from fcrm_contracts.events.payloads import (
     CaseAnswered,
@@ -46,6 +46,7 @@ from fcrm_caseflow.cores.assessment_score import (
 )
 from fcrm_caseflow.cores.intake_records import plural, short
 from fcrm_caseflow.cores.refs import (
+    RERUN_ACTIVE_REF,
     RERUN_PENDING_REF,
     RERUN_REF,
     SCORE_SUMMARY_REF,
@@ -163,6 +164,24 @@ async def rerun_record(step: HarnessStep, deps: StepDeps) -> StepResult:
             },
             actor=answered.actor,
         )
+    return await dispatch_rerun(step, deps, record, spec)
+
+
+async def dispatch_rerun(
+    step: HarnessStep,
+    deps: StepDeps,
+    record: CaseRecordInternal,
+    spec: Mapping[str, Any],
+) -> StepResult:
+    """Re-run research and assessment on ``spec["changed_fields"]`` (assessment
+    alone when no field research reads changed), or, while a document named in
+    ``spec["doc_ids"]`` is still being extracted, leave ``spec`` as the pending
+    re-run for the extraction's follow-up to dispatch.
+
+    ``spec`` is the owner's answer: ``changed_fields``, ``doc_ids``,
+    ``submission_version``, and ``round`` (the D-16 round) or ``reason`` and
+    ``thread_id`` (an ad-hoc answer, ADR-73).
+    """
     waiting = [
         d.doc_id
         for d in record.documents
@@ -174,7 +193,7 @@ async def rerun_record(step: HarnessStep, deps: StepDeps) -> StepResult:
             "the re-run waits for added documents to be extracted",
             extra={"case_id": step.case_id, "waiting": waiting},
         )
-        return StepResult(refs_patch={RERUN_PENDING_REF: spec, **version_ref})
+        return StepResult(refs_patch={RERUN_PENDING_REF: dict(spec), **version_ref})
     refs = {**scope_refs(record), **version_ref}
     changed = list(spec["changed_fields"])
     agents = (
@@ -183,11 +202,15 @@ async def rerun_record(step: HarnessStep, deps: StepDeps) -> StepResult:
         else (AgentName.ASSESSMENT,)
     )
     what = "Research and assessment" if len(agents) == 2 else "Assessment"
+    reason = str(spec.get("reason") or f"clarification round {spec.get('round')}")
+    data: dict[str, Any] = {"changed_fields": changed, "round": spec.get("round")}
+    if spec.get("thread_id"):
+        data["thread_id"] = spec["thread_id"]
     audit = await deps.append_record(
         step,
         "agent.rerun",
         f"{what} re-run on changed fields only",
-        {"changed_fields": changed, "round": spec["round"]},
+        data,
         actor="system",
     )
     await show(
@@ -209,9 +232,10 @@ async def rerun_record(step: HarnessStep, deps: StepDeps) -> StepResult:
                 "scope": "changed_fields",
                 "changed_fields": changed,
                 "domains": [],
-                "reason": f"clarification round {spec['round']}",
+                "reason": reason,
             },
             RERUN_PENDING_REF: None,
+            RERUN_ACTIVE_REF: True,
             **version_ref,
         },
         counter_deltas={"agents_run": len(agents)},
