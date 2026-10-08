@@ -9,6 +9,7 @@
 > - **C-08 is reversed**: tests never sit beside source; they live under `tests/unit` and `tests/integration` (Python) and `src/frontend/src/test` (web).
 > - **C-09 and C-11**: `make nightly` is not wired, and the Claude Code hook scripts are committed but not registered; the git hooks are the enforced commit gate. Eight containers publish only the gateway on 8080 (ADR-26, ADR-63).
 > - **C-04**: the observer's web is the monitor only (ADR-64). The UX decisions are collected in `docs/architecture/ux-decisions.md`.
+> - **The look, sections 1.2, 1.3, 1.6 and 1.7**: the web is re-skinned to the Myridius brand guide (Montserrat, a linen canvas, Carbon Moss dark surfaces, Virtual Tide as the one accent, pill-shaped controls). The owner's home moved from `/` to `/po`, and `/` now sends anyone signed in to their own home. A deliberate sign-out lands on a plain `/login`. An animated AI mark sits beside every AI-proposed or AI-drafted item (ADR-67). The tables below are updated for these.
 
 Status: design for implementation by Claude Code subagents, 3 Oct 2026. Six build days remain (submission 9 Oct).
 Inputs: A-problem-statement, 00-synthesis, C-blueprint-flow (incl. v2 update), D-prototype (§1, §13, §14, §15), F-walkthrough-seed, CLAUDE.md, FCRM_v2/src/index.css.
@@ -102,7 +103,8 @@ All routes are under `AppShell` except `/login` and `/monitor/*`. Role guards re
 | Role | Path | Screen | Tabs / notes |
 |---|---|---|---|
 | any | `/login` | LoginPage | SSO button → demo user picker (C-05) |
-| PO | `/` | PO Dashboard | KPIs, My cases |
+| any | `/` | HomeRedirect | sends a signed-in person to their own home: `/po`, `/analyst` or `/committee` (ADR-67) |
+| PO | `/po` | PO Dashboard | KPIs, My cases (was `/` until ADR-67) |
 | PO | `/queue` | My Queue | filters, resume draft |
 | PO | `/case/new` | creates a case then redirects to `/case/:id/documents` | case ID issued first (scene 2) |
 | PO | `/case/:id` | PO Case | redirects to `overview`; tabs: `overview` `documents` `review` `inbox` `activity` `conditions` |
@@ -125,7 +127,7 @@ Templates and Settings (prototype PO nav) are out: Templates becomes a read-only
 2. Login: `POST /api/fcrm/auth/login {username, password}` (seeded demo users have passwords from `seed.json.users[].demo_password`, synthetic). In demo mode the SSO button opens the picker; in non-demo mode it posts the form. The response carries `access_token` (exp 15 min), `role`, `user`, and sets the refresh cookie (exp 8 h).
 3. `client.ts` middleware adds `Authorization: Bearer`, `X-Trace-Id` (uuid per page load, propagated to spans) and retries once on 401 after a refresh. Concurrent refreshes are deduplicated.
 4. Role comes from the token claim `role`; the UI uses it only for navigation and layout. Field-level visibility is never computed client-side: a PO payload has no score fields to hide.
-5. Logout: `POST /api/fcrm/auth/logout` clears the cookie; the query cache is cleared; SSE closed.
+5. Logout: `POST /api/fcrm/auth/logout` clears the cookie; the query cache is cleared; SSE closed. A deliberate sign-out lands on a plain `/login` with no `?next=`; only an expired session carries `?next=` back to where the person was (ADR-67).
 6. The identity fixes from CLAUDE.md (refresh accepted as access, OTP logging, hard-coded secrets) are design B's; the web client's tests assert that a refresh token in the `Authorization` header is rejected (black-box check BB-11).
 
 ### 1.4 API surface (proposed names, bind to design B) and the SSE hook
@@ -176,6 +178,7 @@ Button · IconButton · Card · Badge (tones: neutral, success, info, warning, d
 Domain components (`components/domain`):
 - `SourceChip` — "case p.4 l.12" style chip; click opens the document viewer at page:line. Renders nothing when a value has no source (rule: no source, no claim).
 - `ProvenanceTag` — Extracted · Reused from FCRM-2026-0118 · Owner answer · Owner declared (was …) · Analyst override · Jurisdiction list. Always a visible label, never a tooltip.
+- `AiMark` (`components/ui/AiMark.tsx`) — the animated sparkle beside every AI-proposed or AI-drafted item, so a person can tell at a glance what a model wrote and what a person confirmed; it keeps a still form under `prefers-reduced-motion` (ADR-67).
 - `ScoreBadge` — numeric score + "Band n of 4 (range)" + route. Ranges and labels come from `GET scoring/models/{v}` for the case's pinned version. Never imported by `features/po/*` (an ESLint `no-restricted-imports` rule enforces this).
 - `CompletionRing` — % with threshold tick and "n of m fields · always-required k of 6".
 - `StageTracker` — intake → review & submit → triage → screening → assess → critic → completeness → clarification → review → decide → oversight, collapsed to the role's view (PO sees Draft · Submitted · Under assessment · Decision · Closed).
@@ -222,7 +225,7 @@ Format per screen: reads · actions · gates shown (with the rationale text the 
 - Copy: "One governed place for change risk assessments" · "Your role and what you can see are set by the bank's directory, not by this app."
 - Gate: none. Must-not-see: nothing role-specific before login.
 
-### 2.2 PO Dashboard (`/`)
+### 2.2 PO Dashboard (`/po`)
 - Reads: `cases/dashboard` → KPIs "5 active · 1 awaiting my answer · 3.3 d avg intake to decision · 3 open conditions"; "My cases" rows 0150, 0146, 0139, 0121, 0109 (Case · Change · Stage · Next action). Banner "Starting a new change? Upload what you already have first…".
 - Actions: `+ New case` → `POST cases` → `/case/:id/documents`. Row → case.
 - Must-not-see: band, score, analyst notes, committee state. The DTO has no such fields; a vitest snapshot of the PO dashboard DTO type asserts the absence (`expectTypeOf<PODashboard>().not.toHaveProperty('band')`).
