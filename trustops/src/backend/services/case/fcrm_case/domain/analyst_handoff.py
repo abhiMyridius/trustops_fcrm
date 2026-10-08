@@ -13,6 +13,7 @@ Pure, no I/O.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any, Final, Optional
 
@@ -20,8 +21,9 @@ from fcrm_contracts.api.case_analyst_handoff import (
     HandoffCompleteBody,
     HandoffGateView,
 )
+from fcrm_contracts.api.case_analyst_read import AgentFailed, FailedStep
 from fcrm_contracts.api.case_internal import UiActor, UiEventIn
-from fcrm_contracts.enums import GateType
+from fcrm_contracts.enums import CaseState, GateType
 from fcrm_contracts.events.payloads import GateOpened
 from pydantic import BaseModel, ConfigDict
 
@@ -226,4 +228,76 @@ def handoff_command(
                 {"agent": row.agent, "items": len(accepted)},
             )
         ],
+    )
+
+
+def open_gates(
+    rows: Sequence[HandoffGateRow],
+    decided_gate_ids: frozenset[str],
+    run_id: Optional[str],
+) -> list[HandoffGateRow]:
+    """The gates still waiting for the analyst, oldest first: no decision in the
+    ledger, and of the case's current run when it has one (a reset run's gates
+    are history).
+    """
+    return [
+        row
+        for row in rows
+        if row.gate_id not in decided_gate_ids
+        and (run_id is None or row.run_id == run_id)
+    ]
+
+
+def _words(value: str) -> str:
+    """An agent or stage id as words (``policy_gap`` reads ``policy gap``)."""
+    return value.replace("_", " ")
+
+
+def _in_stage(step: Optional[str]) -> str:
+    return f" in the {_words(step)} stage" if step else ""
+
+
+def agent_failed_notice(
+    state: CaseState,
+    handoff_from: Optional[CaseState],
+    gates: Sequence[HandoffGateRow],
+) -> Optional[AgentFailed]:
+    """The Summary's banner for a case in ``handoff`` (D-117), or ``None`` for one
+    that is not: it names the failed agent and the stage from the open gates
+    (``gates``), and lists them when there are several. Each sentence ends with
+    one full stop; what to do next is the web's to say.
+    """
+    if state is not CaseState.HANDOFF:
+        return None
+    origin = handoff_from.value if handoff_from is not None else None
+    failures = [
+        FailedStep(agent=g.agent, step=g.step or origin, gate_id=g.gate_id)
+        for g in gates
+    ]
+    step = next((f.step for f in failures if f.step), origin)
+    if not failures:
+        title = "Agent step handed to you"
+        reason = f"An agent failed on both tries{_in_stage(step)}."
+    elif len(failures) == 1:
+        agent = _words(failures[0].agent)
+        title = f"{agent.capitalize()} step handed to you"
+        reason = f"The {agent} agent failed on both tries{_in_stage(step)}."
+    else:
+        agents = {f.agent for f in failures}
+        steps = {f.step for f in failures}
+        same = _words(failures[0].agent) if len(agents) == 1 else None
+        title = (
+            f"{len(failures)} {same} steps handed to you"
+            if same is not None
+            else f"{len(failures)} steps handed to you"
+        )
+        reason = (
+            f"{len(failures)} agent jobs failed on both tries"
+            f"{_in_stage(step) if len(steps) == 1 else ''}."
+        )
+    return AgentFailed(
+        step=_words(step) if step else "unknown",
+        reason=reason,
+        title=title,
+        failures=failures,
     )

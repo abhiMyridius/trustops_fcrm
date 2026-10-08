@@ -8,7 +8,7 @@ import { EyeOff, Flag } from 'lucide-react';
 import { useAssessment, useCompleteness } from '@/api/queries/analystQueries';
 import { useStreamStatus } from '@/api/sse/useCaseStream';
 import { userMessage } from '@/api/errors';
-import type { ScoreBox, WorkbenchHeader } from '@/api/types/analyst';
+import type { AssessmentSummary, ScoreBox, WorkbenchHeader } from '@/api/types/analyst';
 import { HandoffControl } from '@/features/analyst/HandoffControl';
 import { ScoreBadge } from '@/components/domain/ScoreBadge';
 import { SourceChip } from '@/components/domain/SourceChip';
@@ -55,6 +55,33 @@ export function ScoreBoxView({ score }: { score: ScoreBox }) {
   );
 }
 
+/** `policy_gap` as `policy gap`: an agent or stage id in a sentence. */
+const words = (id: string) => id.replace(/_/g, ' ');
+
+/**
+ * An agent failed on both tries and the run waits for the analyst (D-117): the server names the agent and
+ * the stage; the banner adds what to do once, and lists the jobs when several failed.
+ */
+function HandedToYou({ caseId, failed }: { caseId: string; failed: NonNullable<AssessmentSummary['agent_failed']> }) {
+  return (
+    <>
+      <Banner tone="danger" title={failed.title}>
+        <p>{failed.reason} Nothing was skipped: complete the step by hand below.</p>
+        {failed.failures.length > 1 && (
+          <ul className="mt-1 list-disc pl-4">
+            {failed.failures.map((f) => (
+              <li key={f.gate_id}>
+                {words(f.agent)} agent{f.step ? ` · ${words(f.step)} stage` : ''}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Banner>
+      <HandoffControl caseId={caseId} />
+    </>
+  );
+}
+
 export function SummaryTab() {
   const { id = '' } = useParams();
   const w = useOutletContext<WorkbenchHeader>();
@@ -70,18 +97,23 @@ export function SummaryTab() {
     <QueryState query={q} label="Loading summary">
       {(a) =>
         !a.ready ? (
-          <Banner tone="info" live="polite" title="The assessment core is running">
-            Screening, research, assessment, critic and the completeness report run before you start. This page updates as they finish.
-          </Banner>
+          a.agent_failed ? (
+            // Handed off before the completeness report (D-116): the core waits for this step, it is not running.
+            <div className="flex flex-col gap-5">
+              <HandedToYou caseId={id} failed={a.agent_failed} />
+              <Banner tone="info" title="The assessment core is waiting for this step">
+                The steps after it run once you complete it. This page updates as they finish.
+              </Banner>
+            </div>
+          ) : (
+            <Banner tone="info" live="polite" title="The assessment core is running">
+              Screening, research, assessment, critic and the completeness report run before you start. This page updates as they finish.
+            </Banner>
+          )
         ) : (
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_360px]">
             <div className="flex flex-col gap-5">
-              {a.agent_failed && (
-                <Banner tone="danger" title={`${a.agent_failed.step} step handed to a person`}>
-                  {a.agent_failed.reason}. Nothing was skipped: complete the step by hand below.
-                </Banner>
-              )}
-              {a.agent_failed && <HandoffControl caseId={id} />}
+              {a.agent_failed && <HandedToYou caseId={id} failed={a.agent_failed} />}
               {a.critic_findings.length > 0 && (
                 <Banner tone="danger" title={`Critic · ${a.critic_findings.length} findings (${a.critic_findings[0]?.severity})`}>
                   <ul className="flex flex-col gap-1">

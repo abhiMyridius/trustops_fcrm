@@ -259,9 +259,26 @@ class CompletenessSummary(_Dto):
     gate_open: bool = False
 
 
+class FailedStep(_Dto):
+    """One job an agent failed on both tries, waiting for the analyst: the agent,
+    the stage the run was in (``None`` when the gate did not say) and its gate.
+    """
+
+    agent: str
+    step: Optional[str]
+    gate_id: str
+
+
 class AgentFailed(_Dto):
+    """The Summary's handoff banner (D-117): ``title`` is its heading, ``reason``
+    one sentence naming what failed (the web adds what to do), ``step`` the stage
+    the run was in, and ``failures`` every open handoff gate, oldest first.
+    """
+
     step: str
     reason: str
+    title: str
+    failures: list[FailedStep]
 
 
 class AssessmentSummary(_Dto):

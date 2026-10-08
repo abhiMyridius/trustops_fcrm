@@ -733,7 +733,19 @@ export function handoff(id: string): HandoffView | null {
 export function activityAnalyst(id: string): ActivityAnalyst[] | null {
   if (!isDemo(id)) {
     const po = poActivity(id);
-    return po ? po.map((e) => ({ id: e.id, at: e.at, actor: e.actor === 'You' ? 'Product owner' : e.actor, type: 'case.event', text: e.text, record_seq: null })) : null;
+    // Staff read the owner's lines in the third person, as S1 answers them (D-119).
+    const c = seedCase(id);
+    const owner = c ? nameOf(c.owner) : 'The product owner';
+    return po
+      ? po.map((e) => ({
+          id: e.id,
+          at: e.at,
+          actor: e.actor === 'You' ? owner : e.actor,
+          type: 'case.event',
+          text: e.text.replace(/^You /, `${owner} `),
+          record_seq: null,
+        }))
+      : null;
   }
   return getDB()
     .demo.audit.map((a) => ({ id: `rec_${a.seq}`, at: a.at, actor: a.by, type: a.type, text: a.what, record_seq: a.seq }))

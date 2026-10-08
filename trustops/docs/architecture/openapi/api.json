@@ -186,7 +186,15 @@
       },
       "AgentFailed": {
         "additionalProperties": false,
+        "description": "The Summary's handoff banner (D-117): ``title`` is its heading, ``reason``\none sentence naming what failed (the web adds what to do), ``step`` the stage\nthe run was in, and ``failures`` every open handoff gate, oldest first.",
         "properties": {
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/FailedStep"
+            },
+            "title": "Failures",
+            "type": "array"
+          },
           "reason": {
             "title": "Reason",
             "type": "string"
@@ -194,11 +202,17 @@
           "step": {
             "title": "Step",
             "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
           }
         },
         "required": [
           "step",
-          "reason"
+          "reason",
+          "title",
+          "failures"
         ],
         "title": "AgentFailed",
         "type": "object"
@@ -3696,6 +3710,38 @@
           "label"
         ],
         "title": "FactorAnchor",
+        "type": "object"
+      },
+      "FailedStep": {
+        "additionalProperties": false,
+        "description": "One job an agent failed on both tries, waiting for the analyst: the agent,\nthe stage the run was in (``None`` when the gate did not say) and its gate.",
+        "properties": {
+          "agent": {
+            "title": "Agent",
+            "type": "string"
+          },
+          "gate_id": {
+            "title": "Gate Id",
+            "type": "string"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          }
+        },
+        "required": [
+          "agent",
+          "step",
+          "gate_id"
+        ],
+        "title": "FailedStep",
         "type": "object"
       },
       "FastLaneBody": {
@@ -19189,6 +19235,7 @@
                     "review",
                     "awaiting_business",
                     "recommend",
+                    "handoff",
                     "committee",
                     "closed",
                     "fast_lane"

@@ -15,6 +15,7 @@ stores the case, not its outcome), so its outcome is read from the seed.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any, Final, Optional
 
@@ -35,6 +36,15 @@ from fcrm_case.domain.views import ConditionRow
 _PERSON_ROLES: Final = frozenset({"fcrm_po", "fcrm_analyst", "fcrm_committee"})
 
 COMMITTEE_LABEL: Final = "Risk Committee"
+
+#: Who "You" is in a staff reading of an owner's line when the case has no name.
+OWNER_FALLBACK: Final = "The product owner"
+
+#: The owner-addressed phrases system lines use ("13 fields are required for your
+#: change"); only these are rewritten, so a document name is never touched.
+_YOUR_PHRASE: Final = re.compile(
+    r"\byour (case|change|submission|documents?|answers?)\b"
+)
 
 
 def _display(record: CaseRecord, user_id: str) -> str:
@@ -66,15 +76,41 @@ def _record_seq(entry: ActivityEntry) -> Optional[int]:
     return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
+def staff_text(entry: ActivityEntry, record: CaseRecord) -> str:
+    """A row's words as staff read them (D-119). Rows the owner can see are
+    written to the owner ("You submitted the case (v1)", "Your case was assigned
+    to Rahul Iyer"); staff read them in the third person ("Priya Nair submitted
+    the case (v1)", "Case assigned to Rahul Iyer"). The stored row, and so the
+    owner's own reading of it, is unchanged; a staff-only row is already written
+    for staff.
+    """
+    text = entry.summary
+    if entry.visibility == "analyst":
+        return text
+    if entry.type == "case.assigned":
+        name = entry.detail.get("analyst_name")
+        if isinstance(name, str) and name:
+            return f"Case assigned to {name}"
+    if text.startswith("You "):
+        return f"{record.owner_name or OWNER_FALLBACK} {text.removeprefix('You ')}"
+    if entry.actor.role in _PERSON_ROLES:
+        return text
+    if text.startswith("Your "):
+        text = f"The {text.removeprefix('Your ')}"
+    return _YOUR_PHRASE.sub(r"the \1", text)
+
+
 def activity_analyst(entry: ActivityEntry, record: CaseRecord) -> ActivityAnalyst:
-    """One log row as the analyst reads it."""
+    """One log row as the analyst reads it, in the third person
+    (:func:`staff_text`).
+    """
     gate = entry.detail.get("gate_id")
     return ActivityAnalyst(
         id=f"ev_{entry.seq}",
         at=entry.at,
         actor=actor_label(entry, record),
         type=entry.type,
-        text=entry.summary,
+        text=staff_text(entry, record),
         record_seq=_record_seq(entry),
         gate_id=gate if isinstance(gate, str) else None,
     )

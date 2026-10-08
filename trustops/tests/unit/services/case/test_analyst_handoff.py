@@ -588,3 +588,77 @@ def test_the_command_stores_before_it_emits() -> None:
     [record] = command.records
     assert (record.collection, record.row_id) == ("handoff_outputs", GATE)
     assert gate.event.payload["after"] == {"output": [CLAUSE]}
+
+
+# ── the Summary's banner (D-117) ────────────────────────────────────────────────
+
+
+def test_the_banner_names_the_failed_agent_and_its_stage(
+    make_handoff_gate: RowMaker,
+) -> None:
+    from fcrm_case.domain.analyst_handoff import agent_failed_notice
+
+    notice = agent_failed_notice(
+        CaseState.HANDOFF, CaseState.ASSESS, [make_handoff_gate()]
+    )
+    assert notice is not None
+    assert notice.title == "Research step handed to you"
+    assert (
+        notice.reason == "The research agent failed on both tries in the assess stage."
+    )
+    assert notice.step == "assess"
+    assert [(f.agent, f.step, f.gate_id) for f in notice.failures] == [
+        ("research", "assess", GATE)
+    ]
+    assert ".." not in notice.reason
+    assert "skipped" not in notice.reason.lower()
+
+
+def test_the_banner_lists_several_failed_jobs(make_handoff_gate: RowMaker) -> None:
+    from fcrm_case.domain.analyst_handoff import agent_failed_notice
+
+    gates = [
+        make_handoff_gate(agent="research", gate_id="gate_a", job_id="job_a"),
+        make_handoff_gate(agent="policy_gap", gate_id="gate_b", job_id="job_b"),
+    ]
+    notice = agent_failed_notice(CaseState.HANDOFF, None, gates)
+    assert notice is not None
+    assert notice.title == "2 steps handed to you"
+    assert notice.reason == "2 agent jobs failed on both tries in the assess stage."
+    assert [f.agent for f in notice.failures] == ["research", "policy_gap"]
+    same = agent_failed_notice(
+        CaseState.HANDOFF,
+        None,
+        [
+            make_handoff_gate(agent="intake", gate_id="gate_c", job_id="job_c"),
+            make_handoff_gate(agent="intake", gate_id="gate_d", job_id="job_d"),
+        ],
+    )
+    assert same is not None
+    assert same.title == "2 intake steps handed to you"
+
+
+def test_without_a_gate_the_banner_still_says_where_the_run_stopped() -> None:
+    from fcrm_case.domain.analyst_handoff import agent_failed_notice
+
+    notice = agent_failed_notice(CaseState.HANDOFF, CaseState.CRITIC, [])
+    assert notice is not None
+    assert notice.title == "Agent step handed to you"
+    assert notice.reason == "An agent failed on both tries in the critic stage."
+    assert notice.failures == []
+    assert agent_failed_notice(CaseState.REVIEW, None, []) is None
+
+
+def test_only_the_open_gates_of_the_current_run_wait(
+    make_handoff_gate: RowMaker,
+) -> None:
+    from fcrm_case.domain.analyst_handoff import open_gates
+
+    rows = [
+        make_handoff_gate(gate_id="gate_open", job_id="job_1"),
+        make_handoff_gate(gate_id="gate_done", job_id="job_2"),
+        make_handoff_gate(gate_id="gate_old", job_id="job_3", run_id="run_0"),
+    ]
+    waiting = open_gates(rows, frozenset({"gate_done"}), "run_1")
+    assert [r.gate_id for r in waiting] == ["gate_open"]
+    assert len(open_gates(rows, frozenset(), None)) == 3
