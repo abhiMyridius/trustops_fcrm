@@ -167,7 +167,7 @@ Every seeded user shares one password, `demo-password-2026` (override with `make
 
 | Persona | Log in as | Home | Sees |
 |---|---|---|---|
-| Product owner | Priya Nair, `pnair` (also `tgold`, `skim`, `mros`, `ldia`) | `/` | her cases, documents, the questions FCRM asks her, conditions, the plain outcome. **Never** a score, band, rating, critic finding, vote or harness event; 403 on the monitor and on every analyst, scoring and decision route |
+| Product owner | Priya Nair, `pnair` (also `tgold`, `skim`, `mros`, `ldia`) | `/po` | her cases, documents, the questions FCRM asks her, conditions, the plain outcome. **Never** a score, band, rating, critic finding, vote or harness event; 403 on the monitor and on every analyst, scoring and decision route |
 | FCRM analyst | Rahul Iyer, `riyer` (also `mshah`, `dbrooks`) | `/analyst` | the queue, the workbench for a case (summary, submission, inbox, policy, risk and controls, recommendation, handoff, activity), Assurance (ask the examiner, overrides, watchlist, agent quality), Configuration (eight sections), the harness monitor |
 | Risk committee | Ana Mendes `amendes`, Joseph Okafor `jokafor`, Lin Chen `lchen` | `/committee` | the packs released to them, the pack (read-only), questions, their own vote. Other votes stay hidden until all three are cast |
 | Observer | Panel Observer, `observer` | `/monitor/<case>` | the harness monitor only (ADR-19): it is the one screen the web gives this role, and the monitor of a case with no run says so as information. No pack, no audit records, no Assurance screens. The API's OPA rows would still answer this token on `GET /audit/agent-quality` (agent quality is not case data), but no observer page calls it |
@@ -192,7 +192,7 @@ The 21 scenes are the walkthrough's (`docs/requirements/research/06-walkthrough-
 
 | # | Scene | As | Where | Do | Expect |
 |---|---|---|---|---|---|
-| 1 | Sign in | Priya | `/login`, then `/` | sign in | the dashboard: active cases, awaiting my answer, average days, open conditions, My cases. No risk number anywhere |
+| 1 | Sign in | Priya | `/login`, then `/po` | sign in | the dashboard: active cases, awaiting my answer, average days, open conditions, My cases. No risk number anywhere |
 | 2 | New case | Priya | `/queue`, then `/case/FCRM-2026-0151` | open the seeded draft | the case id, stage Intake, tabs Overview, Documents, Review, Inbox, Activity, Conditions. Nothing is on record until the first write; the first upload opens the run (`case.created`, `workflow.started`) |
 | 3 | Upload | Priya | `/case/FCRM-2026-0151/documents` | click "Use the demo's two files" (or Browse your own PDFs) | both files go Stored, Scanned, Read; the Assistant card narrates. H3 converts to Markdown with page:line anchors after Guard 1 (injection scan, PII masking); H2 runs the intake agent once per document (cheap tier). Tens of seconds, not instant. A scanned PDF is refused (no OCR) |
 | 4 | Proposals | Priya | `/case/.../overview` | Confirm or Remove each proposed change type (a removal needs a reason); read the "Values found" with their source chips | proposed change types (the demo expects vendor onboarding, new geography, new product) and the values each with a page and line. Confirming the last type resolves the field set; the case shows how many fields are required and how many are filled |
