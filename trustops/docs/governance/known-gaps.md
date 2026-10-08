@@ -198,3 +198,16 @@ Still open:
 
 - **Not run against a real OpenObserve with the composed stack.** The stand-in proves the routing and the login, not that OpenObserve stores and shows the data; `make up-obs` restarts the api, which re-embeds the corpus on Bedrock (ADR-59), so it waits for the operator.
 - With a team instance set, the bundled OpenObserve container still starts and receives nothing.
+
+## Ad-hoc questions to the owner (ADR-73, D-120; 8 October, appended)
+
+Closed:
+
+- The analyst can ask the owner questions at any stage from triage to an unlocked recommendation (ADR-73), and the clarification round's composer shows before the round is sent (D-120). Unit tests cover the route, the stages, the PO text fence, the owner's answer, the frozen version, H1's transitions and steps; vitest covers the composer and the owner's answer.
+
+Still open:
+
+- **Not run on the live stack.** No live check was made (a live H1 re-run calls Bedrock, ADR-59): the ask, the owner's answer, the `question.*` records on the chain and the REVIEW re-run on changed fields are proved only with fakes and the MSW mock.
+- An answer that changes a value outside REVIEW, or while agents run, is recorded and flagged ("values changed since the agents ran"), not re-run: the analyst asks for a re-run in review. The flag clears when the agents next score the case, whatever that re-run's scope was.
+- A re-run marker (`rerun_active`) left set by a run that never published (a budget refusal handed to a person) keeps later answers from re-running on their own until a re-run publishes; they are flagged instead.
+- The MSW mock re-runs nothing, and its Submission tab does not list the version an ad-hoc answer froze.
