@@ -198,3 +198,13 @@ Still open:
 
 - **Not run against a real OpenObserve with the composed stack.** The stand-in proves the routing and the login, not that OpenObserve stores and shows the data; `make up-obs` restarts the api, which re-embeds the corpus on Bedrock (ADR-59), so it waits for the operator.
 - With a team instance set, the bundled OpenObserve container still starts and receives nothing.
+
+## O. A clause the analyst adds from a corpus search (8 October, appended)
+
+Built (ADR-74): `POST /cases/{id}/clauses`, the Policy tab's "Add to case" with a reason, the `clause.added` and `clause.removed` audit records, the pack's "added by the analyst" line. Unit tests with fakes only.
+
+Still open:
+
+- **Not run on the live stack.** S1 reading the clause from the real S3 at the pinned corpus version, H1 writing the record to the real S4 and the pack carrying the clause were proved with fakes and the in-memory stores, not end to end.
+- The narrative agent does not see a clause the analyst added (its context pack reads the S4 proposal ledger); the clause reaches the committee through the pack. Giving it to the narrative changes a live model's input and needs a live eval (ADR-59).
+- A later re-run of research may propose the same clause again as a new item beside the analyst's; the analyst then accepts or removes the duplicate.
