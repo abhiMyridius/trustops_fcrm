@@ -1,5 +1,16 @@
 # C · Web, tests, ops and the AI-driven SDLC harness — design
 
+> **Design as written on 3 October 2026, kept as the record of the design stage.** It was the input the build lanes coded from, so it is not rewritten to match the code. Where the built system differs, the departure has a decision row; read `BUILD-PLAN.md` "Status as built" first, then `docs/governance/decision-log.md`. What is not done is in `docs/governance/known-gaps.md`. Values marked **(proposed)** below were proposals at the time; the ADR rows say which were accepted.
+>
+> The departures that matter most for this document:
+> - The web is in **`src/frontend`**, not `src/web`, rebuilt from scratch with FCRM_v2's tokens and information architecture only (ADR-06, ADR-25).
+> - **No generated client**: `make api-gen` is not wired; the web's types are hand-written and `src/test/contract/paths.test.ts` checks every route it calls against the OpenAPI export. The web's route names became the API contract, so section 1.4's endpoint names are superseded (ADR-30).
+> - **C-07 is reversed**: there is no `replay` or `mock` LLM mode (ADR-27). The deterministic demo is the MSW mock backend (`npm run dev:msw`); the live suites call Bedrock.
+> - **C-08 is reversed**: tests never sit beside source; they live under `tests/unit` and `tests/integration` (Python) and `src/frontend/src/test` (web).
+> - **C-09 and C-11**: `make nightly` is not wired, and the Claude Code hook scripts are committed but not registered; the git hooks are the enforced commit gate. Eight containers publish only the gateway on 8080 (ADR-26, ADR-63).
+> - **C-04**: the observer's web is the monitor only (ADR-64). The UX decisions are collected in `docs/architecture/ux-decisions.md`.
+> - **The look, sections 1.2, 1.3, 1.6 and 1.7**: the web is re-skinned to the Myridius brand guide (Montserrat, a linen canvas, Carbon Moss dark surfaces, Virtual Tide as the one accent, pill-shaped controls). The owner's home moved from `/` to `/po`, and `/` now sends anyone signed in to their own home. A deliberate sign-out lands on a plain `/login`. An animated AI mark sits beside every AI-proposed or AI-drafted item (ADR-69). The tables below are updated for these.
+
 Status: design for implementation by Claude Code subagents, 3 Oct 2026. Six build days remain (submission 9 Oct).
 Inputs: A-problem-statement, 00-synthesis, C-blueprint-flow (incl. v2 update), D-prototype (§1, §13, §14, §15), F-walkthrough-seed, CLAUDE.md, FCRM_v2/src/index.css.
 Companion designs: A (harness, agents, guards) and B (services, data, events). Where this document names an endpoint or event, the name is **(proposed)** and binds to design B's OpenAPI once published; the web client is generated, so renames cost one regeneration.
@@ -60,7 +71,7 @@ src/web/
       AuthProvider.tsx    token in memory, refresh via cookie, role claims, demo user picker
       roles.ts            'fcrm_po' | 'fcrm_analyst' | 'fcrm_committee' | 'fcrm_observer'
     design/
-      tokens.css          Myridius tokens (from FCRM_v2 index.css, fixed @theme mapping) + band tones
+      tokens.css          Myridius brand tokens (guide-aligned, ADR-69, fixed @theme mapping) + band tones
       global.css          reset, focus-visible, reduced motion, print styles for the pack
     components/
       ui/                 the ~25 primitives (§1.6)
@@ -92,7 +103,8 @@ All routes are under `AppShell` except `/login` and `/monitor/*`. Role guards re
 | Role | Path | Screen | Tabs / notes |
 |---|---|---|---|
 | any | `/login` | LoginPage | SSO button → demo user picker (C-05) |
-| PO | `/` | PO Dashboard | KPIs, My cases |
+| any | `/` | HomeRedirect | sends a signed-in person to their own home: `/po`, `/analyst` or `/committee` (ADR-69) |
+| PO | `/po` | PO Dashboard | KPIs, My cases (was `/` until ADR-69) |
 | PO | `/queue` | My Queue | filters, resume draft |
 | PO | `/case/new` | creates a case then redirects to `/case/:id/documents` | case ID issued first (scene 2) |
 | PO | `/case/:id` | PO Case | redirects to `overview`; tabs: `overview` `documents` `review` `inbox` `activity` `conditions` |
@@ -115,7 +127,7 @@ Templates and Settings (prototype PO nav) are out: Templates becomes a read-only
 2. Login: `POST /api/fcrm/auth/login {username, password}` (seeded demo users have passwords from `seed.json.users[].demo_password`, synthetic). In demo mode the SSO button opens the picker; in non-demo mode it posts the form. The response carries `access_token` (exp 15 min), `role`, `user`, and sets the refresh cookie (exp 8 h).
 3. `client.ts` middleware adds `Authorization: Bearer`, `X-Trace-Id` (uuid per page load, propagated to spans) and retries once on 401 after a refresh. Concurrent refreshes are deduplicated.
 4. Role comes from the token claim `role`; the UI uses it only for navigation and layout. Field-level visibility is never computed client-side: a PO payload has no score fields to hide.
-5. Logout: `POST /api/fcrm/auth/logout` clears the cookie; the query cache is cleared; SSE closed.
+5. Logout: `POST /api/fcrm/auth/logout` clears the cookie; the query cache is cleared; SSE closed. A deliberate sign-out lands on a plain `/login` with no `?next=`; only an expired session carries `?next=` back to where the person was (ADR-69).
 6. The identity fixes from CLAUDE.md (refresh accepted as access, OTP logging, hard-coded secrets) are design B's; the web client's tests assert that a refresh token in the `Authorization` header is rejected (black-box check BB-11).
 
 ### 1.4 API surface (proposed names, bind to design B) and the SSE hook
@@ -166,6 +178,7 @@ Button · IconButton · Card · Badge (tones: neutral, success, info, warning, d
 Domain components (`components/domain`):
 - `SourceChip` — "case p.4 l.12" style chip; click opens the document viewer at page:line. Renders nothing when a value has no source (rule: no source, no claim).
 - `ProvenanceTag` — Extracted · Reused from FCRM-2026-0118 · Owner answer · Owner declared (was …) · Analyst override · Jurisdiction list. Always a visible label, never a tooltip.
+- `AiMark` (`components/ui/AiMark.tsx`) — the animated sparkle beside every AI-proposed or AI-drafted item, so a person can tell at a glance what a model wrote and what a person confirmed; it keeps a still form under `prefers-reduced-motion` (ADR-69).
 - `ScoreBadge` — numeric score + "Band n of 4 (range)" + route. Ranges and labels come from `GET scoring/models/{v}` for the case's pinned version. Never imported by `features/po/*` (an ESLint `no-restricted-imports` rule enforces this).
 - `CompletionRing` — % with threshold tick and "n of m fields · always-required k of 6".
 - `StageTracker` — intake → review & submit → triage → screening → assess → critic → completeness → clarification → review → decide → oversight, collapsed to the role's view (PO sees Draft · Submitted · Under assessment · Decision · Closed).
@@ -176,11 +189,11 @@ Domain components (`components/domain`):
 
 ### 1.7 Design tokens
 
-`design/tokens.css` copies the Myridius token layer from `FCRM_v2/src/index.css` verbatim (brand, surface, text, border, semantic, ink-1..10, verdant-1..10, chart extras, spacing, radius, shadows) and fixes the `@theme inline` block so Tailwind v4 utilities exist for every token: add `--color-ink-1..10`, `--color-verdant-1..10`, `--color-danger-bg`, `--color-chart-*`, `--spacing-*`. Add band tones: `--band-1: var(--color-success)`, `--band-2: var(--color-info)`, `--band-3: var(--color-warning)`, `--band-4: var(--color-danger)` with `-bg` variants at 12 % alpha. Light theme only (D-97 chrome; prototype is light only); `color-scheme: light` declared so the browser does not auto-dark form controls. Typography: Segoe UI / system stack, 14 px base, 1.5 line height; numeric columns use `font-variant-numeric: tabular-nums`. No hard-coded hex in components (oxlint custom rule or a grep in `make check-web`).
+`design/tokens.css` holds the Myridius token layer (brand, surface, text, border, semantic, ink-1..10, verdant-1..10, chart extras, spacing, radius, shadows), fixed to Tailwind v4 via `@theme inline` so a utility exists for every token. Re-skinned to the Myridius brand guide (ADR-69): primary canvas is linen (`--color-linen`/`--color-canvas`), dark surfaces are Carbon Moss `#0C2226`, the primary accent is Virtual Tide `#09A78D` (CTAs, links, focus rings, tab underlines), and Pulse Green `#52E081` is reserved for the logo mark and decorative use on dark surfaces (never body text on light). Token names follow the guide's vocabulary, not the FCRM_v2 prototype's: `quantum-leaf` is the dark-teal text/selected-state colour (`#194247`), and the prototype's old `quantum-leaf` (`#52e081`) is now `pulse-green`. Band tones (`--band-1..4` with `-bg`/`-text` variants) are unchanged in hue. Light theme only; `color-scheme: light` declared so the browser does not auto-dark form controls. Typography: Montserrat (self-hosted via `@fontsource-variable/montserrat`, imported in `main.tsx`), falling back to Segoe UI / system stack; 14 px base, 1.6 line height; numeric columns use `font-variant-numeric: tabular-nums`. Two brand signatures are implemented as components: `components/ui/WaveOrnament.tsx` (the organic wave ornament on the login hero and monitor header) and the `.surface-dark-card` utility in `global.css` (the gradient fade-card on dark surfaces). No hard-coded hex or rgba outside `design/tokens.css` (and `public/*.svg`), enforced today by convention and a grep, not a lint rule.
 
 ### 1.8 Accessibility baseline
 
-WCAG 2.1 AA target. Every primitive ships with a vitest-axe test; every Playwright screen step runs `@axe-core/playwright` with `wcag2a, wcag2aa` tags and fails on `serious`/`critical`. Keyboard: all actions reachable; `focus-visible` ring token; modals trap focus and restore it; tabs follow the WAI-ARIA tabs pattern. Live regions: toasts and the SSE banner use `aria-live=polite`; the score box uses `aria-live=assertive` only when a band changes. Colour is never the sole carrier (band badge carries the number and the label; stale badge carries text; diff rows carry a "changed" label). Contrast: the token pairs used are checked once in `design/contrast.test.ts` (text-primary on surface, text-on-dark on carbon-moss, warning on surface ≥ 4.5:1; `--color-warning #b98a1e` on white is 3.9:1 so it is used only for ≥ 18 px text or with the `-bg` tint behind it). `prefers-reduced-motion` disables the ring animation and the monitor auto-scroll. Document titles per route ("Risk & Controls · FCRM-2026-0151 · TrustOps").
+WCAG 2.1 AA target. Every primitive ships with a vitest-axe test; every Playwright screen step runs `@axe-core/playwright` with `wcag2a, wcag2aa` tags and fails on `serious`/`critical`. Keyboard: all actions reachable; `focus-visible` ring token; modals trap focus and restore it; tabs follow the WAI-ARIA tabs pattern. Live regions: toasts and the SSE banner use `aria-live=polite`; the score box uses `aria-live=assertive` only when a band changes. Colour is never the sole carrier (band badge carries the number and the label; stale badge carries text; diff rows carry a "changed" label). Contrast: the token pairs used are checked once in `design/contrast.test.ts` (text-primary on surface, text-on-dark on carbon-moss, warning on surface ≥ 4.5:1; `--color-warning #a67a14` on white is 3.5:1 so it is used only for ≥ 18 px text, an icon/border, or with the `-bg` tint behind it; body-size warning text uses `--color-warning-text`). The primary button (`--color-virtual-tide` fill, white label, 3.0:1) is an accepted brand exception for button labels only (ADR-69); every other body-size text stays ≥ 4.5:1. `prefers-reduced-motion` disables the ring animation and the monitor auto-scroll. Document titles per route ("Risk & Controls · FCRM-2026-0151 · TrustOps").
 
 ### 1.9 Error and loading states
 
@@ -212,7 +225,7 @@ Format per screen: reads · actions · gates shown (with the rationale text the 
 - Copy: "One governed place for change risk assessments" · "Your role and what you can see are set by the bank's directory, not by this app."
 - Gate: none. Must-not-see: nothing role-specific before login.
 
-### 2.2 PO Dashboard (`/`)
+### 2.2 PO Dashboard (`/po`)
 - Reads: `cases/dashboard` → KPIs "5 active · 1 awaiting my answer · 3.3 d avg intake to decision · 3 open conditions"; "My cases" rows 0150, 0146, 0139, 0121, 0109 (Case · Change · Stage · Next action). Banner "Starting a new change? Upload what you already have first…".
 - Actions: `+ New case` → `POST cases` → `/case/:id/documents`. Row → case.
 - Must-not-see: band, score, analyst notes, committee state. The DTO has no such fields; a vitest snapshot of the PO dashboard DTO type asserts the absence (`expectTypeOf<PODashboard>().not.toHaveProperty('band')`).

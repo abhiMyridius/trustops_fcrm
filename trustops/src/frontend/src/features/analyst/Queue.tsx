@@ -5,6 +5,7 @@ import { userMessage } from '@/api/errors';
 import type { QueueItem } from '@/api/types/analyst';
 import { BandChip } from '@/components/domain/ScoreBadge';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { AiMark } from '@/components/ui/AiMark';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
@@ -23,7 +24,7 @@ function FastLaneConfirm({ row }: { row: QueueItem }) {
   if (row.fast_lane.confirmed) return <Badge tone="success">Fast lane · confirmed</Badge>;
   return (
     <div className="flex flex-col gap-1">
-      <Badge tone="info">Fast lane · screening agent proposed</Badge>
+      <Badge tone="info" icon={<AiMark size={12} />}>Fast lane · screening agent proposed</Badge>
       <Button
         size="sm"
         variant="secondary"

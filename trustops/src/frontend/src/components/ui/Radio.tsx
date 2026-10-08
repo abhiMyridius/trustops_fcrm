@@ -38,7 +38,7 @@ export function RadioGroup<T extends string>({
                 checked={value === o.value}
                 disabled={o.disabled}
                 onChange={() => onChange(o.value)}
-                className="mt-0.5 h-4 w-4 cursor-pointer accent-carbon-moss"
+                className="mt-0.5 h-4 w-4 cursor-pointer accent-virtual-tide"
               />
               <label htmlFor={id} className="text-sm cursor-pointer">
                 {o.label}

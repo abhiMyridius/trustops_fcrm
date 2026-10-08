@@ -13,6 +13,7 @@ import { HandoffControl } from '@/features/analyst/HandoffControl';
 import { ScoreBadge } from '@/components/domain/ScoreBadge';
 import { SourceChip } from '@/components/domain/SourceChip';
 import { AuditRecordChip } from '@/components/domain/AuditRecordChip';
+import { AiLabel } from '@/components/ui/AiMark';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -108,7 +109,7 @@ export function SummaryTab() {
                   ))}
                 </ul>
               </Card>
-              <Card title="Completeness report" subtitle="Drafted by the narrative agent; you decide whether to ask first.">
+              <Card title={<AiLabel>Completeness report</AiLabel>} subtitle="Drafted by the narrative agent; you decide whether to ask first.">
                 <dl className="grid grid-cols-3 gap-3 text-center">
                   {(
                     [
@@ -118,8 +119,8 @@ export function SummaryTab() {
                     ] as const
                   ).map(([label, items]) => (
                     <div key={label} className="rounded-md bg-surface-tertiary p-3">
-                      <dt className="text-[12px] font-semibold uppercase tracking-wide text-text-muted">{label}</dt>
-                      <dd className="text-2xl font-bold tabular-nums">{items.length}</dd>
+                      <dt className="text-[12px] font-semibold uppercase tracking-overline text-text-muted">{label}</dt>
+                      <dd className="text-2xl font-extrabold tracking-tight text-virtual-tide tabular-nums">{items.length}</dd>
                     </div>
                   ))}
                 </dl>

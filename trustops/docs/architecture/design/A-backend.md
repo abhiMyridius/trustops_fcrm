@@ -1,5 +1,14 @@
 # TrustOps backend design (A) — services, Caseflow, events, data, platform
 
+> **Design as written on 3 October 2026, kept as the record of the design stage.** It was the input the build lanes coded from, so it is not rewritten to match the code. Where the built system differs, the departure has a decision row; read `BUILD-PLAN.md` "Status as built" first, then `docs/governance/decision-log.md`. What is not done is in `docs/governance/known-gaps.md`. Values marked **(proposed)** below were proposals at the time; the ADR rows say which were accepted.
+>
+> The departures that matter most for this document:
+> - Six services and four workers run as **eight containers**, two Python processes from one image: `api` mounts X1 and S1 to S5 by URL prefix, `harness` runs H1 to H4 (ADR-26). Code lives in `src/backend`, not `src/{services,workers,packages}` (ADR-25).
+> - H1 does its HTTP work in **steps enqueued through the outbox**, outside the consumer transaction, each idempotent by step id (ADR-28, ADR-35, ADR-61).
+> - **Route names follow the web** (`src/frontend/src/api/endpoints.ts`), not section 2.1; the one OpenAPI export is `docs/architecture/openapi/api.json` (ADR-30).
+> - Agents call **live Bedrock only**; the replay and mock modes were removed (ADR-27). Vectors are in memory by default over Titan embeddings; the S3 Vectors backend is not in the shipped image (ADR-49).
+> - There is **no job reaper and no circuit breaker**, and Redis is an optional profile nothing reads (`known-gaps.md`).
+
 Status: build-ready, 3 Oct 2026. Audience: the Claude Code subagents that implement `~/Downloads/Hackathon/trustops`. Every contract here is meant to be coded from without a follow-up question. Values the source documents do not give are marked **(proposed)**; everything else traces to the build plan v1.3, decision log v1.3 (D-xx), blueprint/flow map v2, walkthrough v2 seed (P7), or CLAUDE.md.
 
 Fixed decisions this document builds on (not reopened): single monorepo in the brief's layout; Python 3.13 + uv workspace; FastAPI + Pydantic 2; MongoDB 8 one database per service; FastStream + RabbitMQ (aio-pika) as job and event bus; Redis cache-only; Bedrock for models; S3 Vectors for the three indexes with Titan Embed Text v2 (1024-d); files on the S3 API (MinIO locally); AEO components cloned and fixed in-tree; H1 calls S2 over HTTP, agents never score; routing R1–R6 as data evaluated by H1; committee outcome = 2-of-3 identical votes else `no_majority` → thread + re-vote via R6; OpenTelemetry → otel-collector → Jaeger/Prometheus/Grafana locally (now OpenObserve for traces, metrics and logs and Prometheus/Grafana; Jaeger removed, ADR-68, ADR-71), ADOT path documented; nothing is approved or rejected automatically.

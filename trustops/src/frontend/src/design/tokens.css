@@ -1,50 +1,63 @@
 /* ============================================================
    Myridius Design System, token layer (light theme only, D-97 chrome).
-   Values ported verbatim from FCRM_v2/src/index.css (reference only, ADR-06).
-   Changes against the prototype:
-     - the @theme inline block now maps every token (ink, verdant, danger-bg, chart, spacing),
-       so a Tailwind utility exists for each one and no component needs a hex literal;
-     - band tones are new (bands did not exist in the prototype's PO-first chrome).
-   No hex literal is allowed outside this file.
+   Re-skinned to the Myridius brand guide (ADR-69): Montserrat, linen
+   canvas, Carbon Moss #0C2226 dark surfaces, Virtual Tide #09A78D
+   accent, Pulse Green #52E081 logo/decorative, Quantum Leaf #194247
+   primary text on light / dark-teal selected state.
+   Names were renamed (not value-swapped) to match the guide's
+   vocabulary: the old `quantum-leaf` (#52e081) is now `pulse-green`;
+   the old `carbon-moss` (#194247) is now `quantum-leaf`; `teal` is
+   now `virtual-tide`. Band tones are new (bands did not exist in the
+   prototype's PO-first chrome).
+   No hex or rgba literal is allowed outside this file.
    ============================================================ */
 :root {
   /* Brand */
-  --color-carbon-moss: #194247;
-  --color-carbon-moss-hover: #14363b;
-  --color-carbon-moss-deep: #133338;
-  --color-quantum-leaf: #52e081;
-  --color-quantum-leaf-tint-1: #94dea5;
-  --color-quantum-leaf-tint-2: #cbebbd;
-  --color-quantum-leaf-tint-3: #e3f6db;
-  --color-teal: #09a78d;
+  --color-carbon-moss: #0c2226;
+  --color-quantum-leaf: #194247;
+  --color-quantum-leaf-hover: #14363b;
+  --color-pulse-green: #52e081;
+  --color-pulse-green-tint-2: #cbebbd;
+  --color-pulse-green-tint-3: #e3f6db;
+  --color-pulse-green-alpha-6: rgba(82, 224, 129, 0.06);
+  --color-pulse-green-alpha-12: rgba(82, 224, 129, 0.12);
+  --color-virtual-tide: #09a78d;
+  --color-virtual-tide-hover: #088f79;
+  --color-virtual-tide-text: #06705f;
+  --color-virtual-tide-tint: #e6f6f3;
+  --color-virtual-tide-ring: rgba(9, 167, 141, 0.15);
   --color-digital-pavo: #337077;
+  --color-neural-beam: #e5fd84;
+  --color-linen: #f6f3f0;
 
   /* Surface */
-  --color-canvas: #ffffff;
+  --color-canvas: #f6f3f0;
   --color-surface: #ffffff;
-  --color-surface-secondary: #ededec;
-  --color-surface-tertiary: #f0efed;
+  --color-surface-secondary: #ede9e4;
+  --color-surface-tertiary: #f6f3f0;
 
   /* Text */
-  --color-text-primary: #0c2226;
+  --color-text-primary: #194247;
   --color-text-secondary: #285055;
   /* Muted text: #4a6c70 is 5.7:1 on white and at least 4.5:1 on every tint it sits on (ink-2 to ink-4, the surface and
      semantic tints); the earlier #52787d was 4.8:1 on white but 3.9 to 4.4:1 on the tinted table heads and tab bars (D-110). */
   --color-text-muted: #4a6c70;
   --color-text-faint: #9caaab;
-  --color-text-on-dark: #ffffff;
-  --color-text-on-dark-muted: #c7d5d5;
+  --color-text-on-dark: #f6f3f0;
+  --color-text-on-dark-muted: #b9c9c8;
+  --color-text-on-accent: #ffffff;
 
   /* Borders */
-  --color-border: #dde3e2;
-  --color-border-strong: #c3d2d3;
-  --color-border-subtle: #e1e6e4;
-  --color-border-hairline: #e5e8e6;
+  --color-border: rgba(25, 66, 71, 0.1);
+  --color-border-strong: rgba(25, 66, 71, 0.16);
+  --color-border-subtle: rgba(25, 66, 71, 0.08);
+  --color-border-hairline: rgba(25, 66, 71, 0.06);
 
   /* Semantic */
   --color-success: #09a78d;
-  --color-warning: #b98a1e;
+  --color-warning: #a67a14;
   --color-danger: #8a3324;
+  --color-danger-action: #c84b47;
   --color-danger-bg: #f9ece9;
   --color-info: #337077;
 
@@ -52,7 +65,7 @@
   --color-success-bg: #e2f4f1;
   --color-warning-bg: #f6f0e2;
   --color-info-bg: #e6eeef;
-  /* Text-safe warning: #b98a1e on white is 3.9:1, so body-size warning text uses this darker step (5.6:1). */
+  /* Text-safe warning: --color-warning is 3.5:1 on linen, so body-size warning text uses this darker step (5.5:1). */
   --color-warning-text: #7f5d10;
 
   /* Ink numbered scale 1 (Cloud White) -> 10 (Carbon Moss) */
@@ -79,12 +92,13 @@
   --verdant-9: #09a78d;
   --verdant-10: #163439;
 
-  /* Chart-only extras */
-  --chart-neural-beam: #e5fd84;
+  /* Chart-only extras (Myridius chart palette order, guide §2.4) */
   --chart-deep-1: #285c62;
   --chart-deep-2: #163439;
+  --chart-tint-6: #dbf4d0;
+  --chart-tide-2: #10b18e;
 
-  /* Band tones (new). Hue language follows the semantic set: teal (low) -> pavo (moderate) ->
+  /* Band tones. Hue language follows the semantic set: teal (low) -> pavo (moderate) ->
      ochre (elevated) -> rust (high). Colour is never the sole carrier: every band badge also
      prints "Band n" and the label. */
   --band-1: #09a78d;
@@ -93,7 +107,7 @@
   --band-2: #337077;
   --band-2-bg: #e6eeef;
   --band-2-text: #285c62;
-  --band-3: #b98a1e;
+  --band-3: #a67a14;
   --band-3-bg: #f6f0e2;
   --band-3-text: #7f5d10;
   --band-4: #8a3324;
@@ -101,8 +115,11 @@
   --band-4-text: #8a3324;
 
   /* Typography */
-  --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-sans: Montserrat, 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace;
+  --tracking-overline: 0.1em;
+  --tracking-headline: -0.01em;
+  --tracking-button: 0.02em;
 
   /* Spacing scale */
   --space-1: 4px;
@@ -116,16 +133,17 @@
 
   /* Radius scale */
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
   --radius-xl: 20px;
   --radius-full: 999px;
 
   /* Elevation (Materials) */
-  --shadow-sm: 0 1px 2px rgba(12, 34, 38, 0.08);
-  --shadow-md: 0 4px 10px rgba(12, 34, 38, 0.1);
-  --shadow-lg: 0 10px 24px rgba(12, 34, 38, 0.14);
+  --shadow-sm: 0 1px 3px rgba(12, 34, 38, 0.04);
+  --shadow-md: 0 4px 12px rgba(12, 34, 38, 0.08);
+  --shadow-lg: 0 10px 24px rgba(12, 34, 38, 0.12);
   --shadow-xl: 0 20px 48px rgba(12, 34, 38, 0.18);
+  --shadow-accent: 0 8px 24px rgba(9, 167, 141, 0.25);
 
   /* Materials */
   --material-flat-bg: var(--color-surface);
@@ -140,8 +158,11 @@
   --material-elevated-shadow: var(--shadow-xl);
   --material-scrim-bg: rgba(12, 34, 38, 0.45);
 
+  /* Brand signature: dark gradient-fade card (guide §6.3) */
+  --gradient-dark-card: linear-gradient(135deg, rgba(82, 224, 129, 0.06), transparent 70%);
+
   /* Focus ring */
-  --focus-ring: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-teal);
+  --focus-ring: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-virtual-tide);
 
   /* Layout */
   --container-max: 1280px;
@@ -157,14 +178,21 @@
   --color-current: currentColor;
 
   --color-carbon-moss: var(--color-carbon-moss);
-  --color-carbon-moss-hover: var(--color-carbon-moss-hover);
-  --color-carbon-moss-deep: var(--color-carbon-moss-deep);
   --color-quantum-leaf: var(--color-quantum-leaf);
-  --color-quantum-leaf-tint-1: var(--color-quantum-leaf-tint-1);
-  --color-quantum-leaf-tint-2: var(--color-quantum-leaf-tint-2);
-  --color-quantum-leaf-tint-3: var(--color-quantum-leaf-tint-3);
-  --color-teal: var(--color-teal);
+  --color-quantum-leaf-hover: var(--color-quantum-leaf-hover);
+  --color-pulse-green: var(--color-pulse-green);
+  --color-pulse-green-tint-2: var(--color-pulse-green-tint-2);
+  --color-pulse-green-tint-3: var(--color-pulse-green-tint-3);
+  --color-pulse-green-alpha-6: var(--color-pulse-green-alpha-6);
+  --color-pulse-green-alpha-12: var(--color-pulse-green-alpha-12);
+  --color-virtual-tide: var(--color-virtual-tide);
+  --color-virtual-tide-hover: var(--color-virtual-tide-hover);
+  --color-virtual-tide-text: var(--color-virtual-tide-text);
+  --color-virtual-tide-tint: var(--color-virtual-tide-tint);
+  --color-virtual-tide-ring: var(--color-virtual-tide-ring);
   --color-digital-pavo: var(--color-digital-pavo);
+  --color-neural-beam: var(--color-neural-beam);
+  --color-linen: var(--color-linen);
 
   --color-canvas: var(--color-canvas);
   --color-surface: var(--color-surface);
@@ -177,6 +205,7 @@
   --color-text-faint: var(--color-text-faint);
   --color-text-on-dark: var(--color-text-on-dark);
   --color-text-on-dark-muted: var(--color-text-on-dark-muted);
+  --color-text-on-accent: var(--color-text-on-accent);
 
   --color-border: var(--color-border);
   --color-border-strong: var(--color-border-strong);
@@ -189,6 +218,7 @@
   --color-warning-bg: var(--color-warning-bg);
   --color-warning-text: var(--color-warning-text);
   --color-danger: var(--color-danger);
+  --color-danger-action: var(--color-danger-action);
   --color-danger-bg: var(--color-danger-bg);
   --color-info: var(--color-info);
   --color-info-bg: var(--color-info-bg);
@@ -215,9 +245,10 @@
   --color-verdant-9: var(--verdant-9);
   --color-verdant-10: var(--verdant-10);
 
-  --color-chart-neural-beam: var(--chart-neural-beam);
   --color-chart-deep-1: var(--chart-deep-1);
   --color-chart-deep-2: var(--chart-deep-2);
+  --color-chart-tint-6: var(--chart-tint-6);
+  --color-chart-tide-2: var(--chart-tide-2);
 
   --color-band-1: var(--band-1);
   --color-band-1-bg: var(--band-1-bg);
@@ -234,6 +265,10 @@
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+
+  --tracking-overline: var(--tracking-overline);
+  --tracking-headline: var(--tracking-headline);
+  --tracking-button: var(--tracking-button);
 
   --spacing-1: var(--space-1);
   --spacing-2: var(--space-2);
@@ -254,6 +289,7 @@
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
+  --shadow-accent: var(--shadow-accent);
 
   --breakpoint-sm: 640px;
   --breakpoint-md: 768px;

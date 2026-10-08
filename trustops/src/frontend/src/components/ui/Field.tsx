@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 
 export const control =
-  'w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-faint hover:border-ink-7 disabled:bg-surface-tertiary disabled:text-text-muted aria-[invalid=true]:border-danger';
+  'w-full rounded-md border border-border-strong bg-surface px-3.5 py-2.5 text-sm text-text-primary placeholder:text-text-faint hover:border-ink-7 focus:border-virtual-tide disabled:bg-surface-tertiary disabled:text-text-muted aria-[invalid=true]:border-danger';
 
 interface FieldShellProps {
   id: string;
@@ -22,7 +22,7 @@ interface FieldShellProps {
 export function FieldShell({ id, label, hint, error, required, hideLabel, children, className }: FieldShellProps) {
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      <label htmlFor={id} className={cn('text-[13px] font-semibold text-text-secondary', hideLabel && 'sr-only')}>
+      <label htmlFor={id} className={cn('text-[13px] font-semibold text-quantum-leaf', hideLabel && 'sr-only')}>
         {label}
         {required && (
           <span className="text-danger" aria-hidden>
@@ -33,7 +33,7 @@ export function FieldShell({ id, label, hint, error, required, hideLabel, childr
       </label>
       {children}
       {hint && !error && (
-        <p id={`${id}-hint`} className="text-xs text-text-muted">
+        <p id={`${id}-hint`} className="text-xs text-digital-pavo">
           {hint}
         </p>
       )}

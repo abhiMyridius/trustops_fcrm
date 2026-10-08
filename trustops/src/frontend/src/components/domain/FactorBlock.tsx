@@ -6,7 +6,7 @@ function Scale({ name, value, anchors }: { name: string; value: number; anchors:
   const anchor = anchors.find((a) => a.value === value);
   return (
     <div>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{name}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-overline text-text-muted">{name}</p>
       <p className="text-lg font-bold tabular-nums text-text-primary">
         {value}
         <span className="ml-1.5 text-[13px] font-semibold text-text-secondary">{anchor?.label}</span>
@@ -16,7 +16,7 @@ function Scale({ name, value, anchors }: { name: string; value: number; anchors:
           <li
             key={a.value}
             title={`${a.value} · ${a.label}`}
-            className={a.value <= value ? 'h-1.5 w-6 rounded-full bg-carbon-moss' : 'h-1.5 w-6 rounded-full bg-ink-4'}
+            className={a.value <= value ? 'h-1.5 w-6 rounded-full bg-virtual-tide' : 'h-1.5 w-6 rounded-full bg-ink-4'}
           >
             <span className="sr-only">
               {a.value} {a.label}
@@ -49,7 +49,7 @@ export function FactorBlock({
         <Scale name="Likelihood" value={area.L} anchors={likelihood} />
         <Scale name="Impact" value={area.I} anchors={impact} />
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Inherent (L × I)</p>
+          <p className="text-[11px] font-semibold uppercase tracking-overline text-text-muted">Inherent (L × I)</p>
           <p className="text-lg font-bold tabular-nums">{area.inherent}</p>
         </div>
       </div>

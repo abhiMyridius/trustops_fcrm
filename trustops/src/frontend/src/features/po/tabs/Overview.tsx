@@ -12,6 +12,7 @@ import { CompletionRing } from '@/components/domain/CompletionRing';
 import { ProvenanceTag } from '@/components/domain/ProvenanceTag';
 import { ReasonDialog } from '@/components/domain/ReasonDialog';
 import { SourceChip } from '@/components/domain/SourceChip';
+import { AiLabel } from '@/components/ui/AiMark';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
@@ -42,7 +43,7 @@ function ChangeTypes({ caseId, types }: { caseId: string; types: CategoryProposa
   }
 
   return (
-    <Card title="Proposed change types" subtitle="The assistant proposed these from your documents. Confirm or remove each one.">
+    <Card title={<AiLabel>Proposed change types</AiLabel>} subtitle="The assistant proposed these from your documents. Confirm or remove each one.">
       <ul className="flex flex-col gap-2">
         {types.map((t) => (
           <li key={t.type} className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-4 py-3">
@@ -127,7 +128,7 @@ function Values({ values }: { values: ValuePO[] }) {
     { key: 'source', header: 'Source', cell: (v) => <SourceChip source={v.source} /> },
   ];
   return (
-    <Card title="Values found" subtitle="Every value shows its source. If the assistant cannot point to a source, the value is not shown at all.">
+    <Card title={<AiLabel>Values found</AiLabel>} subtitle="Every value shows its source. If the assistant cannot point to a source, the value is not shown at all.">
       <Table caption="Required field values" columns={columns} rows={values} rowKey={(v) => v.field_id} dense />
     </Card>
   );

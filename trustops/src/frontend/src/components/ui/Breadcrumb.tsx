@@ -17,7 +17,7 @@ export function Breadcrumb({ items }: { items: Crumb[] }) {
             <Fragment key={`${c.label}-${i}`}>
               <li>
                 {c.to && !last ? (
-                  <Link to={c.to} className="text-text-secondary hover:text-carbon-moss">
+                  <Link to={c.to} className="text-text-secondary hover:text-virtual-tide-text">
                     {c.label}
                   </Link>
                 ) : (

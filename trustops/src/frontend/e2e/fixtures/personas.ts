@@ -11,6 +11,6 @@ export interface Persona {
   home: string;
 }
 
-export const PRIYA: Persona = { name: 'Priya Nair', role: 'fcrm_po', home: '/' };
+export const PRIYA: Persona = { name: 'Priya Nair', role: 'fcrm_po', home: '/po' };
 export const RAHUL: Persona = { name: 'Rahul Iyer', role: 'fcrm_analyst', home: '/analyst' };
 export const ANA: Persona = { name: 'Ana Mendes', role: 'fcrm_committee', home: '/committee' };

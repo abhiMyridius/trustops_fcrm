@@ -12,8 +12,8 @@ export function Stepper({ steps, label, compact }: { steps: StageStep[]; label: 
             <span
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold',
-                s.state === 'done' && 'border-teal bg-success-bg text-band-1-text',
-                s.state === 'current' && 'border-carbon-moss bg-carbon-moss text-text-on-dark',
+                s.state === 'done' && 'border-virtual-tide bg-success-bg text-band-1-text',
+                s.state === 'current' && 'border-quantum-leaf bg-quantum-leaf text-text-on-dark',
                 s.state === 'upcoming' && 'border-border bg-surface text-text-muted',
               )}
             >

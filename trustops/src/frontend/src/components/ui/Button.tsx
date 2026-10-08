@@ -13,18 +13,17 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variants: Record<ButtonVariant, string> = {
-  primary: 'bg-carbon-moss text-text-on-dark hover:bg-carbon-moss-hover disabled:bg-border disabled:text-text-muted',
-  accent: 'bg-quantum-leaf text-carbon-moss-deep hover:bg-quantum-leaf-tint-1 disabled:bg-border disabled:text-text-muted',
-  secondary:
-    'bg-surface text-carbon-moss border-[1.5px] border-carbon-moss hover:bg-surface-tertiary disabled:border-border disabled:text-text-muted',
-  ghost: 'bg-transparent text-carbon-moss-deep hover:bg-surface-secondary disabled:text-text-muted',
-  danger: 'bg-danger text-text-on-dark hover:brightness-90 disabled:bg-border disabled:text-text-muted',
+  primary: 'bg-virtual-tide text-text-on-accent enabled:hover:bg-virtual-tide-hover enabled:hover:-translate-y-px enabled:hover:shadow-accent',
+  accent: 'bg-quantum-leaf text-text-on-dark enabled:hover:bg-quantum-leaf-hover enabled:hover:-translate-y-px',
+  secondary: 'bg-transparent text-quantum-leaf border-[1.5px] border-current enabled:hover:bg-quantum-leaf/10',
+  ghost: 'bg-transparent text-virtual-tide-text underline-offset-4 enabled:hover:underline enabled:hover:bg-surface-secondary',
+  danger: 'bg-danger-action text-text-on-accent enabled:hover:brightness-90 enabled:hover:-translate-y-px',
 };
 
 const sizes: Record<ButtonSize, string> = {
   sm: 'text-xs px-3 py-1.5 rounded-sm gap-1.5',
-  md: 'text-sm px-4 py-2 rounded-md gap-2',
-  lg: 'text-base px-6 py-3 rounded-lg gap-2.5',
+  md: 'text-sm px-5 py-2 rounded-full gap-2',
+  lg: 'text-base px-7 py-3 rounded-full gap-2.5',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
@@ -36,7 +35,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       type={type}
       className={cn(
-        'inline-flex items-center justify-center font-semibold whitespace-nowrap transition-colors duration-150 cursor-pointer disabled:cursor-not-allowed',
+        'inline-flex items-center justify-center font-semibold tracking-button whitespace-nowrap transition-[color,background-color,border-color,box-shadow,transform] duration-150 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50',
         variants[variant],
         sizes[size],
         className,
@@ -69,7 +68,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       aria-label={label}
       title={label}
       className={cn(
-        'inline-flex items-center justify-center rounded-md text-text-secondary hover:bg-surface-tertiary hover:text-text-primary cursor-pointer disabled:cursor-not-allowed disabled:text-text-faint',
+        'inline-flex items-center justify-center rounded-full text-text-secondary hover:bg-virtual-tide-tint hover:text-quantum-leaf cursor-pointer disabled:cursor-not-allowed disabled:text-text-faint',
         size === 'sm' ? 'w-7 h-7' : 'w-9 h-9',
         className,
       )}

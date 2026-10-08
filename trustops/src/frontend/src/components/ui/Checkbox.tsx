@@ -21,7 +21,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
         id={fid}
         type="checkbox"
         aria-describedby={description ? `${fid}-desc` : undefined}
-        className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-carbon-moss disabled:cursor-not-allowed"
+        className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-virtual-tide disabled:cursor-not-allowed"
         {...rest}
       />
       <div className="flex flex-col">

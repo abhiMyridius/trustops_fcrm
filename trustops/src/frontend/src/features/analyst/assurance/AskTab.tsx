@@ -4,6 +4,7 @@ import { MessageSquareQuote } from 'lucide-react';
 import { useExaminerAsk, useVersions } from '@/api/queries/assuranceQueries';
 import { userMessage } from '@/api/errors';
 import { AuditRecordChip } from '@/components/domain/AuditRecordChip';
+import { AiLabel } from '@/components/ui/AiMark';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -21,7 +22,7 @@ export function AskTab() {
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_320px]">
       <div className="flex flex-col gap-5">
-        <Card title="Ask the examiner" subtitle={`Case ${CASE} · examiner permitted tool: audit_log (read)`}>
+        <Card title={<AiLabel>Ask the examiner</AiLabel>} subtitle={`Case ${CASE} · examiner permitted tool: audit_log (read)`}>
           <form
             className="flex flex-col gap-3"
             onSubmit={(e) => {

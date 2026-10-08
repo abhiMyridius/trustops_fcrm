@@ -75,7 +75,7 @@ Agents call live Amazon Bedrock only; there is no replay or mock mode. AWS crede
 1. `BUILD-PLAN.md`: start with "Status as built" (where the build departs from the plan, and why); then architecture, folder structure, definition of done.
 2. `RUNNING.md`: how to run it, drive the demo by hand, every `make` target, troubleshooting.
 3. `docs/governance/decision-log.md`: every decision and why (ADR-01…), and `gates-register.md`.
-4. `docs/architecture/`: C4 diagrams, event catalogue, data model, sequences (with an index to the scenes), OpenAPI export.
+4. `docs/architecture/` (start at its `README.md`): C4 diagrams, event catalogue, data model, UX decisions, sequences (with an index to the scenes), OpenAPI export.
 5. `docs/governance/defect-trail.md` and `failure-log.md`: real defects and build incidents, with how each was found and fixed; `known-gaps.md`: what is not done, with the evidence.
 
 ## Status

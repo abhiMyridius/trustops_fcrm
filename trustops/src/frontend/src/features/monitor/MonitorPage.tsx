@@ -10,6 +10,7 @@ import { Copy, ExternalLink, Pause, Play } from 'lucide-react';
 import { useHarness } from '@/api/queries/harnessQueries';
 import { useCaseStream, type StreamStatus } from '@/api/sse/useCaseStream';
 import type { HarnessLine } from '@/api/types/harness';
+import { AiLabel } from '@/components/ui/AiMark';
 import { Badge, StatusDot } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
@@ -18,6 +19,7 @@ import { ProgressBar } from '@/components/ui/ProgressRing';
 import { Select } from '@/components/ui/Select';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
+import { WaveOrnament } from '@/components/ui/WaveOrnament';
 import { cn } from '@/lib/cn';
 import { useDocumentTitle } from '@/lib/a11y';
 import { formatInt } from '@/lib/format';
@@ -31,8 +33,8 @@ function prefersReducedMotion(): boolean {
 function Counter({ label, value, hint, children }: { label: string; value: string; hint?: string; children?: ReactNode }) {
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface px-4 py-3 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{label}</p>
-      <p className="text-2xl font-bold tabular-nums">{value}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-overline text-text-muted">{label}</p>
+      <p className="text-2xl font-extrabold tracking-tight text-virtual-tide tabular-nums">{value}</p>
       {hint && <p className="text-[12px] text-text-secondary">{hint}</p>}
       {children}
     </div>
@@ -88,12 +90,15 @@ export function MonitorPage() {
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-4">
-      <header className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-carbon-moss-deep px-5 py-4 text-text-on-dark">
-        <div>
-          <h1 className="text-lg font-bold">Harness monitor · {h.case_id}</h1>
+      <header className="surface-dark-card relative flex flex-wrap items-center justify-between gap-3 overflow-hidden px-5 py-4 text-text-on-dark">
+        <WaveOrnament tone="dark" lines={80} className="no-print opacity-70" />
+        <div className="relative z-10">
+          <h1 className="text-lg font-bold">
+            <AiLabel size={20}>Harness monitor · {h.case_id}</AiLabel>
+          </h1>
           <p className="font-mono text-[12px] text-text-on-dark-muted">trace {h.trace_id}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="relative z-10 flex flex-wrap items-center gap-3">
           <span className="rounded-full bg-surface px-2.5 py-1">
             <StatusDot
               tone={h.status === 'running' ? 'success' : h.status === 'waiting_on_person' ? 'warning' : 'neutral'}
@@ -103,7 +108,7 @@ export function MonitorPage() {
           </span>
           <Badge tone="info">{h.core}</Badge>
           <Badge tone="neutral">{STREAM_LABEL[stream]}</Badge>
-          <a href={h.trace_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[13px] font-semibold text-quantum-leaf">
+          <a href={h.trace_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[13px] font-semibold text-pulse-green">
             Trace in OpenObserve <ExternalLink aria-hidden size={12} />
           </a>
         </div>
@@ -124,7 +129,7 @@ export function MonitorPage() {
             key={g.n}
             className={cn(
               'flex flex-col gap-1 rounded-md border px-3 py-2',
-              g.last === 'block' ? 'border-warning bg-warning-bg' : g.last === 'pass' ? 'border-teal bg-success-bg' : 'border-border bg-surface',
+              g.last === 'block' ? 'border-warning bg-warning-bg' : g.last === 'pass' ? 'border-virtual-tide bg-success-bg' : 'border-border bg-surface',
             )}
           >
             <p className="text-[12px] font-bold">
@@ -164,9 +169,9 @@ export function MonitorPage() {
         <ol ref={logRef} aria-live={paused ? 'off' : 'polite'} aria-relevant="additions" className="max-h-[52vh] overflow-y-auto rounded-md bg-ink-10 p-3 font-mono text-[12px] leading-relaxed text-text-on-dark">
           {lines.length === 0 && <li className="text-text-on-dark-muted">No lines yet. Actions on the case appear here as the harness records them.</li>}
           {lines.map((l) => (
-            <li key={l.seq} className={cn('flex gap-3 border-b border-ink-9 py-1', l.level !== 'info' && 'text-chart-neural-beam')}>
+            <li key={l.seq} className={cn('flex gap-3 border-b border-ink-9 py-1', l.level !== 'info' && 'text-neural-beam')}>
               <span className="w-12 shrink-0 text-text-on-dark-muted">{l.at.slice(11, 16)}</span>
-              <span className="w-32 shrink-0 font-semibold text-quantum-leaf">{l.who}</span>
+              <span className="w-32 shrink-0 font-semibold text-pulse-green">{l.who}</span>
               <span className="min-w-0 flex-1">
                 {l.text}
                 {l.sub && <span className="block text-[11px] text-text-on-dark-muted">{l.sub}</span>}

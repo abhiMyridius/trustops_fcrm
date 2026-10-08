@@ -71,7 +71,7 @@ describe('login without a demo picker', () => {
     await userEvent.type(await screen.findByLabelText(/Username/), 'pnair');
     await userEvent.type(screen.getByLabelText(/Password/), 'demo-pnair');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/po'));
   });
 
   it('explains an unreachable directory and still offers the form', async () => {

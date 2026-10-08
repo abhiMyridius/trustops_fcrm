@@ -6,7 +6,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { DEMO_CASE, signInAs } from '../fixtures/live';
 
 const PERSONAS: { name: string; home: RegExp; landmark: (page: Page) => Locator }[] = [
-  { name: 'Priya Nair', home: /\/$/, landmark: (p) => p.getByRole('heading', { name: /Welcome back, Priya/ }) },
+  { name: 'Priya Nair', home: /\/po\/?$/, landmark: (p) => p.getByRole('heading', { name: /Welcome back, Priya/ }) },
   { name: 'Rahul Iyer', home: /\/analyst\/?$/, landmark: (p) => p.getByRole('button', { name: 'Account menu for Rahul Iyer' }) },
   { name: 'Ana Mendes', home: /\/committee\/?$/, landmark: (p) => p.getByRole('heading', { name: 'Committee queue' }) },
   {

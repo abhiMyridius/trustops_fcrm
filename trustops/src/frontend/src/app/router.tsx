@@ -8,6 +8,7 @@ import { Navigate, createBrowserRouter, type RouteObject } from 'react-router-do
 import { PageSkeleton } from '@/components/layout/PageSkeleton';
 import { NotFound } from '@/components/layout/NotFound';
 import { RouteError } from '@/components/layout/RouteError';
+import { HomeRedirect } from './guards/HomeRedirect';
 import { RequireAuth } from './guards/RequireAuth';
 import { RequireRole } from './guards/RequireRole';
 import { AppShell } from './layouts/AppShell';
@@ -37,6 +38,8 @@ export const routes: RouteObject[] = [
       {
         element: <RequireAuth />,
         children: [
+          // `/` is no persona's page: it sends a signed-in person to their own home (the PO's is /po).
+          { index: true, element: <HomeRedirect /> },
           {
             path: 'monitor/:caseId',
             element: <RequireRole roles={['fcrm_analyst', 'fcrm_committee', 'fcrm_observer']} onDenied="forbidden" />,
@@ -49,7 +52,7 @@ export const routes: RouteObject[] = [
               {
                 element: <RequireRole roles={['fcrm_po']} />,
                 children: [
-                  { index: true, lazy: lazy(() => import('@/features/po/Dashboard'), 'PODashboard') },
+                  { path: 'po', lazy: lazy(() => import('@/features/po/Dashboard'), 'PODashboard') },
                   { path: 'queue', lazy: lazy(() => import('@/features/po/MyQueue'), 'MyQueue') },
                   { path: 'case/new', lazy: lazy(() => import('@/features/po/NewCase'), 'NewCase') },
                   {

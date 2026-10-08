@@ -94,7 +94,7 @@ function AreaCard({
             ] as const
           ).map(([k, v]) => (
             <div key={k} className="rounded-md bg-surface-tertiary px-2 py-2">
-              <dt className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{k}</dt>
+              <dt className="text-[11px] font-semibold uppercase tracking-overline text-text-muted">{k}</dt>
               <dd className="text-lg font-bold tabular-nums">{v}</dd>
             </div>
           ))}
