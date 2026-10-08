@@ -169,7 +169,7 @@ The first start already seeds an empty database (80 cases, the 65 closed cases' 
 | Vite dev server, hot reload against the live backend | http://localhost:5173 (`cd src/frontend && npm ci && npm run dev`) |
 | Vite dev server against the in-browser mock | `npm run dev:msw` in `src/frontend`; no Docker needed |
 | Grafana, Jaeger, Prometheus | http://localhost:3000, :16686, :9090 after `make up-obs`; Grafana user `admin`, password `GF_SECURITY_ADMIN_PASSWORD` from `.env` |
-| OpenObserve, the log store and its search UI | http://localhost:5080 after `make up-obs`; sign in with `ZO_ROOT_USER_EMAIL` and `ZO_ROOT_USER_PASSWORD` from `.env`, open **Logs** and pick the `trustops` stream. The same lines are still on each container's stdout (`docker compose logs api`) |
+| OpenObserve: traces, metrics and logs | http://localhost:5080 after `make up-obs`; sign in with `ZO_ROOT_USER_EMAIL` and `ZO_ROOT_USER_PASSWORD` from `.env`. **Logs**: stream `trustops`; **Traces**: stream `trustops` (an OpenObserve that ignores the stream header for traces files them under `default`); **Metrics**: one stream per metric (`fcrm_agent_tokens_total` and so on). A log line carries its `trace_id`, so you can go from a log to its trace. The same log lines are still on each container's stdout (`docker compose logs api`). To send everything to your team's own OpenObserve instead, see "Send telemetry to your own OpenObserve" below |
 | MongoDB (Compass, mongosh), this machine only | `127.0.0.1:27017`, started by `make up`; use `?authSource=admin&directConnection=true` and the root user from `.env` |
 | RabbitMQ management, MinIO console, OPA | http://localhost:15672, :9001, :8181 after `make up-debug` |
 
@@ -183,6 +183,19 @@ Every seeded user shares one password, `demo-password-2026` (override with `make
 | Observer | Panel Observer, `observer` | `/monitor/<case>` | the harness monitor only (ADR-19): it is the one screen the web gives this role, and the monitor of a case with no run says so as information. No pack, no audit records, no Assurance screens. The API's OPA rows would still answer this token on `GET /audit/agent-quality` (agent quality is not case data), but no observer page calls it |
 
 The demo needs five people (Priya, Rahul, Ana, Joseph, Lin) across three working roles. Services also call each other with a service account (HMAC tokens); it is not a person and cannot decide a gate (Guard 7).
+
+### Send telemetry to your own OpenObserve
+
+`make up-obs` sends traces, metrics and logs to the bundled OpenObserve container by default. To use your team's OpenObserve instead, add these lines to `.env` and run `make up-obs` again:
+
+```bash
+OPENOBSERVE_OTLP_ENDPOINT=https://<your-openobserve-host>/api/<organisation>   # for example http://openobserve.internal:5080/api/default
+OPENOBSERVE_USER=<user e-mail>
+OPENOBSERVE_PASSWORD=<password>
+# OPENOBSERVE_STREAM=trustops        # optional: the stream for logs and traces
+```
+
+The collector adds `/v1/traces`, `/v1/metrics` and `/v1/logs` to the address and builds the sign-in header from the user and password. Do not paste a ready-made `Authorization: Basic ...` header into a file: base64 is not encryption, and anyone who reads it has the password. The bundled OpenObserve container still starts (it is part of the `obs` profile) but receives nothing. Leave the three lines out to go back to it.
 
 ## 4. Drive the demo by hand
 

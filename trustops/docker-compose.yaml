@@ -424,12 +424,17 @@ services:
     command:
       - --config=/etc/otelcol/collector.yaml
       - --config=/etc/otelcol/env/${ENV:-local}.yaml
-    # The collector signs in to OpenObserve with the same root login (the
-    # basicauth extension in ops/otel/collector.yaml reads these two).
+    # Where the collector sends traces, metrics and logs (ADR-68). By default
+    # the bundled openobserve container, signed in with its root login; set
+    # OPENOBSERVE_OTLP_ENDPOINT, OPENOBSERVE_USER and OPENOBSERVE_PASSWORD in
+    # .env to use your team's own OpenObserve instead (the basicauth extension
+    # in ops/otel/collector.yaml reads them; no credential is in a file here).
     environment:
       ENV: ${ENV:-local}
-      ZO_ROOT_USER_EMAIL: ${ZO_ROOT_USER_EMAIL:-}
-      ZO_ROOT_USER_PASSWORD: ${ZO_ROOT_USER_PASSWORD:-}
+      OPENOBSERVE_OTLP_ENDPOINT: ${OPENOBSERVE_OTLP_ENDPOINT:-http://openobserve:5080/api/default}
+      OPENOBSERVE_USER: ${OPENOBSERVE_USER:-${ZO_ROOT_USER_EMAIL:-}}
+      OPENOBSERVE_PASSWORD: ${OPENOBSERVE_PASSWORD:-${ZO_ROOT_USER_PASSWORD:-}}
+      OPENOBSERVE_STREAM: ${OPENOBSERVE_STREAM:-trustops}
     depends_on:
       openobserve:
         condition: service_started

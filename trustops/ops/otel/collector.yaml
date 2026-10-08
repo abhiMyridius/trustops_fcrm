@@ -1,7 +1,7 @@
 # otel-collector (ADR-09, design A §11.5). Every container exports OTLP here
-# (OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318); traces go to
-# Jaeger, metrics are exposed for Prometheus on :8889, logs go to OpenObserve
-# (ADR-66).
+# (OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318). Traces, metrics and
+# logs all go to OpenObserve (ADR-66, ADR-68); traces also go to Jaeger and
+# metrics are also exposed for Prometheus on :8889, which Grafana reads.
 #
 # Started with two --config files that the collector merges:
 #   /etc/otelcol/collector.yaml        this file (every environment)
@@ -9,8 +9,12 @@
 #                                      env/local.yaml adds the debug exporter,
 #                                      so console dumps never run outside
 #                                      ENV=local.
-# The logs pipeline needs the ZO_ROOT_USER_EMAIL / ZO_ROOT_USER_PASSWORD login
-# that compose passes in (the same one OpenObserve is created with).
+# OpenObserve's address and login come from the environment that compose
+# passes in, never from this file: OPENOBSERVE_OTLP_ENDPOINT (default: the
+# bundled container, http://openobserve:5080/api/default), OPENOBSERVE_USER
+# and OPENOBSERVE_PASSWORD (default: the ZO_ROOT_USER_* login the bundled
+# container is created with) and OPENOBSERVE_STREAM (default: trustops). Set
+# them in .env to send everything to your team's own OpenObserve instead.
 # The AWS path swaps the exporters for awsxray / awsemf / awscloudwatchlogs
 # behind an ADOT collector (ops/aws), with the same receivers and processors.
 
@@ -18,12 +22,13 @@ extensions:
   health_check:
     endpoint: 0.0.0.0:13133
 
-  # The OpenObserve root login, sent as HTTP basic auth on every log export.
-  # Read from the environment so no credential lives in this file.
+  # The OpenObserve login, sent as HTTP basic auth on every export (the
+  # extension builds the header from these two values). Read from the
+  # environment so no credential lives in this file.
   basicauth/openobserve:
     client_auth:
-      username: ${env:ZO_ROOT_USER_EMAIL}
-      password: ${env:ZO_ROOT_USER_PASSWORD}
+      username: ${env:OPENOBSERVE_USER}
+      password: ${env:OPENOBSERVE_PASSWORD}
 
 receivers:
   otlp:
@@ -86,18 +91,20 @@ exporters:
   debug:
     verbosity: basic
 
-  # The log store (ADR-66). The api and harness export their logs over OTLP
-  # whenever OTEL_EXPORTER_OTLP_ENDPOINT is set; OpenObserve keeps them in the
-  # `trustops` stream, searchable at http://localhost:5080. The JSON each
-  # container writes to stdout stays the system of record (design A §10.7), and
-  # the AWS path ships that to CloudWatch instead of using this exporter. The
-  # endpoint is the organisation path; the exporter appends /v1/logs.
+  # OpenObserve (ADR-66, ADR-68): one exporter for all three signals. The
+  # endpoint is the organisation path, and the exporter appends /v1/traces,
+  # /v1/metrics or /v1/logs. Logs land in the OPENOBSERVE_STREAM stream, and
+  # traces too where OpenObserve honours the header (else `default`); metrics
+  # are stored per metric name, searchable at
+  # http://localhost:5080 for the bundled container. The JSON each container
+  # writes to stdout stays the log system of record (design A §10.7), and the
+  # AWS path ships that to CloudWatch instead of using this exporter.
   otlphttp/openobserve:
-    endpoint: http://openobserve:5080/api/default
+    endpoint: ${env:OPENOBSERVE_OTLP_ENDPOINT}
     auth:
       authenticator: basicauth/openobserve
     headers:
-      stream-name: trustops
+      stream-name: ${env:OPENOBSERVE_STREAM}
 
 service:
   extensions: [health_check, basicauth/openobserve]
@@ -116,11 +123,11 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, attributes/redact, resource, batch]
-      exporters: [otlp/jaeger]
+      exporters: [otlp/jaeger, otlphttp/openobserve]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, attributes/redact, resource, batch]
-      exporters: [prometheus]
+      exporters: [prometheus, otlphttp/openobserve]
     logs:
       receivers: [otlp]
       processors: [memory_limiter, attributes/redact, resource, batch]

@@ -186,3 +186,15 @@ Still open:
 - An older `.env` has no OpenObserve login: `make up-obs` stops and says what to add (`make env` never overwrites). The login is stored on the first start, so changing it later needs `make down-v`, which also deletes the stored logs.
 - The standalone per-service and worker entrypoints (`uvicorn <pkg>.main:app`, the four workers run on their own) never call `init_otel`, so they export no traces, metrics or logs. Only the composed `api` and `harness` do.
 - Model calls (Pydantic AI) are not instrumented, so they appear neither as spans nor as log records of their own.
+
+## N. Traces and metrics to OpenObserve (8 October, appended)
+
+Closed:
+
+- Traces, metrics and logs all reach OpenObserve (ADR-68); the address and login come from `OPENOBSERVE_*` in `.env`, so the stack can report to a team's own OpenObserve. This closes section M's "traces and metrics still go to Jaeger and Prometheus only": a log's `trace_id` now leads to its trace in the same tool.
+- Checked on 8 October without Docker: the real collector (otelcol-contrib 0.135.0, the image's version) with `ops/otel/collector.yaml` and `env/local.yaml` passed `validate`, and the real `init_otel` and `configure_logging` sent one span, one metric and one log through it to a stand-in for OpenObserve, which received one POST each on `/api/default/v1/traces`, `/v1/metrics` and `/v1/logs`, each with a basic-auth login and `stream-name: trustops`, and the collector logged no OpenObserve export error. `docker compose config` renders both the bundled default and a team instance set in `.env`.
+
+Still open:
+
+- **Not run against a real OpenObserve with the composed stack.** The stand-in proves the routing and the login, not that OpenObserve stores and shows the data; `make up-obs` restarts the api, which re-embeds the corpus on Bedrock (ADR-59), so it waits for the operator.
+- With a team instance set, the bundled OpenObserve container still starts and receives nothing.
