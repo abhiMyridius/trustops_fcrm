@@ -63,6 +63,8 @@ STEP_FOR: Final[Mapping[Trigger, StepKind]] = MappingProxyType(
         Trigger.GATE_DECIDED_ACK: K.REVIEW_ACK,
         Trigger.CASE_GAP_RECORDED: K.GAP_RECORD,
         Trigger.CASE_CONTROL_PLANNED: K.CONTROL_PLANNED,
+        Trigger.CASE_CLAUSE_ADDED: K.CLAUSE_RECORD,
+        Trigger.CASE_CLAUSE_REMOVED: K.CLAUSE_RECORD,
         Trigger.CASE_RETAGGED: K.RETAG_RECORD,
         Trigger.CASE_RERUN_REQUESTED: K.RERUN_REQUESTED,
         Trigger.ALL_ITEMS_DECIDED: K.STATE_PUSH,
@@ -150,6 +152,8 @@ RECORDS_FOR: Final[Mapping[StepKind, tuple[str, ...]]] = MappingProxyType(
         K.REVIEW_ACK: ("gate.decided",),
         K.GAP_RECORD: ("gap.recorded",),
         K.CONTROL_PLANNED: ("control.planned",),
+        # ADR-74: one of the two, by the trigger (an added or a removed clause).
+        K.CLAUSE_RECORD: ("clause.added", "clause.removed"),
         K.RETAG_RECORD: ("fieldset.resolved",),
         K.RERUN_REQUESTED: ("agent.rerun",),
         # recommendation and pack (scenes 15-16)

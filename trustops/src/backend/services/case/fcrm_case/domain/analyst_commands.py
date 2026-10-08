@@ -199,6 +199,9 @@ class AnalystCommand:
         resolutions: Answered questions the analyst resolves.
         records: Rows to insert once (planned controls, gaps, re-run requests).
         retag: A change type to add to the case.
+        new_items: Review items to insert once (a clause the analyst added from
+            a corpus search, ADR-74). An item that already exists makes the
+            whole command a replay, like a row of ``records``.
     """
 
     case_id: str
@@ -212,6 +215,7 @@ class AnalystCommand:
     resolutions: Sequence[ThreadResolution] = ()
     records: Sequence[OnceRecord] = ()
     retag: Optional[Retag] = None
+    new_items: Sequence[ReviewItemRow] = ()
 
 
 def decision_fingerprint(*parts: Any) -> str:

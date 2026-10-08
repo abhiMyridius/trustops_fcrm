@@ -248,6 +248,32 @@ class CaseControlPlanned(EventPayload):
     planned_control: dict[str, Any] = Field(default_factory=dict)
 
 
+class CaseClauseAdded(EventPayload):
+    """The analyst added a clause from a corpus search (ADR-74). It is stored in
+    S1 as an accepted ``clause`` item with no gate, its text read from S3 at the
+    case's pinned corpus version; clauses never enter the score.
+    """
+
+    case_id: str
+    actor: str
+    item_id: str
+    clause_id: str
+    corpus_v: int
+    reason: str
+    title: Optional[str] = None
+    ref: Optional[str] = None
+
+
+class CaseClauseRemoved(EventPayload):
+    """The analyst removed a clause they had added (ADR-74), with a reason."""
+
+    case_id: str
+    actor: str
+    item_id: str
+    clause_id: str
+    reason: str
+
+
 class CaseLocked(EventPayload):
     case_id: str
     actor: str

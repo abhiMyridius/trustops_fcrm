@@ -59,6 +59,13 @@ export interface PlannedEntry {
   due: string;
 }
 
+export interface AnalystClauseEntry {
+  reason: string;
+  by: string;
+  removed: boolean;
+  removeReason: string | null;
+}
+
 export interface DemoState {
   docs: DocEntry[];
   readingStartedAt: number | null;
@@ -74,6 +81,8 @@ export interface DemoState {
   threadAnswers: Record<string, { text: string; documents: string[]; at: string }>;
   resolved: string[];
   clauses: Record<string, { decision: 'pending' | 'accepted' | 'removed'; reason: string | null }>;
+  /** ADR-74: clauses the analyst added from a corpus search, by clause id (absent in an older saved state). */
+  analystClauses?: Record<string, AnalystClauseEntry>;
   gapRecorded: boolean;
   controls: Record<string, { decision: 'pending' | 'confirmed' | 'overridden'; rating: number; reason: string | null }>;
   planned: PlannedEntry[];

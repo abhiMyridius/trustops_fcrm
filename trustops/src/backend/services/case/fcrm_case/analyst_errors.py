@@ -78,3 +78,12 @@ class RoundAlreadyOpenError(ConflictError):
 
     code = "round_already_sent"
     title = "Round already sent"
+
+
+class ClauseOnCaseError(ConflictError):
+    """The clause the analyst would add is already on the case and not removed
+    (ADR-74): accept or keep the one there instead.
+    """
+
+    code = "clause_on_case"
+    title = "Clause already on the case"

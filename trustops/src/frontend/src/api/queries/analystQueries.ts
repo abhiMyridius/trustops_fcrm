@@ -7,6 +7,8 @@ import type {
   ActivityAnalyst,
   AssessmentSummary,
   ClarificationsView,
+  ClauseAddBody,
+  ClauseAddResult,
   DashboardAnalyst,
   HandoffCompleted,
   HandoffGates,
@@ -167,6 +169,11 @@ export function usePolicySearch(id: string) {
   return useMutation({
     mutationFn: (q: string) => api<PolicySearchResult>(paths.policy.search, { method: 'POST', body: { q, case_id: id } }),
   });
+}
+
+/** ADR-74: add a clause from a corpus search to the case, accepted, with a reason (20+ characters). */
+export function useAddClause(id: string) {
+  return useCaseMutation(id, (v: ClauseAddBody) => api<ClauseAddResult>(paths.cases.clauses(id), { method: 'POST', body: v }));
 }
 
 export function useRecordGap(id: string) {

@@ -11,6 +11,7 @@ from __future__ import annotations
 from fcrm_contracts.enums import StepKind
 
 from fcrm_caseflow.cores import (
+    analyst_clauses,
     assessment,
     assessment_pack,
     assessment_review,
@@ -39,6 +40,7 @@ def default_handlers() -> dict[StepKind, StepHandler]:
         closing.HANDLERS,
         oversight.HANDLERS,
         handoff.HANDLERS,
+        analyst_clauses.HANDLERS,
     ):
         clash = merged.keys() & table.keys()
         if clash:

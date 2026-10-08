@@ -59,7 +59,8 @@ export interface PackView {
   conditions: ConditionAnalyst[];
   overrides: { item: string; from: number; to: number; by: string; reason: string; record_seq: number | null }[];
   removals: { item: string; reason: string; by: string }[];
-  clauses: { id: string; title: string; quote: string; ref: string }[];
+  /** ADR-74: `added_by` and `added_reason` are set only on a clause the analyst added from a corpus search. */
+  clauses: { id: string; title: string; quote: string; ref: string; added_by?: string | null; added_reason?: string | null }[];
   gaps: string[];
   controls: { id: string; name: string; domain: string; rating: number; weight_norm: number; evidence: string; stale: boolean }[];
   planned: { description: string; owner: string; due: string }[];

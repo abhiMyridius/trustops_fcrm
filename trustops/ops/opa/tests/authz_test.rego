@@ -752,6 +752,7 @@ test_po_denied_every_analyst_route if {
 		["POST", "/cases/{case_id}/acknowledge"],
 		["POST", "/cases/{case_id}/controls/planned"],
 		["POST", "/cases/{case_id}/gaps"],
+		["POST", "/cases/{case_id}/clauses"],
 		["POST", "/cases/{case_id}/runs"],
 		["POST", "/cases/{case_id}/recommendation/lock"],
 		["POST", "/cases/{case_id}/recommendation/unlock"],
@@ -882,6 +883,7 @@ analyst_write_routes := {
 	["POST", "/cases/{case_id}/change-types"],
 	["POST", "/cases/{case_id}/controls/planned"],
 	["POST", "/cases/{case_id}/gaps"],
+	["POST", "/cases/{case_id}/clauses"],
 	["POST", "/cases/{case_id}/runs"],
 	["PUT", "/cases/{case_id}/recommendation"],
 	["POST", "/cases/{case_id}/recommendation/lock"],
@@ -908,6 +910,15 @@ test_the_committee_may_not_call_an_analyst_write_route if denied_every_analyst_w
 test_the_observer_may_not_call_an_analyst_write_route if denied_every_analyst_write("fcrm_observer")
 
 test_the_service_account_may_not_call_an_analyst_write_route if denied_every_analyst_write("fcrm_service")
+
+# ADR-74: adding a clause from a corpus search is the analyst's decision; the
+# service account inherits the analyst's grants, so a deny row names the route.
+test_only_the_analyst_adds_a_clause_and_the_service_is_denied_by_rule if {
+	authz.allow with input as req("fcrm_analyst", "case", "POST", "/cases/{id}/clauses")
+	denied := authz.response with input as req("fcrm_service", "case", "POST", "/cases/{id}/clauses")
+	denied.allow == false
+	count(denied.denied_by) == 1
+}
 
 # The handoff gates are an analyst read: the committee, the observer and the PO have no
 # allow row for it (a failed step is the analyst's to see and finish, the PO is told

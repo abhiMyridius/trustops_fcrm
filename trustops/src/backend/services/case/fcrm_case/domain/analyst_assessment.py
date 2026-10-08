@@ -64,6 +64,11 @@ from fcrm_contracts.api.case_analyst_read import (
 from fcrm_contracts.api.case_po import SourceRef
 from fcrm_contracts.enums import CaseState, Domain, ItemKind, ItemStatus
 
+from fcrm_case.domain.analyst_clauses import (
+    added_reason,
+    is_analyst_clause,
+    shown_clause_rows,
+)
 from fcrm_case.domain.analyst_handoff import HandoffGateRow, agent_failed_notice
 from fcrm_case.domain.analyst_records import GapRow, PlannedControlRow
 from fcrm_case.domain.analyst_views import assessment_ready, band_no, score_box
@@ -467,12 +472,12 @@ def clause_items(
     shown by its id with no source (never an invented one).
     """
     items: list[ClauseItem] = []
-    for row in current_items(rows):
-        if row.kind is not ItemKind.CLAUSE:
-            continue
+    for row in shown_clause_rows(rows):
         clause_id = _text(row.subject.get("clause_id"))
         known = catalogue.get(clause_id)
-        if known is None:
+        # A clause the analyst added carries the citation S3 gave it (ADR-74).
+        mine = is_analyst_clause(row)
+        if known is None and not mine:
             logger.warning(
                 "clause item names a clause the corpus does not hold",
                 extra={"case_id": row.case_id, "clause_id": clause_id},
@@ -480,16 +485,29 @@ def clause_items(
         items.append(
             ClauseItem(
                 id=clause_id,
-                source=known.source if known else "",
-                title=known.title if known else clause_id,
+                source=_text(row.subject.get("source_id"))
+                if mine
+                else (known.source if known else ""),
+                title=_text(row.subject.get("title") or clause_id)
+                if mine
+                else (known.title if known else clause_id),
                 quote=_text(row.proposed.get("quote")),
-                ref=known.ref if known else "",
+                ref=_text(row.subject.get("ref"))
+                if mine
+                else (known.ref if known else ""),
                 corpus_version=_corpus(row),
                 decision=decision_of(row),
                 reason=row.decided.reason if row.decided is not None else None,
                 item_id=row.item_id,
                 gate_id=row.gate_id,
                 gate_open=gate_open(row),
+                origin="analyst" if mine else "agent",
+                added_by=_text(
+                    row.subject.get("added_by_name") or row.subject.get("added_by")
+                )
+                if mine
+                else None,
+                added_reason=added_reason(row),
             )
         )
     return sorted(items, key=lambda c: c.id)

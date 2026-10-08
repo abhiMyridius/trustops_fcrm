@@ -385,6 +385,11 @@ class ClauseItem(_Dto):
     item_id: str
     gate_id: Optional[str] = None
     gate_open: bool = False
+    # ADR-74: ``analyst`` for a clause the analyst added from a corpus search
+    # (accepted when added, never gated); who added it and why.
+    origin: Literal["agent", "analyst"] = "agent"
+    added_by: Optional[str] = None
+    added_reason: Optional[str] = None
 
 
 class PolicyGap(_Dto):

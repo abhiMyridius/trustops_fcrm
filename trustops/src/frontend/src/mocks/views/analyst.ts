@@ -1,4 +1,5 @@
 /** Analyst projections (S1 case_analyst + S2 score snapshots). */
+import { corpusClause } from '../corpus';
 import type {
   ActivityAnalyst,
   AssessmentSummary,
@@ -483,18 +484,40 @@ export function policy(id: string): PolicyView | null {
   }
   const d = getDB().demo;
   const ready = assessmentDone();
-  const clauses: ClauseItem[] = ready
-    ? seed.demo.clauses.map((c) => ({
-        id: c.clause_id,
+  const mine = d.analystClauses ?? {};
+  const proposed: ClauseItem[] = seed.demo.clauses
+    // A removed clause the analyst added again is listed once, as the analyst's (ADR-74).
+    .filter((c) => !(c.clause_id in mine))
+    .map((c) => ({
+      id: c.clause_id,
+      source: c.src,
+      title: c.title,
+      quote: c.quote,
+      ref: c.ref,
+      corpus_version: seed.corpus.version,
+      decision: d.clauses[c.clause_id]?.decision ?? 'pending',
+      reason: d.clauses[c.clause_id]?.reason ?? null,
+    }));
+  const added: ClauseItem[] = Object.entries(mine).flatMap(([clauseId, a]) => {
+    const c = corpusClause(clauseId);
+    if (!c) return [];
+    return [
+      {
+        id: clauseId,
         source: c.src,
         title: c.title,
         quote: c.quote,
         ref: c.ref,
         corpus_version: seed.corpus.version,
-        decision: d.clauses[c.clause_id]?.decision ?? 'pending',
-        reason: d.clauses[c.clause_id]?.reason ?? null,
-      }))
-    : [];
+        decision: a.removed ? ('removed' as const) : ('accepted' as const),
+        reason: a.removed ? a.removeReason : a.reason,
+        origin: 'analyst' as const,
+        added_by: a.by,
+        added_reason: a.reason,
+      },
+    ];
+  });
+  const clauses: ClauseItem[] = ready ? [...proposed, ...added].sort((x, y) => x.id.localeCompare(y.id)) : [];
   return {
     clauses,
     gap: ready ? { text: seed.demo.clause_gap, recorded: d.gapRecorded } : null,

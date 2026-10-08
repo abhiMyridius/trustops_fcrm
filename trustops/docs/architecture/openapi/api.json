@@ -1497,6 +1497,70 @@
         "title": "ClarificationsView",
         "type": "object"
       },
+      "ClauseAddBody": {
+        "additionalProperties": false,
+        "description": "``POST /cases/{id}/clauses``: the clause id of a search hit and why it\napplies to the case (at least :data:`REASON_MIN_CHARS` characters, the\noverride reason rule).",
+        "properties": {
+          "clause_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Clause Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "clause_id",
+          "reason"
+        ],
+        "title": "ClauseAddBody",
+        "type": "object"
+      },
+      "ClauseAddResult": {
+        "additionalProperties": false,
+        "description": "What adding a clause answers (201): the review item it became, the corpus\nversion its text was read at, and whether the same addition was already\nstored (a replay announces nothing).",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "clause_id": {
+            "title": "Clause Id",
+            "type": "string"
+          },
+          "corpus_version": {
+            "title": "Corpus Version",
+            "type": "string"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "status": {
+            "const": "accepted",
+            "default": "accepted",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id",
+          "case_id",
+          "clause_id",
+          "corpus_version"
+        ],
+        "title": "ClauseAddResult",
+        "type": "object"
+      },
       "ClauseDetailOut": {
         "additionalProperties": false,
         "description": "One policy clause as the system of record holds it: ``GET /clauses/{id}``\nand each item of ``GET /internal/clauses`` (H4's input).\n\n``text`` is verbatim from ``clauses.json`` (never generated, never\nrewritten); ``source_ref`` is the structured citation an agent claim carries\nand ``ref`` the human-readable one. ``provenance_kind`` says whether the text\nis a seed verbatim quote or a declared synthetic stand-in (ADR-29).",
@@ -1614,6 +1678,28 @@
       "ClauseItem": {
         "additionalProperties": false,
         "properties": {
+          "added_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added By"
+          },
+          "added_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added Reason"
+          },
           "corpus_version": {
             "title": "Corpus Version",
             "type": "string"
@@ -1651,6 +1737,15 @@
           },
           "item_id": {
             "title": "Item Id",
+            "type": "string"
+          },
+          "origin": {
+            "default": "agent",
+            "enum": [
+              "agent",
+              "analyst"
+            ],
+            "title": "Origin",
             "type": "string"
           },
           "quote": {
@@ -6231,6 +6326,28 @@
       "PackClause": {
         "additionalProperties": false,
         "properties": {
+          "added_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added By"
+          },
+          "added_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added Reason"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -14705,6 +14822,64 @@
           }
         ],
         "summary": "Resolve Thread",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/clauses": {
+      "post": {
+        "description": "Add a clause found by searching the corpus, with a reason of at least 20\ncharacters. It is accepted when added (no gate) and never scored. 409\n``wrong_stage`` outside review or an unlocked recommendation, 409\n``clause_on_case`` when it is already on the case and not removed, 422 when the\npinned corpus has no such quotable clause, 503 when S3 cannot be read (nothing\nis stored). The same addition again replays.",
+        "operationId": "S1_add_clause_cases__case_id__clauses_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClauseAddBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClauseAddResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Add Clause",
         "tags": [
           "analyst"
         ]

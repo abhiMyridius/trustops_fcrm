@@ -329,6 +329,13 @@ export const caseHandlers = [
       if (raw.trim().startsWith('[')) return problem(422, 'No bulk accept', 'One item per call (rule 2).');
       const b = (raw ? JSON.parse(raw) : {}) as { decision: string; value?: number; reason?: string };
       const itemId = String(params.itemId);
+      const mine = getDB().demo.analystClauses?.[itemId];
+      if (mine && !mine.removed) {
+        // ADR-74: a clause the analyst added has no gate; it is removed with a reason, accepting it changes nothing.
+        if (b.decision !== 'accept' && b.decision !== 'remove') return problem(409, 'decision_not_allowed', 'Clauses are accepted or removed.');
+        if (b.decision === 'remove') A.removeAnalystClause(itemId, b.reason);
+        return HttpResponse.json({ item_id: itemId, status: b.decision === 'remove' ? 'removed' : 'confirmed', replayed: b.decision === 'accept' });
+      }
       if (seed.demo.clauses.some((c) => c.clause_id === itemId)) {
         if (b.decision !== 'accept' && b.decision !== 'remove') return problem(422, 'Invalid decision', 'Clauses are accepted or removed.');
         A.decideClause(itemId, b.decision, b.reason);
@@ -354,6 +361,21 @@ export const caseHandlers = [
       const b = await body<{ control_id: string | null; description: string; owner: string; due: string }>(request);
       A.addPlanned(b);
       return HttpResponse.json(AV.risk(id(params)), { status: 201 });
+    }),
+  ),
+  http.post(`${P}/clauses`, ({ request, params }) =>
+    guarded(request, ['fcrm_analyst'], async ({ user }) => {
+      const caseId = id(params);
+      if (!isDemo(caseId)) return problem(409, 'Read-only', 'Only FCRM-2026-0151 is live in mock mode.');
+      const b = await body<{ clause_id?: string; reason?: string; quote?: unknown }>(request);
+      // The text is the corpus's, read by the server; a body that carries one is refused, as S1's model does.
+      if ('quote' in b) return problem(422, 'Invalid body', 'The clause text comes from the corpus, never the client.');
+      const clauseId = (b.clause_id ?? '').trim();
+      const { replayed } = A.addClause(clauseId, b.reason, nameOf(user.id));
+      return HttpResponse.json(
+        { item_id: `acl_${clauseId}`, case_id: caseId, clause_id: clauseId, corpus_version: seed.corpus.version, status: 'accepted', replayed },
+        { status: 201 },
+      );
     }),
   ),
   http.post(`${P}/gaps`, ({ request, params }) =>
