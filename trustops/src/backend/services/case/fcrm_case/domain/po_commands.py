@@ -69,12 +69,15 @@ class GateEmission:
     is made. ``gate_type`` and ``key`` identify the gate (``po_confirm_category``
     and the change type, ``po_confirm_value`` and the field id...); the store
     records them in the decision ledger and enqueues ``event`` when the row is
-    new.
+    new. When the gate was decided before, ``otherwise`` (if set) is enqueued
+    instead, so a later change the gate can no longer carry still reaches H1
+    (a change type re-added or removed after its decision, ADR-72).
     """
 
     gate_type: str
     key: str
     event: Envelope
+    otherwise: Optional[Envelope] = None
 
 
 @dataclass(frozen=True)

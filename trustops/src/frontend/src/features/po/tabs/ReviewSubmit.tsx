@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { CheckCircle2, CircleDashed, PenLine, XCircle } from 'lucide-react';
-import { useCorrectValue, useReview, useSubmit, useValidate } from '@/api/queries/caseQueries';
+import { useReview, useSubmit, useValidate } from '@/api/queries/caseQueries';
 import { userMessage } from '@/api/errors';
 import type { ReviewRowPO, SubmitCheck, SubmitResult } from '@/api/types/po';
 import { CompletionRing } from '@/components/domain/CompletionRing';
@@ -15,60 +15,12 @@ import { SourceChip } from '@/components/domain/SourceChip';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { QueryState } from '@/components/ui/QueryState';
 import { Table, type Column } from '@/components/ui/Table';
 import { useToast } from '@/components/ui/Toast';
 import { useDocumentTitle } from '@/lib/a11y';
-
-function CorrectDialog({ caseId, row, onClose }: { caseId: string; row: ReviewRowPO | null; onClose: () => void }) {
-  const correct = useCorrectValue(caseId);
-  const [value, setValue] = useState(row?.value ?? '');
-  const toast = useToast();
-  return (
-    <Modal
-      open={row !== null}
-      onClose={onClose}
-      title={`Correct a value · ${row?.field_id ?? ''} ${row?.label ?? ''}`}
-      description="Your correction becomes “owner declared”. The extracted value and its page:line are kept for the analyst."
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            disabled={!value.trim() || value === row?.value}
-            loading={correct.isPending}
-            onClick={() =>
-              row &&
-              correct.mutate(
-                { field_id: row.field_id, value: value.trim() },
-                {
-                  onSuccess: () => {
-                    toast.success('Value corrected', `${row.field_id} is now owner declared; the original is kept.`);
-                    onClose();
-                  },
-                  onError: (err) => toast.error('Not saved', userMessage(err)),
-                },
-              )
-            }
-          >
-            Save correction
-          </Button>
-        </>
-      }
-    >
-      {row?.source && (
-        <p className="mb-3 flex items-center gap-2 text-[13px] text-text-secondary">
-          Extracted: “{row.value}” <SourceChip source={row.source} />
-        </p>
-      )}
-      <Input label="Corrected value" value={value} onChange={(e) => setValue(e.target.value)} data-autofocus />
-    </Modal>
-  );
-}
+import { ValueDialog } from '../ValueDialog';
 
 function CheckLine({ check, shown }: { check: SubmitCheck; shown: boolean }) {
   if (!shown)
@@ -205,11 +157,15 @@ export function ReviewSubmitTab() {
             key: 'edit',
             header: <span className="sr-only">Edit</span>,
             cell: (r) =>
-              !v.submitted && r.value ? (
+              v.submitted ? null : r.value ? (
                 <Button size="sm" variant="ghost" icon={<PenLine aria-hidden size={13} />} onClick={() => setEditing(r)} aria-label={`Correct ${r.field_id} ${r.label}`}>
                   Edit
                 </Button>
-              ) : null,
+              ) : (
+                <Button size="sm" variant="ghost" icon={<PenLine aria-hidden size={13} />} onClick={() => setEditing(r)} aria-label={`Fill in ${r.field_id} ${r.label}`}>
+                  Fill in
+                </Button>
+              ),
           },
         ];
         return (
@@ -246,7 +202,7 @@ export function ReviewSubmitTab() {
                 </Card>
               )}
             </div>
-            <CorrectDialog key={editing?.field_id ?? 'none'} caseId={id} row={editing} onClose={() => setEditing(null)} />
+            <ValueDialog key={editing?.field_id ?? 'none'} caseId={id} row={editing} onClose={() => setEditing(null)} />
             <ValidationModal caseId={id} open={validating} onClose={() => setValidating(false)} />
           </div>
         );

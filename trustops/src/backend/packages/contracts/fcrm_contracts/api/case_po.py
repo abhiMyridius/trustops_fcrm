@@ -56,6 +56,15 @@ Origin = Literal[
 
 DocumentStatus = Literal["uploading", "stored", "scanned", "read"]
 
+#: How the owner started the case (ADR-72): ``ai_assisted`` (upload documents,
+#: the assistant proposes the change types) or ``manual`` (the owner chose the
+#: change types and fills in the details by hand).
+IntakeMode = Literal["ai_assisted", "manual"]
+
+#: Who put a change type on the case: the assistant proposed it, or the owner
+#: added it herself (ADR-72).
+TypeOrigin = Literal["assistant", "owner"]
+
 
 def _is_none(value: Any) -> bool:
     """``exclude_if`` for a field the web types as ``name?:`` (absent, not null)."""
@@ -144,6 +153,7 @@ class CasePO(_Dto):
     completion: Completion
     closed: bool
     inbox_open: int
+    intake_mode: IntakeMode
 
 
 # --- documents -------------------------------------------------------------------
@@ -181,6 +191,7 @@ class CategoryProposalPO(_Dto):
     status: Literal["proposed", "confirmed", "removed"]
     source: Optional[SourceRef]
     reason: Optional[str]
+    origin: TypeOrigin
 
 
 class ValuePO(_Dto):
@@ -372,10 +383,16 @@ class Integration(_Dto):
 
 
 class CreateCaseBody(_Dto):
-    """``POST /cases``: both fields are optional; the web posts ``{}``."""
+    """``POST /cases``: every field is optional, so ``{}`` still raises an
+    AI-assisted draft (ADR-72 keeps that). The web's New case form posts the
+    title, the unit and the path the owner chose; the manual path names the
+    change types she chose (at least one), the AI-assisted path names none.
+    """
 
     title: Optional[str] = Field(default=None, max_length=200)
     unit: Optional[str] = Field(default=None, max_length=80)
+    mode: IntakeMode = "ai_assisted"
+    change_types: list[ChangeType] = Field(default_factory=list, max_length=6)
 
 
 class DemoFile(_Dto):
@@ -396,7 +413,13 @@ class DemoFilesBody(_Dto):
 
 
 class CategoryDecisionBody(_Dto):
-    decision: Literal["confirm", "remove"]
+    """``confirm`` or ``remove`` a type the assistant proposed, or ``add`` any
+    change type the case does not hold yet (ADR-72; adding one the assistant
+    proposed confirms that proposal). ``remove`` also takes off a type the
+    owner added. A removal needs a reason; an addition's reason is optional.
+    """
+
+    decision: Literal["confirm", "remove", "add"]
     reason: Optional[str] = Field(default=None, max_length=1000)
 
 

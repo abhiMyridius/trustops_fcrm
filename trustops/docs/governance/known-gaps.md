@@ -224,3 +224,14 @@ Still open:
 - **Not run on the live stack.** S1 reading the clause from the real S3 at the pinned corpus version, H1 writing the record to the real S4 and the pack carrying the clause were proved with fakes and the in-memory stores, not end to end.
 - The narrative agent does not see a clause the analyst added (its context pack reads the S4 proposal ledger); the clause reaches the committee through the pack. Giving it to the narrative changes a live model's input and needs a live eval (ADR-59).
 - A later re-run of research may propose the same clause again as a new item beside the analyst's; the analyst then accepts or removes the duplicate.
+
+## Q. New case form, manual path and owner-added change types (8 October, appended)
+
+Built (ADR-72): New case opens a form and creates nothing until "Create case"; an AI-assisted path and a manual path; the owner adds or removes change types on the case until she submits; H1 records each change (`case.types_changed`) and the field set it resolves. Checked with unit tests, fakes and vitest only.
+
+Still open:
+
+- **Not run live.** No manual case has been driven past submit on the composed stack. Screening, research and assessment then work from typed values and no document; the unit tests prove the run reaches screening, not how the agents fare without document quotes. That needs a Bedrock run, so it waits for the operator (ADR-59).
+- If every change type the assistant proposes was already added by the owner, no `po_confirm_category` gate opens, so the questions-only intake round (which follows the last category decision) does not run. The owner's own `fieldset.resolved` stands and she fills the open fields herself.
+- On the AI-assisted path the web offers "Add change type" only once the assistant's proposals are on Overview; before that Overview shows "Nothing proposed yet". The route accepts an addition at any time before submit.
+- In MSW mode (`dev:msw`, vitest) a case created from the form can be filled in and its types changed, but not submitted: the mock submits only FCRM-2026-0151.

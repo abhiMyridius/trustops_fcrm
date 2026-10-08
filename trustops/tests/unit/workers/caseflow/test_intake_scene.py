@@ -610,3 +610,163 @@ async def test_a_redelivered_step_changes_nothing_the_second_time(
     assert len(scene.audit.records) == records
     assert len(case_service.state_patches) == patches
     assert (await scene.run()).pending_steps == ()
+
+
+# --- ADR-72: the owner chooses the change types herself ----------------------------
+
+
+def _passed_checks(types: list[str], filled: int, required: int) -> dict[str, Any]:
+    """``case.submitted`` as S1 sends it once the four submit checks passed."""
+    return {
+        "case_id": CASE,
+        "actor": "u-pnair",
+        "submission_version": 1,
+        "change_types": types,
+        "filled": filled,
+        "required": required,
+        "checks": [
+            {"id": c, "ok": True}
+            for c in (
+                "completion",
+                "always_required",
+                "types_confirmed",
+                "no_conflicts",
+            )
+        ],
+        "four_submit_checks_passed": True,
+    }
+
+
+def _types_changed(change_type: str, types: list[str]) -> dict[str, Any]:
+    """``case.types_changed`` for a type the owner added."""
+    return {
+        "case_id": CASE,
+        "actor": "u-pnair",
+        "change_type": change_type,
+        "action": "added",
+        "change_types": list(types),
+    }
+
+
+async def test_a_manual_case_runs_to_screening_with_no_document_and_no_proposal(
+    scene: Scene, case_service: FakeCaseService
+) -> None:
+    """The manual path: the owner's types arrive on ``case.created``, she adds
+    one more, fills the fields by hand and submits. No document is read, no
+    intake agent runs, no PO gate opens, and the trail still says who chose
+    which type and the field set each choice resolved.
+    """
+    case_service.change_types = ["new_product", "new_geography"]
+    case_service.required_field_ids = [f"F{n:02d}" for n in range(1, 14)]
+    await scene.send(
+        "case.created",
+        {
+            "case_id": CASE,
+            "actor": "u-pnair",
+            "data": {
+                "title": "Consumer remittances US → Mexico",
+                "change_types": ["new_product", "new_geography"],
+                "intake_mode": "manual",
+            },
+        },
+        run=False,
+    )
+    run = await scene.run_store.get_by_case_id(CASE)
+    assert run is not None
+    scene.run_id = run.snapshot.run_id
+    assert await scene.drain() == [StepKind.INTAKE_OPEN]
+    assert scene.record_types() == [
+        "case.created",
+        "workflow.started",
+        "case.types_changed",
+        "fieldset.resolved",
+    ]
+
+    # She adds a type the assistant never proposed: recorded, nothing moves.
+    case_service.change_types.append("vendor_onboarding")
+    case_service.required_field_ids = [f"F{n:02d}" for n in range(1, 19)]
+    await scene.send(
+        "case.types_changed",
+        _types_changed("vendor_onboarding", case_service.change_types),
+    )
+    assert await scene.drain() == [StepKind.INTAKE_TYPES_CHANGED]
+    assert (await scene.run()).state is CaseState.INTAKE
+    resolved = [r for r in scene.audit.records if r.type == "fieldset.resolved"]
+    assert resolved[-1].summary == "Required field set = union of 3 types = 18 fields"
+    assert scene.gates_collection.docs == []
+    assert scene.jobs(AgentName.INTAKE) == []
+
+    # She submits with no document: triage and screening follow as usual.
+    await scene.send(
+        "case.submitted", _passed_checks(case_service.change_types, 18, 18)
+    )
+    assert await scene.drain() == [StepKind.SUBMIT_RECORD, StepKind.TRIAGE_ASSIGN]
+    final = await scene.run()
+    assert final.state is CaseState.SCREENING
+    assert scene.jobs(AgentName.INTAKE) == []
+    assert [j.agent for j in scene.jobs(AgentName.SCREENING)] == [AgentName.SCREENING]
+    grade = [r for r in scene.audit.records if r.type == "eval.recorded"][0]
+    assert grade.data["types_proposed"] == 0
+    types_in_order = scene.record_types()
+    assert types_in_order.count("case.types_changed") == 2
+    assert "document.stored" not in types_in_order
+    assert "proposal.category" not in types_in_order
+
+
+async def test_a_type_the_owner_added_first_leaves_no_gate_dangling(
+    scene: Scene, case_service: FakeCaseService
+) -> None:
+    """AI-assisted, but the owner added *new geography* before the assistant
+    read anything. When it proposes that type too, no gate opens for it, so
+    confirming the two other types resolves the field set as usual.
+    """
+    await scene.open_case()
+    await scene.drain()
+    case_service.change_types = ["new_geography"]
+    await scene.send(
+        "case.types_changed", _types_changed("new_geography", ["new_geography"])
+    )
+    assert await scene.drain() == [StepKind.INTAKE_TYPES_CHANGED]
+
+    await scene.upload(BC, "business_case_remittance_MX.pdf")
+    await scene.upload(CT, "payout_partner_contract.pdf")
+    await scene.drain()
+    await scene.extracted(BC, pages=14, masked=3)
+    await scene.extracted(CT, pages=9, masked=2)
+    await scene.drain()
+    job_bc, job_ct = scene.jobs(AgentName.INTAKE)
+    by_doc = {
+        job_bc.refs["doc_id"]: job_bc.job_id,
+        job_ct.refs["doc_id"]: job_ct.job_id,
+    }
+    await scene.agent_done(by_doc[BC], *_business_case_output())
+    await scene.agent_done(by_doc[CT], *_contract_output())
+    assert await scene.drain() == [StepKind.INTAKE_PUBLISH]
+
+    [push] = case_service.intake_pushes
+    assert [c["change_type"] for c in push["categories"]] == [
+        "vendor_onboarding",
+        "new_product",
+    ]
+    assert len(scene.gates(GateType.PO_CONFIRM_CATEGORY)) == 2
+
+    run_id = scene.run_id
+    await scene.decide(
+        category_gate_id(run_id, ChangeType.VENDOR_ONBOARDING),
+        GateType.PO_CONFIRM_CATEGORY,
+        "confirm",
+        {"kind": "change_type", "id": "vendor_onboarding"},
+    )
+    assert await scene.drain() == [StepKind.INTAKE_PO_ACTION]
+    case_service.change_types = ["new_geography", "vendor_onboarding", "new_product"]
+    case_service.required_field_ids = [f"F{n:02d}" for n in range(1, 19)]
+    await scene.decide(
+        category_gate_id(run_id, ChangeType.NEW_PRODUCT),
+        GateType.PO_CONFIRM_CATEGORY,
+        "confirm",
+        {"kind": "change_type", "id": "new_product"},
+    )
+    assert await scene.drain() == [StepKind.INTAKE_FIELDSET_RESOLVED]
+    assert scene.gates(GateType.PO_CONFIRM_CATEGORY) == []
+    resolved = [r for r in scene.audit.records if r.type == "fieldset.resolved"]
+    assert resolved[-1].summary == "Required field set = union of 3 types = 18 fields"

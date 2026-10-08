@@ -185,7 +185,7 @@ export function plan(c: Control): Plan {
   if (c.tag === 'summary') return { kind: 'toggle', reason: 'details disclosure' };
   if (/^account menu for/i.test(c.name)) return { kind: 'account-menu', reason: 'menu opener' };
   if (/^(collapse|expand) sidebar$/i.test(c.name)) return { kind: 'sidebar-toggle', reason: 'layout toggle' };
-  if (/^(new case)$/i.test(c.name)) return { kind: 'covered', reason: 'creates a draft case: exercised, then discarded, by the "New case" test in 03-controls.spec.ts' };
+  if (/^(new case)$/i.test(c.name)) return { kind: 'covered', reason: 'opens the New case form (ADR-72): a draft is created from it, then discarded, by the "New case" test in 03-controls.spec.ts' };
   if (/^(sign out|switch user)/i.test(c.name)) return { kind: 'covered', reason: 'ends the session: exercised by 05-signin.spec.ts' };
   if (c.region === 'table-head' && c.tag === 'button') return { kind: 'sort', reason: 'sort header' };
   if (c.role === 'radio' && /^(approve|approve with conditions|defer|reject)$/i.test(c.name)) return { kind: 'not_exercised', reason: 'needs approval: a vote choice (casting a vote is the committee member\'s decision); not selected' };

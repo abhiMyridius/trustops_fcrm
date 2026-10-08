@@ -13,6 +13,12 @@ export type POStage =
   | 'decision'
   | 'closed';
 
+/** How the owner started the case (ADR-72): upload documents for the assistant, or choose the types herself. */
+export type IntakeMode = 'ai_assisted' | 'manual';
+
+/** Who put a change type on the case: the assistant proposed it, or the owner added it (ADR-72). */
+export type TypeOrigin = 'assistant' | 'owner';
+
 export interface CasePOListItem {
   id: string;
   title: string;
@@ -51,6 +57,7 @@ export interface CasePO {
   completion: Completion;
   closed: boolean;
   inbox_open: number;
+  intake_mode: IntakeMode;
 }
 
 export type DocumentStatus = 'uploading' | 'stored' | 'scanned' | 'read';
@@ -79,6 +86,7 @@ export interface CategoryProposalPO {
   status: 'proposed' | 'confirmed' | 'removed';
   source: SourceRef | null;
   reason: string | null;
+  origin: TypeOrigin;
 }
 
 export interface ValuePO {

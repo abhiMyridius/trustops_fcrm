@@ -28,6 +28,7 @@ from fcrm_contracts.events.payloads import (
     CaseRerunRequested,
     CaseRetagged,
     CaseSubmitted,
+    CaseTypesChanged,
     CaseUnlocked,
     CommitteeAnswered,
     CommitteeQuestionAsked,
@@ -95,6 +96,7 @@ ANNEX_E_STEP_KINDS = {
     "intake.publish",
     "intake.fieldset_resolved",
     "intake.po_action",
+    "intake.types_changed",
     "submit.record",
     "triage.assign",
     "screening.publish",
@@ -187,6 +189,14 @@ EXAMPLES: dict[type[BaseModel], dict[str, Any]] = {
         "actor": "u-riyer",
         "change_type": "new_segment",
         "reason": "a new customer segment came out of the answers",
+    },
+    CaseTypesChanged: {
+        "case_id": CASE,
+        "actor": "u-pnair",
+        "change_type": "new_geography",
+        "action": "added",
+        "reason": None,
+        "change_types": ["vendor_onboarding", "new_geography"],
     },
     CaseRerunRequested: {
         "case_id": CASE,
@@ -416,11 +426,12 @@ class TestCatalogue:
         assert CLAUSE_EVENT_TYPES <= EVENT_TYPES
 
     def test_the_catalogue_count_is_locked(self) -> None:
-        """57 before the live wiring, plus the nine above, plus the four of an
-        analyst's clause (ADR-74). A change here is a contract change: update
-        docs/architecture/event-catalogue.md too.
+        """57 before the live wiring, plus the nine above, plus ADR-72's
+        ``case.types_changed`` and the four of an analyst's clause (ADR-74). A
+        change here is a contract change: update docs/architecture/event-catalogue.md
+        too.
         """
-        assert len(EVENT_TYPES) == 70
+        assert len(EVENT_TYPES) == 71
 
     def test_every_catalogued_type_is_dotted(self) -> None:
         assert all("." in t for t in EVENT_TYPES)

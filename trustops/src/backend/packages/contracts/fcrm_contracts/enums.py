@@ -183,6 +183,7 @@ class StepKind(StrEnum):
     INTAKE_PUBLISH = "intake.publish"
     INTAKE_FIELDSET_RESOLVED = "intake.fieldset_resolved"
     INTAKE_PO_ACTION = "intake.po_action"
+    INTAKE_TYPES_CHANGED = "intake.types_changed"
     SUBMIT_RECORD = "submit.record"
     TRIAGE_ASSIGN = "triage.assign"
     SCREENING_PUBLISH = "screening.publish"

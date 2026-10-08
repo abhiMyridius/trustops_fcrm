@@ -185,9 +185,13 @@ def _plural(count: int, noun: str) -> str:
     return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
 
 
-def _draft_action(summary: CaseSummary) -> str:
-    """What the owner does next on a draft, in the order the screens go."""
+def _draft_action(summary: CaseSummary, *, manual: bool) -> str:
+    """What the owner does next on a draft, in the order the screens go. A
+    manual case (ADR-72) needs no document: its owner fills in the details.
+    """
     if summary.documents == 0:
+        if manual:
+            return "Fill in the details, then review & submit"
         return "Upload what you already have"
     if not summary.intake_ready:
         if summary.documents_unread == 0 and summary.documents_unreadable > 0:
@@ -200,10 +204,12 @@ def _draft_action(summary: CaseSummary) -> str:
     return "Review & submit"
 
 
-def next_action(stage: str, summary: CaseSummary) -> str:
-    """The one sentence that says what the product owner does next."""
+def next_action(stage: str, summary: CaseSummary, *, manual: bool = False) -> str:
+    """The one sentence that says what the product owner does next.
+    ``manual`` is a case its owner started on the manual path (ADR-72).
+    """
     if stage == "draft":
-        return _draft_action(summary)
+        return _draft_action(summary, manual=manual)
     if stage == "awaiting_your_answer":
         if summary.open_threads > 1:
             return f"Answer {summary.open_threads} questions from FCRM"

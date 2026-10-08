@@ -18,7 +18,7 @@ Each has a matching `<exchange>.dlx` dead-letter exchange and per-queue retry qu
 ## Event types by phase
 
 **Case lifecycle (S1 → H1)**
-`case.created` · `case.document_stored` · `case.submitted` · `case.answered` · `case.retagged` · `case.rerun_requested` · `case.gap_recorded` · `case.locked` · `case.unlocked` · `case.close_requested` · `case.closed`
+`case.created` · `case.document_stored` · `case.submitted` · `case.answered` · `case.retagged` · `case.types_changed` (ADR-72: the owner added or removed a change type outside a gate) · `case.rerun_requested` · `case.gap_recorded` · `case.locked` · `case.unlocked` · `case.close_requested` · `case.closed`
 
 **Conditions (oversight, post-close; D-19a's 14-day reminder)**
 `condition.activated` · `condition.updated` · `condition.completed` · `condition.reminder_due`
@@ -41,7 +41,7 @@ Each has a matching `<exchange>.dlx` dead-letter exchange and per-queue retry qu
 **A clause the analyst adds from a corpus search (ADR-74)**
 `case.clause_added` · `case.clause_removed` (S1 → H1, payloads `CaseClauseAdded{case_id, actor, item_id, clause_id, corpus_v, reason, title, ref}` and `CaseClauseRemoved{case_id, actor, item_id, clause_id, reason}`; step-only triggers `CASE_CLAUSE_ADDED` / `CASE_CLAUSE_REMOVED` start `clause.record`, the run does not move) · `clause.added` · `clause.removed` (the audit records that step writes)
 
-That is 70 event types in the committed catalogue (`len(EVENT_TYPES) == 70`, locked by `tests/unit/packages/contracts/test_event_payloads.py` — the design docs' "30 event types" was an earlier estimate before every row of the transition table was transcribed into code; 57 was the count before the live wiring added the nine above, and ADR-74 added the four of an analyst's clause; the catalogue, not an estimate, is current).
+That is 71 event types in the committed catalogue (`len(EVENT_TYPES) == 71`, locked by `tests/unit/packages/contracts/test_event_payloads.py` — the design docs' "30 event types" was an earlier estimate before every row of the transition table was transcribed into code; 57 was the count before the live wiring added the nine above, and ADR-74 added the four of an analyst's clause; the catalogue, not an estimate, is current).
 
 ### Live wiring: the nine types added with ADR-28
 
@@ -61,7 +61,7 @@ All nine publish to `case.events` (topic) with the event type as routing key, th
 
 `harness.step` carries agent output in `args.payload` (H1 holds no other copy of the proposals). It is harness data: S1's SSE stream must never forward the `harness.` prefix to a PO.
 
-The other live-wiring payload models, for events already in the catalogue: `CaseCreated`, `CaseDocumentStored`, `CaseSubmitted` (S1→H1, guard `four_submit_checks_passed`), `CaseAnswered`, `CaseRetagged`, `CaseRerunRequested` (guard `rerun_reason`), `CaseGapRecorded`, `CaseLocked`, `CaseUnlocked` (guard `unlock_reason`), `CaseCloseRequested` (`band`), `GateDecided`, `IngestRun`/`IngestDone`/`IngestFailed` (H1↔H3), `IndexBuild`/`IndexBuilt`/`IndexFailed` (S3↔H4), `VoteCastPayload` (never the option), `VoteNoMajority`, `VoteRerequested`, `OutcomeSetPayload` (H1 reacts only to `mode: delegated`). `JobPayload` gains `refs` (the context-pack inputs H1 supplies) and `AgentDone` gains an optional `fast_lane_proposed`.
+The other live-wiring payload models, for events already in the catalogue: `CaseCreated`, `CaseDocumentStored`, `CaseSubmitted` (S1→H1, guard `four_submit_checks_passed`), `CaseAnswered`, `CaseRetagged`, `CaseTypesChanged` (ADR-72; `CaseCreatedData` also gains `intake_mode`), `CaseRerunRequested` (guard `rerun_reason`), `CaseGapRecorded`, `CaseLocked`, `CaseUnlocked` (guard `unlock_reason`), `CaseCloseRequested` (`band`), `GateDecided`, `IngestRun`/`IngestDone`/`IngestFailed` (H1↔H3), `IndexBuild`/`IndexBuilt`/`IndexFailed` (S3↔H4), `VoteCastPayload` (never the option), `VoteNoMajority`, `VoteRerequested`, `OutcomeSetPayload` (H1 reacts only to `mode: delegated`). `JobPayload` gains `refs` (the context-pack inputs H1 supplies) and `AgentDone` gains an optional `fast_lane_proposed`.
 
 ### What S5 publishes, and when
 

@@ -41,7 +41,14 @@ export const caseHandlers = [
   ),
   http.post(paths.cases.create, ({ request }) =>
     guarded(request, ['fcrm_po'], async ({ user }) => {
-      const b = await body<{ title?: string; unit?: string }>(request);
+      const b = await body<{ title?: string; unit?: string; mode?: 'ai_assisted' | 'manual'; change_types?: string[] }>(request);
+      const mode = b.mode ?? 'ai_assisted';
+      const types = [...new Set(b.change_types ?? [])];
+      if (mode !== 'ai_assisted' && mode !== 'manual') return problem(422, 'Validation error', 'mode must be ai_assisted or manual.');
+      if (types.some((t) => !(t in seed.change_types))) return problem(422, 'Validation error', 'Unknown change type.');
+      if (mode === 'manual' && types.length === 0) return problem(422, 'Validation error', 'Choose at least one change type.');
+      if (mode === 'ai_assisted' && types.length > 0)
+        return problem(422, 'Validation error', 'On the AI-assisted path the assistant proposes the change types: send none, or choose the manual path.');
       const db = getDB();
       const caseId = `FCRM-2026-${String(db.nextCaseNo).padStart(4, '0')}`;
       db.nextCaseNo += 1;
@@ -54,6 +61,9 @@ export const caseHandlers = [
         docs: [],
         readingStartedAt: null,
         discarded: false,
+        mode,
+        types,
+        values: {},
       });
       persist();
       return HttpResponse.json(PO.poCase(caseId), { status: 201 });
@@ -115,17 +125,44 @@ export const caseHandlers = [
   http.post(`${P}/intake/categories/:type`, ({ request, params }) =>
     guarded(request, ['fcrm_po'], async ({ user }) => {
       const caseId = id(params);
-      if (!ownedBy(caseId, user.id) || !isDemo(caseId)) return notFound();
-      const b = await body<{ decision: 'confirm' | 'remove'; reason?: string }>(request);
-      A.decideType(String(params.type), b.decision, b.reason);
+      if (!ownedBy(caseId, user.id)) return notFound();
+      const b = await body<{ decision: 'confirm' | 'remove' | 'add'; reason?: string }>(request);
+      const type = String(params.type);
+      const created = createdCase(caseId);
+      if (created) {
+        // ADR-72: a created case has no proposals in mock mode; every type on it is the owner's own.
+        const types = created.types ?? [];
+        if (b.decision === 'add') {
+          if (!(type in seed.change_types)) return problem(422, 'Validation error', 'Unknown change type.');
+          if (!types.includes(type)) created.types = [...types, type];
+        } else if (b.decision === 'remove' && types.includes(type)) {
+          A.requireReason(b.reason, 'Removing a change type');
+          created.types = types.filter((t) => t !== type);
+        } else {
+          return problem(404, 'Not found', `No proposed change type ${type}.`);
+        }
+        persist();
+        return HttpResponse.json(PO.poIntake(caseId));
+      }
+      if (!isDemo(caseId)) return notFound();
+      A.decideType(type, b.decision, b.reason);
       return HttpResponse.json(PO.poIntake(caseId));
     }),
   ),
   http.post(`${P}/intake/values/:fieldId`, ({ request, params }) =>
     guarded(request, ['fcrm_po'], async ({ user }) => {
       const caseId = id(params);
-      if (!ownedBy(caseId, user.id) || !isDemo(caseId)) return notFound();
+      if (!ownedBy(caseId, user.id)) return notFound();
       const b = await body<{ decision: 'correct' | 'confirm'; value?: string }>(request);
+      const created = createdCase(caseId);
+      if (created) {
+        const value = (b.value ?? '').trim();
+        if (b.decision !== 'correct' || !value) return problem(422, 'Validation error', 'Enter the value.');
+        created.values = { ...(created.values ?? {}), [String(params.fieldId)]: value };
+        persist();
+        return HttpResponse.json(PO.poReview(caseId));
+      }
+      if (!isDemo(caseId)) return notFound();
       if (b.decision === 'correct') A.correctValue(String(params.fieldId), b.value ?? '');
       return HttpResponse.json(PO.poReview(caseId));
     }),

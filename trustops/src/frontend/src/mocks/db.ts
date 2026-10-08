@@ -70,7 +70,8 @@ export interface DemoState {
   docs: DocEntry[];
   readingStartedAt: number | null;
   intakeReady: boolean;
-  types: Record<string, { status: 'proposed' | 'confirmed' | 'removed'; reason: string | null }>;
+  /** `origin: 'owner'` marks a type the owner added herself (ADR-72); the rest are the assistant's proposals. */
+  types: Record<string, { status: 'proposed' | 'confirmed' | 'removed'; reason: string | null; origin?: 'owner' }>;
   reused: boolean;
   gapsAnswered: boolean;
   corrected: boolean;
@@ -113,6 +114,12 @@ export interface CreatedCase {
   docs: DocEntry[];
   readingStartedAt: number | null;
   discarded: boolean;
+  /** ADR-72: the path chosen on the New case form; optional so a stored session from before still loads. */
+  mode?: 'ai_assisted' | 'manual';
+  /** The owner's own change types (the manual path, or added on the case). */
+  types?: string[];
+  /** Values the owner typed by hand, by field id. */
+  values?: Record<string, string>;
 }
 
 export interface ConfigState {

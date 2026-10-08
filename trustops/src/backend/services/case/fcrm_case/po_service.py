@@ -28,7 +28,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any, Final, Literal, Optional
 
@@ -74,6 +74,7 @@ from fcrm_contracts.events.payloads import (
     CaseCreated,
     CaseCreatedData,
     CaseSubmitted,
+    CaseTypesChanged,
     GateDecided,
 )
 from fcrm_contracts.events.payloads import SubmitCheck as SubmitCheckEvent
@@ -138,6 +139,7 @@ from fcrm_case.po_views import (
     submit_result,
 )
 from fcrm_case.policy_config import PolicyConfig
+from fcrm_case.reference import change_type_labels
 from fcrm_case.sse import ActivityWriter
 from fcrm_case.store import CaseStore
 from fcrm_case.views_store import ViewStore
@@ -307,9 +309,98 @@ def _case_created(record: CaseRecord) -> Envelope:
                 unit=record.unit,
                 change_types=list(record.change_types),
                 pins=record.pinned_versions,
+                intake_mode=record.intake_mode,
             ),
         ).model_dump(mode="json"),
         case_id=record.case_id,
+    )
+
+
+def _declared_types(body: CreateCaseBody) -> list[ChangeType]:
+    """The change types a new case starts with: the owner's own on the manual
+    path (at least one, each once, in the order given), none on the
+    AI-assisted path, where the assistant proposes them (ADR-72).
+
+    Raises:
+        ValidationError: A manual case names no type, or an AI-assisted one
+            names some.
+    """
+    types = list(dict.fromkeys(body.change_types))
+    if body.mode == "manual" and not types:
+        raise ValidationError(
+            "Choose at least one change type.",
+            errors=[{"loc": "body.change_types", "msg": "at least one is required"}],
+        )
+    if body.mode == "ai_assisted" and types:
+        raise ValidationError(
+            "On the AI-assisted path the assistant proposes the change types: "
+            "send none, or choose the manual path.",
+            errors=[
+                {
+                    "loc": "body.change_types",
+                    "msg": "not allowed with mode ai_assisted",
+                }
+            ],
+        )
+    return types
+
+
+def _type_reason(body: CategoryDecisionBody) -> Optional[str]:
+    """The reason a change-type decision carries: required to remove one
+    (rule 6), optional to add one, none to confirm a proposal.
+
+    Raises:
+        ValidationError: A removal has no reason (or one too short), or a
+            reason names a reserved term.
+    """
+    if body.decision == "remove":
+        return require_reason(body.reason, "Removing a change type", loc="body.reason")
+    text = clean(body.reason)
+    if body.decision == "add" and text:
+        reject_reserved_terms(text, "The reason", loc="body.reason")
+        return text
+    return None
+
+
+def _types_after(
+    types: Sequence[ChangeType], change_type: ChangeType, *, added: bool
+) -> list[ChangeType]:
+    """The case's change types once ``change_type`` is added or removed, in
+    the order :func:`fcrm_case.domain.po_rules.apply_type_delta` keeps.
+    """
+    if not added:
+        return [t for t in types if t != change_type]
+    return list(types) if change_type in types else [*types, change_type]
+
+
+def change_type_label(change_type: ChangeType) -> str:
+    """The owner-facing name of a change type, lower-cased for a sentence."""
+    return change_type_labels().get(change_type.value, change_type.value).lower()
+
+
+def _types_changed(
+    record: CaseRecord,
+    actor: str,
+    change_type: ChangeType,
+    *,
+    added: bool,
+    reason: Optional[str],
+) -> Envelope:
+    """``case.types_changed``: the owner added or removed ``change_type``
+    with no open gate to carry the decision (ADR-72).
+    """
+    return build_envelope(
+        "case.types_changed",
+        CaseTypesChanged(
+            case_id=record.case_id,
+            actor=actor,
+            change_type=change_type,
+            action="added" if added else "removed",
+            reason=reason,
+            change_types=_types_after(record.change_types, change_type, added=added),
+        ).model_dump(mode="json"),
+        case_id=record.case_id,
+        run_id=record.run_id,
     )
 
 
@@ -458,7 +549,18 @@ class PoService:
     async def create_case(self, principal: Principal, body: CreateCaseBody) -> CasePO:
         """Raise a draft case: mint its id, pin the versions in force, record
         ``case.created`` (with the pins) in the same transaction.
+
+        On the manual path (ADR-72) the change types the owner chose are hers,
+        confirmed: they set the required fields and the domains at once, and
+        ``case.created`` carries them so H1 records them and the field set
+        they resolve. ``{}`` still raises an AI-assisted draft.
+
+        Raises:
+            ValidationError: A manual case names no change type, or an
+                AI-assisted one names some, or the title or unit names a
+                reserved term.
         """
+        types = _declared_types(body)
         title = clean(body.title) or DEFAULT_TITLE
         unit = clean(body.unit) or await self._po.latest_unit(principal.sub)
         unit = unit or DEFAULT_UNIT
@@ -475,11 +577,14 @@ class PoService:
             owner=principal.sub,
             created_by=principal.sub,
             owner_name=principal.name,
-            change_types=[],
+            change_types=types,
+            intake_mode=body.mode,
             fieldset_v=field_set.version,
             completion_threshold=field_set.completion_threshold,
             pinned_versions=pins,
-            required_fields=resolve_required_fields([], field_set),
+            required_fields=resolve_required_fields(
+                [t.value for t in types], field_set
+            ),
             created_at=now,
         )
         event = build_envelope(
@@ -488,14 +593,35 @@ class PoService:
                 case_id=case_id,
                 actor=principal.sub,
                 data=CaseCreatedData(
-                    title=title, unit=unit, change_types=[], pins=pins
+                    title=title,
+                    unit=unit,
+                    change_types=types,
+                    pins=pins,
+                    intake_mode=body.mode,
                 ),
             ).model_dump(mode="json"),
             case_id=case_id,
         )
-        draft = _activity(principal.sub, "case.created", "You created the case")
+        summary = "You created the case"
+        if types:
+            noun = "change type" if len(types) == 1 else "change types"
+            summary += f" with {len(types)} {noun}"
+        draft = _activity(
+            principal.sub,
+            "case.created",
+            summary,
+            {"intake_mode": body.mode, "change_types": [t.value for t in types]},
+        )
         committed = await self._po.create_case(record, event, draft.event)
         self._publish(committed)
+        logger.info(
+            "case created",
+            extra={
+                "case_id": case_id,
+                "intake_mode": body.mode,
+                "change_types": [t.value for t in types],
+            },
+        )
         return case_po(committed.record, CaseSummary(), field_set)
 
     async def get_case(self, principal: Principal, case_id: str) -> CasePO:
@@ -593,9 +719,21 @@ class PoService:
         change_type: ChangeType,
         body: CategoryDecisionBody,
     ) -> IntakeViewPO:
-        """Confirm or remove one proposed change type: ``gate.decided
-        po_confirm_category`` (once per type), the type joining or leaving the
-        case and the required fields following. Removing needs a reason.
+        """Confirm, remove or add one change type, before the case is
+        submitted. Removing needs a reason; adding takes an optional one.
+
+        A type the assistant proposed is decided through its gate:
+        ``gate.decided po_confirm_category`` (once per type; ``add`` confirms
+        it), the type joining or leaving the case and the required fields
+        following. A later change to a type whose gate was decided before is
+        announced as ``case.types_changed`` instead, so H1 still records it. A
+        type the assistant never proposed (ADR-72) is the owner's own: adding
+        or removing it changes the case and emits ``case.types_changed``,
+        with no gate.
+
+        Raises:
+            NotFoundError: ``confirm`` names a type the assistant did not
+                propose, or ``remove`` a type the case does not hold.
         """
         record = await self._record(case_id, principal, write=True)
         ensure_open(record)
@@ -609,16 +747,11 @@ class PoService:
             None,
         )
         if item is None:
-            raise NotFoundError(f"no proposed change type {change_type.value}")
-        confirm = body.decision == "confirm"
+            return await self._owner_type(record, principal, data, change_type, body)
+        decision = "confirm" if body.decision == "add" else body.decision
+        confirm = decision == "confirm"
         target = ItemStatus.CONFIRMED if confirm else ItemStatus.REMOVED
-        reason = (
-            None
-            if confirm
-            else require_reason(
-                body.reason, "Removing a change type", loc="body.reason"
-            )
-        )
+        reason = _type_reason(body)
         if item.status == target:
             return self._intake_dto(record, data)
         now = utcnow()
@@ -630,12 +763,18 @@ class PoService:
             now,
             gate_type=GateType.PO_CONFIRM_CATEGORY,
             key=change_type.value,
-            decision=body.decision,
+            decision=decision,
             subject_kind="change_type",
             item_kind=ItemKind.CATEGORY,
             reason=reason,
         )
         emission, gate = _gate(GateType.PO_CONFIRM_CATEGORY, change_type.value, event)
+        emission = replace(
+            emission,
+            otherwise=_types_changed(
+                record, principal.sub, change_type, added=confirm, reason=reason
+            ),
+        )
         summary = f"You {verb} change type: {label}"
         if reason:
             summary += " · reason recorded"
@@ -649,7 +788,7 @@ class PoService:
                         item.item_id,
                         target,
                         DecisionRow(
-                            value={"decision": body.decision},
+                            value={"decision": decision},
                             reason=reason,
                             by=principal.sub,
                             at=now,
@@ -676,12 +815,72 @@ class PoService:
                 "case_id": case_id,
                 "run_id": record.run_id,
                 "change_type": change_type.value,
-                "decision": body.decision,
+                "decision": decision,
                 "gate": gate,
                 "emitted": gate in committed.emitted,
             },
         )
         return await self._after(case_id, committed)
+
+    async def _owner_type(
+        self,
+        record: CaseRecord,
+        principal: Principal,
+        data: IntakeData,
+        change_type: ChangeType,
+        body: CategoryDecisionBody,
+    ) -> IntakeViewPO:
+        """Add or remove a change type the assistant never proposed (ADR-72):
+        the case's types, required fields and domains follow, and
+        ``case.types_changed`` tells H1, which records it. A case whose run was
+        never requested (the seeded demo draft) asks for it first (ADR-39).
+
+        Raises:
+            NotFoundError: ``confirm`` (there is no proposal to confirm), or
+                ``remove`` of a type the case does not hold.
+        """
+        held = change_type in record.change_types
+        if body.decision == "confirm" or (body.decision == "remove" and not held):
+            raise NotFoundError(f"no proposed change type {change_type.value}")
+        add = body.decision == "add"
+        reason = _type_reason(body)
+        if add == held:
+            return self._intake_dto(record, data)
+        verb = "added" if add else "removed"
+        summary = f"You {verb} change type: {change_type_label(change_type)}"
+        if reason:
+            summary += " · reason recorded"
+        committed = await self._po.commit(
+            PoCommand(
+                case_id=record.case_id,
+                actor=principal.sub,
+                type_delta=TypeDelta(change_type, add),
+                events=[
+                    _types_changed(
+                        record, principal.sub, change_type, added=add, reason=reason
+                    )
+                ],
+                open_run=None if record.run_requested else _case_created(record),
+                activity=[
+                    _activity(
+                        principal.sub,
+                        "case.types_changed",
+                        _po_safe(summary, f"You {verb} a change type"),
+                        {"change_type": change_type.value, "action": verb},
+                    )
+                ],
+            )
+        )
+        logger.info(
+            "owner changed the change types",
+            extra={
+                "case_id": record.case_id,
+                "run_id": record.run_id,
+                "change_type": change_type.value,
+                "action": verb,
+            },
+        )
+        return await self._after(record.case_id, committed)
 
     def _required_map(
         self, record: CaseRecord, data: IntakeData

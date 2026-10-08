@@ -60,6 +60,7 @@ from fcrm_case.domain.po_rows import (
     integration_row_id,
     po_decision_id,
 )
+from fcrm_case.domain.po_rules import domains_for
 from fcrm_case.domain.po_stage import (
     NEEDS_RESPONSE_STAGES,
     OPEN_CONDITION_STATUSES,
@@ -204,6 +205,22 @@ def _decision_row(
     )
 
 
+def _as_created(
+    record: CaseRecord, type_domains: Mapping[str, Sequence[str]]
+) -> CaseRecord:
+    """``record`` as a new case is stored: its run requested, its first
+    activity row allocated, and the domains of the change types its owner
+    chose on the manual path (ADR-72; none on the AI-assisted path).
+    """
+    return record.model_copy(
+        update={
+            "activity_seq": 1,
+            "run_requested": True,
+            "domains": domains_for(record.change_types, type_domains),
+        }
+    )
+
+
 def _case_changes(before: CaseRecord, after: CaseRecord) -> dict[str, Any]:
     """The case-document fields ``after`` changed from ``before``."""
     old = before.model_dump(mode="python", include=set(_CASE_KEYS))
@@ -313,7 +330,7 @@ class MongoPoStore:
     async def create_case(
         self, record: CaseRecord, event: Envelope, activity: UiEventIn
     ) -> PoCommitted:
-        stored = record.model_copy(update={"activity_seq": 1, "run_requested": True})
+        stored = _as_created(record, self._type_domains)
 
         async def _do(session: AsyncClientSession) -> PoCommitted:
             await self._cases.insert_one(stored, session=session)
@@ -488,6 +505,8 @@ class MongoPoStore:
             if result.upserted_id is not None:
                 await self._outbox.enqueue(session, gate.event)
                 emitted.add(gate_key(gate.gate_type, gate.key))
+            elif gate.otherwise is not None:
+                await self._outbox.enqueue(session, gate.otherwise)
         return frozenset(emitted)
 
     # -- reads -----------------------------------------------------------------
@@ -707,7 +726,7 @@ class InMemoryPoStore:
     async def create_case(
         self, record: CaseRecord, event: Envelope, activity: UiEventIn
     ) -> PoCommitted:
-        stored = record.model_copy(update={"activity_seq": 1, "run_requested": True})
+        stored = _as_created(record, self._type_domains)
         self._cases.records[stored.case_id] = stored
         entry = self._cases.activity.stage(stored.case_id, 1, activity)
         self._cases.events.append(event)
@@ -794,6 +813,8 @@ class InMemoryPoStore:
         for gate in command.gates:
             row = _decision_row(command, gate.gate_type, gate.key, now)
             if row.decision_id in self.decisions:
+                if gate.otherwise is not None:
+                    self._cases.events.append(gate.otherwise)
                 continue
             self.decisions[row.decision_id] = row
             self._cases.events.append(gate.event)
