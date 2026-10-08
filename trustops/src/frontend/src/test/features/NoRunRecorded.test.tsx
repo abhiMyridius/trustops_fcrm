@@ -78,12 +78,12 @@ describe('the analyst Recommendation tab', () => {
     noRetry();
   });
 
-  it('keeps the red error with Retry for a case that does have a run', async () => {
+  it('says what a case with a run waits for, still with no Retry (D-118)', async () => {
     resetMockState('released');
     server.use(http.get(paths.cases.recommendation(DEMO), () => problem(409, 'Not ready', 'the narrative has not drafted the recommendation yet')));
     renderApp(`/analyst/case/${DEMO}/recommendation`, { as: USERS.rahul });
-    expect(await screen.findByText('the narrative has not drafted the recommendation yet')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    expect(await screen.findByText(/drafted once every review decision is made/)).toBeInTheDocument();
+    noRetry();
     expect(screen.queryByText(/^No recommendation is drafted for this case/)).not.toBeInTheDocument();
   });
 
