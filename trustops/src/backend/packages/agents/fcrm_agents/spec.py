@@ -37,10 +37,18 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 
 def _loads(value: Any) -> Any:
-    """``value`` decoded when it is text that is JSON, else unchanged."""
+    """``value`` decoded when it is text that is JSON, else unchanged.
+
+    Decoded with ``strict=False``, which accepts a raw line break or tab inside a
+    string. A model that writes the list as text keeps a verbatim multi-line
+    clause quote's real line breaks instead of escaping them (seen live on
+    8 October: research failed both attempts on it, and the case went to
+    handoff, D-115). The characters are kept as they were sent, and the result
+    is still validated against the contract.
+    """
     if isinstance(value, str):
         try:
-            return json.loads(value)
+            return json.loads(value, strict=False)
         except json.JSONDecodeError:
             return value
     return value

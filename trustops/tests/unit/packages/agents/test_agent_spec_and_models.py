@@ -115,6 +115,45 @@ def test_a_list_a_model_sent_as_json_text_is_decoded_and_validated() -> None:
     assert [type(i) for i in items] == [PrecedentMatch]
 
 
+CLAUSE = {
+    "source_ref": {"kind": "clause", "clause_id": "TP71-2.3", "corpus_v": 14},
+    "quote": "an independent assessment\nof the agent network",
+    "confidence": 0.9,
+    "clause_id": "TP71-2.3",
+    "domain": "channel",
+    "applicability": "agent network. Implies: CTL-T01",
+}
+
+
+def test_a_list_sent_as_text_with_raw_line_breaks_in_a_quote_is_decoded() -> None:
+    """Seen live on 8 Oct (case 0151, research, both attempts on Sonnet 5.5): the
+    list came as text, and a verbatim multi-line clause quote held real line
+    breaks instead of ``\\n``. Strict JSON refuses a raw control character in a
+    string, so the text was left undecoded, failed as "Input should be a valid
+    list ... Invalid JSON: control character", and the job went to handoff.
+    """
+    text = json.dumps([CLAUSE, PRECEDENT], indent=2).replace("\\n", "\n")
+    assert "\n" in text  # a raw line break inside the quote
+    assert "\\n" not in text
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(text)  # what the strict decoder did
+
+    adapter: TypeAdapter[Any] = TypeAdapter(get_spec("research").output_type())
+    items = adapter.validate_python(text)
+
+    assert [type(i) for i in items] == [ClauseProposal, PrecedentMatch]
+    assert items[0].quote == "an independent assessment\nof the agent network"
+
+
+def test_a_raw_tab_or_line_break_inside_an_item_sent_as_text_is_decoded() -> None:
+    item = json.dumps(PRECEDENT).replace('"y"', '"line one\tand\nline two"')
+    adapter: TypeAdapter[Any] = TypeAdapter(get_spec("research").output_type())
+    (decoded,) = adapter.validate_python(
+        [item.replace("\\t", "\t").replace("\\n", "\n")]
+    )
+    assert decoded.note == "line one\tand\nline two"
+
+
 def test_an_item_sent_as_json_text_inside_the_list_is_decoded() -> None:
     adapter: TypeAdapter[Any] = TypeAdapter(get_spec("research").output_type())
     items = adapter.validate_python([json.dumps(PRECEDENT), PRECEDENT])
