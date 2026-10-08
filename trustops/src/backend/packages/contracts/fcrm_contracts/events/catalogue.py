@@ -13,6 +13,7 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "case.submitted",
         "case.answered",
         "case.retagged",
+        "case.types_changed",  # S1 -> H1: the owner added or removed a type (ADR-72)
         "case.rerun_requested",
         "case.gap_recorded",
         "case.locked",

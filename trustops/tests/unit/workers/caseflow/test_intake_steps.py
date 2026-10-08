@@ -146,6 +146,82 @@ class TestIntakeOpen:
             )
 
 
+class TestIntakeOpenManual:
+    """ADR-72: a case its owner raised on the manual path carries her change
+    types on ``case.created``; the run records them and the field set they
+    resolve as it opens, with no gate and no agent.
+    """
+
+    PAYLOAD = {
+        "case_id": CASE,
+        "actor": "u-pnair",
+        "data": {
+            "title": "Remittances",
+            "change_types": ["vendor_onboarding", "new_geography"],
+            "intake_mode": "manual",
+        },
+    }
+
+    async def test_it_records_the_owner_types_and_the_field_set_they_resolve(
+        self,
+        step_deps_factory: DepsFactory,
+        case_service: FakeCaseService,
+        recording_audit: RecordingAudit,
+    ) -> None:
+        case_service.change_types = ["vendor_onboarding", "new_geography"]
+        case_service.required_field_ids = [f"F{n:02d}" for n in range(1, 15)]
+
+        result = await intake.intake_open(
+            _step(StepKind.INTAKE_OPEN, self.PAYLOAD), step_deps_factory()
+        )
+
+        assert _types(recording_audit) == [
+            "case.created",
+            "workflow.started",
+            "case.types_changed",
+            "fieldset.resolved",
+        ]
+        chose = _record(recording_audit, "case.types_changed")
+        assert chose.actor == "u-pnair"
+        assert chose.summary == (
+            "Owner chose 2 change types: vendor / third-party onboarding, new geography"
+        )
+        assert chose.data["added"] == ["vendor_onboarding", "new_geography"]
+        assert chose.data["intake_mode"] == "manual"
+        resolved = _record(recording_audit, "fieldset.resolved")
+        assert resolved.summary == "Required field set = union of 2 types = 14 fields"
+        assert result.refs_patch == {"fieldset_resolved": True, "required_fields": 14}
+        assert result.agent_jobs_to_dispatch == ()
+        assert result.gates_to_open == ()
+
+    async def test_it_tells_the_owner_how_many_fields_she_fills(
+        self, step_deps_factory: DepsFactory, case_service: FakeCaseService
+    ) -> None:
+        case_service.change_types = ["new_product"]
+        case_service.required_field_ids = ["F01", "F02", "F03"]
+
+        await intake.intake_open(
+            _step(StepKind.INTAKE_OPEN, self.PAYLOAD), step_deps_factory()
+        )
+
+        event = _event(case_service, "fieldset.resolved")
+        assert event["visibility"] == "po"
+        assert event["detail"] == {"required_fields": 3, "change_types": 1}
+
+    async def test_running_it_twice_repeats_no_key(
+        self,
+        step_deps_factory: DepsFactory,
+        case_service: FakeCaseService,
+        recording_audit: RecordingAudit,
+    ) -> None:
+        case_service.change_types = ["new_product"]
+        step = _step(StepKind.INTAKE_OPEN, self.PAYLOAD)
+        await intake.intake_open(step, step_deps_factory())
+        await intake.intake_open(step, step_deps_factory())
+
+        assert recording_audit.keys[:4] == recording_audit.keys[4:]
+
+
 # --- scene 3 ---------------------------------------------------------------------
 
 
@@ -861,6 +937,11 @@ class TestIntakePublish:
                 "new_geography",
                 "new_product",
             ],
+            "intake_types_pushed": [
+                "vendor_onboarding",
+                "new_geography",
+                "new_product",
+            ],
             "intake_values_proposed": 4,
             "precedent_case_id": PRECEDENT,
             "precedent_similarity": pytest.approx(0.81),
@@ -1064,6 +1145,102 @@ class TestIntakePublish:
         assert case_service.calls_to("PUT") == []
 
 
+class TestIntakePublishOwnerTypes:
+    """ADR-72: a type the owner added before the assistant proposed it is hers
+    already, so it is pushed as no proposal and gets no gate (an undecidable
+    gate would keep ``fieldset.resolved`` from ever firing)."""
+
+    async def test_a_type_the_owner_added_first_is_neither_pushed_nor_gated(
+        self,
+        step_deps_factory: DepsFactory,
+        case_service: FakeCaseService,
+        policy_service: FakePolicyService,
+        agent_results: AgentResultStore,
+        session: FakeSession,
+    ) -> None:
+        _seed_round_one(case_service, policy_service)
+        await _save_round_one(agent_results, session)
+        case_service.change_types = ["new_geography"]
+
+        result = await intake.intake_publish(
+            _step(StepKind.INTAKE_PUBLISH, {"agent": "intake"}), step_deps_factory()
+        )
+
+        body = case_service.calls_to("PUT", "/intake")[0].body
+        assert [c["change_type"] for c in body["categories"]] == [
+            "vendor_onboarding",
+            "new_product",
+        ]
+        gated = [
+            spec.subject_key
+            for spec in result.gates_to_open
+            if spec.gate_type is GateType.PO_CONFIRM_CATEGORY
+        ]
+        assert gated == ["vendor_onboarding", "new_product"]
+        assert result.refs_patch["intake_types_proposed"] == [
+            "vendor_onboarding",
+            "new_geography",
+            "new_product",
+        ]
+        assert result.refs_patch["intake_types_pushed"] == [
+            "vendor_onboarding",
+            "new_product",
+        ]
+
+    async def test_a_type_pushed_before_stays_a_proposal_once_confirmed(
+        self,
+        step_deps_factory: DepsFactory,
+        case_service: FakeCaseService,
+        policy_service: FakePolicyService,
+        agent_results: AgentResultStore,
+        session: FakeSession,
+    ) -> None:
+        """The questions-only round pushes the whole set again: a type the
+        owner confirmed since is still the assistant's proposal, not hers.
+        """
+        _seed_round_one(case_service, policy_service)
+        await _save_round_one(agent_results, session)
+        case_service.change_types = ["vendor_onboarding", "new_geography"]
+        run = make_run(
+            refs={
+                "intake_types_pushed": [
+                    "vendor_onboarding",
+                    "new_geography",
+                    "new_product",
+                ]
+            }
+        )
+
+        await intake.intake_publish(
+            _step(StepKind.INTAKE_PUBLISH, {"agent": "intake"}),
+            step_deps_factory(run),
+        )
+
+        body = case_service.calls_to("PUT", "/intake")[0].body
+        assert len(body["categories"]) == 3
+
+    async def test_a_run_from_before_the_pushed_list_reads_the_proposed_one(
+        self,
+        step_deps_factory: DepsFactory,
+        case_service: FakeCaseService,
+        policy_service: FakePolicyService,
+        agent_results: AgentResultStore,
+        session: FakeSession,
+    ) -> None:
+        _seed_round_one(case_service, policy_service)
+        await _save_round_one(agent_results, session)
+        case_service.change_types = ["new_geography"]
+        run = make_run(refs={"intake_types_proposed": ["new_geography"]})
+
+        await intake.intake_publish(
+            _step(StepKind.INTAKE_PUBLISH, {"agent": "intake"}),
+            step_deps_factory(run),
+        )
+
+        body = case_service.calls_to("PUT", "/intake")[0].body
+        assert len(body["categories"]) == 3
+
+
 # --- scenes 4-6: what the PO decides ----------------------------------------------
 
 
@@ -1079,6 +1256,93 @@ def _decided(gate_type: str, decision: str, **extra: Any) -> dict[str, Any]:
         "subject": {},
         **extra,
     }
+
+
+class TestIntakeTypesChanged:
+    """ADR-72: the owner added or removed a change type with no open gate."""
+
+    @staticmethod
+    def _payload(action: str, reason: Any = None) -> dict[str, Any]:
+        return {
+            "case_id": CASE,
+            "actor": "u-pnair",
+            "change_type": "new_segment",
+            "action": action,
+            "reason": reason,
+            "change_types": ["new_product", "new_segment"]
+            if action == "added"
+            else ["new_product"],
+        }
+
+    async def test_an_added_type_is_recorded_with_the_field_set_it_leaves(
+        self,
+        step_deps_factory: DepsFactory,
+        case_service: FakeCaseService,
+        recording_audit: RecordingAudit,
+    ) -> None:
+        case_service.change_types = ["new_product", "new_segment"]
+        case_service.required_field_ids = [f"F{n:02d}" for n in range(1, 13)]
+
+        result = await intake.intake_types_changed(
+            _step(StepKind.INTAKE_TYPES_CHANGED, self._payload("added")),
+            step_deps_factory(),
+        )
+
+        assert _types(recording_audit) == ["case.types_changed", "fieldset.resolved"]
+        changed, resolved = recording_audit.records
+        assert changed.actor == "u-pnair"
+        assert changed.summary == "Owner added change type: new customer segment"
+        assert changed.data["run_id"] == RUN
+        assert {
+            k: changed.data[k] for k in ("added", "removed", "reason", "change_types")
+        } == {
+            "added": ["new_segment"],
+            "removed": [],
+            "reason": None,
+            "change_types": ["new_product", "new_segment"],
+        }
+        assert resolved.summary == "Required field set = union of 2 types = 12 fields"
+        assert result.refs_patch == {"fieldset_resolved": True, "required_fields": 12}
+        assert result.agent_jobs_to_dispatch == ()
+        assert result.gates_to_open == ()
+
+    async def test_a_removed_type_records_the_reason(
+        self,
+        step_deps_factory: DepsFactory,
+        case_service: FakeCaseService,
+        recording_audit: RecordingAudit,
+    ) -> None:
+        case_service.change_types = ["new_product"]
+        case_service.required_field_ids = ["F01"]
+
+        await intake.intake_types_changed(
+            _step(
+                StepKind.INTAKE_TYPES_CHANGED,
+                self._payload("removed", "No new customer segment after all."),
+            ),
+            step_deps_factory(),
+        )
+
+        changed = _record(recording_audit, "case.types_changed")
+        assert changed.summary == (
+            "Owner removed change type: new customer segment"
+            " · No new customer segment after all."
+        )
+        assert changed.data["removed"] == ["new_segment"]
+        assert changed.data["reason"] == "No new customer segment after all."
+
+    async def test_running_it_twice_repeats_no_key(
+        self,
+        step_deps_factory: DepsFactory,
+        case_service: FakeCaseService,
+        recording_audit: RecordingAudit,
+    ) -> None:
+        case_service.change_types = ["new_product", "new_segment"]
+        step = _step(StepKind.INTAKE_TYPES_CHANGED, self._payload("added"))
+        await intake.intake_types_changed(step, step_deps_factory())
+        await intake.intake_types_changed(step, step_deps_factory())
+
+        assert recording_audit.keys[:2] == recording_audit.keys[2:]
 
 
 class TestIntakeFieldsetResolved:
@@ -1527,6 +1791,7 @@ class TestHandlerTable:
             StepKind.INTAKE_PUBLISH,
             StepKind.INTAKE_FIELDSET_RESOLVED,
             StepKind.INTAKE_PO_ACTION,
+            StepKind.INTAKE_TYPES_CHANGED,
             StepKind.SUBMIT_RECORD,
             StepKind.TRIAGE_ASSIGN,
         }

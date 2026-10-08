@@ -139,6 +139,15 @@ _INTAKE = [
         "fieldset.resolved; if gaps are still open, dispatch intake "
         "again for questions only",
     ),
+    # ADR-72: the owner added or removed a change type with no open gate to
+    # carry it (a type the assistant never proposed, or a decided proposal
+    # changed again). Nothing moves and no agent runs; the step records it.
+    Transition(
+        S.INTAKE,
+        Trigger.CASE_TYPES_CHANGED,
+        S.INTAKE,
+        "record case.types_changed and the fieldset.resolved it leaves",
+    ),
     # case.submitted passes through REVIEW_AND_SUBMIT immediately — design
     # A §3.1 writes the target as "REVIEW_AND_SUBMIT -> TRIAGE (immediate)";
     # the four submit checks (owner review included) have already passed by
@@ -474,6 +483,15 @@ _CLOSED_HANDOFF = [
         # prefers (see `_resume_target`). A run that has none (suspended before
         # the runtime remembered it) resumes to REVIEW.
         "treat the manual output like agent.done, actor=human",
+    ),
+    # ADR-72: an intake agent that failed leaves the run in HANDOFF while the
+    # owner can still change her types (the case is not submitted); the change
+    # is recorded where the run is, never refused into the DLQ.
+    Transition(
+        S.HANDOFF,
+        Trigger.CASE_TYPES_CHANGED,
+        S.HANDOFF,
+        "record case.types_changed and the fieldset.resolved it leaves",
     ),
 ]
 

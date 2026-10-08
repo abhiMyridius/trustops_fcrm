@@ -976,6 +976,14 @@
             "title": "Inbox Open",
             "type": "integer"
           },
+          "intake_mode": {
+            "enum": [
+              "ai_assisted",
+              "manual"
+            ],
+            "title": "Intake Mode",
+            "type": "string"
+          },
           "lifecycle": {
             "items": {
               "$ref": "#/components/schemas/StageStep"
@@ -1042,7 +1050,8 @@
           "next_action",
           "completion",
           "closed",
-          "inbox_open"
+          "inbox_open",
+          "intake_mode"
         ],
         "title": "CasePO",
         "type": "object"
@@ -1219,11 +1228,13 @@
       },
       "CategoryDecisionBody": {
         "additionalProperties": false,
+        "description": "``confirm`` or ``remove`` a type the assistant proposed, or ``add`` any\nchange type the case does not hold yet (ADR-72; adding one the assistant\nproposed confirms that proposal). ``remove`` also takes off a type the\nowner added. A removal needs a reason; an addition's reason is optional.",
         "properties": {
           "decision": {
             "enum": [
               "confirm",
-              "remove"
+              "remove",
+              "add"
             ],
             "title": "Decision",
             "type": "string"
@@ -1252,6 +1263,14 @@
         "properties": {
           "label": {
             "title": "Label",
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "assistant",
+              "owner"
+            ],
+            "title": "Origin",
             "type": "string"
           },
           "reason": {
@@ -1293,7 +1312,8 @@
           "label",
           "status",
           "source",
-          "reason"
+          "reason",
+          "origin"
         ],
         "title": "CategoryProposalPO",
         "type": "object"
@@ -2896,8 +2916,25 @@
       },
       "CreateCaseBody": {
         "additionalProperties": false,
-        "description": "``POST /cases``: both fields are optional; the web posts ``{}``.",
+        "description": "``POST /cases``: every field is optional, so ``{}`` still raises an\nAI-assisted draft (ADR-72 keeps that). The web's New case form posts the\ntitle, the unit and the path the owner chose; the manual path names the\nchange types she chose (at least one), the AI-assisted path names none.",
         "properties": {
+          "change_types": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeType"
+            },
+            "maxItems": 6,
+            "title": "Change Types",
+            "type": "array"
+          },
+          "mode": {
+            "default": "ai_assisted",
+            "enum": [
+              "ai_assisted",
+              "manual"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
           "title": {
             "anyOf": [
               {

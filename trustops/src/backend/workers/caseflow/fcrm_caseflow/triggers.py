@@ -59,6 +59,10 @@ class Trigger(StrEnum):
     # re-checks whether every item and acknowledgement is now done.
     GATE_DECIDED_ACK = "gate.decided.ack"
     CASE_RETAGGED = "case.retagged"
+    # The owner added or removed a change type outside a po_confirm_category
+    # gate (ADR-72): a self-loop in INTAKE whose step records it and the field
+    # set it resolves.
+    CASE_TYPES_CHANGED = "case.types_changed"
     CASE_RERUN_REQUESTED = "case.rerun_requested"
     CASE_GAP_RECORDED = "case.gap_recorded"
     CASE_CONTROL_PLANNED = "case.control_planned"

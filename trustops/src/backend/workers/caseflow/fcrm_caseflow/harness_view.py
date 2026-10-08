@@ -109,6 +109,7 @@ _AGENT_OF_TYPE: Final[dict[str, str]] = {
 _S1_TYPES: Final = frozenset(
     {
         "case.created",
+        "case.types_changed",
         "case.submitted",
         "triage.assigned",
         "fieldset.resolved",

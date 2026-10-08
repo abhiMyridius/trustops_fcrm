@@ -335,7 +335,7 @@ def test_the_request_bodies_match_what_the_web_posts() -> None:
         "AnswerItem": {"question_id", "field_id", "value"},
         "DiscardBody": {"reason"},
         "IntegrationActionBody": {"scope"},
-        "CreateCaseBody": {"title", "unit"},
+        "CreateCaseBody": {"title", "unit", "mode", "change_types"},
         "DemoFilesBody": {"demo_files"},
         "DemoFile": {"name", "size"},
     }

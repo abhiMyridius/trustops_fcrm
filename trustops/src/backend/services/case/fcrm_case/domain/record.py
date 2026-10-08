@@ -13,7 +13,7 @@ assign a score into.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from fcrm_contracts.enums import CaseState, ChangeType
 from fcrm_contracts.versions import PinnedVersions
@@ -108,6 +108,9 @@ class CaseRecord(BaseModel):
     # asked to open its run. A seeded draft (the demo case) starts False and
     # is set by the owner's first write.
     run_requested: bool = False
+    # How the owner started the case (ADR-72): the assistant reads documents
+    # and proposes the change types, or the owner chose them herself.
+    intake_mode: Literal["ai_assisted", "manual"] = "ai_assisted"
     domains: list[str] = Field(default_factory=list)
     geographies: list[str] = Field(default_factory=list)
     stage_flags: StageFlags = Field(default_factory=StageFlags)

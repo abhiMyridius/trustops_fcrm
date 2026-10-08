@@ -150,12 +150,16 @@ class CaseCreatedData(EventPayload):
     """``case.created``'s ``data``: what H1 needs to open a run. ``pins`` are
     the versions active when the case was created; H1 falls back to its own
     placeholder pins when a producer omits them (``store.DEFAULT_PINS``).
+    ``change_types`` are the types the owner chose herself (the manual path,
+    ADR-72): H1 records them and the field set they resolve when it opens the
+    run. Empty on the AI-assisted path, where the assistant proposes them.
     """
 
     title: Optional[str] = None
     unit: Optional[str] = None
     change_types: list[ChangeType] = Field(default_factory=list)
     pins: Optional[PinnedVersions] = None
+    intake_mode: Optional[Literal["ai_assisted", "manual"]] = None
 
 
 class CaseCreated(EventPayload):
@@ -223,6 +227,21 @@ class CaseRetagged(EventPayload):
     actor: str
     change_type: ChangeType
     reason: str
+
+
+class CaseTypesChanged(EventPayload):
+    """S1 -> H1 (ADR-72): the owner added or removed a change type outside a
+    ``po_confirm_category`` gate (a type the assistant never proposed, or a
+    change to a proposal whose gate was decided before). ``change_types`` is
+    the case's list after the change; a removal carries its reason.
+    """
+
+    case_id: str
+    actor: str
+    change_type: ChangeType
+    action: Literal["added", "removed"]
+    reason: Optional[str] = None
+    change_types: list[ChangeType] = Field(default_factory=list)
 
 
 class CaseRerunRequested(EventPayload):

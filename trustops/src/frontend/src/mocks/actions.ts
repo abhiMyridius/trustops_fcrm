@@ -22,7 +22,7 @@ export class MockError extends Error {
 const demo = () => getDB().demo;
 const REASON_MIN = 20;
 
-function requireReason(reason: string | undefined | null, what: string): string {
+export function requireReason(reason: string | undefined | null, what: string): string {
   const r = (reason ?? '').trim();
   if (r.length < REASON_MIN) throw new MockError(422, 'Reason required', `${what} needs a reason of at least ${REASON_MIN} characters (rule 6).`);
   return r;
@@ -62,14 +62,31 @@ export function uploadDemoDocs(names: string[], now = Date.now()): void {
   persist();
 }
 
-export function decideType(type: string, decision: 'confirm' | 'remove', reason?: string): void {
+export function decideType(type: string, decision: 'confirm' | 'remove' | 'add', reason?: string): void {
   requireOpen();
   const d = demo();
   if (!d.intakeReady) throw new MockError(409, 'not_ready', 'The AI is still reading your documents.');
   if (d.submitted) throw new MockError(409, 'submitted', 'Change types are fixed once the case is submitted.');
   const t = d.types[type];
-  if (!t) throw new MockError(404, 'Not found', `No proposed change type ${type}.`);
-  if (decision === 'confirm') {
+  const label = seed.change_types[type] ?? type;
+  // ADR-72: a type the assistant never proposed is the owner's own: added or taken off, no gate.
+  if (!t || t.origin === 'owner') {
+    if (decision === 'add') {
+      if (!t) {
+        d.types[type] = { status: 'confirmed', reason: null, origin: 'owner' };
+        appendExtra('case.types_changed', 'S1', `Owner added change type: ${label.toLowerCase()}`);
+      }
+    } else if (decision === 'remove' && t) {
+      requireReason(reason, 'Removing a change type');
+      delete d.types[type];
+      appendExtra('case.types_changed', 'S1', `Owner removed change type: ${label.toLowerCase()} · reason recorded`);
+    } else {
+      throw new MockError(404, 'Not found', `No proposed change type ${type}.`);
+    }
+    persist();
+    return;
+  }
+  if (decision === 'confirm' || decision === 'add') {
     t.status = 'confirmed';
     t.reason = null;
     const n = TYPE_RECORD[type];
@@ -82,7 +99,8 @@ export function decideType(type: string, decision: 'confirm' | 'remove', reason?
     appendExtra('gate.decided', 'S1', `PO removed change type: ${seed.change_types[type] ?? type} · reason recorded`);
   }
   const allDecided = Object.values(d.types).every((x) => x.status !== 'proposed');
-  if (allDecided && Object.values(d.types).filter((x) => x.status === 'confirmed').length === 3) appendSeed(14);
+  const proposedConfirmed = Object.values(d.types).filter((x) => x.status === 'confirmed' && x.origin !== 'owner').length;
+  if (allDecided && proposedConfirmed === 3) appendSeed(14);
   persist();
 }
 
