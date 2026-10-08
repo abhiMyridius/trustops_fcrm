@@ -44,8 +44,8 @@ export const identityHandlers = [
 
   http.post(paths.auth.login, async ({ request }) => {
     await latency();
-    const b = await body<{ username?: string; password?: string }>(request);
-    const u = DIRECTORY.find((x) => x.username === b.username);
+    const b = await body<{ email?: string; password?: string }>(request);
+    const u = DIRECTORY.find((x) => x.username === b.email || x.id === b.email);
     const demoMode = (import.meta.env.VITE_DEMO_USERS ?? 'true') === 'true';
     if (!u) return problem(401, 'Unauthorized', 'Unknown user or wrong password.');
     if (!demoMode && b.password !== u.demo_password) return problem(401, 'Unauthorized', 'Unknown user or wrong password.');

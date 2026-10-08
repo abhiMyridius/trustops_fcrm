@@ -13,6 +13,7 @@ import { NO_RUN_MESSAGE, isNoRunRecorded, userMessage } from '@/api/errors';
 import { StageTracker } from '@/components/domain/StageTracker';
 import { TwoClocks } from '@/components/domain/TwoClocks';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { AiLabel } from '@/components/ui/AiMark';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
@@ -27,7 +28,7 @@ function HarnessDrawer({ caseId, open, onClose }: { caseId: string; open: boolea
   const stream = useStreamStatus(caseId);
   const h = useHarness(caseId, { poll: open && stream !== 'live' });
   return (
-    <Drawer open={open} onClose={onClose} title="Harness · live agent state" width="sm">
+    <Drawer open={open} onClose={onClose} title={<AiLabel>Harness · live agent state</AiLabel>} width="sm">
       {h.isError && <p className="text-sm text-text-muted">{isNoRunRecorded(h.error) ? NO_RUN_MESSAGE : userMessage(h.error)}</p>}
       {h.data && (
         <dl className="grid grid-cols-2 gap-3 text-sm">

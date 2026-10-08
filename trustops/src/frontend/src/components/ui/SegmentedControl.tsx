@@ -13,7 +13,7 @@ export function SegmentedControl<T extends string>({
   options: { value: T; label: string }[];
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex rounded-md border border-border-strong bg-surface p-0.5">
+    <div role="radiogroup" aria-label={label} className="inline-flex rounded-full border border-border-strong bg-surface p-0.5">
       {options.map((o) => {
         const active = o.value === value;
         return (
@@ -24,8 +24,8 @@ export function SegmentedControl<T extends string>({
             aria-checked={active}
             onClick={() => onChange(o.value)}
             className={cn(
-              'cursor-pointer rounded-[5px] px-3 py-1.5 text-[13px] font-semibold transition-colors',
-              active ? 'bg-carbon-moss text-text-on-dark' : 'text-text-secondary hover:bg-surface-tertiary',
+              'cursor-pointer rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors',
+              active ? 'bg-quantum-leaf text-text-on-dark' : 'text-text-secondary hover:bg-surface-tertiary',
             )}
           >
             {o.label}

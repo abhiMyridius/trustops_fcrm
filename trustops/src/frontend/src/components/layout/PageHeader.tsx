@@ -8,7 +8,7 @@ export function PageHeader({ title, subtitle, crumbs, actions, meta }: { title: 
       {crumbs && <Breadcrumb items={crumbs} />}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-[22px] font-bold leading-tight text-text-primary">{title}</h1>
+          <h1 className="text-[22px] font-extrabold leading-tight tracking-tight text-text-primary">{title}</h1>
           {subtitle && <p className="mt-1 text-sm text-text-secondary">{subtitle}</p>}
           {meta && <div className="mt-2 flex flex-wrap items-center gap-2">{meta}</div>}
         </div>

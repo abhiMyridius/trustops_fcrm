@@ -19,7 +19,7 @@ export function Card({ title, subtitle, actions, padded = true, as = 'section', 
       {(title || actions) && (
         <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border-hairline px-5 py-3.5">
           <div className="min-w-0">
-            {title && <H className="text-[15px] font-bold text-text-primary">{title}</H>}
+            {title && <H className="text-[15px] font-bold tracking-tight text-text-primary">{title}</H>}
             {subtitle && <p className="mt-0.5 text-xs text-text-muted">{subtitle}</p>}
           </div>
           {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}

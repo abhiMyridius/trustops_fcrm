@@ -35,7 +35,7 @@ const tabClass = (active: boolean) =>
   cn(
     'relative inline-flex items-center whitespace-nowrap px-3.5 py-2.5 text-sm font-semibold transition-colors cursor-pointer',
     active
-      ? 'text-carbon-moss after:absolute after:inset-x-2 after:-bottom-px after:h-[2.5px] after:rounded-full after:bg-quantum-leaf'
+      ? 'text-quantum-leaf after:absolute after:inset-x-2 after:-bottom-px after:h-[2px] after:rounded-full after:bg-virtual-tide'
       : 'text-text-muted hover:text-text-primary',
   );
 

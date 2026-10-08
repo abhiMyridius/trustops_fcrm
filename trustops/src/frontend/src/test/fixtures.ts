@@ -36,7 +36,7 @@ export async function tokenFor(username: string): Promise<string> {
   const res = await fetch(absolute(paths.auth.login), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username }),
+    body: JSON.stringify({ email: username }),
   });
   if (!res.ok) throw new Error(`login failed for ${username}: ${res.status}`);
   return ((await res.json()) as LoginResponse).access_token;

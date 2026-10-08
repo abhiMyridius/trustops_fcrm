@@ -1,4 +1,4 @@
-/** Toasts announced politely (aria-live=polite); errors stay until dismissed, others auto-dismiss. */
+/** Toasts announced politely (aria-live=polite); errors auto-dismiss after 10 s, others after 5 s. */
 import { createContext, use, useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { CheckCircle2, Info, TriangleAlert, X, XCircle } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -38,7 +38,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (t: Omit<ToastItem, 'id'>) => {
       const id = nextId.current++;
       setItems((xs) => [...xs.slice(-3), { ...t, id }]);
-      if (t.tone !== 'danger') setTimeout(() => dismiss(id), 5000);
+      setTimeout(() => dismiss(id), t.tone === 'danger' ? 10_000 : 5000);
     },
     [dismiss],
   );

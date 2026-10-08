@@ -5,7 +5,7 @@ import { cn } from '@/lib/cn';
 export type Tone = 'neutral' | 'success' | 'info' | 'warning' | 'danger';
 
 const badgeTone: Record<Tone, string> = {
-  neutral: 'bg-surface-tertiary text-text-secondary',
+  neutral: 'bg-surface-secondary text-text-secondary',
   success: 'bg-success-bg text-band-1-text',
   info: 'bg-info-bg text-chart-deep-1',
   warning: 'bg-warning-bg text-warning-text',
@@ -52,7 +52,7 @@ export function Pill({ count, label }: { count: number; label: string }) {
 
 export function Tag({ children, onRemove, removeLabel, className }: { children: ReactNode; onRemove?: () => void; removeLabel?: string; className?: string }) {
   return (
-    <span className={cn('inline-flex items-center gap-1.5 rounded-md bg-surface-secondary px-2 py-0.5 text-[12px] font-semibold text-carbon-moss-deep', className)}>
+    <span className={cn('inline-flex items-center gap-1.5 rounded-md bg-surface-secondary px-2 py-0.5 text-[12px] font-semibold text-quantum-leaf', className)}>
       {children}
       {onRemove && (
         <button type="button" onClick={onRemove} aria-label={removeLabel ?? 'Remove'} className="cursor-pointer text-text-muted hover:text-danger">

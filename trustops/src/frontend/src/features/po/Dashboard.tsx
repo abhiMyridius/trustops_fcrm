@@ -7,6 +7,7 @@ import type { CasePOListItem } from '@/api/types/po';
 import { useAuth } from '@/auth/AuthProvider';
 import { KpiCard } from '@/components/charts/KpiCard';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { AiLabel } from '@/components/ui/AiMark';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
@@ -63,7 +64,7 @@ export function PODashboard() {
           </Button>
         }
       />
-      <Banner tone="info" title="Starting a new change?">
+      <Banner tone="info" title={<AiLabel>Starting a new change?</AiLabel>}>
         Upload what you already have first: a business case, a contract, a vendor letter. The assistant reads it, proposes the change types and
         fills what it can, each value with its source. You confirm; nothing is decided for you.
       </Banner>

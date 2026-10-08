@@ -19,7 +19,7 @@ export const DEMO_CASE_ID = 'FCRM-2026-0151';
 export function homeFor(role: Role): string {
   switch (role) {
     case 'fcrm_po':
-      return '/';
+      return '/po';
     case 'fcrm_analyst':
       return '/analyst';
     case 'fcrm_committee':

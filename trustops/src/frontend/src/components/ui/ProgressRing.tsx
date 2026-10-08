@@ -38,7 +38,7 @@ export function ProgressRing({ value, label, size = 96, stroke = 9, threshold, c
           cy={cx}
           r={r}
           fill="none"
-          stroke={tone === 'teal' ? 'var(--color-teal)' : 'var(--color-warning)'}
+          stroke={tone === 'teal' ? 'var(--color-virtual-tide)' : 'var(--color-warning)'}
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={c}
@@ -54,7 +54,7 @@ export function ProgressRing({ value, label, size = 96, stroke = 9, threshold, c
             y1={cx + (r - stroke) * Math.sin(tickAngle)}
             x2={cx + (r + stroke) * Math.cos(tickAngle)}
             y2={cx + (r + stroke) * Math.sin(tickAngle)}
-            stroke="var(--color-carbon-moss)"
+            stroke="var(--color-quantum-leaf)"
             strokeWidth={2}
           />
         </svg>
@@ -68,7 +68,7 @@ export function ProgressRing({ value, label, size = 96, stroke = 9, threshold, c
 
 export function ProgressBar({ value, label, tone = 'teal', showValue = true }: { value: number; label: string; tone?: 'teal' | 'warning' | 'danger'; showValue?: boolean }) {
   const clamped = Math.max(0, Math.min(100, value));
-  const fill = { teal: 'bg-teal', warning: 'bg-warning', danger: 'bg-danger' }[tone];
+  const fill = { teal: 'bg-virtual-tide', warning: 'bg-warning', danger: 'bg-danger' }[tone];
   return (
     <div className="flex items-center gap-2">
       <div role="progressbar" aria-label={label} aria-valuenow={Math.round(clamped)} aria-valuemin={0} aria-valuemax={100} className="h-2 flex-1 overflow-hidden rounded-full bg-ink-4">

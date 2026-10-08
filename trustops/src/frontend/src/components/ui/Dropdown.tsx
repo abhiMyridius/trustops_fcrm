@@ -86,7 +86,7 @@ export function Dropdown({ label, trigger, items, align = 'right', triggerClassN
             setOpen(true);
           }
         }}
-        className={cn('inline-flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-surface-tertiary', triggerClassName)}
+        className={cn('inline-flex cursor-pointer items-center gap-2 rounded-full px-2.5 py-1.5 hover:bg-virtual-tide-tint', triggerClassName)}
       >
         {trigger}
       </button>

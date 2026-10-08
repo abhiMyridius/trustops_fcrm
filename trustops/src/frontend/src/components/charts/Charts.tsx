@@ -18,7 +18,7 @@ export function SimpleBarChart({
     <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 400, height: 200 }}>
       {/* No accessibility layer: it puts tabindex=0 on the svg, inside the card's aria-hidden picture. The figures are in the card's table. */}
       <BarChart accessibilityLayer={false} data={data} layout={vertical ? 'vertical' : 'horizontal'} margin={{ top: 16, right: 28, bottom: 4, left: vertical ? 8 : -12 }}>
-        <CartesianGrid stroke={CHART.grid} horizontal={!vertical} vertical={vertical} />
+        <CartesianGrid stroke={CHART.grid} strokeDasharray={CHART.gridDash} horizontal={!vertical} vertical={vertical} />
         {vertical ? (
           <>
             <XAxis type="number" tick={axisTick} axisLine={false} tickLine={false} />
@@ -30,9 +30,9 @@ export function SimpleBarChart({
             <YAxis tick={axisTick} axisLine={false} tickLine={false} />
           </>
         )}
-        <Bar dataKey="value" radius={vertical ? [0, 4, 4, 0] : [4, 4, 0, 0]} isAnimationActive={false}>
+        <Bar dataKey="value" radius={vertical ? [0, 6, 6, 0] : [6, 6, 0, 0]} isAnimationActive={false}>
           {data.map((d, i) => (
-            <Cell key={d.label} fill={colorFor ? colorFor(d, i) : CHART.series[0]} />
+            <Cell key={d.label} fill={colorFor ? colorFor(d, i) : CHART.single} />
           ))}
           <LabelList dataKey="value" position={vertical ? 'right' : 'top'} fill={CHART.label} fontSize={11} formatter={(v: unknown) => `${String(v)}${valueSuffix}`} />
         </Bar>

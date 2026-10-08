@@ -8,8 +8,8 @@ const tones: Record<BannerTone, { cls: string; icon: ReactNode }> = {
   info: { cls: 'border-info bg-info-bg text-chart-deep-2', icon: <Info aria-hidden size={18} className="text-info" /> },
   warning: { cls: 'border-warning bg-warning-bg text-warning-text', icon: <TriangleAlert aria-hidden size={18} className="text-warning" /> },
   danger: { cls: 'border-danger bg-danger-bg text-danger', icon: <CircleAlert aria-hidden size={18} /> },
-  success: { cls: 'border-teal bg-success-bg text-band-1-text', icon: <ShieldCheck aria-hidden size={18} className="text-teal" /> },
-  rule: { cls: 'border-carbon-moss bg-quantum-leaf-tint-3 text-carbon-moss-deep', icon: <ShieldCheck aria-hidden size={18} className="text-carbon-moss" /> },
+  success: { cls: 'border-virtual-tide bg-success-bg text-band-1-text', icon: <ShieldCheck aria-hidden size={18} className="text-virtual-tide" /> },
+  rule: { cls: 'border-quantum-leaf bg-pulse-green-tint-3 text-quantum-leaf', icon: <ShieldCheck aria-hidden size={18} className="text-quantum-leaf" /> },
 };
 
 /**
@@ -35,7 +35,7 @@ export function Banner({
   return (
     <div
       role={live === 'assertive' ? 'alert' : live === 'polite' ? 'status' : undefined}
-      className={cn('flex items-start gap-3 rounded-lg border-l-4 px-4 py-3 text-[13px]', t.cls, className)}
+      className={cn('flex items-start gap-3 rounded-md border-l-4 px-4 py-3 text-[13px]', t.cls, className)}
     >
       <span className="mt-0.5 shrink-0">{t.icon}</span>
       <div className="min-w-0 flex-1">
