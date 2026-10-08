@@ -21,6 +21,7 @@ from starlette.types import ASGIApp
 
 from fcrm_case.lifespan import __version__, lifespan
 from fcrm_case.routes import router
+from fcrm_case.routes_analyst_clauses import router as analyst_clauses_router
 from fcrm_case.routes_analyst_close import router as analyst_close_router
 from fcrm_case.routes_analyst_read import router as analyst_read_router
 from fcrm_case.routes_analyst_read import shared_router as shared_read_router
@@ -73,6 +74,7 @@ def create_app(*, standalone: bool = True) -> FastAPI:
     app.include_router(internal_reflags_router)
     app.include_router(reflags_router)
     app.include_router(analyst_write_router)
+    app.include_router(analyst_clauses_router)
     app.include_router(build_health_router(app.state.probe))
     return app
 

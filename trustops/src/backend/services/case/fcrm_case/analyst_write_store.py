@@ -284,6 +284,8 @@ class MongoAnalystWriteStore:
         # written before any event reaches the outbox (one transaction either way).
         if not await self._record_once(session, command):
             return AnalystCommitted(record, replayed=True)
+        if not await self._insert_items(session, command):
+            return AnalystCommitted(record, replayed=True)
         if not await self._change_recommendation(session, command):
             return AnalystCommitted(record, replayed=True)
         await self._decide_items(session, command)
@@ -453,6 +455,26 @@ class MongoAnalystWriteStore:
                 return False
         return True
 
+    async def _insert_items(
+        self, session: AsyncClientSession, command: AnalystCommand
+    ) -> bool:
+        """Insert the review items the command adds (ADR-74); ``False`` when one
+        already exists (a replay: nothing else of the command is applied).
+        """
+        repo = self._views.review_items
+        for item in command.new_items:
+            document = repo.to_document(item)
+            row_id = document.pop("_id")
+            result = await repo.collection.update_one(
+                {"_id": row_id},
+                {"$setOnInsert": document},
+                upsert=True,
+                session=session,
+            )
+            if result.upserted_id is None:
+                return False
+        return True
+
     def _retag_changes(
         self, record: CaseRecord, command: AnalystCommand
     ) -> dict[str, Any]:
@@ -599,6 +621,8 @@ class InMemoryAnalystWriteStore:
             return AnalystCommitted(record, replayed=True)
         if not self._record_once(command):
             return AnalystCommitted(record, replayed=True)
+        if not self._insert_items(command):
+            return AnalystCommitted(record, replayed=True)
         if not self._change_recommendation(command):
             return AnalystCommitted(record, replayed=True)
         # State first, events after (the twin of the transaction's order).
@@ -656,6 +680,14 @@ class InMemoryAnalystWriteStore:
             if record.row_id in rows:
                 return False
             rows[record.row_id] = record.document
+        return True
+
+    def _insert_items(self, command: AnalystCommand) -> bool:
+        """The twin of ``MongoAnalystWriteStore._insert_items``."""
+        if any(item.item_id in self._views.items for item in command.new_items):
+            return False
+        for item in command.new_items:
+            self._views.items[item.item_id] = item
         return True
 
     def _resolve(self, command: AnalystCommand, resolution: ThreadResolution) -> None:

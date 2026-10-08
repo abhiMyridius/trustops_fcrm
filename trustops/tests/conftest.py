@@ -1971,6 +1971,122 @@ def review_service(
     return case_service
 
 
+# ── S1: a clause the analyst adds from a corpus search (ADR-74) ─────────────────
+
+
+#: The clause the analyst adds in the ADR-74 tests, as S3 holds it.
+CORPUS_CLAUSE_ID = "FFIEC-TPR-12"
+CORPUS_CLAUSE_TEXT = (
+    "A bank that relies on a third party to pay out funds through an agent "
+    "network should understand how the third party selects, trains and monitors "
+    "those agents."
+)
+
+
+class FakeClauseCorpus:
+    """A fake S3 for S1's reads of one clause at a corpus version
+    (``GET /clauses/{id}?corpus_version=``): it serves :data:`CORPUS_CLAUSE_ID`
+    (and whatever a test adds) at the versions it is told, answers 404 for the
+    rest, and fails as a test sets ``failure``.
+    """
+
+    def __init__(self, versions: tuple[int, ...]) -> None:
+        self.clauses: dict[tuple[str, int], dict[str, Any]] = {}
+        self.requests: list[tuple[str, Optional[str]]] = []
+        self.failure: Optional[Any] = None
+        for version in versions:
+            self.add(CORPUS_CLAUSE_ID, version, CORPUS_CLAUSE_TEXT)
+
+    def add(
+        self, clause_id: str, version: int, text: str, *, quotable: bool = True
+    ) -> None:
+        """Hold ``clause_id`` at corpus ``version`` with ``text``."""
+        self.clauses[(clause_id, version)] = {
+            "clause_id": clause_id,
+            "source_id": "FFIEC-BSA",
+            "title": "Third-party payout agents",
+            "text": text,
+            "ref": "FFIEC BSA/AML Manual, Third-Party Payment Processors, p. 12",
+            "source_ref": {
+                "kind": "clause",
+                "clause_id": clause_id,
+                "corpus_v": version,
+            },
+            "corpus_version": version,
+            "page": 12,
+            "line_start": 40,
+            "line_end": 44,
+            "risk_areas": ["channel"],
+            "quotable": quotable,
+            "provenance_kind": "seed_verbatim",
+        }
+
+    def handle(self, request: Any) -> Any:
+        """The transport: records the call, then answers or fails."""
+        import httpx
+
+        self.requests.append(
+            (request.url.path, request.url.params.get("corpus_version"))
+        )
+        if isinstance(self.failure, Exception):
+            raise self.failure
+        if self.failure is not None:
+            return self.failure
+        clause_id = request.url.path.rsplit("/", 1)[-1]
+        version = int(request.url.params.get("corpus_version", "0"))
+        body = self.clauses.get((clause_id, version))
+        if body is None:
+            return httpx.Response(404, json={"detail": f"No clause {clause_id!r}."})
+        return httpx.Response(200, json=body)
+
+    def config(self) -> Any:
+        """A :class:`~fcrm_case.policy_config.PolicyConfig` over this fake (one
+        attempt per call, so a failure is immediate).
+        """
+        import httpx
+        from fcrm_case.fieldset_provider import (
+            active_field_set,
+            active_pinned_versions,
+        )
+        from fcrm_case.policy_config import PolicyConfig
+        from fcrm_common.http import ServiceClient
+
+        client = ServiceClient(
+            "http://policy.test/api/fcrm/policy",
+            dependency="policy",
+            caller="fcrm-case",
+            token_secret="x" * 32,
+            transport=httpx.MockTransport(self.handle),
+            retries=0,
+        )
+        return PolicyConfig(
+            seed_field_set=active_field_set(),
+            seed_pins=active_pinned_versions(),
+            client=client,
+        )
+
+
+@pytest.fixture
+def clause_corpus(stored_case: CaseRecord) -> FakeClauseCorpus:
+    """A fake S3 holding :data:`CORPUS_CLAUSE_ID` at the demo case's pinned corpus
+    version and the one after it (the text differs only by version number).
+    """
+    pinned = stored_case.pinned_versions.corpus_v
+    return FakeClauseCorpus((pinned, pinned + 1))
+
+
+@pytest.fixture
+def clause_service(
+    review_service: CaseService, clause_corpus: FakeClauseCorpus
+) -> CaseService:
+    """:func:`review_service` (the demo case in review, held by Rahul Iyer)
+    reading clauses from :func:`clause_corpus`.
+    """
+    app = review_service.client.app
+    app.state.policy_config = clause_corpus.config()  # type: ignore[attr-defined]
+    return review_service
+
+
 @pytest.fixture
 def handoff_store() -> InMemoryHandoffGateStore:
     """S1's in-memory record of the ``handoff`` gates Caseflow opened."""

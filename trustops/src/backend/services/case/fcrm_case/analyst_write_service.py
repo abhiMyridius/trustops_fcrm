@@ -39,6 +39,7 @@ from fcrm_common.errors import (
     ValidationError,
 )
 from fcrm_common.time import utcnow
+from fcrm_contracts.api.case_analyst_clause import ClauseAddBody, ClauseAddResult
 from fcrm_contracts.api.case_analyst_write import (
     AcknowledgeBody,
     AcknowledgeResult,
@@ -67,8 +68,8 @@ from fcrm_contracts.common import Principal
 from fcrm_contracts.enums import CaseState, GateType, ItemKind
 from pydantic import ValidationError as PydanticValidationError
 
+from fcrm_case.analyst_clause_service import AnalystClauseService
 from fcrm_case.analyst_errors import (
-    DecisionNotAllowedError,
     GateAlreadyDecidedError,
     ItemSupersededError,
     NoOpenGateError,
@@ -165,6 +166,13 @@ class AnalystWriteService:
         self._store = store
         self._writer = writer
         self._config = config
+        self._clauses = AnalystClauseService(
+            views=views,
+            assessment=assessment,
+            store=store,
+            writer=writer,
+            config=config,
+        )
 
     # -- plumbing ----------------------------------------------------------------
 
@@ -252,9 +260,9 @@ class AnalystWriteService:
             )
         item_id = row.item_id
         if row.gate_id is None:
-            raise DecisionNotAllowedError(
-                f"item {item_id} has no gate to decide", item_id=item_id
-            )
+            # Only a clause the analyst added has no gate and still takes a
+            # decision (ADR-74); anything else is refused there.
+            return await self._clauses.decide(principal, record, row, body)
         plan = plan_item_decision(row, body)
         if await self._replayed(row.gate_id, item_fingerprint(body)):
             return ItemDecisionResult(
@@ -908,3 +916,15 @@ class AnalystWriteService:
         return RerunResult(
             case_id=case_id, scope=body.scope, replayed=committed.replayed
         )
+
+    # -- a clause from the corpus (ADR-74) -----------------------------------------
+
+    async def add_clause(
+        self, principal: Principal, case_id: str, body: ClauseAddBody
+    ) -> ClauseAddResult:
+        """Add a clause found by searching the corpus to the case, accepted, its
+        text read from S3 at the pinned corpus version
+        (:class:`~fcrm_case.analyst_clause_service.AnalystClauseService`).
+        """
+        record = await self._own_case(case_id, principal)
+        return await self._clauses.add(principal, record, body)

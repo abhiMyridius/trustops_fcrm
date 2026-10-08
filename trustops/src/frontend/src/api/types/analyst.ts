@@ -226,6 +226,10 @@ export interface ClauseItem {
   corpus_version: string;
   decision: ItemDecision;
   reason: string | null;
+  /** ADR-74: `analyst` for a clause the analyst added from a corpus search (accepted when added). */
+  origin?: 'agent' | 'analyst';
+  added_by?: string | null;
+  added_reason?: string | null;
 }
 
 export interface PolicyView {
@@ -235,10 +239,39 @@ export interface PolicyView {
   corpus_version: string;
 }
 
+/** One clause hit of a corpus search: the verbatim text (`quote`), both citations and its place in the source. */
+export interface PolicySearchHit {
+  clause_id: string;
+  source_id?: string;
+  title: string;
+  quote: string;
+  ref: string;
+  source_ref?: { kind: 'clause'; clause_id: string; corpus_v: number };
+  page?: number | null;
+  line_start?: number | null;
+  line_end?: number | null;
+  quotable?: boolean;
+}
+
 export interface PolicySearchResult {
   query: string;
-  results: { clause_id: string; title: string; quote: string; ref: string }[];
+  results: PolicySearchHit[];
   corpus_version: string;
+}
+
+/** `POST /cases/{id}/clauses` (ADR-74): the clause id of a search hit and why it applies; never its text. */
+export interface ClauseAddBody {
+  clause_id: string;
+  reason: string;
+}
+
+export interface ClauseAddResult {
+  item_id: string;
+  case_id: string;
+  clause_id: string;
+  corpus_version: string;
+  status: 'accepted';
+  replayed: boolean;
 }
 
 export interface ControlItem {

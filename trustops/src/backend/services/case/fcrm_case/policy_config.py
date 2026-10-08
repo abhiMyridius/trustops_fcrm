@@ -32,6 +32,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from typing import Final, Optional
+from urllib.parse import quote
 
 from fcrm_common.cache import InMemoryTTLCache, TTLCache, cache_get, cache_set
 from fcrm_common.errors import (
@@ -40,7 +41,7 @@ from fcrm_common.errors import (
     UpstreamUnavailableError,
 )
 from fcrm_common.http import ServiceClient, Timeouts
-from fcrm_contracts.api.policy import FieldSetOut
+from fcrm_contracts.api.policy import ClauseDetailOut, FieldSetOut
 from fcrm_contracts.versions import PinnedVersions
 from pydantic import SecretStr
 
@@ -59,6 +60,8 @@ POLICY_TIMEOUTS: Final = Timeouts(connect=1.0, read=3.0, write=3.0, pool=2.0)
 POLICY_RETRIES: Final = 1
 POLICY_BACKOFF_S: Final = (0.2,)
 FIELD_SET_DEPENDENCY: Final = "field_set"
+#: The dependency a 503 names when a clause cannot be read from S3 (ADR-74).
+CLAUSE_DEPENDENCY: Final = "policy"
 
 
 @dataclass(frozen=True)
@@ -252,6 +255,52 @@ class PolicyConfig:
         if fetched.version != version:
             raise self._unavailable(version)
         return fetched
+
+    # -- one clause at a pinned corpus version (ADR-74) ---------------------------
+
+    async def clause(self, clause_id: str, corpus_v: int) -> ClauseDetailOut:
+        """The clause ``clause_id`` as S3 holds it at corpus version ``corpus_v``:
+        its verbatim text, both citations and its place in the source. Never
+        cached and never answered from the seed: the text a case stores has to be
+        the system of record's.
+
+        Raises:
+            fcrm_common.errors.NotFoundError: S3 holds no such clause at that
+                version.
+            fcrm_common.errors.UpstreamUnavailableError: There is no S3 to ask,
+                it is unreachable or it answered something unreadable.
+            fcrm_common.errors.UpstreamTimeoutError: S3 did not answer in time.
+        """
+        if self._client is None:
+            raise UpstreamUnavailableError(
+                "The policy corpus is not reachable from the case service.",
+                dependency=CLAUSE_DEPENDENCY,
+            )
+        body = await self._client.request_json(
+            "GET",
+            f"/clauses/{quote(clause_id, safe='')}",
+            params={"corpus_version": corpus_v},
+            timeout=POLICY_TIMEOUTS,
+        )
+        try:
+            clause = ClauseDetailOut.model_validate(body)
+        except ValueError as exc:
+            logger.warning(
+                "S3 answered an unreadable clause %s",
+                clause_id,
+                extra={"clause_id": clause_id, "dependency": "policy"},
+            )
+            raise UpstreamUnavailableError(
+                f"The policy corpus answered an unreadable clause {clause_id}.",
+                dependency=CLAUSE_DEPENDENCY,
+            ) from exc
+        if clause.clause_id != clause_id or clause.corpus_version != corpus_v:
+            raise UpstreamUnavailableError(
+                f"The policy corpus answered another clause than {clause_id} "
+                f"v{corpus_v}.",
+                dependency=CLAUSE_DEPENDENCY,
+            )
+        return clause
 
     def _unavailable(self, version: int) -> UpstreamUnavailableError:
         return UpstreamUnavailableError(
