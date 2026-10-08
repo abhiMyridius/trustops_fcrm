@@ -4,6 +4,7 @@
  * and appends the seed audit record(s) that the walkthrough attaches to that step.
  */
 import { appendExtra, appendSeed, getDB, hasRecord, persist, sceneTime, type VoteEntry } from './db';
+import { corpusClause } from './corpus';
 import { score, type EngineArea } from './engine';
 import { seed, type SeedDomain } from './seed';
 import { nameOf } from './users';
@@ -303,6 +304,45 @@ export function decideClause(id: string, decision: 'accept' | 'remove', reason?:
     c.decision = 'removed';
     appendExtra('gate.decided', 'S1', `Clause removed: ${id} · reason recorded`);
   }
+  persist();
+}
+
+/** ADR-74: add a clause from the corpus to the case, accepted, with a reason. The same addition again replays. */
+export function addClause(clauseId: string, reason: string | undefined, by: string): { replayed: boolean } {
+  requireOpen();
+  requireUnlocked();
+  requireReviewOpen();
+  const d = demo();
+  const r = requireReason(reason, 'Adding a clause');
+  const clause = corpusClause(clauseId);
+  if (!clause) throw new MockError(422, 'Not in the corpus', `${clauseId} is not a clause of corpus ${seed.corpus.version}, the version this case pinned.`);
+  if (!clause.quotable) throw new MockError(422, 'Not quotable', `${clauseId} is a catalogue entry whose text may not be quoted.`);
+  const mine = d.analystClauses?.[clauseId];
+  if (mine && !mine.removed) {
+    if (mine.reason === r) return { replayed: true };
+    throw new MockError(409, 'clause_on_case', `Clause ${clauseId} is already on the case (you added it).`);
+  }
+  const proposed = d.clauses[clauseId];
+  if (!mine && proposed && proposed.decision !== 'removed') {
+    const how = proposed.decision === 'pending' ? 'research proposed it; accept it instead' : 'research proposed it and it is accepted';
+    throw new MockError(409, 'clause_on_case', `Clause ${clauseId} is already on the case (${how}).`);
+  }
+  d.analystClauses = { ...(d.analystClauses ?? {}), [clauseId]: { reason: r, by, removed: false, removeReason: null } };
+  appendExtra('clause.added', 'S1', `Clause ${clauseId} added from the corpus by the analyst · quoted verbatim · not scored`);
+  persist();
+  return { replayed: false };
+}
+
+/** ADR-74: remove a clause the analyst added, with a reason. */
+export function removeAnalystClause(clauseId: string, reason: string | undefined): void {
+  requireOpen();
+  requireUnlocked();
+  const mine = demo().analystClauses?.[clauseId];
+  if (!mine) throw new MockError(404, 'Not found', `No clause ${clauseId} added by the analyst.`);
+  if (mine.removed) throw new MockError(409, 'gate_already_decided', `Clause ${clauseId} was already removed.`);
+  mine.removeReason = requireReason(reason, 'Removing a clause');
+  mine.removed = true;
+  appendExtra('clause.removed', 'S1', `Clause ${clauseId} removed by the analyst · reason recorded`);
   persist();
 }
 

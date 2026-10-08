@@ -103,6 +103,11 @@ export function PackTab() {
               <li key={c.id}>
                 <span className="font-semibold">{c.title}</span> <span className="font-mono text-[11px] text-text-muted">{c.ref}</span>
                 <blockquote className="mt-1 border-l-4 border-digital-pavo pl-3 italic">{c.quote}</blockquote>
+                {c.added_by && (
+                  <p className="mt-1 text-[12px] text-text-secondary">
+                    Added by the analyst ({c.added_by}) from a corpus search{c.added_reason ? `: ${c.added_reason}` : ''}
+                  </p>
+                )}
               </li>
             ))}
           </ul>

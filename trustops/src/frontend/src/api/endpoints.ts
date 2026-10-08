@@ -62,6 +62,8 @@ export const paths = {
     acknowledge: (id: string) => `${API_PREFIX}/cases/${e(id)}/acknowledge`,
     plannedControls: (id: string) => `${API_PREFIX}/cases/${e(id)}/controls/planned`,
     gaps: (id: string) => `${API_PREFIX}/cases/${e(id)}/gaps`,
+    /** ADR-74: add a clause found by searching the corpus (its id and a reason; S1 reads the text from S3). */
+    clauses: (id: string) => `${API_PREFIX}/cases/${e(id)}/clauses`,
     recommendation: (id: string) => `${API_PREFIX}/cases/${e(id)}/recommendation`,
     lock: (id: string) => `${API_PREFIX}/cases/${e(id)}/recommendation/lock`,
     unlock: (id: string) => `${API_PREFIX}/cases/${e(id)}/recommendation/unlock`,
