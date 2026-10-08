@@ -17,6 +17,8 @@ from fcrm_contracts.events.catalogue import EVENT_TYPES
 from fcrm_contracts.events.payloads import (
     CaseAnswered,
     CaseClarificationSent,
+    CaseClauseAdded,
+    CaseClauseRemoved,
     CaseCloseRequested,
     CaseControlPlanned,
     CaseCreated,
@@ -75,6 +77,15 @@ NEW_EVENT_TYPES = {
     "examiner.asked",
 }
 
+#: ADR-74: a clause the analyst adds from a corpus search, and its removal (S1's
+#: events), and the two audit record types H1 writes for them.
+CLAUSE_EVENT_TYPES = {
+    "case.clause_added",
+    "case.clause_removed",
+    "clause.added",
+    "clause.removed",
+}
+
 # Annex E, verbatim: the step kinds H1 may enqueue.
 ANNEX_E_STEP_KINDS = {
     "intake.open",
@@ -100,6 +111,7 @@ ANNEX_E_STEP_KINDS = {
     "control.planned",
     "retag.record",
     "rerun.requested",
+    "clause.record",
     "narrative.publish",
     "lock.build_pack",
     "pack.approved",
@@ -187,6 +199,23 @@ EXAMPLES: dict[type[BaseModel], dict[str, Any]] = {
         "actor": "u-riyer",
         "gap_id": "gap_1",
         "text": "no clause covers cash-pickup agents",
+    },
+    CaseClauseAdded: {
+        "case_id": CASE,
+        "actor": "u-riyer",
+        "item_id": "acl_0123",
+        "clause_id": "FFIEC-TPR-12",
+        "corpus_v": 14,
+        "reason": "The payout partner runs an agent network the research missed.",
+        "title": "Third-party oversight of agents",
+        "ref": "FFIEC BSA/AML Manual, Third-party payment processors",
+    },
+    CaseClauseRemoved: {
+        "case_id": CASE,
+        "actor": "u-riyer",
+        "item_id": "acl_0123",
+        "clause_id": "FFIEC-TPR-12",
+        "reason": "Added to the wrong case; the agent network is out of scope.",
     },
     CaseControlPlanned: {
         "case_id": CASE,
@@ -383,11 +412,15 @@ class TestCatalogue:
     def test_the_nine_new_types_are_catalogued(self) -> None:
         assert NEW_EVENT_TYPES <= EVENT_TYPES
 
+    def test_the_analyst_clause_types_are_catalogued(self) -> None:
+        assert CLAUSE_EVENT_TYPES <= EVENT_TYPES
+
     def test_the_catalogue_count_is_locked(self) -> None:
-        """57 before the live wiring, plus the nine above. A change here is a
-        contract change: update docs/architecture/event-catalogue.md too.
+        """57 before the live wiring, plus the nine above, plus the four of an
+        analyst's clause (ADR-74). A change here is a contract change: update
+        docs/architecture/event-catalogue.md too.
         """
-        assert len(EVENT_TYPES) == 66
+        assert len(EVENT_TYPES) == 70
 
     def test_every_catalogued_type_is_dotted(self) -> None:
         assert all("." in t for t in EVENT_TYPES)

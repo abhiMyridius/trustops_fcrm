@@ -199,6 +199,9 @@ class StepKind(StrEnum):
     CONTROL_PLANNED = "control.planned"
     RETAG_RECORD = "retag.record"
     RERUN_REQUESTED = "rerun.requested"
+    #: The analyst added a clause from a corpus search, or removed one they added
+    #: (ADR-74): ``clause.added`` / ``clause.removed`` on the chain, no state change.
+    CLAUSE_RECORD = "clause.record"
     NARRATIVE_PUBLISH = "narrative.publish"
     LOCK_BUILD_PACK = "lock.build_pack"
     PACK_APPROVED = "pack.approved"

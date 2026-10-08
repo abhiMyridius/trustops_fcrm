@@ -80,5 +80,10 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "case.control_planned",  # S1 -> H1
         "jurisdiction.list_published",  # S3 -> H1 (watchlist)
         "examiner.asked",  # S4 -> H1 (examiner)
+        # a clause the analyst adds from a corpus search (ADR-74)
+        "case.clause_added",  # S1 -> H1
+        "case.clause_removed",  # S1 -> H1
+        "clause.added",  # the audit record H1 writes for it
+        "clause.removed",  # the audit record H1 writes for its removal
     }
 )

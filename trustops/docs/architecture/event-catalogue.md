@@ -38,7 +38,10 @@ Each has a matching `<exchange>.dlx` dead-letter exchange and per-queue retry qu
 **Live wiring (ADR-28)**
 `harness.step` · `pack.released` · `vote.tallied` · `committee.question_asked` · `committee.answered` · `case.clarification_sent` · `case.control_planned` · `jurisdiction.list_published` · `examiner.asked`
 
-That is 66 event types in the committed catalogue (`len(EVENT_TYPES) == 66`, locked by `tests/unit/packages/contracts/test_event_payloads.py` — the design docs' "30 event types" was an earlier estimate before every row of the transition table was transcribed into code; 57 was the count before the live wiring added the nine above; the catalogue, not an estimate, is current).
+**A clause the analyst adds from a corpus search (ADR-74)**
+`case.clause_added` · `case.clause_removed` (S1 → H1, payloads `CaseClauseAdded{case_id, actor, item_id, clause_id, corpus_v, reason, title, ref}` and `CaseClauseRemoved{case_id, actor, item_id, clause_id, reason}`; step-only triggers `CASE_CLAUSE_ADDED` / `CASE_CLAUSE_REMOVED` start `clause.record`, the run does not move) · `clause.added` · `clause.removed` (the audit records that step writes)
+
+That is 70 event types in the committed catalogue (`len(EVENT_TYPES) == 70`, locked by `tests/unit/packages/contracts/test_event_payloads.py` — the design docs' "30 event types" was an earlier estimate before every row of the transition table was transcribed into code; 57 was the count before the live wiring added the nine above, and ADR-74 added the four of an analyst's clause; the catalogue, not an estimate, is current).
 
 ### Live wiring: the nine types added with ADR-28
 

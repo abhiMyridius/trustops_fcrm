@@ -62,6 +62,11 @@ class Trigger(StrEnum):
     CASE_RERUN_REQUESTED = "case.rerun_requested"
     CASE_GAP_RECORDED = "case.gap_recorded"
     CASE_CONTROL_PLANNED = "case.control_planned"
+    # The analyst added a clause from a corpus search, or removed one they added
+    # (ADR-74). Step-only, like ``GATE_DECIDED_ACK``: no transition, the run does
+    # not move (review or recommend); the step writes the audit record.
+    CASE_CLAUSE_ADDED = "case.clause_added"
+    CASE_CLAUSE_REMOVED = "case.clause_removed"
     ALL_ITEMS_DECIDED = "internal.all_items_decided"
 
     AGENT_DONE_NARRATIVE_RECOMMENDATION = "agent.done.narrative.recommendation"

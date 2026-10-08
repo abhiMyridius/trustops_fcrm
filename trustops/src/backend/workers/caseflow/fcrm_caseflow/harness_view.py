@@ -118,6 +118,8 @@ _S1_TYPES: Final = frozenset(
         "values.reused",
         "control.planned",
         "gap.recorded",
+        "clause.added",
+        "clause.removed",
         "reflag.acknowledged",
         "document.stored",
     }

@@ -148,6 +148,10 @@ class PackClause(_Strict):
     title: str
     quote: str
     ref: str
+    # ADR-74: set only on a clause the analyst added from a corpus search; an
+    # agent-proposed clause leaves both out of the snapshot (its hash is unchanged).
+    added_by: Optional[str] = None
+    added_reason: Optional[str] = None
 
 
 class PackControl(_Strict):

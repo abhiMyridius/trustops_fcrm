@@ -49,7 +49,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from typing import Any, Optional, Protocol
+from typing import Any, Final, Optional, Protocol
 
 from fcrm_common.events import build_envelope
 from fcrm_common.ids import deterministic_id, new_id
@@ -145,6 +145,13 @@ _PO_ACTION_GATES = frozenset(
         GateType.PO_ANSWER_GAPS.value,
     }
 )
+
+#: S1's events for a clause the analyst added or removed (ADR-74): each starts
+#: ``clause.record`` and moves nothing.
+_CLAUSE_TRIGGERS: Final[Mapping[str, Trigger]] = {
+    Trigger.CASE_CLAUSE_ADDED.value: Trigger.CASE_CLAUSE_ADDED,
+    Trigger.CASE_CLAUSE_REMOVED.value: Trigger.CASE_CLAUSE_REMOVED,
+}
 
 
 class Transact(Protocol):
@@ -350,6 +357,7 @@ class CaseflowEngine:
             run = await self._po_action_step(envelope, run, session)
             run = await self._ack_step(envelope, run, session)
             run = await self._reflag_ack_step(envelope, run, session)
+            run = await self._clause_step(envelope, run, session)
             base_ctx = TransitionContext(flags=run.snapshot.flags, band=run.band)
             await self._chain_internal(run, base_ctx, session, envelope.event_id)
             return
@@ -733,6 +741,26 @@ class CaseflowEngine:
         return await self._enqueue_step_for(
             run,
             Trigger.GATE_DECIDED_ACK,
+            envelope.event_id,
+            envelope.event_id,
+            envelope.payload,
+            session,
+        )
+
+    async def _clause_step(
+        self, envelope: Envelope, run: CaseRun, session: AsyncClientSession
+    ) -> CaseRun:
+        """Start ``clause.record`` for a clause the analyst added from a corpus
+        search or removed (ADR-74), in this transaction and without a transition:
+        the run stays where it is (review or recommend) and the step writes the
+        audit record. Any other event leaves the run unchanged.
+        """
+        trigger = _CLAUSE_TRIGGERS.get(envelope.type)
+        if trigger is None:
+            return run
+        return await self._enqueue_step_for(
+            run,
+            trigger,
             envelope.event_id,
             envelope.event_id,
             envelope.payload,
