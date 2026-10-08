@@ -1,6 +1,7 @@
-# Grafana datasources (ADR-09). Fixed uids so the provisioned dashboards
-# reference them without a lookup; Prometheus exemplars link to Jaeger
-# traces by trace_id.
+# Grafana datasources (ADR-09). A fixed uid so the provisioned dashboards
+# reference it without a lookup. Traces live in OpenObserve (ADR-68, ADR-71):
+# a Prometheus exemplar's trace_id opens its trace there. The Jaeger datasource
+# is deleted on provisioning, so a Grafana volume from before ADR-71 loses it.
 apiVersion: 1
 
 deleteDatasources:
@@ -22,16 +23,6 @@ datasources:
       timeInterval: 15s
       exemplarTraceIdDestinations:
         - name: trace_id
-          datasourceUid: jaeger
-
-  - name: Jaeger
-    uid: jaeger
-    type: jaeger
-    access: proxy
-    url: http://jaeger:16686
-    editable: false
-    jsonData:
-      tracesToMetrics:
-        datasourceUid: prometheus
-      nodeGraph:
-        enabled: true
+          # $$ keeps Grafana from reading ${__value.raw} as an environment variable.
+          urlDisplayLabel: Trace in OpenObserve
+          url: http://localhost:5080/web/traces?org_identifier=default&stream=trustops&trace_id=$${__value.raw}

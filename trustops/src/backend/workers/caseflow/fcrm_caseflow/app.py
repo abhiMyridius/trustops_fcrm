@@ -245,7 +245,12 @@ def build_unit(
         gates=gate_store,
         decision_votes=DecisionVotesClient(decision_http),
         reporter=HarnessReporter(
-            runs_store, gate_store, audit, case_client, budgets=budget_store
+            runs_store,
+            gate_store,
+            audit,
+            case_client,
+            budgets=budget_store,
+            trace_ui_url=settings.trace_ui_url,
         ),
         oversight=OversightClients(
             examiner=ExaminerClient(audit_http), reflags=ReflagClient(case_http)

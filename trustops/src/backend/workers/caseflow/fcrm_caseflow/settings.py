@@ -13,11 +13,17 @@ from typing import ClassVar, Final, Optional
 
 from fcrm_common.settings import BaseServiceSettings
 from fcrm_guardrails.budget import CASE_TOKEN_CAP
-from pydantic import Field
+from pydantic import Field, field_validator
 
 #: Tokens one case may spend across all its agent jobs unless ``CASE_TOKEN_CAP`` says
 #: otherwise (``ai/models/tiers.yaml`` ``per_case_budget_tokens``).
 DEFAULT_CASE_TOKEN_CAP: Final = CASE_TOKEN_CAP
+
+#: The monitor's trace link: the traces page of the bundled OpenObserve (ADR-68).
+#: H1 appends ``&trace_id=<id>`` for a run that has a trace.
+DEFAULT_TRACE_UI_URL: Final = (
+    "http://localhost:5080/web/traces?org_identifier=default&stream=trustops"
+)
 
 
 class CaseflowSettings(BaseServiceSettings):
@@ -54,6 +60,12 @@ class CaseflowSettings(BaseServiceSettings):
     """The bucket H3 writes a case document's canonical Markdown into; named in
     every ``ingest.run`` H1 publishes (same variable the object store uses)."""
 
+    trace_ui_url: str = DEFAULT_TRACE_UI_URL
+    """Where the monitor's trace link opens (``TRACE_UI_URL``): a traces page
+    in OpenObserve, to which H1 appends the run's ``trace_id``. Point it at your
+    team's OpenObserve when the collector exports there; empty means the
+    default."""
+
     case_token_cap: int = Field(default=DEFAULT_CASE_TOKEN_CAP, ge=1)
     """Tokens a case may spend across all of its agent jobs (``CASE_TOKEN_CAP``,
     default 160,000, ADR-14): H1 reserves each job against it and settles what the
@@ -71,3 +83,9 @@ class CaseflowSettings(BaseServiceSettings):
     step_timeout_s: float = 120.0
     """Deadline for one step handler; past it the step fails and is retried
     rather than holding its case's lock for ever."""
+
+    @field_validator("trace_ui_url", mode="before")
+    @classmethod
+    def _empty_trace_ui_url_is_the_default(cls, value: object) -> object:
+        """Compose passes ``TRACE_UI_URL`` as an empty string when it is unset."""
+        return value or DEFAULT_TRACE_UI_URL

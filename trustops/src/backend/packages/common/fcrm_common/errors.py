@@ -8,7 +8,8 @@ Services raise these, never ``HTTPException``: the handler installed by
 "the database is down" or "duplicate key", and any unexpected exception to
 one :class:`fcrm_contracts.common.Problem` body with
 ``Content-Type: application/problem+json``. Bodies never carry stack
-traces, tokens or secrets; the ``trace_id`` links the response to Jaeger.
+traces, tokens or secrets; the ``trace_id`` links the response to its
+trace in OpenObserve.
 
 Naming: the classes carry an ``Error`` suffix (``ValidationError``, not
 design A's ``ValidationFailed``) so they read as exceptions and never

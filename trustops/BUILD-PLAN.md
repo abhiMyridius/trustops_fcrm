@@ -110,7 +110,7 @@ flowchart LR
   D2[(D2 MinIO / S3<br/>uploads · canonical · packs)]
   SV[(S3 Vectors<br/>policy_clauses · precedent_cases · controls)]
   BR[Amazon Bedrock<br/>Claude tiers · Nova fallbacks · Titan v2]
-  OT[otel-collector → Jaeger · Prometheus · Grafana]
+  OT[otel-collector → OpenObserve · Prometheus · Grafana]
 
   W1 --> G1 --> S1 & S2 & S3 & S4 & S5 & X1
   S1 & S3 & S5 -- events --> X3
@@ -153,7 +153,7 @@ Principles: services talk HTTP for reads and RabbitMQ for work; no service reads
 | X2 | `ops/opa` | `authz.rego` (routes, hierarchy from data), `tools.rego` (agent → tool permits from `tool_permits.json`), Rego tests | OPA 1.x | 8181 |
 | X3 / X7 / D1 / D2 | compose | RabbitMQ 4 (quorum queues, DLX), Redis 7.4, MongoDB 8 replica set, MinIO | — | 5672/15672 · 6379 · 27017 · 9000/9001 |
 | X6 | `evals/` | datasets, metrics, pydantic-evals runner, Bedrock judge, promotion gate, reports | — | — |
-| obs | `ops/{otel,grafana,prometheus}` | collector, Jaeger 16686, Prometheus 9090, Grafana 3000 with three dashboards | — | 4317/4318 |
+| obs | `ops/{otel,grafana,prometheus}` | collector, OpenObserve 5080 (traces, metrics, logs), Prometheus 9090, Grafana 3000 with three dashboards; Jaeger removed (ADR-71) | — | 4317/4318 |
 
 ### 3.3 Case lifecycle (H1 `CaseState`)
 

@@ -34,7 +34,7 @@ COMPOSE_TEST  := docker compose -p trustops-test -f docker-compose.yaml -f compo
 INFRA := mongo rabbitmq minio opa
 APPS  := api harness
 EDGE  := gateway web
-OBS   := otel-collector jaeger prometheus grafana openobserve
+OBS   := otel-collector openobserve prometheus grafana
 
 # OPA: a local binary when present (fast), else the pinned image.
 OPA_VERSION := 1.15.2
@@ -124,13 +124,10 @@ up: env keys ## the default stack, 8 containers (mongo rabbitmq minio opa api ha
 	$(COMPOSE) up -d --build
 	@$(WAIT) --timeout 600 --compose "$(COMPOSE)" $(INFRA) $(APPS) $(EDGE)
 
-obs-env: ## fail early, with the fix, when an older .env has no OpenObserve login (make env never overwrites)
-	@for v in ZO_ROOT_USER_EMAIL ZO_ROOT_USER_PASSWORD; do \
-		grep -q "^$$v=." .env 2>/dev/null || [ -n "$$(printenv $$v)" ] || { \
-			echo "obs-env: .env has no $$v (OpenObserve, the log store). Add the lines ZO_ROOT_USER_EMAIL=admin@trustops.example and ZO_ROOT_USER_PASSWORD=Oo-<openssl rand -hex 14> to .env (OpenObserve needs upper and lower case, a digit and a symbol), then run make up-obs again." >&2; exit 1; }; \
-	done
+obs-env: ## fail early, with the fix, on an .env that would start the observability stack wrongly (no OpenObserve login, a password compose would cut, a half-set team instance)
+	@$(PYTHON) ops/scripts/check_obs_env.py --env-file .env
 
-up-obs: env keys obs-env ## the default stack plus otel-collector, jaeger, prometheus, grafana and openobserve (13 containers); services export traces, metrics and logs
+up-obs: env keys obs-env ## the default stack plus otel-collector, openobserve, prometheus and grafana (12 containers); traces, metrics and logs go to OpenObserve
 	$(COMPOSE_OBS) up -d --force-recreate --no-deps opa
 	OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318 $(COMPOSE_OBS) up -d --build
 	@$(WAIT) --timeout 600 --compose "$(COMPOSE_OBS)" $(INFRA) $(OBS) $(APPS) $(EDGE) \

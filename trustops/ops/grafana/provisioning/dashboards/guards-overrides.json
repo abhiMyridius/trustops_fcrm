@@ -53,16 +53,16 @@
       "url": ""
     },
     {
-      "title": "Traces (Jaeger)",
+      "title": "Traces (OpenObserve)",
       "type": "link",
-      "url": "/explore?left=%7B%22datasource%22:%22jaeger%22%7D",
+      "url": "http://localhost:5080/web/traces?org_identifier=default&stream=trustops",
       "icon": "info",
       "targetBlank": true,
       "asDropdown": false,
       "includeVars": false,
       "keepTime": false,
       "tags": [],
-      "tooltip": "Open the Jaeger datasource in Explore"
+      "tooltip": "Open the traces in OpenObserve"
     }
   ],
   "templating": {

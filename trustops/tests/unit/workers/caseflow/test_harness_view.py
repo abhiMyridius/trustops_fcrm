@@ -28,8 +28,10 @@ from fcrm_caseflow.harness_view import (
     harness_snapshot,
     line_of,
     status_of,
+    trace_link,
     who_of,
 )
+from fcrm_caseflow.settings import DEFAULT_TRACE_UI_URL
 from fcrm_caseflow.steps import StepRegistry, StepResult, StepRunner
 from fcrm_caseflow.store import DEFAULT_PINS, CaseRunStore, new_case_run_document
 from fcrm_common.errors import UpstreamUnavailableError
@@ -232,7 +234,10 @@ def test_the_snapshot_counts_from_the_run_and_the_chain() -> None:
     assert (c.guards_passed, c.guards_blocked) == (5, 1)
     assert (c.audit_records, c.chain_verified) == (67, True)
     assert snapshot.trace_id == "trace-abc"
-    assert snapshot.jaeger_url.endswith("/trace/trace-abc")
+    assert snapshot.trace_url == (
+        "http://localhost:5080/web/traces?org_identifier=default&stream=trustops"
+        "&trace_id=trace-abc"
+    )
     assert snapshot.case_id == CASE
 
 
@@ -304,10 +309,35 @@ def test_the_log_keeps_the_newest_lines_within_the_bound() -> None:
     assert snapshot.log[-1].seq == MAX_HARNESS_LINES + 100
 
 
-def test_a_run_with_no_trace_links_to_the_jaeger_home() -> None:
+def test_a_run_with_no_trace_links_to_the_openobserve_traces_page() -> None:
     snapshot = harness_snapshot(make_run(case_id=CASE), [], None, 0)
     assert snapshot.trace_id == ""
-    assert "/trace/" not in snapshot.jaeger_url
+    assert snapshot.trace_url == DEFAULT_TRACE_UI_URL
+
+
+def test_the_trace_link_follows_the_configured_openobserve() -> None:
+    # A team instance (ADR-68): the link opens there, not on localhost.
+    assert trace_link("https://o2.example.com/web/traces", "abc") == (
+        "https://o2.example.com/web/traces?trace_id=abc"
+    )
+    assert trace_link("https://o2.example.com/web/traces?org_identifier=x", "a b") == (
+        "https://o2.example.com/web/traces?org_identifier=x&trace_id=a%20b"
+    )
+    assert trace_link("https://o2.example.com/web/traces", "") == (
+        "https://o2.example.com/web/traces"
+    )
+
+
+def test_a_snapshot_stored_before_the_rename_still_loads() -> None:
+    # S1 keeps snapshots in harness_views; one written with jaeger_url must not
+    # turn the monitor into a 500 after the upgrade, and is served as trace_url.
+    stored = harness_snapshot(make_run(case_id=CASE), [], None, 0).model_dump()
+    stored["jaeger_url"] = stored.pop("trace_url")
+
+    loaded = HarnessSnapshot.model_validate(stored)
+
+    assert loaded.trace_url == DEFAULT_TRACE_UI_URL
+    assert "jaeger_url" not in loaded.model_dump()
 
 
 def test_the_snapshot_is_exactly_what_s1_accepts() -> None:

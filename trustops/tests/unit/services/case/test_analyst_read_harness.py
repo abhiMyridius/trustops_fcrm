@@ -230,7 +230,7 @@ def test_the_header_shows_the_chain_length_and_whether_it_verified(
 # ── the owner never sees any of it ──────────────────────────────────────────────
 
 #: What a pushed snapshot holds that no owner response may repeat.
-SECRETS = ("trace-9f3a77c1", "secret-agent-output", "assessment agent", "jaeger")
+SECRETS = ("trace-9f3a77c1", "secret-agent-output", "assessment agent", "trace_url")
 
 
 def test_no_owner_route_returns_harness_data(

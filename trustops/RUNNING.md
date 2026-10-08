@@ -168,7 +168,7 @@ The first start already seeds an empty database (80 cases, the 65 closed cases' 
 | The API (same origin) | http://localhost:8080/api/fcrm/... |
 | Vite dev server, hot reload against the live backend | http://localhost:5173 (`cd src/frontend && npm ci && npm run dev`) |
 | Vite dev server against the in-browser mock | `npm run dev:msw` in `src/frontend`; no Docker needed |
-| Grafana, Jaeger, Prometheus | http://localhost:3000, :16686, :9090 after `make up-obs`; Grafana user `admin`, password `GF_SECURITY_ADMIN_PASSWORD` from `.env` |
+| Grafana, Prometheus | http://localhost:3000, :9090 after `make up-obs`; Grafana user `admin`, password `GF_SECURITY_ADMIN_PASSWORD` from `.env`. Traces are in OpenObserve (there is no Jaeger, ADR-71); a dashboard's "Traces (OpenObserve)" link and a metric exemplar open them there |
 | OpenObserve: traces, metrics and logs | http://localhost:5080 after `make up-obs`; sign in with `ZO_ROOT_USER_EMAIL` and `ZO_ROOT_USER_PASSWORD` from `.env`. **Logs**: stream `trustops`; **Traces**: stream `trustops` (an OpenObserve that ignores the stream header for traces files them under `default`); **Metrics**: one stream per metric (`fcrm_agent_tokens_total` and so on). A log line carries its `trace_id`, so you can go from a log to its trace. The same log lines are still on each container's stdout (`docker compose logs api`). To send everything to your team's own OpenObserve instead, see "Send telemetry to your own OpenObserve" below |
 | MongoDB (Compass, mongosh), this machine only | `127.0.0.1:27017`, started by `make up`; use `?authSource=admin&directConnection=true` and the root user from `.env` |
 | RabbitMQ management, MinIO console, OPA | http://localhost:15672, :9001, :8181 after `make up-debug` |
@@ -195,7 +195,10 @@ OPENOBSERVE_PASSWORD=<password>
 # OPENOBSERVE_STREAM=trustops        # optional: the stream for logs and traces
 ```
 
-The collector adds `/v1/traces`, `/v1/metrics` and `/v1/logs` to the address and builds the sign-in header from the user and password. Do not paste a ready-made `Authorization: Basic ...` header into a file: base64 is not encryption, and anyone who reads it has the password. The bundled OpenObserve container still starts (it is part of the `obs` profile) but receives nothing. Leave the three lines out to go back to it.
+The collector adds `/v1/traces`, `/v1/metrics` and `/v1/logs` to the address and builds the sign-in header from the user and password. Do not paste a ready-made `Authorization: Basic ...` header into a file: base64 is not encryption, and anyone who reads it has the password. The bundled OpenObserve container still starts (it is part of the `obs` profile) but receives nothing. Leave the lines out to go back to it.
+
+- **Quote a password that has a `$`, a space or a `#`:** `OPENOBSERVE_PASSWORD='my$ecret #1'`. Unquoted, Docker Compose reads `$x` as a variable and ` #` as the start of a comment and cuts the password there without a warning. `make up-obs` checks for this, for a user set without a password, and for an address without `/api/<organisation>`, and stops with the fix.
+- **The monitor's "Trace in OpenObserve" link** opens the bundled OpenObserve. For your team's, also set `TRACE_UI_URL` to its traces page, for example `TRACE_UI_URL=https://<your-openobserve-host>/web/traces?org_identifier=<organisation>&stream=trustops`.
 
 ## 4. Drive the demo by hand
 
@@ -260,7 +263,7 @@ If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks
 | `pull` | pull the pinned images | no | no | minutes the first time |
 | `up-infra` | mongo, rabbitmq, minio, opa only | starts it | no | about a minute |
 | `up` | build and start the 8-container default stack | starts it | the corpus embedding at `api` start | build a few minutes, `api` about 85 s |
-| `up-obs` | `up` plus otel-collector, Jaeger, Prometheus, Grafana, OpenObserve (13 containers) | starts it | as `up` | as `up` |
+| `up-obs` | `up` plus otel-collector, OpenObserve, Prometheus, Grafana (12 containers); traces, metrics and logs go to OpenObserve. Stops first, with the fix, on an `.env` that would start it wrongly (`ops/scripts/check_obs_env.py`) | starts it | as `up` | as `up` |
 | `up-cache` | `up` plus Redis. **Nothing uses Redis today** (the SSE fan-out is not implemented) | starts it | as `up` | as `up` |
 | `up-debug` | `up` with infrastructure and harness health ports published to the host | starts it | as `up` | as `up` |
 | `up-dev` | bind-mounted source, `uvicorn --reload`, the Vite dev server | starts it | as `up` | as `up` |

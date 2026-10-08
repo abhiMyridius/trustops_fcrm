@@ -8,6 +8,7 @@ import pytest
 from faststream.asgi import AsgiFastStream
 from faststream.rabbit import RabbitBroker
 from fcrm_agents.models import ModelConfigError
+from fcrm_caseflow.settings import DEFAULT_TRACE_UI_URL
 from fcrm_common.broker import FastStreamPublisher
 from fcrm_common.mongo import get_client
 from fcrm_common.settings import MissingSettingsError
@@ -290,3 +291,16 @@ def test_both_bedrock_regions_reach_h2(tmp_path: Path):
     ).agent_worker_settings()
     assert agent.aws_region == "us-east-1"
     assert agent.bedrock_region_fallback == "us-west-2"
+
+
+def test_the_trace_link_url_reaches_h1_and_empty_means_the_default(
+    tmp_path: Path,
+) -> None:
+    team = "https://o2.example.com/web/traces?org_identifier=team"
+    assert (
+        _settings(tmp_path, trace_ui_url=team).caseflow_settings().trace_ui_url == team
+    )
+    assert (
+        _settings(tmp_path, trace_ui_url="").caseflow_settings().trace_ui_url
+        == DEFAULT_TRACE_UI_URL
+    )

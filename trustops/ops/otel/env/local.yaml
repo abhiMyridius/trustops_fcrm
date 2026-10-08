@@ -5,7 +5,7 @@
 service:
   pipelines:
     traces:
-      exporters: [otlp/jaeger, otlphttp/openobserve, debug]
+      exporters: [otlphttp/openobserve, debug]
     metrics:
       exporters: [prometheus, otlphttp/openobserve, debug]
     logs:

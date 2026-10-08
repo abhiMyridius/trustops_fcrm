@@ -277,7 +277,7 @@ async def test_put_harness_sends_the_snapshot_as_a_put_and_returns_the_count(
                         "progress": None,
                     }
                 ],
-                "jaeger_url": "http://localhost:16686/trace/t1",
+                "trace_url": "http://localhost:5080/web/traces?trace_id=t1",
                 "tokens_note": "n",
             },
         }

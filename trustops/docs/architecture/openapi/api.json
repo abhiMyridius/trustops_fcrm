@@ -4536,10 +4536,6 @@
             "title": "Guards",
             "type": "array"
           },
-          "jaeger_url": {
-            "title": "Jaeger Url",
-            "type": "string"
-          },
           "log": {
             "items": {
               "$ref": "#/components/schemas/HarnessLine"
@@ -4564,6 +4560,10 @@
           "trace_id": {
             "title": "Trace Id",
             "type": "string"
+          },
+          "trace_url": {
+            "title": "Trace Url",
+            "type": "string"
           }
         },
         "required": [
@@ -4574,7 +4574,7 @@
           "counters",
           "guards",
           "log",
-          "jaeger_url",
+          "trace_url",
           "tokens_note"
         ],
         "title": "HarnessSnapshot",

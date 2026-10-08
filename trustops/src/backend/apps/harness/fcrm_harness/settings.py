@@ -13,7 +13,11 @@ from __future__ import annotations
 from typing import Any, ClassVar, Literal, Optional
 
 from fcrm_agent_worker.settings import AgentWorkerSettings
-from fcrm_caseflow.settings import DEFAULT_CASE_TOKEN_CAP, CaseflowSettings
+from fcrm_caseflow.settings import (
+    DEFAULT_CASE_TOKEN_CAP,
+    DEFAULT_TRACE_UI_URL,
+    CaseflowSettings,
+)
 from fcrm_common.settings import BaseServiceSettings, S3Settings
 from fcrm_context_worker.settings import ContextSettings
 from fcrm_ingestion_worker.settings import IngestionSettings
@@ -47,6 +51,8 @@ class HarnessSettings(BaseServiceSettings, S3Settings):
         agent_max_tool_calls: Per-job cap on tool calls.
         case_token_cap: Tokens one case may spend across all its agent jobs
             (``CASE_TOKEN_CAP``, ADR-14); H1 enforces it.
+        trace_ui_url: Where the monitor's trace link opens (``TRACE_UI_URL``,
+            OpenObserve's traces page; empty means the default, ADR-68).
 
     The object-store variables (``S3_*``) are :class:`~fcrm_common.settings
     .S3Settings`: H3 reads uploads and writes canonical Markdown, and H1 names
@@ -88,6 +94,7 @@ class HarnessSettings(BaseServiceSettings, S3Settings):
     bedrock_region_fallback: Optional[str] = None
     aws_region: Optional[str] = None
     case_token_cap: int = Field(default=DEFAULT_CASE_TOKEN_CAP, ge=1)
+    trace_ui_url: str = DEFAULT_TRACE_UI_URL
 
     def _shared(self) -> dict[str, Any]:
         """The fields every unit's settings take from the harness."""
@@ -120,6 +127,7 @@ class HarnessSettings(BaseServiceSettings, S3Settings):
             s3_bucket_canonical=self.s3_bucket_canonical,
             prefetch=self.caseflow_prefetch,
             case_token_cap=self.case_token_cap,
+            trace_ui_url=self.trace_ui_url,
         )
         settings.fail_fast()
         return settings

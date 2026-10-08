@@ -25,7 +25,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from fcrm_contracts.api.case_po import Origin, SourceRef, StageStep
 from fcrm_contracts.enums import ChangeType, Domain
@@ -623,7 +623,9 @@ class HarnessSnapshot(_Dto):
     counters: HarnessCounters
     guards: list[GuardStatus] = Field(max_length=MAX_HARNESS_GUARDS)
     log: list[HarnessLine] = Field(max_length=MAX_HARNESS_LINES)
-    jaeger_url: str
+    trace_url: str = Field(validation_alias=AliasChoices("trace_url", "jaeger_url"))
+    """The run's trace in OpenObserve (ADR-68). ``jaeger_url`` is still read so a
+    snapshot stored before the rename loads; it is never written."""
     tokens_note: str
 
 

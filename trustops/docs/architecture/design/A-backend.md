@@ -2,7 +2,7 @@
 
 Status: build-ready, 3 Oct 2026. Audience: the Claude Code subagents that implement `~/Downloads/Hackathon/trustops`. Every contract here is meant to be coded from without a follow-up question. Values the source documents do not give are marked **(proposed)**; everything else traces to the build plan v1.3, decision log v1.3 (D-xx), blueprint/flow map v2, walkthrough v2 seed (P7), or CLAUDE.md.
 
-Fixed decisions this document builds on (not reopened): single monorepo in the brief's layout; Python 3.13 + uv workspace; FastAPI + Pydantic 2; MongoDB 8 one database per service; FastStream + RabbitMQ (aio-pika) as job and event bus; Redis cache-only; Bedrock for models; S3 Vectors for the three indexes with Titan Embed Text v2 (1024-d); files on the S3 API (MinIO locally); AEO components cloned and fixed in-tree; H1 calls S2 over HTTP, agents never score; routing R1–R6 as data evaluated by H1; committee outcome = 2-of-3 identical votes else `no_majority` → thread + re-vote via R6; OpenTelemetry → otel-collector → Jaeger/Prometheus/Grafana locally, ADOT path documented; nothing is approved or rejected automatically.
+Fixed decisions this document builds on (not reopened): single monorepo in the brief's layout; Python 3.13 + uv workspace; FastAPI + Pydantic 2; MongoDB 8 one database per service; FastStream + RabbitMQ (aio-pika) as job and event bus; Redis cache-only; Bedrock for models; S3 Vectors for the three indexes with Titan Embed Text v2 (1024-d); files on the S3 API (MinIO locally); AEO components cloned and fixed in-tree; H1 calls S2 over HTTP, agents never score; routing R1–R6 as data evaluated by H1; committee outcome = 2-of-3 identical votes else `no_majority` → thread + re-vote via R6; OpenTelemetry → otel-collector → Jaeger/Prometheus/Grafana locally (now OpenObserve for traces, metrics and logs and Prometheus/Grafana; Jaeger removed, ADR-68, ADR-71), ADOT path documented; nothing is approved or rejected automatically.
 
 Naming: the component IDs and names from the blueprint naming standard are used throughout (S1 case-service … H4 context-worker, P1–P7, X1–X7, D1–D2). Python import names are `fcrm_*`; distribution names `fcrm-*`; databases `fcrm_*`; the brand name TrustOps appears only in the README and the web UI.
 
@@ -778,7 +778,7 @@ FcrmError(code: str, status: int, detail: str, extra: dict)          # base; nev
   "detail": "Override requires a reason (rule R6)", "instance": "/api/fcrm/cases/FCRM-2026-0151/items/itm_…",
   "code": "rule_violation", "rule_id": "R6", "trace_id": "0af3c1e9…", "errors": [ {"loc":["body","reason"],"msg":"…"} ] }
 ```
-FastAPI's `RequestValidationError` and `HTTPException` are mapped to the same body. Messages never include stack traces or secrets; the `trace_id` links to Jaeger.
+FastAPI's `RequestValidationError` and `HTTPException` are mapped to the same body. Messages never include stack traces or secrets; the `trace_id` links to the trace in OpenObserve.
 
 ### 10.3 Retry, backoff, timeouts per dependency
 
@@ -826,9 +826,9 @@ When `OTEL_EXPORTER_OTLP_ENDPOINT` is set, the same records are also exported as
 | `minio-init` (one-shot) | `minio/mc` | — | — | minio (healthy) | creates buckets `uploads canonical packs vectors jobs`; versioning on `packs` |
 | `opa` | `openpolicyagent/opa:1.x` | 8181 | `GET /health` | — | `./ops/opa/policy:/policy:ro`, `./ops/opa/data:/data:ro` |
 | `otel-collector` (profile `obs`, on by default in `make up`; the four observability containers share it) | `otel/opentelemetry-collector-contrib:0.1xx` | 4317, 4318, 8889 (prom exporter) | `GET :13133` | — | `./ops/otel/collector.yaml:/etc/otelcol/config.yaml:ro` |
-| `jaeger` | `jaegertracing/jaeger:2.x` | 16686 | `GET :16686` | — | — |
+| `openobserve` | `openobserve/openobserve:v1.0.4` | 5080 | `GET /healthz` from the host (distroless image) | — | `openobserve_data` (traces, metrics, logs; Jaeger removed, ADR-71) |
 | `prometheus` | `prom/prometheus:v3.x` | 9090 | `GET /-/ready` | otel-collector | `./ops/prometheus/prometheus.yml:ro` |
-| `grafana` | `grafana/grafana:11.x` | 3000 | `GET /api/health` | prometheus, jaeger | `./ops/grafana/provisioning:ro` (datasources + dashboards: tokens/cost per case & agent, override rate, gate waits, queue depth, outbox lag, eval scores) |
+| `grafana` | `grafana/grafana:11.x` | 3000 | `GET /api/health` | prometheus | `./ops/grafana/provisioning:ro` (datasources + dashboards: tokens/cost per case & agent, override rate, gate waits, queue depth, outbox lag, eval scores) |
 | `identity` | `src/services/identity/Dockerfile` | 8000 | `GET /api/fcrm/auth/readyz` | mongo-init (completed) | `jwt_keys:/keys` |
 | `case` | `src/services/case/Dockerfile` | 8001 | `/readyz` | mongo-init, rabbitmq, redis, minio-init, identity, opa (healthy) | — |
 | `scoring` | `src/services/scoring/Dockerfile` | 8002 | `/readyz` | mongo-init, identity, opa | — |
@@ -873,7 +873,7 @@ AWS deploy path (documented in `ops/aws/README.md`, not built): same images on E
 
 ### 11.5 Observability wiring
 
-`ops/otel/collector.yaml`: receivers `otlp` (gRPC 4317, HTTP 4318); processors `batch`, `resource` (adds `deployment.environment`), `attributes` (drop `http.request.header.authorization`); exporters `otlp/jaeger` (traces → jaeger:4317), `prometheus` (metrics on :8889 scraped by Prometheus), `debug` (logs at `ENV=local`; the AWS path swaps in `awsxray`, `awsemf`, `awscloudwatchlogs`). Every container sets `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`, `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES=service.version=...,component.id=S1`. Pydantic AI instrumentation (`Agent(instrument=True)`) emits GenAI spans with model, tokens and tool calls into the same trace; H2 adds attributes `case_id, run_id, job_id, agent, prompt_v, tier, attempt`.
+`ops/otel/collector.yaml`: receivers `otlp` (gRPC 4317, HTTP 4318); processors `batch`, `resource` (adds `deployment.environment`), `attributes` (drop `http.request.header.authorization`); exporters `otlphttp/openobserve` (traces, metrics and logs; address and login from `OPENOBSERVE_*`, ADR-68), `prometheus` (metrics on :8889 scraped by Prometheus; there is no Jaeger, ADR-71), `debug` (logs at `ENV=local`; the AWS path swaps in `awsxray`, `awsemf`, `awscloudwatchlogs`). Every container sets `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`, `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES=service.version=...,component.id=S1`. Pydantic AI instrumentation (`Agent(instrument=True)`) emits GenAI spans with model, tokens and tool calls into the same trace; H2 adds attributes `case_id, run_id, job_id, agent, prompt_v, tier, attempt`.
 
 ### 11.6 Makefile targets
 

@@ -4,8 +4,8 @@
 #   apps    api (X1 identity and S1–S5 as sub-apps), harness (H1–H4 as workers)
 #   edge    gateway (G1), web (W1)
 # Two opt-in profiles, off unless asked for:
-#   obs     otel-collector, jaeger, prometheus, grafana,
-#           openobserve                                   (`make up-obs`, 13 in all)
+#   obs     otel-collector, openobserve, prometheus,
+#           grafana                                       (`make up-obs`, 12 in all)
 #   cache   redis                                          (`make up-cache`; the api
 #           does not fan out over it yet, SSE is in process, see known-gaps)
 # The system is live-only (ADR-27): agents call Amazon Bedrock, there is no
@@ -350,6 +350,10 @@ services:
       FCRM_LLM_MODE: live
       BEDROCK_REGION_FALLBACK: ${BEDROCK_REGION_FALLBACK:-us-west-2}
       CASE_TOKEN_CAP: ${CASE_TOKEN_CAP:-160000}
+      # The monitor's trace link (ADR-68): OpenObserve's traces page; empty means
+      # the bundled one. Set it to your team's OpenObserve traces page when
+      # OPENOBSERVE_OTLP_ENDPOINT points there.
+      TRACE_UI_URL: ${TRACE_UI_URL:-}
       # The ai/ root, not a path to tiers.yaml or to ai/prompts: both
       # fcrm_agents.models.load_tiers_config and fcrm_prompts.PromptLibrary
       # expect this same root directory (D-15).
@@ -405,12 +409,11 @@ services:
   # ══ Observability (profile `obs`, `make up-obs`; ADR-09, design A §11.5) ═══
   #   otel-collector  OTLP in on 4317 (gRPC) / 4318 (HTTP); Prometheus exporter
   #                   on 8889; health_check extension on 13133
-  #   jaeger          traces UI on 16686 (OTLP from the collector)
   #   prometheus      9090, scrapes the collector and the RabbitMQ plugin
   #   grafana         3000, provisioned datasources + three dashboards
-  #   openobserve     5080, the log store and its search UI (OTLP logs from
-  #                   the collector); sign in with ZO_ROOT_USER_EMAIL and
-  #                   ZO_ROOT_USER_PASSWORD from .env (`make env` generates them)
+  #   openobserve     5080, traces, metrics and logs and their search UI (OTLP
+  #                   from the collector, ADR-68); sign in with ZO_ROOT_USER_EMAIL
+  #                   and ZO_ROOT_USER_PASSWORD from .env (`make env` generates them)
   # `make up-obs` also sets OTEL_EXPORTER_OTLP_ENDPOINT so the api and harness
   # export to the collector; without it they trace in process and export nothing.
   # Grafana admin: user ${GF_SECURITY_ADMIN_USER:-admin}, password
@@ -449,18 +452,6 @@ services:
     # is no in-container healthcheck; `make up-infra` probes :13133 from the
     # host instead, and dependants wait on service_started.
 
-  jaeger:
-    profiles: [obs]
-    image: jaegertracing/jaeger:2.10.0
-    restart: unless-stopped
-    ports:
-      - "${BIND_ADDRESS:-127.0.0.1}:${JAEGER_UI_HOST_PORT:-16686}:16686"
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:16686/"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
   prometheus:
     profiles: [obs]
     image: prom/prometheus:v3.6.0
@@ -490,8 +481,6 @@ services:
     restart: unless-stopped
     depends_on:
       prometheus:
-        condition: service_healthy
-      jaeger:
         condition: service_healthy
     environment:
       GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}

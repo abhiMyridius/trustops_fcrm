@@ -2850,7 +2850,7 @@ def make_harness_push() -> Callable[..., Any]:
                         }
                         for n in range(1, lines + 1)
                     ],
-                    "jaeger_url": f"http://localhost:16686/trace/{trace_id}",
+                    "trace_url": f"http://localhost:5080/web/traces?trace_id={trace_id}",
                     "tokens_note": "Counts come from the agents' recorded usage.",
                 },
             }

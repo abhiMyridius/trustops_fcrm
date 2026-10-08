@@ -103,8 +103,8 @@ export function MonitorPage() {
           </span>
           <Badge tone="info">{h.core}</Badge>
           <Badge tone="neutral">{STREAM_LABEL[stream]}</Badge>
-          <a href={h.jaeger_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[13px] font-semibold text-quantum-leaf">
-            Jaeger <ExternalLink aria-hidden size={12} />
+          <a href={h.trace_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[13px] font-semibold text-quantum-leaf">
+            Trace in OpenObserve <ExternalLink aria-hidden size={12} />
           </a>
         </div>
       </header>

@@ -1,7 +1,8 @@
 # otel-collector (ADR-09, design A §11.5). Every container exports OTLP here
 # (OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318). Traces, metrics and
-# logs all go to OpenObserve (ADR-66, ADR-68); traces also go to Jaeger and
-# metrics are also exposed for Prometheus on :8889, which Grafana reads.
+# logs all go to OpenObserve (ADR-66, ADR-68), the one place to read them;
+# metrics are also exposed for Prometheus on :8889, which Grafana reads. There
+# is no Jaeger (removed, ADR-71).
 #
 # Started with two --config files that the collector merges:
 #   /etc/otelcol/collector.yaml        this file (every environment)
@@ -70,11 +71,6 @@ processors:
         action: delete
 
 exporters:
-  otlp/jaeger:
-    endpoint: jaeger:4317
-    tls:
-      insecure: true
-
   # Metric names are exported exactly as fcrm_common.metrics names them
   # (fcrm_agent_tokens_total, fcrm_gate_wait_seconds, ...): no unit or _total
   # suffix is added, so the Grafana PromQL can rely on the documented names
@@ -123,7 +119,7 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, attributes/redact, resource, batch]
-      exporters: [otlp/jaeger, otlphttp/openobserve]
+      exporters: [otlphttp/openobserve]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, attributes/redact, resource, batch]

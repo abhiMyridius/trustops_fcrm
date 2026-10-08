@@ -24,6 +24,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from typing import Final, Optional, Protocol
+from urllib.parse import quote
 
 import httpx
 from fcrm_common.errors import FcrmError
@@ -40,12 +41,11 @@ from fcrm_contracts.enums import AgentName, CaseState
 from fcrm_guardrails.budget import CASE_TOKEN_CAP, CASE_TOKEN_TARGET
 
 from fcrm_caseflow.budget import CaseLedger
+from fcrm_caseflow.settings import DEFAULT_TRACE_UI_URL
 from fcrm_caseflow.store import CaseRun
 
 logger = logging.getLogger(__name__)
 
-#: Where the trace link points (the compose Jaeger UI).
-JAEGER_UI_URL: Final = "http://localhost:16686"
 
 TOKENS_NOTE: Final = (
     "Token counts are the agents' recorded usage, from the case's token ledger. The "
@@ -226,12 +226,23 @@ def agents_seen(records: Sequence[AuditRecord]) -> int:
     )
 
 
+def trace_link(trace_ui_url: str, trace_id: str) -> str:
+    """The monitor's link to a run's trace in OpenObserve (ADR-68): the traces
+    page with ``trace_id`` added, or the page itself when the run has no trace.
+    """
+    if not trace_id:
+        return trace_ui_url
+    joiner = "&" if "?" in trace_ui_url else "?"
+    return f"{trace_ui_url}{joiner}trace_id={quote(trace_id, safe='')}"
+
+
 def harness_snapshot(
     run: CaseRun,
     records: Sequence[AuditRecord],
     verify: Optional[VerifyResult],
     open_gates: int,
     ledger: Optional[CaseLedger] = None,
+    trace_ui_url: str = DEFAULT_TRACE_UI_URL,
 ) -> HarnessSnapshot:
     """The monitor's snapshot of ``run``: counters from the run, the tokens from
     the case's token ``ledger`` (the run's own ``tokens_used`` counter only when
@@ -264,7 +275,7 @@ def harness_snapshot(
         ),
         guards=guard_rows(records),
         log=[line_of(r) for r in records[-MAX_HARNESS_LINES:]],
-        jaeger_url=f"{JAEGER_UI_URL}/trace/{trace}" if trace else JAEGER_UI_URL,
+        trace_url=trace_link(trace_ui_url, trace),
         tokens_note=TOKENS_NOTE,
     )
 
@@ -328,6 +339,7 @@ class HarnessReporter:
         sink: S1's harness route.
         budgets: Reads the case's token ledger. Without it the monitor falls
             back to the run's ``tokens_used`` counter.
+        trace_ui_url: The traces page the monitor's trace link opens.
     """
 
     def __init__(
@@ -337,12 +349,14 @@ class HarnessReporter:
         chain: ChainReader,
         sink: SnapshotSink,
         budgets: Optional[LedgerReader] = None,
+        trace_ui_url: str = DEFAULT_TRACE_UI_URL,
     ) -> None:
         self._runs = runs
         self._gates = gates
         self._chain = chain
         self._sink = sink
         self._budgets = budgets
+        self._trace_ui_url = trace_ui_url
 
     async def report(self, case_id: str, run_id: str) -> bool:
         """Send the current snapshot of ``run_id``. Returns whether S1 took it.
@@ -369,6 +383,7 @@ class HarnessReporter:
                 verify,
                 await self._gates.count_open_for_run(run_id),
                 ledger,
+                self._trace_ui_url,
             )
             await self._sink.put_harness(
                 case_id, HarnessPush(run_id=run_id, snapshot=snapshot)

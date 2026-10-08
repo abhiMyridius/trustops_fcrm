@@ -49,6 +49,6 @@ export interface HarnessSnapshot {
   };
   guards: GuardStatus[];
   log: HarnessLine[];
-  jaeger_url: string;
+  trace_url: string;
   tokens_note: string;
 }

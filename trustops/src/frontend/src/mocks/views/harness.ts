@@ -116,7 +116,7 @@ export function harness(caseId: string): HarnessSnapshot | null {
     },
     guards,
     log: lines.slice(-200),
-    jaeger_url: `http://localhost:16686/trace/${seed.demo.trace_id}`,
+    trace_url: `http://localhost:5080/web/traces?org_identifier=default&stream=trustops&trace_id=${seed.demo.trace_id}`,
     tokens_note: 'Token counts are replay-fixture estimates in mock mode; live counts come from fcrm_audit.token_records.',
   };
 }

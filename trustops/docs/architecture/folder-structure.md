@@ -8,7 +8,7 @@ Python units follow one template: `pyproject.toml` and an import package `fcrm_<
 trustops/
 ├── README.md  RUNNING.md  BUILD-PLAN.md  CLAUDE.md
 ├── Makefile                           setup, run, seed, quality gates, evals, operations (some targets print "not yet wired")
-├── docker-compose.yaml                the stack: 8 containers; profile obs (otel-collector, jaeger, prometheus, grafana, openobserve), profile cache (redis)
+├── docker-compose.yaml                the stack: 8 containers; profile obs (otel-collector, openobserve, prometheus, grafana), profile cache (redis)
 ├── compose.dev.yaml                   bind mounts, uvicorn --reload, the Vite dev server
 ├── compose.test.yaml                  test overlay: in-memory vectors, dummy embeddings and blank AWS keys for api; project trustops-test
 ├── compose.debug.yaml                 publishes infrastructure and harness health ports to the host (make up-debug)

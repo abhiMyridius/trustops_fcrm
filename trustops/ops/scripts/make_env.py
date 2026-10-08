@@ -81,8 +81,7 @@ COMMON_PORTS = (
     ("MINIO_CONSOLE_HOST_PORT", "MinIO console"),
     ("OPA_HOST_PORT", "OPA policy engine"),
     ("PROMETHEUS_HOST_PORT", "Prometheus"),
-    ("JAEGER_UI_HOST_PORT", "Jaeger traces"),
-    ("OPENOBSERVE_HOST_PORT", "OpenObserve logs"),
+    ("OPENOBSERVE_HOST_PORT", "OpenObserve (traces, metrics, logs)"),
 )
 #: OpenObserve refuses a root password without a lowercase letter, an uppercase
 #: letter, a digit and a special character (it exits on start otherwise). These

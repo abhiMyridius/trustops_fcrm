@@ -36,7 +36,7 @@ Route 53 / ACM  ->  ALB (TLS, WAF, idle timeout 120 s)
 | `rabbitmq` | Amazon MQ for RabbitMQ | Managed broker, same protocol; the code does not change |
 | `minio` | S3 | The code already speaks the S3 API |
 | `redis` | ElastiCache, only if needed | Nothing uses it today (see "Known blockers") |
-| `otel-collector`, Jaeger, Prometheus, Grafana | ADOT collector sidecar to X-Ray, CloudWatch and CloudWatch Logs | The services speak OTLP; only the exporters change (ADR-09) |
+| `otel-collector`, OpenObserve, Prometheus, Grafana | ADOT collector sidecar to X-Ray, CloudWatch and CloudWatch Logs | The services speak OTLP; only the exporters change (ADR-09) |
 
 ## MongoDB
 
@@ -107,7 +107,7 @@ Scope the Bedrock resource ARNs to exactly the profiles and models in `ai/models
 
 ## Observability
 
-Set `OTEL_EXPORTER_OTLP_ENDPOINT` to an ADOT collector sidecar and use the `awsxray`, `awsemf` and `awscloudwatchlogs` exporters in place of the Jaeger and Prometheus ones. The receivers and the credential-redacting processor stay (`ops/otel/collector.yaml`, `ops/otel/env/prod.yaml`). JSON logs go to stdout and the `awslogs` driver. The three Grafana dashboards under `ops/grafana/provisioning/dashboards` read Prometheus metrics; on AWS rebuild them on CloudWatch or run managed Grafana. Not built.
+Set `OTEL_EXPORTER_OTLP_ENDPOINT` to an ADOT collector sidecar and use the `awsxray`, `awsemf` and `awscloudwatchlogs` exporters in place of the OpenObserve and Prometheus ones (or keep `otlphttp/openobserve` pointed at a hosted OpenObserve, ADR-68). The receivers and the credential-redacting processor stay (`ops/otel/collector.yaml`, `ops/otel/env/prod.yaml`). JSON logs go to stdout and the `awslogs` driver. The three Grafana dashboards under `ops/grafana/provisioning/dashboards` read Prometheus metrics; on AWS rebuild them on CloudWatch or run managed Grafana. Not built.
 
 ## Known blockers and limits
 

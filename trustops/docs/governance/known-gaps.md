@@ -198,3 +198,19 @@ Still open:
 
 - **Not run against a real OpenObserve with the composed stack.** The stand-in proves the routing and the login, not that OpenObserve stores and shows the data; `make up-obs` restarts the api, which re-embeds the corpus on Bedrock (ADR-59), so it waits for the operator.
 - With a team instance set, the bundled OpenObserve container still starts and receives nothing.
+
+## O. Jaeger removed, and the OpenObserve edge cases (8 October, appended)
+
+Closed:
+
+- Jaeger is gone (ADR-71): OpenObserve holds traces, metrics and logs; Grafana keeps Prometheus and opens traces in OpenObserve. With the real collector and the new config, one span, one metric and one log reached the OpenObserve stand-in with no export error at all (before, every batch also logged a failed Jaeger export when no Jaeger ran).
+- `make up-obs` refuses, with the fix, an `.env` that would cut the OpenObserve password, a half-set team instance, or an address without the organisation path (D-114).
+- Checked against the real collector: a trailing `/` on the address still posts to `/api/<org>/v1/...`; a refused login (401) and an unreachable OpenObserve each leave the collector running, Prometheus serving and the application unaffected; the password never appears in the collector's log.
+
+Still open:
+
+- **Not run against a real OpenObserve in the composed stack** (as in section N); the same ADR-59 restart cost applies.
+- The monitor's link adds `trace_id` to OpenObserve's traces page; that this opens the one trace directly was not checked against a running OpenObserve (it opens the traces page in any case).
+- A trace or metric sent while OpenObserve is unreachable is retried for a while by the collector, then dropped; there is no persistent queue.
+- A snapshot stored before the rename keeps its old Jaeger link until the run's next step rewrites it.
+- `docs/architecture/design/C-web-tests-ops-sdlc.md` and BUILD-PLAN's decision row 09 still describe the original Jaeger design; they are the design record, and ADR-71 is the change.

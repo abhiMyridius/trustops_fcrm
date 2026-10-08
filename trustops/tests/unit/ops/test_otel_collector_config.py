@@ -16,6 +16,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 OTEL = ROOT / "ops" / "otel"
 COMPOSE = ROOT / "docker-compose.yaml"
+GRAFANA = ROOT / "ops" / "grafana" / "provisioning"
 OPENOBSERVE = "otlphttp/openobserve"
 SIGNALS = ("traces", "metrics", "logs")
 
@@ -73,3 +74,34 @@ def test_compose_defaults_to_the_bundled_openobserve_and_its_root_login() -> Non
         "${OPENOBSERVE_PASSWORD:-${ZO_ROOT_USER_PASSWORD:-}}"
     )
     assert collector["OPENOBSERVE_STREAM"] == "${OPENOBSERVE_STREAM:-trustops}"
+
+
+def test_there_is_no_jaeger_left_to_export_to_or_start() -> None:
+    # ADR-71: OpenObserve is the one trace store. A leftover exporter would
+    # retry against a host that no longer exists and log an error per batch.
+    config = _load(OTEL / "collector.yaml")
+    assert not [name for name in config["exporters"] if "jaeger" in name]
+    for overlay in [OTEL / "collector.yaml", *sorted((OTEL / "env").glob("*.yaml"))]:
+        pipelines = (_load(overlay).get("service") or {}).get("pipelines") or {}
+        for signal, pipeline in pipelines.items():
+            assert not [e for e in pipeline["exporters"] if "jaeger" in e], signal
+
+    services = _load(COMPOSE)["services"]
+    assert "jaeger" not in services
+    assert "jaeger" not in (services["grafana"].get("depends_on") or {})
+
+
+def test_grafana_opens_exemplar_traces_in_openobserve() -> None:
+    datasources = _load(GRAFANA / "datasources" / "datasources.yaml")
+    names = [d["name"] for d in datasources["datasources"]]
+    exemplar = datasources["datasources"][0]["jsonData"]["exemplarTraceIdDestinations"]
+
+    assert names == ["Prometheus"]
+    # The old Jaeger datasource is deleted from a Grafana volume made before.
+    assert {"name": "Jaeger", "orgId": 1} in datasources["deleteDatasources"]
+    # $$ keeps Grafana's provisioning from expanding ${__value.raw} as an
+    # environment variable (it would become an empty trace id).
+    assert exemplar[0]["url"].endswith("&trace_id=$${__value.raw}")
+    assert exemplar[0]["url"].startswith("http://localhost:5080/web/traces?")
+    for dashboard in (GRAFANA / "dashboards").glob("*.json"):
+        assert "jaeger" not in dashboard.read_text().lower(), dashboard.name
