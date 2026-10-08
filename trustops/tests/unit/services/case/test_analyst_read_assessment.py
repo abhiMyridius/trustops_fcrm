@@ -155,6 +155,25 @@ def test_a_handoff_state_reports_the_failed_agent(
     assert summary.agent_failed is not None
 
 
+def test_the_handoff_banner_names_the_agent_from_the_open_gate(
+    assessed_case: AssessedCase,
+    make_handoff_gate: Callable[..., Any],
+    decide_gate: Callable[..., None],
+) -> None:
+    assessed_case.update_record(state=CaseState.HANDOFF, handoff_from=CaseState.REVIEW)
+    make_handoff_gate(agent="research", gate_id="gate_h1", job_id="job_r1")
+    make_handoff_gate(agent="narrative", gate_id="gate_h0", job_id="job_n0")
+    decide_gate("gate_h0", "handoff", "complete")
+    summary = AssessmentSummary.model_validate(get(assessed_case, "assessment"))
+    failed = summary.agent_failed
+    assert failed is not None
+    assert failed.title == "Research step handed to you"
+    assert (
+        failed.reason == "The research agent failed on both tries in the assess stage."
+    )
+    assert [f.gate_id for f in failed.failures] == ["gate_h1"]
+
+
 # ── policy ──────────────────────────────────────────────────────────────────────
 
 

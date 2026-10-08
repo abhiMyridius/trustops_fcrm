@@ -33,7 +33,6 @@ from datetime import date, datetime
 from typing import Any, Final, Optional
 
 from fcrm_contracts.api.case_analyst_read import (
-    AgentFailed,
     AssessmentSummary,
     ClarificationRound,
     ClarificationsView,
@@ -65,6 +64,7 @@ from fcrm_contracts.api.case_analyst_read import (
 from fcrm_contracts.api.case_po import SourceRef
 from fcrm_contracts.enums import CaseState, Domain, ItemKind, ItemStatus
 
+from fcrm_case.domain.analyst_handoff import HandoffGateRow, agent_failed_notice
 from fcrm_case.domain.analyst_records import GapRow, PlannedControlRow
 from fcrm_case.domain.analyst_views import assessment_ready, band_no, score_box
 from fcrm_case.domain.assessment import (
@@ -388,6 +388,8 @@ class AssessmentInputs:
     critic: Optional[CriticViewRow]
     completeness: Optional[CompletenessViewRow]
     decided_gate_ids: frozenset[str]
+    #: The handoff gates still open (read only while the case is in ``handoff``).
+    handoff_gates: Sequence[HandoffGateRow] = ()
 
 
 def assessment_summary(inputs: AssessmentInputs) -> AssessmentSummary:
@@ -434,12 +436,9 @@ def assessment_summary(inputs: AssessmentInputs) -> AssessmentSummary:
         completeness=completeness,
         critic_findings=critic_findings(inputs.critic, inputs.items) if ready else [],
         score=box,
-        agent_failed=AgentFailed(
-            step="agent run",
-            reason="An agent failed twice. The case is with you: nothing was skipped.",
-        )
-        if record.state is CaseState.HANDOFF
-        else None,
+        agent_failed=agent_failed_notice(
+            record.state, record.handoff_from, inputs.handoff_gates
+        ),
     )
 
 

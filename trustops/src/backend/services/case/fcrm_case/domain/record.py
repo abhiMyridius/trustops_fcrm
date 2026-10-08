@@ -98,6 +98,10 @@ class CaseRecord(BaseModel):
     created_by: str
     analyst_id: Optional[str] = None
     state: CaseState = CaseState.INTAKE
+    # The state H1's run was in when an agent failed after its retry and the run
+    # moved to ``handoff`` (H1's ``suspended_from``): where the analyst picks the
+    # step up. Set by the state patch into ``handoff``, cleared by the one out.
+    handoff_from: Optional[CaseState] = None
     change_types: list[ChangeType]
     # The display names behind ``owner``/``analyst_id`` (user ids), stored when
     # the case is created or assigned so a read never calls X1.

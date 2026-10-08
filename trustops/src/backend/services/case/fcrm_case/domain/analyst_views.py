@@ -99,6 +99,8 @@ _STEP: Final[dict[CaseState, int]] = {
     CaseState.CLARIFICATION: 7,
     CaseState.REVIEW: 8,
     CaseState.RECOMMEND: 8,
+    # Only a handoff whose origin is unknown (a case moved there before S1
+    # recorded it) reads from here; one with an origin reads at that stage.
     CaseState.HANDOFF: 8,
     CaseState.DECIDE: 9,
     CaseState.CLOSED: 10,
@@ -111,7 +113,9 @@ STAGE_STATES: Final[dict[str, tuple[CaseState, ...]]] = {
     "assessing": (CaseState.SCREENING, CaseState.ASSESS, CaseState.CRITIC),
     "review": (CaseState.REVIEW,),
     "awaiting_business": (CaseState.CLARIFICATION,),
-    "recommend": (CaseState.RECOMMEND, CaseState.HANDOFF),
+    "recommend": (CaseState.RECOMMEND,),
+    # An agent failed after its retry and the step waits for the analyst (D-116).
+    "handoff": (CaseState.HANDOFF,),
     "committee": (CaseState.DECIDE,),
     "closed": (CaseState.CLOSED,),
 }
@@ -148,10 +152,39 @@ class StageInfo:
     step: int
 
 
-def analyst_stage(state: CaseState, *, locked: bool) -> StageInfo:
-    """The analyst's name for a case in ``state`` (``locked`` splits the
-    recommendation step into drafting and locked-for-handoff).
+HANDOFF_LABEL: Final = "Handed to you"
+
+
+def stage_words(state: CaseState) -> str:
+    """A state as the words a sentence uses (``review_and_submit`` reads
+    ``review and submit``).
     """
+    return state.value.replace("_", " ")
+
+
+def handoff_stage(handoff_from: Optional[CaseState]) -> StageInfo:
+    """A case in ``handoff``: not a step of the lifecycle. An agent failed after
+    its retry in the state the run was in (``handoff_from``) and the analyst
+    finishes that step by hand, so the strip stands at that step (D-116).
+    """
+    if handoff_from is None or handoff_from is CaseState.HANDOFF:
+        return StageInfo("handoff", HANDOFF_LABEL, _STEP[CaseState.HANDOFF])
+    return StageInfo(
+        "handoff",
+        f"{HANDOFF_LABEL} · {stage_words(handoff_from)}",
+        _STEP[handoff_from],
+    )
+
+
+def analyst_stage(
+    state: CaseState, *, locked: bool, handoff_from: Optional[CaseState] = None
+) -> StageInfo:
+    """The analyst's name for a case in ``state`` (``locked`` splits the
+    recommendation step into drafting and locked-for-handoff; ``handoff_from``
+    places a case in ``handoff``, :func:`handoff_stage`).
+    """
+    if state is CaseState.HANDOFF:
+        return handoff_stage(handoff_from)
     step = _STEP[state]
     if state in (CaseState.INTAKE, CaseState.REVIEW_AND_SUBMIT):
         return StageInfo("intake", "Intake (owner)", step)
@@ -163,7 +196,7 @@ def analyst_stage(state: CaseState, *, locked: bool) -> StageInfo:
         return StageInfo("awaiting_business", "Awaiting business", step)
     if state is CaseState.REVIEW:
         return StageInfo("review", "Review", step)
-    if state in STAGE_STATES["recommend"]:
+    if state is CaseState.RECOMMEND:
         if locked:
             return StageInfo("recommend", "Locked · handoff", 9)
         return StageInfo("recommend", "Recommendation", step)
@@ -318,6 +351,7 @@ class QueueRow:
     boundary_flag: bool
     snapshot_purpose: Optional[str]
     critic_count: int
+    handoff_from: Optional[CaseState] = None
 
 
 def due_date(submitted_at: Optional[datetime], state: CaseState) -> Optional[date]:
@@ -345,7 +379,7 @@ def queue_item(row: QueueRow, viewer_id: str) -> QueueItem:
     shown (a seeded row at once, a live one after review has started), else
     ``None``: the web prints "withheld until review".
     """
-    info = analyst_stage(row.state, locked=row.locked)
+    info = analyst_stage(row.state, locked=row.locked, handoff_from=row.handoff_from)
     visible = row.band is not None and (
         row.review_started or row.snapshot_purpose == SEED_PURPOSE
     )
@@ -574,18 +608,45 @@ def ack_message(
     )
 
 
+def handoff_origin(spans: Sequence[StageSpan]) -> Optional[CaseState]:
+    """The state a case in ``handoff`` came from, read from its stage log: the
+    stretch before the current ``handoff`` one. ``None`` when the case is not in
+    ``handoff`` now or the log does not say. The fallback for a case moved to
+    ``handoff`` before S1 recorded ``handoff_from`` on it.
+    """
+    if len(spans) < 2 or spans[-1].state != CaseState.HANDOFF.value:
+        return None
+    try:
+        origin = CaseState(spans[-2].state)
+    except ValueError:
+        return None
+    return None if origin is CaseState.HANDOFF else origin
+
+
+def working_state(record: CaseRecord) -> CaseState:
+    """The state whose work is under way: the case's own, except in ``handoff``,
+    where it is the state the run was suspended from (when known). An agent that
+    failed in ``assess`` has not finished the assessment, so a case handed off
+    there reads as one still in ``assess`` for what has and has not happened.
+    """
+    if record.state is CaseState.HANDOFF and record.handoff_from is not None:
+        return record.handoff_from
+    return record.state
+
+
 def completeness_decision(
     record: CaseRecord, decided: Optional[str] = None
 ) -> Optional[str]:
     """What the analyst decided at the completeness gate: the decision the ledger
     holds (``ask`` or ``proceed``) when there is one; for a case that has none (a
-    seeded one) as far as the case shows: nothing yet before the gate, ``ask`` when
-    a round of questions was sent (the case went to clarification, or came back as
-    a later submission version), else ``proceed``.
+    seeded one) as far as the case shows: nothing yet before the gate (a case
+    handed off before it included), ``ask`` when a round of questions was sent (the
+    case went to clarification, or came back as a later submission version), else
+    ``proceed``.
     """
     if decided in ("ask", "proceed"):
         return decided
-    state = record.state
+    state = working_state(record)
     if state in (
         CaseState.INTAKE,
         CaseState.REVIEW_AND_SUBMIT,
@@ -603,11 +664,12 @@ def completeness_decision(
 
 def assessment_ready(record: CaseRecord, has_completeness_view: bool) -> bool:
     """Whether the assessment core has finished its part: the completeness report
-    exists, or the case is already past it.
+    exists, or the case is already past it (a case handed off before the report
+    is not).
     """
     if has_completeness_view:
         return True
-    return record.state in (
+    return working_state(record) in (
         CaseState.CLARIFICATION,
         CaseState.REVIEW,
         CaseState.RECOMMEND,
@@ -639,7 +701,15 @@ def workbench_header(inputs: HeaderInputs) -> WorkbenchHeader:
     score box's visibility.
     """
     record = inputs.record
-    info = analyst_stage(record.state, locked=record.stage_flags.locked)
+    if record.state is CaseState.HANDOFF and record.handoff_from is None:
+        origin = handoff_origin(inputs.spans)
+        if origin is not None:
+            record = record.model_copy(update={"handoff_from": origin})
+    info = analyst_stage(
+        record.state,
+        locked=record.stage_flags.locked,
+        handoff_from=record.handoff_from,
+    )
     ready = assessment_ready(record, inputs.has_completeness_view)
     box = score_box(
         inputs.snapshot,

@@ -131,7 +131,8 @@ export interface AssessmentSummary {
   };
   critic_findings: CriticFinding[];
   score: ScoreBox;
-  agent_failed: { step: string; reason: string } | null;
+  /** The handoff banner (D-117): `title`, then `reason` (one sentence naming what failed), then `failures` when several. */
+  agent_failed: { step: string; reason: string; title: string; failures: { agent: string; step: string | null; gate_id: string }[] } | null;
 }
 
 /** A job an agent failed twice on, waiting for the analyst (`GET /cases/{id}/handoff/gates`). */

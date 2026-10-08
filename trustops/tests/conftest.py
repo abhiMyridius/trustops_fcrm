@@ -2316,11 +2316,12 @@ def analyst_read(
     case_service: CaseService,
     assessment_store: InMemoryAssessmentStore,
     analyst_store: InMemoryAnalystWriteStore,
+    handoff_store: InMemoryHandoffGateStore,
     act_as: Callable[[Role, str], None],
 ) -> AnalystRead:
-    """The S1 app with the assessment store, the analyst's ledger and the analyst
-    read store wired (all in memory), acting as Rahul Iyer, the analyst of the
-    demo case.
+    """The S1 app with the assessment store, the analyst's ledger, the handoff
+    gates and the analyst read store wired (all in memory), acting as Rahul Iyer,
+    the analyst of the demo case.
     """
     from fcrm_case.analyst_read_store import InMemoryAnalystReadStore
     from fcrm_contracts.enums import Role
@@ -2346,6 +2347,7 @@ def analyst_read(
     app.state.assessment = assessment_store  # type: ignore[attr-defined]
     app.state.analyst_store = analyst_store  # type: ignore[attr-defined]
     app.state.analyst_reads = reads  # type: ignore[attr-defined]
+    app.state.handoffs = handoff_store  # type: ignore[attr-defined]
     act_as(Role.ANALYST, ANALYST_SUB)
     return AnalystRead(case_service, assessment_store, reads, analyst_store)
 

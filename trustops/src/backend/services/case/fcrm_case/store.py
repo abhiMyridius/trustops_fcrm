@@ -212,7 +212,9 @@ class InMemoryCaseStore:
         record = self._cases.get(case_id)
         if record is None:
             return None
-        updated = apply_changes(record, state_changes(patch, utcnow()))
+        updated = apply_changes(
+            record, state_changes(patch, utcnow(), previous=record.state)
+        )
         entry: Optional[ActivityEntry] = None
         if record.state != patch.stage:
             seq = record.activity_seq + 1
@@ -328,7 +330,9 @@ class MongoCaseStore:
                 return None
             previous = CaseState(before["state"])
             changed = previous != patch.stage
-            update: dict[str, Any] = {"$set": state_changes(patch, utcnow())}
+            update: dict[str, Any] = {
+                "$set": state_changes(patch, utcnow(), previous=previous)
+            }
             if changed:
                 update["$inc"] = {"activity_seq": 1}
             updated = await self._cases.find_one_and_update(

@@ -254,6 +254,7 @@ def queue_pipeline(query: QueueQuery) -> list[dict[str, Any]]:
                                 "analyst_name": 1,
                                 "change_types": 1,
                                 "state": 1,
+                                "handoff_from": 1,
                                 "submitted_at": 1,
                                 "review_started_at": 1,
                                 "stage_flags.fast_lane_proposed": 1,
@@ -297,6 +298,9 @@ def queue_row_from_document(doc: dict[str, Any]) -> QueueRow:
         boundary_flag=bool(snap.get("boundary_flag", False)),
         snapshot_purpose=snap.get("purpose"),
         critic_count=int(critic.get("n", 0)),
+        handoff_from=CaseState(doc["handoff_from"])
+        if doc.get("handoff_from")
+        else None,
     )
 
 
@@ -589,6 +593,7 @@ class InMemoryAnalystReadStore:
             boundary_flag=snap.boundary_flag if snap else False,
             snapshot_purpose=snap.purpose if snap else None,
             critic_count=self._critic_counts(record.case_id),
+            handoff_from=record.handoff_from,
         )
 
     async def queue(self, query: QueueQuery) -> QueuePage:

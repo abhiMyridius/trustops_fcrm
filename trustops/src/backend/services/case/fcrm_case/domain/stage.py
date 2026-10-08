@@ -10,7 +10,7 @@ as given; "only the fields that are set change" is all this module enforces.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Final
+from typing import Any, Final, Optional
 
 from fcrm_contracts.api.case_internal import StatePatch, UiActor, UiEventIn
 from fcrm_contracts.enums import CaseState
@@ -30,15 +30,30 @@ _PATCH_FLAGS: Final[tuple[str, ...]] = (
 )
 
 
-def state_changes(patch: StatePatch, now: datetime) -> dict[str, Any]:
+def handoff_changes(previous: CaseState, stage: CaseState) -> dict[str, Any]:
+    """Where a handoff came from (D-116): moving into ``handoff`` records the
+    state the run left (``handoff_from``), leaving it clears that, and a patch
+    that stays in ``handoff`` (a second job failing) keeps the first origin.
+    """
+    if stage is CaseState.HANDOFF:
+        return {} if previous is CaseState.HANDOFF else {"handoff_from": previous}
+    return {"handoff_from": None} if previous is CaseState.HANDOFF else {}
+
+
+def state_changes(
+    patch: StatePatch, now: datetime, previous: Optional[CaseState] = None
+) -> dict[str, Any]:
     """The flat ``{field: value}`` update for ``patch``: ``state`` always,
     ``run_id`` and each stage flag only when the patch sets it, ``closed_at``
-    when the stage is ``closed``. Flag keys are dotted (``stage_flags.locked``)
-    so one flag changes without touching its siblings.
+    when the stage is ``closed``, and :func:`handoff_changes` when the state the
+    case was in (``previous``) is known. Flag keys are dotted
+    (``stage_flags.locked``) so one flag changes without touching its siblings.
     """
     # The enum itself: BSON conversion (``fcrm_common.mongo.to_bson``) writes its
     # value, and the in-memory twin keeps a real ``CaseState`` on the record.
     changes: dict[str, Any] = {"state": patch.stage}
+    if previous is not None:
+        changes.update(handoff_changes(previous, patch.stage))
     if patch.run_id is not None:
         changes["run_id"] = patch.run_id
     for name in _PATCH_FLAGS:
