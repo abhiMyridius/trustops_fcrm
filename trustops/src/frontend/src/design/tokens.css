@@ -115,7 +115,7 @@
   --band-4-text: #8a3324;
 
   /* Typography */
-  --font-sans: 'Montserrat Variable', Montserrat, 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-sans: Montserrat, 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace;
   --tracking-overline: 0.1em;
   --tracking-headline: -0.01em;
