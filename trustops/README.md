@@ -15,7 +15,7 @@ The canonical demo is case **FCRM-2026-0151**: consumer remittances US → Mexic
  analyst / committee: web app ──► gateway ──► api (X1 identity, S1–S5)
 ```
 
-Eight containers: `mongo`, `rabbitmq`, `minio`, `opa`, `api`, `harness`, `gateway`, `web`. Only the gateway (the web app) and MongoDB publish a port on your machine, both on 127.0.0.1. `make up-obs` adds an OpenTelemetry collector, OpenObserve (traces, metrics and logs in one place, or your team's own instance set in `.env`), Prometheus and Grafana.
+Eight containers: `mongo`, `rabbitmq`, `minio`, `opa`, `api`, `harness`, `gateway`, `web`. Only the gateway (the web app) and MongoDB publish a port on your machine, both on 127.0.0.1. `make up-obs` adds an OpenTelemetry collector, OpenObserve (traces, metrics, logs and the three dashboards in one place, or your team's own instance set in `.env`).
 
 - **`api`** hosts identity and the five services as sub-apps of one FastAPI process: S1 case, S2 scoring, S3 policy, S4 audit, S5 decision.
 - **`harness`** hosts four workers on one broker: H1 Caseflow (orchestrator), H2 agent worker, H3 document ingestion, H4 context (vector index) builder.
@@ -51,7 +51,7 @@ ai/      prompts, agent and tool specs, skills, model tiers, guard config, Claud
 docs/    requirements · architecture · governance
 evals/   datasets, results, dashboard; code in src/backend/packages/evals
 tests/   unit · integration (black-box scenarios, contract, live-Mongo, service and worker tests)
-ops/     nginx, OPA, Mongo init, RabbitMQ definitions, otel/grafana, scripts, runbooks, aws (a design), reports
+ops/     nginx, OPA, Mongo init, RabbitMQ definitions, otel/openobserve, scripts, runbooks, aws (a design), reports
 ```
 
 ## Run it

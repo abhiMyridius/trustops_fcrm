@@ -1,0 +1,500 @@
+{
+  "version": 8,
+  "title": "TrustOps · Case throughput",
+  "description": "Case runs moving through Caseflow, human gate waits, the API and the queues (ADR-72).",
+  "tabs": [
+    {
+      "tabId": "default",
+      "name": "Default",
+      "panels": [
+        {
+          "id": "Panel_ID1",
+          "type": "metric",
+          "title": "Cases decided (time range)",
+          "description": "Runs that moved into closed.",
+          "config": {
+            "show_legends": false,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum(increase(fcrm_case_stage_transitions_total{to=\"closed\"}[$__range]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": ""
+              }
+            }
+          ],
+          "layout": {
+            "x": 0,
+            "y": 0,
+            "w": 48,
+            "h": 8,
+            "i": 1
+          }
+        },
+        {
+          "id": "Panel_ID2",
+          "type": "metric",
+          "title": "Cases submitted (time range)",
+          "description": "Runs that moved from intake into triage (case.submitted).",
+          "config": {
+            "show_legends": false,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum(increase(fcrm_case_stage_transitions_total{to=\"triage\"}[$__range]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": ""
+              }
+            }
+          ],
+          "layout": {
+            "x": 48,
+            "y": 0,
+            "w": 48,
+            "h": 8,
+            "i": 2
+          }
+        },
+        {
+          "id": "Panel_ID3",
+          "type": "metric",
+          "title": "Submit-to-decide p50 (hours)",
+          "description": "",
+          "config": {
+            "show_legends": false,
+            "decimals": 1
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "histogram_quantile(0.50, sum by (le) (rate(fcrm_case_submit_to_decide_seconds_bucket[$__range]))) / 3600",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": ""
+              }
+            }
+          ],
+          "layout": {
+            "x": 96,
+            "y": 0,
+            "w": 48,
+            "h": 8,
+            "i": 3
+          }
+        },
+        {
+          "id": "Panel_ID4",
+          "type": "metric",
+          "title": "Outbox lag, worst (s)",
+          "description": "Age of the oldest unpublished outbox row.",
+          "config": {
+            "show_legends": false,
+            "decimals": 1
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "max(fcrm_outbox_lag_seconds)",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": ""
+              }
+            }
+          ],
+          "layout": {
+            "x": 144,
+            "y": 0,
+            "w": 48,
+            "h": 8,
+            "i": 4
+          }
+        },
+        {
+          "id": "Panel_ID5",
+          "type": "h-bar",
+          "title": "Cases entering each state (time range)",
+          "description": "Self-loops that stay in a state are not counted.",
+          "config": {
+            "show_legends": true,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum by (to) (increase(fcrm_case_stage_transitions_total[$__range]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{to}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 0,
+            "y": 8,
+            "w": 96,
+            "h": 18,
+            "i": 5
+          }
+        },
+        {
+          "id": "Panel_ID6",
+          "type": "line",
+          "title": "State transitions per minute",
+          "description": "",
+          "config": {
+            "show_legends": true,
+            "decimals": 2
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum by (to) (rate(fcrm_case_stage_transitions_total[$__rate_interval])) * 60",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{to}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 96,
+            "y": 8,
+            "w": 96,
+            "h": 18,
+            "i": 6
+          }
+        },
+        {
+          "id": "Panel_ID7",
+          "type": "line",
+          "title": "Submit-to-decide (p50, p95, hours)",
+          "description": "",
+          "config": {
+            "show_legends": true,
+            "decimals": 1
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "histogram_quantile(0.50, sum by (le) (rate(fcrm_case_submit_to_decide_seconds_bucket[$__rate_interval]))) / 3600",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "p50"
+              }
+            },
+            {
+              "query": "histogram_quantile(0.95, sum by (le) (rate(fcrm_case_submit_to_decide_seconds_bucket[$__rate_interval]))) / 3600",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "p95"
+              }
+            }
+          ],
+          "layout": {
+            "x": 0,
+            "y": 26,
+            "w": 96,
+            "h": 18,
+            "i": 7
+          }
+        },
+        {
+          "id": "Panel_ID8",
+          "type": "line",
+          "title": "Gate wait p95 by gate type (s)",
+          "description": "How long a human gate stayed open before a decision.",
+          "config": {
+            "show_legends": true,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "histogram_quantile(0.95, sum by (le, gate_type) (rate(fcrm_gate_wait_seconds_bucket[$__rate_interval])))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{gate_type}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 96,
+            "y": 26,
+            "w": 96,
+            "h": 18,
+            "i": 8
+          }
+        },
+        {
+          "id": "Panel_ID9",
+          "type": "line",
+          "title": "HTTP requests per second by service",
+          "description": "",
+          "config": {
+            "show_legends": true,
+            "decimals": 2
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum by (service) (rate(fcrm_http_requests_total[$__rate_interval]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{service}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 0,
+            "y": 44,
+            "w": 96,
+            "h": 18,
+            "i": 9
+          }
+        },
+        {
+          "id": "Panel_ID10",
+          "type": "line",
+          "title": "HTTP latency p95 by service (ms)",
+          "description": "",
+          "config": {
+            "show_legends": true,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "histogram_quantile(0.95, sum by (le, service) (rate(fcrm_http_latency_ms_bucket[$__rate_interval])))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{service}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 96,
+            "y": 44,
+            "w": 96,
+            "h": 18,
+            "i": 10
+          }
+        },
+        {
+          "id": "Panel_ID11",
+          "type": "line",
+          "title": "Work queue depth (RabbitMQ)",
+          "description": "Messages ready per queue, scraped from RabbitMQ by the collector.",
+          "config": {
+            "show_legends": true,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum by (queue) (rabbitmq_queue_messages_ready{queue!~\".*\\\\.dlq\"})",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{queue}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 0,
+            "y": 62,
+            "w": 96,
+            "h": 18,
+            "i": 11
+          }
+        },
+        {
+          "id": "Panel_ID12",
+          "type": "line",
+          "title": "Dead-letter queues (RabbitMQ)",
+          "description": "Anything above zero needs `make dlq` / `make dlq-replay`.",
+          "config": {
+            "show_legends": true,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum by (queue) (rabbitmq_queue_messages_ready{queue=~\".*\\\\.dlq\"})",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{queue}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 96,
+            "y": 62,
+            "w": 96,
+            "h": 18,
+            "i": 12
+          }
+        }
+      ]
+    }
+  ]
+}

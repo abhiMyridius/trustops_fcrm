@@ -67,7 +67,7 @@ def _is_quoted(value: str) -> bool:
     return len(value) >= 2 and value[0] == value[-1] and value[0] in "'\""
 
 
-def _effective(
+def effective(
     name: str, raw: Mapping[str, str], environ: Mapping[str, str]
 ) -> Optional[str]:
     """The value compose would use, roughly: the shell first, then ``.env``;
@@ -82,7 +82,7 @@ def problems(raw: Mapping[str, str], environ: Mapping[str, str]) -> list[str]:
     """Return one message per problem, each naming the fix; empty when fine."""
     found: list[str] = []
     for name in ROOT_LOGIN:
-        if _effective(name, raw, environ) is None:
+        if effective(name, raw, environ) is None:
             found.append(
                 f"{name} is not set (OpenObserve's root login). {ROOT_LOGIN_FIX}"
             )
@@ -98,7 +98,7 @@ def problems(raw: Mapping[str, str], environ: Mapping[str, str]) -> list[str]:
                 f"{name}='...'"
             )
 
-    if _effective("OPENOBSERVE_USER", raw, environ) and not _effective(
+    if effective("OPENOBSERVE_USER", raw, environ) and not effective(
         "OPENOBSERVE_PASSWORD", raw, environ
     ):
         found.append(
@@ -107,7 +107,7 @@ def problems(raw: Mapping[str, str], environ: Mapping[str, str]) -> list[str]:
             "Set OPENOBSERVE_PASSWORD too, or remove OPENOBSERVE_USER."
         )
 
-    endpoint = _effective("OPENOBSERVE_OTLP_ENDPOINT", raw, environ)
+    endpoint = effective("OPENOBSERVE_OTLP_ENDPOINT", raw, environ)
     if endpoint and not re.search(r"/api/[^/]+/?$", endpoint):
         found.append(
             "OPENOBSERVE_OTLP_ENDPOINT must end with the organisation path, for "

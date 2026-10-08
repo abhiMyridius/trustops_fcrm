@@ -1,6 +1,6 @@
 # C4: Containers
 
-The system as built: **eight containers** in the default stack (ADR-26), four more under the `obs` profile and one under the `cache` profile. The design-time layout had one container per service and worker (24 in all); the code kept its units (S1-S5, X1, H1-H4 are still separate packages with their own app factories) but runs them as two Python processes from one image. Source of truth for the container list: `docker-compose.yaml`.
+The system as built: **eight containers** in the default stack (ADR-26), two more under the `obs` profile and one under the `cache` profile. The design-time layout had one container per service and worker (24 in all); the code kept its units (S1-S5, X1, H1-H4 are still separate packages with their own app factories) but runs them as two Python processes from one image. Source of truth for the container list: `docker-compose.yaml`.
 
 ```mermaid
 C4Container
@@ -32,10 +32,8 @@ C4Container
   System_Ext(s3v, "Amazon S3 Vectors", "Backend exists; not in the shipped image")
 
   Container_Boundary(obs, "Profile obs: make up-obs") {
-    Container(otel, "otel-collector", "OpenTelemetry Collector", "OTLP in; traces, metrics and logs to OpenObserve, metrics to Prometheus")
-    Container(o2, "openobserve", "OpenObserve", "Traces, metrics, logs (ADR-68, ADR-71)")
-    Container(prom, "prometheus", "Prometheus 3", "Metrics")
-    Container(grafana, "grafana", "Grafana 11", "Three provisioned dashboards")
+    Container(otel, "otel-collector", "OpenTelemetry Collector", "OTLP/HTTP in; scrapes RabbitMQ; traces, metrics and logs to OpenObserve")
+    Container(o2, "openobserve", "OpenObserve", "Traces, metrics, logs and three dashboards (ADR-68, ADR-71, ADR-72)")
   }
 
   Container(redis, "redis", "Redis 7.4, profile cache", "Started by make up-cache; nothing reads it today")
@@ -64,8 +62,7 @@ C4Container
   Rel(api, otel, "OTLP when make up-obs")
   Rel(harness, otel, "OTLP when make up-obs")
   Rel(otel, o2, "traces, metrics, logs")
-  Rel(otel, prom, "metrics")
-  Rel(grafana, prom, "dashboards")
+  Rel(otel, rabbit, "scrapes queue depths")
   Rel(api, redis, "REDIS_URL, unused")
 ```
 
@@ -81,7 +78,7 @@ C4Container
 | `rabbitmq` | `rabbitmq:4.0-management`, definitions imported at boot | queues | `rabbitmq-diagnostics ping` |
 | `minio` | `bitnamilegacy/minio` pinned, buckets created at boot | objects | marker plus `mc ready` |
 | `opa` | `openpolicyagent/opa:1.15.2-debug` | `ops/opa/policy`, `ops/opa/data` | `GET /health` |
-| `otel-collector`, `openobserve`, `prometheus`, `grafana` | profile `obs` | observability; Jaeger removed (ADR-71) | `grafana`, `prometheus` have health checks; `make up-obs` probes the collector and OpenObserve from the host |
+| `otel-collector`, `openobserve` | profile `obs` | observability; Jaeger, Prometheus and Grafana removed (ADR-71, ADR-72) | `make up-obs` probes the collector and OpenObserve from the host, then loads the dashboards |
 | `redis` | profile `cache` | nothing | `redis-cli ping` |
 
 `compose.debug.yaml` publishes the infrastructure ports and the harness health port; `compose.dev.yaml` swaps `web` for the Vite dev server; `compose.test.yaml` is the test overlay. No init containers exist: `mongo` and `minio` initialise themselves in their entrypoints and report healthy only when done.

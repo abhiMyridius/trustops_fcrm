@@ -6,7 +6,7 @@ Never commit `.env` or `jwt_keys/`. Never read either into a chat, a log or a ti
 
 | Item | Where | How it is made | Who uses it |
 |---|---|---|---|
-| Local service passwords (Mongo root, app, audit writer, evals reader; RabbitMQ; MinIO; Grafana) | `.env`, mode 0600 | `make env` writes random hex values once and never overwrites the file | compose interpolation; each container gets only its own (no blanket `env_file`) |
+| Local service passwords (Mongo root, app, audit writer, evals reader; RabbitMQ; MinIO; OpenObserve root login) | `.env`, mode 0600 | `make env` writes random hex values once and never overwrites the file | compose interpolation; each container gets only its own (no blanket `env_file`) |
 | `SERVICE_TOKEN_SECRET` | `.env` | `make env`, random hex | identity mints HMAC `fcrm_service` tokens for H1, H2 and S5; services verify them |
 | `DEMO_USERS_PASSWORD_HASH` | `.env` | `make env`: a bcrypt hash of `DEMO_PASSWORD` (default `demo-password-2026`), written with `$$` so compose does not expand it | identity: every seeded user shares this hash |
 | JWT signing keypair | `jwt_keys/jwt.pem` and `jwt.pub.pem`, both 0644 in a 0755 folder | `make keys` (RS256, 2048 bits) | `api` reads `/keys/jwt.pem` read-only as its own user (uid 10001), so the key must be readable by others on the host: Docker on Linux and in WSL 2 keeps host permissions, and a 0600 key stops the api at start. A local key for synthetic data only; a deployment takes it from a secret store (`../aws/README.md`) |

@@ -214,3 +214,18 @@ Still open:
 - A trace or metric sent while OpenObserve is unreachable is retried for a while by the collector, then dropped; there is no persistent queue.
 - A snapshot stored before the rename keeps its old Jaeger link until the run's next step rewrites it.
 - `docs/architecture/design/C-web-tests-ops-sdlc.md` and BUILD-PLAN's decision row 09 still describe the original Jaeger design; they are the design record, and ADR-71 is the change.
+
+## P. Prometheus and Grafana removed, metrics recorded, dashboards in OpenObserve (8 October, appended)
+
+Closed:
+
+- The dashboards' metrics are recorded (ADR-72). Before, of the twelve metrics the Grafana dashboards charted, only the outbox lag was recorded, eight were defined and never recorded and three were not defined, so most panels were empty. Now the agent worker, Caseflow, S1 and every mounted service record them, and section O's "Grafana keeps Prometheus" no longer applies: there is no Prometheus or Grafana.
+- Checked on 8 October against a real OpenObserve (v1.0.4) and the real collector (0.135.0) in a separate compose project, with no model call: every metric arrives under its exact name; the three dashboards load through `ops/scripts/openobserve_dashboards.py` (a second run updates them in place) and every panel renders in OpenObserve's UI with synthetic data; RabbitMQ's `rabbitmq_queue_messages_ready` arrives through the collector's scrape (18 work queues, 9 DLQs); `make token-report`'s script reads it all back. The collector config passes `validate` with no gRPC receiver.
+
+Still open:
+
+- **Not run against the composed stack with a real case.** The metrics were proven from fakes and synthetic data; that a live agent job, a case move and an override show on the dashboards waits on `make up-obs` with the api, whose restart re-embeds the corpus on Bedrock (ADR-59).
+- **No per-case cost or token panel.** Metric labels carry no `case_id` (one series per case would grow without bound), so the old "cost by case" panel and token-report table are gone. A case's tokens and cost are in its audit token records and the harness monitor.
+- A metric observation is dropped if a process dies between its transaction's commit and the flush that records it (Caseflow records only after commit, never twice).
+- `fcrm_queue_depth` is still defined but never recorded; queue depths come from RabbitMQ's own `rabbitmq_queue_messages_ready`.
+- The design documents (`docs/architecture/design/A-backend.md`, `C-web-tests-ops-sdlc.md`) and BUILD-PLAN still describe Prometheus, Grafana and a gRPC receiver; they are the design record, and ADR-72 is the change.

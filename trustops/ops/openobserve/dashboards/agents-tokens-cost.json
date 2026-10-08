@@ -1,0 +1,403 @@
+{
+  "version": 8,
+  "title": "TrustOps · Agents, tokens and cost",
+  "description": "Every agent job's tokens, list-price cost, wall time and budget use, recorded by the agent worker (ADR-72). Model is the tiers.yaml label of the model that answered.",
+  "tabs": [
+    {
+      "tabId": "default",
+      "name": "Default",
+      "panels": [
+        {
+          "id": "Panel_ID1",
+          "type": "metric",
+          "title": "Tokens (time range)",
+          "description": "Input (uncached), output and cache tokens of every agent job in the range.",
+          "config": {
+            "show_legends": false,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum(increase(fcrm_agent_tokens_total[$__range]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": ""
+              }
+            }
+          ],
+          "layout": {
+            "x": 0,
+            "y": 0,
+            "w": 48,
+            "h": 8,
+            "i": 1
+          }
+        },
+        {
+          "id": "Panel_ID2",
+          "type": "metric",
+          "title": "Cost USD (time range)",
+          "description": "At the list prices in ai/models/tiers.yaml; an estimate, not an invoice.",
+          "config": {
+            "show_legends": false,
+            "decimals": 4
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum(increase(fcrm_agent_cost_usd_total[$__range]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": ""
+              }
+            }
+          ],
+          "layout": {
+            "x": 48,
+            "y": 0,
+            "w": 48,
+            "h": 8,
+            "i": 2
+          }
+        },
+        {
+          "id": "Panel_ID3",
+          "type": "metric",
+          "title": "Agent jobs (time range)",
+          "description": "Finished agent jobs, whatever their outcome.",
+          "config": {
+            "show_legends": false,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum(increase(fcrm_agent_latency_ms_count[$__range]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": ""
+              }
+            }
+          ],
+          "layout": {
+            "x": 96,
+            "y": 0,
+            "w": 48,
+            "h": 8,
+            "i": 3
+          }
+        },
+        {
+          "id": "Panel_ID4",
+          "type": "metric",
+          "title": "Highest budget use",
+          "description": "Tokens of an agent's last job / its tier's per-attempt budget (1.0 = the budget).",
+          "config": {
+            "show_legends": false,
+            "decimals": 2
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "max(fcrm_budget_used_ratio)",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": ""
+              }
+            }
+          ],
+          "layout": {
+            "x": 144,
+            "y": 0,
+            "w": 48,
+            "h": 8,
+            "i": 4
+          }
+        },
+        {
+          "id": "Panel_ID5",
+          "type": "line",
+          "title": "Tokens per minute by agent",
+          "description": "",
+          "config": {
+            "show_legends": true,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum by (agent) (rate(fcrm_agent_tokens_total[$__rate_interval])) * 60",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{agent}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 0,
+            "y": 8,
+            "w": 96,
+            "h": 18,
+            "i": 5
+          }
+        },
+        {
+          "id": "Panel_ID6",
+          "type": "h-bar",
+          "title": "Tokens by agent and model (time range)",
+          "description": "",
+          "config": {
+            "show_legends": true,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum by (agent, model) (increase(fcrm_agent_tokens_total[$__range]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{agent} · {model}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 96,
+            "y": 8,
+            "w": 96,
+            "h": 18,
+            "i": 6
+          }
+        },
+        {
+          "id": "Panel_ID7",
+          "type": "h-bar",
+          "title": "Cost by agent (time range)",
+          "description": "",
+          "config": {
+            "show_legends": true,
+            "decimals": 4
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum by (agent) (increase(fcrm_agent_cost_usd_total[$__range]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{agent}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 0,
+            "y": 26,
+            "w": 96,
+            "h": 18,
+            "i": 7
+          }
+        },
+        {
+          "id": "Panel_ID8",
+          "type": "h-bar",
+          "title": "Tokens by direction (time range)",
+          "description": "Input is the uncached part; cache_read is the prompt cache at work.",
+          "config": {
+            "show_legends": true,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum by (direction) (increase(fcrm_agent_tokens_total[$__range]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{direction}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 96,
+            "y": 26,
+            "w": 96,
+            "h": 18,
+            "i": 8
+          }
+        },
+        {
+          "id": "Panel_ID9",
+          "type": "line",
+          "title": "Agent latency p95 by agent (ms)",
+          "description": "",
+          "config": {
+            "show_legends": true,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "histogram_quantile(0.95, sum by (le, agent) (rate(fcrm_agent_latency_ms_bucket[$__rate_interval])))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{agent}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 0,
+            "y": 44,
+            "w": 96,
+            "h": 18,
+            "i": 9
+          }
+        },
+        {
+          "id": "Panel_ID10",
+          "type": "line",
+          "title": "Agent latency p50 by agent (ms)",
+          "description": "",
+          "config": {
+            "show_legends": true,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "histogram_quantile(0.50, sum by (le, agent) (rate(fcrm_agent_latency_ms_bucket[$__rate_interval])))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{agent}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 96,
+            "y": 44,
+            "w": 96,
+            "h": 18,
+            "i": 10
+          }
+        }
+      ]
+    }
+  ]
+}

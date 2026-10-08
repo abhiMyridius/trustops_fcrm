@@ -34,7 +34,7 @@ COMPOSE_TEST  := docker compose -p trustops-test -f docker-compose.yaml -f compo
 INFRA := mongo rabbitmq minio opa
 APPS  := api harness
 EDGE  := gateway web
-OBS   := otel-collector openobserve prometheus grafana
+OBS   := otel-collector openobserve
 
 # OPA: a local binary when present (fast), else the pinned image.
 OPA_VERSION := 1.15.2
@@ -127,12 +127,16 @@ up: env keys ## the default stack, 8 containers (mongo rabbitmq minio opa api ha
 obs-env: ## fail early, with the fix, on an .env that would start the observability stack wrongly (no OpenObserve login, a password compose would cut, a half-set team instance)
 	@$(PYTHON) ops/scripts/check_obs_env.py --env-file .env
 
-up-obs: env keys obs-env ## the default stack plus otel-collector, openobserve, prometheus and grafana (12 containers); traces, metrics and logs go to OpenObserve
+up-obs: env keys obs-env ## the default stack plus otel-collector and openobserve (10 containers); traces, metrics and logs go to OpenObserve over OTLP/HTTP
 	$(COMPOSE_OBS) up -d --force-recreate --no-deps opa
 	OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318 $(COMPOSE_OBS) up -d --build
 	@$(WAIT) --timeout 600 --compose "$(COMPOSE_OBS)" $(INFRA) $(OBS) $(APPS) $(EDGE) \
 		--url otel-collector=http://$$($(COMPOSE_OBS) port otel-collector 13133)/ \
 		--url openobserve=http://$$($(COMPOSE_OBS) port openobserve 5080)/healthz
+	@$(PYTHON) ops/scripts/openobserve_dashboards.py --env-file .env --url http://$$($(COMPOSE_OBS) port openobserve 5080)
+
+obs-dashboards: ## (needs `make up-obs`) load or refresh the three TrustOps dashboards in OpenObserve (agents, tokens and cost; case throughput; guards and overrides)
+	@$(PYTHON) ops/scripts/openobserve_dashboards.py --env-file .env
 
 up-cache: env keys ## the default stack plus Redis for SSE fan-out (api uses it via REDIS_URL)
 	$(COMPOSE_CACHE) up -d --force-recreate --no-deps opa
@@ -303,7 +307,7 @@ openapi: ## export the api process's merged OpenAPI (every service under its pre
 	$(UV_RUN) python ops/scripts/export_openapi.py
 
 # ── operations ───────────────────────────────────────────────────────────
-.PHONY: dlq dlq-inspect dlq-replay dlq-purge token-report build-usage backup restore rotate-keys
+.PHONY: dlq dlq-inspect dlq-replay dlq-purge token-report obs-dashboards build-usage backup restore rotate-keys
 # The DLQ tool (ops/scripts/dlq.py) needs only the docker CLI and the stack's
 # container names (trustops-<service>-1): no .env and no `docker compose`. A
 # replayed message gets its retry budget back (x-attempt reset), which the
@@ -327,8 +331,8 @@ dlq-purge: ## delete the parked messages of <q>.dlq (CONFIRM=1 to really do it):
 	@[ -n "$(q)" ] || { echo "usage: make dlq-purge q=<work queue> CONFIRM=1 [id=<message id>]" >&2; exit 2; }
 	@$(DLQ) purge "$(q)" $(if $(id),--message-id "$(id)") $(if $(CONFIRM),--confirm)
 
-token-report: ## (needs `make up-obs`) tokens and cost per agent, model and case from Prometheus → ops/token-analysis/runtime/
-	$(UV_RUN) python ops/scripts/token_report.py --prometheus http://$$($(COMPOSE_OBS) port prometheus 9090)
+token-report: ## (needs `make up-obs`) tokens and cost per agent, model and direction from OpenObserve → ops/token-analysis/runtime/
+	$(UV_RUN) python ops/scripts/token_report.py --env-file .env
 
 build-usage: ## build-time Claude Code token analysis → ops/token-analysis/build/
 	@$(call pending,ops/scripts/claude_usage.py (SDLC harness lane))

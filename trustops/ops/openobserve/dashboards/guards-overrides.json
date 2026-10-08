@@ -1,0 +1,403 @@
+{
+  "version": 8,
+  "title": "TrustOps · Guards and overrides",
+  "description": "The seven guards' verdicts on agent jobs, analysts' overrides of agent proposals, and human gate waits (ADR-72).",
+  "tabs": [
+    {
+      "tabId": "default",
+      "name": "Default",
+      "panels": [
+        {
+          "id": "Panel_ID1",
+          "type": "metric",
+          "title": "Guard blocks (time range)",
+          "description": "Includes Guard 4's retries.",
+          "config": {
+            "show_legends": false,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum(increase(fcrm_guard_results_total{result=\"block\"}[$__range]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": ""
+              }
+            }
+          ],
+          "layout": {
+            "x": 0,
+            "y": 0,
+            "w": 48,
+            "h": 8,
+            "i": 1
+          }
+        },
+        {
+          "id": "Panel_ID2",
+          "type": "metric",
+          "title": "Guard passes (time range)",
+          "description": "",
+          "config": {
+            "show_legends": false,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum(increase(fcrm_guard_results_total{result=\"pass\"}[$__range]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": ""
+              }
+            }
+          ],
+          "layout": {
+            "x": 48,
+            "y": 0,
+            "w": 48,
+            "h": 8,
+            "i": 2
+          }
+        },
+        {
+          "id": "Panel_ID3",
+          "type": "metric",
+          "title": "Overrides (time range)",
+          "description": "Analyst override, adjust or remove of an agent proposal.",
+          "config": {
+            "show_legends": false,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum(increase(fcrm_override_total[$__range]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": ""
+              }
+            }
+          ],
+          "layout": {
+            "x": 96,
+            "y": 0,
+            "w": 48,
+            "h": 8,
+            "i": 3
+          }
+        },
+        {
+          "id": "Panel_ID4",
+          "type": "metric",
+          "title": "Mean gate wait (time range, s)",
+          "description": "",
+          "config": {
+            "show_legends": false,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum(increase(fcrm_gate_wait_seconds_sum[$__range])) / sum(increase(fcrm_gate_wait_seconds_count[$__range]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": ""
+              }
+            }
+          ],
+          "layout": {
+            "x": 144,
+            "y": 0,
+            "w": 48,
+            "h": 8,
+            "i": 4
+          }
+        },
+        {
+          "id": "Panel_ID5",
+          "type": "line",
+          "title": "Guard block rate by guard",
+          "description": "Share of a guard's verdicts that blocked.",
+          "config": {
+            "show_legends": true,
+            "decimals": 2
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum by (guard) (rate(fcrm_guard_results_total{result=\"block\"}[$__rate_interval])) / sum by (guard) (rate(fcrm_guard_results_total[$__rate_interval]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{guard}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 0,
+            "y": 8,
+            "w": 96,
+            "h": 18,
+            "i": 5
+          }
+        },
+        {
+          "id": "Panel_ID6",
+          "type": "h-bar",
+          "title": "Guard verdicts by guard (time range)",
+          "description": "",
+          "config": {
+            "show_legends": true,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum by (guard, result) (increase(fcrm_guard_results_total[$__range]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{guard} · {result}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 96,
+            "y": 8,
+            "w": 96,
+            "h": 18,
+            "i": 6
+          }
+        },
+        {
+          "id": "Panel_ID7",
+          "type": "line",
+          "title": "Override rate by agent",
+          "description": "Overrides per agent job.",
+          "config": {
+            "show_legends": true,
+            "decimals": 2
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum by (agent) (rate(fcrm_override_total[$__rate_interval])) / sum by (agent) (rate(fcrm_agent_latency_ms_count[$__rate_interval]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{agent}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 0,
+            "y": 26,
+            "w": 96,
+            "h": 18,
+            "i": 7
+          }
+        },
+        {
+          "id": "Panel_ID8",
+          "type": "h-bar",
+          "title": "Overrides by agent (time range)",
+          "description": "",
+          "config": {
+            "show_legends": true,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum by (agent) (increase(fcrm_override_total[$__range]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{agent}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 96,
+            "y": 26,
+            "w": 96,
+            "h": 18,
+            "i": 8
+          }
+        },
+        {
+          "id": "Panel_ID9",
+          "type": "line",
+          "title": "Gate wait p50 by gate type (s)",
+          "description": "",
+          "config": {
+            "show_legends": true,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "histogram_quantile(0.50, sum by (le, gate_type) (rate(fcrm_gate_wait_seconds_bucket[$__rate_interval])))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{gate_type}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 0,
+            "y": 44,
+            "w": 96,
+            "h": 18,
+            "i": 9
+          }
+        },
+        {
+          "id": "Panel_ID10",
+          "type": "h-bar",
+          "title": "Mean gate wait by gate type (time range, s)",
+          "description": "",
+          "config": {
+            "show_legends": true,
+            "decimals": 0
+          },
+          "queryType": "promql",
+          "queries": [
+            {
+              "query": "sum by (gate_type) (increase(fcrm_gate_wait_seconds_sum[$__range])) / sum by (gate_type) (increase(fcrm_gate_wait_seconds_count[$__range]))",
+              "customQuery": true,
+              "fields": {
+                "stream": "",
+                "stream_type": "metrics",
+                "x": [],
+                "y": [],
+                "z": [],
+                "filter": {
+                  "filterType": "group",
+                  "logicalOperator": "AND",
+                  "conditions": []
+                }
+              },
+              "config": {
+                "promql_legend": "{gate_type}"
+              }
+            }
+          ],
+          "layout": {
+            "x": 96,
+            "y": 44,
+            "w": 96,
+            "h": 18,
+            "i": 10
+          }
+        }
+      ]
+    }
+  ]
+}

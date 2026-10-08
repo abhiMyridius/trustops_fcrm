@@ -8,7 +8,7 @@ Python units follow one template: `pyproject.toml` and an import package `fcrm_<
 trustops/
 ├── README.md  RUNNING.md  BUILD-PLAN.md  CLAUDE.md
 ├── Makefile                           setup, run, seed, quality gates, evals, operations (some targets print "not yet wired")
-├── docker-compose.yaml                the stack: 8 containers; profile obs (otel-collector, openobserve, prometheus, grafana), profile cache (redis)
+├── docker-compose.yaml                the stack: 8 containers; profile obs (otel-collector, openobserve), profile cache (redis)
 ├── compose.dev.yaml                   bind mounts, uvicorn --reload, the Vite dev server
 ├── compose.test.yaml                  test overlay: in-memory vectors, dummy embeddings and blank AWS keys for api; project trustops-test
 ├── compose.debug.yaml                 publishes infrastructure and harness health ports to the host (make up-debug)
@@ -64,8 +64,8 @@ trustops/
 │   ├── rabbitmq/                      definitions.json  20-fcrm.conf  enabled_plugins  entrypoint.sh
 │   ├── minio/                         entrypoint.sh  init.sh
 │   ├── otel/                          collector.yaml  env/{local,test,prod}.yaml
-│   ├── prometheus/  grafana/          prometheus.yml; provisioned datasources and three dashboards
-│   ├── scripts/                       make_env.py  wait_for_ready.py  seed_reset.py  check_env_contract.py  export_openapi.py  token_report.py
+│   ├── openobserve/dashboards/        three OpenObserve dashboards (agents, tokens and cost; case throughput; guards and overrides; ADR-72)
+│   ├── scripts/                       make_env.py  wait_for_ready.py  seed_reset.py  check_env_contract.py  export_openapi.py  token_report.py  openobserve_client.py  openobserve_dashboards.py
 │   │                                  demo_case_tokens.py  commit_msg_lint.py  governance_append_only.py  mypy_changed.sh  pytest_changed.sh  dev_run.sh
 │   ├── runbooks/                      README + start-stop-reset, dlq-replay, restart-a-worker, bedrock-outage-and-fallbacks, secrets-and-keys,
 │   │                                  backup-restore, verify-the-audit-chain, incident-agent-misbehaviour, release-checklist
@@ -114,6 +114,6 @@ trustops/
             └── test/                  vitest specs, contract ratchet against openapi/api.json
 ```
 
-Counts: 6 services and 4 workers (10 units) in 2 processes · 8 packages · 1 web app · 9 agents · 13 tools · 5 skills · 7 guards · 8 rules · 8 containers by default (12 with `obs`, 9 with `cache`) · 110 API paths · 21 walkthrough scenes · 13 black-box test files for 12 scenarios under `tests/integration/blackbox`, plus six named skips.
+Counts: 6 services and 4 workers (10 units) in 2 processes · 8 packages · 1 web app · 9 agents · 13 tools · 5 skills · 7 guards · 8 rules · 8 containers by default (10 with `obs`, 9 with `cache`) · 110 API paths · 21 walkthrough scenes · 13 black-box test files for 12 scenarios under `tests/integration/blackbox`, plus six named skips.
 
 Not built, though earlier versions of this tree listed them: `tests/e2e`, `tests/resilience`, `tests/perf`, `ops/scripts/{seed_verify,demo,backup,restore,claude_usage}`, `ops/reports/nightly`, `ops/token-analysis`, `docs/architecture/events/` and per-service OpenAPI files (the export is one merged file), `ai/schemas/` content, a `packages/skills` unit (skills are files under `ai/skills` loaded by `fcrm_prompts`), and per-package `CLAUDE.md` files (only the root, `ai/` and `src/frontend/` have one). See `docs/governance/known-gaps.md`.

@@ -6,9 +6,42 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 TrustOps, the Genius Hacks Q3 2026 FCRM Risk Assessment Workbench: FastAPI services, FastStream workers, Pydantic AI agents on Amazon Bedrock, MongoDB 8, RabbitMQ, React 19. Submission is 9 October 2026. The system is built and merged and runs as eight containers; `BUILD-PLAN.md` starts with "Status as built" (where the build departs from the plan and why), the three design documents under `docs/architecture/design/` hold the detail, and `docs/governance/decision-log.md` holds every decision. `RUNNING.md` is how to run it and `docs/governance/known-gaps.md` is what is not done. Only `ai/` and `src/frontend/` have their own `CLAUDE.md`; read it before editing there.
 
+This folder is the project; the git root is one level up (`trustops_fcrm/`) and holds two siblings: `../Documents/` (the approved spec set, copied under `docs/requirements/source/`) and `../FCRM_v2/` (the BA's clickable prototype: reference only, never imported or built on). Run `git` from either level, `make` only from here.
+
 ## Precedence when sources disagree
 
-The brief (`docs/requirements/source/Genius Hacks Q3 2026.html`) for rubric and deliverables → `docs/governance/decision-log.md` (ADR rows) → the team's decision log v1.3 and walkthrough v2 → `BUILD-PLAN.md` and the design documents → the build plan and blueprint HTML → the FCRM_v2 prototype (reference only, lives outside this repo).
+The brief (`docs/requirements/source/Genius Hacks Q3 2026.html`) for rubric and deliverables → `docs/governance/decision-log.md` (ADR rows) → the team's decision log v1.3 and walkthrough v2 → `BUILD-PLAN.md` and the design documents → the build plan and blueprint HTML → the FCRM_v2 prototype (`../FCRM_v2`, reference only).
+
+## Component IDs
+
+The rules, ADRs, `ai/` files and commit messages name components by ID. Paths are under `src/backend/`; `docs/architecture/folder-structure.md` has the full tree.
+
+| ID | Path | What it is |
+|---|---|---|
+| X1 | `services/identity` | JWT, JWKS, roles (clone of AEO identity; `UPSTREAM.md`) |
+| S1 | `services/case` | case record, PO / analyst / internal routes, SSE, the PO fence |
+| S2 | `services/scoring` | the deterministic engine and routing rules R1–R6 as data |
+| S3 | `services/policy` | policy corpus, precedents, search (imports H4 as a library) |
+| S4 | `services/audit` | hash-chained audit, examiner, analytics |
+| S5 | `services/decision` | packs, votes, threads, outcomes (`fcrm_contracts.voting.tally`) |
+| H1 | `workers/caseflow` | Caseflow: the step engine, gates, routing; calls the services over HTTP |
+| H2 | `workers/agent-worker` | runs the nine agents (Pydantic AI on Bedrock) |
+| H3 / H4 | `workers/ingestion-worker`, `workers/context-worker` | AEO clones: ingestion; context and vector search (`UPSTREAM.md`) |
+| shared | `packages/{contracts,common,guardrails,agents,tools,prompts-loader,seed,evals}` | contracts, settings / outbox / broker, the seven guards, context packs, tools, prompt loader, the P7 seed, the eval runner |
+
+Eight containers: `mongo`, `rabbitmq`, `minio`, `opa`, `api` (X1 and S1–S5), `harness` (H1–H4), `gateway` (nginx, `:8080`, the entry point for web and API) and `web`; profiles `obs` and `cache` add more. `api` and `harness` share the image `trustops/backend:local`, which only `api` builds; `harness` carries `pull_policy: never` so `make pull` (`--ignore-buildable`) does not try a registry for it.
+
+## How a case moves
+
+- A service never publishes to RabbitMQ inside a request. It writes its state and an outbox row in one Mongo transaction (`fcrm_common.outbox`), and the relay publishes the row later, at least once. Consumers must therefore tolerate redelivery.
+- The RabbitMQ topology is owned by ops (`ops/rabbitmq/definitions.json`). Code connects passively and repeats the names only in each worker's `topology.py`. A new queue or binding goes in `definitions.json` first.
+- H1 Caseflow consumes three queues:
+  - `caseflow.events`: everything on `case.events`, bound with `#`. Unmapped event types are acknowledged as no-ops.
+  - `caseflow.agent-results`: `agent.done` and `agent.failed` from H2.
+  - `caseflow.steps`: its own `harness.step` work.
+- The state machine is a pure reducer: `transitions.py` holds the transition table transcribed from design A §3.1, with guards tried in order. `routing.py` evaluates R1–R6 as plain functions over the pinned rules data. `engine.py` applies a transition, then chains at most one legal internal trigger; `CaseRun.dispatched_in_state` stops self-loops from re-firing.
+- Work that needs HTTP is enqueued as a `harness.step` in the same transaction as the transition and runs outside it (ADR-28). Agent jobs go to H2 on `agent-worker.run` (exchange `agent.jobs`, key `agent.run`).
+- H3 and H4 consume `ingestion-worker.run` and `context-worker.run`. Their `ingest.done` and `index.built` results are not published yet.
 
 ## Rules that apply everywhere
 
@@ -34,7 +67,7 @@ Run from this folder (the one with the `Makefile`). Python runs through the work
 ```bash
 make bootstrap     # opa binary, uv sync, git hooks, pull images
 make env && make keys   # .env with generated secrets, the JWT keypair (never overwrite); add AWS keys to .env yourself
-make up / down     # the stack: 8 containers (make up-obs adds 4 observability containers, make up-debug publishes the infrastructure ports); make down-v also deletes the data
+make up / down     # the stack: 8 containers (make up-obs adds otel-collector (OTLP/HTTP only) and OpenObserve at :5080, which holds traces, metrics, logs and the three dashboards; no Prometheus, Grafana or Jaeger (ADR-72); make up-debug publishes the infrastructure ports); make down-v also deletes the data
 make seed          # reload the 80-case seed and stage the demo PDFs; make demo-reset re-runs only case 0151
 make check         # commit gate: ruff, format, mypy, OPA check and 121 Rego tests, ai/ registry and model-id guards, 7,689 unit tests, env contract, web tsc and 164 vitest tests (about 6 minutes)
 make test-int      # every integration-marked test under tests/: tests/integration on Docker or FCRM_TEST_MONGO_URI, plus the *_live.py tests under tests/unit, which skip (loudly announced) without FCRM_TEST_MONGO_URI; make gate = check + test-int + eval dataset and self-check
@@ -43,6 +76,8 @@ make openapi       # export docs/architecture/openapi/api.json; run it after ANY
 make dlq-replay q=caseflow.steps   # move <q>.dlq back onto <q>; make dlq lists the DLQs
 uv run --project src/backend --package fcrm-scoring-service pytest tests/unit/services/scoring -k golden   # one unit, one selection (the 9.8 to 10.4 goldens)
 ```
+
+Web: `src/frontend/CLAUDE.md` has the npm commands (Node 22 must be on `PATH`, and it says how). `make web-check` is the web half of `make check`; it skips, loudly, when `src/frontend/node_modules` is missing, so run `make web-install` once per checkout or a green `make check` has not run the web tests.
 
 Not wired, print "not yet wired": `nightly`, `contracts`, `api-gen`, `locks`, `build-usage`, `backup`, `restore`. `make demo` drives case 0151 through all 21 scenes on the live stack and `make e2e` adds the live black-box rules and the Playwright scenes; both call Bedrock and cost money, so ask the operator first (ADR-59).
 

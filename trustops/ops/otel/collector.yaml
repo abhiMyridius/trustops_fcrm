@@ -1,8 +1,9 @@
-# otel-collector (ADR-09, design A §11.5). Every container exports OTLP here
-# (OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318). Traces, metrics and
-# logs all go to OpenObserve (ADR-66, ADR-68), the one place to read them;
-# metrics are also exposed for Prometheus on :8889, which Grafana reads. There
-# is no Jaeger (removed, ADR-71).
+# otel-collector (ADR-09, design A §11.5). Every container exports OTLP/HTTP
+# here (OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318). Traces, metrics
+# and logs all go to OpenObserve (ADR-66, ADR-68, ADR-72), the one place to
+# read them and the one dashboard. There is no Jaeger, Prometheus or Grafana
+# (removed, ADR-71 and ADR-72), and no gRPC receiver: the api and harness send
+# OTLP over HTTP (ADR-72).
 #
 # Started with two --config files that the collector merges:
 #   /etc/otelcol/collector.yaml        this file (every environment)
@@ -34,10 +35,21 @@ extensions:
 receivers:
   otlp:
     protocols:
-      grpc:
-        endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
+
+  # RabbitMQ's own queue metrics (its rabbitmq_prometheus plugin on :15692),
+  # scraped by the collector itself and sent to OpenObserve with the rest
+  # (ADR-72): messages ready per queue, including every .dlq. Nothing inside the
+  # app knows queue depths, and there is no Prometheus server any more.
+  prometheus/rabbitmq:
+    config:
+      scrape_configs:
+        - job_name: rabbitmq
+          scrape_interval: 15s
+          metrics_path: /metrics/per-object
+          static_configs:
+            - targets: ["rabbitmq:15692"]
 
 processors:
   memory_limiter:
@@ -71,28 +83,17 @@ processors:
         action: delete
 
 exporters:
-  # Metric names are exported exactly as fcrm_common.metrics names them
-  # (fcrm_agent_tokens_total, fcrm_gate_wait_seconds, ...): no unit or _total
-  # suffix is added, so the Grafana PromQL can rely on the documented names
-  # (histograms still get _bucket/_sum/_count). Resource attributes
-  # (service.name, component.id, deployment.environment) become labels.
-  prometheus:
-    endpoint: 0.0.0.0:8889
-    add_metric_suffixes: false
-    resource_to_telemetry_conversion:
-      enabled: true
-    metric_expiration: 30m
-
   # Defined here, wired only by env/local.yaml.
   debug:
     verbosity: basic
 
-  # OpenObserve (ADR-66, ADR-68): one exporter for all three signals. The
-  # endpoint is the organisation path, and the exporter appends /v1/traces,
+  # OpenObserve (ADR-66, ADR-68, ADR-72): one exporter for all three signals.
+  # The endpoint is the organisation path, and the exporter appends /v1/traces,
   # /v1/metrics or /v1/logs. Logs land in the OPENOBSERVE_STREAM stream, and
   # traces too where OpenObserve honours the header (else `default`); metrics
-  # are stored per metric name, searchable at
-  # http://localhost:5080 for the bundled container. The JSON each container
+  # are stored per metric name exactly as fcrm_common.metrics names them
+  # (fcrm_agent_tokens_total, fcrm_gate_wait_seconds, ...), searchable and
+  # chartable at http://localhost:5080 for the bundled container. The JSON each container
   # writes to stdout stays the log system of record (design A §10.7), and the
   # AWS path ships that to CloudWatch instead of using this exporter.
   otlphttp/openobserve:
@@ -109,21 +110,15 @@ service:
       level: info
     metrics:
       level: normal
-      readers:
-        - pull:
-            exporter:
-              prometheus:
-                host: 0.0.0.0
-                port: 8888
   pipelines:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, attributes/redact, resource, batch]
       exporters: [otlphttp/openobserve]
     metrics:
-      receivers: [otlp]
+      receivers: [otlp, prometheus/rabbitmq]
       processors: [memory_limiter, attributes/redact, resource, batch]
-      exporters: [prometheus, otlphttp/openobserve]
+      exporters: [otlphttp/openobserve]
     logs:
       receivers: [otlp]
       processors: [memory_limiter, attributes/redact, resource, batch]

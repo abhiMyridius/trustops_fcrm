@@ -18,6 +18,25 @@ _SPEC.loader.exec_module(check_obs_env)
 
 LOGIN = "ZO_ROOT_USER_EMAIL=admin@trustops.example\nZO_ROOT_USER_PASSWORD=Oo-a1b2\n"
 
+_OBS_NAMES = (
+    "ZO_ROOT_USER_EMAIL",
+    "ZO_ROOT_USER_PASSWORD",
+    "OPENOBSERVE_USER",
+    "OPENOBSERVE_PASSWORD",
+    "OPENOBSERVE_OTLP_ENDPOINT",
+    "OPENOBSERVE_STREAM",
+)
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``main()`` reads ``os.environ`` (a shell variable wins over ``.env``),
+    and a developer's own ``.env`` can reach the test process through an
+    import that loads it, so a machine with an OpenObserve login set made the
+    missing-file test pass the check it should fail. Clear the names here."""
+    for name in _OBS_NAMES:
+        monkeypatch.delenv(name, raising=False)
+
 
 def _problems(
     tmp_path: Path, text: str, environ: dict[str, str] | None = None

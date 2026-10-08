@@ -168,8 +168,8 @@ The first start already seeds an empty database (80 cases, the 65 closed cases' 
 | The API (same origin) | http://localhost:8080/api/fcrm/... |
 | Vite dev server, hot reload against the live backend | http://localhost:5173 (`cd src/frontend && npm ci && npm run dev`) |
 | Vite dev server against the in-browser mock | `npm run dev:msw` in `src/frontend`; no Docker needed |
-| Grafana, Prometheus | http://localhost:3000, :9090 after `make up-obs`; Grafana user `admin`, password `GF_SECURITY_ADMIN_PASSWORD` from `.env`. Traces are in OpenObserve (there is no Jaeger, ADR-71); a dashboard's "Traces (OpenObserve)" link and a metric exemplar open them there |
-| OpenObserve: traces, metrics and logs | http://localhost:5080 after `make up-obs`; sign in with `ZO_ROOT_USER_EMAIL` and `ZO_ROOT_USER_PASSWORD` from `.env`. **Logs**: stream `trustops`; **Traces**: stream `trustops` (an OpenObserve that ignores the stream header for traces files them under `default`); **Metrics**: one stream per metric (`fcrm_agent_tokens_total` and so on). A log line carries its `trace_id`, so you can go from a log to its trace. The same log lines are still on each container's stdout (`docker compose logs api`). To send everything to your team's own OpenObserve instead, see "Send telemetry to your own OpenObserve" below |
+| Dashboards | in OpenObserve (below), under **Dashboards**: "TrustOps · Agents, tokens and cost", "TrustOps · Case throughput" and "TrustOps · Guards and overrides". `make up-obs` loads them, and `make obs-dashboards` reloads them after a change to `ops/openobserve/dashboards/`. There is no Prometheus, Grafana or Jaeger (ADR-71, ADR-72) |
+| OpenObserve: traces, metrics and logs | http://localhost:5080 after `make up-obs`; sign in with `ZO_ROOT_USER_EMAIL` and `ZO_ROOT_USER_PASSWORD` from `.env`. **Logs**: stream `trustops`; **Traces**: stream `trustops` (an OpenObserve that ignores the stream header for traces files them under `default`); **Metrics**: one stream per metric (`fcrm_agent_tokens_total` and so on, plus RabbitMQ's `rabbitmq_queue_messages_ready`), queried with PromQL in the Metrics tab or on the dashboards. A log line carries its `trace_id`, so you can go from a log to its trace. The same log lines are still on each container's stdout (`docker compose logs api`). To send everything to your team's own OpenObserve instead, see "Send telemetry to your own OpenObserve" below |
 | MongoDB (Compass, mongosh), this machine only | `127.0.0.1:27017`, started by `make up`; use `?authSource=admin&directConnection=true` and the root user from `.env` |
 | RabbitMQ management, MinIO console, OPA | http://localhost:15672, :9001, :8181 after `make up-debug` |
 
@@ -263,7 +263,7 @@ If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks
 | `pull` | pull the pinned images | no | no | minutes the first time |
 | `up-infra` | mongo, rabbitmq, minio, opa only | starts it | no | about a minute |
 | `up` | build and start the 8-container default stack | starts it | the corpus embedding at `api` start | build a few minutes, `api` about 85 s |
-| `up-obs` | `up` plus otel-collector, OpenObserve, Prometheus, Grafana (12 containers); traces, metrics and logs go to OpenObserve. Stops first, with the fix, on an `.env` that would start it wrongly (`ops/scripts/check_obs_env.py`) | starts it | as `up` | as `up` |
+| `up-obs` | `up` plus otel-collector and OpenObserve (10 containers); traces, metrics and logs go to OpenObserve over OTLP/HTTP (port 4318; there is no gRPC receiver), and the three dashboards are loaded. Stops first, with the fix, on an `.env` that would start it wrongly (`ops/scripts/check_obs_env.py`) | starts it | as `up` | as `up` |
 | `up-cache` | `up` plus Redis. **Nothing uses Redis today** (the SSE fan-out is not implemented) | starts it | as `up` | as `up` |
 | `up-debug` | `up` with infrastructure and harness health ports published to the host | starts it | as `up` | as `up` |
 | `up-dev` | bind-mounted source, `uvicorn --reload`, the Vite dev server | starts it | as `up` | as `up` |
@@ -293,7 +293,8 @@ If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks
 | `dlq-inspect q=<queue>` | show what is parked in `<queue>.dlq` (type, error, attempt, preview) | yes | no | seconds |
 | `dlq-replay q=<queue>` | move `<queue>.dlq` back onto `<queue>` (`ops/scripts/dlq.py`) | yes | no | seconds |
 | `dlq-purge q=<queue> CONFIRM=1` | delete the parked messages of `<queue>.dlq` (refused without `CONFIRM=1`) | yes | no | seconds |
-| `token-report` | per-agent tokens and cost from Prometheus into `ops/token-analysis/runtime/` | needs `up-obs` | no | seconds |
+| `token-report` | per-agent tokens, cost, latency and budget use from OpenObserve into `ops/token-analysis/runtime/` (no per-case table: metrics carry no `case_id`) | needs `up-obs` | no | seconds |
+| `obs-dashboards` | load or refresh the three OpenObserve dashboards from `ops/openobserve/dashboards/` (matched by title, updated in place) | needs `up-obs` | no | seconds |
 | `rotate-keys` | `keys FORCE=1`, then restart `api`; everyone signs in again | yes | no | the `api` restart, about 85 s |
 | `seed-verify` | the live stack holds the seed: 80 cases, the stage distribution, the demo case untouched, a chain that verifies | yes | no | seconds |
 | `verify case=<id>` | verify one case's audit chain through S4 | yes | no | seconds |
@@ -396,6 +397,8 @@ On 6 October 2026 `make check` was green on the tree of `53a1476`: 7707 passed, 
 | `api` fails asking for `DEMO_USERS_PASSWORD_HASH` | `.env` predates D-25: move it aside and run `make env` |
 | `make up-obs` stops with `obs-env: .env has no ZO_ROOT_USER_PASSWORD` | an older `.env` (`make env` never overwrites): add `ZO_ROOT_USER_EMAIL=admin@trustops.example` and `ZO_ROOT_USER_PASSWORD=Oo-` followed by the output of `openssl rand -hex 14`; OpenObserve needs upper and lower case, a digit and a symbol |
 | OpenObserve restarts and its log says the password is too weak | `ZO_ROOT_USER_PASSWORD` lacks a character class; fix `.env`, then `make down-v` (the login is stored on the first start, and `down-v` deletes the stored logs too) |
+| `make up-obs` ends with `obs-dashboards: GET /dashboards answered 401` | the OpenObserve login in `.env` is not the one the container was created with (it is stored on the first start): put the original back, or `make down-v` and start again; then `make obs-dashboards` |
+| A dashboard panel says "No data" | nothing has recorded that metric in the time range yet: the agent panels fill when an agent job runs, the case panels when a case moves, the guard and override panels when a guard rules or an analyst overrides. Widen the time range (top right) |
 | `up` stops naming `MONGO_EVALS_READER_PASSWORD` | an older `.env`: add the line `MONGO_EVALS_READER_PASSWORD=` followed by any URL-safe string (`openssl rand -hex 16`); no `down-v` needed |
 | The login page shows a password form, not the picker | identity serves the picker only when `DEMO_USERS_ENABLED=true` and `ENV` is `local`, `test` or `ci`. Use `riyer` and the demo password |
 | Dev server says `Port 5173 is already in use` | an earlier `npm run dev` survives: `kill $(lsof -tnP -iTCP:5173 -sTCP:LISTEN)` (or `fuser -k 5173/tcp` on Linux) |
@@ -435,7 +438,7 @@ The full list, each item with its evidence, is `docs/governance/known-gaps.md`. 
 
 | File | Purpose |
 |---|---|
-| `docker-compose.yaml` | the whole stack; profile `obs` adds the five observability containers, profile `cache` adds Redis |
+| `docker-compose.yaml` | the whole stack; profile `obs` adds the two observability containers (otel-collector, OpenObserve), profile `cache` adds Redis |
 | `compose.debug.yaml` | publishes RabbitMQ (:5672, :15672), MinIO (:9000, :9001), OPA (:8181), Redis and the harness health port (:9100) to the host. `make up-debug` |
 | `compose.dev.yaml` | bind mounts, `uvicorn --reload`, the Vite dev server, DEBUG logs. `make up-dev` |
 | `compose.test.yaml` | the test stack: in-memory vectors, dummy embeddings for `api`, AWS keys blanked for `api`; project `trustops-test`. Agents still call live Bedrock. The environment check validates it; no make target starts it today |

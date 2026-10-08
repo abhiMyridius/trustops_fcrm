@@ -40,7 +40,6 @@ USERNAMES = {
     "MONGO_INITDB_ROOT_USERNAME": "fcrm_root",
     "RABBITMQ_DEFAULT_USER": "fcrm",
     "MINIO_ROOT_USER": "fcrm-minio",
-    "GF_SECURITY_ADMIN_USER": "admin",
     "ZO_ROOT_USER_EMAIL": "admin@trustops.example",
 }
 SECRETS = (
@@ -50,7 +49,6 @@ SECRETS = (
     "MONGO_APP_PASSWORD",
     "RABBITMQ_DEFAULT_PASS",
     "MINIO_ROOT_PASSWORD",
-    "GF_SECURITY_ADMIN_PASSWORD",
     "ZO_ROOT_USER_PASSWORD",
     "SERVICE_TOKEN_SECRET",
 )
@@ -72,7 +70,6 @@ AWS_SESSION_TOKEN = "AWS_SESSION_TOKEN"
 #: Host ports that most often clash with other local stacks, with what each is.
 COMMON_PORTS = (
     ("GATEWAY_HOST_PORT", "the app and API"),
-    ("GRAFANA_HOST_PORT", "Grafana dashboards"),
     ("MONGO_HOST_PORT", "MongoDB"),
     ("RABBITMQ_HOST_PORT", "RabbitMQ"),
     ("RABBITMQ_MGMT_HOST_PORT", "RabbitMQ admin UI"),
@@ -80,7 +77,6 @@ COMMON_PORTS = (
     ("MINIO_HOST_PORT", "MinIO (local S3)"),
     ("MINIO_CONSOLE_HOST_PORT", "MinIO console"),
     ("OPA_HOST_PORT", "OPA policy engine"),
-    ("PROMETHEUS_HOST_PORT", "Prometheus"),
     ("OPENOBSERVE_HOST_PORT", "OpenObserve (traces, metrics, logs)"),
 )
 #: OpenObserve refuses a root password without a lowercase letter, an uppercase

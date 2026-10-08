@@ -1,5 +1,5 @@
 """``ops/otel``: every signal reaches OpenObserve, configured only from the
-environment (ADR-66, ADR-68).
+environment (ADR-66, ADR-68, ADR-72).
 
 Read as YAML, so the routing is pinned without starting a collector. The
 end-to-end check (real collector, real ``init_otel``) is recorded in
@@ -16,7 +16,6 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 OTEL = ROOT / "ops" / "otel"
 COMPOSE = ROOT / "docker-compose.yaml"
-GRAFANA = ROOT / "ops" / "grafana" / "provisioning"
 OPENOBSERVE = "otlphttp/openobserve"
 SIGNALS = ("traces", "metrics", "logs")
 
@@ -76,32 +75,30 @@ def test_compose_defaults_to_the_bundled_openobserve_and_its_root_login() -> Non
     assert collector["OPENOBSERVE_STREAM"] == "${OPENOBSERVE_STREAM:-trustops}"
 
 
-def test_there_is_no_jaeger_left_to_export_to_or_start() -> None:
-    # ADR-71: OpenObserve is the one trace store. A leftover exporter would
-    # retry against a host that no longer exists and log an error per batch.
+def test_only_openobserve_is_left_no_jaeger_prometheus_or_grafana() -> None:
+    """ADR-71 and ADR-72: one store and one screen for every signal."""
     config = _load(OTEL / "collector.yaml")
-    assert not [name for name in config["exporters"] if "jaeger" in name]
-    for overlay in [OTEL / "collector.yaml", *sorted((OTEL / "env").glob("*.yaml"))]:
-        pipelines = (_load(overlay).get("service") or {}).get("pipelines") or {}
-        for signal, pipeline in pipelines.items():
-            assert not [e for e in pipeline["exporters"] if "jaeger" in e], signal
+    gone = ("jaeger", "prometheus", "grafana")
+
+    assert not [name for name in config["exporters"] if any(g in name for g in gone)]
+    for signal in SIGNALS:
+        exporters = config["service"]["pipelines"][signal]["exporters"]
+        assert exporters == [OPENOBSERVE], signal
+    # The collector's own telemetry no longer opens a Prometheus pull port.
+    assert "readers" not in config["service"]["telemetry"]["metrics"]
 
     services = _load(COMPOSE)["services"]
-    assert "jaeger" not in services
-    assert "jaeger" not in (services["grafana"].get("depends_on") or {})
+    assert not [name for name in services if any(g in name for g in gone)]
+    assert not (ROOT / "ops" / "grafana").exists()
+    assert not (ROOT / "ops" / "prometheus").exists()
 
 
-def test_grafana_opens_exemplar_traces_in_openobserve() -> None:
-    datasources = _load(GRAFANA / "datasources" / "datasources.yaml")
-    names = [d["name"] for d in datasources["datasources"]]
-    exemplar = datasources["datasources"][0]["jsonData"]["exemplarTraceIdDestinations"]
+def test_the_collector_receives_otlp_over_http_only() -> None:
+    """ADR-72: the api and harness speak OTLP/HTTP, so no gRPC listener."""
+    protocols = _load(OTEL / "collector.yaml")["receivers"]["otlp"]["protocols"]
+    assert list(protocols) == ["http"]
+    assert protocols["http"]["endpoint"].endswith(":4318")
 
-    assert names == ["Prometheus"]
-    # The old Jaeger datasource is deleted from a Grafana volume made before.
-    assert {"name": "Jaeger", "orgId": 1} in datasources["deleteDatasources"]
-    # $$ keeps Grafana's provisioning from expanding ${__value.raw} as an
-    # environment variable (it would become an empty trace id).
-    assert exemplar[0]["url"].endswith("&trace_id=$${__value.raw}")
-    assert exemplar[0]["url"].startswith("http://localhost:5080/web/traces?")
-    for dashboard in (GRAFANA / "dashboards").glob("*.json"):
-        assert "jaeger" not in dashboard.read_text().lower(), dashboard.name
+    ports = _load(COMPOSE)["services"]["otel-collector"]["ports"]
+    assert not [p for p in ports if p.endswith(":4317")]
+    assert not [p for p in ports if p.endswith(":8889")]

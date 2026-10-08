@@ -7,6 +7,6 @@ service:
     traces:
       exporters: [otlphttp/openobserve, debug]
     metrics:
-      exporters: [prometheus, otlphttp/openobserve, debug]
+      exporters: [otlphttp/openobserve, debug]
     logs:
       exporters: [otlphttp/openobserve, debug]

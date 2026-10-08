@@ -9,7 +9,7 @@
 | MongoDB 8, single-node replica set `rs0` | `trustops_mongo_data` | `fcrm_case`, `fcrm_decision`, `fcrm_harness`, `fcrm_policy`, `fcrm_scoring`, `fcrm_identity`, `fcrm_audit`, and `fcrm_evals` once an eval run was published | `mongodump`, one archive per database |
 | MinIO | `trustops_minio_data` | buckets `uploads`, `canonical`, `packs` (versioned), `vectors`, `jobs` | `mc mirror` per bucket |
 | RabbitMQ | `trustops_rabbit_data` | queued messages | **not backed up** (see below) |
-| Redis, Prometheus, Grafana, OpenObserve | `prometheus_data`, `grafana_data`, `openobserve_data` | cache, dashboards and the searchable copy of the logs (the logs themselves are on each container's stdout) | not backed up; nothing in them is needed to run the product |
+| Redis, OpenObserve | `openobserve_data` | cache, and the searchable copy of traces, metrics and logs (the dashboards are reloaded from `ops/openobserve/dashboards/` by `make up-obs`) (the logs themselves are on each container's stdout) | not backed up; nothing in them is needed to run the product |
 
 The dumps do not include the `admin` database, so Mongo users and roles are not exported. They are recreated from `.env` by `ops/mongo/init/` on every `mongo` start, including the insert-only audit role.
 

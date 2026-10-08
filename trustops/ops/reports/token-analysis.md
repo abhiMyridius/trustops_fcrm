@@ -159,14 +159,14 @@ Three honest points:
 4. **Cache the cheap tier.** Its prompts are under the 4,096-token Haiku minimum, so no cache point is emitted and screening, intake and watchlist read nothing from cache (tiers, run 2). A longer shared prefix would qualify; whether it pays is unmeasured.
 5. **Re-measure the demo case after `research.system` v3**, and measure the second intake window instead of estimating it.
 6. **Reconcile the price table with the AWS bill.** The prices are verified against the AWS Price List (6 Oct 2026), not against an invoice; the first month's bill is the check on the rate card (a `global.` inference profile would be about 10% cheaper, at the cost of data residency).
-7. **Wire the runtime and build-time reports.** `make token-report` reads Prometheus (needs `make up-obs`) and writes `ops/token-analysis/runtime/`; no report has been committed. `make build-usage` (Claude Code session logs) is not wired.
+7. **Wire the runtime and build-time reports.** `make token-report` reads OpenObserve's PromQL API (needs `make up-obs`; ADR-72) and writes `ops/token-analysis/runtime/`; no report has been committed. `make build-usage` (Claude Code session logs) is not wired.
 
 ## How to reproduce
 
 ```bash
 make evals                                                                    # projected at about USD 1 on the committed chain (not measured); USD 3.14 and 7 to 11 minutes on the 6 October chain; writes evals/results/<date>/
 uv run --project src/backend --all-packages python ops/scripts/demo_case_tokens.py   # about USD 0.50 on the 6 October chain (not re-measured); add --only research,assessment for a subset
-make up-obs && make token-report                                              # runtime per-agent report from Prometheus
+make up-obs && make token-report                                              # runtime per-agent report from OpenObserve
 ```
 
 Both live commands need AWS credentials in the shell and cost real money. Neither was run by the lane that wrote this page; the numbers above are the committed files'.
