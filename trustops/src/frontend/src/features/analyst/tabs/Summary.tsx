@@ -5,12 +5,14 @@
  * gate with the questions kept and edited, D-120) or Enough to assess · proceed. ADR-73: a link to ask
  * the owner a question at any time, from the moment the case is assigned.
  */
+import { useState } from 'react';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { EyeOff, Flag } from 'lucide-react';
-import { useAssessment, useCompleteness } from '@/api/queries/analystQueries';
+import { useAssessment, useCompleteness, useDecideItem } from '@/api/queries/analystQueries';
 import { useStreamStatus } from '@/api/sse/useCaseStream';
 import { userMessage } from '@/api/errors';
-import type { AssessmentSummary, ScoreBox, WorkbenchHeader } from '@/api/types/analyst';
+import type { AssessmentSummary, CriticFinding, CriticFindingGate, ScoreBox, WorkbenchHeader } from '@/api/types/analyst';
+import { ReasonDialog } from '@/components/domain/ReasonDialog';
 import { HandoffControl } from '@/features/analyst/HandoffControl';
 import { ScoreBadge } from '@/components/domain/ScoreBadge';
 import { SourceChip } from '@/components/domain/SourceChip';
@@ -106,11 +108,14 @@ export function SummaryTab() {
   const stream = useStreamStatus(id);
   const q = useAssessment(id, { poll: stream !== 'live' });
   const decide = useCompleteness(id);
+  const decideItem = useDecideItem(id);
+  const [explaining, setExplaining] = useState<CriticFinding | null>(null);
   const toast = useToast();
   const navigate = useNavigate();
 
   return (
-    <QueryState query={q} label="Loading summary">
+    <>
+      <QueryState query={q} label="Loading summary">
       {(a) =>
         !a.ready ? (
           a.agent_failed ? (
@@ -144,6 +149,16 @@ export function SummaryTab() {
                         {f.records.map((r) => (
                           <AuditRecordChip key={r} seq={r} />
                         ))}
+                        {(f as CriticFinding & CriticFindingGate).gate_open === false ? (
+                          <span className="text-[12px] font-semibold text-text-secondary">Explained</span>
+                        ) : (
+                          !w.closed &&
+                          w.is_demo && (
+                            <Button size="sm" variant="secondary" onClick={() => setExplaining(f)}>
+                              Explain…
+                            </Button>
+                          )
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -217,6 +232,20 @@ export function SummaryTab() {
           </div>
         )
       }
-    </QueryState>
+      </QueryState>
+      <ReasonDialog
+        open={explaining !== null}
+        onClose={() => setExplaining(null)}
+        title="Explain the critic's finding"
+        context={explaining?.text}
+        consequence="Your explanation is recorded on the audit trail and shown with the finding in the pack. The finding stays visible; the score does not change."
+        confirmLabel="Record explanation"
+        onConfirm={async ({ reason }) => {
+          if (!explaining) return;
+          await decideItem.mutateAsync({ item_id: explaining.id, decision: 'explain', reason });
+          toast.success('Explanation recorded', 'The critic finding is decided.');
+        }}
+      />
+    </>
   );
 }

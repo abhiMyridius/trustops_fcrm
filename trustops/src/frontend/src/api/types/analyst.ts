@@ -110,6 +110,15 @@ export interface CriticFinding {
   target: string | null;
 }
 
+/**
+ * Keys the backend sends beside `CriticFinding` that the drift lock names as backend-only: a finding is one
+ * review item the analyst explains (POST items/{id}, decision `explain`), and `gate_open` says it still waits.
+ */
+export interface CriticFindingGate {
+  gate_id?: string | null;
+  gate_open?: boolean;
+}
+
 export interface DraftQuestion {
   id: string;
   text: string;

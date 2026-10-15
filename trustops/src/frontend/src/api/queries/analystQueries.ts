@@ -118,7 +118,7 @@ function useCaseMutation<TVars, TResult>(id: string, fn: (vars: TVars) => Promis
 }
 
 export type ItemDecisionBody = {
-  decision: 'accept' | 'remove' | 'confirm' | 'override';
+  decision: 'accept' | 'remove' | 'confirm' | 'override' | 'explain';
   value?: number;
   reason?: string;
 };
