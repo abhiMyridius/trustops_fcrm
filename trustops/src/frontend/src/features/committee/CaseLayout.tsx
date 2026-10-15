@@ -1,6 +1,8 @@
 /** Committee case frame: frozen pack header and the three tabs (Pack, Inbox, Vote). */
 import { Outlet, useParams } from 'react-router-dom';
 import { usePackForCase } from '@/api/queries/committeeQueries';
+import { ClausePreviewBody } from '@/components/domain/ClausePreview';
+import { SourcePreviewProvider } from '@/components/domain/SourcePreview';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Badge } from '@/components/ui/Badge';
 import { ErrorState } from '@/components/ui/EmptyState';
@@ -15,6 +17,7 @@ export function CommitteeCaseLayout() {
   if (q.isError) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
   const p = q.data;
   return (
+    <SourcePreviewProvider caseId={p.case_id} clause={ClausePreviewBody}>
     <div className="flex flex-col gap-5">
       <PageHeader
         crumbs={[{ label: 'Committee queue', to: '/committee' }, { label: p.case_id }]}
@@ -41,5 +44,6 @@ export function CommitteeCaseLayout() {
         <Outlet context={p} />
       </RouteTabs>
     </div>
+    </SourcePreviewProvider>
   );
 }

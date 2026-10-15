@@ -7,6 +7,7 @@ import { Check, Quote, UserPlus, X } from 'lucide-react';
 import type { ClauseItem } from '@/api/types/analyst';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { ClauseChip } from './ClausePreview';
 
 export function ClauseCard({
   clause,
@@ -29,8 +30,11 @@ export function ClauseCard({
           <h3 id={`clause-${clause.id}`} className="text-sm font-bold text-text-primary">
             {clause.title}
           </h3>
-          <p className="mt-0.5 font-mono text-[11px] text-text-muted">
-            {clause.id} · {clause.ref} · corpus {clause.corpus_version}
+          <p className="mt-0.5 flex flex-wrap items-center gap-1.5 font-mono text-[11px] text-text-muted">
+            <span>
+              {clause.id} · corpus {clause.corpus_version}
+            </span>
+            <ClauseChip clauseId={clause.id} label={clause.ref} />
           </p>
         </div>
         {clause.decision === 'accepted' && (

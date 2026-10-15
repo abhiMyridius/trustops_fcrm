@@ -91,6 +91,30 @@
         "effect": "allow"
       },
       {
+        "id": "case-get-cases-id-documents-doc_id-pages-po-analyst",
+        "description": "source preview: one page of a document's extracted text with the cited lines (ADR-76)",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/documents/{doc_id}/pages",
+        "roles": [
+          "fcrm_po",
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
+        "id": "case-get-cases-id-documents-doc_id-file-po-analyst",
+        "description": "source preview: the original upload shown inline (ADR-76)",
+        "service": "case",
+        "method": "GET",
+        "path": "/cases/{id}/documents/{doc_id}/file",
+        "roles": [
+          "fcrm_po",
+          "fcrm_analyst"
+        ],
+        "effect": "allow"
+      },
+      {
         "id": "case-get-cases-id-intake-po",
         "description": "PO intake view (proposals to confirm)",
         "service": "case",

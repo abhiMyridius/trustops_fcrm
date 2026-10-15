@@ -161,6 +161,7 @@ def source_ref(
         return SourceRef(
             label=f"{name} {where}" if name else where,
             document=name,
+            doc_id=source.doc_id,
             page=source.page,
             line=source.line_start,
         )

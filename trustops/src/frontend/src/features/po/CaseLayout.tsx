@@ -2,6 +2,7 @@
 import { Outlet, useParams } from 'react-router-dom';
 import { useCasePO } from '@/api/queries/caseQueries';
 import { useCaseStream } from '@/api/sse/useCaseStream';
+import { SourcePreviewProvider } from '@/components/domain/SourcePreview';
 import { StageTracker } from '@/components/domain/StageTracker';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Badge } from '@/components/ui/Badge';
@@ -20,6 +21,8 @@ export function POCaseLayout() {
   if (q.isError) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
   const c = q.data;
   return (
+    // Documents and value sources only: the owner's frame injects no clause branch (ADR-32, ADR-76).
+    <SourcePreviewProvider caseId={c.id}>
     <div className="flex flex-col gap-5">
       <PageHeader
         crumbs={[{ label: 'My queue', to: '/queue' }, { label: c.id }]}
@@ -51,5 +54,6 @@ export function POCaseLayout() {
         <Outlet />
       </RouteTabs>
     </div>
+    </SourcePreviewProvider>
   );
 }

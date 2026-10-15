@@ -18,6 +18,7 @@ from fcrm_common.errors import UpstreamUnavailableError
 from fcrm_case.analyst_handoff_service import AnalystHandoffService
 from fcrm_case.analyst_write_service import AnalystWriteService
 from fcrm_case.directory import AnalystLoadService, IdentityDirectory
+from fcrm_case.document_preview import DocumentPreviewService
 from fcrm_case.outcome_store import OutcomeStore
 from fcrm_case.po_followup_service import PoFollowupService
 from fcrm_case.po_service import PoService
@@ -162,4 +163,18 @@ def get_analyst_handoff_service(request: Request) -> AnalystHandoffService:
         handoffs=_wired(request, "handoffs"),
         store=_wired(request, "analyst_store"),
         writer=get_writer(request),
+    )
+
+
+def get_document_preview(request: Request) -> DocumentPreviewService:
+    """The source preview (ADR-76): one cheap object per request over the
+    case store, the view store and the object store ``lifespan.py`` wired.
+    """
+    settings = get_settings(request)
+    return DocumentPreviewService(
+        cases=get_store(request),
+        views=get_views(request),
+        objects=_wired(request, "objects"),
+        uploads_bucket=settings.s3_bucket_uploads,
+        canonical_bucket=settings.s3_bucket_canonical,
     )

@@ -240,6 +240,8 @@ The 21 scenes are the walkthrough's (`docs/requirements/research/06-walkthrough-
 | 20 | Examiner | Rahul | `/analyst/assurance/ask`; also `.../overrides`, `.../watchlist`, `.../agent-quality` | ask why the case went to committee | an answer in which each sentence cites an audit record that exists, or a refusal. The question can take up to 60 s (see the 202 gap). The watchlist tab lists re-flags after a new FATF list is activated under Configuration |
 | 21 | Recap | Rahul | `/monitor/FCRM-2026-0151` | read | counters: agents run, guards passed and blocked, audit records, chain verified, tokens against the case cap (160k enforced, 120k target) |
 
+A source chip is a button (ADR-76): in scene 4 Priya clicks a value's `case p.1 l.9` chip and a panel shows that page of her own upload with the cited line marked, six lines either side, Previous/Next page and "Open the PDF" (the file at `#page=N` in a new tab); in scene 12 Rahul (and in scene 17 the committee) click a clause's reference and read the clause word for word from the corpus. The owner has no clause preview. A document H3 has not read yet (or a scanned PDF with no text) answers "no extracted text"; the PDF still opens.
+
 Check the result without the UI (tokens as in section 6):
 
 ```bash

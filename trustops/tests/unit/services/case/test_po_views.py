@@ -82,6 +82,7 @@ def test_a_document_span_reads_as_name_page_and_line() -> None:
     assert ref.model_dump(exclude_none=True) == {
         "label": "business_case.pdf p.4 l.12",
         "document": "business_case.pdf",
+        "doc_id": "doc_1",
         "page": 4,
         "line": 12,
     }

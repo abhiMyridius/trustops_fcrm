@@ -23,6 +23,7 @@ import type {
   WorkbenchHeader,
 } from '@/api/types/analyst';
 import type { Domain } from '@/api/types/common';
+import { srcRef } from './documents';
 import {
   THREAD_IDS,
   askBlockedReason,
@@ -319,7 +320,7 @@ const DEMO_FLAGS = () => {
     { id: 'fl_3', text: `Mexico is not on the FATF call-for-action or increased-monitoring lists (${seed.jurisdictions.current.version})`, source: { label: `jurisdiction list ${seed.jurisdictions.current.version}` } },
     { id: 'fl_4', text: seed.demo.clause_gap, source: { label: `corpus ${seed.corpus.version} search` } },
   ];
-  if (d.corrected) flags.push({ id: 'fl_5', text: 'Owner corrected 1 extracted value: go-live Q1 2027 → February 2027 (owner declared, original kept)', source: { label: 'case p.1 l.9' } });
+  if (d.corrected) flags.push({ id: 'fl_5', text: 'Owner corrected 1 extracted value: go-live Q1 2027 → February 2027 (owner declared, original kept)', source: srcRef('case p.1 l.9') ?? { label: 'case p.1 l.9' } });
   return flags;
 };
 
@@ -384,7 +385,7 @@ function demoV1Fields() {
       label: FIELD_LABEL[f.id] ?? f.id,
       value: corrected ? seed.demo.review_edit.to : f.value,
       origin: corrected ? ('owner_declared' as const) : f.how === 'open' ? ('open' as const) : (f.how as 'extracted' | 'reused' | 'answered'),
-      source: f.source ? { label: corrected ? seed.demo.review_edit.source_after : f.source } : null,
+      source: f.source ? srcRef(corrected ? seed.demo.review_edit.source_after : f.source) : null,
       was: corrected ? { value: seed.demo.review_edit.from, source: 'case p.1 l.9' } : null,
     };
   });

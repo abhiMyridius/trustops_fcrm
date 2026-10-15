@@ -26,6 +26,9 @@ export const paths = {
     create: `${API_PREFIX}/cases`,
     one: (id: string) => `${API_PREFIX}/cases/${e(id)}`,
     documents: (id: string) => `${API_PREFIX}/cases/${e(id)}/documents`,
+    // source preview (ADR-76): one page of a document's extracted text, and the upload itself
+    documentPages: (id: string, docId: string) => `${API_PREFIX}/cases/${e(id)}/documents/${e(docId)}/pages`,
+    documentFile: (id: string, docId: string) => `${API_PREFIX}/cases/${e(id)}/documents/${e(docId)}/file`,
     intake: (id: string) => `${API_PREFIX}/cases/${e(id)}/intake`,
     intakeCategory: (id: string, type: string) => `${API_PREFIX}/cases/${e(id)}/intake/categories/${e(type)}`,
     intakeValue: (id: string, fieldId: string) => `${API_PREFIX}/cases/${e(id)}/intake/values/${e(fieldId)}`,
@@ -82,6 +85,7 @@ export const paths = {
   },
   policy: {
     search: `${API_PREFIX}/policy/search`,
+    clause: (clauseId: string) => `${API_PREFIX}/policy/clauses/${e(clauseId)}`,
     config: (s: ConfigSectionKey) => `${API_PREFIX}/policy/config/${s}`,
     configDraft: (s: ConfigSectionKey) => `${API_PREFIX}/policy/config/${s}/draft`,
     configPreview: (s: ConfigSectionKey) => `${API_PREFIX}/policy/config/${s}/draft/preview`,

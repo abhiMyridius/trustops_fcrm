@@ -26,6 +26,7 @@ from fcrm_case.routes_analyst_close import router as analyst_close_router
 from fcrm_case.routes_analyst_read import router as analyst_read_router
 from fcrm_case.routes_analyst_read import shared_router as shared_read_router
 from fcrm_case.routes_analyst_write import router as analyst_write_router
+from fcrm_case.routes_documents import router as documents_router
 from fcrm_case.routes_internal import router as internal_router
 from fcrm_case.routes_internal_assessment import router as internal_assessment_router
 from fcrm_case.routes_internal_outcome import router as internal_outcome_router
@@ -75,6 +76,7 @@ def create_app(*, standalone: bool = True) -> FastAPI:
     app.include_router(reflags_router)
     app.include_router(analyst_write_router)
     app.include_router(analyst_clauses_router)
+    app.include_router(documents_router)
     app.include_router(build_health_router(app.state.probe))
     return app
 

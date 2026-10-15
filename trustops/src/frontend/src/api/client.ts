@@ -181,3 +181,22 @@ export async function apiList<T>(path: string, opts: RequestOptions = {}): Promi
   }
   throw new Error(`Expected a list from ${path}`);
 }
+
+/**
+ * A binary route's body as a Blob (the document file behind the source preview, ADR-76), with the
+ * same bearer, refresh-and-retry and problem+json handling as `api`. A plain link cannot send the
+ * bearer, which is why the file is fetched and then opened from an object URL.
+ */
+export async function apiBlob(path: string, opts: Pick<RequestOptions, 'timeoutMs' | 'retried'> = {}): Promise<Blob> {
+  const headers: Record<string, string> = { 'X-Trace-Id': traceId };
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  const res = await fetch(absolute(path), { headers, credentials: 'include', signal: deadline(opts.timeoutMs ?? UPLOAD_TIMEOUT_MS) });
+  if (res.status === 401 && !opts.retried) {
+    const ok = await refreshSession();
+    if (ok) return apiBlob(path, { ...opts, retried: true });
+    accessToken = null;
+    onSessionLost?.();
+  }
+  if (!res.ok) throw new ApiError(res.status, await parseProblem(res));
+  return res.blob();
+}

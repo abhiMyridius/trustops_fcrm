@@ -45,6 +45,28 @@ export const policyHandlers = [
     }),
   ),
 
+  // Source preview (ADR-76): one clause as the corpus holds it; analyst and committee, never the PO.
+  http.get(`${API_PREFIX}/policy/clauses/:clauseId`, ({ request, params }) =>
+    guarded(request, ['fcrm_analyst', 'fcrm_committee'], () => {
+      const clauseId = String(params.clauseId);
+      const c = seed.demo.clauses.find((x) => x.clause_id === clauseId);
+      if (!c) return problem(404, 'Not found', `No clause ${clauseId}.`);
+      const page = /p\.(\d+)/.exec(c.ref);
+      return HttpResponse.json({
+        clause_id: c.clause_id,
+        source_id: c.src,
+        title: c.title,
+        text: c.quote,
+        ref: c.ref,
+        corpus_version: Number(String(seed.corpus.version).replace(/\D/g, '')) || 0,
+        page: page ? Number(page[1]) : null,
+        line_start: null,
+        line_end: null,
+        quotable: true,
+        provenance_kind: 'verbatim',
+      });
+    }),
+  ),
   http.get(`${API_PREFIX}/policy/config/:section`, ({ request, params }) =>
     guarded(request, ['fcrm_analyst'], () => {
       const s = sectionOf(params.section);

@@ -1,6 +1,6 @@
 /** PO-side queries and mutations (S1 product-owner routes). Return types are PO DTOs only. */
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, apiList } from '../client';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api, apiBlob, apiList } from '../client';
 import { paths } from '../endpoints';
 import { keys } from '../keys';
 import type { ChangeType } from '../types/common';
@@ -9,6 +9,7 @@ import type {
   CasePO,
   CasePOListItem,
   DashboardPO,
+  DocumentPagePO,
   DocumentsViewPO,
   InboxPO,
   Integration,
@@ -170,4 +171,38 @@ export function useIntegrationAction() {
       api<Integration>(paths.cases.integration(v.id, v.action), { method: 'POST', body: { scope: v.scope } }),
     onSettled: () => qc.invalidateQueries({ queryKey: keys.integrations }),
   });
+}
+
+/**
+ * One page of a document's extracted text for the source preview (ADR-76). `line`/`line_end` mark
+ * the cited span and `context` trims the page to that many lines either side of it; without
+ * `context` the whole page comes back. Owner and analyst only.
+ */
+export function useDocumentPage(
+  caseId: string,
+  docId: string,
+  page: number,
+  opts: { line?: number; line_end?: number; context?: number } = {},
+) {
+  return useQuery({
+    queryKey: keys.caseSection(caseId, 'document-page', {
+      doc: docId,
+      page,
+      line: opts.line ?? 0,
+      line_end: opts.line_end ?? 0,
+      context: opts.context ?? -1,
+    }),
+    queryFn: () =>
+      api<DocumentPagePO>(paths.cases.documentPages(caseId, docId), {
+        query: { page, line: opts.line, line_end: opts.line_end, context: opts.context },
+      }),
+    enabled: Boolean(caseId && docId),
+    // The page being read stays on screen while the next one loads (no skeleton flash on Next page).
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** The original upload as a Blob (ADR-76); the caller opens it from an object URL at `#page=N`. */
+export function fetchDocumentFile(caseId: string, docId: string): Promise<Blob> {
+  return apiBlob(paths.cases.documentFile(caseId, docId));
 }

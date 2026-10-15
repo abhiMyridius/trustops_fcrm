@@ -84,11 +84,14 @@ class _Dto(BaseModel):
 
 class SourceRef(_Dto):
     """A page:line pointer into a stored document; ``label`` is the display
-    form, e.g. ``business_case.pdf p.4 l.12``.
+    form, e.g. ``business_case.pdf p.4 l.12``. ``doc_id`` names the document
+    the preview routes serve (ADR-76); it is the owner's own upload, so the
+    owner may see it.
     """
 
     label: str
     document: Optional[str] = Field(default=None, exclude_if=_is_none)
+    doc_id: Optional[str] = Field(default=None, exclude_if=_is_none)
     page: Optional[int] = Field(default=None, exclude_if=_is_none)
     line: Optional[int] = Field(default=None, exclude_if=_is_none)
 
@@ -180,6 +183,35 @@ class DocumentsViewPO(_Dto):
     assistant: AssistantStatus
     sharepoint_connected: bool
     completion: Completion
+
+
+class DocumentLinePO(_Dto):
+    """One anchored line of a document page (``p.N l.M: text``)."""
+
+    line: int
+    text: str
+
+
+class DocumentHighlightPO(_Dto):
+    """The cited span on the page, inclusive."""
+
+    line_start: int
+    line_end: int
+
+
+class DocumentPagePO(_Dto):
+    """``GET /cases/{id}/documents/{doc_id}/pages``: one page of a document's
+    anchored text as H3 extracted it, with the cited lines marked (ADR-76).
+    The text is the owner's own upload, which the fence lets the owner see;
+    nothing here is derived by the system.
+    """
+
+    doc_id: str
+    name: str
+    page: int
+    pages: int
+    lines: list[DocumentLinePO]
+    highlight: Optional[DocumentHighlightPO]
 
 
 # --- intake ----------------------------------------------------------------------
