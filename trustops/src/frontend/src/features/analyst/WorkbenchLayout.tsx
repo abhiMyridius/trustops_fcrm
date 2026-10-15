@@ -10,6 +10,8 @@ import { useAcknowledge, useWorkbench } from '@/api/queries/analystQueries';
 import { useHarness } from '@/api/queries/harnessQueries';
 import { useCaseStream, useStreamStatus } from '@/api/sse/useCaseStream';
 import { NO_RUN_MESSAGE, isNoRunRecorded, userMessage } from '@/api/errors';
+import { ClausePreviewBody } from '@/components/domain/ClausePreview';
+import { SourcePreviewProvider } from '@/components/domain/SourcePreview';
 import { StageTracker } from '@/components/domain/StageTracker';
 import { TwoClocks } from '@/components/domain/TwoClocks';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -71,6 +73,7 @@ export function WorkbenchLayout() {
   const w = q.data;
 
   return (
+    <SourcePreviewProvider caseId={w.id} clause={ClausePreviewBody}>
     <div className="flex flex-col gap-5">
       <PageHeader
         crumbs={[{ label: 'Queue', to: '/analyst/queue' }, { label: w.id }]}
@@ -148,5 +151,6 @@ export function WorkbenchLayout() {
       )}
       <HarnessDrawer caseId={w.id} open={harnessOpen} onClose={() => setHarnessOpen(false)} />
     </div>
+    </SourcePreviewProvider>
   );
 }

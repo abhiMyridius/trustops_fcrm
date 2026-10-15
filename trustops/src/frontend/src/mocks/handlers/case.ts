@@ -8,6 +8,7 @@ import { seed } from '../seed';
 import { nameOf } from '../users';
 import * as AV from '../views/analyst';
 import { caseExists, createdCase, isDemo, seedCase } from '../views/common';
+import { docsOf, documentFile, documentPage } from '../views/documents';
 import { harness } from '../views/harness';
 import * as PO from '../views/po';
 
@@ -78,6 +79,28 @@ export const caseHandlers = [
   ),
   http.get(`${P}/documents`, ({ request, params }) =>
     guarded(request, ['fcrm_po'], ({ user }) => (ownedBy(id(params), user.id) ? ok(PO.poDocuments(id(params))) : notFound())),
+  ),
+  // Source preview (ADR-76): the owner of the case and an analyst, as the real OPA rows say.
+  http.get(`${P}/documents/:docId/pages`, ({ request, params }) =>
+    guarded(request, ['fcrm_po', 'fcrm_analyst'], ({ user, role }) => {
+      const caseId = id(params);
+      if (role === 'fcrm_po' && !ownedBy(caseId, user.id)) return notFound();
+      const url = new URL(request.url);
+      const num = (k: string) => (url.searchParams.get(k) === null ? undefined : Number(url.searchParams.get(k)));
+      const v = documentPage(caseId, String(params.docId), num('page') ?? 1, num('line'), num('line_end'), num('context'));
+      return v ? HttpResponse.json(v) : problem(404, 'Not found', 'No such page or document on this case.');
+    }),
+  ),
+  http.get(`${P}/documents/:docId/file`, ({ request, params }) =>
+    guarded(request, ['fcrm_po', 'fcrm_analyst'], ({ user, role }) => {
+      const caseId = id(params);
+      if (role === 'fcrm_po' && !ownedBy(caseId, user.id)) return notFound();
+      const doc = docsOf(caseId).find((d) => d.id === String(params.docId));
+      if (!doc) return notFound();
+      return new HttpResponse(documentFile(), {
+        headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${doc.name}"` },
+      });
+    }),
   ),
   http.post(`${P}/documents`, ({ request, params }) =>
     guarded(request, ['fcrm_po'], async ({ user }) => {

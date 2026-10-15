@@ -25,6 +25,7 @@ import { GAP_FIELDS, REUSABLE, filledCount, requiredCount, roundAnswered, THREAD
 import { READ_MS, getDB, type AuditEntry } from '../db';
 import { seed, type SeedCase } from '../seed';
 import { nameOf } from '../users';
+import { srcRef } from './documents';
 import {
   FIELD_LABEL,
   OUTCOME_FROM_SEED,
@@ -58,7 +59,7 @@ const STAGE_LABEL: Record<POStage, string> = {
 
 const STAGE_STEP: Record<POStage, number> = { draft: 0, submitted: 1, under_assessment: 2, awaiting_your_answer: 2, decision: 3, closed: 4 };
 
-const src = (label: string | undefined | null): SourceRef | null => (label ? { label } : null);
+const src = (label: string | undefined | null): SourceRef | null => srcRef(label);
 
 // ---------------------------------------------------------------- demo state -> PO
 

@@ -73,6 +73,31 @@ export interface DocumentsViewPO {
   completion: Completion;
 }
 
+/** One anchored line of a document page (`p.N l.M: text`). */
+export interface DocumentLinePO {
+  line: number;
+  text: string;
+}
+
+/** The cited span on the page, inclusive. */
+export interface DocumentHighlightPO {
+  line_start: number;
+  line_end: number;
+}
+
+/**
+ * GET /cases/{id}/documents/{doc_id}/pages (ADR-76): one page of a document's extracted text with
+ * the cited lines marked. It is the owner's own upload; nothing here is derived by the system.
+ */
+export interface DocumentPagePO {
+  doc_id: string;
+  name: string;
+  page: number;
+  pages: number;
+  lines: DocumentLinePO[];
+  highlight: DocumentHighlightPO | null;
+}
+
 export interface CategoryProposalPO {
   type: ChangeType;
   label: string;

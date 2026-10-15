@@ -6,6 +6,7 @@
 import { useOutletContext } from 'react-router-dom';
 import { Printer } from 'lucide-react';
 import type { PackView } from '@/api/types/committee';
+import { ClauseChip } from '@/components/domain/ClausePreview';
 import { PackSection } from '@/components/domain/PackSection';
 import { ScoreBadge } from '@/components/domain/ScoreBadge';
 import { ConditionTable } from '@/components/domain/ConditionTable';
@@ -101,7 +102,7 @@ export function PackTab() {
           <ul className="flex flex-col gap-2">
             {p.clauses.map((c) => (
               <li key={c.id}>
-                <span className="font-semibold">{c.title}</span> <span className="font-mono text-[11px] text-text-muted">{c.ref}</span>
+                <span className="font-semibold">{c.title}</span> <ClauseChip clauseId={c.id} label={c.ref} />
                 <blockquote className="mt-1 border-l-4 border-digital-pavo pl-3 italic">{c.quote}</blockquote>
               </li>
             ))}
