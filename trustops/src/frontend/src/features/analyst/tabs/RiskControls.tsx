@@ -24,6 +24,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useDocumentTitle } from '@/lib/a11y';
 import { formatFixed, shortHash } from '@/lib/format';
 import { ScoreBoxView } from './Summary';
+import { CompositeRules, ScoreFormula } from '@/features/analyst/ScoreFormula';
 
 /** Live consequence preview from POST scoring/simulate (the server computes; we only show it). */
 function SimulatePreview({ caseId, controlId, value }: { caseId: string; controlId: string; value: number }) {
@@ -99,6 +100,7 @@ function AreaCard({
             </div>
           ))}
         </dl>
+        <ScoreFormula area={area} />
       </div>
     </Card>
   );
@@ -281,6 +283,7 @@ export function RiskControlsTab() {
                     ))}
                   </tbody>
                 </table>
+                <CompositeRules />
               </Card>
             </div>
             <ReasonDialog
