@@ -29,10 +29,14 @@ export type Origin =
   | 'jurisdiction_list'
   | 'open';
 
-/** A page:line pointer into a stored document; `label` is the display form, e.g. "case p.4 l.12". */
+/**
+ * A page:line pointer into a stored document; `label` is the display form, e.g. "case p.4 l.12".
+ * `doc_id` names the document the source preview opens (ADR-76); a value without one has no preview.
+ */
 export interface SourceRef {
   label: string;
   document?: string;
+  doc_id?: string;
   page?: number;
   line?: number;
 }

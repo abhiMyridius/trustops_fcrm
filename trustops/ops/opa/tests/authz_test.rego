@@ -727,6 +727,23 @@ test_staff_reads_of_documents_and_activity if {
 	not authz.allow with input as req("fcrm_observer", "case", "GET", "/cases/{case_id}/documents")
 }
 
+# The source preview behind a citation chip (ADR-76): the owner and an analyst,
+# exactly the roles of the document list; never the committee, the observer or
+# the service account on its own.
+preview_routes := {
+	["GET", "/cases/{case_id}/documents/{doc_id}/pages"],
+	["GET", "/cases/{case_id}/documents/{doc_id}/file"],
+}
+
+test_the_source_preview_is_for_the_owner_and_the_analyst if {
+	every r in preview_routes {
+		authz.allow with input as req("fcrm_po", "case", r[0], r[1])
+		authz.allow with input as req("fcrm_analyst", "case", r[0], r[1])
+		not authz.allow with input as req("fcrm_committee", "case", r[0], r[1])
+		not authz.allow with input as req("fcrm_observer", "case", r[0], r[1])
+	}
+}
+
 test_the_observer_is_read_only_on_the_case_service if {
 	# The stream and the monitor, nothing else; never a write.
 	authz.allow with input as req("fcrm_observer", "case", "GET", "/cases/{case_id}/stream")

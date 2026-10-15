@@ -140,6 +140,7 @@ def test_the_owner_lives_scenes_one_to_seven(
     assert by_field["F03"]["source"] == {
         "label": "business_case_remittance_MX.pdf p.1 l.9",
         "document": "business_case_remittance_MX.pdf",
+        "doc_id": docs["documents"][0]["id"],
         "page": 1,
         "line": 9,
     }

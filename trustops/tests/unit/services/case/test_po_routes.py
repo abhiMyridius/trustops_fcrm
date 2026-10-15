@@ -809,6 +809,11 @@ class TestCorrectingValues:
             "source": {
                 "label": f"{BUSINESS_CASE} p.1 l.9",
                 "document": BUSINESS_CASE,
+                "doc_id": next(
+                    d.doc_id
+                    for d in ready.views.documents.values()
+                    if d.name == BUSINESS_CASE
+                ),
                 "page": 1,
                 "line": 9,
             },

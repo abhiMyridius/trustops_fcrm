@@ -3201,6 +3201,46 @@
         "title": "DiscardBody",
         "type": "object"
       },
+      "DocumentHighlightPO": {
+        "additionalProperties": false,
+        "description": "The cited span on the page, inclusive.",
+        "properties": {
+          "line_end": {
+            "title": "Line End",
+            "type": "integer"
+          },
+          "line_start": {
+            "title": "Line Start",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "line_start",
+          "line_end"
+        ],
+        "title": "DocumentHighlightPO",
+        "type": "object"
+      },
+      "DocumentLinePO": {
+        "additionalProperties": false,
+        "description": "One anchored line of a document page (``p.N l.M: text``).",
+        "properties": {
+          "line": {
+            "title": "Line",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "line",
+          "text"
+        ],
+        "title": "DocumentLinePO",
+        "type": "object"
+      },
       "DocumentOut": {
         "additionalProperties": false,
         "properties": {
@@ -3269,6 +3309,55 @@
           "uploaded_at"
         ],
         "title": "DocumentOut",
+        "type": "object"
+      },
+      "DocumentPagePO": {
+        "additionalProperties": false,
+        "description": "``GET /cases/{id}/documents/{doc_id}/pages``: one page of a document's\nanchored text as H3 extracted it, with the cited lines marked (ADR-76).\nThe text is the owner's own upload, which the fence lets the owner see;\nnothing here is derived by the system.",
+        "properties": {
+          "doc_id": {
+            "title": "Doc Id",
+            "type": "string"
+          },
+          "highlight": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DocumentHighlightPO"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentLinePO"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "pages": {
+            "title": "Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "doc_id",
+          "name",
+          "page",
+          "pages",
+          "lines",
+          "highlight"
+        ],
+        "title": "DocumentPagePO",
         "type": "object"
       },
       "DocumentsViewPO": {
@@ -11267,8 +11356,19 @@
       },
       "SourceRef": {
         "additionalProperties": false,
-        "description": "A page:line pointer into a stored document; ``label`` is the display\nform, e.g. ``business_case.pdf p.4 l.12``.",
+        "description": "A page:line pointer into a stored document; ``label`` is the display\nform, e.g. ``business_case.pdf p.4 l.12``. ``doc_id`` names the document\nthe preview routes serve (ADR-76); it is the owner's own upload, so the\nowner may see it.",
         "properties": {
+          "doc_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Id"
+          },
           "document": {
             "anyOf": [
               {
@@ -15141,6 +15241,180 @@
         "summary": "Upload Documents",
         "tags": [
           "po"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/documents/{doc_id}/file": {
+      "get": {
+        "description": "The original upload, sent ``inline`` with its stored content type so\nthe browser shows a PDF in the tab (``#page=N`` opens the cited page).\n404 for a document that is not on the case; 503 when the object store is\ndown.",
+        "operationId": "S1_get_document_file_cases__case_id__documents__doc_id__file_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "doc_id",
+            "required": true,
+            "schema": {
+              "title": "Doc Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {},
+              "application/pdf": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Document File",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/fcrm/cases/{case_id}/documents/{doc_id}/pages": {
+      "get": {
+        "description": "One page of the document's extracted text, as H3 anchored it\n(``p.N l.M``). ``line`` (and ``line_end``) mark the cited span;\n``context`` trims the page to that many lines either side of it. 404 for\na document that is not on the case, a page outside it, or a document with\nno extracted text; 503 when the object store is down.",
+        "operationId": "S1_get_document_page_cases__case_id__documents__doc_id__pages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "doc_id",
+            "required": true,
+            "schema": {
+              "title": "Doc Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "line",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Line"
+            }
+          },
+          {
+            "in": "query",
+            "name": "line_end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Line End"
+            }
+          },
+          {
+            "in": "query",
+            "name": "context",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 200,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Context"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentPagePO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Document Page",
+        "tags": [
+          "documents"
         ]
       }
     },
