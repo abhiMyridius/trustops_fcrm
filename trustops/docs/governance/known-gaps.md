@@ -198,3 +198,17 @@ Still open:
 
 - **Not run against a real OpenObserve with the composed stack.** The stand-in proves the routing and the login, not that OpenObserve stores and shows the data; `make up-obs` restarts the api, which re-embeds the corpus on Bedrock (ADR-59), so it waits for the operator.
 - With a team instance set, the bundled OpenObserve container still starts and receives nothing.
+
+## O. The source preview (15 October, appended)
+
+Closed:
+
+- Every citation chip opens its source (ADR-76): a document's cited page from H3's anchored text with the cited lines marked, the PDF itself inline in a new tab, and a clause verbatim from S3. Unit tests cover the S1 routes on in-memory stores and a fake object store (roles, 404s, 503, no event written), the OPA rows (Rego and a Python lock), and the web drawer (document, clause, keyboard, the owner fence) against the MSW mock.
+
+Still open:
+
+- **Not run on the live stack.** The S1 routes have not been exercised against MinIO and a real anchored file, and the browser's PDF viewer at `#page=N` from an object URL has not been seen on the composed stack; `make up` is the operator's.
+- A scanned or image-only PDF, a quarantined or failed document, or one H3 has not read yet has no anchored text: the page preview answers 404 "no extracted text" and only "Open the PDF" works. OCR is out of scope.
+- The page preview shows H3's extracted lines, not the PDF rendered in place; a table cited as `p.6 tbl 2` opens the page without a marked line.
+- In MSW mode (`npm run dev:msw`) the mock serves a one-page placeholder PDF, so "Open the PDF" shows a blank page rather than the demo document.
+- The document preview is for the owner and the analyst, the roles of the document list; a committee member reads clauses but not the owner's documents (the pack cites no page:line today).
