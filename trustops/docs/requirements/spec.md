@@ -20,7 +20,15 @@ Inherent = L×I. Control effectiveness is the weighted mean of a domain's matche
 
 ## 5. The AI layer
 
-Nine agents (screening, intake, research, assessment, critic, narrative, examiner, watchlist, policy_gap), each one Pydantic AI call on a Bedrock model tier, each behind seven guards (input scan, OPA tool permit, budget, output shape, the eight rules, critic, human gate). No agent ever computes a score, edits a submission, or generates policy text rather than quoting it. Full detail: `docs/architecture/design/B-ai-layer.md`.
+Nine agents (screening, intake, research, assessment, critic, narrative, examiner, watchlist, policy_gap), each one Pydantic AI call on a Bedrock model tier, each behind seven guards (input scan, OPA tool permit, budget, output shape, the eight rules, critic, human gate). No agent ever computes a score, edits a submission, or generates policy text rather than quoting it.
+
+- **Models**: four tiers on Bedrock (cheap, mid, strong, judge), each a primary and fallbacks, ids only in `ai/models/tiers.yaml`; no Opus (ADR-62, ADR-65). The critic and the eval judge run on a different model family from the assessor.
+- **Retry and handoff**: one retry on the fallback with the error shown, then a human handoff gate the analyst completes with a reason (ADR-14, ADR-51, `docs/architecture/sequences/handoff.md`).
+- **Tokens**: per-attempt budgets per tier, and a per-case ledger in H1, 160,000 enforced and 120,000 the target (ADR-50, `docs/architecture/sequences/token-ledger.md`).
+- **Retrieval**: Bedrock Titan embeddings with in-memory vectors for the policy clauses, fused with keyword search; precedents and controls are keyword search (ADR-41, ADR-49).
+- **Evals**: nine datasets, 27 deterministic metrics and a judge model on the judge tier, one gate per agent (ADR-43, `evals/README.md`).
+
+Full detail: `docs/architecture/design/B-ai-layer.md` (the design as written) and `BUILD-PLAN.md` "Status as built".
 
 ## 6. Governance
 
@@ -28,7 +36,7 @@ Eight rules plus six routing rules (`docs/requirements/rules.md`), an immutable 
 
 ## 7. Production shape
 
-FARM stack (FastAPI, React, MongoDB), Python 3.13 on uv, event-driven microservices over RabbitMQ, OpenTelemetry observability, OPA for authorization, all runnable locally via docker-compose and deployable to AWS (Bedrock, S3 Vectors) without code changes — only configuration. Full architecture: `BUILD-PLAN.md` §3, `docs/architecture/design/A-backend.md`.
+FARM stack (FastAPI, React, MongoDB), Python 3.13 on uv, event-driven microservices over RabbitMQ, OpenTelemetry observability, OPA for authorization, all runnable locally via docker-compose and with Amazon Bedrock for every model call and for embeddings. The AWS deployment is a documented design, not built; the S3 Vectors backend exists but is not in the shipped image (`docs/governance/known-gaps.md`). Full architecture: `BUILD-PLAN.md` §3, `docs/architecture/design/A-backend.md`.
 
 ## 8. What's explicitly out of scope
 

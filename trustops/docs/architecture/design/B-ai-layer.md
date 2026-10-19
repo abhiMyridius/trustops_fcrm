@@ -3,7 +3,12 @@
 > **Design as written on 3 October 2026, kept as the record of the design stage.** It was the input the build lanes coded from, so it is not rewritten to match the code. Where the built system differs, the departure has a decision row; read `BUILD-PLAN.md` "Status as built" first, then `docs/governance/decision-log.md`. What is not done is in `docs/governance/known-gaps.md`. Values marked **(proposed)** below were proposals at the time; the ADR rows say which were accepted.
 >
 > The departures that matter most for this document:
-> - **Models**: the committed chain has no Opus and no Sonnet 5; mid and strong run Sonnet 4.5, the judge Nova Pro (ADR-62, superseding the tiers in section 1). Model ids live only in `ai/models/tiers.yaml`.
+> - **Models**: the committed chain has no Opus; mid and strong run Sonnet 5.5 (strong retries on Sonnet 5.5, then Nova Pro), cheap runs Haiku 4.5 then Nova Lite, and the judge runs Nova Pro then Haiku 4.5 (ADR-62, ADR-65, superseding the tiers in section 1). Model ids live only in `ai/models/tiers.yaml`. Bedrock prompt caching is sent to the Haiku and Sonnet models only.
+> - **Retry**: attempt 2 keeps the full `max_tokens`, not a halved hint (ADR-48).
+> - **Prompts**: H2 renders the MANIFEST's `current` version of each prompt id; the case's pinned `prompts_v` is recorded, not used to choose files (sections 1.5 and 6.4 describe pinning by file, which is not built). User text is composed by the Python builders in `fcrm_agents/builders.py`; the `*.user` templates are not rendered.
+> - **Guard 1**: PII masking is rule-based by default, Presidio a feature-flagged alternate (ADR-23); the cheap-model yes/no check on the amber injection band is not built: amber text is annotated and passed.
+> - **Retrieval**: only `policy_clauses` has a vector leg; precedents and controls are keyword-ranked, so a precedent "similarity" is a normalised rank score (ADR-41, ADR-49).
+> - **policy_gap**: dispatched when the analyst notes a gap; the weekly run and the Assurance review screen for its suggestions are not built (`known-gaps.md` U).
 > - **Token budgets** come from measured p90 plus about 30% (ADR-48, ADR-55, ADR-62), and the per-case cap is a ledger in H1 (ADR-50), not the per-run figures written here.
 > - **Evals** use a plain async runner with a DeepEval judge, code in `src/backend/packages/evals`, not `pydantic_evals` under `/evals`; a gate is the primary metric alone (ADR-43, `evals/README.md`).
 > - **No replay or mock model mode**: agents call live Bedrock; the golden figures are unit tests (ADR-27). Embeddings are Bedrock Titan with in-memory vectors by default (ADR-49).

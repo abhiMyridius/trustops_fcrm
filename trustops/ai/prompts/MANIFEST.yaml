@@ -2,8 +2,9 @@
 #
 # set_version is the prompt set a case pins as `prompts_v` (PinnedVersions).
 # It changes whenever any `current` pointer moves: ISO date, plus ".n" for
-# the n-th bump on one day. Running cases keep their pinned set; new cases
-# get the current one (design B §1.5, §6.4).
+# the n-th bump on one day. A case records the set it pinned, but H2 renders
+# the `current` version of each id, not the pinned set's files (known-gaps U;
+# design B §1.5, §6.4 describe pinning by file, which is not built).
 #
 # Moving a `current` pointer requires a PASS eval result for the new version
 # (evals/runners/gate.py) recorded as `eval_run` in that file's changelog;
