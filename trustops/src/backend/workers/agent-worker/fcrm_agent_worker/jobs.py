@@ -54,6 +54,9 @@ logger = logging.getLogger(__name__)
 
 #: The job ledger's collection (H2's database).
 AGENT_JOBS_COLLECTION: Final = "agent_jobs"
+IDEMPOTENCY_KEY: Final = "idempotency_key"
+"""The field ``ops/mongo/init/04-indexes.js`` indexes uniquely on ``agent_jobs``;
+H2 sets it to the job id."""
 #: H2's own outbox: ``agent.done`` / ``agent.failed`` rows its relay publishes.
 AGENT_OUTBOX_COLLECTION: Final = "agent_outbox"
 #: The collection H2's relay lease lives in (shared with H1's, distinct name).
@@ -221,15 +224,26 @@ class AgentJobStore:
                             "case_id": pick(_literal(case_id), "case_id"),
                             "run_id": pick(_literal(run_id), "run_id"),
                             "agent": pick(_literal(agent), "agent"),
+                            # ops/mongo/init/04-indexes.js gives agent_jobs a
+                            # unique index on idempotency_key ("re-dispatching
+                            # the same step is a no-op"): one document per job.
+                            # Left unset it is null on every job, and the
+                            # second job ever claimed hit the unique index.
+                            IDEMPOTENCY_KEY: pick(_literal(job_id), IDEMPOTENCY_KEY),
                         }
                     }
                 ],
                 upsert=True,
                 return_document=ReturnDocument.AFTER,
             )
-        except DuplicateKeyError:
-            # Two first-ever upserts raced; the other one created the job.
-            return ClaimOutcome.RUNNING
+        except DuplicateKeyError as exc:
+            key = set((exc.details or {}).get("keyPattern", {}))
+            if key <= {"_id", IDEMPOTENCY_KEY}:
+                # Two first-ever upserts of this job raced; the other won.
+                return ClaimOutcome.RUNNING
+            # Any other unique index means the store and the database disagree:
+            # treating it as "running" parked every new job (19 October, D-124).
+            raise
         if doc is None:
             return ClaimOutcome.RUNNING
         if doc.get("status") == STATUS_DONE:

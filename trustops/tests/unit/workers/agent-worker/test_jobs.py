@@ -8,7 +8,9 @@ take-or-leave rules are exercised as written, not re-stated in a fake.
 from __future__ import annotations
 
 import copy
+import re
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Optional
 
 import pytest
@@ -22,8 +24,22 @@ from fcrm_agent_worker.jobs import (
 )
 from fcrm_contracts.enums import Tier
 from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
 
 _MISSING: Any = object()
+
+INIT_INDEXES = Path(__file__).parents[4] / "ops" / "mongo" / "init" / "04-indexes.js"
+
+
+def declared_unique_keys(collection: str) -> list[str]:
+    """The fields ``ops/mongo/init/04-indexes.js`` indexes uniquely on
+    ``fcrm_harness.<collection>``: the database the stack really has, which a
+    fake that knew only ``_id`` hid (D-124)."""
+    pattern = re.compile(
+        r'ensureIndex\("fcrm_harness", "' + re.escape(collection) + r'", \{ (\w+): 1 \}'
+        r", \{[^}]*unique: true"
+    )
+    return pattern.findall(INIT_INDEXES.read_text(encoding="utf-8"))
 
 
 class _UpdateResult:
@@ -43,6 +59,20 @@ class PipelineJobsCollection:
         self.sessions: list[Any] = []
         self.indexes: list[Any] = []
         self.existing_indexes: dict[str, list[tuple[str, int]]] = {"_id_": [("_id", 1)]}
+        self.unique_keys = declared_unique_keys(AGENT_JOBS_COLLECTION)
+
+    def _check_unique(self, doc: dict[str, Any]) -> None:
+        """Refuse a document whose unique field (a missing one counts as null,
+        as in Mongo) another document already has."""
+        for key in self.unique_keys:
+            value = doc.get(key)
+            for other in self.docs.values():
+                if other is not doc and other.get(key) == value:
+                    raise DuplicateKeyError(
+                        f"E11000 duplicate key: {key}",
+                        11000,
+                        {"keyPattern": {key: 1}, "keyValue": {key: value}},
+                    )
 
     def advance(self, seconds: float) -> None:
         self.now += timedelta(seconds=seconds)
@@ -104,8 +134,16 @@ class PipelineJobsCollection:
         assert set(query) == {"_id"}, "an upsert must be keyed on _id alone"
         assert upsert
         assert return_document is ReturnDocument.AFTER
-        doc = self.docs.setdefault(query["_id"], {"_id": query["_id"]})
+        created = query["_id"] not in self.docs
+        doc = copy.deepcopy(self.docs.get(query["_id"], {"_id": query["_id"]}))
         self._apply(pipeline, doc)
+        self.docs[query["_id"]] = doc
+        try:
+            self._check_unique(doc)
+        except DuplicateKeyError:
+            if created:
+                del self.docs[query["_id"]]
+            raise
         return copy.deepcopy(doc)
 
     async def update_one(
@@ -324,3 +362,34 @@ def test_job_in_flight_names_the_job() -> None:
     error = JobInFlightError("job-7")
     assert error.job_id == "job-7"
     assert "job-7" in str(error)
+
+
+def test_the_init_script_still_declares_the_unique_job_key() -> None:
+    """The fake enforces what the stack's Mongo has; if the init script moves,
+    the fake must move with it."""
+    assert declared_unique_keys(AGENT_JOBS_COLLECTION) == ["idempotency_key"]
+
+
+async def test_two_jobs_are_both_claimed_under_the_stacks_unique_index(
+    jobs_collection: PipelineJobsCollection,
+) -> None:
+    """Seen live on 19 October (D-124): with ``idempotency_key`` unset, every
+    job after the first hit the init script's unique index, was taken for
+    running elsewhere and ended in the DLQ; a second uploaded document never
+    left "Reading your documents"."""
+    store = _store(jobs_collection)
+    assert await store.claim("job-a", 60) is ClaimOutcome.CLAIMED
+    assert await store.claim("job-b", 60) is ClaimOutcome.CLAIMED
+    assert jobs_collection.docs["job-b"]["idempotency_key"] == "job-b"
+
+
+async def test_a_clash_on_any_other_unique_index_is_raised_not_parked(
+    jobs_collection: PipelineJobsCollection,
+) -> None:
+    """A unique index the store does not fill is a mismatch with the database;
+    calling it "running" parked every new job instead of saying so."""
+    jobs_collection.unique_keys = ["something_else"]
+    store = _store(jobs_collection)
+    assert await store.claim("job-a", 60) is ClaimOutcome.CLAIMED
+    with pytest.raises(DuplicateKeyError):
+        await store.claim("job-b", 60)
