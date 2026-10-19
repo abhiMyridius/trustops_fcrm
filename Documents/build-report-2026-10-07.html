@@ -1,0 +1,587 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>TrustOps Build Report</title>
+<script>try{document.documentElement.setAttribute("data-theme","light")}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap">
+<style>
+/* TrustOps build report in the Myridius brand system: Montserrat only,
+   Base Linen canvas, one Carbon Moss hero with the wave ornament, Virtual
+   Tide as the single accent, chart palette for data, logo bottom-left.
+   Light theme only, by request: no dark token blocks exist.
+   No scroll: everything is sized in rem, and fit() picks the largest root
+   font size at which the whole report fits the viewport with nothing
+   clipped or truncated, so text grows on bigger screens. Every figure comes
+   from the JSON block #report-data (built by report-build_data.py); update
+   it and republish. The git graph (swimlanes, merges) is drawn from graph.* */
+:root{
+  --cloud-white:#FFFFFF; --base-linen:#F6F3F0; --carbon-moss:#0C2226; --quantum-leaf:#194247;
+  --virtual-tide:#09A78D; --digital-pavo:#337077; --pulse-green:#52E081; --neural-beam:#E5FD84;
+  --chart-1:#52E081; --chart-2:#337077; --chart-3:#09A78D; --chart-4:#94DEA5; --chart-5:#CBEBBD; --chart-7:#285C62; --chart-8:#163439;
+  /* page roles */
+  --bg:var(--base-linen); --surface:var(--cloud-white); --text:var(--quantum-leaf); --text-strong:var(--carbon-moss);
+  --muted:#46666A; --rule:rgba(25,66,71,.10); --tint:rgba(9,167,141,.08);
+  --accent-text:#337077; --sev1:#163439; --sev2:#337077; --sev3:#94DEA5; --bar-a:#0C2226; --hero-ring:transparent;
+  /* iteration colours, ordinal and light to dark (the same ramp as the Git History page) */
+  --l0:#5F9E3D; --l1:#2FA05A; --l2:#16A07A; --l3:#0B8A8C; --l4:#2C6F7E; --l5:#234E5F; --l6:#14303E;
+  --ink:#194247; --fix:#09A78D; --grid:rgba(25,66,71,.16);
+  color-scheme:light;
+  --font-sans:"Montserrat",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --radius-sm:6px; --radius-md:12px; --radius-pill:999px;
+}
+/* root size is set by fit(); everything below is in rem so it scales together */
+html{font-size:13px}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font:400 1rem/1.5 var(--font-sans);margin:0;font-variant-numeric:tabular-nums}
+.page{box-sizing:border-box;height:100%;padding:.95rem 1.5rem;display:grid;gap:.8rem;grid-template-rows:auto minmax(0,1fr) auto}
+h1,h2{color:var(--text-strong);margin:0;text-wrap:balance}
+.eyebrow{font-size:.88rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--accent-text)}
+h2{font-size:1.14rem;font-weight:700;letter-spacing:-.005em;line-height:1.25}
+
+/* hero: the one dark surface, wave ornament right, logo bottom-left */
+.hero{position:relative;overflow:hidden;background:var(--carbon-moss);color:var(--base-linen);border-radius:20px;
+  padding:1rem 1.6rem;display:grid;gap:.75rem;box-shadow:inset 0 0 0 1px var(--hero-ring)}
+.hero .wave{position:absolute;right:0;bottom:0;width:min(46%,760px);height:100%;pointer-events:none}
+.hero > *:not(.wave){position:relative}
+.hero .eyebrow{color:var(--pulse-green)}
+.hero h1{color:var(--base-linen);font-size:1.9rem;font-weight:800;line-height:1.08;letter-spacing:-.02em;margin-top:4px}
+.hero p{margin:.3rem 0 0;max-width:150ch;font-size:1rem;line-height:1.55;color:rgba(246,243,240,.82)}
+.hero p b{color:var(--base-linen);font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.7rem}
+.stat{background:linear-gradient(90deg,rgba(255,255,255,.05) 0%,rgba(255,255,255,.015) 60%,transparent 100%);
+  border:1px solid rgba(82,224,129,.16);border-radius:var(--radius-md);padding:.45rem .85rem;min-width:0}
+.stat .v{font-size:2.05rem;font-weight:800;line-height:1.05;letter-spacing:-.02em;color:var(--pulse-green)}
+.stat .u{font-size:.88rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--base-linen);margin-top:3px}
+.stat .s{font-size:.9rem;line-height:1.35;color:rgba(246,243,240,.72)}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:4px 24px;flex-wrap:wrap}
+.foot{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:end;gap:1.2rem}
+.logo{display:flex;align-items:center;gap:.5rem;color:var(--base-linen)}
+.logo .mark{width:1.85rem;height:1.85rem;border-radius:50%;background:var(--pulse-green);color:var(--carbon-moss);display:grid;place-items:center;
+  font-style:italic;font-weight:600;font-size:1.05rem}
+.logo .word{font-weight:600;font-size:1.1rem;letter-spacing:-.01em}
+.logo .word sup{font-size:.55em;font-weight:500}
+.meta{font-size:.9rem;color:rgba(246,243,240,.72);text-align:right}
+.meta b{color:var(--base-linen);font-weight:600}
+
+/* light cards */
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius-md);box-shadow:0 1px 3px rgba(12,34,38,.04);
+  padding:.75rem 1.05rem;min-width:0;min-height:0;display:flex;flex-direction:column;gap:.45rem;overflow:hidden}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:6px 16px;flex-wrap:wrap}
+.legend{display:flex;gap:.3rem 1rem;flex-wrap:wrap;font-size:.9rem;color:var(--muted);align-items:center}
+.legend > span{display:inline-flex;align-items:center;white-space:nowrap}
+.sw{display:inline-block;width:.7rem;height:.7rem;border-radius:3px;margin-right:.35rem;vertical-align:-.05rem}
+.hint{font-size:.9rem;color:var(--muted)}
+#chart{position:relative;flex:1;min-height:3rem}
+#chart svg{position:absolute;inset:0;width:100%;height:100%}
+#chart text{font-family:var(--font-sans);font-size:.88rem;fill:var(--muted)}
+#chart .peak{font-weight:600;fill:var(--accent-text)}
+.sessions{display:grid;gap:.6rem;grid-template-columns:var(--sess-cols,repeat(8,minmax(0,1fr)))}
+.sess{border-top:4px solid var(--virtual-tide);padding-top:.35rem;min-width:0}
+.sess .t{font-size:.98rem;font-weight:700;color:var(--text-strong);line-height:1.3}
+.sess .t i{font-style:normal;display:inline-grid;place-items:center;width:1.25rem;height:1.25rem;border-radius:50%;background:var(--carbon-moss);color:var(--pulse-green);
+  font-size:.68rem;font-weight:700;margin-right:.4rem;vertical-align:.05rem}
+.sess .w{font-size:.9rem;font-weight:600;color:var(--accent-text)}
+.sess .d{font-size:.9rem;color:var(--muted);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+.cols{display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1fr) minmax(0,1.2fr);gap:.8rem;min-height:0}
+.tools{display:flex;gap:.5rem 1rem;align-items:center;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .95rem;border-radius:var(--radius-pill);background:var(--carbon-moss);color:var(--pulse-green);font-weight:700;font-size:.96rem;text-decoration:none;white-space:nowrap}
+.btn:hover{background:var(--quantum-leaf)}
+.btn:focus-visible{outline:3px solid var(--virtual-tide);outline-offset:2px}
+.iters{display:grid;grid-template-columns:repeat(var(--n,7),minmax(0,1fr));gap:0 .2rem}
+.it{--p:.85rem;position:relative;min-width:0;padding:.4rem calc(var(--p) + .35rem) .5rem calc(var(--p) + .45rem);margin-left:calc(.2rem - var(--p));
+  background:color-mix(in srgb,var(--c) 13%,var(--surface));box-shadow:inset 0 -3px 0 var(--c);
+  clip-path:polygon(0 0,calc(100% - var(--p)) 0,100% 50%,calc(100% - var(--p)) 100%,0 100%,var(--p) 50%)}
+.it:first-child{margin-left:0;padding-left:.7rem;clip-path:polygon(0 0,calc(100% - var(--p)) 0,100% 50%,calc(100% - var(--p)) 100%,0 100%)}
+.it:last-child{padding-right:.7rem;clip-path:polygon(0 0,100% 0,100% 100%,0 100%,var(--p) 50%)}
+.it .id{display:inline-flex;align-items:center;gap:.4rem;font-size:.96rem;font-weight:800;color:var(--text-strong)}
+.it .id i{width:.7rem;height:.7rem;border-radius:50%;background:var(--c);flex:none}
+.it .nm{font-size:.9rem;font-weight:600;line-height:1.25;color:var(--text-strong);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.it .st{font-size:.9rem;line-height:1.3;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+table{border-collapse:collapse;width:100%;font-size:.96rem}
+th{font-size:.88rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;padding:0 0 .3rem;border-bottom:1px solid var(--rule)}
+td{padding:.2rem 0;border-bottom:1px solid var(--rule)}
+th.r,td.r{text-align:right;padding-left:.8rem;white-space:nowrap}
+tr.total td{font-weight:700;color:var(--text-strong);border-bottom:0}
+.split{display:flex;height:.8rem;border-radius:var(--radius-sm);overflow:hidden;font-size:.9rem;font-weight:600;color:#fff;flex:none}
+.split span{display:flex;align-items:center;padding:0 .6rem;white-space:nowrap;overflow:hidden}
+
+.stages{display:flex;flex-direction:column;gap:.2rem}
+.stage{display:grid;grid-template-columns:minmax(0,10.5em) 1fr auto;gap:.7rem;align-items:center;font-size:.96rem}
+.stage .n{font-weight:700;color:var(--text-strong)}
+.dots{display:flex;gap:.16rem;flex-wrap:wrap}
+.dot{width:.8rem;height:.8rem;border-radius:3px;background:var(--c);box-sizing:border-box}
+.dot.open{background:transparent;border:2px solid var(--c)}
+.callout{background:var(--tint);border-left:3px solid var(--virtual-tide);border-radius:var(--radius-sm);padding:.5rem .75rem;font-size:.94rem;color:var(--text)}
+.callout b{color:var(--text-strong)}
+
+.grp{font-size:.88rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:.2rem}
+.chips{display:flex;flex-wrap:wrap;gap:.3rem .35rem;align-items:center;margin-bottom:.35rem}
+.chip{font-size:.92rem;font-weight:500;padding:.05rem .55rem;border-radius:var(--radius-pill);white-space:nowrap;border:1px solid transparent}
+.chip.live{background:var(--carbon-moss);color:var(--base-linen);border-color:var(--rule)}
+.chip.built{background:var(--tint);color:var(--text);border-color:rgba(9,167,141,.25)}
+.chip.wip{color:var(--text);border:1px dashed var(--accent-text)}
+.testbar{display:flex;height:.8rem;border-radius:var(--radius-sm);overflow:hidden;gap:2px;flex:none}
+.testbar span{background:var(--c)}
+.tlegend{display:flex;flex-wrap:wrap;gap:.15rem .9rem;font-size:.92rem;color:var(--muted)}
+.tlegend b{color:var(--text-strong);font-weight:700}
+.golden{display:flex;align-items:center;gap:.5rem;font-size:.94rem;font-weight:600;color:var(--text-strong);background:var(--tint);border-radius:var(--radius-sm);padding:.45rem .7rem}
+.golden svg{flex:none;width:1rem;height:1rem}
+
+
+/* tabs in the hero, and the Testing view */
+.tabs{display:inline-flex;gap:.2rem;padding:.14rem;border-radius:var(--radius-pill);background:rgba(255,255,255,.08);border:1px solid rgba(82,224,129,.24)}
+.tabs button{border:0;background:transparent;color:rgba(246,243,240,.82);font:600 .94rem var(--font-sans);padding:.1rem .9rem;border-radius:var(--radius-pill);cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--pulse-green);color:var(--carbon-moss)}
+.tabs button:focus-visible{outline:2px solid var(--pulse-green);outline-offset:2px}
+#ov{display:contents}
+#ov[hidden],.tv[hidden]{display:none!important}
+.page.testing{grid-template-rows:auto minmax(0,1fr)}
+.stats.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+.tv{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr) minmax(0,.85fr);gap:.8rem;min-height:0;overflow:auto;align-items:start;align-content:start}
+.tv .col{display:flex;flex-direction:column;gap:.8rem;min-width:0}
+.tv .card{gap:.3rem;flex:none;min-height:auto}
+.tv.has-sweep{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(0,.9fr)}
+.tv .span{grid-column:1 / -1}
+.st{display:inline-flex;align-items:center;gap:.3rem;padding:.04rem .6rem .04rem .45rem;border-radius:var(--radius-pill);font-weight:700;font-size:.9rem;line-height:1.35;border:1.5px solid var(--sc);color:var(--st-ink);background:var(--st-bg);white-space:nowrap;flex:none}
+.st svg{width:.95em;height:.95em;flex:none}
+.st-pass{--sc:#1B8A4B;--st-ink:#0F5A30;--st-bg:rgba(27,138,75,.12)}
+.st-partial{--sc:#B8741A;--st-ink:#7A4A00;--st-bg:rgba(200,125,10,.14)}
+.st-notrun{--sc:#6E8789;--st-ink:#3C5558;--st-bg:rgba(110,135,137,.12)}
+.st-notrun{border-style:dashed}
+.st-running{--sc:#0B7F9A;--st-ink:#075A6E;--st-bg:rgba(11,127,154,.12)}
+.st-fail{--sc:#B3261E;--st-ink:#8A1A14;--st-bg:rgba(179,38,30,.12)}
+.st-open,.st-fixedcode{--sc:#B8741A;--st-ink:#7A4A00;--st-bg:rgba(200,125,10,.14)}
+@media (prefers-reduced-motion:no-preference){.st-running svg{animation:spin 1.6s linear infinite}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.lv{padding:.34rem 0;border-top:1px solid var(--rule);display:grid;gap:.12rem}
+.lv .l1{display:flex;gap:.55rem;align-items:center;min-width:0}
+.lv .l1 b{font-size:1rem;font-weight:700;color:var(--text-strong);line-height:1.25;min-width:0}
+.lv .when{font-size:.9rem;font-weight:600;color:var(--accent-text);line-height:1.3;margin-left:auto;text-align:right}
+.lv .res{font-size:.95rem;color:var(--text-strong);line-height:1.38}
+.lv .what{font-size:.9rem;color:var(--muted);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.flow .lv .what,.tv.full .lv .what{white-space:normal}
+.dg{display:flex;align-items:center;gap:.5rem;margin-top:.35rem;padding-top:.3rem;border-top:1px solid var(--rule)}
+.dg:first-of-type{margin-top:.1rem}
+.dg .gc{font-weight:700;color:var(--muted);font-size:.9rem}
+.df{padding:.2rem 0 .22rem}
+.df .w{font-size:.95rem;color:var(--text-strong);line-height:1.35;min-width:0;display:flex;gap:.4rem;align-items:baseline;flex-wrap:wrap}
+.df .w b{font-weight:700}
+.df .w i{font-style:normal;font-weight:700;color:var(--accent-text)}
+.df .si{display:inline-flex;align-self:center;color:var(--sc);flex:none}
+.df .si svg{width:.95em;height:.95em}
+.df .t{font-size:.92rem;color:var(--muted);line-height:1.35;padding-left:1.35rem}
+.df.fx .t{display:none}
+.df.fx{padding:.12rem 0}
+.nt{padding:.28rem 0;border-top:1px solid var(--rule)}
+.nt b{display:block;font-size:.96rem;color:var(--text-strong);line-height:1.3}
+.nt span{display:block;font-size:.92rem;color:var(--muted);line-height:1.35}
+.run{padding:.26rem 0;border-top:1px solid var(--rule)}
+.run b{display:block;font-size:.94rem;color:var(--text-strong)}
+.run code{display:block;font:500 .88rem/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--text-strong);background:var(--tint);border-radius:var(--radius-sm);padding:.1rem .45rem;overflow-wrap:anywhere}
+.swnote{display:flex;gap:.2rem .6rem;align-items:center;flex-wrap:wrap;font-size:.95rem;color:var(--text-strong)}
+.swnote span.m{color:var(--muted)}
+.swt{display:grid;gap:.1rem;font-size:.92rem}
+.swt .r{display:grid;grid-template-columns:minmax(6.2rem,1.25fr) repeat(var(--nr),minmax(0,1fr));gap:.2rem;align-items:center;padding:.2rem 0;border-top:1px solid var(--rule)}
+.swt .r.h{border-top:0;font-size:.86rem;font-weight:600;letter-spacing:.01em;color:var(--muted);align-items:end;line-height:1.15}
+.swt .r.h .c{white-space:normal;font-weight:700;color:var(--text-strong)}
+.swt .rn{font-weight:700;color:var(--text-strong);line-height:1.2}
+.swt .c{text-align:center;border-radius:var(--radius-sm);padding:.1rem .1rem;font-weight:700;white-space:nowrap}
+.swt .c .p{color:#0F5A30}.swt .c .f{color:#8A1A14}.swt .c .n{color:#3C5558}
+.swt .c.bad{background:rgba(179,38,30,.12)}
+.swt .c .z{opacity:.4;font-weight:600}
+.swt.stack{display:none}
+.df.fx{padding:.18rem 0}
+.df.fx .t{display:none}
+.df.fx .w{font-size:.92rem}
+.swk{display:flex;gap:.9rem;flex-wrap:wrap;font-size:.9rem;color:var(--muted)}
+.swk b.p{color:#0F5A30}.swk b.f{color:#8A1A14}.swk b.n{color:#3C5558}
+
+/* Last resort only, when even the smallest readable size cannot fit (portrait phones) */
+html.flow,html.flow body{height:auto;overflow:auto}
+html.flow .page{height:auto;grid-template-rows:auto}
+html.flow #chart{flex:none;height:12rem}
+html.flow .page.testing{grid-template-rows:auto}
+html.flow .tv{overflow:visible}
+html.flow .scrollhint{display:none!important}
+.scrollhint{position:sticky;bottom:.3rem;grid-column:1 / -1;justify-self:center;z-index:3;pointer-events:none;background:var(--carbon-moss);color:var(--pulse-green);font-weight:700;font-size:.9rem;padding:.12rem .8rem;border-radius:var(--radius-pill);box-shadow:0 2px 8px rgba(12,34,38,.3)}
+.scrollhint[hidden]{display:none!important}
+/* Portrait screens: stack the panels; landscape keeps the desktop layout at any width */
+@media (max-aspect-ratio:1/1){
+  .tv,.tv.has-sweep{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tv .col:first-child{grid-column:1 / -1}
+  .stats.four{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .iters{grid-template-columns:repeat(4,minmax(0,1fr));gap:.3rem}
+  .it,.it:first-child,.it:last-child{margin-left:0;clip-path:none;padding:.4rem .7rem .5rem;border-radius:var(--radius-sm)}
+  .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .cols{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cols > :last-child{grid-column:1 / -1}
+}
+/* Narrow portrait (phones): one column */
+@media (max-aspect-ratio:1/1) and (max-width:760px){
+  .tv,.tv.has-sweep{grid-template-columns:1fr}
+  .lv .what{white-space:normal}
+  .lv .l1{flex-wrap:wrap}
+  .lv .when{margin-left:0;text-align:left;flex-basis:100%}
+  .swt.tab{display:none}
+  .swt.stack{display:grid}
+  .swt.stack .r{grid-template-columns:1fr;gap:.1rem}
+  .swt.stack .c{display:flex;justify-content:space-between;gap:.6rem;text-align:left;white-space:normal;padding:.1rem .3rem}
+  .swt.stack .c::before{content:attr(data-a);font-weight:600;color:var(--muted);flex:1}
+  .df.fx .t{display:block}
+  .tabs{order:3}
+  .iters{grid-template-columns:repeat(2,minmax(0,1fr));gap:.3rem}
+  .it,.it:first-child,.it:last-child{margin-left:0;clip-path:none;padding:.4rem .7rem .5rem;border-radius:var(--radius-sm)}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cols{grid-template-columns:1fr}
+  .meta{text-align:left}
+  .foot{grid-template-columns:1fr}
+  .foot .logo{order:2}
+  .hero .wave{width:75%;height:45%;opacity:.45}
+}
+
+</style>
+
+<script type="application/json" id="report-data">
+{"updated":"7 Oct 2026, 22:30 IST","window":["2 Oct 18:38","7 Oct 22:29 IST"],"kpis":{"commits":371,"files":2048,"agents":109,"peak":11,"merges":48,"laneMerges":27,"lanes":53,"landed":49,"tests":{"Unit":7707,"Integration":460,"Web":239,"OPA":121,"AI checks":813,"Browser":37},"failing":2,"gates":[8,9],"testNotes":["Integration: 2 failed at 12:01 run"]},"sessions":[{"from":"2026-10-02T13:08:00Z","to":"2026-10-02T13:36:00Z","title":"Research","text":"12 agents read the specs and AEO code"},{"from":"2026-10-02T19:13:00Z","to":"2026-10-02T21:59:00Z","title":"Design, foundations","text":"3 design docs, 24 ADRs, 8 parallel lanes"},{"from":"2026-10-03T21:17:00Z","to":"2026-10-04T00:55:00Z","title":"Services, workers","text":"Identity, case flow, AI worker, black-box tests"},{"from":"2026-10-04T07:55:00Z","to":"2026-10-04T08:43:00Z","title":"Services land","text":"Case, policy and audit merged"},{"from":"2026-10-04T11:00:00Z","to":"2026-10-04T11:45:00Z","title":"Audit","text":"4 independent auditors review all code"},{"from":"2026-10-04T18:19:00Z","to":"2026-10-04T20:01:00Z","title":"Lock-down","text":"Login and access policy enforced"},{"from":"2026-10-05T07:21:00Z","to":"2026-10-05T20:00:00Z","title":"Live wiring in iterations","text":"Eight containers, then iterations I1 to I5 in parallel"},{"from":"2026-10-06T05:21:00Z","to":"2026-10-06T14:27:00Z","title":"Analyst and oversight","text":"Analyst routes, oversight and config merged; 8 of 9 eval gates pass"},{"from":"2026-10-06T16:48:00Z","to":"2026-10-07T16:59:00Z","title":"Drills, live checks","text":"Dead code and exception audit merged; 12 resilience drills pass; cheaper-model runs recorded"}],"tokens":{"kinds":[["Cache reads",6291811101],["Cache writes",100486421],["Output",3752656],["Fresh input",50342]],"orchestrator":1421165712,"agentsTotal":4974934808,"top":[["I3-E agent runtime hardening",391.2],["I5-B live end-to-end demo and defect fixing",313.9],["I6-B resilience drills and make resilience",264.9]]},"stages":[{"name":"Reading the specs","found":["P1","P1","P1","P2","P2","P3","P3"],"open":[]},{"name":"Merging agent work","found":["P1","P1","P1","P1","P1","P1","P1","P2","P2","P2","P2","P2","P2","P2","P2","P3","P3","P3","P3","P3"],"open":["P3"]},{"name":"Building services","found":["P1","P1","P1","P1","P1","P1","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P3","P3","P3","P3","P3","P3","P3","P3","P3","P3","P3","P3","P3","P3","P3","P3","P3","P3"],"open":["P1","P2","P2","P2","P2","P2","P3","P3","P3","P3","P3","P3","P3","P3","P3","P3","P3"]},{"name":"Black-box tests","found":["P1","P2"],"open":[]},{"name":"Live stack and boot","found":["P1","P1","P1","P1","P1","P1","P1","P1","P2","P2","P2","P2"],"open":["P1"]},{"name":"Security audits","found":["P1","P1","P1","P2","P2","P2","P2","P2","P2","P2","P2","P2","P2","P3","P3"],"open":["P2","P2","P2","P2","P3"]},{"name":"Live evals","found":["P1","P2"],"open":["P2"]}],"defects":{"rows":112,"open":["D-29","D-39","D-50","D-56","D-57","D-67","D-68","D-69","D-86","D-87","D-88","D-89","D-90","D-91","D-95","D-96","D-98","D-100","D-105","D-106","D-107","D-108","D-109","D-110","D-111"],"sev":{"P2":56,"P1":29,"P3":27}},"graph":{"main":[[29849529,"docs","1431780","docs(requirements): import approved spec set, brief, research notes and design documents"],[29849537,"docs","c3af3ad","docs(plan): master build plan, decision log ADR-01..21, gates register, coding standards"],[29849544,"docs","dc392a8","docs(plan): single continuous run, automated milestones, complete folder structure"],[29849557,"feat","62a5414","feat(scoring): deterministic scoring engine with golden tests against all 80 seed cases"],[29849565,"feat","4a276af","feat(audit): hash-chained, insert-only evidence ledger core with a full 67-record demo replay"],[29849571,"feat","88da715","feat(caseflow): pure state machine with a full demo-case replay; repo-wide ruff/format cleanup"],[29849574,"feat","3c18116","feat(contracts): the 13 agent-tool input/output schemas"],[29849576,"feat","02b5502","feat(case): S1's pure domain logic — field-set resolution, completion, the four submit checks"],[29849579,"feat","33c40ea","feat(decision): S5's pure logic — frozen pack hashing, release checks, outcomes; ADR-08 tally shared via contr"],[29849580,"feat","3766722","feat(policy): S3's reciprocal rank fusion and Index Contract metadata validation"],[29849583,"docs","cda17dd","docs(governance): failure log, defect trail, visibility matrix, rules, audit-chain spec, event catalogue, data"],[29849585,"docs","9d673d6","docs(requirements): expanded spec, personas, glossary, rules, open questions"],[29849586,"docs","f601ed2","docs(architecture): C4 context and container diagrams; README reflects real build status"],[29849587,"docs","c2f3822","docs(architecture): sequence diagrams for intake, assessment-and-override, and committee-decide"],[29849593,"feat","fdfec53","feat(guardrails): the seven guards and eight rules (P5), merged from the parallel lane"],[29849595,"fix","767c01d","fix(seed): remove scoring_engine from the assessment agent's tool list (D-08, ADR-07)"],[29849599,"docs","828697a","docs(plan): sync the lane table in BUILD-PLAN.md with real status"],[29849605,"feat","bc9c6cb","feat(common): fcrm_common, the shared platform library, merged from the parallel lane"],[29849606,"fix","4bb8ea3","fix(contracts): add the event types fcrm_common.events needs (case.close_requested, ingest/index.failed, condi"],[29849615,"feat","e87e96c","feat(ai): the full ai/ layer -- tiers, nine agent specs, thirteen tool specs, prompts, skills, guards, OPA pol"],[29849615,"feat","d54a014","feat(contracts): fill the proposal-schema gaps the ai layer needs (ADR-24)"],[29849615,"docs","b5d1c1c","docs(plan): sync BUILD-PLAN status after merging common and the ai/ layer"],[29851054,"feat","a9f5c23","feat(scoring): add S2 HTTP layer with Mongo-backed config store [ADR-07]"],[29851060,"feat","6ea7e30","feat(evals): add P7 fcrm-evals package: datasets, metrics, gate, pipeline"],[29851060,"docs","7f48c48","docs(plan): sync BUILD-PLAN status after merging evals (P7)"],[29851065,"feat","fe6f073","feat(agents): add P1/P2/P3 fcrm_tools, fcrm_prompts, fcrm_agents; two real bugs fixed"],[29851065,"docs","8830c9c","docs(plan): sync BUILD-PLAN status after merging tools/prompts/agents (P1-P4)"],[29851069,"feat","adf90c6","feat(web): add React 19 frontend shell: all 27 screens, three personas"],[29851069,"docs","e255c18","docs(plan): sync BUILD-PLAN status after merging web-shell"],[29851076,"feat","b3cf4f7","feat(ops): add compose stack, Makefile, infra configs; resolve a real OPA policy conflict [D-11]"],[29851088,"feat","36a084b","feat(workers): add H3 ingestion-worker and H4 context-worker; resolve a real dependency conflict"],[29851089,"docs","ca2e53c","docs(plan): sync BUILD-PLAN status after merging H3/H4 workers"],[29851089,"docs","5d666cf","docs(governance): record D-12, the aioboto3/pydantic-ai-slim workspace lock conflict"],[29851108,"feat","ca6a153","feat(ops): add Dockerfiles for every service/worker; fix a real APP_ROOT_PATH gap [D-13]"],[29851108,"docs","434bd70","docs(plan): sync BUILD-PLAN status after merging Dockerfiles"],[29851142,"feat","89e8008","feat(identity): add X1 identity service; fix a serious lifespan bug in mount_at_root_path [D-14]"],[29851143,"docs","7104938","docs(plan): sync BUILD-PLAN status after merging identity (X1)"],[29851154,"feat","bbe3f70","feat(agent-worker): add H2 real FastStream/RabbitMQ wiring; fix a config bug [D-15]"],[29851154,"docs","d444059","docs(plan): sync BUILD-PLAN status after merging agent-worker (H2)"],[29851208,"test","48b1a3b","test(integration): add contract, black-box and cross-package test layer; Playwright scaffold"],[29851208,"docs","8c935f6","docs(plan): sync BUILD-PLAN status after merging the integration test layer"],[29851226,"feat","71f756b","feat(caseflow): add H1 real FastStream/RabbitMQ/Mongo wiring; fix two real bugs [D-17]"],[29851226,"docs","7b9a7e6","docs(plan): sync BUILD-PLAN status after merging caseflow (H1)"],[29851227,"docs","5f91627","docs(plan): note that make up's Dockerfile-presence gate now passes"],[29851255,"feat","093167f","feat(decision): add S5 HTTP layer: frozen packs, hidden votes, tally, R6"],[29851255,"docs","6bf2f5d","docs(plan): sync BUILD-PLAN status after merging decision (S5)"],[29851688,"feat","57a79be","feat(audit): add S4 HTTP layer with insert-only Mongo role proof [D-18, D-19]"],[29851691,"feat","91122b0","feat(policy): add S3 HTTP layer with hybrid search over H4 [D-20]"],[29851695,"feat","fa97cde","feat(case): add S1 HTTP layer with role-shaped responses [D-21]"],[29851722,"test","89d87c4","test(blackbox): enable 7 more scenarios; fix three S5 rule violations [D-22, D-23]"],[29851879,"fix","f80c51b","fix(ops): make the composed stack boot from a fresh clone [D-24, D-25, D-26]"],[29851883,"docs","2fda176","docs(plan): record the first full composed-stack boot and the remaining wiring gaps"],[29852303,"fix","011d4e3","fix: harden scoring, S1, audit chain and guardrails against hostile input [D-27]"],[29852303,"fix","5f43216","fix(auth): require a principal and an OPA allow on every S2-S5 route [D-23]"],[29852316,"fix","0772920","fix(decision): make quorum and the R6 unlock atomic; refuse unlocking a decided pack [D-23]"],[29852326,"docs","b4c317c","docs: record the live-verified auth enforcement and the audit hash migration hazard [D-28, D-29]"],[29852338,"feat","f6d2d14","refactor: remove dead modules, unused contract types and scaffold placeholders [D-29]"],[29853154,"docs","24ca629","docs: add RUNNING.md with setup, checks, stack start and live smoke tests"],[29853154,"docs","5bdb0b6","docs(running): say where to run make from; two first-run messages explained"],[29853163,"feat","5582bd8","feat(ops): make env writes a short .env instead of a 232-line copy [ADR-20]"],[29853182,"fix","89d02d9","fix(ops): live mode had no AWS region; .env uses the 3 standard AWS names [D-30]"],[29853187,"fix","190461e","fix(web): move the CSS reset into Tailwind's base layer; buttons were dark on dark [ADR-06]"],[29853201,"feat","6eb7eb1","feat: add domain types for Risk Assessment Workbench and utility functions"],[29853216,"join","10dd398","chore(repo): merge the inner trustops repo into trustops_fcrm under trustops/ [ADR-25, ADR-01]"],[29853217,"fix","8a57e76","fix(ops): hooks resolve paths from trustops/, not the git root [ADR-25]"],[29853217,"fix","b1fdf7d","fix(ops): commit-msg lint was skipped by the top-level files filter [ADR-25]"],[29853218,"feat","11cd487","testing"],[29853219,"feat","13b0ed2","chore(repo): ignore agent worktrees and .DS_Store at the repo root [ADR-25]"],[29853219,"feat","bfc3dca","removed junk file"],[29853232,"docs","99efcb1","docs(running): backend vs frontend status, where the seam is [ADR-25]"],[29853328,"feat","b8a4d71","refactor(repo): bifurcate src into backend/ and frontend/ [ADR-26]"],[29853348,"feat","648ec5e","feat(api): one composite api process hosts identity and S1-S5 [ADR-26]"],[29853363,"feat","804d9c3","feat(harness): one harness process hosts H1 and H2 on one broker [ADR-26]"],[29853393,"feat","df1bcc2","feat(ops): eight-container default stack, profiles and a debug overlay [ADR-26]"],[29853398,"docs","ac88f2c","docs(governance): record ADR-28 to ADR-31 for the live wiring [ADR-28, ADR-29, ADR-30, ADR-31]"],[29853417,"feat","c4c82ff","feat(identity): web login contract, roster and local demo picker [ADR-30]"],[29853437,"feat","17c5add","build(web): live is the default, dev:msw and a live Playwright config, MSW never ships [ADR-30]"],[29853440,"feat","fb92fbc","feat(web): list hooks unwrap Page, the stream carries the token, polling follows stream status [ADR-30]"],[29853440,"feat","dc34905","feat(contracts): make openapi exports the merged api schema; the web's routes are ratcheted against it [ADR-30"],[29853440,"docs","70167f1","docs(running): live is the default, the login seam is closed, how the demo picker is gated [ADR-30]"],[29853447,"feat","e628fa8","feat(ops): turn on the local demo picker for the api service [ADR-30]"],[29853454,"merge","aa06532","Merge lane I1-A: event contracts and the H1 step mechanism [ADR-28]"],[29853472,"fix","edd6066","fix(context-worker): litellm no longer loads the repo's .env into every process [ADR-27]"],[29853477,"merge","119f7ae","Merge lane I1-B: object store, synthetic corpus and demo documents, audit and decision seeding [ADR-29, ADR-16"],[29853493,"feat","70059ba","feat(contracts): the S1 internal contract for the intake vertical [ADR-30]"],[29853501,"feat","02e8467","feat(seed): the generated synthetic policy corpus, 197 clauses over nine sources [ADR-29]"],[29853503,"feat","c555dce","chore(ops): fail when a mounted file is untracked; refresh api.json; record D-31 to D-35 [ADR-26, ADR-30]"],[29853569,"merge","adac278","Merge lane I2-C: HTTP tool registry, S3 reference routes, S4 proposals and idempotency [ADR-26, ADR-28]"],[29853579,"test","40d613c","test(policy): assert the 197-clause corpus, not the four demo clauses [ADR-29]"],[29853584,"merge","02554e1","Merge lane I2-A1: S1 view store, seed, internal routes, real SSE, broker and relay [ADR-28, ADR-30]"],[29853590,"merge","92e0cae","Merge lane I2-B: H1 intake core and the H3 ingestion worker [ADR-28, ADR-29]"],[29853602,"docs","ddcbe39","docs(governance): record ADR-32 to ADR-35 and D-36 to D-39 from the I2 merges [ADR-32, ADR-33, ADR-34, ADR-35]"],[29853603,"feat","64dd794","chore(ops): add the web typecheck and vitest lane to make check [ADR-26]"],[29853605,"docs","f204219","docs(ops): point the smoke checks at 0118 and state what runs live now [ADR-34]"],[29853676,"merge","11608c5","Merge lane I3-D: S5 committee surface, outbox events, hidden votes and the tally rule [ADR-08, ADR-28, ADR-30,"],[29853677,"docs","73c621c","docs(governance): record ADR-36 and ADR-37 for the vote mapping and S5 lifecycle [ADR-36, ADR-37]"],[29853684,"merge","a8d5d08","Merge lane I2-A2: S1 PO surface in the web's shapes, three PO fences, OPA PO rules [ADR-30, ADR-32, ADR-28]"],[29853695,"merge","636fcff","Merge lane I3-C: S3 corpus routes, all thirteen HTTP tools, H4 as a harness unit [ADR-29, ADR-30, ADR-28]"],[29853700,"fix","f941d07","fix(caseflow): skip the context worker's index events instead of orphaning them [ADR-28]"],[29853713,"merge","ce701ef","Merge lane I3-A: H1 assessment core, S1 internal assessment routes, S2 simulate [ADR-07, ADR-28, ADR-30]"],[29853716,"feat","26aeded","chore(ops): lint and format-check tests in make check, as the commit hook does [ADR-21]"],[29853725,"fix","047cbed","fix(case): the first write on a seeded draft asks H1 to open its run; mount the demo PDFs [ADR-34, ADR-28]"],[29853734,"merge","64eee2b","Merge lane I5-A: live agent evals, DeepEval judge, single-page dashboard, first real baseline [ADR-27, ADR-04]"],[29853747,"merge","9cd4c65","Merge lane I4-A: H1 decision core, S1 outcome, conditions and close, S1 consumer [ADR-28, ADR-31, ADR-36, ADR-"],[29853837,"fix","51fcc9d","fix(caseflow): a second agent failure during a handoff stays in handoff [ADR-28]"],[29853838,"docs","0d66d25","docs(governance): record ADR-38 to ADR-43 and D-40 to D-48 from the I2 to I5 merges [ADR-38, ADR-39, ADR-40, A"],[29854403,"docs","1467d82","docs(readme): describe the system as built, the rubric map and how to run it [ADR-26]"],[29854468,"merge","96b249a","Merge lane I4-C: configuration routes and the S2 routing-rules read [ADR-30, ADR-41]"],[29854472,"test","3123763","test(case): the PO live tests expect case.created on the seeded draft's first write [ADR-39]"],[29854488,"merge","28664bc","Merge lane I4-B: the audit examiner, the jurisdiction watchlist with re-flags, assurance analytics [ADR-28, AD"],[29854493,"merge","17b65a8","Merge lane I3-B2: analyst gate routes and the PO follow-up routes [ADR-28, ADR-30, ADR-38]"],[29854542,"merge","bad6317","Merge lane I3-B1: the analyst read surface, the harness monitor and the tools' service routes [ADR-30, ADR-19,"],[29854547,"merge","4dd0776","Merge lane I3-E: the nine live agents after the first eval run's findings [ADR-04, ADR-14, ADR-27]"],[29854547,"feat","3089b42","chore(evals): the 2026-10-06 run is the baseline, not the first run that failed eight gates [ADR-43]"],[29854555,"feat","5a02c09","feat(ops): semantic search runs on Bedrock embeddings by default, not the dummy provider [ADR-12, ADR-41]"],[29854611,"docs","84212a4","docs(governance): record ADR-44 to ADR-49 and D-49 to D-57 from the analyst, oversight, config and agent lanes"],[29854650,"docs","66f8e6f","docs(ops): runbooks, the AWS production path and the token analysis [ADR-26, ADR-27]"],[29854650,"docs","06f0aee","docs(architecture): as-built containers and tree, a sequence index [ADR-26, ADR-30]"],[29854651,"docs","f8f0026","docs(running): rewrite RUNNING.md for the system as built [ADR-26, ADR-27, ADR-30]"],[29854652,"docs","f602969","docs(plan): Status as built, true CLAUDE.md commands and a README snapshot [ADR-25, ADR-26, ADR-27]"],[29854657,"docs","a9f40ee","docs(governance): known gaps and SDLC evidence, each claim with its file [ADR-26, ADR-27, ADR-43]"],[29854679,"fix","a449d89","fix(tools): evidence_store reads the shape S1 serves and reports the control library's evidence [ADR-27, ADR-2"],[29854679,"fix","83d2cc0","fix(ai): judge budget 15k to 20k and mid budget 11k to 15k, from the live demo case [ADR-04, ADR-27]"],[29854679,"fix","b48983b","fix(h1-caseflow): precedent with values, always ask the field questions, true counts, closed runs [ADR-27, ADR"],[29854680,"fix","512d447","fix(s1-case): item ids the web posts, a decision ledger that refuses, demo-reset that restores [ADR-27, ADR-30"],[29854680,"fix","9eb438b","fix(h2-agent-worker): the narrative may cite the score record, and a rejection says why [ADR-14, ADR-27]"],[29854681,"fix","8559c59","fix(web): confirm an area's likelihood and impact and a planned control; the examiner ask polls [ADR-27, ADR-3"],[29854681,"test","41d6053","test(e2e): the live 21-scene demo, the live black-box rules, seed-verify and make demo [ADR-27]"],[29854735,"test","3138275","test(blackbox): remove the not-yet-testable placeholder; the live black-box rules replace it [ADR-27]"],[29854787,"sync","8c0c169","wip merge worktree-agent-ae17160d067d72f3d"],[29854788,"merge","8af599c","Merge lane I6-C: handoff resume, capped evals.events, region fallback, test-int coverage, hooks example [ADR-1"],[29854789,"merge","4514a34","Merge lane I6-E: S1 pins the versions in force from S3 and reads published field sets by version [ADR-47]"],[29854789,"merge","985f055","Merge lane I6-F: model prices read from the AWS Price List, verified and sourced [ADR-04, ADR-43]"],[29854794,"merge","82ab0d2","Merge lane I6-B: resilience drills, a real DLQ replay and four broker and engine defects [ADR-27, ADR-28]"],[29854809,"sync","481c25c","Merge lanes I6-C, I6-E and I6-F: handoff resume, S1 pins from S3, verified model prices [ADR-14, ADR-28, ADR-4"],[29854820,"merge","e4c14f6","Merge lane I6-D: the per-case token cap is enforced across agent jobs, 160k with a 120k target [ADR-14, ADR-27"],[29854828,"docs","db65afd","docs(governance): record ADR-50 to ADR-55 and D-58 to D-69, and the 6 October evening changes to the known gap"],[29854859,"fix","4e156a1","fix(h1-caseflow): a condition with no text is left out of the draft, so the case can close [ADR-27, ADR-28]"],[29854863,"merge","afd660d","Merge lane dead-code-frontend: unused UI, hooks and mock-era copy removed [ADR-06, ADR-30]"],[29854863,"merge","f1fd369","Merge lane exception-audit: bounded deadlines, retry-safe audit writes, error boundary [ADR-28, ADR-54, ADR-19"],[29854867,"merge","42424bc","Merge lane dead-code-backend: unused symbols, env vars and one module removed [ADR-21]"],[29854869,"feat","eb174ed","feat(ops): an economy model profile for cost-capped live checks, with no Sonnet or Opus [ADR-04, ADR-27]"],[29854879,"docs","52053c1","docs(governance): ADR-56 to ADR-59, D-70 to D-91 and section H of the known gaps; fix stale guidance [ADR-56, "],[29854886,"sync","6a53446","Merge lane I6-B: drills follow the token ledger and handoff, D6b, and an approval guard for disruptive or AWS-"],[29854907,"fix","6b983c3","fix(h1-caseflow): a harness step gets eight attempts, so an api restart no longer parks it [D-93, ADR-28, ADR-"],[29854908,"fix","34c63b7","fix(ops): every make up target recreates OPA first, so changed permissions always load [D-92, ADR-26]"],[29854928,"test","20c5622","test(resilience): the poison-park deadline follows the step attempts, so D5b waits for all eight [D-93, ADR-28"],[29854935,"test","f2b9a2f","test(resilience): D5b expects the step attempts, not the old three [D-93, ADR-28]"],[29855092,"feat","bed771a","feat(ops): the economy profile uses Sonnet 4.5 for research, assessment and the mid tier [ADR-04, ADR-56, ADR-"],[29855193,"docs","3596f2c","docs: the live checks of 6 October night, the drill results and the final status [ADR-60, ADR-61, D-92, D-97]"],[29855200,"docs","c0413d7","docs(governance): D-98, a job parked by a transport failure may leave its case waiting [ADR-14, D-98]"],[29855891,"feat","8b55edd","feat(ai): the committed chain is Sonnet 4.5 on mid and strong and Nova Pro on the judge, with no Opus [ADR-62,"],[29855892,"docs","6a9c885","docs(governance): ADR-62, D-99 and D-100 and section J of the known gaps, for the chain change [ADR-62, D-99, "],[29855916,"merge","587e737","Merge lane docs-chain: the prose follows the committed model chain, and the counts are current [ADR-62]"],[29856019,"docs","7da5e9c","docs(running): a plain quick start at the top, and four statements that were no longer true removed [ADR-62]"],[29856023,"fix","98b7a27","fix(ops): make pull fetches only images that exist in a registry, so make bootstrap works on a first run [ADR-"],[29856024,"fix","6f4f039","fix(ops): harness never tries to pull the image api builds, so a first make up works [ADR-26]"],[29856027,"fix","d25bb6e","fix(ops): make seed says to run make up when the application is not running [ADR-26]"],[29856047,"feat","d191212","feat(ops): the default stack publishes MongoDB on 127.0.0.1:27017, for Compass and mongosh [ADR-26]"],[29856057,"docs","6a79dc3","docs(governance): ADR-63 and D-101 to D-104, from the operator's first run and screenshots [ADR-63, D-101, D-1"],[29856111,"merge","8fd3caa","Merge lane browser-sweep: a Playwright suite that opens every screen and safe button as all four roles, with n"],[29856113,"docs","a2b9948","docs(governance): the testing report, and D-105 to D-111 found by the browser sweep [D-105, D-110]"],[29856160,"merge","53a1476","Merge lane fix-sweep-defects: Verify chain, no-run screens, Agent quality, sign-in message, observer wording, "],[29856176,"docs","6810f4a","docs: the sweep's fixes are recorded as fixed in code and not yet confirmed live; counts follow the final gate"],[29856287,"feat","5bf1fbb","feat(ai): mid and strong run on Sonnet 5.5 again, with the critic on Nova Pro and no Opus [ADR-65, ADR-62, ADR"],[29856288,"docs","2d7535c","docs(governance): ADR-65, the move back to Sonnet 5.5, with what evidence exists for it [ADR-65]"],[29856322,"feat","c86e485","feat(common): export application logs over OTLP to OpenObserve [ADR-66]"]],"lanes":[{"i":"","l":"Analyze hackathon problem statement","g":"R","a":29849112,"b":29849115,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a4e755","tk":0.3,"r":0},{"i":"","l":"Analyze build plan and decisions","g":"R","a":29849112,"b":29849120,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a84e35","tk":0.6,"r":1},{"i":"","l":"Analyze blueprint, flow, walkthrough","g":"R","a":29849112,"b":29849122,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a8773a","tk":1.5,"r":2},{"i":"","l":"Deep-dive FCRM_v2 prototype","g":"R","a":29849112,"b":29849127,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a341fe","tk":9.2,"r":3},{"i":"","l":"Inventory reusable AEO components","g":"R","a":29849112,"b":29849136,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"ad8c1b","tk":2.3,"r":4},{"i":"","l":"Inventory evoq_ingestion and ingestion service","g":"R","a":29849115,"b":29849128,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"af08fe","tk":8.0,"r":8},{"i":"","l":"Inventory evoq_context and context service","g":"R","a":29849115,"b":29849123,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a74468","tk":6.0,"r":7},{"i":"","l":"Inventory identity, OPA, GenericService, OTel","g":"R","a":29849115,"b":29849122,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"aa0aeb","tk":4.2,"r":5},{"i":"","l":"Search evals, S3 Vectors, Pydantic AI, OTel elsewhere","g":"R","a":29849115,"b":29849122,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"ad864a","tk":4.1,"r":6},{"i":"","l":"PO pages screen notes","g":"R","a":29849117,"b":29849122,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"acd4eb","tk":3.4,"r":0},{"i":"","l":"Analyst workbench and committee notes","g":"R","a":29849117,"b":29849123,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"af43ff","tk":1.8,"r":10},{"i":"","l":"Analyst config and assurance notes","g":"R","a":29849117,"b":29849122,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a13fc8","tk":3.6,"r":9},{"i":"","l":"Diff updated plan and decision docs","g":"R","a":29849474,"b":29849483,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a1b743","tk":1.8,"r":0},{"i":"","l":"Diff updated blueprint, flow, walkthrough","g":"R","a":29849474,"b":29849488,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"aae115","tk":7.4,"r":1},{"i":"","l":"Design backend services and harness","g":"R","a":29849507,"b":29849527,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a14856","tk":3.4,"r":2},{"i":"","l":"Design AI layer, memory and evals","g":"R","a":29849507,"b":29849525,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"ad11ed","tk":2.3,"r":1},{"i":"","l":"Design frontend, tests, ops, SDLC harness","g":"R","a":29849507,"b":29849521,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a2a8a1","tk":1.6,"r":0},{"i":"common","l":"Build fcrm_common shared package","g":"I0","a":29849562,"b":29849601,"br":1,"m":17,"k":"l","c":[],"w":0,"id":"ad4f5a","tk":28.7,"r":1},{"i":"guardrails","l":"Build fcrm_guardrails package","g":"I0","a":29849562,"b":29849591,"br":1,"m":14,"k":"l","c":[],"w":0,"id":"a03d75","tk":14.8,"r":0},{"i":"ops","l":"Build ops compose infra and Makefile","g":"I0","a":29849562,"b":29851047,"br":1,"m":29,"k":"l","c":[],"w":0,"id":"a791ce","tk":60.5,"r":4},{"i":"ai layer","l":"Author ai/ layer files: tiers, agents, tools, guards, skills","g":"I0","a":29849562,"b":29849604,"br":1,"m":19,"k":"l","c":[],"w":0,"id":"a7a77f","tk":35.4,"r":2},{"i":"web shell","l":"Scaffold React web app shell","g":"I0","a":29849562,"b":29851045,"br":1,"m":27,"k":"l","c":[],"w":0,"id":"ad133b","tk":45.7,"r":3},{"i":"agents","l":"Build fcrm_tools, fcrm_agents, fcrm_prompts","g":"I0","a":29849598,"b":29851060,"br":1,"m":25,"k":"l","c":[],"w":0,"id":"a53a71","tk":45.1,"r":5},{"i":"evals","l":"Build evals datasets, metrics, runner","g":"I0","a":29849598,"b":29851045,"br":1,"m":23,"k":"l","c":[],"w":0,"id":"a285f2","tk":19.7,"r":0},{"i":"H3+H4","l":"Clone and adapt evoq_ingestion and evoq_context","g":"I0","a":29849598,"b":29851074,"br":1,"m":30,"k":"l","c":[],"w":0,"id":"a05ff6","tk":61.8,"r":6},{"i":"identity","l":"Build identity service X1","g":"I0","a":29851091,"b":29851128,"br":1,"m":35,"k":"l","c":[],"w":0,"id":"a55bb2","tk":30.1,"r":1},{"i":"H2","l":"Build H2 agent-worker real wiring","g":"I0","a":29851091,"b":29851135,"br":1,"m":37,"k":"l","c":[],"w":0,"id":"a6c680","tk":70.5,"r":2},{"i":"docker","l":"Build Dockerfiles for every service and worker","g":"I0","a":29851091,"b":29851102,"br":1,"m":33,"k":"l","c":[],"w":0,"id":"a0be0b","tk":7.9,"r":0},{"i":"H1","l":"Build H1 caseflow real wiring","g":"I0","a":29851156,"b":29851217,"br":1,"m":41,"k":"l","c":[],"w":0,"id":"a0d78c","tk":95.5,"r":1},{"i":"black-box","l":"Build black-box and contract test suite","g":"I0","a":29851156,"b":29851202,"br":1,"m":39,"k":"l","c":[],"w":0,"id":"a3e258","tk":51.3,"r":0},{"i":"S4","l":"Build S4 audit HTTP layer","g":"I0","a":29851229,"b":29851694,"br":1,"m":46,"k":"l","c":[],"w":0,"id":"a38056","tk":35.6,"r":3},{"i":"S1","l":"Build S1 case HTTP layer","g":"I0","a":29851229,"b":29851690,"br":1,"m":48,"k":"l","c":[],"w":0,"id":"af1093","tk":58.3,"r":2},{"i":"S3","l":"Build S3 policy HTTP layer","g":"I0","a":29851229,"b":29851685,"br":1,"m":47,"k":"l","c":[],"w":0,"id":"a0ca17","tk":33.5,"r":1},{"i":"S5","l":"Build S5 decision HTTP layer","g":"I0","a":29851229,"b":29851251,"br":1,"m":44,"k":"l","c":[],"w":0,"id":"a63bcf","tk":17.7,"r":0},{"i":"bb stubs","l":"Enable black-box stubs against new services","g":"I0","a":29851695,"b":29851717,"br":1,"m":49,"k":"l","c":[],"w":0,"id":"a4bd9b","tk":15.6,"r":0},{"i":"","l":"Audit cross-service integration gaps","g":"R","a":29851862,"b":29851869,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"ae0eb5","tk":1.5,"r":1},{"i":"","l":"Adversarial edge-case testing of services","g":"R","a":29851862,"b":29851879,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"afbc98","tk":1.7,"r":3},{"i":"","l":"Security review of TrustOps services","g":"R","a":29851862,"b":29851868,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a2c871","tk":1.3,"r":0},{"i":"","l":"Docs-vs-code discrepancy audit","g":"R","a":29851862,"b":29851876,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"ac4bf6","tk":0.8,"r":2},{"i":"auth","l":"Enforce auth and OPA on S2-S5","g":"I0","a":29851869,"b":29852317,"br":1,"m":53,"k":"l","c":[],"w":0,"id":"a6697c","tk":21.7,"r":4},{"i":"harden","l":"Harden scoring, S1, audit chain, guardrails","g":"I0","a":29851880,"b":29851905,"br":1,"m":52,"k":"l","c":[],"w":0,"id":"afdd61","tk":10.5,"r":0},{"i":"","l":"Find dead code and duplicated logic","g":"R","a":29852321,"b":29852333,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a80408","tk":15.5,"r":0},{"i":"","l":"Review scoring + audit services","g":"R","a":29853182,"b":29853190,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"ac46dc","tk":1.8,"r":0},{"i":"","l":"Review case/decision/policy/identity services","g":"R","a":29853183,"b":29853190,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a7437b","tk":3.7,"r":2},{"i":"","l":"Review workers and agent packages","g":"R","a":29853183,"b":29853189,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a430ba","tk":1.3,"r":1},{"i":"","l":"Review contracts, seed, evals packages","g":"R","a":29853183,"b":29853192,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a54857","tk":3.7,"r":3},{"i":"","l":"Review web app","g":"R","a":29853184,"b":29853192,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"addf9d","tk":7.5,"r":5},{"i":"","l":"Review ingestion/context workers","g":"R","a":29853184,"b":29853196,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a355fb","tk":3.7,"r":7},{"i":"","l":"Review caseflow worker","g":"R","a":29853184,"b":29853189,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"abbfc9","tk":2.1,"r":4},{"i":"","l":"Review ops, compose, OPA, docs","g":"R","a":29853184,"b":29853192,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"ab3cf9","tk":1.7,"r":6},{"i":"","l":"Review caseflow and ingestion/context workers","g":"R","a":29853189,"b":29853195,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a61798","tk":1.4,"r":8},{"i":"O-A","l":"Lane A: discard and withdraw","g":"O","a":29853193,"b":29853196,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a02cac","tk":2.6,"r":0},{"i":"O-B","l":"Lane B: demo data audit","g":"O","a":29853193,"b":29853196,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a9cf85","tk":1.5,"r":1},{"i":"O-C","l":"Lane C: three demo kits","g":"O","a":29853193,"b":29853196,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"ab4e0e","tk":2.3,"r":2},{"i":"O-A","l":"Lane A: discard and withdraw","g":"O","a":29853205,"b":29853216,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"aa8700","tk":4.9,"r":0},{"i":"O-B","l":"Lane B: demo data audit","g":"O","a":29853205,"b":29853216,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a8377a","tk":5.7,"r":1},{"i":"O-C","l":"Lane C: three demo kits","g":"O","a":29853205,"b":29853216,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a4e700","tk":6.3,"r":2},{"i":"O-A","l":"Lane A: discard and withdraw","g":"O","a":29853220,"b":29853249,"br":1,"m":-1,"k":"","c":[[29853235,"docs"],[29853236,"feat"],[29853241,"feat"]],"w":0,"id":"aaa2a8","tk":27.0,"r":0},{"i":"O-B","l":"Lane B: demo data audit","g":"O","a":29853220,"b":29853249,"br":1,"m":-1,"k":"","c":[[29853238,"docs"]],"w":0,"id":"a3ab45","tk":18.5,"r":1},{"i":"O-C","l":"Lane C: three demo kits","g":"O","a":29853220,"b":29853249,"br":1,"m":-1,"k":"","c":[[29853243,"feat"]],"w":0,"id":"a3bd7e","tk":15.0,"r":2},{"i":"","l":"Inventory web API contract","g":"R","a":29853259,"b":29853262,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"aa835d","tk":0.5,"r":0},{"i":"","l":"Inventory backend routes and events","g":"R","a":29853259,"b":29853264,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"adbd38","tk":4.3,"r":2},{"i":"","l":"Check tests, plan status, demo path","g":"R","a":29853259,"b":29853262,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"ad672e","tk":1.0,"r":1},{"i":"","l":"Extract flow map and walkthrough","g":"R","a":29853274,"b":29853280,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a978e3","tk":2.8,"r":2},{"i":"","l":"Extract repo design targets","g":"R","a":29853274,"b":29853279,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a2f8af","tk":4.8,"r":1},{"i":"","l":"Map containers and build layout","g":"R","a":29853274,"b":29853278,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a54edf","tk":2.7,"r":0},{"i":"","l":"Design backend wiring iterations","g":"R","a":29853283,"b":29853301,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a033cb","tk":3.2,"r":2},{"i":"","l":"Design repo and container restructure","g":"R","a":29853283,"b":29853294,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"ab7657","tk":1.4,"r":0},{"i":"","l":"Design web alignment, evals, e2e","g":"R","a":29853283,"b":29853294,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"ae6cc9","tk":3.7,"r":1},{"i":"I1-A","l":"I1-A contracts + H1 step mechanism","g":"I1","a":29853397,"b":29853454,"br":1,"m":81,"k":"m","c":[[29853412,"feat"],[29853435,"feat"],[29853441,"feat"],[29853447,"test"],[29853453,"feat"]],"w":0,"id":"ab5100","tk":76.9,"r":1},{"i":"I1-B","l":"I1-B object store, seed, corpus, PDFs","g":"I1","a":29853397,"b":29853471,"br":1,"m":83,"k":"m","c":[[29853410,"feat"],[29853427,"feat"],[29853447,"feat"],[29853456,"feat"],[29853456,"feat"],[29853461,"feat"],[29853466,"feat"]],"w":0,"id":"a154f8","tk":104.8,"r":2},{"i":"I1-C","l":"I1-C frontend alignment + identity contract","g":"I1","a":29853397,"b":29853444,"br":1,"m":79,"k":"l","c":[],"w":0,"id":"ae3599","tk":55.9,"r":0},{"i":"I2-A1","l":"I2-A1 S1 foundation: store, seed, internal, SSE","g":"I2","a":29853496,"b":29853570,"br":1,"m":89,"k":"m","c":[[29853559,"feat"],[29853560,"feat"],[29853560,"feat"],[29853561,"feat"]],"w":0,"id":"a77b34","tk":108.9,"r":1},{"i":"I2-B","l":"I2-B H1 intake core + H3 ingestion worker","g":"I2","a":29853496,"b":29853573,"br":1,"m":90,"k":"m","c":[[29853565,"feat"],[29853566,"feat"],[29853572,"feat"]],"w":0,"id":"ad053a","tk":122.5,"r":2},{"i":"I2-C","l":"I2-C HTTP tools, S3, S4 proposals and idempotency","g":"I2","a":29853496,"b":29853562,"br":1,"m":87,"k":"m","c":[[29853532,"feat"],[29853532,"feat"],[29853535,"feat"],[29853544,"feat"],[29853544,"feat"],[29853545,"feat"],[29853556,"docs"]],"w":0,"id":"a2d766","tk":76.3,"r":0},{"i":"I2-A2","l":"I2-A2 S1 PO routes and fences","g":"I2","a":29853599,"b":29853680,"br":1,"m":96,"k":"m","c":[[29853671,"feat"],[29853679,"fix"]],"w":0,"id":"aae577","tk":194.2,"r":1},{"i":"I3-A","l":"I3-A H1 assessment core + S1 internal","g":"I3","a":29853599,"b":29853701,"br":1,"m":99,"k":"m","c":[[29853637,"feat"],[29853680,"feat"],[29853692,"feat"],[29853700,"test"]],"w":0,"id":"ab6d13","tk":181.2,"r":3},{"i":"I3-C","l":"I3-C S3 routes, HTTP tools, H4","g":"I3","a":29853599,"b":29853688,"br":1,"m":97,"k":"m","c":[[29853637,"feat"],[29853652,"feat"],[29853671,"feat"],[29853682,"fix"],[29853686,"feat"]],"w":0,"id":"ae2a0c","tk":148.5,"r":2},{"i":"I3-D","l":"I3-D S5 decision service complete","g":"I3","a":29853599,"b":29853673,"br":1,"m":94,"k":"m","c":[[29853663,"feat"],[29853666,"feat"],[29853666,"docs"],[29853668,"test"]],"w":0,"id":"af710e","tk":134.4,"r":0},{"i":"I5-A","l":"I5-A live evals and dashboard","g":"I5","a":29853604,"b":29853724,"br":1,"m":102,"k":"m","c":[[29853680,"feat"],[29853681,"test"],[29853682,"feat"],[29853683,"feat"],[29853683,"feat"],[29853683,"feat"],[29853684,"feat"],[29853691,"feat"],[29853722,"feat"],[29853723,"test"]],"w":0,"id":"a2b124","tk":180.1,"r":4},{"i":"I4-A","l":"I4-A H1 decision core + S1 outcome","g":"I4","a":29853678,"b":29853734,"br":1,"m":103,"k":"m","c":[[29853715,"feat"],[29853722,"feat"],[29853732,"fix"],[29853733,"feat"]],"w":0,"id":"a9d931","tk":122.0,"r":0},{"i":"I3-E","l":"I3-E agent runtime hardening","g":"I3","a":29853753,"b":29854552,"br":1,"m":112,"k":"m","c":[[29854408,"feat"],[29854410,"feat"],[29854418,"feat"],[29854435,"feat"],[29854439,"feat"],[29854446,"feat"],[29854452,"feat"],[29854468,"feat"],[29854479,"feat"],[29854483,"feat"],[29854483,"sync"],[29854524,"fix"],[29854524,"test"],[29854524,"sync"],[29854527,"fix"],[29854538,"feat"],[29854539,"test"]],"w":0,"id":"a1c649","tk":391.2,"r":4},{"i":"I3-B1","l":"I3-B1 S1 analyst read surface","g":"I3","a":29853753,"b":29854537,"br":1,"m":111,"k":"m","c":[[29854404,"feat"],[29854420,"feat"],[29854437,"feat"],[29854448,"feat"],[29854463,"feat"],[29854477,"feat"],[29854484,"sync"],[29854489,"fix"],[29854508,"sync"],[29854536,"sync"]],"w":0,"id":"a9e3e1","tk":259.8,"r":3},{"i":"I3-B2","l":"I3-B2 S1 analyst and PO write routes","g":"I3","a":29853753,"b":29854485,"br":1,"m":110,"k":"m","c":[[29854417,"feat"],[29854428,"feat"],[29854456,"feat"],[29854469,"feat"],[29854470,"test"],[29854476,"sync"],[29854484,"test"],[29854484,"sync"]],"w":0,"id":"a92066","tk":142.1,"r":2},{"i":"I4-B","l":"I4-B oversight: examiner, watchlist, analytics","g":"I4","a":29853753,"b":29854484,"br":1,"m":109,"k":"m","c":[[29854418,"feat"],[29854427,"feat"],[29854440,"feat"],[29854450,"feat"],[29854456,"feat"],[29854457,"sync"],[29854467,"fix"],[29854472,"fix"],[29854480,"sync"]],"w":0,"id":"a7763c","tk":166.4,"r":1},{"i":"I4-C","l":"I4-C policy config and routing rules","g":"I4","a":29853753,"b":29854463,"br":1,"m":107,"k":"m","c":[[29854446,"feat"],[29854447,"feat"],[29854447,"feat"],[29854460,"feat"],[29854462,"test"]],"w":0,"id":"a6029c","tk":74.7,"r":0},{"i":"I5-B","l":"I5-B live end-to-end demo and defect fixing","g":"I5","a":29854556,"b":29854860,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a181fc","tk":313.9,"r":0},{"i":"I6-A","l":"I6-A docs, runbooks, AWS path, SDLC evidence","g":"I6","a":29854589,"b":29854657,"br":1,"m":120,"k":"l","c":[],"w":0,"id":"aa33bf","tk":161.1,"r":1},{"i":"I6-B","l":"I6-B resilience drills and make resilience","g":"I6","a":29854589,"b":29854882,"br":1,"m":133,"k":"m","c":[[29854627,"test"],[29854648,"fix"],[29854648,"fix"],[29854648,"test"],[29854649,"sync"],[29854657,"test"],[29854672,"fix"],[29854676,"test"],[29854676,"sync"]],"w":0,"id":"ae1716","tk":264.9,"r":2},{"i":"","l":"Report lane: refresh build report and git-graph visual","g":"R","a":29854591,"b":29856539,"br":0,"m":-1,"k":"","c":[],"w":1,"id":"ab12a4","tk":125.8,"r":3},{"i":"I6-C","l":"I6-C close the known gaps","g":"I6","a":29854658,"b":29854775,"br":1,"m":130,"k":"m","c":[[29854669,"feat"],[29854679,"feat"],[29854689,"feat"],[29854736,"sync"],[29854757,"feat"],[29854769,"docs"],[29854774,"test"]],"w":0,"id":"a64761","tk":187.4,"r":4},{"i":"I6-D","l":"I6-D enforce the 120k per-case token cap across jobs","g":"I6","a":29854762,"b":29854805,"br":1,"m":135,"k":"m","c":[[29854787,"feat"],[29854788,"feat"],[29854799,"feat"],[29854799,"docs"],[29854805,"sync"]],"w":0,"id":"a4a0ff","tk":36.6,"r":6},{"i":"I6-E","l":"I6-E case service pins versions from S3","g":"I6","a":29854762,"b":29854786,"br":1,"m":131,"k":"m","c":[[29854786,"feat"],[29854786,"test"]],"w":0,"id":"a56bb1","tk":27.3,"r":1},{"i":"I6-F","l":"I6-F real Bedrock model prices","g":"I6","a":29854762,"b":29854787,"br":1,"m":132,"k":"m","c":[[29854786,"feat"],[29854786,"docs"]],"w":0,"id":"a491f7","tk":22.4,"r":5},{"i":"","l":"Dead code sweep: backend, ai, ops, tests","g":"R","a":29854829,"b":29854866,"br":1,"m":140,"k":"m","c":[[29854851,"feat"],[29854852,"feat"],[29854852,"feat"],[29854852,"feat"],[29854852,"feat"],[29854852,"feat"],[29854853,"feat"],[29854853,"feat"],[29854853,"feat"],[29854853,"feat"],[29854853,"feat"],[29854856,"feat"]],"w":0,"id":"a095fc","tk":19.3,"r":5},{"i":"","l":"Dead code sweep: frontend and mock-era copy","g":"R","a":29854829,"b":29854861,"br":1,"m":138,"k":"m","c":[[29854840,"fix"],[29854841,"feat"],[29854842,"feat"],[29854843,"feat"],[29854845,"feat"],[29854845,"feat"],[29854848,"fix"]],"w":0,"id":"aa42c6","tk":19.9,"r":1},{"i":"","l":"Audit exception handling and unbounded or unhandled loops","g":"R","a":29854829,"b":29854862,"br":1,"m":139,"k":"m","c":[[29854860,"fix"],[29854860,"fix"],[29854860,"fix"],[29854860,"fix"],[29854861,"fix"],[29854861,"fix"],[29854861,"fix"],[29854861,"fix"],[29854861,"fix"],[29854861,"sync"]],"w":0,"id":"a72a51","tk":37.7,"r":4},{"i":"","l":"Docs sweep for the new model chain","g":"R","a":29855892,"b":29855929,"br":1,"m":153,"k":"m","c":[[29855897,"docs"],[29855897,"docs"],[29855899,"docs"],[29855901,"docs"],[29855902,"docs"],[29855902,"docs"],[29855902,"docs"],[29855903,"docs"]],"w":0,"id":"ae7f6e","tk":23.2,"r":0},{"i":"","l":"Playwright sweep of every screen and button","g":"R","a":29856055,"b":29856110,"br":1,"m":160,"k":"m","c":[[29856069,"test"],[29856072,"test"],[29856084,"test"],[29856087,"test"],[29856088,"test"],[29856108,"test"]],"w":0,"id":"aa696d","tk":78.7,"r":0},{"i":"","l":"Fix the bugs the browser sweep found","g":"R","a":29856111,"b":29856160,"br":1,"m":162,"k":"m","c":[[29856121,"fix"],[29856121,"fix"],[29856126,"fix"],[29856127,"fix"],[29856129,"fix"],[29856130,"fix"],[29856134,"fix"],[29856134,"fix"],[29856134,"fix"],[29856137,"fix"],[29856138,"docs"],[29856140,"test"],[29856147,"test"],[29856154,"test"]],"w":0,"id":"ad010b","tk":67.2,"r":1},{"i":"","l":"Dissect existing walkthrough engine","g":"R","a":29856197,"b":29856200,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a2628a","tk":0.7,"r":0},{"i":"","l":"Inventory built frontend screens","g":"R","a":29856197,"b":29856202,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"aeb951","tk":6.4,"r":2},{"i":"","l":"Collect rubric-worthy features","g":"R","a":29856197,"b":29856201,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a86862","tk":5.7,"r":1},{"i":"","l":"Map backend hierarchy and flows","g":"R","a":29856237,"b":29856245,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a091d5","tk":14.6,"r":1},{"i":"","l":"Map AI layer, agents and memory","g":"R","a":29856237,"b":29856245,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a33d50","tk":17.9,"r":2},{"i":"","l":"Map guardrails, scoring, evals","g":"R","a":29856237,"b":29856244,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"aff4b8","tk":9.4,"r":0},{"i":"","l":"Docs sweep: Sonnet 4.5 back to Sonnet 5.5","g":"R","a":29856288,"b":29856308,"br":1,"m":-1,"k":"","c":[[29856292,"docs"],[29856293,"docs"],[29856294,"docs"],[29856295,"docs"],[29856295,"docs"],[29856297,"docs"],[29856300,"docs"]],"w":0,"id":"a5a428","tk":15.9,"r":2},{"i":"","l":"App-side logging and OTel setup","g":"R","a":29856288,"b":29856291,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a62a71","tk":1.3,"r":1},{"i":"","l":"Collector and obs-stack wiring","g":"R","a":29856288,"b":29856290,"br":0,"m":-1,"k":"","c":[],"w":0,"id":"a885e0","tk":0.8,"r":0}],"rowsNeeded":11,"now":29856540},"iterations":[{"id":"I0","name":"Foundations","lanes":20,"landed":20,"merges":0,"hours":6.8,"commits":20,"running":0},{"id":"I1","name":"Contracts and seed data","lanes":3,"landed":3,"merges":2,"hours":1.2,"commits":15,"running":0},{"id":"I2","name":"Service routes, intake","lanes":4,"landed":4,"merges":4,"hours":3.1,"commits":20,"running":0},{"id":"I3","name":"Assessment, decision","lanes":6,"landed":6,"merges":6,"hours":6.5,"commits":54,"running":0},{"id":"I4","name":"Oversight and config","lanes":3,"landed":3,"merges":3,"hours":4.1,"commits":21,"running":0},{"id":"I5","name":"Live evals and demo","lanes":2,"landed":1,"merges":1,"hours":11.6,"commits":11,"running":0},{"id":"I6","name":"Docs and resilience","lanes":6,"landed":6,"merges":5,"hours":4.9,"commits":31,"running":0}],"biggestCatch":"A seeded demo case with no run behind it crashed the case flow on its first upload, which fake-based tests could not show. Killing things found the last catches: an OPA that was never reloaded, and a step retry window shorter than an api restart.","components":{"live":["Gateway","Identity","Access policy (OPA)",["S1 to S5 services",5],["H1 to H4 workers",4],"Web app","Events over RabbitMQ"],"built":[["9 agents + 7 guards",2],["Live evals, judge, dashboard",2],"Config screens","Examiner and watchlist","80-case seed",["Docs, handoff resume, pins, prices",0],["12 resilience drills pass",0],["Live scenes 21/21, shipped chain",0],["Playwright 12/12, earlier build",0],["Sonnet 5.5 chain, no Opus",0]],"wip":["Acceptance: needs approval","No eval baseline (D-100)"],"wipLanes":{}},"golden":"Unit goldens locked: 9.8 → 10.4 · 2–1 vote · 67 audit records","dashboardUrl":"https://claude.ai/artifact/MsWEEe3ciZWq3RekuEJxgv?sk=k5qfadvvrGe5N0MC5a7fTA","historyUrl":"https://claude.ai/artifact/BpHAFbNggYuRRxESag4Cgn","storyExtra":"The 21-scene demo passed live on the previous chain; the new one is not re-run.","tokenNote":"Per demo case: 115k tokens on a clean run (target 120k), up to 157k of the 160k cap when Guard 4 forces retries.","testing":{"asOf":"7 Oct 2026","title":"Testing report","intro":"What was tested, what passed, what failed, and what has not been tested yet. Every line says when it was run and on which version of the models.","headline":[{"label":"Automated checks passing","value":"9,000+","note":"7,707 code tests, 239 web tests, 121 policy tests, 813 AI-layer checks"},{"label":"Kill-and-restart drills","value":"12 of 12","note":"pass on the live app"},{"label":"Live demo, all 21 scenes","value":"21 of 21","note":"on Sonnet 5.5 with an Opus critic (6 Oct); the critic is now Nova Pro, not re-run"},{"label":"Browser sweep of every screen","value":"32 of 43","note":"before the fixes; re-run on the rebuilt app needed to confirm them"}],"levels":[{"name":"Code checks","status":"pass","when":"7 Oct, on the final code","what":"Style, types, the access rules, the AI-layer files, the settings, and the unit tests. Run before every commit.","result":"7,707 code tests passed (4 skipped), 239 web tests, 121 access-rule tests, 813 AI-layer checks, settings check ok."},{"name":"Database tests","status":"partial","when":"6 Oct, before the clean-up","what":"The same code against a real MongoDB, with no mocks.","result":"525 passed, 14 skipped. The clean-up work re-ran the case, common and audit parts (all passed). The whole set was not repeated on the final code."},{"name":"Kill-and-restart drills","status":"pass","when":"7 Oct, live app","what":"Stop or kill the workers, the message queue, the database and the API in the middle of work, and check that nothing is lost or repeated.","result":"12 of 12 pass. They found two real problems (a stale access policy after a restart, and a retry window shorter than an API restart); both fixed."},{"name":"Live demo, 21 scenes with real AI","status":"partial","when":"6 Oct, Sonnet 5.5 and an Opus critic","what":"The example case from the product owner's first upload to the committee outcome, with real AI agents.","result":"21 of 21 (197 audit records, chain verified). The committed models differ in the critic (now Nova Pro) and in the retry model for research and assessment (Sonnet 5.5, where Opus was used). Two live runs on Sonnet 4.5, a choice tried on 7 Oct and dropped, stopped at scene 8 and 9. The committed models have not been run since the change."},{"name":"Live rule tests and browser scenes (12)","status":"notrun","when":"passed 6 Oct on an earlier build","what":"Black-box rules (6) and the browser scenes (12) that read a finished demo case.","result":"Not run on the final code, because they need a finished demo first."},{"name":"AI quality tests","status":"partial","when":"6 Oct, Sonnet 5.5 and an Opus critic","what":"Nine AI agents scored against fixed examples, with a judge model.","result":"8 of 9 gates pass. A one-row check on Sonnet 4.5 (7 of 9) ran end to end and shows the test system works; it is not a result for the committed models."},{"name":"Browser sweep of every screen","status":"partial","when":"7 Oct, live app, about 9 minutes","what":"Every screen, tab and safe button as each of the four roles, checked for errors, wrong access and keyboard use. No AI calls.","result":"43 tests: 32 passed, 11 failed, and every failure traced to a real defect (D-105 to D-110); no server errors or crashes on 118 pages, access rules held, no restricted text on 129 product-owner pages. The fixes are merged and unit tested. Not yet re-run on the rebuilt app (make up)."}],"sweep":{"when":"7 Oct 2026, live app, 43 tests","summary":"32 of 43 passed, measured before the fixes. 672 checks: 518 passed, 38 failed, 14 not run, 102 informational.","areas":["Screens","Tabs","Buttons","Access fences","Sign-in","Keyboard","Accessibility","Expected behaviour"],"roles":[{"name":"Product owner","cells":[[7,0,0],[30,0,0],[31,0,3],[26,0,0],[3,0,0],[9,0,0],[10,8,0],[0,0,0]]},{"name":"Analyst","cells":[[25,1,0],[64,0,0],[144,3,7],[9,0,0],[3,0,0],[23,0,0],[29,16,0],[1,3,0]]},{"name":"Committee","cells":[[5,0,0],[12,0,0],[18,0,4],[17,0,0],[4,0,0],[4,0,0],[4,4,0],[0,0,0]]},{"name":"Observer","cells":[[4,0,0],[0,0,0],[1,0,0],[24,1,0],[3,0,0],[1,0,0],[1,0,0],[0,1,0]]},{"name":"Signed out","cells":[[0,0,0],[0,0,0],[0,0,0],[5,0,0],[1,1,0],[0,0,0],[0,0,0],[0,0,0]]}],"defects":[{"id":"D-105","where":"Analyst, Activity tab","what":"Verify chain crashes the whole page: the screen and the API disagree on the answer's field names.","status":"fixedcode"},{"id":"D-106","where":"Monitor, Recommendation tab","what":"A case with no AI run is shown as a red error ('not in your view', 'not drafted') with Retry.","status":"fixedcode"},{"id":"D-107","where":"Analyst, Agent quality","what":"The tab always errors: the screen sends a date, the API wants a week number.","status":"fixedcode"},{"id":"D-108","where":"Sign-in form","what":"A wrong password says 'your session has ended' instead of 'wrong user or password'.","status":"fixedcode"},{"id":"D-109","where":"Observer","what":"The guide says the observer sees Agent quality; the screens do not allow it.","status":"fixedcode"},{"id":"D-110","where":"Every table, dashboard chart","what":"Table header text is too pale to read comfortably; one chart can be tabbed into while hidden.","status":"fixedcode"},{"id":"D-111","where":"Product owner, closed sample cases","what":"Closed cases say 'No decision yet' because the sample data holds no outcome for them.","status":"fixedcode"}]},"defects":[{"id":"D-92","where":"Access policy","what":"A restarted app kept an old access policy, so new screens answered 'not allowed'.","status":"fixed"},{"id":"D-93","where":"Message retries","what":"An ordinary API restart outlasted the retry window and parked a step.","status":"fixed"},{"id":"D-99","where":"AI critic","what":"The critic on the new model needed more tokens than its limit and was blocked.","status":"fixed"},{"id":"D-101","where":"First run","what":"make bootstrap stopped trying to download an image that is built locally.","status":"fixed"},{"id":"D-102","where":"First run","what":"The first make up could try the same download for the worker image.","status":"fixed"},{"id":"D-103","where":"make seed","what":"Running seed before the app started gave an unhelpful message.","status":"fixed"},{"id":"D-95","where":"Live demo","what":"On Sonnet 4.5 the demo stopped at scene 8 or 9; the committed Sonnet 5.5 models have not been run since the change.","status":"open"},{"id":"D-98","where":"AI jobs","what":"A job that times out on every try is parked and its case may wait silently.","status":"open"},{"id":"D-100","where":"AI quality","what":"No quality baseline and no full live pass for the committed models (the critic moved from Opus to Nova Pro).","status":"open"},{"id":"D-105","where":"Analyst, Activity tab","what":"Verify chain crashes the whole page: the screen and the API disagree on the answer's field names.","status":"fixedcode"},{"id":"D-106","where":"Monitor, Recommendation tab","what":"A case with no AI run is shown as a red error ('not in your view', 'not drafted') with Retry.","status":"fixedcode"},{"id":"D-107","where":"Analyst, Agent quality","what":"The tab always errors: the screen sends a date, the API wants a week number.","status":"fixedcode"},{"id":"D-108","where":"Sign-in form","what":"A wrong password says 'your session has ended' instead of 'wrong user or password'.","status":"fixedcode"},{"id":"D-109","where":"Observer","what":"The guide says the observer sees Agent quality; the screens do not allow it.","status":"fixedcode"},{"id":"D-110","where":"Every table, dashboard chart","what":"Table header text is too pale to read comfortably; one chart can be tabbed into while hidden.","status":"fixedcode"},{"id":"D-111","where":"Product owner, closed sample cases","what":"Closed cases say 'No decision yet' because the sample data holds no outcome for them.","status":"fixedcode"},{"id":"D-104","where":"Monitor, Recommendation tab","what":"Same defect as D-106, first seen in your screenshots.","status":"fixedcode"}],"notTested":[{"item":"AI-driven flows on the committed models (Sonnet 5.5, Nova Pro critic)","why":"They call Amazon Bedrock and cost money (about USD 0.47 a cycle, an estimate); each needs an explicit yes."},{"item":"Uploading documents, submitting, the examiner question, policy search, publishing a configuration","why":"They start an AI run or change what future cases use; skipped in the browser sweep."},{"item":"Voting on a live committee case","why":"A sample committee case has no run behind it, so a vote would leave a stuck message."},{"item":"The monitor's counters, guard strip and log filters","why":"No sample case has a run, so they never appear; they need one real run."},{"item":"Heavy load and speed","why":"Not part of this build; the system runs one copy of each service."},{"item":"Other browsers and phones","why":"The sweep uses one desktop browser (Chromium)."}],"howToRun":[{"step":"All code checks","command":"make check"},{"step":"Kill-and-restart drills","command":"make resilience DISRUPTIVE=1 AWS=1"},{"step":"Live demo (costs money)","command":"make demo"},{"step":"Rebuild the app with the latest fixes","command":"make up"},{"step":"Browser sweep (no AI, about 9 minutes)","command":"cd src/frontend && npm run test:e2e:sweep"}]}}
+</script>
+
+<div class="page">
+  <header class="hero">
+    <svg class="wave" id="wave" viewBox="0 0 600 300" preserveAspectRatio="xMaxYMax slice" aria-hidden="true"></svg>
+    <div>
+      <div class="top"><div class="eyebrow" id="eyebrow">Genius Hacks Q3 2026 · Build report</div>
+        <div class="tabs" role="tablist" aria-label="Report sections"><button type="button" role="tab" id="tab-ov" aria-selected="true" aria-controls="ov">Overview</button><button type="button" role="tab" id="tab-test" aria-selected="false" aria-controls="tv">Testing</button></div>
+        <div class="meta" id="meta"><span id="window"></span> · updated <b id="updated"></b></div></div>
+      <h1 id="h1"></h1>
+      <p id="story"></p>
+    </div>
+    <div class="foot">
+      <div class="logo" aria-label="myridius"><span class="mark">M</span><span class="word">myridius<sup>™</sup></span></div>
+      <div class="stats" id="stats" aria-label="Headline figures"></div>
+    </div>
+  </header>
+
+  <div id="ov" role="tabpanel" aria-labelledby="tab-ov">
+  <section class="card timeline" aria-label="Timeline of active build time">
+    <div class="head">
+      <div><div class="eyebrow">Timeline</div><h2 id="tl-title"></h2></div>
+      <div class="tools">
+        <div class="legend">
+          <span><span class="sw" style="background:var(--virtual-tide);opacity:.45"></span>agents working at once</span>
+          <span><span class="sw" style="background:var(--quantum-leaf)"></span>commit</span>
+          <span><span class="sw" style="background:var(--virtual-tide)"></span>fix</span>
+          <span>idle time removed</span>
+        </div>
+        <a class="btn" id="histlink" href="#" target="_blank" rel="noopener" hidden>Open the full git history <span aria-hidden="true">→</span></a>
+      </div>
+    </div>
+    <div id="chart" role="img" aria-label="Agents working at once across the work sessions of active build time, with commits marked."></div>
+    <div class="sessions" id="sessions"></div>
+    <div class="iters" id="iters" aria-label="Iterations"></div>
+  </section>
+
+  <section class="cols">
+    <div class="card" aria-label="Token economics">
+      <div class="head"><div><div class="eyebrow">Token economics</div><h2 id="tok-title"></h2></div><span class="hint" id="tok-total"></span></div>
+      <table id="tok-kinds"></table>
+      <div class="split" id="tok-split"></div>
+      <div class="tlegend" id="tok-split-legend"></div>
+      <div class="hint" id="tok-top"></div>
+    </div>
+
+    <div class="card" aria-label="Where problems were caught">
+      <div class="head"><div><div class="eyebrow">Quality</div><h2 id="q-title"></h2></div>
+        <div class="legend">
+          <span><span class="sw" style="background:var(--sev1)"></span>critical</span>
+          <span><span class="sw" style="background:var(--sev2)"></span>major</span>
+          <span><span class="sw" style="background:var(--sev3)"></span>minor</span>
+          <span><span class="sw" style="border:2px solid var(--accent-text);box-sizing:border-box"></span>open</span>
+        </div>
+      </div>
+      <div class="stages" id="stages"></div>
+      <div class="callout" id="catch"></div>
+    </div>
+
+    <div class="card" aria-label="Where it stands">
+      <div class="head"><div><div class="eyebrow">Status</div><h2>Where it stands</h2></div><span class="hint" id="comp-count"></span></div>
+      <div id="components"></div>
+      <div class="testbar" id="testbar"></div>
+      <div class="tlegend" id="tlegend"></div>
+      <div class="golden" id="golden"></div>
+    </div>
+  </section>
+  </div>
+
+  <section id="tv" class="tv" role="tabpanel" aria-labelledby="tab-test" tabindex="0" hidden>
+    <div class="col"><div class="card" id="t-levels" aria-label="Test levels"></div></div>
+    <div class="col"><div class="card" id="t-defects" aria-label="Problems found by testing"></div></div>
+    <div class="col"><div class="card" id="t-not" aria-label="Not tested yet"></div><div class="card" id="t-run" aria-label="How to run it"></div></div>
+    <div class="card span" id="t-sweep" aria-label="Browser sweep"></div>
+    <div class="scrollhint" id="sh" hidden>Scroll for more ↓</div>
+  </section>
+</div>
+
+<script>
+(function(){
+  const R = JSON.parse(document.getElementById("report-data").textContent);
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const fmt = n => n.toLocaleString("en-US");
+  const M = n => n < 1e6 ? `${Math.round(n / 1e3)} K` : (n / 1e6).toLocaleString("en-US", {maximumFractionDigits: 1, minimumFractionDigits: 1}) + " M";
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (tag, attrs, parent, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; parent.appendChild(e); return e; };
+
+  // derived figures
+  const K = R.kpis, G = R.graph;
+  const sessions = R.sessions.map(s => ({...s, a: Date.parse(s.from), b: Date.parse(s.to)}));
+  const activeMs = sessions.reduce((t, s) => t + (s.b - s.a), 0), activeH = activeMs / 3600e3;
+  const lanes = G.lanes.map(l => ({...l, ta: l.a * 60e3, tb: l.b * 60e3}));
+  const busy = t => lanes.reduce((c, l) => c + (l.ta <= t && t < l.tb ? 1 : 0), 0);
+  // every commit: main plus the lane branches; [time, isFix]
+  const ticks = G.main.map(([m, ty]) => [m * 60e3, ty === "fix"]).concat(lanes.flatMap(l => l.c.map(([m, ty]) => [m * 60e3, ty === "fix"])));
+  let peak = 0;
+  sessions.forEach(s => { for (let t = s.a; t < s.b; t += 60e3) peak = Math.max(peak, busy(t)); });
+  const nMerges = K.merges, nLanes = lanes.filter(l => l.br).length, nAgents = lanes.length;
+  const nLaneMerges = G.main.filter(c => c[1] === "merge").length;
+  const tok = R.tokens, tokTotal = tok.kinds.reduce((t, [, n]) => t + n, 0), cacheShare = tok.kinds[0][1] / tokTotal;
+  const tests = Object.entries(K.tests), testTotal = tests.reduce((t, [, n]) => t + n, 0);
+  const found = R.stages.reduce((t, s) => t + s.found.length, 0), open = R.stages.reduce((t, s) => t + s.open.length, 0);
+  const early = R.stages[0].found.length;
+  const p1Open = R.stages.reduce((t, s) => t + s.open.filter(p => p === "P1").length, 0);
+  const dur = ms => { const m = Math.round(ms / 60e3); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")} m` : `${m} min`; };
+  const ist = t => { const d = new Date(t + 5.5 * 3600e3); return `${d.getUTCDate()} Oct ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`; };
+
+  // hero, in two versions: the build overview and the testing report
+  const failNote = K.failing > 0 ? `${K.failing} failed at last integration` : `0 failing, ${tests.length} layers`;
+  const ovStats = [
+    [activeH.toFixed(1), "Hours of active build", `${sessions.length} sessions, idle removed`],
+    [nAgents, "AI agents", `up to ${peak} working at once`],
+    [(tokTotal / 1e9).toFixed(2), "Billion tokens", `${(cacheShare * 100).toFixed(1)}% from cache`],
+    [fmt(K.commits), "Commits", `${nMerges} merges · ${nLanes} branch lanes`],
+    [fmt(testTotal), "Tests passing", failNote],
+    [found, "Problems caught", `${early} before any code`]
+  ];
+  const statHtml = list => list.map(([v, u, s]) => `<div class="stat"><div class="v">${esc(v)}</div><div class="u">${esc(u)}</div><div class="s">${esc(s)}</div></div>`).join("");
+  const T = R.testing || null;
+  function heroFor(tab){
+    const t = tab === "testing" && T;
+    $("eyebrow").textContent = t ? "Genius Hacks Q3 2026 · Build report · Testing" : "Genius Hacks Q3 2026 · Build report";
+    $("h1").innerHTML = t ? esc(T.title) : `An AI agent team built the TrustOps workbench in <span id="h-hours">${activeH.toFixed(1)}</span> hours`;
+    $("story").innerHTML = t ? esc(T.intro) : `A lead orchestrator and <b>${nAgents} AI agents</b> designed, built and independently verified the TrustOps risk workbench in <b>${activeH.toFixed(1)} hours of active work</b>, in <b>${nLanes} branch lanes</b> with up to <b>${peak}</b> working at once. Every result was re-run before it merged, which is how <b>${found} problems</b> were caught.${R.storyExtra ? " " + esc(R.storyExtra) : ""}`;
+    $("meta").innerHTML = t ? `as of <b>${esc(T.asOf)}</b> · updated <b>${esc(R.updated)}</b>` : `<span id="window">${esc(R.window[0])} → ${esc(R.window[1])}</span> · updated <b id="updated">${esc(R.updated)}</b>`;
+    const st = $("stats");
+    st.classList.toggle("four", !!t);
+    st.innerHTML = t ? statHtml(T.headline.map(h => [h.value, h.label, h.note])) : statHtml(ovStats);
+  }
+
+  // wave ornament: hairline curves fanning up and out from the bottom-right corner
+  const wave = $("wave");
+  for (let i = 0; i < 46; i++) {
+    const k = i / 45;
+    el("path", {d: `M ${610 - i * 9} 312 C ${560 - i * 9} ${230 - k * 60}, ${520 + k * 40} ${120 - k * 70}, 612 ${-12 + k * 150}`,
+      fill: "none", stroke: "#52E081", "stroke-width": .8, opacity: (.10 + .28 * (1 - k)).toFixed(2)}, wave);
+  }
+
+  // timeline head and link to the Git History page
+  $("tl-title").textContent = `${activeH.toFixed(1)} hours of active build in ${sessions.length} work sessions`;
+  if (R.historyUrl) { const a = $("histlink"); a.href = R.historyUrl; a.hidden = false; }
+
+  // session cards; on wide screens their widths follow each session's share of active time
+  const MINW = 0.12;
+  const weights = sessions.map(s => Math.max(MINW, (s.b - s.a) / activeMs));
+  const wide = matchMedia("(min-aspect-ratio: 1/1) and (min-width: 900px)"), phone = matchMedia("(max-width: 760px)");
+  const setCols = () => { $("sessions").style.setProperty("--sess-cols", wide.matches ? weights.map(w => `minmax(0,${w.toFixed(3)}fr)`).join(" ") : `repeat(${phone.matches ? 2 : 3},minmax(0,1fr))`); };
+  setCols();
+  $("sessions").innerHTML = sessions.map((s, i) => {
+    const n = ticks.filter(([t]) => t >= s.a && t <= s.b + 60e3).length;
+    return `<div class="sess"><div class="t"><i>${i + 1}</i>${esc(s.title)}</div><div class="w" title="${n} commits">${dur(s.b - s.a)}</div></div>`;
+  }).join("");
+
+  // iterations: seven steps, each with its purpose, lanes, landings, active hours and commits
+  const IT = R.iterations || [];
+  $("iters").style.setProperty("--n", IT.length);
+  $("iters").innerHTML = IT.map(it => `<div class="it" style="--c:var(--l${Number(it.id.slice(1))})" title="${esc(`${it.id}: ${it.name}. ${it.lanes} lanes, ${it.landed} landed on main (${it.merges} by merge commit), ${it.hours} h of active time from first start to last end, ${it.commits} commits${it.running ? `, ${it.running} still running` : ""}.`)}">` +
+    `<div class="id"><i></i>${esc(it.id)}</div><div class="nm">${esc(it.name)}</div>` +
+    `<div class="st">${it.lanes} lanes · ${it.landed} landed</div><div class="st">${it.hours} h · ${it.commits} commits</div></div>`).join("");
+
+  // timeline chart: active time only, sessions laid end to end
+  const root = $("chart");
+  function draw(){
+    root.innerHTML = "";
+    const W = root.clientWidth, H = root.clientHeight;
+    if (W < 60 || H < 30) return;
+    // on wide screens the bands line up with the session cards; on phones they share the width by duration
+    const ws = wide.matches ? weights : sessions.map(s => Math.max(0.06, (s.b - s.a) / activeMs));
+    const gap = wide.matches ? parseFloat(getComputedStyle($("sessions")).columnGap) || 8 : 4;
+    const wsum = ws.reduce((a, b) => a + b, 0), avail = W - gap * (sessions.length - 1);
+    const xs = []; let cur = 0;
+    sessions.forEach((s, i) => { const w = avail * ws[i] / wsum; xs.push([cur, w]); cur += w + gap; });
+    const x = t => { for (let i = 0; i < sessions.length; i++) { const s = sessions[i]; if (t <= s.b + 60e3 || i === sessions.length - 1) { const [x0, w] = xs[i]; return x0 + Math.max(0, Math.min(1, (t - s.a) / (s.b - s.a))) * w; } } };
+    const fs = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const axisH = fs * 1.35, commitH = fs * .95, top = 6, bot = H - axisH - commitH - 4;
+    const yOf = n => bot - (n / Math.max(peak, 1)) * (bot - top - 16);
+    const svg = el("svg", {viewBox: `0 0 ${W} ${H}`, "aria-hidden": "true"}, root);
+    const tide = "#09A78D", leaf = "#194247";
+    for (const n of [Math.round(peak / 2), peak]) el("line", {x1: 0, x2: W, y1: yOf(n), y2: yOf(n), stroke: leaf, "stroke-opacity": .16, "stroke-dasharray": "2 4"}, svg);
+    let startH = 0;
+    sessions.forEach((s, i) => {
+      const [x0, w] = xs[i];
+      el("rect", {x: x0, y: top, width: w, height: bot - top, fill: tide, opacity: .05, rx: 6}, svg);
+      let d = `M ${x0} ${bot}`;
+      for (let t = s.a; t < s.b; t += 60e3) { const y = yOf(busy(t)); d += ` L ${x(t)} ${y} L ${x(Math.min(s.b, t + 60e3))} ${y}`; }
+      d += ` L ${x0 + w} ${bot} Z`;
+      el("path", {d, fill: tide, "fill-opacity": .32, stroke: tide, "stroke-width": 1.5, "stroke-linejoin": "round"}, svg);
+      el("line", {x1: x0, x2: x0 + w, y1: bot, y2: bot, stroke: tide, "stroke-width": 2}, svg);
+      const room = i === sessions.length - 1 ? w - 40 : w;
+      if (room > 120) el("text", {x: x0 + 2, y: H - 3}, svg, `${startH.toFixed(1)} h · ${ist(s.a)}`);
+      else if (room > 34) el("text", {x: x0 + 2, y: H - 3}, svg, `${startH.toFixed(1)} h`);
+      startH += (s.b - s.a) / 3600e3;
+    });
+    el("text", {x: W - 2, y: H - 3, "text-anchor": "end"}, svg, `${activeH.toFixed(1)} h`);
+    el("text", {x: W - 4, y: yOf(peak) - 4, "text-anchor": "end", class: "peak"}, svg, `peak · ${peak} agents`);
+    ticks.forEach(([t, fix]) => el("rect", {x: x(t) - 1, y: bot + 4 - (fix ? 2 : 0), width: fix ? 3 : 1.8, height: commitH - 2 + (fix ? 2 : 0), fill: fix ? tide : leaf, opacity: fix ? 1 : .65, rx: 1}, svg));
+  }
+
+  // token economics
+  $("tok-title").textContent = `${(tokTotal / 1e9).toFixed(2)} B tokens, ${(cacheShare * 100).toFixed(0)}% from cache`;
+  $("tok-total").textContent = `${fmt(tokTotal)} exactly`;
+  $("tok-kinds").innerHTML = `<tr><th>Kind</th><th class="r">Tokens</th><th class="r">Share</th></tr>` +
+    tok.kinds.map(([k, n]) => `<tr><td>${esc(k)}</td><td class="r">${M(n)}</td><td class="r">${n / tokTotal < .001 ? "&lt;0.1%" : (n / tokTotal * 100).toFixed(1) + "%"}</td></tr>`).join("") +
+    `<tr class="total"><td>Total</td><td class="r">${M(tokTotal)}</td><td class="r">100%</td></tr>`;
+  const orch = tok.orchestrator / tokTotal;
+  $("tok-split").innerHTML = `<span style="width:${(orch * 100).toFixed(1)}%;background:var(--bar-a)"></span><span style="width:${((1 - orch) * 100).toFixed(1)}%;background:var(--virtual-tide)"></span>`;
+  $("tok-split-legend").innerHTML = `<span><span class="sw" style="background:var(--bar-a)"></span>Lead orchestrator <b>${(orch * 100).toFixed(0)}%</b> · ${M(tok.orchestrator)}</span><span><span class="sw" style="background:var(--virtual-tide)"></span>${nAgents} agents <b>${((1 - orch) * 100).toFixed(0)}%</b> · ${M(tokTotal - tok.orchestrator)}</span>`;
+  $("tok-top").textContent = (R.tokenNote ? R.tokenNote + " " : "") + "Heaviest agents: " + tok.top.slice(0, 2).map(([k, n]) => `${k.replace(/^(I\d-[A-Z]\d?) .*/, "$1")} ${n.toFixed(0)} M`).join(" · ") + ".";
+
+  // quality: one square per problem, by the stage that caught it; hollow = still open
+  const sev = {P1: "--sev1", P2: "--sev2", P3: "--sev3"};
+  $("q-title").textContent = `${found} problems caught, ${found - open} fixed`;
+  $("stages").innerHTML = R.stages.map(s => {
+    const left = [...s.open];
+    const dots = s.found.map(p => { const k = left.indexOf(p); const isOpen = k >= 0; if (isOpen) left.splice(k, 1);
+      return [isOpen, `<span class="dot${isOpen ? " open" : ""}" style="--c:var(${sev[p]})" title="${({P1: "critical", P2: "major", P3: "minor"})[p]} · ${isOpen ? "open" : "fixed"}"></span>`]; })
+      .sort((a, b) => a[0] - b[0]).map(d => d[1]);
+    return `<div class="stage"><span>${esc(s.name)}</span><span class="dots">${dots.join("")}</span><span class="n">${s.found.length}</span></div>`;
+  }).join("");
+  $("catch").innerHTML = `<b>${p1Open === 0 ? "Every critical problem is fixed." : `${p1Open} critical ${p1Open === 1 ? "problem is" : "problems are"} open in the defect trail.`}</b> Biggest catch: ${esc(R.biggestCatch.charAt(0).toLowerCase() + R.biggestCatch.slice(1))}`;
+
+  // status
+  const C = R.components, groups = [["live", "Live"], ["built", "Built and tested"], ["wip", "In progress"]];
+  const nm = x => Array.isArray(x) ? x[0] : x, cnt = x => Array.isArray(x) ? x[1] : 1, total = k => C[k].reduce((t, x) => t + cnt(x), 0);
+  $("comp-count").textContent = `${total("live") + total("built")} components built`;
+  $("components").innerHTML = groups.map(([k, label]) => `<div class="chips"><span class="grp">${label} · ${total(k)}</span>${C[k].map(x => { const n = nm(x); return `<span class="chip ${k}">${esc(n)}${k === "wip" && lanes.some(l => l.i === (C.wipLanes || {})[n] && l.w) ? " · lane running" : ""}</span>`; }).join("")}</div>`).join("");
+  const TC = ["--chart-3", "--chart-2", "--chart-1", "--chart-7", "--chart-8", "--chart-4"];
+  $("testbar").innerHTML = tests.map(([k, n], i) => `<span title="${esc(k)} · ${fmt(n)}" style="--c:var(${TC[i % TC.length]});flex:${Math.max(n, testTotal * .012)}"></span>`).join("");
+  $("tlegend").innerHTML = tests.map(([k, n], i) => `<span><span class="sw" style="background:var(${TC[i % TC.length]})"></span>${esc(k)} <b>${fmt(n)}</b></span>`).join("") +
+    (K.gates ? `<span>Eval gates <b>${K.gates[0]}/${K.gates[1]}</b></span>` : "") +
+    (K.testNotes || []).map(t => `<span>${esc(t)}</span>`).join("");
+  $("golden").innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="var(--virtual-tide)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="M4.8 8.2l2.2 2.2 4.2-4.6"/></svg><span>${esc(R.golden)}</span>`;
+
+  // ---- Testing tab, driven by the "testing" block of the data (testing-report.json)
+  const ICON = {
+    pass: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M5 8.2l2.1 2.1 4-4.3"/></svg>',
+    partial: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor" stroke="none"/></svg>',
+    notrun: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2.4 2.2" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/></svg>',
+    running: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5" opacity=".28"/><path d="M8 1.5a6.5 6.5 0 0 1 6.5 6.5"/></svg>',
+    fail: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8"/></svg>',
+    open: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.6v4M8 11.2v.1"/></svg>'
+  };
+  const WORD = {pass: "Passed", partial: "Partly", notrun: "Not run", running: "Running", fail: "Failed", fixed: "Fixed", fixedcode: "Fixed in code, not re-checked", open: "Open"};
+  const chip = k => { const c = k === "fixed" ? "pass" : k === "fixedcode" ? "partial" : (ICON[k] ? k : "notrun"); return `<span class="st st-${c}">${ICON[c]}${esc(WORD[k] || k)}</span>`; };
+  const dIcon = k => { const c = k === "fixed" ? "pass" : k === "fixedcode" ? "partial" : "open"; return `<span class="si st-${c}" title="${esc(WORD[k] || k)}" role="img" aria-label="${esc(WORD[k] || k)}">${ICON[c]}</span>`; };
+  const dRow = (d, k) => `<div class="df${k === "fixed" ? " fx" : ""}" title="${esc(d.what || "")}"><div class="w">${dIcon(k)}<i>${esc(d.id || "")}</i><b>${esc(d.where || "")}</b></div><div class="t">${esc(d.what || d.text || "")}</div></div>`;
+  const kindOf = d => d.status === "fixed" ? "fixed" : d.status === "fixedcode" ? "fixedcode" : "open";
+  const num = x => (x == null || isNaN(+x)) ? 0 : +x;
+  function cellOf(r, a, i){
+    let c = Array.isArray(r.cells) ? r.cells[i] : ((r.cells && r.cells[a]) ?? (r.areas && !Array.isArray(r.areas) && r.areas[a]) ?? r[a]);
+    if (c == null) return null;
+    if (Array.isArray(c)) return [num(c[0]), num(c[1]), num(c[2])];
+    return [num(c.passed ?? c.pass), num(c.failed ?? c.fail), num(c.notRun ?? c.not_run ?? c.notrun ?? c.skipped)];
+  }
+  function renderTesting(){
+    if (!T) return;
+    const lv = T.levels.map(l => `<div class="lv" title="${esc(l.what || "")}"><div class="l1">${chip(l.status)}<b>${esc(l.name)}</b><span class="when">${esc(l.when)}</span></div><div class="res">${esc(l.result)}</div>${l.what ? `<div class="what">${esc(l.what)}</div>` : ""}</div>`).join("");
+    $("t-levels").innerHTML = `<div class="head"><div><div class="eyebrow">Test levels</div><h2>What was tested, and the result</h2></div></div>${lv}`;
+    const byKind = k => T.defects.filter(d => kindOf(d) === k);
+    const dOpen = byKind("open"), dCode = byKind("fixedcode"), dFixed = byKind("fixed");
+    const heading = [`${dOpen.length} open`, dCode.length ? `${dCode.length} fixed in code` : "", `${dFixed.length} fixed`].filter(Boolean).join(", ");
+    const grp = (k, list) => list.length ? `<div class="dg">${chip(k)}<span class="gc">${list.length}</span></div>` + list.map(d => dRow(d, k)).join("") : "";
+    $("t-defects").innerHTML = `<div class="head"><div><div class="eyebrow">Problems found by testing</div><h2>${heading}</h2></div></div>` + grp("open", dOpen) + grp("fixedcode", dCode) + grp("fixed", dFixed);
+    $("t-not").innerHTML = `<div class="head"><div><div class="eyebrow">Not tested yet</div><h2>And why</h2></div></div>` + T.notTested.map(n => `<div class="nt"><b>${esc(n.item)}</b><span>${esc(n.why)}</span></div>`).join("");
+    $("t-run").innerHTML = `<div class="head"><div><div class="eyebrow">How to run it</div></div></div>` + T.howToRun.map(h => `<div class="run"><b>${esc(h.step)}</b><code>${esc(h.command)}</code></div>`).join("");
+    const sw = T.sweep;
+    if (!sw) {
+      $("t-sweep").innerHTML = `<div class="swnote">${chip("running")}<b>Browser sweep of every screen</b><span class="m">Running. The table of roles by areas appears here when it finishes.</span></div>`;
+    } else {
+      // with results: the first column also holds how to run it, the middle one the sweep table and what was not tested, the right one the problems; the one-line test descriptions stay as tooltips
+      const cs = document.querySelectorAll("#tv .col"), sc = $("t-sweep"); sc.classList.remove("span");
+      cs[0].append($("t-run")); cs[1].append(sc, $("t-not")); cs[2].append($("t-defects")); $("tv").classList.add("has-sweep");
+      const roles = sw.roles || sw.rows || [];
+      const areas = sw.areas || sw.columns || Object.keys((roles[0] && !Array.isArray(roles[0].cells) && (roles[0].cells || roles[0].areas)) || {});
+      const trio = c => { if (!c) return `<span class="z">n/a</span>`; const z = v => v === 0 ? "z" : "";
+        return `<span class="p ${z(c[0])}">${c[0]}</span> · <span class="f ${z(c[1])}">${c[1]}</span> · <span class="n ${z(c[2])}">${c[2]}</span>`; };
+      const rn = r => r.name || r.role || "";
+      // wide screens: areas down the side, roles across (it fits the column); phones: one short list per role
+      const head = `<div class="r h"><span>Area</span>${roles.map(r => `<span class="c">${esc(rn(r))}</span>`).join("")}</div>`;
+      const body = areas.map((a, i) => `<div class="r"><span class="rn">${esc(a)}</span>${roles.map(r => { const c = cellOf(r, a, i); return `<span class="c${c && c[1] > 0 ? " bad" : ""}">${trio(c)}</span>`; }).join("")}</div>`).join("");
+      const stack = roles.map(r => `<div class="r"><span class="rn">${esc(rn(r))}</span>${areas.map((a, i) => { const c = cellOf(r, a, i); return `<span class="c${c && c[1] > 0 ? " bad" : ""}" data-a="${esc(a)}">${trio(c)}</span>`; }).join("")}</div>`).join("");
+      const known = new Set(T.defects.map(d => d.id));
+      const extra = (sw.defects || []).filter(d => !d.id || !known.has(d.id));
+      const sd = extra.map(d => dRow(d, kindOf(d))).join("");
+      $("t-sweep").innerHTML = `<div class="head"><div><div class="eyebrow">Browser sweep${sw.when ? " · " + esc(sw.when) : ""}</div><h2>${esc(sw.summary || "Every screen, as each role")}</h2></div></div>` +
+        `<div class="swk"><span><b class="p">passed</b></span><span><b class="f">failed</b></span><span><b class="n">not run</b></span><span>shown in that order in every cell</span></div>` +
+        `<div class="swt tab" style="--nr:${roles.length}">${head}${body}</div><div class="swt stack" style="--na:${areas.length}">${stack}</div>${sd ? `<div class="eyebrow" style="margin-top:.3rem">Other problems found by the sweep</div>${sd}` : ""}`;
+    }
+  }
+  renderTesting();
+  let tab = "overview";
+  function setTab(next){
+    if (next === "testing" && !T) next = "overview";
+    tab = next;
+    const t = tab === "testing";
+    $("ov").hidden = t; $("tv").hidden = !t;
+    document.querySelector(".page").classList.toggle("testing", t);
+    $("tab-ov").setAttribute("aria-selected", String(!t)); $("tab-test").setAttribute("aria-selected", String(t));
+    heroFor(tab);
+    refresh();
+  }
+  $("tab-ov").addEventListener("click", () => setTab("overview"));
+  $("tab-test").addEventListener("click", () => setTab("testing"));
+  if (!T) $("tab-test").hidden = true;
+
+  // fit: the largest root font size at which nothing scrolls, clips or truncates
+  const page = document.querySelector(".page"), docEl = document.documentElement;
+  function fits(){
+    if (page.scrollHeight > page.clientHeight + 1 || docEl.scrollWidth > innerWidth + 1) return false;
+    for (const c of document.querySelectorAll(".card")) if (c.scrollHeight > c.clientHeight + 1 || c.scrollWidth > c.clientWidth + 1) return false;
+    for (const e of document.querySelectorAll(".chip,.stage > span:first-child,.stat .v,.stat .u,.stat .s,.legend > span,.sess .t,.sess .w,.btn,.it .st,.it .id,.st")) if (e.scrollWidth > e.clientWidth + 1) return false;
+    for (const e of document.querySelectorAll(".sess .d,.it .nm")) if (e.scrollHeight > e.clientHeight + 1) return false;
+    if (tab === "testing") { const tv = $("tv"); return tv.scrollHeight <= tv.clientHeight + 1 && tv.scrollWidth <= tv.clientWidth + 1; }
+    return root.clientHeight >= 5 * parseFloat(getComputedStyle(docEl).fontSize);
+  }
+  function fit(){
+    docEl.classList.remove("flow");
+    const floor = tab === "testing" ? 12.5 : 9;
+    let lo = floor, hi = tab === "testing" ? 13.5 : 34, best = null;
+    for (let k = 0; k < 14; k++) {
+      const mid = (lo + hi) / 2;
+      docEl.style.fontSize = mid + "px";
+      if (fits()) { best = mid; lo = mid; } else hi = mid;
+    }
+    if (best == null && tab === "testing" && wide.matches) docEl.style.fontSize = floor + "px";     // landscape screens: the panel scrolls inside the frame
+    else if (best == null) { docEl.classList.add("flow"); docEl.style.fontSize = "13px"; }
+    else docEl.style.fontSize = (Math.floor(best * 10) / 10) + "px";
+  }
+  const hint = () => { const tv = $("tv"), sh = $("sh"); const more = tab === "testing" && !docEl.classList.contains("flow") && tv.scrollHeight > tv.clientHeight + 4 && tv.scrollTop + tv.clientHeight < tv.scrollHeight - 8; sh.hidden = !more; };
+  $("tv").addEventListener("scroll", hint, {passive: true});
+  const refresh = () => { setCols(); fit(); draw(); hint(); };
+  heroFor("overview");
+  refresh();
+  if (location.hash === "#testing") setTab("testing");
+  let raf; addEventListener("resize", () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(refresh); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(refresh);
+})();
+</script>
+
+</body></html>
