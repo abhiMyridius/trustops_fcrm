@@ -97,6 +97,7 @@ Scope the Bedrock resource ARNs to exactly the profiles and models in `ai/models
 | `SERVICE_TOKEN_SECRET`, `JWT_KEY_FILE` | `.env`, `jwt_keys/` | Secrets Manager; the file step above |
 | `DEMO_USERS_PASSWORD_HASH`, `DEMO_USERS_ENABLED` | demo values | not for production |
 | `CASEFLOW_PREFETCH`, `AGENT_PREFETCH`, `AGENT_MAX_TOOL_CALLS` | compose defaults | same defaults; tune with load |
+| `AGENT_MAX_PARTS`, `AGENT_REDUCE_TIER`, `AGENT_OUTPUT_FLOOR_TOKENS` | 4, cheap, 1024 (H2 defaults, ADR-77, ADR-80) | same defaults |
 
 ## Networking
 

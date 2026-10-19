@@ -277,3 +277,18 @@ Still open:
 - The page preview shows H3's extracted lines, not the PDF rendered in place; a table cited as `p.6 tbl 2` opens the page without a marked line.
 - In MSW mode (`npm run dev:msw`) the mock serves a one-page placeholder PDF, so "Open the PDF" shows a blank page rather than the demo document.
 - The document preview is for the owner and the analyst, the roles of the document list; a committee member reads clauses but not the owner's documents (the pack cites no page:line today).
+
+## U. Split inputs, output allowance and the H2 outbox (ADR-77 to ADR-80; 19 October, appended)
+
+- **Not run on the live stack yet.** Chunking, the reduce call, the output allowance, the in-run repair and the H2 outbox are proven by unit tests on fake models, the adversarial matrix and the in-process full cycle; the live evidence is a separate, approved run (ADR-59).
+- A part's sources are the whole pack's sources, except those tied to an item (intake pages, research clauses, assessment controls, examiner records, critic proposals, policy_gap clauses), which travel with their item. A part can therefore cite a case-level source its own section text does not show.
+- The reduce call's tokens are recorded under the agent's tier label in `fcrm_agent_tokens_total` (its cost is exact: cost is per model id).
+- `asyncio.timeout` stops waiting for a model call at the tier's `wall_s`; it cannot cancel the botocore request already sent, which may still be billed.
+- The token estimate's calibration (estimated against measured input per request) is logged, not fed back into the estimate.
+- A job whose lease runs out while it is still running (lease = the tier's worst case at `AGENT_MAX_PARTS` parts) can be claimed again by a redelivery: the model calls are then spent twice and settled once (`mark_done` lets only one run announce the job).
+- A redelivery of a job whose claim is still live (a worker that died mid-job, or a broker redelivery of a long job) raises `JobInFlightError` and takes the broker's retry path: three tries 30 s apart, then `agent-worker.run.dlq`. The lease (780 s for a one-part strong job, up to 1,860 s at four parts) outlives those 90 s, so after a crash the job waits in the DLQ until `make dlq-replay q=agent-worker.run` once the lease has expired; nothing re-runs it on its own.
+- H1 still reserves one attempt of the tier per job; a split job spends one run per part (plus the reduce call), so it overruns its reservation more often. Overrun is logged and counted, as before (ADR-48).
+- The in-run repair costs one more request when the model repeats the same invalid answer (the request is made, then attempt 2 runs on the fallback as before). It is only made when twice the estimated input plus the output floor fits the attempt budget.
+- `AGENT_MAX_PARTS`, `AGENT_REDUCE_TIER` and `AGENT_OUTPUT_FLOOR_TOKENS` are read by H2 but not passed by `docker-compose.yaml` yet; the stack runs on their defaults (4, cheap, 1,024).
+- `narrative.reduce` v1 has no eval baseline (v1 is exempt); its behaviour on Haiku is unmeasured until a split recommendation runs live. Guard 4 fails it closed and the handoff carries the partial answers.
+- **Found by the full-cycle test, older than this change:** H1 stores a `policy_gap` agent's `agent.done` (its tokens are settled) but no step consumes it: in `review`, `CaseflowEngine._resolve_agent_done` logs that the result is not part of the research-and-assessment join and ignores it, so a `GapSuggestion` reaches neither an audit record nor the analyst's Assurance view (ADR-18). `tests/unit/workers/caseflow/test_full_cycle_fake_model.py` asserts only that H2 delivered the result.
