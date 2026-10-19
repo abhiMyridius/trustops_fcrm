@@ -7,7 +7,7 @@
  */
 import { useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
-import { useAskOwner, useClarifications, useResolveThread, useSendRound } from '@/api/queries/analystQueries';
+import { useAskOwner, useClarifications, useResolveThread, useRiskView, useSendRound, useSubmissions } from '@/api/queries/analystQueries';
 import { userMessage } from '@/api/errors';
 import type { DraftQuestion, ThreadAnalyst, WorkbenchHeader } from '@/api/types/analyst';
 import { AiLabel } from '@/components/ui/AiMark';
@@ -17,8 +17,8 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Input } from '@/components/ui/Input';
 import { QueryState } from '@/components/ui/QueryState';
+import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
 import { useDocumentTitle } from '@/lib/a11y';
@@ -69,12 +69,26 @@ function Composer({ caseId, drafted }: { caseId: string; drafted: DraftQuestion[
   );
 }
 
-type Draft = { key: number; text: string; anchor: string };
+type Draft = { key: number; text: string; fieldId: string; controlId: string };
+
+const emptyDraft = (key: number): Draft => ({ key, text: '', fieldId: '', controlId: '' });
+
+/** The case's fields (from the latest submission, as the Submission tab reads them) and its assessed controls (from the Risk & controls view). */
+function useAnchorOptions(caseId: string) {
+  const subs = useSubmissions(caseId);
+  const risk = useRiskView(caseId);
+  const latest = subs.data?.reduce<(typeof subs.data)[number] | undefined>((a, v) => (a && a.version >= v.version ? a : v), undefined);
+  const fields = (latest?.fields ?? []).map((f) => ({ value: f.field_id, label: `${f.field_id} · ${f.label}` }));
+  const controls = new Map<string, string>();
+  for (const area of risk.data?.areas ?? []) for (const c of area.controls) if (!controls.has(c.id)) controls.set(c.id, `${c.id} · ${c.name}`);
+  return { fields, controls: [...controls].map(([value, label]) => ({ value, label })) };
+}
 
 /** ADR-73: one or more questions to the owner, at any stage from triage to an unlocked recommendation. */
 function AskOwner({ caseId, owner }: { caseId: string; owner: string }) {
-  const [drafts, setDrafts] = useState<Draft[]>([{ key: 1, text: '', anchor: '' }]);
+  const [drafts, setDrafts] = useState<Draft[]>([emptyDraft(1)]);
   const ask = useAskOwner(caseId);
+  const options = useAnchorOptions(caseId);
   const toast = useToast();
   const ready = drafts.filter((d) => d.text.trim());
   const update = (key: number, patch: Partial<Draft>) => setDrafts((xs) => xs.map((x) => (x.key === key ? { ...x, ...patch } : x)));
@@ -85,11 +99,11 @@ function AskOwner({ caseId, owner }: { caseId: string; owner: string }) {
         onSubmit={(e) => {
           e.preventDefault();
           ask.mutate(
-            ready.map((d) => ({ text: d.text.trim(), anchor: d.anchor.trim() || null })),
+            ready.map((d) => ({ text: d.text.trim(), field_id: d.fieldId || null, control_id: d.controlId || null })),
             {
               onSuccess: () => {
                 toast.success('Sent to the owner', 'The answer arrives in this inbox. Your clock keeps running.');
-                setDrafts([{ key: Date.now(), text: '', anchor: '' }]);
+                setDrafts([emptyDraft(Date.now())]);
               },
               onError: (err) => toast.error('Not sent', userMessage(err)),
             },
@@ -99,12 +113,22 @@ function AskOwner({ caseId, owner }: { caseId: string; owner: string }) {
         {drafts.map((d, i) => (
           <div key={d.key} className="flex flex-col gap-2 rounded-lg border border-border p-3">
             <Textarea label={`Question ${i + 1}`} value={d.text} rows={2} onChange={(e) => update(d.key, { text: e.target.value })} />
-            <Input
-              label="About field or control (optional)"
-              hint="A field id such as F11 lets the owner set its new value with the answer."
-              value={d.anchor}
-              onChange={(e) => update(d.key, { anchor: e.target.value })}
-            />
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Select
+                label="About a field (optional)"
+                hint="Picking a field lets the owner set its new value with the answer."
+                options={[{ value: '', label: 'No field' }, ...options.fields]}
+                value={d.fieldId}
+                onChange={(e) => update(d.key, { fieldId: e.target.value })}
+              />
+              <Select
+                label="About a control (optional)"
+                hint="Only you see the control; the owner reads the field."
+                options={[{ value: '', label: 'No control' }, ...options.controls]}
+                value={d.controlId}
+                onChange={(e) => update(d.key, { controlId: e.target.value })}
+              />
+            </div>
             {drafts.length > 1 && (
               <div>
                 <Button size="sm" variant="ghost" onClick={() => setDrafts((xs) => xs.filter((x) => x.key !== d.key))}>
@@ -118,7 +142,7 @@ function AskOwner({ caseId, owner }: { caseId: string; owner: string }) {
           <Button type="submit" variant="primary" disabled={ready.length === 0} loading={ask.isPending}>
             Send · {ready.length} {ready.length === 1 ? 'question' : 'questions'}
           </Button>
-          <Button size="sm" variant="secondary" disabled={drafts.length >= 10} onClick={() => setDrafts((xs) => [...xs, { key: Date.now(), text: '', anchor: '' }])}>
+          <Button size="sm" variant="secondary" disabled={drafts.length >= 10} onClick={() => setDrafts((xs) => [...xs, emptyDraft(Date.now())])}>
             Add another question
           </Button>
         </div>
@@ -131,7 +155,10 @@ function ThreadItem({ t, onResolve, resolving }: { t: ThreadAnalyst; onResolve: 
   return (
     <li className="flex flex-col gap-2 rounded-lg border border-border p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Badge tone="info">Anchor: {t.anchor || 'none'}</Badge>
+        <span className="flex flex-wrap gap-2">
+          <Badge tone="info">Anchor: {t.anchor || 'none'}</Badge>
+          {t.control_id && t.control_id !== t.anchor && <Badge tone="info">Control: {t.control_id}</Badge>}
+        </span>
         <Badge tone={t.status === 'open' ? 'warning' : t.status === 'resolved' ? 'neutral' : 'success'}>{t.status}</Badge>
       </div>
       <p className="text-sm">{t.question}</p>

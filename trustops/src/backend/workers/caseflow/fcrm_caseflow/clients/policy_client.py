@@ -1,5 +1,7 @@
 """The S3 policy-service client: the precedent lookup the intake core needs
-(``POST /search`` over the ``precedent_cases`` index, design A §6.2).
+(``POST /search`` over the ``precedent_cases`` index, design A §6.2), the same
+search's raw hits the critic check reads ratings from, and the versioned
+reference reads (control inventory, field set, jurisdiction list versions).
 
 S3 answers with a fused rank, not a similarity: ``SearchHit.score`` is the
 reciprocal-rank-fusion score divided by its ceiling, so the top hit of a
@@ -103,6 +105,28 @@ class PolicyClient:
             fcrm_common.errors.ValidationError: ``query`` is blank.
             fcrm_common.errors.FcrmError: S3 refused or was unreachable.
         """
+        found: list[PrecedentHit] = []
+        for hit in await self.precedent_hits(query, top_k):
+            closed = hit.metadata.get("closed_date")
+            found.append(
+                PrecedentHit(
+                    case_id=hit.id,
+                    title=str(hit.metadata.get("title") or hit.text),
+                    similarity=similarity_of(hit),
+                    closed_date=str(closed) if closed else None,
+                )
+            )
+        return found
+
+    async def precedent_hits(self, query: str, top_k: int) -> list[SearchHit]:
+        """S3's ``top_k`` hits for ``query`` on the precedent index as S3 sends
+        them (``metadata`` carries each closed case's ``control_ratings`` and
+        ``closed_date``), closest first.
+
+        Raises:
+            fcrm_common.errors.ValidationError: ``query`` is blank.
+            fcrm_common.errors.FcrmError: S3 refused or was unreachable.
+        """
         if not query.strip():
             raise FcrmValidationError("a precedent search needs a non-blank query")
         request = SearchRequest(index=PRECEDENT_INDEX, query=query, top_k=top_k)
@@ -115,18 +139,7 @@ class PolicyClient:
         response = parse_body(
             SearchResponse, body, dependency=DEPENDENCY, route=SEARCH_PATH
         )
-        found: list[PrecedentHit] = []
-        for hit in response.hits:
-            closed = hit.metadata.get("closed_date")
-            found.append(
-                PrecedentHit(
-                    case_id=hit.id,
-                    title=str(hit.metadata.get("title") or hit.text),
-                    similarity=similarity_of(hit),
-                    closed_date=str(closed) if closed else None,
-                )
-            )
-        return found
+        return list(response.hits)
 
     async def top_precedent(self, query: str) -> Optional[PrecedentHit]:
         """The single closest closed case for ``query``, or ``None`` when S3

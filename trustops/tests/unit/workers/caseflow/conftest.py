@@ -719,6 +719,23 @@ class RecordingAudit(AuditClient):
         self._stored[idempotency_key or f"anon{number}"] = stored
         return stored
 
+    async def list_proposals(
+        self, case_id: str, run_id: str, *, agent: Optional[str] = None
+    ) -> list[Proposal]:
+        """What S4's ``GET /proposals`` would answer: the stored entries of the
+        case and run (and agent), in ``seq`` order.
+        """
+        return sorted(
+            (
+                p
+                for p in self._stored.values()
+                if p.case_id == case_id
+                and p.run_id == run_id
+                and (agent is None or p.agent == agent)
+            ),
+            key=lambda p: p.seq,
+        )
+
 
 class FakeTransact:
     """Stands in for :class:`fcrm_caseflow.engine.Transact`: runs ``fn`` once

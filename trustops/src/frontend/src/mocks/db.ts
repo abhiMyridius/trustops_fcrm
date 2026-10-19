@@ -73,6 +73,8 @@ export interface AdhocEntry {
   text: string;
   anchor: string | null;
   field_id: string | null;
+  /** The control the question names beside its field (analyst only; absent in an older saved state). */
+  control_id?: string | null;
   opened_at: string;
   answer: { text: string; documents: string[]; at: string; values: Record<string, string>; changed: string[] } | null;
   submission_version: number | null;

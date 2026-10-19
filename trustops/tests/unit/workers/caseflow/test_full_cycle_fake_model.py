@@ -639,6 +639,13 @@ async def test_one_case_runs_its_whole_cycle_through_h1_and_h2(  # noqa: PLR0915
     assert cycle.case.analyst == {"id": ANALYST, "name": "Rahul Iyer"}
     for kind in ("clause", "factor", "control", "critic_finding"):
         assert any(i["kind"] == kind for i in cycle.case.items.values()), kind
+    # the seed's two findings both survive H1's precedent check: the deviation
+    # (2.7 from the mean) is over the 1.5 flag and its figures agree
+    assert sorted(
+        i["subject"]["finding_type"]
+        for i in cycle.case.items.values()
+        if i["kind"] == "critic_finding"
+    ) == ["evidence_recency", "precedent_deviation"]
 
     # --- scene 10: the analyst asks one clarification round -------------------
     [completeness] = cycle.open_gates(GateType.COMPLETENESS)

@@ -45,7 +45,7 @@ describe('explaining a critic finding', () => {
       }),
     );
     renderApp(`/analyst/case/${DEMO}/summary`, { as: USERS.rahul });
-    await userEvent.click(await screen.findByRole('button', { name: 'Explain…' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Explain why' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.type(within(dialog).getByLabelText(/Reason/), 'The destination field was read from page 3 of the business case.');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Record explanation' }));
@@ -57,6 +57,6 @@ describe('explaining a critic finding', () => {
     withFinding(false);
     renderApp(`/analyst/case/${DEMO}/summary`, { as: USERS.rahul });
     expect(await screen.findByText('Explained')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Explain…' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Explain why' })).not.toBeInTheDocument();
   });
 });

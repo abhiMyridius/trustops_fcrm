@@ -240,6 +240,35 @@ class ScorePush(BaseModel):
     gate_id: Optional[str] = None
 
 
+class PrecedentRating(BaseModel):
+    """How one similar closed case rated a control."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    rating: float
+    closed_date: Optional[str] = None
+
+
+class PrecedentComparison(BaseModel):
+    """The numbers behind a ``precedent_deviation`` finding, worked out by H1
+    from the assessment's rating and the precedent search, never taken from the
+    model's text: this case's rating of the control, the similar cases' ratings,
+    their mean and range, and the gap (``mean - rating``; positive when this
+    case rates the control lower)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    control_id: str
+    control_name: Optional[str] = None
+    rating: float
+    mean: float
+    low: float
+    high: float
+    gap: float
+    cases: list[PrecedentRating] = Field(default_factory=list)
+
+
 class CriticFindingItem(BaseModel):
     """One critic finding as the analyst sees it; ``finding_id`` is the id of
     its ``critic_finding`` review item and ``gate_id`` the gate that decides it.
@@ -258,6 +287,8 @@ class CriticFindingItem(BaseModel):
     source_ref: SourceRef = Field(discriminator="kind")
     quote: str
     confidence: float = Field(ge=0.0, le=1.0)
+    comparison: Optional[PrecedentComparison] = None
+    """For a ``precedent_deviation``: the checked numbers (H1, by code)."""
 
 
 class CriticPush(BaseModel):

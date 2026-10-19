@@ -62,6 +62,7 @@ from fcrm_contracts.api.case_analyst_read import (
     ThreadAnalyst,
     ThreadAnswerView,
 )
+from fcrm_contracts.api.case_internal_assessment import PrecedentComparison
 from fcrm_contracts.api.case_po import SourceRef
 from fcrm_contracts.enums import CaseState, Domain, ItemKind, ItemStatus
 
@@ -73,6 +74,7 @@ from fcrm_case.domain.analyst_clauses import (
 from fcrm_case.domain.analyst_handoff import HandoffGateRow, agent_failed_notice
 from fcrm_case.domain.analyst_records import GapRow, PlannedControlRow
 from fcrm_case.domain.analyst_views import assessment_ready, band_no, score_box
+from fcrm_case.domain.answer_quality import answer_problem
 from fcrm_case.domain.assessment import (
     CompletenessViewRow,
     CriticViewRow,
@@ -283,11 +285,19 @@ def _finding_target(finding: Mapping[str, Any]) -> Optional[str]:
     return None
 
 
+def _comparison(finding: Mapping[str, Any]) -> Optional[PrecedentComparison]:
+    """The checked numbers H1 stored with a precedent deviation, if any."""
+    raw = finding.get("comparison")
+    return PrecedentComparison.model_validate(raw) if isinstance(raw, Mapping) else None
+
+
 def critic_findings(
     view: Optional[CriticViewRow], items: Sequence[ReviewItemRow]
 ) -> list[CriticFinding]:
     """The critic's current findings: those whose review item is not superseded,
-    each with the gate that decides it, most severe first.
+    each with the gate that decides it, most severe first. Each carries why it
+    was raised (the cited record's words the critic quoted) and, for a
+    precedent deviation H1 checked, the control's name and the numbers.
     """
     if view is None:
         return []
@@ -299,6 +309,7 @@ def critic_findings(
         item = by_id.get(_text(raw.get("finding_id")))
         if item is None and by_id:
             continue
+        comparison = _comparison(raw)
         found.append(
             CriticFinding(
                 id=_text(raw["finding_id"]),
@@ -306,7 +317,11 @@ def critic_findings(
                 severity=raw.get("severity", "low"),
                 text=_text(raw.get("text")),
                 records=_record_numbers(raw.get("record_refs") or []),
-                target=_finding_target(raw),
+                target=_finding_target(raw)
+                or (comparison.control_id if comparison is not None else None),
+                reason=_text(raw.get("quote")) or None,
+                target_name=comparison.control_name if comparison is not None else None,
+                comparison=comparison,
                 gate_id=item.gate_id if item is not None else raw.get("gate_id"),
                 gate_open=gate_open(item) if item is not None else False,
             )
@@ -317,6 +332,11 @@ def critic_findings(
 # -- the assessment summary --------------------------------------------------------
 
 
+OWNER_TYPED_ORIGINS: Final = frozenset({"answered", "owner_declared"})
+"""Field origins whose value the owner typed (an answer to a gap question, or a
+value the owner declared), which :func:`answer_problem` checks."""
+
+
 def _flags(
     items: Sequence[ReviewItemRow],
     fields: Sequence[FieldValueRow],
@@ -324,8 +344,9 @@ def _flags(
     corpus_version: str,
 ) -> list[Flag]:
     """What the analyst should notice, from what is stored: a new fact the owner
-    raised at intake, a gap the research agent searched for and did not find, and
-    a value the owner corrected (the extracted original is kept).
+    raised at intake, a gap the research agent searched for and did not find, a
+    value the owner corrected (the extracted original is kept), and an owner
+    answer that cannot be a real value (:mod:`fcrm_case.domain.answer_quality`).
     """
     flags: list[Flag] = []
     for index, raw in enumerate(intake.flags if intake is not None else []):
@@ -364,6 +385,21 @@ def _flags(
                         f"→ {_text(value.value)} (owner declared, original kept)"
                     ),
                     source=SourceRef(label=label),
+                )
+            )
+        problem = (
+            answer_problem(value.value) if value.origin in OWNER_TYPED_ORIGINS else None
+        )
+        if problem is not None:
+            flags.append(
+                Flag(
+                    id=f"fl_answer_{value.field_id}",
+                    text=(
+                        f"Answer may not be valid: {value.label} is "
+                        f"\u201c{_text(value.value)}\u201d ({problem}); "
+                        "ask the owner again"
+                    ),
+                    source=SourceRef(label="owner answer"),
                 )
             )
     return flags
@@ -961,6 +997,7 @@ def _thread(row: ClarificationThreadRow, labels: Mapping[str, str]) -> ThreadAna
         kind=row.kind,
         round=row.round,
         anchor=row.anchor or "",
+        control_id=row.control_id,
         question=row.text,
         status=_THREAD_STATUS[row.status],  # type: ignore[arg-type]
         answer=ThreadAnswerView(

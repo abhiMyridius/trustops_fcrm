@@ -146,15 +146,26 @@ export function useCompleteHandoff(id: string) {
   );
 }
 
+/** One question of the round as `POST /clarifications` takes it (`RoundQuestion`, which refuses extra keys). */
+export type RoundQuestionBody = { id: string; text: string; anchor: string | null; keep: boolean };
+
+/**
+ * The round's questions with only the keys the API takes: the composer holds the drafted questions as read
+ * (`DraftQuestion`, which also carries `dropped_reason`), and posting them as they were was a 422 for every round.
+ */
+export function roundQuestionsBody(questions: readonly RoundQuestionBody[]): RoundQuestionBody[] {
+  return questions.map(({ id, text, anchor, keep }) => ({ id, text, anchor, keep }));
+}
+
 export function useSendRound(id: string) {
-  return useCaseMutation(id, (questions: { id: string; text: string; anchor: string | null; keep: boolean }[]) =>
-    api(paths.cases.clarifications(id), { method: 'POST', body: { questions } }),
+  return useCaseMutation(id, (questions: readonly RoundQuestionBody[]) =>
+    api(paths.cases.clarifications(id), { method: 'POST', body: { questions: roundQuestionsBody(questions) } }),
   );
 }
 
 /** Ask the owner one or more questions at any stage from triage to an unlocked recommendation (ADR-73). */
 export function useAskOwner(id: string) {
-  return useCaseMutation(id, (questions: { text: string; anchor: string | null }[]) =>
+  return useCaseMutation(id, (questions: { text: string; field_id: string | null; control_id: string | null }[]) =>
     api<QuestionsResult>(paths.cases.questions(id), { method: 'POST', body: { questions } }),
   );
 }

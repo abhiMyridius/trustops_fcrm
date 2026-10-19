@@ -1,5 +1,6 @@
 /** One matched control: weight, proposed rating, evidence + date, stale flag, Confirm / Review. */
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Check, PenLine, TriangleAlert } from 'lucide-react';
 import type { ControlItem } from '@/api/types/analyst';
 import { Badge } from '@/components/ui/Badge';
@@ -19,8 +20,17 @@ export function ControlRow({
   readOnly?: boolean;
   busy?: boolean;
 }) {
+  // `#control-<id>` (the critic review's "Change rating") scrolls to and focuses this row.
+  const anchor = `control-${control.id}`;
+  const { hash } = useLocation();
+  const row = useRef<HTMLTableRowElement>(null);
+  useEffect(() => {
+    if (hash !== `#${anchor}`) return;
+    row.current?.scrollIntoView?.({ block: 'center' });
+    row.current?.focus({ preventScroll: true });
+  }, [hash, anchor]);
   return (
-    <tr className="border-t border-border-hairline align-top">
+    <tr ref={row} id={anchor} tabIndex={-1} className="border-t border-border-hairline align-top focus:outline-2 focus:outline-info">
       <th scope="row" className="px-3 py-3 text-left">
         <span className="font-mono text-[11px] text-text-muted">{control.id}</span>
         <span className="block text-[13px] font-semibold text-text-primary">{control.name}</span>

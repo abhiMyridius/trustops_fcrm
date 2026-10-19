@@ -909,11 +909,14 @@ def resolve_thread_command(
 
 @dataclass(frozen=True)
 class AdhocAsk:
-    """One ad-hoc question to open: its id (``A1``...), the words, the anchor."""
+    """One ad-hoc question to open: its id (``A1``...), the words, the anchor and
+    the control it names, if any (kept for the analyst only).
+    """
 
     question_id: str
     text: str
     anchor: Optional[str]
+    control_id: Optional[str] = None
 
 
 def ask_adhoc_command(
@@ -940,6 +943,7 @@ def ask_adhoc_command(
             question_id=q.question_id,
             text=q.text,
             anchor=q.anchor,
+            control_id=q.control_id,
             field_ids=anchored_field_ids(q.anchor),
             field_label=field_label_for(q.anchor, labels),
             opened_at=now,

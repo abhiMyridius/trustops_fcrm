@@ -55,6 +55,7 @@ from fcrm_guardrails.rules import check_all
 from fcrm_guardrails.rules.context import RulesContext
 from fcrm_guardrails.thresholds import STALE_EVIDENCE_MONTHS
 
+from fcrm_caseflow.cores.assessment_critic import DroppedFinding, check_critic
 from fcrm_caseflow.cores.assessment_items import (
     GATED_KINDS,
     ControlDrafts,
@@ -621,16 +622,41 @@ def _rules_kept(findings: Sequence[Any], outcome_request: Any) -> int:
     return sum(1 for r in results if r.ok)
 
 
+_DROP_WORDS: Final = {
+    "below_flag": "under the precedent flag",
+    "contradictory": "with figures that contradict each other",
+}
+
+
+def _dropped_phrase(dropped: Sequence[DroppedFinding]) -> str:
+    """`` · 2 precedent deviations dropped (1 under the precedent flag, ...)``
+    for the ``critic.findings`` summary, or nothing when none was dropped.
+    """
+    if not dropped:
+        return ""
+    counts: dict[str, int] = {}
+    for d in dropped:
+        counts[d.reason] = counts.get(d.reason, 0) + 1
+    why = ", ".join(f"{n} {_DROP_WORDS[r]}" for r, n in sorted(counts.items()))
+    return f" · {plural(len(dropped), 'precedent deviation')} dropped ({why})"
+
+
 async def critic_publish(step: HarnessStep, deps: StepDeps) -> StepResult:
     """``agent.done critic``: each finding becomes a ``critic_finding`` item with
     its own gate (the analyst explains or adjusts it), the findings are shown to
     the analyst, and S1's stage moves to completeness.
+
+    A ``precedent_deviation`` is checked first (:mod:`.assessment_critic`): its
+    numbers are worked out by code and carried as the finding's ``comparison``,
+    and one the numbers do not support is dropped (no item, no gate) and counted
+    in the ``critic.findings`` record.
     """
     case = deps.require_case()
     results = await deps.require_agent_results().list_for(step.run_id, AgentName.CRITIC)
     result = result_for(results, step, "critic")
-    findings = parse_critic([result])
-    drafts = critic_drafts(findings, result.job_id)
+    checked = await check_critic(step, deps, result, parse_critic([result]))
+    findings = [c.finding for c in checked.kept]
+    drafts = critic_drafts(findings, result.job_id, [c.position for c in checked.kept])
     existing = await case.list_items(step.case_id)
     plan = plan_items(
         step.case_id, drafts, existing, changed_fields=frozenset(), full=False
@@ -666,8 +692,11 @@ async def critic_publish(step: HarnessStep, deps: StepDeps) -> StepResult:
                     source_ref=finding.source_ref,
                     quote=finding.quote,
                     confidence=finding.confidence,
+                    comparison=item.comparison,
                 )
-                for planned, finding in zip(plan.items, findings, strict=True)
+                for planned, item, finding in zip(
+                    plan.items, checked.kept, findings, strict=True
+                )
             ],
         ),
         idempotency_key=idem(step, "critic"),
@@ -677,17 +706,43 @@ async def critic_publish(step: HarnessStep, deps: StepDeps) -> StepResult:
         step,
         "critic.findings",
         f"Critic · {plural(len(findings), 'finding')} · "
-        f"{kept} of {_DEMO_RULE_COUNT} rules kept",
+        f"{kept} of {_DEMO_RULE_COUNT} rules kept" + _dropped_phrase(checked.dropped),
         {
             "findings": [
                 {
-                    "type": f.finding_type,
-                    "severity": f.severity,
-                    "records": f.record_refs,
+                    "type": c.finding.finding_type,
+                    "severity": c.finding.severity,
+                    "records": c.finding.record_refs,
+                    **(
+                        {
+                            "control_id": c.comparison.control_id,
+                            "rating": c.comparison.rating,
+                            "mean": c.comparison.mean,
+                            "gap": c.comparison.gap,
+                            "cases": len(c.comparison.cases),
+                        }
+                        if c.comparison is not None
+                        else {}
+                    ),
                 }
-                for f in findings
+                for c in checked.kept
             ],
             "rules_kept": kept,
+            **(
+                {
+                    "dropped": [
+                        {
+                            "position": d.position,
+                            "reason": d.reason,
+                            "gap": d.gap,
+                            "text": d.text,
+                        }
+                        for d in checked.dropped
+                    ]
+                }
+                if checked.dropped
+                else {}
+            ),
         },
         actor="ai",
     )

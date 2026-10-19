@@ -3,7 +3,17 @@
  * until `revealed` is true; the client has nothing to hide because it never receives them (R2).
  */
 import type { ChangeType, Outcome, PinnedVersions } from './common';
-import type { BandNo, ConditionAnalyst, CriticFinding } from './analyst';
+import type { BandNo, ConditionAnalyst } from './analyst';
+
+/** A critic finding as the pack carries it (S5 `PackCriticFinding`): the analyst's `reason`, `target_name` and `comparison` are not in the pack. */
+export interface PackCriticFinding {
+  id: string;
+  type: string;
+  severity: 'high' | 'medium' | 'low';
+  text: string;
+  records: number[];
+  target: string | null;
+}
 
 export interface CommitteeQueueItem {
   case_id: string;
@@ -64,7 +74,7 @@ export interface PackView {
   gaps: string[];
   controls: { id: string; name: string; domain: string; rating: number; weight_norm: number; evidence: string; stale: boolean }[];
   planned: { description: string; owner: string; due: string }[];
-  critic_findings: CriticFinding[];
+  critic_findings: PackCriticFinding[];
   clarification_rounds: { round: number; questions: number; answered: number }[];
   pins: PinnedVersions;
   audit_head: { seq: number; hash: string };

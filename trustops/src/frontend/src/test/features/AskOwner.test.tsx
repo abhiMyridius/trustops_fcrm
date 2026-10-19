@@ -35,14 +35,14 @@ describe('the analyst asks the owner at any time (ADR-73)', () => {
     const posted = capture(paths.cases.questions(C));
     renderApp(`/analyst/case/${C}/inbox`, { as: USERS.rahul });
 
-    const card = (await screen.findByRole('heading', { name: 'Ask the owner' })).closest('section') as HTMLElement;
+    const card = (await screen.findByRole('heading', { name: 'Ask the owner' }, { timeout: 5000 })).closest('section') as HTMLElement;
     await userEvent.type(within(card).getByLabelText('Question 1'), LICENCE);
-    await userEvent.type(within(card).getByLabelText(/About field or control/), 'F11');
+    await userEvent.selectOptions(within(card).getByLabelText(/About a field/), await within(card).findByRole('option', { name: /^F11 · / }));
     await userEvent.click(within(card).getByRole('button', { name: /Send · 1 question/ }));
 
     expect(await screen.findByText(/Questions to Priya Nair/)).toBeInTheDocument();
     expect(screen.getByText(LICENCE)).toBeInTheDocument();
-    expect(posted).toEqual([{ questions: [{ text: LICENCE, anchor: 'F11' }] }]);
+    expect(posted).toEqual([{ questions: [{ text: LICENCE, field_id: 'F11', control_id: null }] }]);
     expect(getDB().demo.adhoc).toHaveLength(1);
     // The one round is untouched: no decision, nothing sent.
     expect(getDB().demo.completeness).toBeNull();

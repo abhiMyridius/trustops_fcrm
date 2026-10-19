@@ -157,7 +157,7 @@
       },
       "AdhocQuestion": {
         "additionalProperties": false,
-        "description": "One question the analyst asks the owner outside the round. ``anchor`` is\nthe field (or control) it is about, as a round question's is; the owner reads\nthe field's label, never a control id.",
+        "description": "One question the analyst asks the owner outside the round. ``anchor`` is\nthe field (or control) it is about, as a round question's is; the owner reads\nthe field's label, never a control id.\n\n``field_id`` and ``control_id`` name the field and the control apart, and may\nboth be given; ``anchor`` is still taken from an older client. The thread's\nanchor is :attr:`primary_anchor`; ``control_id`` is also kept on the thread\nfor the analyst (never the owner).",
         "properties": {
           "anchor": {
             "anyOf": [
@@ -170,6 +170,30 @@
               }
             ],
             "title": "Anchor"
+          },
+          "control_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Control Id"
+          },
+          "field_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Id"
           },
           "text": {
             "maxLength": 2000,
@@ -3137,6 +3161,16 @@
       "CriticFinding": {
         "additionalProperties": false,
         "properties": {
+          "comparison": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrecedentComparison"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "gate_id": {
             "anyOf": [
               {
@@ -3156,6 +3190,17 @@
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
           },
           "records": {
             "items": {
@@ -3183,6 +3228,17 @@
               }
             ],
             "title": "Target"
+          },
+          "target_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Name"
           },
           "text": {
             "title": "Text",
@@ -8510,6 +8566,64 @@
         "title": "PolicyView",
         "type": "object"
       },
+      "PrecedentComparison": {
+        "additionalProperties": false,
+        "description": "The numbers behind a ``precedent_deviation`` finding, worked out by H1\nfrom the assessment's rating and the precedent search, never taken from the\nmodel's text: this case's rating of the control, the similar cases' ratings,\ntheir mean and range, and the gap (``mean - rating``; positive when this\ncase rates the control lower).",
+        "properties": {
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/PrecedentRating"
+            },
+            "title": "Cases",
+            "type": "array"
+          },
+          "control_id": {
+            "title": "Control Id",
+            "type": "string"
+          },
+          "control_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Control Name"
+          },
+          "gap": {
+            "title": "Gap",
+            "type": "number"
+          },
+          "high": {
+            "title": "High",
+            "type": "number"
+          },
+          "low": {
+            "title": "Low",
+            "type": "number"
+          },
+          "mean": {
+            "title": "Mean",
+            "type": "number"
+          },
+          "rating": {
+            "title": "Rating",
+            "type": "number"
+          }
+        },
+        "required": [
+          "control_id",
+          "rating",
+          "mean",
+          "low",
+          "high",
+          "gap"
+        ],
+        "title": "PrecedentComparison",
+        "type": "object"
+      },
       "PrecedentHitOut": {
         "additionalProperties": false,
         "description": "One similar closed case.",
@@ -8686,6 +8800,37 @@
           "reused"
         ],
         "title": "PrecedentPO",
+        "type": "object"
+      },
+      "PrecedentRating": {
+        "additionalProperties": false,
+        "description": "How one similar closed case rated a control.",
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "closed_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed Date"
+          },
+          "rating": {
+            "title": "Rating",
+            "type": "number"
+          }
+        },
+        "required": [
+          "case_id",
+          "rating"
+        ],
+        "title": "PrecedentRating",
         "type": "object"
       },
       "PrecedentRecordIn": {
@@ -12205,6 +12350,17 @@
               }
             ]
           },
+          "control_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Control Id"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -12240,6 +12396,7 @@
           "kind",
           "round",
           "anchor",
+          "control_id",
           "question",
           "status",
           "answer"

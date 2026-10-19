@@ -254,12 +254,19 @@ class AdhocQuestion(BaseModel):
     """One question the analyst asks the owner outside the round. ``anchor`` is
     the field (or control) it is about, as a round question's is; the owner reads
     the field's label, never a control id.
+
+    ``field_id`` and ``control_id`` name the field and the control apart, and may
+    both be given; ``anchor`` is still taken from an older client. The thread's
+    anchor is :attr:`primary_anchor`; ``control_id`` is also kept on the thread
+    for the analyst (never the owner).
     """
 
     model_config = ConfigDict(extra="forbid")
 
     text: str = Field(min_length=1, max_length=MAX_TEXT_CHARS)
     anchor: Optional[str] = Field(default=None, max_length=64)
+    field_id: Optional[str] = Field(default=None, max_length=64)
+    control_id: Optional[str] = Field(default=None, max_length=64)
 
     @field_validator("text")
     @classmethod
@@ -269,10 +276,17 @@ class AdhocQuestion(BaseModel):
             raise ValueError("a question needs words")
         return text
 
-    @field_validator("anchor")
+    @field_validator("anchor", "field_id", "control_id")
     @classmethod
     def _trim_anchor(cls, value: Optional[str]) -> Optional[str]:
         return _stripped(value) or None
+
+    @property
+    def primary_anchor(self) -> Optional[str]:
+        """The thread's anchor: the field if one is named, else the control, else
+        the older client's ``anchor``.
+        """
+        return self.field_id or self.control_id or self.anchor
 
 
 class QuestionsBody(BaseModel):

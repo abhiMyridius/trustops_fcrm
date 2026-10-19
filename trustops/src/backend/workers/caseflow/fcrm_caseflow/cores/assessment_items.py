@@ -496,12 +496,27 @@ def control_drafts(
     return result
 
 
-def critic_drafts(findings: Sequence[CriticFinding], job_id: str) -> list[ItemDraft]:
+def critic_drafts(
+    findings: Sequence[CriticFinding],
+    job_id: str,
+    positions: Optional[Sequence[int]] = None,
+) -> list[ItemDraft]:
     """A ``critic_finding`` draft per finding, identified by the job and the
     finding's position (a finding has no subject of its own to key on).
+    ``positions`` are the findings' places among everything the critic
+    returned (1-based) when some were not kept, so a kept finding keeps its id;
+    by default they count from 1.
+
+    Raises:
+        fcrm_common.errors.ValidationError: ``positions`` does not give one
+            place per finding.
     """
+    places = list(positions) if positions is not None else None
+    if places is not None and len(places) != len(findings):
+        raise FcrmValidationError("one position per finding is needed")
     drafts: list[ItemDraft] = []
-    for index, finding in enumerate(findings, start=1):
+    for offset, finding in enumerate(findings):
+        index = places[offset] if places is not None else offset + 1
         drafts.append(
             ItemDraft(
                 kind=ItemKind.CRITIC_FINDING,

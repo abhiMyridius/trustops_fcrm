@@ -344,7 +344,7 @@ export const caseHandlers = [
   http.post(`${P}/questions`, ({ request, params }) =>
     guarded(request, ['fcrm_analyst'], async () => {
       if (!isDemo(id(params))) return problem(409, 'Read-only', 'Only FCRM-2026-0151 is live in mock mode.');
-      const b = await body<{ questions: { text: string; anchor: string | null }[] }>(request);
+      const b = await body<{ questions: A.AdhocAskBody[] }>(request);
       const threadIds = A.askOwner(b.questions ?? []);
       return HttpResponse.json({ case_id: id(params), questions: threadIds.length, thread_ids: threadIds, replayed: false }, { status: 201 });
     }),

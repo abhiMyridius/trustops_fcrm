@@ -88,6 +88,51 @@ def test_the_critic_finding_names_its_target_records_and_gate(
     assert finding.gate_open is True
 
 
+def test_the_finding_carries_its_reason_and_the_checked_numbers(
+    assessed_case: AssessedCase,
+) -> None:
+    view = assessed_case.read.assessment.critic[CASE]
+    [raw] = view.findings
+    comparison = {
+        "control_id": "CTL-T01",
+        "control_name": "Vendor due-diligence assessment",
+        "rating": 7.6,
+        "mean": 4.9,
+        "low": 4.2,
+        "high": 5.6,
+        "gap": -2.7,
+        "cases": [
+            {"case_id": "FCRM-2025-0101", "rating": 4.2, "closed_date": "2025-11-02"},
+            {"case_id": "FCRM-2025-0102", "rating": 5.6, "closed_date": None},
+        ],
+    }
+    raw.update(
+        quote="CTL-T01 rated 7.6 per DD report, audit 2023-11",
+        source_ref={"kind": "record", "case_id": CASE, "seq": 34},
+        comparison=comparison,
+    )
+
+    payload = get(assessed_case, "assessment")
+    [finding] = AssessmentSummary.model_validate(payload).critic_findings
+
+    assert finding.reason == "CTL-T01 rated 7.6 per DD report, audit 2023-11"
+    assert finding.target == "CTL-T01"  # from the comparison: the source is a record
+    assert finding.target_name == "Vendor due-diligence assessment"
+    assert finding.comparison is not None
+    assert finding.comparison.model_dump(mode="json") == comparison
+    assert payload["critic_findings"][0]["comparison"] == comparison
+
+
+def test_a_finding_without_a_comparison_has_none(assessed_case: AssessedCase) -> None:
+    payload = get(assessed_case, "assessment")
+    [finding] = payload["critic_findings"]
+    assert (finding["reason"], finding["target_name"], finding["comparison"]) == (
+        "q",
+        None,
+        None,
+    )
+
+
 def test_a_decided_finding_has_its_gate_closed(assessed_case: AssessedCase) -> None:
     decided = assessed_case.finding_item.model_copy(
         update={
@@ -132,6 +177,38 @@ def test_the_flags_carry_the_research_gap_and_a_new_fact(
     texts = [f.text for f in summary.flags]
     assert "New fact at intake: cash pickup" in texts
     assert "No clause covers cash pickup at partner agents." in texts
+
+
+def test_an_owner_answer_that_cannot_be_real_is_flagged(
+    assessed_case: AssessedCase,
+) -> None:
+    """Seen live on FCRM-2026-0152 (19 Oct): the owner answered the change owner
+    with "ertert", the field counted as filled and nothing told the analyst. A
+    real short answer from the owner is not flagged."""
+    from fcrm_case.domain.views import FieldSource, FieldValueRow, field_value_id
+
+    views = assessed_case.read.service.views
+    for field_id, label, value in (
+        ("F01", "Change owner", "ertert"),
+        ("F22", "Local licensing status", "None"),
+    ):
+        views.field_values[field_value_id(CASE, field_id)] = FieldValueRow(
+            case_id=CASE,
+            field_id=field_id,
+            label=label,
+            value=value,
+            origin="answered",
+            source=FieldSource(label="owner answer"),
+            created_at=datetime(2026, 10, 19, tzinfo=UTC),
+        )
+    summary = AssessmentSummary.model_validate(get(assessed_case, "assessment"))
+    answers = [f for f in summary.flags if f.id.startswith("fl_answer_")]
+    assert [f.id for f in answers] == ["fl_answer_F01"]
+    assert answers[0].text == (
+        "Answer may not be valid: Change owner is \u201certert\u201d "
+        "(repeats the same few letters); ask the owner again"
+    )
+    assert answers[0].source.label == "owner answer"
 
 
 def test_a_case_the_agents_have_not_finished_is_not_ready(

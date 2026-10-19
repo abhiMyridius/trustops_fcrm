@@ -99,6 +99,9 @@ class ClarificationThreadRow(BaseModel):
     question_id: str
     text: str
     anchor: Optional[str] = None
+    #: The control an ad-hoc question names beside its field (ADR-73), for the
+    #: analyst only: no owner view reads it.
+    control_id: Optional[str] = None
     field_ids: list[str] = Field(default_factory=list)
     field_label: str
     status: ThreadStatus = "awaiting_response"

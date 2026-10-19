@@ -1,5 +1,5 @@
 /**
- * 2.14 Workbench Summary: flags with sources, completeness report, critic banner, and the score box,
+ * 2.14 Workbench Summary: flags with sources, completeness report, critic review (one card per finding), and the score box,
  * which is WITHHELD until review starts (the server does not send the number before then).
  * Completeness gate (D-16): Ask now (opens the round's composer in the Inbox, where the send decides the
  * gate with the questions kept and edited, D-120) or Enough to assess · proceed. ADR-73: a link to ask
@@ -11,12 +11,12 @@ import { EyeOff, Flag } from 'lucide-react';
 import { useAssessment, useCompleteness, useDecideItem } from '@/api/queries/analystQueries';
 import { useStreamStatus } from '@/api/sse/useCaseStream';
 import { userMessage } from '@/api/errors';
-import type { AssessmentSummary, CriticFinding, CriticFindingGate, ScoreBox, WorkbenchHeader } from '@/api/types/analyst';
+import type { AssessmentSummary, CriticFinding, ScoreBox, WorkbenchHeader } from '@/api/types/analyst';
 import { ReasonDialog } from '@/components/domain/ReasonDialog';
 import { HandoffControl } from '@/features/analyst/HandoffControl';
+import { CriticReview } from '@/features/analyst/CriticReview';
 import { ScoreBadge } from '@/components/domain/ScoreBadge';
 import { SourceChip } from '@/components/domain/SourceChip';
-import { AuditRecordChip } from '@/components/domain/AuditRecordChip';
 import { AiLabel } from '@/components/ui/AiMark';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
@@ -61,6 +61,10 @@ export function ScoreBoxView({ score }: { score: ScoreBox }) {
 
 /** `policy_gap` as `policy gap`: an agent or stage id in a sentence. */
 const words = (id: string) => id.replace(/_/g, ' ');
+
+/** What an empty flags list means: the four things a flag is raised for, all checked (`analyst_assessment._flags`). */
+export const NO_FLAGS_TEXT =
+  'Nothing to flag: no new facts at intake, no policy gaps found by research, no values the owner corrected and no owner answers that look invalid.';
 
 /**
  * An agent failed on both tries and the run waits for the analyst (D-117): the server names the agent and
@@ -140,42 +144,23 @@ export function SummaryTab() {
             <div className="flex flex-col gap-5">
               <AskOwnerLink caseId={id} closed={w.closed} />
               {a.agent_failed && <HandedToYou caseId={id} failed={a.agent_failed} />}
-              {a.critic_findings.length > 0 && (
-                <Banner tone="danger" title={`Critic · ${a.critic_findings.length} findings (${a.critic_findings[0]?.severity})`}>
-                  <ul className="flex flex-col gap-1">
-                    {a.critic_findings.map((f) => (
-                      <li key={f.id} className="flex flex-wrap items-center gap-2">
-                        {f.text}
-                        {f.records.map((r) => (
-                          <AuditRecordChip key={r} seq={r} />
-                        ))}
-                        {(f as CriticFinding & CriticFindingGate).gate_open === false ? (
-                          <span className="text-[12px] font-semibold text-text-secondary">Explained</span>
-                        ) : (
-                          !w.closed &&
-                          w.is_demo && (
-                            <Button size="sm" variant="secondary" onClick={() => setExplaining(f)}>
-                              Explain…
-                            </Button>
-                          )
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </Banner>
-              )}
+              <CriticReview findings={a.critic_findings} caseId={id} closed={w.closed} canExplain={!w.closed && w.is_demo} onExplain={setExplaining} />
               <Card title={`Submission v${a.submission.version}`} subtitle={`${a.submission.fields_filled} of ${a.submission.fields_required} fields · ${a.submission.documents} documents`}>
                 <h3 className="mb-2 flex items-center gap-2 text-sm font-bold">
                   <Flag aria-hidden size={14} /> Flags · {a.flags.length}
                 </h3>
-                <ul className="flex flex-col gap-2">
-                  {a.flags.map((f) => (
-                    <li key={f.id} className="flex flex-wrap items-center gap-2 text-sm">
-                      {f.text}
-                      <SourceChip source={f.source} />
-                    </li>
-                  ))}
-                </ul>
+                {a.flags.length === 0 ? (
+                  <p className="text-sm text-text-secondary">{NO_FLAGS_TEXT}</p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {a.flags.map((f) => (
+                      <li key={f.id} className="flex flex-wrap items-center gap-2 text-sm">
+                        {f.text}
+                        <SourceChip source={f.source} />
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </Card>
               <Card title={<AiLabel>Completeness report</AiLabel>} subtitle="Drafted by the narrative agent; you decide whether to ask first.">
                 <dl className="grid grid-cols-3 gap-3 text-center">

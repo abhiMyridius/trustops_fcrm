@@ -108,6 +108,24 @@ export interface CriticFinding {
   text: string;
   records: number[];
   target: string | null;
+  /** Why it was raised: the cited record's words (for a precedent deviation, the assessment's reason for its rating). */
+  reason?: string | null;
+  /** The name of the control `target` names. */
+  target_name?: string | null;
+  /** The numbers behind a `precedent_deviation` finding, worked out by the server; null for every other type. */
+  comparison?: PrecedentComparison | null;
+}
+
+/** How this case rates a control against the similar closed cases; `gap` is `mean - rating` (positive: this case is lower). */
+export interface PrecedentComparison {
+  control_id: string;
+  control_name?: string | null;
+  rating: number;
+  mean: number;
+  low: number;
+  high: number;
+  gap: number;
+  cases?: { case_id: string; rating: number; closed_date?: string | null }[];
 }
 
 /**
@@ -222,6 +240,8 @@ export interface ThreadAnalyst {
   kind: 'round' | 'adhoc';
   round: number;
   anchor: string;
+  /** ADR-73: the control an ad-hoc question names beside its field (analyst only). */
+  control_id: string | null;
   question: string;
   status: 'open' | 'answered' | 'resolved';
   answer: {

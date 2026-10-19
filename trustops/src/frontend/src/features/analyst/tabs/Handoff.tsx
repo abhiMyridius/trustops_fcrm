@@ -6,12 +6,12 @@
 import { useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import { CheckCircle2, XCircle } from 'lucide-react';
-import { useBuildPack, useDelegatedClose, useHandoff, useReleasePack } from '@/api/queries/analystQueries';
+import { useBuildPack, useDelegatedClose, useHandoff, useRecommendation, useReleasePack } from '@/api/queries/analystQueries';
 import { useAnswerCommitteeThread, useCommitteeThreads, useVotes } from '@/api/queries/committeeQueries';
 import { userMessage } from '@/api/errors';
 import type { CommitteeThread } from '@/api/types/committee';
 import type { WorkbenchHeader } from '@/api/types/analyst';
-import { ReasonDialog } from '@/components/domain/ReasonDialog';
+import { CloseCaseDialog } from '@/features/analyst/CloseCaseDialog';
 import { ScoreBadge } from '@/components/domain/ScoreBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
@@ -68,6 +68,9 @@ export function HandoffTab() {
   const build = useBuildPack(id);
   const release = useReleasePack(id);
   const close = useDelegatedClose(id);
+  const recommendation = useRecommendation(id);
+  const rec = recommendation.data;
+  const suggested = rec?.locked ? { outcome: rec.outcome, summary: rec.business_summary } : null;
   const toast = useToast();
   const [closing, setClosing] = useState(false);
   const packId = q.data?.pack?.status && q.data.pack.status !== 'built' ? q.data.pack.pack_id : undefined;
@@ -182,14 +185,12 @@ export function HandoffTab() {
               </Card>
             )}
           </div>
-          <ReasonDialog
+          <CloseCaseDialog
             open={closing}
             onClose={() => setClosing(false)}
-            title="Close under delegated authority (R1)"
-            context="Band 1–2: you close the case. The outcome and summary go to the owner."
-            confirmLabel="Close case"
-            onConfirm={async ({ reason }) => {
-              await close.mutateAsync({ outcome: 'approve_with_conditions', reason, plain_summary: '' });
+            suggested={suggested}
+            onConfirm={async (values) => {
+              await close.mutateAsync(values);
               toast.success('Case closed');
             }}
           />

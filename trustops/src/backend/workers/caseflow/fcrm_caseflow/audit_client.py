@@ -107,6 +107,37 @@ class AuditClient:
         )
         return Proposal.model_validate(body)
 
+    async def list_proposals(
+        self, case_id: str, run_id: str, *, agent: Optional[str] = None
+    ) -> list[Proposal]:
+        """``GET /proposals``: one run's evidence-ledger entries (optionally one
+        agent's), in ``seq`` order, at most :data:`RECORDS_PAGE_LIMIT` times
+        :data:`RECORDS_MAX_PAGES` of them. The ledger the critic's pack lists,
+        so a finding's ``#seq`` can be read back as the entry it cites.
+
+        Raises:
+            fcrm_common.errors.FcrmError: S4 refused or was unreachable.
+        """
+        found: list[Proposal] = []
+        cursor: Optional[str] = None
+        for _ in range(RECORDS_MAX_PAGES):
+            params: dict[str, Any] = {
+                "case_id": case_id,
+                "run_id": run_id,
+                "limit": RECORDS_PAGE_LIMIT,
+            }
+            if agent is not None:
+                params["agent"] = agent
+            if cursor is not None:
+                params["cursor"] = cursor
+            body = await self._client.request_json("GET", PROPOSALS_PATH, params=params)
+            page = Page[Proposal].model_validate(body)
+            found.extend(page.items)
+            cursor = page.next_cursor
+            if cursor is None:
+                break
+        return found
+
     async def verify(self, case_id: str) -> VerifyResult:
         """``GET /verify/{case_id}``: S4 recomputes the case's whole chain and
         says whether it is intact (and the first broken ``seq`` when it is not).

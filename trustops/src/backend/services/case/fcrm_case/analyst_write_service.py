@@ -783,6 +783,20 @@ class AnalystWriteService:
         not name a reserved term, and each anchor must be a field of the case or
         one of its controls.
         """
+        controls = await self._case_controls(record)
+        for what, text, anchor in questions:
+            reject_reserved_terms(text, what, loc="body.questions")
+            for part in anchor_parts(anchor):
+                if not ((is_field_id(part) and part in labels) or part in controls):
+                    raise ValidationError(
+                        f"{part} is not a field or a control of this case.",
+                        errors=[{"loc": "body.questions", "msg": "unknown anchor"}],
+                    )
+
+    async def _case_controls(self, record: CaseRecord) -> set[str]:
+        """The controls a question may name: those the assessment rated and every
+        control of a domain in scope.
+        """
         controls = {
             str(r.subject.get("control_id"))
             for r in await self._views.list_items(record.case_id, ItemKind.CONTROL)
@@ -795,14 +809,31 @@ class AnalystWriteService:
             for control_id, ref in control_catalogue().items()
             if ref.domain in record.domains
         }
-        for what, text, anchor in questions:
-            reject_reserved_terms(text, what, loc="body.questions")
-            for part in anchor_parts(anchor):
-                if not ((is_field_id(part) and part in labels) or part in controls):
-                    raise ValidationError(
-                        f"{part} is not a field or a control of this case.",
-                        errors=[{"loc": "body.questions", "msg": "unknown anchor"}],
-                    )
+        return controls
+
+    async def _check_named(
+        self, record: CaseRecord, body: QuestionsBody, labels: dict[str, str]
+    ) -> None:
+        """A question's ``field_id`` must be one of the case's required fields and
+        its ``control_id`` one of the case's controls (ADR-73).
+        """
+        named = [q for q in body.questions if q.field_id or q.control_id]
+        if not named:
+            return
+        controls = await self._case_controls(record)
+        for q in named:
+            if q.field_id is not None and q.field_id not in labels:
+                raise ValidationError(
+                    f"{q.field_id} is not a field of this case.",
+                    errors=[{"loc": "body.questions", "msg": "unknown field"}],
+                )
+            if q.control_id is not None and (
+                is_field_id(q.control_id) or q.control_id not in controls
+            ):
+                raise ValidationError(
+                    f"{q.control_id} is not a control of this case.",
+                    errors=[{"loc": "body.questions", "msg": "unknown control"}],
+                )
 
     # -- ad-hoc questions to the owner, at any stage (ADR-73) --------------------
 
@@ -813,8 +844,8 @@ class AnalystWriteService:
         question, then ``case.question_asked``, committed together. No gate is
         decided and the analyst's clock keeps running, so the round (D-16) is
         untouched. A question an open ad-hoc thread already asks, with the same
-        anchor, reuses that thread; when every question does, nothing is written
-        (a replay).
+        anchor and control, reuses that thread; when every question does, nothing
+        is written (a replay).
 
         Raises:
             WrongStageError: The case is at a stage where no question may be asked
@@ -832,24 +863,27 @@ class AnalystWriteService:
                 case_id=case_id,
                 stage=record.state.value,
             )
-        asked = [(q.text, q.anchor) for q in body.questions]
+        asked = [(q.text, q.primary_anchor, q.control_id) for q in body.questions]
         if len(set(asked)) != len(asked):
             raise ValidationError(
                 "Each question may be asked once per send.",
                 errors=[{"loc": "body.questions", "msg": "duplicate question"}],
             )
         labels = {d.field_id: d.label for d in record.required_fields}
+        await self._check_named(record, body, labels)
         await self._check_questions(
             record,
             [
-                (f"Question {n}", q.text, q.anchor)
+                (f"Question {n}", q.text, q.primary_anchor)
                 for n, q in enumerate(body.questions, start=1)
             ],
             labels,
         )
         existing = adhoc_threads(await self._store.threads(case_id))
         open_by_words = {
-            (t.text, t.anchor): t for t in existing if t.status == "awaiting_response"
+            (t.text, t.anchor, t.control_id): t
+            for t in existing
+            if t.status == "awaiting_response"
         }
         fresh = [q for q in asked if q not in open_by_words]
         if not fresh:
@@ -860,8 +894,8 @@ class AnalystWriteService:
                 replayed=True,
             )
         questions = [
-            AdhocAsk(adhoc_question_id(len(existing) + n), text, anchor)
-            for n, (text, anchor) in enumerate(fresh, start=1)
+            AdhocAsk(adhoc_question_id(len(existing) + n), text, anchor, control_id)
+            for n, (text, anchor, control_id) in enumerate(fresh, start=1)
         ]
         command = ask_adhoc_command(
             case_id=case_id,
@@ -873,9 +907,9 @@ class AnalystWriteService:
             now=utcnow(),
         )
         await self._commit(command)
-        opened: dict[tuple[str, Optional[str]], ClarificationThreadRow] = {
-            (t.text, t.anchor): t for t in command.threads
-        }
+        opened: dict[
+            tuple[str, Optional[str], Optional[str]], ClarificationThreadRow
+        ] = {(t.text, t.anchor, t.control_id): t for t in command.threads}
         logger.info(
             "ad-hoc questions asked",
             extra={"case_id": case_id, "questions": len(command.threads)},

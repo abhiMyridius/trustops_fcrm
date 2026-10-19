@@ -27,6 +27,7 @@ from typing import Literal, Optional, Union
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
+from fcrm_contracts.api.case_internal_assessment import PrecedentComparison
 from fcrm_contracts.api.case_po import Origin, SourceRef, StageStep
 from fcrm_contracts.enums import ChangeType, Domain
 
@@ -225,6 +226,12 @@ class CriticFinding(_Dto):
     text: str
     records: list[int]
     target: Optional[str]
+    # Why the finding was raised: the cited record's words (the assessment's own
+    # reason for its rating, for a precedent deviation), the control's name, and,
+    # for a precedent deviation, the numbers H1 checked against similar cases.
+    reason: Optional[str] = None
+    target_name: Optional[str] = None
+    comparison: Optional[PrecedentComparison] = None
     # Not in the web type: the gate that decides this finding and whether it is
     # still open (the item is ``id``).
     gate_id: Optional[str] = None
@@ -323,6 +330,9 @@ class ThreadAnalyst(_Dto):
     kind: ThreadKind
     round: int
     anchor: str
+    # The control an ad-hoc question names beside its field (ADR-73); analyst
+    # only, the owner's thread never carries it.
+    control_id: Optional[str]
     question: str
     status: Literal["open", "answered", "resolved"]
     answer: Optional[ThreadAnswerView]

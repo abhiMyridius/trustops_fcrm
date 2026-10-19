@@ -31,6 +31,16 @@ STALE_EVIDENCE_MONTHS: Final[int] = 24
 flagged stale (consumed by the critic pack builder and Guard 4 annotations
 in the agents lane; staleness is computed by code, never by a model)."""
 
+PRECEDENT_DEVIATION_FLAG: Final[float] = 1.5
+"""Design B §1.7 ``precedent_deviation_flag``: a control rating at least this far
+from the mean of the similar closed cases' ratings of it is a
+``precedent_deviation``; a critic finding of that type whose gap, worked out by
+code, is smaller is not kept (H1's critic check)."""
+
+PRECEDENT_MIN_CASES: Final[int] = 2
+"""Design B §1.7 ``precedent_min_cases``: fewer similar cases rating a control
+than this and no precedent comparison is possible."""
+
 INJECTION_SCORE_BLOCK: Final[float] = 0.8
 """Design B §1.7 ``injection_score_block``: a weighted injection-pattern score
 at or above this blocks the text (Guard 1, §4.2)."""

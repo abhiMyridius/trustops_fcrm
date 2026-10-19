@@ -310,7 +310,15 @@ export function askBlockedReason(): string | null {
   return null;
 }
 
-export function askOwner(questions: { text: string; anchor: string | null }[]): string[] {
+/** One ad-hoc question as posted: `field_id` and `control_id` (either or both), or an older client's `anchor`. */
+export interface AdhocAskBody {
+  text: string;
+  anchor?: string | null;
+  field_id?: string | null;
+  control_id?: string | null;
+}
+
+export function askOwner(questions: AdhocAskBody[]): string[] {
   requireOpen();
   const d = demo();
   const blocked = askBlockedReason();
@@ -325,19 +333,23 @@ export function askOwner(questions: { text: string; anchor: string | null }[]): 
   });
   for (const q of questions) {
     const text = q.text.trim();
-    const open = d.adhoc.find((a) => a.text === text && a.anchor === q.anchor && !a.answer);
+    // The backend's rule: the thread's anchor is the field, else the control, else the older `anchor`.
+    const anchor = q.field_id || q.control_id || q.anchor || null;
+    const controlId = q.control_id || null;
+    const open = d.adhoc.find((a) => a.text === text && a.anchor === anchor && (a.control_id ?? null) === controlId && !a.answer);
     if (open) {
       ids.push(open.id);
       continue;
     }
     const n = d.adhoc.length + 1;
-    const field = q.anchor && /^F\d{2,3}$/.test(q.anchor) ? q.anchor : null;
+    const field = anchor && /^F\d{2,3}$/.test(anchor) ? anchor : null;
     d.adhoc.push({
       id: `${ADHOC_PREFIX}${n}`,
       question_id: `A${n}`,
       text,
-      anchor: q.anchor,
+      anchor,
       field_id: field,
+      control_id: controlId,
       opened_at: new Date().toISOString(),
       answer: null,
       submission_version: null,

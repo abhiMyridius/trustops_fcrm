@@ -324,6 +324,40 @@ const DEMO_FLAGS = () => {
   return flags;
 };
 
+/**
+ * What S1 sends with each demo finding on CTL-T01: the control's name, the assessment's own words for its
+ * rating, and, for the precedent deviation, the comparison H1 works out (this case's proposed rating, the five
+ * closest cases' ratings of the control from the seed, their mean as the seed states it, range and gap).
+ */
+function demoComparison(controlId: string): CriticFinding['comparison'] {
+  const rating = seed.demo.score_before.areas.channel?.controls.find((c) => c.id === controlId)?.rating;
+  if (rating == null) return null;
+  const cases = seed.demo.precedents_closest.flatMap((caseId) => {
+    const c = seedCase(caseId);
+    const r = Object.values(c?.inputs ?? {})
+      .flatMap((a) => a?.controls ?? [])
+      .find((x) => x.id === controlId)?.rating;
+    return r == null ? [] : [{ case_id: caseId, rating: r, closed_date: c?.decided ?? null }];
+  });
+  if (cases.length === 0) return null;
+  const mean = seed.demo.precedent_vdd_avg;
+  return {
+    control_id: controlId,
+    control_name: CONTROL_META.get(controlId)?.name ?? null,
+    rating,
+    mean,
+    low: Math.min(...cases.map((c) => c.rating)),
+    high: Math.max(...cases.map((c) => c.rating)),
+    gap: Math.round((mean - rating) * 10) / 10,
+    cases,
+  };
+}
+
+const DEMO_CRITIC_REASON: Record<string, string> = {
+  precedent_deviation: 'The due-diligence report finds an established AML programme at Remesas del Norte with no adverse findings, so the control is rated effective.',
+  evidence_recency: 'The only evidence on file is the partner audit of November 2023, which covers domestic operations; the US to Mexico corridor was not in its scope.',
+};
+
 function criticFindings(): CriticFinding[] {
   if (!hasRecord(34)) return [];
   return seed.demo.critic_findings.map((f, i) => ({
@@ -333,6 +367,9 @@ function criticFindings(): CriticFinding[] {
     text: f.text,
     records: f.records.map((r) => Number(r.replace('#', ''))).filter(Number.isFinite),
     target: 'CTL-T01',
+    reason: DEMO_CRITIC_REASON[f.type] ?? null,
+    target_name: CONTROL_META.get('CTL-T01')?.name ?? null,
+    comparison: f.type === 'precedent_deviation' ? demoComparison('CTL-T01') : null,
   }));
 }
 
@@ -479,6 +516,7 @@ export function clarifications(id: string): ClarificationsView | null {
                 kind: 'round' as const,
                 round: 1,
                 anchor: qs[i]?.field ?? '',
+                control_id: null,
                 question: qs[i]?.q ?? '',
                 status: d.resolved.includes(tid) ? ('resolved' as const) : a ? ('answered' as const) : ('open' as const),
                 answer: a ? { ...a, by: nameOf(seed.demo.owner), fields: [], submission_version: roundAnswered() ? 2 : null } : null,
@@ -495,6 +533,7 @@ export function clarifications(id: string): ClarificationsView | null {
       kind: 'adhoc' as const,
       round: 0,
       anchor: q.anchor ?? '',
+      control_id: q.control_id ?? null,
       question: q.text,
       status: q.resolved ? ('resolved' as const) : q.answer ? ('answered' as const) : ('open' as const),
       answer: q.answer
