@@ -22,6 +22,8 @@ Every point where a person decides, with the risk the gate controls and why it s
 | delegated close (R1) | analyst | decide, Band 1–2 | an analyst closes a case above their authority | code evaluates R1 from the latest band; lock and acknowledgements required | `outcome.set` |
 | `reflag_ack` | analyst | oversight, new FATF list | a changed jurisdiction list is missed on open cases | the watchlist agent proposes; the analyst acknowledges each | `reflag.acknowledged` |
 | `handoff` | analyst | any step that failed after its retry | a stuck case | the raw inputs are shown; the analyst completes the step by hand and the machine resumes | `agent.failed`, `human.handoff` |
+| policy_gap suggestion (added 19 Oct) | analyst (`fcrm_analyst`, ADR-18) | oversight, after "Note gap" records `gap.recorded`; never on the decision path | a corpus gap is noted and forgotten, or a model-suggested clause is taken as policy | a suggestion is coverage advice, never policy text; the design has the analyst accept or reject it with a reason under Assurance, but that review screen is not built: the job runs and its proposal is stored with no place to review it (`known-gaps.md` U) | `gap.recorded`, `agent.done` |
+| none: examiner (added 19 Oct) | — | on demand, Assurance › Ask | — | the examiner only answers questions from the verified audit chain (tool `audit_log`, read-only); nothing it says changes a case, so it feeds no gate | `examiner.asked` |
 
 ## SDLC gates
 

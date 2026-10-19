@@ -214,7 +214,7 @@ Each of the three versioned collections has a unique `version` index and a parti
 
 **Configuration publish** (`policy/config/{section}/draft/publish`): one Mongo transaction appends the snapshot, runs the section's effect (a new active `field_set_versions` or `control_inventory_versions` document, or the jurisdiction activation with its `jurisdiction.list_published` outbox row, the same transaction body as the activate route), deletes the draft and writes the change record and the idempotency key. The scoring model and routing rules are put into force in S2 first (guarded by `base_version`; 503 when `SCORING_SERVICE_URL` is unset). The policy corpus and the agent table are read-only sections. Cases pin a version by label and read it by that label for ever; a later publish is only what `latest` answers.
 
-**Vector indexes** (S3 Vectors, not Mongo): `policy_clauses`, `precedent_cases`, `controls`, each with the Index Contract metadata keys in `fcrm_policy.search.filters.ALLOWED_METADATA_KEYS`.
+**Search indexes**: `policy_clauses` has a vector leg (Bedrock Titan Text Embeddings V2, 1,024 dimensions, held in memory by default, `VECTOR_BACKEND=memory`; the S3 Vectors backend is not in the shipped image, ADR-49) fused with Mongo keyword ranking by reciprocal rank fusion. `precedent_cases` and `controls` are Mongo keyword-ranked only, so their hit `score` is a normalised rank score, not a semantic similarity (`fcrm_policy/search/service.py`). All three carry the Index Contract metadata keys in `fcrm_policy.search.filters.ALLOWED_METADATA_KEYS`.
 
 ## `fcrm_audit` (S4)
 

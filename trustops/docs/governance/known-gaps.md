@@ -277,3 +277,14 @@ Still open:
 - The page preview shows H3's extracted lines, not the PDF rendered in place; a table cited as `p.6 tbl 2` opens the page without a marked line.
 - In MSW mode (`npm run dev:msw`) the mock serves a one-page placeholder PDF, so "Open the PDF" shows a blank page rather than the demo document.
 - The document preview is for the owner and the analyst, the roles of the document list; a committee member reads clauses but not the owner's documents (the pack cites no page:line today).
+
+## U. AI features checked against the code (19 October, appended)
+
+Found by reading the code against the AI documentation; the documents named are corrected in the same change, and these stay open:
+
+- **Prompt pinning is recorded, not enforced.** A case pins `prompts_v`, and every proposal records `prompt_id@version` and the rendered hash, but H2 always renders the MANIFEST's `current` version of each prompt id (`fcrm_prompts/loader.py`); H1 falls back to a placeholder `prompts_v="v1"` when S3 sends none (`fcrm_caseflow/store.py`). A promoted prompt reaches a running case on its next job.
+- **The `*.user.v<N>.md` prompt templates are not rendered.** User text comes from the per-agent Python builders (`fcrm_agents/builders.py`); `AgentSpec.user_prompt_ids` has no caller.
+- **The amber injection band has no model check.** Guard 1 lists amber-band text in `details.amber` and passes it; the cheap-tier yes/no check of design B §4.2 is not built.
+- **Precedents and controls are keyword search.** Only `policy_clauses` is embedded (Titan, in memory); a `precedent_search` hit's score is a normalised reciprocal-rank-fusion score, not a semantic similarity (`fcrm_policy/search/service.py`).
+- **policy_gap has no review screen and no weekly run.** H1 dispatches it when the analyst notes a gap (`cores/assessment_review.py`), off the decision path; its suggestion is stored, but no Assurance tab shows it, and no scheduler runs the weekly sweep its spec names. The web's banner after "Note gap" says the suggestion appears "for review under Assurance", which overstates this.
+- **Registry locks are checked by `make check`, not at H2 start-up**, and `make locks` and `make schemas` are not wired (`python3 ai/_tools/compute_locks.py` writes the locks).

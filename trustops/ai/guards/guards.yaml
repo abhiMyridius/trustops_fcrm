@@ -30,7 +30,7 @@ guards:
     config: {patterns: injection_patterns.txt, pii: pii_entities.yaml, thresholds: thresholds.yaml}
     on_fail:
       injection_score_at_or_above_block: block_and_flag     # thresholds.injection_score_block
-      injection_score_amber: annotate                       # cheap-tier yes/no check on the top 2 KB window, then block or pass
+      injection_score_amber: annotate                       # listed in details.amber and passed; the cheap-tier yes/no check (design B §4.2) is not built (known-gaps U)
       pii_found: mask                                       # agents only ever see the masked canonical text
     writes: [ledger, "audit:guard.input"]                   # counts only, never the matched PII
 
@@ -56,7 +56,7 @@ guards:
     config: {tiers: ../models/tiers.yaml}
     on_fail:
       case_budget_exhausted: case_waits                     # human gate budget_exhausted with the raw inputs; never a silent truncation
-      usage_limit_or_timeout_attempt_1: retry_on_fallback   # halved max_tokens hint
+      usage_limit_or_timeout_attempt_1: retry_on_fallback   # the retry keeps the full max_tokens (ADR-48)
       usage_limit_or_timeout_attempt_2: block               # agent.done failed_budget -> handoff gate
     writes: ["audit:guard.budget"]
 

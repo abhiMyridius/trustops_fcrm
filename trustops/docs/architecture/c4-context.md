@@ -11,7 +11,7 @@ C4Context
   System(trustops, "TrustOps", "FCRM Risk Assessment Workbench: case intake, AI-assisted review, deterministic scoring, committee decision, immutable audit trail")
 
   System_Ext(bedrock, "Amazon Bedrock", "Claude and Nova models; Titan embeddings")
-  System_Ext(s3vectors, "Amazon S3 Vectors", "policy_clauses / precedent_cases / controls indexes")
+  System_Ext(s3vectors, "Amazon S3 Vectors", "optional vector backend for policy_clauses; not in the shipped image (in-memory vectors by default, ADR-49)")
   System_Ext(aws, "AWS (S3, deploy target)", "File storage; the operator's own deployment, documented not built by this run")
 
   Rel(po, trustops, "Uses", "HTTPS")

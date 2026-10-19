@@ -1,3 +1,6 @@
 # Repo-level ignores; project ignores live in trustops/.gitignore.
 .DS_Store
 .claude/worktrees/
+
+# personal VS Code workspace file, never committed
+trustops/Hackathon.code-workspace

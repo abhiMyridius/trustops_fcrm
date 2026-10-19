@@ -780,7 +780,7 @@ var AUD=[null,
 [42,'gate.decided','S1','Clause accepted: FCRM42-3.1'],
 [43,'gate.decided','S1','Clause accepted: TP71-2.3'],
 [44,'gate.decided','S1','Clause accepted: OFAC-1.2'],
-[45,'gap.recorded','S4','Manual corpus search · 0 clauses for cash-pickup agents · gap noted for policy owner'],
+[45,'gap.recorded','S4','Manual corpus search · 0 clauses for cash-pickup agents · gap recorded · policy_gap queued off the decision path'],
 [46,'gate.decided','S1','Control confirmed: CTL-T04 8.4'],
 [47,'gate.decided','S1','Control confirmed: CTL-T02 6.8'],
 [48,'gate.decided','S1','Control confirmed: CTL-T03 7.0'],
@@ -1215,7 +1215,7 @@ function monView(S){
   var tiles='';for(var g=1;g<=7;g++){tiles+='<div class="mg '+(gs[g]===2?'block':gs[g]?'pass':'')+'" id="mg'+g+'"><b>Guard '+g+' · '+GUARDS[g][0]+'</b><small>'+(gs[g]===2?'LAST: BLOCKED':gs[g]?'LAST: PASSED':'IDLE')+'</small><p>'+GUARDS[g][1]+'</p></div>';}
   var pre='';for(var j=Math.max(1,(S.rec0||24)-3);j<=(S.rec0||24);j++){var r=AUD[j];pre+='<div class="tl2"><span class="tm">09:'+(36+j-20)+'</span><span class="w">'+recWho(r)+'</span><div class="x">'+r[3]+'<small>#'+j+' · '+r[1]+'</small></div></div>';}
   return '<div class="mon-app"><div class="mon-top"><span><b>TrustOps</b> · harness monitor</span><span>Rahul Iyer &nbsp;&nbsp; <b>Sign out</b></span></div>'+
-   '<div class="mon-in"><div class="mon-hd" id="mon-hd"><div><b>Harness monitor · '+CASE+'</b><small>trace 0af3c1e9d7b24c6e</small></div><div class="pills"><span class="pill-run'+(S.waiting?' wait':'')+'" id="mon-st"><i></i>'+(S.waiting?'waiting on a person':'running')+'</span><span class="pill-s" id="mon-core">'+(S.core||'triage')+'</span><span class="pill-s">live stream</span><span style="color:var(--leaf);font-weight:600;font-size:13px">Jaeger '+I('ext',12)+'</span></div></div>'+
+   '<div class="mon-in"><div class="mon-hd" id="mon-hd"><div><b>Harness monitor · '+CASE+'</b><small>trace 0af3c1e9d7b24c6e</small></div><div class="pills"><span class="pill-run'+(S.waiting?' wait':'')+'" id="mon-st"><i></i>'+(S.waiting?'waiting on a person':'running')+'</span><span class="pill-s" id="mon-core">'+(S.core||'triage')+'</span><span class="pill-s">live stream</span><span style="color:var(--leaf);font-weight:600;font-size:13px">Trace in OpenObserve '+I('ext',12)+'</span></div></div>'+
    '<div class="mon-ct"><div class="card"><small>Agents run</small><b id="mc-ag">'+(S.ag||'1 / 9')+'</b><p>One Pydantic AI call per job</p></div>'+
     '<div class="card"><small>Guards</small><b id="mc-gd">'+(S.gd||'13 passed')+'</b><p id="mc-gb">0 blocked</p></div>'+
     '<div class="card"><small>Audit records</small><b id="mc-au">'+(S.rec0||24)+'</b><p>chain verified</p></div>'+
@@ -1281,7 +1281,7 @@ function anPolicy(S){
    ban('info','','An attempt that paraphrased a clause was rejected and retried on the fallback model (audit #28, #29).')+
    '<div class="grid g-side"><div class="stack">'+cl+
     card('Gap in the corpus','Declared by the research agent',
-     '<p class="small" style="margin:0 0 10px">No clause for cash-pickup agent networks in corpus v14.</p><div id="gap-act">'+(S.gap?bdg(I('check',12)+'Gap noted for the policy owner','ok'):btn('Note gap','secondary','gap-note',{size:'sm'}))+'</div>',{id:'gap'})+
+     '<p class="small" style="margin:0 0 10px">No clause for cash-pickup agent networks in corpus v14.</p><div id="gap-act">'+(S.gap?bdg(I('check',12)+'Gap recorded · policy_gap runs off the decision path','ok'):btn('Note gap','secondary','gap-note',{size:'sm'}))+'</div>',{id:'gap'})+
    '</div><div class="stack">'+card('Search the corpus','Pinned corpus v14','<span class="lbl">Search terms</span><div class="inp">cash pickup agent network</div><div style="margin-top:10px">'+btn('Search corpus','secondary',null,{size:'sm',ic:'search'})+'</div><p class="xs muted" style="margin:10px 0 0">0 clauses match in corpus v14.</p>',{id:'search'})+'</div></div></div>';
 }
 /* ── analyst risk & controls ── */
@@ -1652,7 +1652,7 @@ scene({ch:3,who:'Analyst',title:'Policy, word for word',sum:'Four clauses accept
   clk(8500,'#ca-2',function(el,S){S.acc[2]=1;addCls('#cl-2','acc');var b=q('#cb-2');if(b){b.className='bdg ok';b.textContent='Accepted';}el&&el.parentNode&&(el.parentNode.innerHTML='');rec(43);}),
   clk(9800,'#ca-3',function(el,S){S.acc[3]=1;addCls('#cl-3','acc');var b=q('#cb-3');if(b){b.className='bdg ok';b.textContent='Accepted';}el&&el.parentNode&&(el.parentNode.innerHTML='');rec(44);}),
   [[10800,function(){scrollToEl('#gap',700);}]],
-  clk(11800,'#gap-note',function(el,S){S.gap=true;setHTML('#gap-act',bdg(I('check',12)+'Gap noted for the policy owner','ok'));rec(45);}),
+  clk(11800,'#gap-note',function(el,S){S.gap=true;setHTML('#gap-act',bdg(I('check',12)+'Gap recorded · policy_gap runs off the decision path','ok'));rec(45);}),
   [[12800,function(){note('#gap','ctx','“Nothing found” is an answer','The research agent declared the gap instead of inventing a clause. A manual search of corpus v14 confirms it.','right',{dx:-80});}]])
 });
 /* 13 · risk and controls */
@@ -1799,8 +1799,8 @@ scene({ch:5,who:'Analyst',title:'Ask the examiner',sum:'An agent that answers on
   [[5200,function(){note('#exam','ai','Every sentence cites a record','The examiner may only read the audit log (OPA permit). Nothing outside the chain.','right',{dx:-60});}]],
   clk(9800,'#as-agent-quality',function(el,S){unnote();S.tab='Agent quality';setUrl('/analyst/assurance/agent-quality');render(assurance(S),true);}),
   [[10600,function(){var bars=qa('#aq .hb i');tween(900,function(p){bars.forEach(function(b){b.style.width=(parseFloat(b.getAttribute('data-w'))*ease(p))+'%';});});}],
-   [11400,function(){note('#aq-card','eval','Measured every week','Nine agents, nine datasets, 27 deterministic metrics. A judge model’s scores are reported but never decide a gate.','left',{dx:300,dy:-40});}],
-   [14600,function(){spot('#hb-2',3);note('#hb-2','eval','Assessment is measured by overrides','17.9% of its proposals were overridden by analysts this week. Lower is better; every override and its reason sit in the Overrides tab.','below',{dx:200});}],[18000,unspot]])
+   [11400,function(){note('#aq-card','eval','What the tab reads','Nine agents, nine datasets, 27 deterministic metrics. A judge model’s scores are reported but never decide a gate. The figures shown are the seed’s targets; the measured baseline is 8 of 9 gates, on the 6 October chain.','left',{dx:300,dy:-40});}],
+   [14600,function(){spot('#hb-2',3);note('#hb-2','eval','Assessment is measured by overrides','In the seed, 17.9% of its proposals were overridden by analysts in the week shown. Lower is better; every override and its reason sit in the Overrides tab.','below',{dx:200});}],[18000,unspot]])
 });
 /* 23 · architecture */
 scene({ch:6,who:'—',title:'How it is built',sum:'Two processes, one outbox, seven guards, four model tiers.',slide:1,url:'TrustOps · architecture',dur:17500,rec0:67,
@@ -1832,7 +1832,7 @@ CH.forEach(function(c,i){c.scenes=[];SC.forEach(function(s,k){if(s.ch===i)c.scen
 
 /* agent chips */
 (function(){var A=['screening','intake','research','assessment','critic','narrative','examiner','watchlist','policy_gap'];
-  $('astrip').innerHTML=A.map(function(a){return '<span class="ac" id="a-'+a+'"'+(a==='watchlist'||a==='policy_gap'?' title="Oversight agent: not triggered by this case"':'')+'>'+a+'</span>';}).join('')+'<small>watchlist and policy_gap are oversight agents; this case does not trigger them</small>';})();
+  $('astrip').innerHTML=A.map(function(a){return '<span class="ac" id="a-'+a+'"'+(a==='watchlist'||a==='policy_gap'?' title="Oversight agent: runs off the decision path"':'')+'>'+a+'</span>';}).join('')+'<small>watchlist and policy_gap are oversight agents, off the decision path: watchlist runs when a jurisdiction list is published, policy_gap when the analyst notes a corpus gap</small>';})();
 /* guard strip */
 (function(){var short=['','input','permit','budget','output','rules','critic','human'],h='';
   for(var g=1;g<=7;g++)h+='<div class="gt" id="g'+g+'" title="Guard '+g+' · '+GUARDS[g][0]+'">G'+g+'<span>'+short[g]+'</span></div>';$('gstrip').innerHTML=h;})();

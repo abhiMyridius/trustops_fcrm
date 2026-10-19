@@ -20,13 +20,13 @@ thing:
    verbatim) and then Guard 5 (the eight rules) on what survives it.
 
 Attempts follow Guard 3's plan (``attempt_plan``): attempt 2 exists only
-for a Guard 4 ``retry``, runs on the fallback slot with a halved
-``max_tokens`` hint, and on it claims failing *only* the verbatim check are
-dropped (flow node I6D). An offline run given no ``retry_output`` is a
-single-attempt run: a fixed function model has nothing new to say, so a
-Guard 4 retry then has no attempt left and the job is **blocked**
-(``agent.done{failed_output}``; H1 opens the handoff gate), which is exactly
-what H2 does when a tier's retries are used up.
+for a Guard 4 ``retry``, runs on the fallback slot with the full
+``max_tokens`` allowance (ADR-48), and on it claims failing *only* the
+verbatim check are dropped (flow node I6D). An offline run given no
+``retry_output`` is a single-attempt run: a fixed function model has
+nothing new to say, so a Guard 4 retry then has no attempt left and the job
+is **blocked** (``agent.done{failed_output}``; H1 opens the handoff gate),
+which is exactly what H2 does when a tier's retries are used up.
 
 Guards 6 (critic scheduling) and 7 (human gate) are H1's, not run here.
 """

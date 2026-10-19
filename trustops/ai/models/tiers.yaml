@@ -2,9 +2,9 @@
 #
 # The ONLY file in the repository that names a model id (ADR-03, ADR-04).
 # Every other file refers to a tier name: cheap | mid | strong | judge.
-# A lock test (tests/registry/test_locks.py::test_no_model_ids_outside_tiers)
-# greps /ai, /src, /evals and /ops for model-id shapes and fails on any hit
-# outside this file.
+# ai/_tools/validate_ai.py (run by `make check` through `make ai-check`;
+# tests/unit/ai/_tools/test_validate_ai_model_id_guard.py) greps /ai, /src,
+# /evals and /ops for model-id shapes and fails on any hit outside this file.
 #
 # Ids are Amazon Bedrock inference-profile ids verified against the account
 # on 3 Oct 2026 (docs/requirements/research/07-runtime-facts.md). Do not edit

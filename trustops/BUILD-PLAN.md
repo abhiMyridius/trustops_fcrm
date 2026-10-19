@@ -58,23 +58,23 @@ The numbers behind this section: `make check` on 6 October (green on the tree of
 
 ## 2. Decisions in force
 
-The team's decisions D-01…D-97 stand unless amended below. New rows are ADR-01…ADR-20 in `docs/governance/decision-log.md`. The ones that shape everything:
+The team's decisions D-01…D-97 stand unless amended below. New rows are ADR-01…ADR-20 in `docs/governance/decision-log.md` (ADR-21 onward came during the build). The ones that shape everything, as decided on 3 October; where a later row replaced one, the row says so and "Status as built" above has the detail:
 
 | ADR | Decision |
 |---|---|
 | 01 | One monorepo, the brief's layout, local git from commit 1 (supersedes D-64, D-90a "20 repos + umbrella") |
 | 02 | RabbitMQ + FastStream is the job and event bus; Redis is cache only (amends D-28) |
-| 03 | AWS everywhere: Amazon Bedrock for every model call, S3 Vectors for the three indexes, Titan Embed Text v2 for embeddings; no direct Anthropic or OpenAI keys |
-| 04 | Model tiers on Bedrock (table in §3.4); critic and eval judge run on a different model than the assessor |
+| 03 | AWS everywhere: Amazon Bedrock for every model call, S3 Vectors for the three indexes, Titan Embed Text v2 for embeddings; no direct Anthropic or OpenAI keys (vectors since: in memory, clauses only, ADR-49) |
+| 04 | Model tiers on Bedrock (table in §3.4); critic and eval judge run on a different model than the assessor (chain since: ADR-62, ADR-65) |
 | 05 | AEO components are cloned into `src/`, fixed in place, each with an `UPSTREAM.md`; identity included |
-| 06 | Web app rebuilt from scratch in `src/web`; FCRM_v2 contributes tokens and information architecture only (supersedes D-63) |
+| 06 | Web app rebuilt from scratch in `src/web`; FCRM_v2 contributes tokens and information architecture only (supersedes D-63; the folder is `src/frontend` since ADR-26) |
 | 07 | Caseflow (H1) calls the scoring service; the assessment agent has no scoring tool |
 | 08 | Committee outcome = the option with two identical votes of three; otherwise `no_majority`: a thread opens and a re-vote round is requested through the R6 path; nothing is ever auto-deferred |
-| 09 | Observability: OpenTelemetry → otel-collector → Jaeger, Prometheus, Grafana, all in compose; Logfire dropped; AWS path (ADOT → X-Ray/CloudWatch) documented |
-| 12 | Deterministic modes `FCRM_LLM_MODE=live\|replay\|mock` and `VECTOR_BACKEND=s3vectors\|memory`, so the full stack and the 21-scene E2E run offline and reproduce the seed figures every time |
+| 09 | Observability: OpenTelemetry → otel-collector → Jaeger, Prometheus, Grafana, all in compose; Logfire dropped; AWS path (ADOT → X-Ray/CloudWatch) documented (superseded: OpenObserve is the one store, ADR-68, ADR-71, ADR-72) |
+| 12 | Deterministic modes `FCRM_LLM_MODE=live\|replay\|mock` and `VECTOR_BACKEND=s3vectors\|memory`, so the full stack and the 21-scene E2E run offline and reproduce the seed figures every time (superseded: live Bedrock only, ADR-27) |
 | 13 | Boundary flag = within 0.5 of the next band's lower edge or of the edge just crossed (verified against all 18 flagged seed cases) |
 | 14 | Agent retry: attempt 1 `FallbackModel(primary, fallback)`; attempt 2 fallback only with the validation error shown; then human hand-off |
-| 16 | Seed P7 is extracted from the walkthrough's `FCRM_SEED`; `gen_seed.py` regenerates it byte-stable; case 0151 is seeded at `intake` so the demo runs live and its 67 records are the golden |
+| 16 | Seed P7 is extracted from the walkthrough's `FCRM_SEED`; `gen_seed.py` regenerates it byte-stable; case 0151 is seeded at `intake` so the demo runs live and its 67 records are the golden (since: seeded unassigned with nothing else; the 67 records belong to the walkthrough and the tests, ADR-34, ADR-39) |
 | 17 | SharePoint and OCR are out of the build; a `DocumentSource` connector interface ships with an S3/MinIO implementation |
 
 Operator-only items (cannot be automated): AWS credentials in `.env`; accepting ADR rows (gate G-D1); the clean-clone proof (gate G-P1); the live AWS deployment.
