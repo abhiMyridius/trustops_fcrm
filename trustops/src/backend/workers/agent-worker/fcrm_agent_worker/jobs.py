@@ -137,20 +137,33 @@ class AgentJobStore:
         """The ``(status, lease_until)`` scan index and the 7-day TTL on
         ``finished_at`` (a running job has no ``finished_at`` and never
         expires).
+
+        An index whose keys already exist is left alone, whatever its name:
+        Mongo refuses the same keys under a second name
+        (``IndexOptionsConflict``), and on 19 October an index an earlier build
+        had created that way stopped the harness's startup.
         """
-        return await self._collection.create_indexes(
-            [
-                IndexModel(
-                    [("status", ASCENDING), ("lease_until", ASCENDING)],
-                    name="status_lease_until",
-                ),
-                IndexModel(
-                    [("finished_at", ASCENDING)],
-                    expireAfterSeconds=int(FINISHED_TTL.total_seconds()),
-                    name="finished_at_ttl",
-                ),
-            ]
-        )
+        wanted = [
+            IndexModel(
+                [("status", ASCENDING), ("lease_until", ASCENDING)],
+                name="status_lease_until",
+            ),
+            IndexModel(
+                [("finished_at", ASCENDING)],
+                expireAfterSeconds=int(FINISHED_TTL.total_seconds()),
+                name="finished_at_ttl",
+            ),
+        ]
+        existing = await self._collection.index_information()
+        keys = {tuple(map(tuple, info["key"])) for info in existing.values()}
+        missing = [
+            index
+            for index in wanted
+            if tuple(index.document["key"].items()) not in keys
+        ]
+        if not missing:
+            return []
+        return await self._collection.create_indexes(missing)
 
     async def claim(
         self,

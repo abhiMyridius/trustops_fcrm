@@ -12,6 +12,7 @@ unit's checks.
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from itertools import chain
 from typing import Optional
 
@@ -82,6 +83,29 @@ def build_units(
     ]
 
 
+def _unit_startup(unit: WorkerUnit) -> Callable[[], Awaitable[None]]:
+    """``unit``'s startup hooks as one hook that never raises.
+
+    The harness runs every unit's hooks in one list, and the first that raised
+    skipped all the rest: on 19 October an index conflict in H2's first hook
+    left H1's and H2's outbox relays unstarted, so no event was published and
+    every case stopped. Each hook now runs whatever the one before it did; a
+    failure is logged, and the unit's readiness check (``/readyz``) reports it.
+    """
+
+    async def run() -> None:
+        for hook in unit.after_startup:
+            try:
+                await hook()
+            except Exception:  # noqa: BLE001 - logged; readiness reports it
+                logger.exception(
+                    "startup hook failed; the unit's other hooks still run",
+                    extra={"component": unit.component_id},
+                )
+
+    return run
+
+
 def build_app(
     settings: Optional[HarnessSettings] = None,
     *,
@@ -137,7 +161,7 @@ def build_app(
     return AsgiFastStream(
         broker,
         asgi_routes=[("/healthz", health_app), ("/readyz", health_app)],
-        after_startup=[hook for unit in units for hook in unit.after_startup],
+        after_startup=[_unit_startup(unit) for unit in units],
         on_shutdown=[
             *(hook for unit in reversed(units) for hook in unit.on_shutdown),
             close_clients,

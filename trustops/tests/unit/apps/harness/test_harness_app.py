@@ -342,3 +342,29 @@ def test_the_trace_link_url_reaches_h1_and_empty_means_the_default(
         _settings(tmp_path, trace_ui_url="").caseflow_settings().trace_ui_url
         == DEFAULT_TRACE_UI_URL
     )
+
+
+async def test_a_failing_startup_hook_does_not_stop_the_other_units() -> None:
+    """Seen live on 19 October: H2's first startup hook raised (an index
+    conflict) and the harness skipped every hook after it, so neither outbox
+    relay started and no case moved."""
+    from fcrm_common.worker import WorkerUnit
+    from fcrm_harness.app import _unit_startup
+
+    ran: list[str] = []
+
+    async def fails() -> None:
+        ran.append("h2-indexes")
+        raise RuntimeError("index conflict")
+
+    async def h2_relay() -> None:
+        ran.append("h2-relay")
+
+    async def h1_relay() -> None:
+        ran.append("h1-relay")
+
+    h2 = WorkerUnit("H2", wire=lambda broker: None, after_startup=(fails, h2_relay))
+    h1 = WorkerUnit("H1", wire=lambda broker: None, after_startup=(h1_relay,))
+    for hook in (_unit_startup(h2), _unit_startup(h1)):
+        await hook()
+    assert ran == ["h2-indexes", "h2-relay", "h1-relay"]

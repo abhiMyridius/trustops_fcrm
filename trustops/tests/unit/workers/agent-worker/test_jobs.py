@@ -42,6 +42,7 @@ class PipelineJobsCollection:
         self.now = datetime(2026, 10, 19, 12, 0, 0)
         self.sessions: list[Any] = []
         self.indexes: list[Any] = []
+        self.existing_indexes: dict[str, list[tuple[str, int]]] = {"_id_": [("_id", 1)]}
 
     def advance(self, seconds: float) -> None:
         self.now += timedelta(seconds=seconds)
@@ -124,6 +125,10 @@ class PipelineJobsCollection:
     async def create_indexes(self, indexes: list[Any]) -> list[str]:
         self.indexes = indexes
         return [index.document["name"] for index in indexes]
+
+    async def index_information(self) -> dict[str, Any]:
+        """What ``index_information`` returns: name -> ``{"key": [(f, d)]}``."""
+        return {name: {"key": list(key)} for name, key in self.existing_indexes.items()}
 
 
 @pytest.fixture
@@ -289,6 +294,22 @@ async def test_the_indexes_are_the_lease_scan_and_the_finished_ttl(
     assert names == ["status_lease_until", "finished_at_ttl"]
     ttl = jobs_collection.indexes[1].document
     assert ttl["expireAfterSeconds"] == int(FINISHED_TTL.total_seconds())
+
+
+async def test_an_index_whose_keys_exist_under_another_name_is_left_alone(
+    jobs_collection: PipelineJobsCollection,
+) -> None:
+    """Seen live on 19 October: an earlier build had created the lease scan as
+    ``status_1_lease_until_1``; asking for the same keys under a new name is an
+    ``IndexOptionsConflict``, which stopped the harness's startup."""
+    jobs_collection.existing_indexes = {
+        "_id_": [("_id", 1)],
+        "status_1_lease_until_1": [("status", 1), ("lease_until", 1)],
+    }
+    names = await _store(jobs_collection).ensure_indexes()
+    assert names == ["finished_at_ttl"]
+    jobs_collection.existing_indexes["finished_at_ttl"] = [("finished_at", 1)]
+    assert await _store(jobs_collection).ensure_indexes() == []
 
 
 def test_the_lease_covers_every_attempt_of_every_part_and_the_reduce() -> None:
