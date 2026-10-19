@@ -16,7 +16,6 @@ from fcrm_guardrails.budget import (
     ModelSlot,
     UnknownReservationError,
     attempt_plan,
-    call_exceeds_tier,
 )
 from fcrm_guardrails.context import GuardContext
 from fcrm_seed.loader import load_raw
@@ -133,13 +132,6 @@ def test_attempt_plan_fallback_order() -> None:
         attempt_plan(Tier.STRONG, 3)
     with pytest.raises(ValueError, match=">= 1"):
         attempt_plan(Tier.STRONG, 0)
-
-
-def test_call_exceeds_tier() -> None:
-    limit = TIER_BUDGETS[Tier.CHEAP].tokens
-    assert not call_exceeds_tier(Tier.CHEAP, tokens_used=limit, elapsed_s=60)
-    assert call_exceeds_tier(Tier.CHEAP, tokens_used=limit + 1, elapsed_s=1)
-    assert call_exceeds_tier(Tier.CHEAP, tokens_used=1, elapsed_s=60.5)
 
 
 def _ctx(budget: CaseBudget | None, **kwargs: object) -> GuardContext:

@@ -222,11 +222,7 @@ def check_prompts(report: Report, agents: dict[str, dict[str, Any]]) -> None:
         )
         agent = meta.get("agent")
         report.check(agent in agents, f"{path.name}: unknown agent {agent}")
-        # An eval judge prompt (`<agent>.judge`) grades that agent's output, so
-        # it runs on the judge tier, never on the tier of the agent it grades.
-        expected_tier = (
-            "judge" if str(meta.get("id", "")).endswith(".judge") else tiers.get(agent)
-        )
+        expected_tier = expected_prompt_tier(str(meta.get("id", "")), tiers.get(agent))
         report.check(
             meta.get("model_tier") == expected_tier,
             f"{path.name}: model_tier {meta.get('model_tier')} "
@@ -277,6 +273,19 @@ def check_prompts(report: Report, agents: dict[str, dict[str, Any]]) -> None:
                 prompt_id in manifest["current"],
                 f"{name}: prompt id {prompt_id} not in MANIFEST",
             )
+
+
+def expected_prompt_tier(prompt_id: str, agent_tier: Any) -> Any:
+    """The tier a prompt must declare. An eval judge prompt (`<agent>.judge`)
+    grades that agent's output, so it runs on the judge tier, never on the tier
+    of the agent it grades; a consolidation prompt (`<agent>.reduce`) merges a
+    split job's partial answers on the cheap tier (ADR-78); every other prompt
+    runs on its agent's tier."""
+    if prompt_id.endswith(".judge"):
+        return "judge"
+    if prompt_id.endswith(".reduce"):
+        return "cheap"
+    return agent_tier
 
 
 def prompt_ids_of(spec: dict[str, Any]) -> list[str]:

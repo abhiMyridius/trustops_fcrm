@@ -83,10 +83,12 @@ def _consumer(
     tiers_config: dict[str, Any],
     model_factory: ModelFactory,
     consumed: Any,
+    deps: Any,
 ) -> AgentJobConsumer:
     return AgentJobConsumer(
         consumed,
         publisher,
+        **deps.kwargs,
         registry=registry,
         permit_client=permit_client,
         audit=audit,
@@ -107,6 +109,7 @@ async def test_a_finished_job_records_tokens_latency_guards_and_budget(
     recording_publisher: Any,
     recording_audit: Any,
     fake_consumed: Any,
+    consumer_deps: Any,
     make_model_factory_returning: Callable[..., ModelFactory],
 ) -> None:
     consumer = _consumer(
@@ -118,6 +121,7 @@ async def test_a_finished_job_records_tokens_latency_guards_and_budget(
         tiers_config=fake_tiers_config,
         model_factory=make_model_factory_returning(research_outputs),
         consumed=fake_consumed,
+        deps=consumer_deps,
     )
     await consumer.handle(demo_job_envelope, None)
     points = _points(reader)
@@ -165,6 +169,7 @@ async def test_a_permit_denial_is_recorded_as_a_blocked_job(
     recording_publisher: Any,
     recording_audit: Any,
     fake_consumed: Any,
+    consumer_deps: Any,
     make_model_factory_returning: Callable[..., ModelFactory],
 ) -> None:
     consumer = _consumer(
@@ -176,6 +181,7 @@ async def test_a_permit_denial_is_recorded_as_a_blocked_job(
         tiers_config=fake_tiers_config,
         model_factory=make_model_factory_returning(research_outputs),
         consumed=fake_consumed,
+        deps=consumer_deps,
     )
     await consumer.handle(demo_job_envelope, None)
     points = _points(reader)
@@ -202,6 +208,7 @@ async def test_a_context_pack_failure_records_only_its_latency(
     recording_publisher: Any,
     recording_audit: Any,
     fake_consumed: Any,
+    consumer_deps: Any,
     make_model_factory_returning: Callable[..., ModelFactory],
 ) -> None:
     from fcrm_seed.loader import load_raw
@@ -232,6 +239,7 @@ async def test_a_context_pack_failure_records_only_its_latency(
         tiers_config=fake_tiers_config,
         model_factory=make_model_factory_returning([]),
         consumed=fake_consumed,
+        deps=consumer_deps,
     )
     await consumer.handle(envelope, None)
     points = _points(reader)

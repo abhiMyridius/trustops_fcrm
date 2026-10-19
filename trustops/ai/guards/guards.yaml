@@ -56,8 +56,9 @@ guards:
     config: {tiers: ../models/tiers.yaml}
     on_fail:
       case_budget_exhausted: case_waits                     # human gate budget_exhausted with the raw inputs; never a silent truncation
-      usage_limit_or_timeout_attempt_1: retry_on_fallback   # halved max_tokens hint
-      usage_limit_or_timeout_attempt_2: block               # agent.done failed_budget -> handoff gate
+      timeout_attempt_1: retry_on_fallback                  # tier wall clock; attempt 2 keeps the whole max_tokens (ADR-80)
+      timeout_attempt_2: block                              # agent.failed -> handoff gate
+      usage_limit: block                                    # past the attempt budget plus one request's output; a valid answer that only tips over is kept and annotated (ADR-80)
     writes: ["audit:guard.budget"]
 
   output_shape:

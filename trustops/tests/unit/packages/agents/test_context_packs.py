@@ -4,6 +4,7 @@ sources registered, truncation visible, overflow refused."""
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -27,6 +28,7 @@ from fcrm_agents.context_pack import (
     PackDraft,
     ScopedTools,
     fit_items,
+    pack_hash,
 )
 from fcrm_agents.demo import DEMO_DOCUMENT, demo_request
 from fcrm_agents.spec import get_spec
@@ -470,3 +472,105 @@ async def _examiner_pack(*records: AuditRecord) -> ExaminerView:
         sections={s.name: s.text for s in draft.sections},
         sources=list(draft.sources.values()),
     )
+
+
+def test_the_estimate_is_the_larger_of_words_and_characters() -> None:
+    """Words x 1.35 undercounted dense text (ids, dates, JSON); the character
+    count (len / 3.6) catches it, and the estimate never falls below words."""
+    prose = "the bank shall evaluate the processor " * 20
+    assert estimate_tokens(prose) == max(
+        math.ceil(len(prose.split()) * 1.35), math.ceil(len(prose) / 3.6)
+    )
+    dense = "CTL-T01·2023-11-15·stale;" * 40
+    assert estimate_tokens(dense) == math.ceil(len(dense) / 3.6)
+    assert estimate_tokens(dense) > math.ceil(len(dense.split()) * 1.35)
+    assert estimate_tokens("") == 0
+
+
+async def test_the_demo_research_pack_still_fits_the_strong_total() -> None:
+    pack = await ResearchPackBuilder().build(demo_request(AgentName.RESEARCH), REGISTRY)
+    assert pack.token_cap == 9000
+    assert pack.token_estimate <= 9000
+
+
+@pytest.mark.parametrize("case", CASES, ids=_id)
+async def test_a_one_part_build_is_todays_pack(
+    case: tuple[AgentName, Optional[str]],
+) -> None:
+    """``build`` is ``build_parts(max_parts=1)``, and its hash is the identity
+    hash an unsplit pack always had (no part fields in it)."""
+    agent, mode = case
+    request = demo_request(agent, mode)
+    pack = await builder_for(agent).build(request, REGISTRY)
+    (part,) = await builder_for(agent).build_parts(request, REGISTRY, max_parts=1)
+    assert part.model_dump() == pack.model_dump()
+    assert (pack.part_index, pack.part_count, pack.part_items) == (1, 1, {})
+    assert "part" not in pack.sections
+    identity = {
+        "agent": agent.value,
+        "mode": request.mode,
+        "case_id": request.case_id,
+        "submission_version": request.submission_version,
+        "versions": request.versions.model_dump(),
+        "sections": pack.sections,
+    }
+    assert pack.pack_hash == pack_hash(identity)
+
+
+@pytest.mark.parametrize(
+    "case", [c for c in CASES if c[0] is not AgentName.INTAKE], ids=_id
+)
+async def test_a_pack_that_fits_is_not_split(
+    case: tuple[AgentName, Optional[str]],
+) -> None:
+    agent, mode = case
+    request = demo_request(agent, mode)
+    pack = await builder_for(agent).build(request, REGISTRY)
+    packs = await builder_for(agent).build_parts(request, REGISTRY, max_parts=4)
+    assert [p.model_dump() for p in packs] == [pack.model_dump()]
+
+
+async def test_intake_cites_every_page_tagged_and_offers_only_shown_ones() -> None:
+    """The builder registers all 14 pages, each tied to its ``p.N`` item; the
+    one-part pack shows (and so offers) only the pages that fit."""
+    builder = IntakePackBuilder()
+    draft, _ = await builder._assemble(demo_request(AgentName.INTAKE), REGISTRY)
+    tags = {
+        s.source_ref.page: draft.source_items[key]
+        for key, s in draft.sources.items()
+        if isinstance(s.source_ref, DocSourceRef)
+    }
+    assert tags == {page: ("document", f"p.{page}") for page in range(1, 15)}
+    pack = builder._finish(demo_request(AgentName.INTAKE), draft, _)
+    meta = next(s for s in pack.section_meta if s.name == "document")
+    offered = {
+        s.source_ref.page
+        for s in pack.sources
+        if isinstance(s.source_ref, DocSourceRef)
+    }
+    assert offered == set(range(1, meta.items_shown + 1))
+
+
+def test_a_source_registered_again_untagged_loses_its_tag() -> None:
+    draft = PackDraft({})
+    ref = ClauseSourceRef(clause_id="C-1", corpus_v=14)
+    draft.cite(ref, "text", item=("clauses", "C-1"))
+    draft.cite(ref, "text")
+    assert draft.source_items == {}
+    assert draft.sources_for({}) == list(draft.sources.values())
+
+
+def test_groups_must_name_one_group_per_item() -> None:
+    with pytest.raises(ValueError, match="2 groups for 1 items"):
+        PackDraft({}).add("clauses", [("C-1", "x")], groups=["a", "b"])
+
+
+def test_a_deferred_overflow_keeps_the_section_whole() -> None:
+    items = [(f"F{n:02d}", "x" * 50) for n in range(10)]
+    draft = PackDraft({"fields": 50}, defer_overflow=True)
+    section = draft.add("fields", items)
+    assert section.items_shown == 10
+    assert not section.truncated
+    assert isinstance(draft.overflows["fields"], PackOverflowError)
+    with pytest.raises(PackOverflowError):
+        PackDraft({"fields": 50}).add("fields", items)

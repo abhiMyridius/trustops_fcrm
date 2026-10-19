@@ -41,6 +41,26 @@ os.environ.setdefault("LITELLM_MODE", "PRODUCTION")
 # the agent-worker tests that need a clean environment.
 os.environ.setdefault("DEEPEVAL_DISABLE_DOTENV", "1")
 
+SLOW_TESTS_ENV = "FCRM_SLOW_TESTS"
+"""Set to ``1`` to run the ``slow``-marked tests (``make test-slow``)."""
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    """Skip every ``slow``-marked test unless ``FCRM_SLOW_TESTS=1``: the full
+    adversarial matrices stay out of ``make check`` and run under
+    ``make test-slow``."""
+    if os.environ.get(SLOW_TESTS_ENV) == "1":
+        return
+    skip = pytest.mark.skip(
+        reason=f"slow test: set {SLOW_TESTS_ENV}=1 (make test-slow)"
+    )
+    for item in items:
+        if "slow" in item.keywords:
+            item.add_marker(skip)
+
+
 if TYPE_CHECKING:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient

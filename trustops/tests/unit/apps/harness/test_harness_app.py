@@ -256,10 +256,18 @@ def test_the_units_contribute_their_startup_shutdown_hooks_and_checks(
     assert len(by_id["H1"].after_startup) == 2
     assert len(by_id["H1"].on_shutdown) == 6
     assert [check.name for check in by_id["H1"].checks] == ["indexes", "outbox"]
-    # H2: nothing to start; it closes its OPA and audit clients and probes OPA.
-    assert by_id["H2"].after_startup == ()
-    assert len(by_id["H2"].on_shutdown) == 1  # OPA, audit and tool clients, together
-    assert [check.name for check in by_id["H2"].checks] == ["opa"]
+    # H2 (ADR-79): its job/outbox indexes then its own outbox relay; the relay
+    # stops, then its OPA, audit and tool clients close together. Its checks are
+    # named apart from H1's, since the probe keeps one check per name.
+    assert len(by_id["H2"].after_startup) == 2
+    assert len(by_id["H2"].on_shutdown) == 2
+    assert [check.name for check in by_id["H2"].checks] == [
+        "agent_indexes",
+        "agent_outbox",
+        "opa",
+    ]
+    names = [check.name for unit in units for check in unit.checks]
+    assert len(names) == len(set(names))
     # H3: the consumed-message index at startup; it holds no client to close and
     # probes the uploads bucket without making readiness depend on it.
     assert len(by_id["H3"].after_startup) == 1
@@ -291,6 +299,36 @@ def test_both_bedrock_regions_reach_h2(tmp_path: Path):
     ).agent_worker_settings()
     assert agent.aws_region == "us-east-1"
     assert agent.bedrock_region_fallback == "us-west-2"
+
+
+def test_the_chunking_settings_reach_h2(tmp_path: Path) -> None:
+    """``AGENT_MAX_PARTS``, ``AGENT_REDUCE_TIER`` and
+    ``AGENT_OUTPUT_FLOOR_TOKENS`` are threaded like ``AGENT_MAX_TOOL_CALLS``;
+    the defaults are 4, cheap and 1024."""
+    defaults = _settings(tmp_path).agent_worker_settings()
+    assert (
+        defaults.agent_max_parts,
+        defaults.agent_reduce_tier,
+        defaults.agent_output_floor_tokens,
+    ) == (4, "cheap", 1024)
+    agent = _settings(
+        tmp_path,
+        agent_max_parts=6,
+        agent_reduce_tier="mid",
+        agent_output_floor_tokens=2048,
+    ).agent_worker_settings()
+    assert (
+        agent.agent_max_parts,
+        agent.agent_reduce_tier,
+        agent.agent_output_floor_tokens,
+    ) == (6, "mid", 2048)
+
+
+def test_an_unknown_reduce_tier_is_refused(tmp_path: Path) -> None:
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="AGENT_REDUCE_TIER"):
+        _settings(tmp_path, agent_reduce_tier="opus").agent_worker_settings()
 
 
 def test_the_trace_link_url_reaches_h1_and_empty_means_the_default(

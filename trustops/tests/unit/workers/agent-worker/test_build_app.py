@@ -22,6 +22,7 @@ sufficient to exercise the tiers-loading line.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 from faststream.asgi import AsgiFastStream
@@ -92,3 +93,113 @@ def test_build_app_raises_a_clear_error_when_the_ai_root_has_no_tiers_file(
     )
     with pytest.raises(Exception, match="tiers.yaml"):
         build_app(settings)
+
+
+def _built_unit(
+    settings: AgentWorkerSettings, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Any, dict[str, Any]]:
+    """``build_unit`` with the seed registry, capturing the consumer it wires
+    and the relay lease it creates."""
+    from fcrm_agent_worker import app as app_module
+    from fcrm_common.mongo import MongoLease, get_client
+    from fcrm_tools import build_seed_registry
+
+    seen: dict[str, Any] = {}
+
+    def capture_wire(broker: Any, consumer: Any, *, prefetch: Any = None) -> None:
+        seen["consumer"] = consumer
+
+    def capture_lease(*args: Any, **kwargs: Any) -> MongoLease:
+        lease = MongoLease(*args, **kwargs)
+        seen["lease"] = lease
+        return lease
+
+    monkeypatch.setattr(app_module, "wire_subscriber", capture_wire)
+    monkeypatch.setattr(app_module, "MongoLease", capture_lease)
+    unit = app_module.build_unit(
+        settings,
+        mongo=get_client(settings.mongodb_uri or ""),
+        publisher=_NoPublisher(),
+        registry=build_seed_registry(),
+    )
+    unit.wire(None)  # type: ignore[arg-type]
+    return unit, seen
+
+
+class _NoPublisher:
+    async def publish(
+        self, exchange: str, routing_key: str, body: bytes, headers: dict[str, Any]
+    ) -> None:
+        raise AssertionError("nothing is published while building the unit")
+
+
+def test_build_unit_runs_h2s_own_outbox_relay_outside_any_transaction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ADR-79: the consumer has no Mongo client (its dedupe marker follows the
+    handler, no transaction wraps the model call); the terminal events go to
+    ``agent_outbox`` and H2's own relay publishes them under its own lease."""
+    unit, seen = _built_unit(_settings(tmp_path), monkeypatch)
+    consumer = seen["consumer"]
+
+    assert consumer._client is None  # noqa: SLF001
+    assert consumer._outbox.collection.name == "agent_outbox"  # noqa: SLF001
+    assert consumer._jobs.collection.name == "agent_jobs"  # noqa: SLF001
+    assert consumer._jobs.holder.startswith("h2_")  # noqa: SLF001
+    assert seen["lease"].name == "outbox-relay:agent-worker"
+    # Indexes, then the relay; the relay stops before the clients close.
+    assert len(unit.after_startup) == 2
+    assert len(unit.on_shutdown) == 2
+    checks = {check.name: check for check in unit.checks}
+    assert list(checks) == ["agent_indexes", "agent_outbox", "opa"]
+    assert checks["agent_indexes"].critical
+
+
+async def test_the_outbox_check_fails_until_the_relay_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    unit, _seen = _built_unit(_settings(tmp_path), monkeypatch)
+    checks = {check.name: check for check in unit.checks}
+    with pytest.raises(Exception, match="relay"):
+        await checks["agent_outbox"].fn()
+    with pytest.raises(RuntimeError, match="indexes"):
+        await checks["agent_indexes"].fn()
+
+
+def test_the_chunking_settings_reach_the_consumer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fcrm_contracts.enums import Tier
+
+    settings = _settings(tmp_path).model_copy(
+        update={
+            "agent_max_parts": 3,
+            "agent_reduce_tier": "mid",
+            "agent_output_floor_tokens": 512,
+        }
+    )
+    _unit, seen = _built_unit(settings, monkeypatch)
+    consumer = seen["consumer"]
+    assert consumer._max_parts == 3  # noqa: SLF001
+    assert consumer._reduce_tier is Tier.MID  # noqa: SLF001
+    assert consumer._output_floor_tokens == 512  # noqa: SLF001
+
+
+def test_the_chunking_settings_are_read_from_the_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AGENT_MAX_PARTS", "5")
+    monkeypatch.setenv("AGENT_REDUCE_TIER", "Strong")
+    monkeypatch.setenv("AGENT_OUTPUT_FLOOR_TOKENS", "900")
+    settings = AgentWorkerSettings()
+    assert settings.agent_max_parts == 5
+    assert settings.agent_reduce_tier == "strong"
+    assert settings.agent_output_floor_tokens == 900
+
+
+def test_an_unknown_reduce_tier_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    from pydantic import ValidationError
+
+    monkeypatch.setenv("AGENT_REDUCE_TIER", "opus")
+    with pytest.raises(ValidationError, match="AGENT_REDUCE_TIER"):
+        AgentWorkerSettings()

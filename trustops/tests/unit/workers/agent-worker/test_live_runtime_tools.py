@@ -41,6 +41,9 @@ SEARCH_ARGS: dict[str, Any] = {
 def _no_tools_offered(
     seen: list[list[str]],
 ) -> Callable[[AgentInfo, list[Any]], ModelResponse]:
+    """Record the tools offered and answer with nothing (an empty answer is
+    retried once, so a test reads the first request's offer, ``seen[0]``)."""
+
     def reply(info: AgentInfo, messages: list[Any]) -> ModelResponse:
         seen.append([t.name for t in info.function_tools])
         tool = info.output_tools[0]
@@ -93,7 +96,7 @@ async def test_an_agent_with_cap_zero_is_offered_no_tool(
         fake_tiers_config,
         make_model_factory_scripted([[_no_tools_offered(seen)]], []),
     )
-    assert seen == [[]]
+    assert seen[0] == []
 
 
 async def test_the_output_tool_schema_the_model_sees_is_compact(
@@ -120,7 +123,7 @@ async def test_the_output_tool_schema_the_model_sees_is_compact(
         fake_tiers_config,
         make_model_factory_scripted([[record]], []),
     )
-    (schema,) = shown
+    schema = shown[0]
     assert '"title"' not in schema
     assert '"default": null' not in schema
     assert "ClauseProposal" in schema
@@ -143,7 +146,7 @@ async def test_an_agent_with_a_cap_is_offered_its_tools(
         fake_tiers_config,
         make_model_factory_scripted([[_no_tools_offered(seen)]], []),
     )
-    assert seen == [list(research_spec.tools)]
+    assert seen[0] == list(research_spec.tools)
 
 
 async def test_the_h2_setting_lowers_an_agents_cap_to_zero_and_offers_no_tool(
@@ -164,7 +167,7 @@ async def test_the_h2_setting_lowers_an_agents_cap_to_zero_and_offers_no_tool(
         make_model_factory_scripted([[_no_tools_offered(seen)]], []),
         cap=0,
     )
-    assert seen == [[]]
+    assert seen[0] == []
 
 
 @pytest.mark.parametrize(

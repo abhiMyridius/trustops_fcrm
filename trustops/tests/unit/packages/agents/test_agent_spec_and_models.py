@@ -145,6 +145,32 @@ def test_a_list_sent_as_text_with_raw_line_breaks_in_a_quote_is_decoded() -> Non
     assert items[0].quote == "an independent assessment\nof the agent network"
 
 
+def test_a_list_sent_as_text_with_an_unescaped_quote_mark_as_well_is_decoded() -> None:
+    """Seen live on 19 Oct (FCRM-2026-0154, research, both attempts): besides the
+    raw line breaks, the hand-written text left a ``"`` in a free-text field
+    unescaped, which even the lenient decoder refused, and the case went to
+    handoff."""
+    clause = {**CLAUSE, "applicability": 'the "agent network" of the partner'}
+    text = json.dumps([clause], indent=2).replace("\\n", "\n").replace('\\"', '"')
+
+    adapter: TypeAdapter[Any] = TypeAdapter(get_spec("research").output_type())
+    (item,) = adapter.validate_python(text)
+
+    assert item.applicability == 'the "agent network" of the partner'
+    assert item.quote == "an independent assessment\nof the agent network"
+
+
+def test_a_list_sent_as_broken_text_says_where_it_broke() -> None:
+    """The retry is shown the reason: "Input should be a valid list" alone, and
+    Pydantic's "control character" at the first raw line break, sent the model
+    after a problem that was not the one that failed."""
+    text = json.dumps([CLAUSE]).replace("\\n", "\n")[:-12]  # cut off mid-item
+    adapter: TypeAdapter[Any] = TypeAdapter(get_spec("research").output_type())
+    with pytest.raises(ValidationError) as caught:
+        adapter.validate_python(text)
+    assert "sent as text, not as a JSON array" in str(caught.value)
+
+
 def test_a_raw_tab_or_line_break_inside_an_item_sent_as_text_is_decoded() -> None:
     item = json.dumps(PRECEDENT).replace('"y"', '"line one\tand\nline two"')
     adapter: TypeAdapter[Any] = TypeAdapter(get_spec("research").output_type())

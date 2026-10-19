@@ -30,10 +30,12 @@ def _consumer(
     tiers_config: dict[str, Any],
     model_factory: ModelFactory,
     consumed: Any,
+    deps: Any,
 ) -> AgentJobConsumer:
     return AgentJobConsumer(
         consumed,
         publisher,
+        **deps.kwargs,
         registry=registry,
         permit_client=permit_client,
         audit=audit,
@@ -51,6 +53,7 @@ async def test_handle_publishes_agent_done_and_writes_audit(
     recording_publisher: Any,
     recording_audit: Any,
     fake_consumed: Any,
+    consumer_deps: Any,
     make_model_factory_returning: Callable[..., ModelFactory],
 ) -> None:
     consumer = _consumer(
@@ -61,11 +64,12 @@ async def test_handle_publishes_agent_done_and_writes_audit(
         tiers_config=fake_tiers_config,
         model_factory=make_model_factory_returning(research_outputs),
         consumed=fake_consumed,
+        deps=consumer_deps,
     )
     await consumer.handle(demo_job_envelope, None)
 
-    assert len(recording_publisher.sent) == 1
-    exchange, routing_key, body, _headers = recording_publisher.sent[0]
+    assert len(consumer_deps.sent) == 1
+    exchange, routing_key, body, _headers = consumer_deps.sent[0]
     assert exchange == AGENT_JOBS_EXCHANGE
     assert routing_key == ROUTING_KEY_AGENT_DONE
     sent_envelope = Envelope.model_validate_json(body)
@@ -92,6 +96,7 @@ async def test_handle_publishes_agent_failed_on_permit_denial(
     recording_publisher: Any,
     recording_audit: Any,
     fake_consumed: Any,
+    consumer_deps: Any,
     make_model_factory_returning: Callable[..., ModelFactory],
 ) -> None:
     consumer = _consumer(
@@ -102,11 +107,12 @@ async def test_handle_publishes_agent_failed_on_permit_denial(
         tiers_config=fake_tiers_config,
         model_factory=make_model_factory_returning(research_outputs),
         consumed=fake_consumed,
+        deps=consumer_deps,
     )
     await consumer.handle(demo_job_envelope, None)
 
-    assert len(recording_publisher.sent) == 1
-    exchange, routing_key, body, _headers = recording_publisher.sent[0]
+    assert len(consumer_deps.sent) == 1
+    exchange, routing_key, body, _headers = consumer_deps.sent[0]
     assert exchange == AGENT_JOBS_EXCHANGE
     assert routing_key == ROUTING_KEY_AGENT_FAILED
     sent_envelope = Envelope.model_validate_json(body)
@@ -128,6 +134,7 @@ async def test_handle_reports_agent_failed_on_context_pack_error(
     recording_publisher: Any,
     recording_audit: Any,
     fake_consumed: Any,
+    consumer_deps: Any,
     make_model_factory_returning: Callable[..., ModelFactory],
 ) -> None:
     """``intake`` needs a ``doc_id`` H1 did not supply in this job (the
@@ -162,11 +169,12 @@ async def test_handle_reports_agent_failed_on_context_pack_error(
         tiers_config=fake_tiers_config,
         model_factory=make_model_factory_returning([]),
         consumed=fake_consumed,
+        deps=consumer_deps,
     )
     await consumer.handle(envelope, None)
 
-    assert len(recording_publisher.sent) == 1
-    _exchange, routing_key, body, _headers = recording_publisher.sent[0]
+    assert len(consumer_deps.sent) == 1
+    _exchange, routing_key, body, _headers = consumer_deps.sent[0]
     assert routing_key == ROUTING_KEY_AGENT_FAILED
     failed = AgentFailed.model_validate(Envelope.model_validate_json(body).payload)
     assert failed.reason.startswith("context_pack_error:")
@@ -181,6 +189,7 @@ async def test_audit_write_failure_does_not_crash_handle(
     recording_publisher: Any,
     failing_audit: Any,
     fake_consumed: Any,
+    consumer_deps: Any,
     make_model_factory_returning: Callable[..., ModelFactory],
 ) -> None:
     """S4 being unavailable degrades audit completeness, never job
@@ -193,10 +202,11 @@ async def test_audit_write_failure_does_not_crash_handle(
         tiers_config=fake_tiers_config,
         model_factory=make_model_factory_returning(research_outputs),
         consumed=fake_consumed,
+        deps=consumer_deps,
     )
     await consumer.handle(demo_job_envelope, None)
 
-    assert len(recording_publisher.sent) == 1
+    assert len(consumer_deps.sent) == 1
     assert failing_audit.records == []
 
 
@@ -210,6 +220,7 @@ async def test_handle_asks_for_instructions_with_the_packs_mode_and_pins(
     recording_publisher: Any,
     recording_audit: Any,
     fake_consumed: Any,
+    consumer_deps: Any,
     make_model_factory_returning: Callable[..., ModelFactory],
 ) -> None:
     asked: list[tuple[Any, Any, Any]] = []
@@ -221,6 +232,7 @@ async def test_handle_asks_for_instructions_with_the_packs_mode_and_pins(
     consumer = AgentJobConsumer(
         fake_consumed,
         recording_publisher,
+        **consumer_deps.kwargs,
         registry=seed_registry,
         permit_client=allow_all_opa_client,
         audit=recording_audit,

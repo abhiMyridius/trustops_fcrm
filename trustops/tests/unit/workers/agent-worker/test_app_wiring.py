@@ -9,7 +9,8 @@ see :mod:`fcrm_agent_worker.topology`):
 - consume: exchange ``agent.jobs`` (direct), routing key ``agent.run`` ->
   queue ``agent-worker.run``.
 - publish, happy path: ``agent.jobs`` / ``agent.done`` or ``agent.failed``
-  -> queue ``caseflow.agent-results`` (the two bindings that queue has).
+  -> queue ``caseflow.agent-results`` (the two bindings that queue has), by
+  H2's outbox relay from the row the handler committed (ADR-79).
 - publish, broker-level failure: ``retry`` / ``agent-worker.run`` (first 3
   attempts) -> ``dlx`` / ``agent-worker.run`` (the DLQ) after that.
 """
@@ -23,8 +24,29 @@ from fcrm_agent_worker.app import wire_subscriber
 from fcrm_agent_worker.handler import AgentJobConsumer
 from fcrm_agent_worker.publisher import FastStreamPublisher
 from fcrm_agent_worker.topology import passive_exchange, passive_queue
+from fcrm_common.outbox import OutboxRelay
 from fcrm_contracts.events.envelope import Envelope
 from fcrm_contracts.events.payloads import AgentDone, AgentFailed, JobPayload
+
+
+class _HeldLease:
+    """A relay lease this process always holds."""
+
+    held = True
+
+    async def acquire(self) -> bool:
+        return True
+
+    async def release(self) -> None:
+        return None
+
+
+async def _relay_outbox(deps: Any, publisher: FastStreamPublisher) -> int:
+    """Publish what the handler committed to H2's outbox, as its relay does."""
+    relay = OutboxRelay(deps.outbox_collection, _HeldLease(), publisher)
+    published, failed = await relay.publish_batch()
+    assert not failed
+    return published
 
 
 def _capture_queue(name: str, routing_key: str) -> Any:
@@ -39,6 +61,7 @@ async def test_agent_run_to_agent_done_through_the_real_broker(
     fake_tiers_config: dict[str, Any],
     recording_audit: Any,
     fake_consumed: Any,
+    consumer_deps: Any,
     make_model_factory_returning: Any,
 ) -> None:
     broker = RabbitBroker("amqp://guest:guest@localhost:5672/")
@@ -46,6 +69,7 @@ async def test_agent_run_to_agent_done_through_the_real_broker(
     consumer = AgentJobConsumer(
         fake_consumed,
         publisher,
+        **consumer_deps.kwargs,
         registry=seed_registry,
         permit_client=allow_all_opa_client,
         audit=recording_audit,
@@ -76,6 +100,7 @@ async def test_agent_run_to_agent_done_through_the_real_broker(
             exchange=agent_jobs,
             routing_key="agent.run",
         )
+        assert await _relay_outbox(consumer_deps, publisher) == 1
 
     assert failed_received == []
     assert len(done_received) == 1
@@ -97,6 +122,7 @@ async def test_permit_denied_publishes_agent_failed_through_the_real_broker(
     fake_tiers_config: dict[str, Any],
     recording_audit: Any,
     fake_consumed: Any,
+    consumer_deps: Any,
     make_model_factory_returning: Any,
 ) -> None:
     broker = RabbitBroker("amqp://guest:guest@localhost:5672/")
@@ -104,6 +130,7 @@ async def test_permit_denied_publishes_agent_failed_through_the_real_broker(
     consumer = AgentJobConsumer(
         fake_consumed,
         publisher,
+        **consumer_deps.kwargs,
         registry=seed_registry,
         permit_client=deny_all_opa_client,
         audit=recording_audit,
@@ -127,6 +154,7 @@ async def test_permit_denied_publishes_agent_failed_through_the_real_broker(
             exchange=agent_jobs,
             routing_key="agent.run",
         )
+        assert await _relay_outbox(consumer_deps, publisher) == 1
 
     assert len(failed_received) == 1
     failed = AgentFailed.model_validate(
@@ -141,6 +169,7 @@ async def test_an_unexpected_handler_failure_is_dead_lettered(
     allow_all_opa_client: Any,
     recording_audit: Any,
     fake_consumed: Any,
+    consumer_deps: Any,
     make_model_factory_returning: Any,
 ) -> None:
     """A bug-class failure (here: a tiers.yaml that does not configure the
@@ -158,6 +187,7 @@ async def test_an_unexpected_handler_failure_is_dead_lettered(
     consumer = AgentJobConsumer(
         fake_consumed,
         publisher,
+        **consumer_deps.kwargs,
         registry=seed_registry,
         permit_client=allow_all_opa_client,
         audit=recording_audit,
@@ -198,8 +228,11 @@ async def test_an_unexpected_handler_failure_is_dead_lettered(
         Envelope.model_validate_json(dlq_received[0].body).payload
     )
     assert dead_job.job_id == "job-research-1"
-    # Never a false "it finished" -- no audit write, no agent.done/failed.
+    # Never a false "it finished" -- no audit write, no agent.done/failed,
+    # and the claim is given up so a redelivery can run the job.
     assert recording_audit.records == []
+    assert consumer_deps.outbox_collection.docs == []
+    assert consumer_deps.jobs.released == ["job-research-1"]
 
 
 async def test_a_transient_handler_failure_is_retried_not_dead_lettered(
@@ -208,6 +241,7 @@ async def test_a_transient_handler_failure_is_retried_not_dead_lettered(
     allow_all_opa_client: Any,
     recording_audit: Any,
     fake_consumed: Any,
+    consumer_deps: Any,
     make_model_factory_returning: Any,
 ) -> None:
     """The same failure with the default ``max_attempts=3`` goes to the
@@ -219,6 +253,7 @@ async def test_a_transient_handler_failure_is_retried_not_dead_lettered(
     consumer = AgentJobConsumer(
         fake_consumed,
         publisher,
+        **consumer_deps.kwargs,
         registry=seed_registry,
         permit_client=allow_all_opa_client,
         audit=recording_audit,

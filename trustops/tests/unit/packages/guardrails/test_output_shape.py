@@ -400,6 +400,16 @@ async def test_check_no_output_fails_closed_unless_the_contract_allows_it() -> N
     assert allowed.details["empty"] is True
 
 
+async def test_an_empty_refusal_says_it_was_empty() -> None:
+    """A chunked job tolerates a part that found nothing to say when another part
+    answered; the merge tells that refusal from any other by ``details["empty"]``."""
+    closed = await GUARD.check(_ctx(AgentName.RESEARCH, [], attempt=2))
+    assert closed.status is GuardStatus.BLOCKED
+    assert closed.details == {"empty": True, "attempt": 2}
+    refused = await GUARD.check(_ctx(AgentName.RESEARCH, [PARAPHRASE], attempt=2))
+    assert "empty" not in refused.details
+
+
 async def test_check_may_be_empty_does_not_loosen_a_non_empty_check() -> None:
     """Emptiness is the only thing the flag changes: a bad item still fails."""
     result = await GUARD.check(

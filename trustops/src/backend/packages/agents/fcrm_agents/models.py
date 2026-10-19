@@ -137,8 +137,9 @@ def tier_models(tier: Tier, tiers_config: Mapping[str, Any]) -> TierModels:
 def model_settings_for(
     models: TierModels, *, max_tokens_factor: float = 1.0
 ) -> ModelSettings:
-    """``ModelSettings`` for one attempt (Guard 3's attempt plan halves
-    ``max_tokens`` on the retry)."""
+    """``ModelSettings`` for one attempt: the tier's ``max_tokens`` (a retry
+    keeps it whole; H2 lowers it per request to what the attempt budget has
+    left, ADR-80)."""
     settings = ModelSettings(
         max_tokens=max(1, int(models.max_tokens * max_tokens_factor)),
         timeout=float(models.wall_clock_s),

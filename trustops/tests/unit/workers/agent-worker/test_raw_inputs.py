@@ -60,8 +60,9 @@ class _Sink:
         return self.ref
 
 
-def _failed(recording_publisher: Any) -> AgentFailed:
-    _exchange, _key, body, _headers = recording_publisher.sent[0]
+def _failed(deps: Any) -> AgentFailed:
+    """The ``agent.failed`` the handler committed to H2's outbox."""
+    _exchange, _key, body, _headers = deps.sent[0]
     return AgentFailed.model_validate(Envelope.model_validate_json(body).payload)
 
 
@@ -142,10 +143,12 @@ def _consumer(
     tiers_config: dict[str, Any],
     model_factory: ModelFactory,
     consumed: Any,
+    deps: Any,
 ) -> AgentJobConsumer:
     return AgentJobConsumer(
         consumed,
         publisher,
+        **deps.kwargs,
         registry=registry,
         permit_client=permit_client,
         audit=audit,
@@ -164,6 +167,7 @@ async def test_a_failed_job_names_the_inputs_it_kept(
     recording_publisher: Any,
     recording_audit: Any,
     fake_consumed: Any,
+    consumer_deps: Any,
     make_model_factory_returning: Callable[..., ModelFactory],
 ) -> None:
     sink = _Sink(raw_inputs_ref("job-research-1"))
@@ -176,11 +180,12 @@ async def test_a_failed_job_names_the_inputs_it_kept(
         tiers_config=fake_tiers_config,
         model_factory=make_model_factory_returning(research_outputs),
         consumed=fake_consumed,
+        deps=consumer_deps,
     )
 
     await consumer.handle(demo_job_envelope, None)
 
-    failed = _failed(recording_publisher)
+    failed = _failed(consumer_deps)
     assert failed.raw_inputs_ref == raw_inputs_ref("job-research-1")
     [(job, pack, error)] = sink.saved
     assert job.job_id == "job-research-1"
@@ -197,6 +202,7 @@ async def test_a_failed_job_without_a_sink_names_no_inputs(
     recording_publisher: Any,
     recording_audit: Any,
     fake_consumed: Any,
+    consumer_deps: Any,
     make_model_factory_returning: Callable[..., ModelFactory],
 ) -> None:
     consumer = _consumer(
@@ -208,11 +214,12 @@ async def test_a_failed_job_without_a_sink_names_no_inputs(
         tiers_config=fake_tiers_config,
         model_factory=make_model_factory_returning(research_outputs),
         consumed=fake_consumed,
+        deps=consumer_deps,
     )
 
     await consumer.handle(demo_job_envelope, None)
 
-    assert _failed(recording_publisher).raw_inputs_ref is None
+    assert _failed(consumer_deps).raw_inputs_ref is None
 
 
 async def test_a_sink_that_kept_nothing_does_not_stop_the_failure_report(
@@ -224,6 +231,7 @@ async def test_a_sink_that_kept_nothing_does_not_stop_the_failure_report(
     recording_publisher: Any,
     recording_audit: Any,
     fake_consumed: Any,
+    consumer_deps: Any,
     make_model_factory_returning: Callable[..., ModelFactory],
 ) -> None:
     consumer = _consumer(
@@ -235,11 +243,12 @@ async def test_a_sink_that_kept_nothing_does_not_stop_the_failure_report(
         tiers_config=fake_tiers_config,
         model_factory=make_model_factory_returning(research_outputs),
         consumed=fake_consumed,
+        deps=consumer_deps,
     )
 
     await consumer.handle(demo_job_envelope, None)
 
-    failed = _failed(recording_publisher)
+    failed = _failed(consumer_deps)
     assert failed.raw_inputs_ref is None
     assert failed.reason.startswith("permit_denied:")
 
@@ -251,6 +260,7 @@ async def test_a_job_whose_pack_could_not_be_built_keeps_the_job_and_the_error(
     recording_publisher: Any,
     recording_audit: Any,
     fake_consumed: Any,
+    consumer_deps: Any,
     make_model_factory_returning: Callable[..., ModelFactory],
 ) -> None:
     from fcrm_common.events import build_envelope
@@ -284,11 +294,12 @@ async def test_a_job_whose_pack_could_not_be_built_keeps_the_job_and_the_error(
         tiers_config=fake_tiers_config,
         model_factory=make_model_factory_returning([]),
         consumed=fake_consumed,
+        deps=consumer_deps,
     )
 
     await consumer.handle(envelope, None)
 
-    failed = _failed(recording_publisher)
+    failed = _failed(consumer_deps)
     assert failed.raw_inputs_ref == raw_inputs_ref("job-intake-1")
     [(job, pack, error)] = sink.saved
     assert pack is None

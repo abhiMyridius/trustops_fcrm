@@ -49,6 +49,10 @@ class HarnessSettings(BaseServiceSettings, S3Settings):
         guard1_allowlist_file: H3's file of terms Guard 1 never masks.
         prompts_dir: The ``ai/`` root holding prompts and ``models/tiers.yaml``.
         agent_max_tool_calls: Per-job cap on tool calls.
+        agent_max_parts: H2's most parts per job (``AGENT_MAX_PARTS``).
+        agent_reduce_tier: H2's reduce-call tier (``AGENT_REDUCE_TIER``).
+        agent_output_floor_tokens: H2's least output allowance per request
+            (``AGENT_OUTPUT_FLOOR_TOKENS``).
         case_token_cap: Tokens one case may spend across all its agent jobs
             (``CASE_TOKEN_CAP``, ADR-14); H1 enforces it.
         trace_ui_url: Where the monitor's trace link opens (``TRACE_UI_URL``,
@@ -91,6 +95,9 @@ class HarnessSettings(BaseServiceSettings, S3Settings):
     guard1_allowlist_file: Optional[str] = None
     prompts_dir: str = "ai"
     agent_max_tool_calls: int = 12
+    agent_max_parts: int = Field(default=4, ge=1)
+    agent_reduce_tier: str = "cheap"
+    agent_output_floor_tokens: int = Field(default=1024, ge=1)
     bedrock_region_fallback: Optional[str] = None
     aws_region: Optional[str] = None
     case_token_cap: int = Field(default=DEFAULT_CASE_TOKEN_CAP, ge=1)
@@ -172,6 +179,9 @@ class HarnessSettings(BaseServiceSettings, S3Settings):
             aws_region=self.aws_region,
             prompts_dir=self.prompts_dir,
             agent_max_tool_calls=self.agent_max_tool_calls,
+            agent_max_parts=self.agent_max_parts,
+            agent_reduce_tier=self.agent_reduce_tier,
+            agent_output_floor_tokens=self.agent_output_floor_tokens,
             prefetch=self.agent_prefetch,
         )
         settings.fail_fast()

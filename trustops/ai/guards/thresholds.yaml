@@ -55,7 +55,7 @@ restricted_terms:
   file: restricted_terms.txt
   version: 1
 
-# Context pack section caps in estimated tokens (len(text)/3.6), design B §3.3.
+# Context pack section caps in tokens, design B §3.3: a section is cut at 4 characters per token; the pack totals are checked against the estimate (the larger of words x 1.35 and len(text)/3.6, ADR-77).
 # Totals: cheap <= 4600, mid <= 7500, strong/judge <= 9000.
 pack_section_caps:
   screening: {fields: 600, precedents: 300}
@@ -69,4 +69,4 @@ pack_section_caps:
   watchlist: {list_diff: 400, candidates: 900, clauses: 300}
   policy_gap: {gaps: 1200, nearest: 1800}
 pack_totals: {cheap: 4600, mid: 7500, strong: 9000, judge: 9000}
-never_truncate: [fields, controls]   # controls overflow raises PackOverflow and H1 splits the job by domain
+never_truncate: [fields, controls]   # an overflow is split into parts in H2 (ADR-77), a single item that alone overflows still raises PackOverflow

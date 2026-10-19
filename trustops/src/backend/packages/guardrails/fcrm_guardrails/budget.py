@@ -147,19 +147,6 @@ def attempt_plan(
     )
 
 
-def call_exceeds_tier(
-    tier: Tier,
-    *,
-    tokens_used: int,
-    elapsed_s: float,
-    tiers: Mapping[Tier, TierBudget] = TIER_BUDGETS,
-) -> bool:
-    """True when one attempt's actual usage broke its tier limit (H2 checks
-    this after the call as a backstop to ``UsageLimits``/``asyncio.timeout``)."""
-    budget = tiers[tier]
-    return tokens_used > budget.tokens or elapsed_s > budget.wall_s
-
-
 class Reservation(BaseModel):
     """Tokens held for one dispatched job until it settles."""
 

@@ -35,3 +35,4 @@ Append-only. One row per prompt file version, newest last. The same entry appear
 | 2026-10-06 | policy_gap.system | 2 | 2026-10-06 | written to GapSuggestion; the gap id is printed in the pack and copied; empty list when every gap is covered | see `evals/README.md` | see `evals/README.md` |
 | 2026-10-06 | screening.system | 3 | 2026-10-06.1 | R4 stated as the vendor case and the feature case; change types read from the identity line, the volume from F05 (EMPTY or at least $5M is no); six facts; a described new corridor, segment or product vetoes both cases | see `evals/README.md` | see `evals/README.md` |
 | 2026-10-06 | research.system | 3 | 2026-10-06.2 | a clause proposal's clause_id and its source_ref name the same clause | see `evals/README.md` | see `evals/README.md` |
+| 2026-10-19 | narrative.reduce | 1 | 2026-10-19 | initial; merges the partial recommendation answers of a split job on the cheap tier (ADR-77, ADR-78) | — | baseline pending |

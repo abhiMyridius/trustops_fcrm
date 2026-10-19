@@ -38,10 +38,12 @@ def _consumer(
     tiers_config: dict[str, Any],
     model_factory: ModelFactory,
     consumed: Any,
+    deps: Any,
 ) -> AgentJobConsumer:
     return AgentJobConsumer(
         consumed,
         publisher,
+        **deps.kwargs,
         registry=registry,
         permit_client=permit_client,
         audit=audit,
@@ -57,13 +59,6 @@ def _envelope(payload: JobPayload) -> Envelope:
         case_id=payload.case_id,
         run_id=payload.run_id,
     )
-
-
-def _sent(publisher: Any) -> list[tuple[str, Envelope]]:
-    return [
-        (routing_key, Envelope.model_validate_json(body))
-        for _exchange, routing_key, body, _headers in publisher.sent
-    ]
 
 
 def _flaky(
@@ -141,13 +136,16 @@ class TestRefsReachTheBuilder:
         recording_publisher: Any,
         recording_audit: Any,
         fake_consumed: Any,
+        consumer_deps: Any,
         make_model_factory_returning: Callable[..., ModelFactory],
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         captured: list[BuildRequest] = []
 
         class SpyBuilder:
-            async def build(self, request: BuildRequest, registry: Any) -> Any:
+            async def build_parts(
+                self, request: BuildRequest, registry: Any, *, max_parts: int
+            ) -> Any:
                 captured.append(request)
                 raise PackBuildError("stop after capturing the request")
 
@@ -165,6 +163,7 @@ class TestRefsReachTheBuilder:
             tiers_config=fake_tiers_config,
             model_factory=make_model_factory_returning([]),
             consumed=fake_consumed,
+            deps=consumer_deps,
         )
 
         await consumer.handle(_envelope(job), None)
@@ -183,6 +182,7 @@ class TestRefsReachTheBuilder:
         recording_publisher: Any,
         recording_audit: Any,
         fake_consumed: Any,
+        consumer_deps: Any,
         make_model_factory_returning: Callable[..., ModelFactory],
     ) -> None:
         """A bad ``refs`` fails identically on every redelivery, and H1 is
@@ -197,11 +197,12 @@ class TestRefsReachTheBuilder:
             tiers_config=fake_tiers_config,
             model_factory=make_model_factory_returning([]),
             consumed=fake_consumed,
+            deps=consumer_deps,
         )
 
         await consumer.handle(_envelope(job), None)
 
-        [(routing_key, sent)] = _sent(recording_publisher)
+        [(routing_key, sent)] = consumer_deps.events
         assert routing_key == "agent.failed"
         failed = AgentFailed.model_validate(sent.payload)
         assert failed.reason.startswith("context_pack_error:")
@@ -218,6 +219,7 @@ class TestFailedJobUsage:
         recording_publisher: Any,
         recording_audit: Any,
         fake_consumed: Any,
+        consumer_deps: Any,
         make_model_factory_returning: Callable[..., ModelFactory],
     ) -> None:
         """H1 settles the case token ledger from ``agent.failed``'s usage, so a
@@ -231,17 +233,17 @@ class TestFailedJobUsage:
             tiers_config=fake_tiers_config,
             model_factory=make_model_factory_returning([]),
             consumed=fake_consumed,
+            deps=consumer_deps,
         )
         usage = {"input_tokens": 41_000, "output_tokens": 7_000}
 
-        await consumer._publish_failed(  # noqa: SLF001 - the one place that builds it
+        with_usage = consumer._failed_envelope(  # noqa: SLF001 - the one place that builds it
             demo_job_payload, attempt=2, reason="guard4_rejected", usage=usage
         )
-        await consumer._publish_failed(  # noqa: SLF001
+        without = consumer._failed_envelope(  # noqa: SLF001
             demo_job_payload, attempt=1, reason="context_pack_error: x"
         )
 
-        [(_, with_usage), (_, without)] = _sent(recording_publisher)
         assert AgentFailed.model_validate(with_usage.payload).usage == usage
         assert AgentFailed.model_validate(without.payload).usage == {}
 
@@ -257,6 +259,7 @@ class TestAuditVocabulary:
         recording_publisher: Any,
         recording_audit: Any,
         fake_consumed: Any,
+        consumer_deps: Any,
         make_model_factory_returning: Callable[..., ModelFactory],
     ) -> None:
         consumer = _consumer(
@@ -267,6 +270,7 @@ class TestAuditVocabulary:
             tiers_config=fake_tiers_config,
             model_factory=make_model_factory_returning(research_outputs),
             consumed=fake_consumed,
+            deps=consumer_deps,
         )
 
         await consumer.handle(demo_job_envelope, None)
@@ -298,6 +302,7 @@ class TestAuditVocabulary:
         recording_publisher: Any,
         recording_audit: Any,
         fake_consumed: Any,
+        consumer_deps: Any,
         make_model_factory_returning: Callable[..., ModelFactory],
         make_model_factory_raising: Callable[..., ModelFactory],
     ) -> None:
@@ -314,6 +319,7 @@ class TestAuditVocabulary:
             tiers_config=fake_tiers_config,
             model_factory=factory,
             consumed=fake_consumed,
+            deps=consumer_deps,
         )
 
         await consumer.handle(demo_job_envelope, None)
@@ -331,7 +337,7 @@ class TestAuditVocabulary:
         assert re.fullmatch(
             r"research attempt 2: (\d+) of \1 claims carry sources", records[3].summary
         )
-        [(routing_key, sent)] = _sent(recording_publisher)
+        [(routing_key, sent)] = consumer_deps.events
         assert routing_key == "agent.done"
         assert AgentDone.model_validate(sent.payload).output["attempts"] == 2
 
@@ -344,6 +350,7 @@ class TestAuditVocabulary:
         recording_publisher: Any,
         recording_audit: Any,
         fake_consumed: Any,
+        consumer_deps: Any,
         make_model_factory_raising: Callable[..., ModelFactory],
     ) -> None:
         consumer = _consumer(
@@ -356,6 +363,7 @@ class TestAuditVocabulary:
                 UnexpectedModelBehavior("no usable output")
             ),
             consumed=fake_consumed,
+            deps=consumer_deps,
         )
 
         await consumer.handle(demo_job_envelope, None)
@@ -367,7 +375,7 @@ class TestAuditVocabulary:
             "guard.output",
             "agent.failed",
         ]
-        assert [k for k, _ in _sent(recording_publisher)] == ["agent.failed"]
+        assert [k for k, _ in consumer_deps.events] == ["agent.failed"]
 
     async def test_a_dropped_claim_is_reported_not_hidden(
         self,
@@ -379,6 +387,7 @@ class TestAuditVocabulary:
         recording_publisher: Any,
         recording_audit: Any,
         fake_consumed: Any,
+        consumer_deps: Any,
         make_model_factory_returning: Callable[..., ModelFactory],
     ) -> None:
         tampered = research_output(research_pack, tamper=True)
@@ -390,44 +399,55 @@ class TestAuditVocabulary:
             tiers_config=fake_tiers_config,
             model_factory=make_model_factory_returning(tampered),
             consumed=fake_consumed,
+            deps=consumer_deps,
         )
 
         await consumer.handle(demo_job_envelope, None)
 
-        [(_, sent)] = _sent(recording_publisher)
+        [(_, sent)] = consumer_deps.events
         output = AgentDone.model_validate(sent.payload).output
         summary = output["guard_summary"]
         assert summary["dropped"] == len(output["dropped"]) >= 1
         assert summary["claims_total"] > summary["claims_with_source"]
         assert output["attempts"] == 2, "the tampered quote forced the one retry"
 
-    async def test_audit_after_a_publish_failure_is_not_attempted_for_a_lost_job(
+    async def test_audit_after_a_failed_commit_is_not_attempted_for_a_lost_job(
         self,
         demo_job_envelope: Envelope,
         research_outputs: list[Any],
         seed_registry: ToolRegistry,
         allow_all_opa_client: OPAClient,
         fake_tiers_config: dict[str, Any],
-        failing_publisher: Any,
+        recording_publisher: Any,
         recording_audit: Any,
         fake_consumed: Any,
+        consumer_deps: Any,
         make_model_factory_returning: Callable[..., ModelFactory],
     ) -> None:
-        """If the terminal event cannot be published the job is retried by the
-        broker; writing its records first would duplicate them on the retry.
+        """If the terminal transaction cannot commit the job is retried by the
+        broker; writing its records first would duplicate them on the retry,
+        and the claim is given up so the retry can run it.
         """
+
+        async def mongo_down(fn: Any) -> Any:
+            raise ConnectionError("mongo down")
+
+        consumer_deps.transact = mongo_down
         consumer = _consumer(
             registry=seed_registry,
             permit_client=allow_all_opa_client,
             audit=recording_audit,
-            publisher=failing_publisher,
+            publisher=recording_publisher,
             tiers_config=fake_tiers_config,
             model_factory=make_model_factory_returning(research_outputs),
             consumed=fake_consumed,
+            deps=consumer_deps,
         )
         with pytest.raises(ConnectionError):
             await consumer.handle(demo_job_envelope, None)
         assert recording_audit.records == []
+        assert consumer_deps.outbox_collection.docs == []
+        assert consumer_deps.jobs.released == ["job-research-1"]
 
     async def test_an_s4_outage_costs_one_failed_write_not_one_per_record(
         self,
@@ -438,6 +458,7 @@ class TestAuditVocabulary:
         fake_tiers_config: dict[str, Any],
         recording_publisher: Any,
         fake_consumed: Any,
+        consumer_deps: Any,
         make_model_factory_returning: Callable[..., ModelFactory],
     ) -> None:
         class CountingDownAudit:
@@ -457,12 +478,13 @@ class TestAuditVocabulary:
             tiers_config=fake_tiers_config,
             model_factory=make_model_factory_returning(research_outputs),
             consumed=fake_consumed,
+            deps=consumer_deps,
         )
 
         await consumer.handle(demo_job_envelope, None)
 
         assert audit.attempts == 1, "the second record was skipped, not retried"
-        assert [k for k, _ in _sent(recording_publisher)] == ["agent.done"]
+        assert [k for k, _ in consumer_deps.events] == ["agent.done"]
 
 
 class TestAgentDonePayload:
@@ -476,6 +498,7 @@ class TestAgentDonePayload:
         recording_publisher: Any,
         recording_audit: Any,
         fake_consumed: Any,
+        consumer_deps: Any,
         make_model_factory_returning: Callable[..., ModelFactory],
     ) -> None:
         consumer = _consumer(
@@ -486,10 +509,11 @@ class TestAgentDonePayload:
             tiers_config=fake_tiers_config,
             model_factory=make_model_factory_returning(research_outputs),
             consumed=fake_consumed,
+            deps=consumer_deps,
         )
         await consumer.handle(demo_job_envelope, None)
 
-        [(_, sent)] = _sent(recording_publisher)
+        [(_, sent)] = consumer_deps.events
         done = AgentDone.model_validate(sent.payload)
         assert set(done.output) == {
             "accepted",

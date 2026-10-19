@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import date
 from typing import Any, Final, Optional
 
@@ -81,6 +81,7 @@ from fcrm_agents.context_pack import (
     BuildRequest,
     ContextPackBuilder,
     Item,
+    ItemTag,
     PackBuildError,
     PackDraft,
     ScopedTools,
@@ -128,6 +129,13 @@ _HOME: Final = frozenset({"US", "USA", "United States"})
 def dot(*parts: object) -> str:
     """Join item fields with the pack separator `` · ``."""
     return " · ".join(str(p) for p in parts)
+
+
+def risk_area(metadata: Mapping[str, Any]) -> str:
+    """The first risk area a clause is tagged with (``-`` when none): the group
+    a clause travels with when research's input is split into parts."""
+    areas = metadata.get("risk_areas") or ["-"]
+    return str(areas[0])
 
 
 async def fetch_case(tools: ScopedTools, request: BuildRequest) -> CaseRecordOutput:
@@ -303,14 +311,23 @@ def compact(payload: Mapping[str, Any]) -> str:
 
 
 def cite_records(
-    draft: PackDraft, case_id: str, entries: Sequence[LedgerEntry]
+    draft: PackDraft,
+    case_id: str,
+    entries: Sequence[LedgerEntry],
+    *,
+    item_of: Optional[Callable[[LedgerEntry], ItemTag]] = None,
 ) -> None:
-    """Register ledger entries as citable records (summary + payload)."""
+    """Register ledger entries as citable records (summary + payload);
+    ``item_of`` ties each record to the pack item that shows it."""
     for entry in entries:
         text = source_text_lines(
             [str(entry.payload.get("summary", entry.kind)), compact(entry.payload)]
         )
-        draft.cite(RecordSourceRef(case_id=case_id, seq=entry.seq), text)
+        draft.cite(
+            RecordSourceRef(case_id=case_id, seq=entry.seq),
+            text,
+            item=item_of(entry) if item_of is not None else None,
+        )
 
 
 def months_between(earlier: date, later: date) -> int:
@@ -508,12 +525,14 @@ class IntakePackBuilder(ContextPackBuilder):
             )
             for page, lines in pages.items()
         ]
-        section = draft.add("document", items, note=page_window_note)
-        for page in list(pages)[: section.items_shown]:
+        draft.add("document", items, note=page_window_note)
+        for page in pages:
             ref = DocSourceRef(
                 doc_id=doc.doc_id, page=page, line_start=1, line_end=len(pages[page])
             )
-            draft.cite(ref, source_text_lines(pages[page]))
+            draft.cite(
+                ref, source_text_lines(pages[page]), item=("document", f"p.{page}")
+            )
 
 
 class ResearchPackBuilder(ContextPackBuilder):
@@ -581,13 +600,14 @@ class ResearchPackBuilder(ContextPackBuilder):
                 )
                 for h in clauses
             ],
+            groups=[risk_area(h.metadata) for h in clauses],
         )
         for hit in clauses:
             if hit.metadata.get("quotable"):
                 ref = ClauseSourceRef(
                     clause_id=hit.id, corpus_v=request.versions.corpus_v
                 )
-                draft.cite(ref, hit.text)
+                draft.cite(ref, hit.text, item=("clauses", hit.id))
 
         controls = await fetch_controls(tools, request)
         control_ids = [c.control_id for c in controls.controls]
@@ -653,6 +673,7 @@ class AssessmentPackBuilder(ContextPackBuilder):
 
         controls = await fetch_controls(tools, request)
         control_ids = [c.control_id for c in controls.controls]
+        domain_of = {c.control_id: str(c.domain) for c in controls.controls}
         draft.add(
             "controls",
             [
@@ -663,6 +684,7 @@ class AssessmentPackBuilder(ContextPackBuilder):
                 )
                 for c in controls.controls
             ],
+            groups=[domain_of[c.control_id] for c in controls.controls],
         )
         evidence = await evidence_items(tools, request, control_ids)
         draft.add(
@@ -674,6 +696,7 @@ class AssessmentPackBuilder(ContextPackBuilder):
                 )
                 for cid, artifact, when in evidence
             ],
+            groups=[domain_of[cid] for cid, _, _ in evidence],
         )
         for control in controls.controls:
             lines = [control.name, control.evidence_artifact]
@@ -684,9 +707,15 @@ class AssessmentPackBuilder(ContextPackBuilder):
                     controls_v=request.versions.controls_v,
                 ),
                 source_text_lines(lines),
+                item=("controls", control.control_id),
             )
         hits = await fetch_precedents(tools, precedent_query(record, request))
-        draft.add("precedent_ratings", precedent_rating_items(hits, control_ids))
+        ratings = precedent_rating_items(hits, control_ids)
+        draft.add(
+            "precedent_ratings",
+            ratings,
+            groups=[domain_of[item_id.split("/")[-1]] for item_id, _ in ratings],
+        )
         cite_precedents(draft, hits)
         research = await fetch_ledger(tools, request, agent="research")
         draft.add(
@@ -733,7 +762,12 @@ class CriticPackBuilder(ContextPackBuilder):
                 for e in entries
             ],
         )
-        cite_records(draft, request.case_id, entries)
+        cite_records(
+            draft,
+            request.case_id,
+            entries,
+            item_of=lambda e: ("proposals", e.proposal_id),
+        )
         control_ids = assessed_control_ids(entries)
         hits = await fetch_precedents(tools, precedent_query(record, request))
         draft.add("precedent_ratings", precedent_rating_items(hits, control_ids))
@@ -978,6 +1012,7 @@ class ExaminerPackBuilder(ContextPackBuilder):
             draft.cite(
                 RecordSourceRef(case_id=request.case_id, seq=record.seq),
                 record_text(record),
+                item=("records", f"#{record.seq}"),
             )
         draft.add(
             "routing",
@@ -1029,6 +1064,7 @@ class WatchlistPackBuilder(ContextPackBuilder):
             source_text_lines([list_line(new, c) for c, _ in changes]),
         )
         candidates: list[Item] = []
+        countries: list[str] = []
         for country, _ in changes:
             out = await tools.call(
                 "case_search",
@@ -1042,8 +1078,9 @@ class WatchlistPackBuilder(ContextPackBuilder):
                     candidates.append(
                         (hit.case_id, f"{hit.case_id} · {hit.title} · {country}")
                     )
+                    countries.append(country)
                     draft.cite(CaseSourceRef(case_id=hit.case_id), hit.title)
-        draft.add("candidates", candidates)
+        draft.add("candidates", candidates, groups=countries)
         clauses = await tools.call(
             "policy_search",
             SearchRequest(
@@ -1084,6 +1121,7 @@ class PolicyGapPackBuilder(ContextPackBuilder):
                 (f"#{seq}", f"{gap_id} · #{seq} · {case} · {text}")
                 for gap_id, (case, seq, text) in zip(gap_ids(gaps), gaps, strict=True)
             ],
+            groups=[f"#{seq}" for _, seq, _ in gaps],
         )
         nearest: list[Item] = []
         for case_id, seq, text in gaps:
@@ -1116,7 +1154,9 @@ class PolicyGapPackBuilder(ContextPackBuilder):
                         clause_id=hit.id, corpus_v=request.versions.corpus_v
                     )
                     draft.cite(ref, hit.text)
-        draft.add("nearest", nearest)
+        draft.add(
+            "nearest", nearest, groups=[item_id.split("/")[0] for item_id, _ in nearest]
+        )
 
 
 BUILDERS: Final[Mapping[AgentName, type[ContextPackBuilder]]] = {

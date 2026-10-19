@@ -38,11 +38,17 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
-    """Skip slow/perf tests unless ``FCRM_RUN_SLOW=1`` (upstream's default run)."""
+    """Skip H3's slow/perf tests unless ``FCRM_RUN_SLOW=1`` (upstream's default
+    run). A collection hook sees every collected test of the session, so only
+    the items under this directory are touched (H2's ``slow`` tests have their
+    own switch, ``FCRM_SLOW_TESTS``, in the root conftest)."""
     if os.environ.get("FCRM_RUN_SLOW") == "1":
         return
+    here = Path(__file__).parent
     skip = pytest.mark.skip(reason="slow/perf budget test; set FCRM_RUN_SLOW=1 to run")
     for item in items:
+        if not item.path.is_relative_to(here):
+            continue
         if any(item.get_closest_marker(mark) for mark in _SLOW_MARKS):
             item.add_marker(skip)
 

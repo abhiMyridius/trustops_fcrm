@@ -400,6 +400,7 @@ class OutputShapeGuard(Guard):
                 GuardStatus.BLOCKED,
                 "no agent output to check; failing closed",
                 started=started,
+                details={"empty": True, "attempt": ctx.attempt},
             )
         annotations = verify_outputs(ctx)
         failures = [a for a in annotations if not a.ok]

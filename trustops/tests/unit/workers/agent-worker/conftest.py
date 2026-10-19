@@ -13,14 +13,29 @@ fake (see :func:`model_factory_returning` / :func:`model_factory_raising`),
 and the Mongo ``consumed_messages`` collection is :class:`FakeConsumed`, the
 same minimal double ``tests/unit/packages/common/test_common_events.py``
 uses for :class:`~fcrm_common.events.Consumer` itself.
+
+The job ledger, H2's outbox and the terminal transaction (ADR-79) are
+in-memory too: :class:`FakeAgentJobs` (with a settable clock),
+:class:`FakeAgentOutboxCollection` under a real
+:class:`~fcrm_common.outbox.Outbox`, :class:`FakeH2Session` and
+:func:`fake_transact`. A test builds a consumer with
+``AgentJobConsumer(consumed, publisher, ..., **consumer_deps.kwargs)`` and
+reads the terminal events it committed from ``consumer_deps.sent`` (the same
+``(exchange, routing_key, body, headers)`` tuples a publisher would have seen)
+or ``consumer_deps.events``.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import asyncio
+from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Optional
 
 import pytest
+from fcrm_agent_worker.jobs import ClaimOutcome
 from fcrm_agent_worker.live_runtime import ModelFactory
 from fcrm_agents.builders import builder_for
 from fcrm_agents.context_pack import BuildRequest, ContextPack
@@ -28,6 +43,7 @@ from fcrm_agents.demo import research_output
 from fcrm_agents.runtime import StaticPermitClient
 from fcrm_agents.spec import REGISTRY, AgentSpec
 from fcrm_common.events import build_envelope
+from fcrm_common.outbox import Outbox
 from fcrm_contracts.enums import AgentName
 from fcrm_contracts.events.envelope import Envelope
 from fcrm_contracts.events.payloads import JobPayload
@@ -423,3 +439,378 @@ def make_model_factory_scripted() -> Any:
     """``model_factory_scripted`` as a fixture (see
     ``make_model_factory_returning`` for why)."""
     return model_factory_scripted
+
+
+class FakeH2Session:
+    """The bit of ``AsyncClientSession`` :class:`~fcrm_common.outbox.Outbox`
+    checks: whether a transaction is open."""
+
+    def __init__(self, in_transaction: bool = True) -> None:
+        self.in_transaction = in_transaction
+
+
+async def fake_transact[R](fn: Callable[[Any], Awaitable[R]]) -> R:
+    """A ``Transact`` that runs ``fn`` once with an open fake session."""
+    return await fn(FakeH2Session(in_transaction=True))
+
+
+class _FakeH2Cursor:
+    def __init__(self, docs: list[dict[str, Any]]) -> None:
+        self._docs = docs
+
+    async def to_list(self) -> list[dict[str, Any]]:
+        return self._docs
+
+
+class FakeAgentOutboxCollection:
+    """The operations :class:`~fcrm_common.outbox.Outbox` and
+    :class:`~fcrm_common.outbox.OutboxRelay` issue on ``agent_outbox`` (the
+    pattern of ``test_common_outbox.py``'s fake, under its own name, D-45),
+    plus the unique ``event_id`` index.
+    """
+
+    full_name = "fcrm_test.agent_outbox"
+
+    def __init__(self) -> None:
+        self.docs: list[dict[str, Any]] = []
+        self.sessions: list[Any] = []
+
+    async def insert_one(self, doc: dict[str, Any], session: Any = None) -> None:
+        from pymongo.errors import DuplicateKeyError
+
+        if any(d["event_id"] == doc["event_id"] for d in self.docs):
+            raise DuplicateKeyError("event_id_unique")
+        self.sessions.append(session)
+        self.docs.append(doc)
+
+    def _unpublished(self) -> list[dict[str, Any]]:
+        return sorted(
+            (d for d in self.docs if d["published_at"] is None), key=lambda d: d["_id"]
+        )
+
+    def find(self, query: Any, sort: Any = None, limit: int = 0) -> _FakeH2Cursor:
+        docs = self._unpublished()
+        return _FakeH2Cursor(docs[:limit] if limit else docs)
+
+    async def find_one(
+        self, query: Any, sort: Any = None, projection: Any = None
+    ) -> Optional[dict[str, Any]]:
+        docs = self._unpublished()
+        return docs[0] if docs else None
+
+    async def update_one(self, query: dict[str, Any], update: dict[str, Any]) -> None:
+        for doc in self.docs:
+            if doc["_id"] == query["_id"]:
+                for key, value in update.get("$set", {}).items():
+                    doc[key] = value
+                for key, value in update.get("$inc", {}).items():
+                    doc[key] = doc.get(key, 0) + value
+
+    async def create_indexes(self, indexes: Any) -> list[str]:
+        return []
+
+
+class FakeAgentJobs:
+    """An in-memory :class:`~fcrm_agent_worker.jobs.AgentJobStore` with a
+    settable clock (``now``; :meth:`advance` moves it), keeping the same
+    rules: a job is taken when missing or ``running`` past its lease, each
+    claim has its own token, and ``mark_done`` / ``renew`` / ``release`` act
+    only while that token still holds the job.
+    """
+
+    def __init__(self, holder: str = "h2_test") -> None:
+        self.holder = holder
+        self.now = datetime(2026, 10, 19, 12, 0, 0)
+        self.docs: dict[str, dict[str, Any]] = {}
+        self.claims: list[tuple[str, float, ClaimOutcome]] = []
+        self.done_sessions: list[Any] = []
+        self.released: list[str] = []
+        self._tokens: dict[str, str] = {}
+        self._issued = 0
+
+    def advance(self, seconds: float) -> None:
+        self.now += timedelta(seconds=seconds)
+
+    async def ensure_indexes(self) -> list[str]:
+        return []
+
+    async def claim(
+        self,
+        job_id: str,
+        ttl_s: float,
+        *,
+        case_id: str = "",
+        run_id: str = "",
+        agent: str = "",
+    ) -> ClaimOutcome:
+        doc = self.docs.get(job_id)
+        if doc is not None and doc["status"] == "done":
+            outcome = ClaimOutcome.DONE
+        elif doc is not None and doc["lease_until"] >= self.now:
+            outcome = ClaimOutcome.RUNNING
+        else:
+            self._issued += 1
+            token = f"claim-{self._issued}"
+            self.docs[job_id] = {
+                "_id": job_id,
+                "case_id": case_id,
+                "run_id": run_id,
+                "agent": agent,
+                "status": "running",
+                "holder": self.holder,
+                "claim": token,
+                "started_at": self.now,
+                "lease_until": self.now + timedelta(seconds=ttl_s),
+            }
+            self._tokens[job_id] = token
+            outcome = ClaimOutcome.CLAIMED
+        self.claims.append((job_id, ttl_s, outcome))
+        return outcome
+
+    def _mine(self, job_id: str) -> Optional[dict[str, Any]]:
+        doc = self.docs.get(job_id)
+        token = self._tokens.get(job_id)
+        if doc is None or token is None or doc["claim"] != token:
+            return None
+        return doc if doc["status"] == "running" else None
+
+    async def renew(self, job_id: str, ttl_s: float) -> bool:
+        doc = self._mine(job_id)
+        if doc is None:
+            return False
+        doc["lease_until"] = self.now + timedelta(seconds=ttl_s)
+        return True
+
+    async def mark_done(
+        self, job_id: str, *, outcome: str, event_id: str, session: Any
+    ) -> bool:
+        self.done_sessions.append(session)
+        doc = self._mine(job_id)
+        if doc is None:
+            return False
+        doc.update(
+            status="done", finished_at=self.now, outcome=outcome, event_id=event_id
+        )
+        return True
+
+    async def release(self, job_id: str) -> None:
+        doc = self._mine(job_id)
+        self.forget(job_id)
+        if doc is not None:
+            self.released.append(job_id)
+            del self.docs[job_id]
+
+    def forget(self, job_id: str) -> None:
+        self._tokens.pop(job_id, None)
+
+
+@dataclass
+class ConsumerDeps:
+    """What :class:`~fcrm_agent_worker.handler.AgentJobConsumer` needs beyond
+    its pre-ADR-79 arguments, as fakes, and what they recorded."""
+
+    jobs: FakeAgentJobs = field(default_factory=FakeAgentJobs)
+    outbox_collection: FakeAgentOutboxCollection = field(
+        default_factory=FakeAgentOutboxCollection
+    )
+    transact: Any = fake_transact
+
+    @staticmethod
+    def new_session() -> FakeH2Session:
+        """A session with an open transaction, for a test's own transact."""
+        return FakeH2Session(in_transaction=True)
+
+    @property
+    def outbox(self) -> Outbox:
+        return Outbox(self.outbox_collection)  # type: ignore[arg-type]
+
+    @property
+    def kwargs(self) -> dict[str, Any]:
+        """``transact``, ``jobs`` and ``outbox`` for the constructor."""
+        return {"transact": self.transact, "jobs": self.jobs, "outbox": self.outbox}
+
+    @property
+    def sent(self) -> list[tuple[str, str, bytes, dict[str, Any]]]:
+        """The committed terminal events, as publisher tuples."""
+        return [
+            (doc["exchange"], doc["routing_key"], doc["body"], doc["headers"])
+            for doc in self.outbox_collection.docs
+        ]
+
+    @property
+    def events(self) -> list[tuple[str, Envelope]]:
+        """``(routing_key, envelope)`` per committed terminal event."""
+        return [
+            (routing_key, Envelope.model_validate_json(body))
+            for _exchange, routing_key, body, _headers in self.sent
+        ]
+
+
+@pytest.fixture
+def consumer_deps() -> ConsumerDeps:
+    """Fresh job ledger, outbox and transaction fakes for one consumer."""
+    return ConsumerDeps()
+
+
+# --- the nine-agent matrices (test_live_runtime_scenarios, _adversarial) -----
+
+#: The repository's ``ai/`` folder (the tier chains and pack caps the live
+#: evals use), found from this file rather than the working directory.
+AI_ROOT = Path(__file__).resolve().parents[4] / "ai"
+
+#: The eval row each agent's base case is built from: it passes Guards 4 and 5
+#: as it stands, covers the most output types and carries quotes.
+BASE_ROWS: dict[AgentName, str] = {
+    AgentName.SCREENING: "FCRM-2026-0072",
+    AgentName.INTAKE: "FCRM-2026-0151",
+    AgentName.RESEARCH: "FCRM-2026-0151",
+    AgentName.ASSESSMENT: "FCRM-2026-0072",
+    AgentName.CRITIC: "FCRM-2026-0151",
+    AgentName.NARRATIVE: "FCRM-2026-0151",
+    AgentName.EXAMINER: "FCRM-2026-0151~q1",
+    AgentName.WATCHLIST: "list:v2026-10-fixture",
+    AgentName.POLICY_GAP: "GAP-FCRM-2026-0151-1",
+}
+
+#: Items of output types no reference row covers, added to the base case (each
+#: is checked against the pack first; the fixture fails if one stops passing).
+EXTRA_ITEMS: dict[AgentName, list[dict[str, Any]]] = {
+    AgentName.RESEARCH: [
+        {
+            "domain": "product",
+            "description": "No clause in corpus v14 addresses cash-pickup agents.",
+            "searched": {
+                "query": "cash pickup agent network",
+                "indexes": ["policy"],
+                "hits": 0,
+            },
+        },
+        {
+            "jurisdiction": "MX",
+            "note": "Mexico corridor needs jurisdiction screening at onboarding.",
+            "source_ref": {"kind": "clause", "clause_id": "FCRM42-3.1", "corpus_v": 14},
+            "quote": "new corridors require jurisdiction screening at onboarding",
+            "confidence": 0.8,
+        },
+    ],
+    AgentName.NARRATIVE: [
+        {
+            "missing": [],
+            "stale": [],
+            "contradictory": [],
+            "questions_drafted": 0,
+            "questions_kept": 0,
+        },
+        {
+            "question_id": "Q-1",
+            "anchored_to": "CTL-T01",
+            "text": "When will the corridor vendor review be filed?",
+        },
+    ],
+}
+
+
+@dataclass
+class AdversarialEnv:
+    """What every job of the matrices runs against: the seed registry, the
+    real tier chains, Guard 2 on the registry's allow-list, and the packs the
+    live evals build (``fcrm_evals.live.RowPackBuilder``)."""
+
+    registry: ToolRegistry
+    tiers: dict[str, Any]
+    permit: PermitGuard
+    packs: Any
+
+
+@dataclass
+class AdversarialCase:
+    """One agent's base case: an eval-row pack and items (JSON dicts) that
+    pass Guards 4 and 5 against it."""
+
+    agent: AgentName
+    pack: ContextPack
+    items: list[dict[str, Any]]
+
+
+def _answering(items: list[dict[str, Any]]) -> ModelFactory:
+    """A factory whose model answers ``items`` through the output tool."""
+
+    def respond(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        from pydantic_ai.messages import ToolCallPart
+
+        tool = info.output_tools[0]
+        properties = tool.parameters_json_schema.get("properties", {})
+        key = next(iter(properties)) if len(properties) == 1 else "response"
+        return ModelResponse(
+            parts=[ToolCallPart(tool_name=tool.name, args={key: items})]
+        )
+
+    def factory(models: Any, plan: Any) -> FunctionModel:
+        return FunctionModel(respond, model_name="fake-base")
+
+    return factory
+
+
+async def _passes(env: AdversarialEnv, case: AdversarialCase) -> bool:
+    from fcrm_agent_worker.live_runtime import run_agent_live
+    from fcrm_agents.runtime import RunVerdict
+    from fcrm_guardrails import CaseBudget
+
+    result, _model, _usage = await run_agent_live(
+        REGISTRY[case.agent],
+        case.pack,
+        f"base-{case.agent.value}",
+        registry=env.registry,
+        permit=env.permit,
+        budget=CaseBudget(case.pack.case_id),
+        instructions=None,
+        tiers_config=env.tiers,
+        model_factory=_answering(case.items),
+    )
+    return result.verdict is RunVerdict.PASS
+
+
+async def _base_cases(env: AdversarialEnv) -> dict[AgentName, AdversarialCase]:
+    from fcrm_evals.datasets import load
+
+    cases: dict[AgentName, AdversarialCase] = {}
+    for agent in AgentName:
+        row = next(r for r in load(agent) if r.row_id == BASE_ROWS[agent])
+        pack = await env.packs.build(row)
+        by_type: dict[str, dict[str, Any]] = {}
+        for ref in row.expected.reference_outputs:
+            by_type.setdefault(ref.type, ref.data)
+        case = AdversarialCase(
+            agent, pack, [*by_type.values(), *EXTRA_ITEMS.get(agent, [])]
+        )
+        assert await _passes(env, case), f"{agent.value} base case no longer passes"
+        cases[agent] = case
+    return cases
+
+
+@pytest.fixture(scope="session")
+def adversarial_env() -> AdversarialEnv:
+    """The seed registry and pins, the eval pack builder over the repository's
+    ``ai/``, the real ``ai/models/tiers.yaml`` and Guard 2 on the registry's
+    allow-list (the models are always fakes)."""
+    from fcrm_agents.models import load_tiers_config
+    from fcrm_evals.live import RowPackBuilder
+    from fcrm_seed.loader import load_raw
+    from fcrm_tools import seed_pins
+
+    registry = build_seed_registry()
+    return AdversarialEnv(
+        registry=registry,
+        tiers=load_tiers_config(AI_ROOT),
+        permit=PermitGuard(StaticPermitClient.from_registry()),
+        packs=RowPackBuilder.from_ai(registry, seed_pins(load_raw()), AI_ROOT),
+    )
+
+
+@pytest.fixture(scope="session")
+def base_cases(adversarial_env: AdversarialEnv) -> dict[AgentName, AdversarialCase]:
+    """Each agent's base case (:data:`BASE_ROWS` plus :data:`EXTRA_ITEMS`),
+    built and checked to pass once per session. Built on a private event loop:
+    a session fixture outlives every test's loop."""
+    with asyncio.Runner(loop_factory=asyncio.new_event_loop) as runner:
+        return runner.run(_base_cases(adversarial_env))

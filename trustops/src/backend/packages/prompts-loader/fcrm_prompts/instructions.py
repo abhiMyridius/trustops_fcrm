@@ -166,6 +166,7 @@ class InstructionRenderer:
             "scoring.scales": _scoring_scales(raw),
         }
         self._cache: dict[tuple[str, str, str], RenderedInstructions] = {}
+        """Keyed by prompt id, mode and pinned versions."""
 
     @property
     def library(self) -> PromptLibrary:
@@ -188,10 +189,14 @@ class InstructionRenderer:
         agent: AgentName,
         versions: PinnedVersions,
         mode: Optional[str] = None,
+        *,
+        prompt_id: Optional[str] = None,
     ) -> RenderedInstructions:
         """The rendered ``<agent>.system`` prompt for a job pinned to
         ``versions``. ``mode`` matters to the narrative agent only (default
-        ``recommendation``); every other agent ignores it.
+        ``recommendation``); every other agent ignores it. ``prompt_id`` renders
+        another system prompt of the agent instead (``narrative.reduce``, the
+        call that merges a chunked job's partial answers, ADR-78).
 
         Raises:
             fcrm_prompts.PromptNotFoundError: the agent has no system prompt.
@@ -199,7 +204,8 @@ class InstructionRenderer:
             ValueError: ``mode`` is not one of the narrative modes.
         """
         chosen = self._narrative_mode(agent, mode)
-        key = (agent.value, chosen or "", versions.model_dump_json())
+        chosen_id = prompt_id or f"{agent.value}.system"
+        key = (chosen_id, chosen or "", versions.model_dump_json())
         cached = self._cache.get(key)
         if cached is not None:
             return cached
@@ -211,7 +217,7 @@ class InstructionRenderer:
         if chosen is not None:
             variables["mode"] = chosen
             variables["mode_schema"] = NARRATIVE_MODES[chosen]
-        rendered = self._library.render(f"{agent.value}.system", variables)
+        rendered = self._library.render(chosen_id, variables)
         logger.info(
             "rendered %s", rendered.prompt_id, extra={"sha": rendered.sha256[:12]}
         )

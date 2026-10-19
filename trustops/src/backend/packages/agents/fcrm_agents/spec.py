@@ -26,7 +26,6 @@ Source of each value
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from functools import partial
 from typing import Annotated, Any, Final, Optional, Union
@@ -35,21 +34,29 @@ from fcrm_contracts.enums import AgentName, Tier
 from fcrm_guardrails.output_shape import AGENT_OUTPUT_TYPES
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
+from fcrm_agents.json_text import JSONTextError, loads_text, looks_like_json
 
-def _loads(value: Any) -> Any:
+
+def _loads(value: Any, *, outer: bool = False) -> Any:
     """``value`` decoded when it is text that is JSON, else unchanged.
 
-    Decoded with ``strict=False``, which accepts a raw line break or tab inside a
-    string. A model that writes the list as text keeps a verbatim multi-line
-    clause quote's real line breaks instead of escaping them (seen live on
-    8 October: research failed both attempts on it, and the case went to
-    handoff, D-115). The characters are kept as they were sent, and the result
-    is still validated against the contract.
+    Decoded by :func:`fcrm_agents.json_text.loads_text`: raw line breaks and tabs
+    inside a string are accepted (a verbatim multi-line clause quote, D-115), and
+    an unescaped ``"``, an escape JSON does not have, a trailing comma or a
+    Markdown fence are mended without changing a character of any string
+    (FCRM-2026-0154). The result is still validated against the contract.
+
+    For the whole answer (``outer``), text that starts like JSON but cannot be
+    decoded raises :class:`~fcrm_agents.json_text.JSONTextError`, so the
+    validation error (and the retry's feedback) says where the JSON broke
+    instead of only "Input should be a valid list".
     """
     if isinstance(value, str):
         try:
-            return json.loads(value, strict=False)
-        except json.JSONDecodeError:
+            return loads_text(value)
+        except JSONTextError:
+            if outer and looks_like_json(value):
+                raise
             return value
     return value
 
@@ -89,7 +96,7 @@ def decode_json_text(value: Any, known_keys: Optional[frozenset[str]] = None) ->
     empty keys that are not among them are dropped; see
     :func:`_without_empty_unknown_keys`.
     """
-    value = _loads(value)
+    value = _loads(value, outer=True)
     if isinstance(value, dict):
         value = [value]
     if isinstance(value, list):

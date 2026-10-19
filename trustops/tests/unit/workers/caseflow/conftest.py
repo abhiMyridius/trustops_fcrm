@@ -2080,3 +2080,80 @@ def reflag_service() -> FakeReflagService:
 @pytest.fixture
 def jurisdiction_policy_service() -> FakeJurisdictionPolicyService:
     return FakeJurisdictionPolicyService()
+
+
+# --- H2 beside H1: the full-cycle test's agent-worker fakes (D-45 names) -------
+
+
+class CycleAgentJobs:
+    """An in-memory stand-in for :class:`fcrm_agent_worker.jobs.AgentJobStore`
+    (whose claim is an aggregation-pipeline upsert :class:`FakeCollection`
+    cannot run), keeping its rules: a job is taken when missing, a finished
+    one answers ``DONE``, a running one ``RUNNING``, and ``mark_done`` acts
+    only on a job this store holds as running. No clock: a lease never runs
+    out in a single-process cycle. ``done_sessions`` records the session each
+    ``mark_done`` was given (the terminal transaction's).
+    """
+
+    def __init__(self) -> None:
+        self.docs: dict[str, dict[str, Any]] = {}
+        self.done_sessions: list[object] = []
+
+    async def claim(
+        self,
+        job_id: str,
+        ttl_s: float,
+        *,
+        case_id: str = "",
+        run_id: str = "",
+        agent: str = "",
+    ) -> Any:
+        from fcrm_agent_worker.jobs import ClaimOutcome
+
+        doc = self.docs.get(job_id)
+        if doc is not None:
+            return (
+                ClaimOutcome.DONE if doc["status"] == "done" else ClaimOutcome.RUNNING
+            )
+        self.docs[job_id] = {
+            "_id": job_id,
+            "case_id": case_id,
+            "run_id": run_id,
+            "agent": agent,
+            "status": "running",
+            "lease_s": ttl_s,
+        }
+        return ClaimOutcome.CLAIMED
+
+    async def renew(self, job_id: str, ttl_s: float) -> bool:
+        doc = self.docs.get(job_id)
+        return doc is not None and doc["status"] == "running"
+
+    async def mark_done(
+        self, job_id: str, *, outcome: str, event_id: str, session: object
+    ) -> bool:
+        self.done_sessions.append(session)
+        doc = self.docs.get(job_id)
+        if doc is None or doc["status"] != "running":
+            return False
+        doc.update(status="done", outcome=outcome, event_id=event_id)
+        return True
+
+    async def release(self, job_id: str) -> None:
+        doc = self.docs.get(job_id)
+        if doc is not None and doc["status"] == "running":
+            del self.docs[job_id]
+
+    def forget(self, job_id: str) -> None:
+        """Nothing to drop: this store keeps no per-process claim token."""
+
+
+@pytest.fixture
+def cycle_agent_jobs() -> CycleAgentJobs:
+    return CycleAgentJobs()
+
+
+@pytest.fixture
+def cycle_agent_outbox_collection() -> FakeCollection:
+    """H2's own ``agent_outbox`` (a real :class:`Outbox` runs over it)."""
+    return FakeCollection("agent_outbox")

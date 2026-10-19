@@ -153,11 +153,13 @@ def price_table(tiers_config: Any) -> PriceTable:
 @pytest.fixture
 def inflate_output() -> Callable[[list[dict[str, Any]]], list[dict[str, Any]]]:
     """Rewrites a screening payload so one reason is longer than the cheap tier's
-    token budget a run: schema valid, but more tokens than it may spend."""
+    token budget a run: schema valid, but more tokens than it may spend. Twice
+    the budget, because an answer that overruns it by less than one request's
+    output cap is kept and annotated (ADR-80); only a larger one is blocked."""
 
     def inflate(payload: list[dict[str, Any]]) -> list[dict[str, Any]]:
         copy = deepcopy(payload)
-        copy[0]["reasons"][0]["text"] = "word " * (CHEAP_BUDGET_TOKENS + 1_000)
+        copy[0]["reasons"][0]["text"] = "word " * (2 * CHEAP_BUDGET_TOKENS)
         return copy
 
     return inflate
@@ -223,3 +225,40 @@ def results_root(tmp_path: Path) -> Path:
     root = tmp_path / "results"
     root.mkdir()
     return root
+
+
+@pytest.fixture
+def recorded_factory() -> Callable[..., ModelFactory]:
+    """A ``ModelFactory`` whose model answers each row with what a recorded
+    live run accepted for it (``recorded`` maps a row id to the ``data`` of
+    each tagged item of its ``<agent>.outputs.jsonl`` line), found the way
+    :func:`reference_factory` finds a row: the agent's output tool and the
+    row's marker in the pack text. The model makes no tool call; it sends the
+    recorded answer as its first and only response."""
+
+    def build(
+        rows: Sequence[EvalRow], recorded: dict[str, list[dict[str, Any]]]
+    ) -> ModelFactory:
+        payloads = {
+            (f"{row.agent.value}_output", _marker(row)): recorded[row.row_id]
+            for row in rows
+        }
+
+        def respond(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+            text = _user_text(messages)
+            tool = info.output_tools[0].name
+            payload = next(
+                p
+                for (name, marker), p in payloads.items()
+                if name == tool and marker in text
+            )
+            return ModelResponse(
+                parts=[ToolCallPart(tool_name=tool, args=_output_args(info, payload))]
+            )
+
+        def factory(models: Any, plan: Any) -> FunctionModel:
+            return FunctionModel(respond, model_name="recorded-live-model")
+
+        return factory
+
+    return build

@@ -175,8 +175,9 @@ async def test_the_shutdown_hook_closes_the_tool_clients(
 
     monkeypatch.setattr(ServiceClient, "aclose", record_close)
     unit = _unit(_settings(tmp_path))
-    assert len(unit.on_shutdown) == 1
-    await unit.on_shutdown[0]()
+    # The relay stops first, then the HTTP clients close.
+    assert len(unit.on_shutdown) == 2
+    await unit.on_shutdown[-1]()
     assert sorted(closed) == ["audit", "case", "policy"]
 
 
@@ -190,7 +191,7 @@ async def test_the_shutdown_hook_closes_the_audit_client_with_an_injected_regist
 
     monkeypatch.setattr(ServiceClient, "aclose", record_close)
     unit = _unit(_settings(tmp_path), registry=seed_registry)
-    await unit.on_shutdown[0]()
+    await unit.on_shutdown[-1]()
     assert closed == ["audit"]
 
 

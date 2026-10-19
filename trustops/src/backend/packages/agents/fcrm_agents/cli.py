@@ -2,15 +2,17 @@
 demo case with the seed-backed tools (no network, no AWS).
 
     fcrm-agent pack <agent> [--mode completeness|recommendation] --seed
-    fcrm-agent run research --case FCRM-2026-0151 --seed [--tamper] [--retry-corrected]
-    fcrm-agent run examiner --case FCRM-2026-0151 --seed
+    fcrm-agent run <agent> [--mode completeness|recommendation] --seed
+        [--case FCRM-2026-0151] [--tamper] [--retry-corrected]
 
 ``run`` prints the pack (section names, token estimates, truncation), the
-pre-guard results, every attempt's post-guard results and the verdict.
-``--tamper`` rewords one clause quote so Guard 4 must refuse it;
-``--retry-corrected`` supplies the untampered output as attempt 2 (the
-fallback retry). Output goes to stdout (``sys.stdout.write``; ``print`` is
-forbidden by the coding standards).
+pre-guard results, every attempt's post-guard results and the verdict. The
+fake model answers with :func:`fcrm_agents.demo.demo_output`, derived from
+the pack it was built for (all nine agents). ``--tamper`` makes one item fail
+Guard 4 (for research: one clause quote reworded); ``--retry-corrected``
+supplies the untampered output as attempt 2 (the fallback retry). Output
+goes to stdout (``sys.stdout.write``; ``print`` is forbidden by the coding
+standards).
 """
 
 from __future__ import annotations
@@ -28,13 +30,27 @@ from fcrm_tools import DEMO_CASE_ID, build_seed_registry
 
 from fcrm_agents.builders import builder_for
 from fcrm_agents.context_pack import ContextPack
-from fcrm_agents.demo import demo_request, examiner_output, research_output
+from fcrm_agents.demo import demo_output, demo_request
 from fcrm_agents.runtime import AgentRunResult, run_agent_offline
 from fcrm_agents.spec import REGISTRY
 
 logger = logging.getLogger(__name__)
 
-RUNNABLE = ("research", "examiner")
+RUNNABLE = tuple(a.value for a in AgentName)
+
+LABELS = (
+    "clause_id",
+    "control_id",
+    "field_id",
+    "condition_id",
+    "finding_type",
+    "question_id",
+    "gap_id",
+    "change_type",
+    "domain",
+    "case_id",
+)
+"""The first of these an accepted item has names it in the run summary."""
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -47,7 +63,8 @@ def _parser() -> argparse.ArgumentParser:
     pack.add_argument("--mode", choices=["completeness", "recommendation"])
     run = sub.add_parser("run", help="run one agent job offline through the guards")
     run.add_argument("agent", choices=RUNNABLE)
-    run.add_argument("--tamper", action="store_true", help="reword one clause quote")
+    run.add_argument("--mode", choices=["completeness", "recommendation"])
+    run.add_argument("--tamper", action="store_true", help="make one item fail Guard 4")
     run.add_argument(
         "--retry-corrected",
         action="store_true",
@@ -95,8 +112,10 @@ def write_result(out: TextIO, result: AgentRunResult) -> None:
         out.write(f" · stopped at {result.stopped_at.value} · {result.reason}")
     out.write("\n")
     for item in result.accepted:
-        label = getattr(item, "clause_id", None) or getattr(item, "case_id", None)
-        out.write(f"  accepted {type(item).__name__} {label or ''}\n")
+        label = next(
+            (str(v) for a in LABELS if (v := getattr(item, a, None)) is not None), ""
+        )
+        out.write(f"  accepted {type(item).__name__} {label}\n")
     for note in result.notes_for_analyst:
         out.write(f"  note: {note}\n")
 
@@ -110,13 +129,10 @@ async def _pack(agent: AgentName, mode: Optional[str]) -> ContextPack:
 async def _run(args: argparse.Namespace, out: TextIO) -> int:
     agent = AgentName(args.agent)
     registry = build_seed_registry()
-    pack = await builder_for(agent).build(demo_request(agent), registry)
+    pack = await builder_for(agent).build(demo_request(agent, args.mode), registry)
     write_pack(out, pack)
-    if agent is AgentName.RESEARCH:
-        first = research_output(pack, tamper=args.tamper)
-        retry = research_output(pack) if args.retry_corrected else None
-    else:
-        first, retry = examiner_output(), None
+    first = demo_output(agent, pack, tamper=args.tamper)
+    retry = demo_output(agent, pack) if args.retry_corrected else None
     result = await run_agent_offline(
         REGISTRY[agent], pack, first, retry_output=retry, registry=registry
     )

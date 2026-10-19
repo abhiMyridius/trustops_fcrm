@@ -22,15 +22,32 @@ Caps (proposed conversions; design B pinned token caps only)
 ------------------------------------------------------------
 - A section's **character cap** is its token cap x :data:`CHARS_PER_TOKEN`
   (4).
-- The **token estimate** is word-based: ``ceil(words x TOKENS_PER_WORD)``
-  with :data:`TOKENS_PER_WORD` = 1.35; the real ``input_tokens`` from the
-  call is recorded afterwards (design B §3.3 calibration).
+- The **token estimate** is the larger of a word count and a character
+  count: ``max(ceil(words x TOKENS_PER_WORD), ceil(chars /
+  CHARS_PER_TOKEN_ESTIMATE))`` with :data:`TOKENS_PER_WORD` = 1.35 and
+  :data:`CHARS_PER_TOKEN_ESTIMATE` = 3.6 (``ai/guards/thresholds.yaml``).
+  Words alone undercounted dense text (ids, dates, JSON) about 1.7 times;
+  the character count catches it and the estimate is never lower than the
+  word count. The real ``input_tokens`` from the call is recorded
+  afterwards (design B §3.3 calibration).
 - Prelude sections (identity, versions, rerun, question, score) are capped
   at :data:`PRELUDE_TOKEN_CAP` (120 tokens).
 - Ranked lists are cut at whole items with a visible
   ``[showing k of n; m omitted by budget: ids ...]`` line; ``fields`` and
-  ``controls`` are never truncated (:class:`PackOverflowError` instead, so
-  H1 splits the job); a pack over its tier total also raises.
+  ``controls`` are never truncated: :meth:`ContextPackBuilder.build_parts`
+  splits them into parts, and :meth:`ContextPackBuilder.build` (one part)
+  raises :class:`PackOverflowError`, as it does for a pack over its tier
+  total.
+
+Parts
+-----
+:meth:`ContextPackBuilder.build` makes one pack, exactly as described above.
+:meth:`ContextPackBuilder.build_parts` makes the same pack when it fits, and
+otherwise splits the agent's main sections into several parts, each a whole
+pack of its own, instead of cutting them (:mod:`fcrm_agents.chunking`). For
+that the draft keeps every section's items, the group each item belongs to
+(a domain, a country, a gap) and which item each source belongs to, so a
+part cites only the items it shows.
 
 Builders may call only their agent's ``pack_tools`` (``ai/agents/*.yaml``;
 OPA ``caller: builder``), never the model's tool list by assumption, and
@@ -69,11 +86,12 @@ logger = logging.getLogger(__name__)
 BUILDER_VERSION: Final = "1"
 CHARS_PER_TOKEN: Final = 4
 TOKENS_PER_WORD: Final = 1.35
+CHARS_PER_TOKEN_ESTIMATE: Final = 3.6
 PRELUDE_TOKEN_CAP: Final = 120
 UNLISTED_SECTION_TOKEN_CAP: Final = 400
 NEVER_TRUNCATE: Final[frozenset[str]] = frozenset({"fields", "controls"})
 PRELUDE: Final[frozenset[str]] = frozenset(
-    {"identity", "versions", "rerun", "question", "score"}
+    {"identity", "versions", "rerun", "part", "question", "score"}
 )
 MAX_OMITTED_IDS: Final = 6
 
@@ -142,8 +160,11 @@ class PackBuildError(Exception):
 
 
 def estimate_tokens(text: str) -> int:
-    """Word-based token estimate (see module doc)."""
-    return math.ceil(len(text.split()) * TOKENS_PER_WORD)
+    """Token estimate: the larger of the word and the character estimate (see
+    module doc), so it is never lower than the word count alone."""
+    by_words = math.ceil(len(text.split()) * TOKENS_PER_WORD)
+    by_chars = math.ceil(len(text) / CHARS_PER_TOKEN_ESTIMATE)
+    return max(by_words, by_chars)
 
 
 class PackSection(BaseModel):
@@ -229,6 +250,13 @@ class ContextPack(BaseModel):
     token_cap: int
     pack_hash: str
     builder_version: str = BUILDER_VERSION
+    part_index: int = 1
+    """Which part of the job's input this pack is (1 for an unsplit job)."""
+    part_count: int = 1
+    """How many parts the job's input was split into (1: not split)."""
+    part_items: dict[str, tuple[int, int, int]] = Field(default_factory=dict)
+    """Per split section: the first and last item shown (1-based, in the
+    section's own order) and how many items the section has in all."""
 
     def section_names(self) -> list[str]:
         """Section names in pack order."""
@@ -378,14 +406,39 @@ def source_text_lines(lines: Sequence[str]) -> str:
     return "\n".join(lines)
 
 
-class PackDraft:
-    """Sections and sources collected while a builder runs."""
+ItemTag = tuple[str, str]
+"""``(section name, item id)``: the pack item a source belongs to."""
 
-    def __init__(self, caps: Mapping[str, int]) -> None:
+
+class PackDraft:
+    """Sections and sources collected while a builder runs.
+
+    Besides the fitted sections (what a one-part pack shows), the draft keeps
+    what :mod:`fcrm_agents.chunking` needs to lay the same input out over
+    several parts: every section's items in order (:attr:`items`), the group
+    each item belongs to when the builder named one (:attr:`groups`), the
+    truncation note of each section (:attr:`notes`), and which item a source
+    belongs to (:attr:`source_items`), so a part cites only what it shows.
+
+    With ``defer_overflow`` a never-truncated section over its cap does not
+    raise at once: it is recorded in :attr:`overflows` by section (and kept whole), so a
+    builder that can split the section into parts still sees all of it; a
+    one-part build raises the first recorded overflow, as it always did.
+    """
+
+    def __init__(
+        self, caps: Mapping[str, int], *, defer_overflow: bool = False
+    ) -> None:
         """Collect sections under ``caps`` (section name -> token cap)."""
         self._caps = caps
+        self.defer_overflow = defer_overflow
         self.sections: list[PackSection] = []
         self.sources: dict[str, AvailableSource] = {}
+        self.items: dict[str, list[Item]] = {}
+        self.groups: dict[str, list[str]] = {}
+        self.notes: dict[str, Callable[[Sequence[Item], int], str]] = {}
+        self.source_items: dict[str, ItemTag] = {}
+        self.overflows: dict[str, PackOverflowError] = {}
 
     def cap_for(self, name: str) -> int:
         """The token cap of section ``name``."""
@@ -399,16 +452,37 @@ class PackDraft:
         items: Sequence[Item],
         *,
         note: Callable[[Sequence[Item], int], str] = _omitted_note,
+        groups: Optional[Sequence[str]] = None,
     ) -> PackSection:
-        """Fit and append section ``name`` (empty lists render ``(none)``)."""
+        """Fit and append section ``name`` (empty lists render ``(none)``).
+
+        ``groups`` names, per item, the group it belongs to (a domain, a
+        country, a gap): a split keeps a group's items in one part when they
+        fit.
+
+        Raises:
+            ValueError: ``groups`` is not one name per item.
+            PackOverflowError: a never-truncated section is over its cap (only
+                without ``defer_overflow``).
+        """
+        if groups is not None and len(groups) != len(items):
+            msg = f"section {name!r}: {len(groups)} groups for {len(items)} items"
+            raise ValueError(msg)
         rows = list(items) or [("none", "(none)")]
-        section = fit_items(
-            name,
-            rows,
-            self.cap_for(name),
-            never_truncate=name in NEVER_TRUNCATE,
-            note=note,
-        )
+        self.items[name] = rows
+        self.notes[name] = note
+        if groups is not None and items:
+            self.groups[name] = list(groups)
+        cap = self.cap_for(name)
+        try:
+            section = fit_items(
+                name, rows, cap, never_truncate=name in NEVER_TRUNCATE, note=note
+            )
+        except PackOverflowError as exc:
+            if not self.defer_overflow:
+                raise
+            self.overflows.setdefault(name, exc)
+            section = whole_section(name, rows, cap)
         self.sections.append(section)
         return section
 
@@ -416,10 +490,61 @@ class PackDraft:
         """Append a one-line prelude section."""
         return self.add(name, [(name, text)])
 
-    def cite(self, ref: SourceRef, text: str) -> None:
-        """Register a source the agent may cite (last registration wins)."""
+    def cite(
+        self, ref: SourceRef, text: str, *, item: Optional[ItemTag] = None
+    ) -> None:
+        """Register a source the agent may cite (last registration wins).
+
+        ``item`` (``(section, item id)``) ties the source to the pack item it
+        belongs to: a pack (or a part of one) that does not show that item
+        does not offer the source either.
+        """
         source = AvailableSource(source_ref=ref, text=text)
         self.sources[source.key] = source
+        if item is None:
+            self.source_items.pop(source.key, None)
+        else:
+            self.source_items[source.key] = item
+
+    def shown_ids(self) -> dict[str, set[str]]:
+        """Per section, the ids of the items its fitted text shows."""
+        return {
+            s.name: {item_id for item_id, _ in self.items[s.name][: s.items_shown]}
+            for s in self.sections
+        }
+
+    def sources_for(
+        self, shown: Mapping[str, Collection[str]]
+    ) -> list[AvailableSource]:
+        """The sources a pack showing ``shown`` (section -> item ids) offers:
+        every untagged source, and each tagged one whose item is shown."""
+        return [
+            source
+            for key, source in self.sources.items()
+            if (tag := self.source_items.get(key)) is None
+            or tag[1] in shown.get(tag[0], ())
+        ]
+
+
+def whole_section(name: str, items: Sequence[Item], cap_tokens: int) -> PackSection:
+    """Section ``name`` showing every item, whatever its cap (a never-truncated
+    section kept whole for a split; see :class:`PackDraft`)."""
+    text = "\n".join(line for _, line in items)
+    return PackSection(
+        name=name,
+        text=text,
+        cap_tokens=cap_tokens,
+        cap_chars=cap_tokens * CHARS_PER_TOKEN,
+        tokens=estimate_tokens(text),
+        truncated=False,
+        items_total=len(items),
+        items_shown=len(items),
+    )
+
+
+def render_user_text(sections: Mapping[str, str]) -> str:
+    """Sections as the one Markdown text the model reads (``## name``)."""
+    return "\n\n".join(f"## {name}\n{text}" for name, text in sections.items())
 
 
 def pack_hash(payload: Mapping[str, Any]) -> str:
@@ -466,7 +591,8 @@ class ContextPackBuilder(ABC):
         return int(self._pack_totals[Tier(self.spec.tier).value])
 
     async def build(self, request: BuildRequest, registry: ToolRegistry) -> ContextPack:
-        """Assemble, cap and hash the pack.
+        """Assemble, cap and hash the pack (one part: ``build_parts`` with
+        ``max_parts=1``).
 
         Raises:
             PackOverflowError: a never-truncated section or the total
@@ -474,6 +600,67 @@ class ContextPackBuilder(ABC):
             PackBuildError: a required request input is missing.
             ToolError: a tool refused (including scope/permit refusals).
         """
+        return (await self.build_parts(request, registry, max_parts=1))[0]
+
+    async def build_parts(
+        self, request: BuildRequest, registry: ToolRegistry, *, max_parts: int
+    ) -> list[ContextPack]:
+        """The pack, or, when it does not fit, its parts (module doc, Parts).
+
+        A pack that fits (nothing cut from the sections the agent's input can
+        be split along, and under the tier total) is returned alone, the very
+        pack :meth:`build` makes. Otherwise :func:`fcrm_agents.chunking.
+        plan_parts` lays the input out over parts, each its own pack with a
+        ``part`` line saying what it holds. With ``max_parts=1`` nothing is
+        split: sections are cut and overflows raise, as :meth:`build` always
+        did.
+
+        Raises:
+            ValueError: ``max_parts`` is below 1.
+            fcrm_agents.chunking.TooManyPartsError: the input needs more than
+                ``max_parts`` parts (a :class:`PackOverflowError`).
+            PackOverflowError: a section that is not split, or a single item,
+                exceeds its cap.
+            PackBuildError: a required request input is missing.
+            ToolError: a tool refused (including scope/permit refusals).
+        """
+        # Imported here: the planner builds on this module's draft and sections.
+        from fcrm_agents.chunking import plan_parts, render_part
+
+        if max_parts < 1:
+            msg = f"max_parts must be at least 1, got {max_parts}"
+            raise ValueError(msg)
+        draft, tools = await self._assemble(request, registry)
+        if max_parts == 1:
+            return [self._finish(request, draft, tools)]
+        plans = plan_parts(
+            self.agent, draft, token_cap=self.token_cap(), max_parts=max_parts
+        )
+        if len(plans) == 1 and plans[0].whole:
+            return [self._finish(request, draft, tools)]
+        packs = []
+        for plan in plans:
+            sections, shown, part_items = render_part(self.agent, draft, plan)
+            packs.append(
+                self._finish_part(
+                    request,
+                    tools,
+                    sections,
+                    draft.sources_for(shown),
+                    part=(plan.index, plan.count),
+                    part_items=part_items,
+                )
+            )
+        logger.info(
+            "context pack split into parts",
+            extra={"agent": self.agent.value, "parts": len(packs)},
+        )
+        return packs
+
+    async def _assemble(
+        self, request: BuildRequest, registry: ToolRegistry
+    ) -> tuple[PackDraft, ScopedTools]:
+        """Run the builder over a draft that keeps items and defers overflow."""
         tools = ScopedTools(
             registry,
             agent=self.agent,
@@ -481,16 +668,53 @@ class ContextPackBuilder(ABC):
             case_id=request.case_id,
             versions=request.versions,
         )
-        draft = PackDraft(self._section_caps.get(self.caps_key(request), {}))
+        draft = PackDraft(
+            self._section_caps.get(self.caps_key(request), {}), defer_overflow=True
+        )
         await self.assemble(request, tools, draft)
-        sections = {s.name: s.text for s in draft.sections}
-        user_text = "\n\n".join(f"## {n}\n{t}" for n, t in sections.items())
-        tokens = estimate_tokens(user_text)
+        return draft, tools
+
+    def _finish(
+        self, request: BuildRequest, draft: PackDraft, tools: ScopedTools
+    ) -> ContextPack:
+        """The one-part pack: the draft's fitted sections, as built.
+
+        Raises:
+            PackOverflowError: a never-truncated section, or the total, is
+                over its cap.
+        """
+        if draft.overflows:
+            raise next(iter(draft.overflows.values()))
+        return self._finish_part(
+            request, tools, draft.sections, draft.sources_for(draft.shown_ids())
+        )
+
+    def _finish_part(
+        self,
+        request: BuildRequest,
+        tools: ScopedTools,
+        section_meta: Sequence[PackSection],
+        sources: list[AvailableSource],
+        *,
+        part: tuple[int, int] = (1, 1),
+        part_items: Optional[Mapping[str, tuple[int, int, int]]] = None,
+    ) -> ContextPack:
+        """Cap the total and hash one pack (one part of a split job, or the
+        whole pack). A part's index and count join the hash only when the job
+        is split, so an unsplit pack hashes as it always did.
+
+        Raises:
+            PackOverflowError: the pack is over its tier total.
+        """
+        sections = {s.name: s.text for s in section_meta}
+        tokens = estimate_tokens(render_user_text(sections))
         cap = self.token_cap()
+        index, count = part
         if tokens > cap:
-            msg = f"{self.agent.value} pack is ~{tokens} tokens; tier cap {cap}"
+            where = f" part {index} of {count}" if count > 1 else ""
+            msg = f"{self.agent.value}{where} pack is ~{tokens} tokens; tier cap {cap}"
             raise PackOverflowError(msg)
-        identity = {
+        identity: dict[str, Any] = {
             "agent": self.agent.value,
             "mode": request.mode,
             "case_id": request.case_id,
@@ -498,9 +722,17 @@ class ContextPackBuilder(ABC):
             "versions": request.versions.model_dump(),
             "sections": sections,
         }
+        if count > 1:
+            identity["part"] = [index, count]
         logger.debug(
             "context pack built",
-            extra={"agent": self.agent.value, "tokens": tokens, "tools": tools.calls},
+            extra={
+                "agent": self.agent.value,
+                # Not "tokens": the log scrubber drops any key containing "token".
+                "estimated": tokens,
+                "tools": tools.calls,
+                "part": index,
+            },
         )
         return ContextPack(
             agent=self.agent,
@@ -510,12 +742,15 @@ class ContextPackBuilder(ABC):
             submission_version=request.submission_version,
             versions=request.versions,
             sections=sections,
-            section_meta=draft.sections,
-            sources=list(draft.sources.values()),
-            tools_called=tools.calls,
+            section_meta=list(section_meta),
+            sources=sources,
+            tools_called=list(tools.calls),
             token_estimate=tokens,
             token_cap=cap,
             pack_hash=pack_hash(identity),
+            part_index=index,
+            part_count=count,
+            part_items=dict(part_items or {}),
         )
 
     @abstractmethod

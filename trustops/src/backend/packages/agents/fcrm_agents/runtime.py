@@ -20,8 +20,8 @@ thing:
    verbatim) and then Guard 5 (the eight rules) on what survives it.
 
 Attempts follow Guard 3's plan (``attempt_plan``): attempt 2 exists only
-for a Guard 4 ``retry``, runs on the fallback slot with a halved
-``max_tokens`` hint, and on it claims failing *only* the verbatim check are
+for a Guard 4 ``retry``, runs on the fallback slot with the tier's whole
+``max_tokens``, and on it claims failing *only* the verbatim check are
 dropped (flow node I6D). An offline run given no ``retry_output`` is a
 single-attempt run: a fixed function model has nothing new to say, so a
 Guard 4 retry then has no attempt left and the job is **blocked**
@@ -376,6 +376,12 @@ class AttemptRecord(BaseModel):
     tools_called: list[str] = Field(default_factory=list)
     """The tools the model called in this attempt, in order (a refused call
     is listed too: it cost a request)."""
+    part: int = 1
+    """Which part of a chunked job this attempt answered (1 when the job was
+    not split; 0 for the consolidation call that merges the parts' answers)."""
+    allowances: list[dict[str, int]] = Field(default_factory=list)
+    """Per model request: the estimated input, the output allowance it was
+    given (``max_tokens``) and the measured input and output."""
 
 
 class AgentRunResult(BaseModel):
