@@ -35,6 +35,7 @@ from fcrm_caseflow.gates import deterministic_gate_id
 from fcrm_caseflow.steps import StepDeps, StepResult
 from fcrm_common.errors import NotFoundError, RuleViolationError
 from fcrm_contracts.enums import CaseState, GateType, ItemKind, StepKind
+from fcrm_guardrails.budget import CASE_TOKEN_CAP
 
 CASE = "FCRM-2026-0151"
 RUN = "run_1"
@@ -206,9 +207,13 @@ class TestAssessOpen:
         assert result == StepResult()
         record = _record(recording_audit, "workflow.stage")
         assert record.summary == (
-            "Assessment core started · per-case budget 160k tokens (target 120k)"
+            "Assessment core started · per-case budget "
+            f"{CASE_TOKEN_CAP // 1000}k tokens (target 120k)"
         )
-        assert (record.data["budget"], record.data["target"]) == (160_000, 120_000)
+        assert (record.data["budget"], record.data["target"]) == (
+            CASE_TOKEN_CAP,
+            120_000,
+        )
         assert record.data["agents"] == ["research", "assessment"]
         [patch] = assessed_case.calls_to("PATCH", "/state")
         assert patch.body["stage"] == "assess"

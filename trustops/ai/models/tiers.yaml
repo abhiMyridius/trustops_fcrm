@@ -47,7 +47,10 @@ embeddings:
 #   mid    15k  narrative, examiner, policy_gap: 5-8.5k, p90 8.5k on the eval sample; the live
 #               demo case's narrative is 8k clean and 13k on its retried attempt (the pack plus
 #               Guard 4's reasons plus its first answer), which blocked it at 11k (first full live run)
-#   strong 24k  research and assessment, effort low, one tool round trip: p90 18k
+#   strong 56k  research and assessment, effort low, one tool round trip: p90 18k on the eval
+#               sample, but 39.8k on a live case (19 Oct, FCRM-2026-0153: a policy search
+#               returned ~15k of clause text), which 24k blocked; 56k plus the 8k output cap
+#               is a 64k attempt limit (ADR-81)
 #   judge  28k  critic: on Opus (until 7 Oct) 5-7k an attempt, 11-12k with a tool round trip on
 #               the eval sample, 16.4k on the live demo case (16 controls: the pack and the one
 #               tool round trip re-sent). On Nova Pro the critic used 21.9k on a live run and was
@@ -97,7 +100,7 @@ tiers:
     max_tokens: 8000
     wall_clock_s: 180
     retries: 1
-    budget: {tokens: 24000, wall_s: 180, retries: 1}
+    budget: {tokens: 56000, wall_s: 180, retries: 1}
     cache_min_prefix_tokens: 1024
     used_by: [research, assessment]
   judge:
@@ -117,12 +120,14 @@ tiers:
 # The ENFORCED cap on every agent job of one case, across all of them (H1's
 # per-case ledger, fcrm_caseflow.budget: one attempt of a job's tier is reserved
 # before the job is published, the real usage is settled when it answers, and a
-# dispatch that would pass the cap opens the human handoff instead). 160000 is the
+# dispatch that would pass the cap opens the human handoff instead). 250000 since
+# 19 Oct (ADR-81): the strong tier's 56k reservation, twice for the research and
+# assessment pair and again for their re-run, must fit. 160000 was the
 # worst case measured on the live demo case: 115k with every job answering on its
 # first attempt, 126k to 158k when Guard 4 forces a retry (evals/README.md, "The
 # demo case against the 120k per-case cap"), plus a small margin, so a run that
 # needs one retry completes and a case that needs two stops for the analyst.
-per_case_budget_tokens: 160000
+per_case_budget_tokens: 250000
 # The efficiency TARGET: what a clean run fits in. The harness monitor reports
 # tokens_used against both numbers; a case over the target and under the cap is
 # not an error.

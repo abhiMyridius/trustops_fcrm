@@ -35,13 +35,22 @@ from fcrm_caseflow.store import (
 )
 from fcrm_common.ids import new_id
 from fcrm_common.time import utcnow
-from fcrm_contracts.enums import AgentName, CaseState, GateType
+from fcrm_contracts.enums import AgentName, CaseState, GateType, Tier
 from fcrm_contracts.events.envelope import Envelope
 from fcrm_contracts.events.payloads import JobPayload
+from fcrm_guardrails.budget import TIER_BUDGETS
 
 CASE_ID = "FCRM-2026-0151"
 RUN_ID = "run_budget"
-CAP = 120_000
+CAP = 120_000  # the budget_store fixture's cap
+STRONG = TIER_BUDGETS[Tier.STRONG].tokens
+RESEARCH = reservation_tokens(AgentName.RESEARCH)
+ASSESSMENT = reservation_tokens(AgentName.ASSESSMENT)
+CRITIC = reservation_tokens(AgentName.CRITIC)
+#: What the research and assessment pair holds while both are out.
+PAIR = RESEARCH + ASSESSMENT
+#: The most the earlier scenes can have spent and still send the pair.
+ROOM_FOR_THE_PAIR = CAP - PAIR
 
 EngineFactory = Callable[..., CaseflowEngine]
 
@@ -118,7 +127,8 @@ async def _hold(
         )
     jobs = [JobRequest(job_id, a, reservation_tokens(a)) for job_id, a in held]
     if jobs:
-        await store.reserve(CASE_ID, RUN_ID, jobs, session=session)
+        outcome = await store.reserve(CASE_ID, RUN_ID, jobs, session=session)
+        assert outcome.granted, "the scene needs the jobs really held"
 
 
 async def _in_assess(
@@ -153,14 +163,15 @@ async def test_the_critic_is_reserved_when_the_pair_settles_and_is_published(
     outbox_collection: FakeCollection,
 ) -> None:
     engine = engine_factory(budgets=budget_store)
-    await _in_assess(run_store, session, budget_store, spent=30_000)
+    earlier = ROOM_FOR_THE_PAIR
+    await _in_assess(run_store, session, budget_store, spent=earlier)
 
     await engine.handle(_done("job_r", "research", 17_000), session)
     midway = await budget_store.get(CASE_ID)
     assert midway is not None
     # The research job's reservation became what it spent; the assessment job's
     # is untouched: two parallel jobs are two independent lines.
-    assert (midway.spent, midway.reserved) == (47_000, 24_000)
+    assert (midway.spent, midway.reserved) == (earlier + 17_000, ASSESSMENT)
     assert midway.jobs["job_r"].status is JobStatus.SETTLED
     assert midway.jobs["job_s"].status is JobStatus.RESERVED
 
@@ -170,8 +181,8 @@ async def test_the_critic_is_reserved_when_the_pair_settles_and_is_published(
     assert ledger is not None
     [critic] = _jobs(outbox_collection)
     assert critic.agent is AgentName.CRITIC
-    assert ledger.spent == 66_500
-    assert ledger.reserved == 28_000
+    assert ledger.spent == earlier + 36_500
+    assert ledger.reserved == CRITIC
     assert ledger.jobs[critic.job_id].reserved == reservation_tokens(AgentName.CRITIC)
     assert ledger.jobs[critic.job_id].status is JobStatus.RESERVED
 
@@ -207,12 +218,13 @@ async def test_every_audit_record_the_engine_writes_carries_an_idempotency_key(
     """
     results = AgentResultStore(FakeCollection("agent_results"))  # type: ignore[arg-type]
     engine = engine_factory(budgets=budget_store, results=results)
-    await _in_assess(run_store, session, budget_store, spent=105_000)
+    await _in_assess(run_store, session, budget_store, spent=ROOM_FOR_THE_PAIR)
 
-    await engine.handle(_done("job_r", "research", 1_500), session)
-    await engine.handle(_done("job_s", "assessment", 1_500), session)
+    # The pair spends all but 1,500 each: the critic's reservation is refused.
+    await engine.handle(_done("job_r", "research", RESEARCH - 1_500), session)
+    await engine.handle(_done("job_s", "assessment", ASSESSMENT - 1_500), session)
 
-    assert recording_audit.records
+    assert any(r.type == "budget.exhausted" for r in recording_audit.records)
     assert None not in recording_audit.keys
     assert len(set(recording_audit.keys)) == len(recording_audit.keys)
 
@@ -229,12 +241,15 @@ async def test_a_dispatch_the_cap_refuses_is_not_published_and_hands_the_case_of
 ) -> None:
     results = AgentResultStore(FakeCollection("agent_results"))  # type: ignore[arg-type]
     engine = engine_factory(budgets=budget_store, results=results)
-    await _in_assess(run_store, session, budget_store, spent=105_000)
+    await _in_assess(run_store, session, budget_store, spent=ROOM_FOR_THE_PAIR)
 
-    await engine.handle(_done("job_r", "research", 1_500), session)
-    await engine.handle(_done("job_s", "assessment", 1_500), session)
+    await engine.handle(_done("job_r", "research", RESEARCH - 1_500), session)
+    await engine.handle(_done("job_s", "assessment", ASSESSMENT - 1_500), session)
 
-    # 108,000 spent, nothing held: the critic's 28,000 would make 136,000.
+    # 3,000 under the cap spent, nothing held: the critic's reservation would
+    # pass it.
+    spent = CAP - 3_000
+    assert spent + CRITIC > CAP
     run = await run_store.get(RUN_ID)
     assert run is not None
     assert run.state is CaseState.HANDOFF
@@ -243,10 +258,10 @@ async def test_a_dispatch_the_cap_refuses_is_not_published_and_hands_the_case_of
     [refusal] = [r for r in recording_audit.records if r.type == "budget.exhausted"]
     assert refusal.actor == "system"
     assert refusal.data["agent"] == "critic"
-    assert refusal.data["spent"] == 108_000
+    assert refusal.data["spent"] == spent
     assert refusal.data["reserved"] == 0
     assert refusal.data["cap"] == CAP
-    assert refusal.data["requested"] == 28_000
+    assert refusal.data["requested"] == CRITIC
     assert "budget_exhausted" in refusal.summary
     types = [r.type for r in recording_audit.records]
     assert types.index("budget.exhausted") < types.index("agent.failed.after_retry")
@@ -271,17 +286,22 @@ async def test_a_failed_job_is_charged_for_every_attempt_it_made(
         _failed(
             "job_r",
             "research",
-            {"input_tokens": 41_000, "output_tokens": 7_000, "cache_read_tokens": 9},
+            {
+                "input_tokens": 2 * STRONG - 7_000,
+                "output_tokens": 7_000,
+                "cache_read_tokens": 9,
+            },
         ),
         session,
     )
 
     ledger = await budget_store.get(CASE_ID)
     assert ledger is not None
-    # Two attempts of a 24,000 tier: 48,000, cache reads not counted.
-    assert ledger.spent == 48_000
+    # Two whole attempts of the strong tier, cache reads not counted: more than
+    # the one attempt that was reserved.
+    assert ledger.spent == 2 * STRONG > RESEARCH
     assert ledger.jobs["job_r"].reserved == 0
-    assert ledger.reserved == 24_000  # the assessment job is still out
+    assert ledger.reserved == ASSESSMENT  # the assessment job is still out
     run = await run_store.get(RUN_ID)
     assert run is not None
     assert run.state is CaseState.HANDOFF
@@ -301,7 +321,7 @@ async def test_a_failure_with_no_usage_releases_the_reservation_and_spends_nothi
 
     ledger = await budget_store.get(CASE_ID)
     assert ledger is not None
-    assert (ledger.spent, ledger.reserved) == (0, 24_000)
+    assert (ledger.spent, ledger.reserved) == (0, ASSESSMENT)
 
 
 async def test_a_step_dispatch_reserves_and_a_clarification_re_run_continues_the_ledger(
@@ -314,7 +334,8 @@ async def test_a_step_dispatch_reserves_and_a_clarification_re_run_continues_the
 ) -> None:
     engine = engine_factory(budgets=budget_store)
     await _seed_run(run_store, session, CaseState.CLARIFICATION)
-    await _hold(budget_store, session, spent=62_000)
+    earlier = ROOM_FOR_THE_PAIR
+    await _hold(budget_store, session, spent=earlier)
     result = StepResult(
         agent_jobs_to_dispatch=(
             AgentJobSpec(AgentDispatch(AgentName.RESEARCH, job_id="job_r2")),
@@ -327,7 +348,7 @@ async def test_a_step_dispatch_reserves_and_a_clarification_re_run_continues_the
     ledger = await budget_store.get(CASE_ID)
     assert ledger is not None
     assert len(case_budgets_collection.docs) == 1  # one ledger for the case
-    assert (ledger.spent, ledger.reserved) == (62_000, 48_000)
+    assert (ledger.spent, ledger.reserved) == (earlier, PAIR)
     assert {j.agent for j in _jobs(outbox_collection)} == {
         AgentName.RESEARCH,
         AgentName.ASSESSMENT,
@@ -348,7 +369,10 @@ async def test_a_step_dispatch_the_cap_refuses_keeps_the_step_and_hands_off(
 ) -> None:
     engine = engine_factory(budgets=budget_store)
     await _seed_run(run_store, session, CaseState.REVIEW)
-    await _hold(budget_store, session, spent=90_000)
+    # One token short of room for the pair; either job alone would still fit.
+    spent = ROOM_FOR_THE_PAIR + 1
+    assert spent + max(RESEARCH, ASSESSMENT) <= CAP
+    await _hold(budget_store, session, spent=spent)
     result = StepResult(
         agent_jobs_to_dispatch=(
             AgentJobSpec(AgentDispatch(AgentName.RESEARCH)),
@@ -368,7 +392,7 @@ async def test_a_step_dispatch_the_cap_refuses_keeps_the_step_and_hands_off(
     assert await gate_store.count_open(CASE_ID, GateType.HANDOFF) == 1
     [refusal] = [r for r in recording_audit.records if r.type == "budget.exhausted"]
     assert refusal.data["agents"] == ["research", "assessment"]
-    assert refusal.data["requested"] == 48_000
+    assert refusal.data["requested"] == PAIR
     ledger = await budget_store.get(CASE_ID)
     assert ledger is not None
     assert ledger.reserved == 0  # the pair was refused whole, nothing was held

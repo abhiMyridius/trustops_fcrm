@@ -11,7 +11,7 @@ lifecycle_state: assess
 trigger: "H1 enters CaseState.ASSESS (parallel with assessment); CaseState.CLARIFICATION re-run with payload.changed_fields; watchlist re-flag acknowledgement"
 tier: strong
 budget_tier: strong
-budget: {tokens: 24000, wall_s: 180, retries: 1}
+budget: {tokens: 56000, wall_s: 180, retries: 1}
 tools: [policy_search, precedent_search, jurisdiction_list]
 tool_caps: {policy_search: 3, precedent_search: 1, jurisdiction_list: 1}
 tool_call_cap: 1                                    # one tool call: measured, the models call tools the pack makes unnecessary and each call re-sends the request (budget in tiers.yaml)

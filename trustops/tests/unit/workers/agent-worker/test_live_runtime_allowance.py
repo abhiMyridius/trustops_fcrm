@@ -34,7 +34,7 @@ from fcrm_agents.runtime import RunVerdict
 from fcrm_agents.spec import AgentSpec
 from fcrm_contracts.enums import AgentName, Tier
 from fcrm_guardrails import CaseBudget, GuardName, GuardStatus, PermitGuard
-from fcrm_guardrails.budget import AttemptPlan, Reservation
+from fcrm_guardrails.budget import TIER_BUDGETS, AttemptPlan, Reservation
 from fcrm_tools import DEMO_CASE_ID, ToolRegistry
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic_ai import UnexpectedModelBehavior
@@ -48,8 +48,14 @@ POLICY_SEARCH_ARGS: dict[str, Any] = {
     "top_k": 3,
     "filters": {"corpus_version": 14},
 }
-STRONG_LIMIT = 24_000
+STRONG_LIMIT = TIER_BUDGETS[Tier.STRONG].tokens
 """The strong tier's attempt budget (``TIER_BUDGETS``); research runs on it."""
+SEARCH_INPUT = STRONG_LIMIT // 2 - 2_000
+"""The measured input of the scripted policy search: big enough that the
+budget it leaves, less the next request's input, is under the tier's cap."""
+TIPPED_OUTPUT = 4_500
+"""The output of an answer that tips its attempt 500 tokens over the budget
+(within the tier's 5,000-token ``max_tokens``, so the model may send it)."""
 
 
 def _output(
@@ -78,7 +84,7 @@ def _invalid(info: AgentInfo, messages: list[ModelMessage]) -> ModelResponse:
 def _search(info: AgentInfo, messages: list[ModelMessage]) -> ModelResponse:
     return ModelResponse(
         parts=[ToolCallPart(tool_name="policy_search", args=POLICY_SEARCH_ARGS)],
-        usage=RequestUsage(input_tokens=10_000, output_tokens=200),
+        usage=RequestUsage(input_tokens=SEARCH_INPUT, output_tokens=200),
     )
 
 
@@ -163,10 +169,11 @@ async def test_the_second_request_is_sized_from_the_measured_first_input(
     first, second = result.attempts[0].allowances
     assert [s.round_trip for s in seen] == [0, 1]
     assert seen[0].max_tokens == first["allowance"] == tier_max
-    assert (first["actual_input"], first["actual_output"]) == (10_000, 200)
-    # the measured 10,000 + 200 the model reads back, plus the tool result
-    assert second["estimated_input"] > 10_200
-    assert second["allowance"] == STRONG_LIMIT - 10_200 - second["estimated_input"]
+    assert (first["actual_input"], first["actual_output"]) == (SEARCH_INPUT, 200)
+    # the measured input + 200 the model reads back, plus the tool result
+    spent = SEARCH_INPUT + 200
+    assert second["estimated_input"] > spent
+    assert second["allowance"] == STRONG_LIMIT - spent - second["estimated_input"]
     assert seen[1].max_tokens == second["allowance"] < tier_max
 
 
@@ -180,7 +187,9 @@ async def test_a_valid_answer_that_tips_over_the_budget_is_kept_and_annotated(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     seen: list[Any] = []
-    tipped = RequestUsage(input_tokens=20_000, output_tokens=4_500)
+    tipped = RequestUsage(
+        input_tokens=STRONG_LIMIT + 500 - TIPPED_OUTPUT, output_tokens=TIPPED_OUTPUT
+    )
     factory = make_model_factory_scripted(
         [[_output(research_output(research_pack), tipped)]], seen
     )
@@ -205,9 +214,13 @@ async def test_a_valid_answer_that_tips_over_the_budget_is_kept_and_annotated(
         f"attempt 1: overran its {STRONG_LIMIT}-token attempt budget by 500; "
         "answer kept"
     )
-    assert overrun.details == {"limit": STRONG_LIMIT, "spent": 24_500, "overrun": 500}
-    assert result.tokens_used == 24_500
-    assert budget.used == 24_500
+    assert overrun.details == {
+        "limit": STRONG_LIMIT,
+        "spent": STRONG_LIMIT + 500,
+        "overrun": 500,
+    }
+    assert result.tokens_used == STRONG_LIMIT + 500
+    assert budget.used == STRONG_LIMIT + 500
     assert any("overran its budget" in r.getMessage() for r in caplog.records)
 
 

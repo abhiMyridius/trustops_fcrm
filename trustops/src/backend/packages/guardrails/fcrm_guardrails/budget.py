@@ -12,11 +12,11 @@ Budget table (BUILD-PLAN §3.4 priced it cheap 6k, mid 12k, strong 20k, judge 20
 the first live run showed a run costs more, and the tokens are now set from
 measured usage, about 30% over the p90 of an attempt, in ``ai/models/tiers.yaml``,
 which ``tests/unit/packages/agents/test_budgets_agree.py`` keeps equal to this
-table): cheap 15k tokens / 60 s, mid 15k / 120 s, strong 24k / 180 s, judge 20k /
-180 s (the seed's
-"strong + judge"), one retry each. A case may spend 160k tokens (the enforced
-cap, :data:`CASE_TOKEN_CAP`: the worst case measured on the demo case, a run in
-which Guard 4 forced a retry, plus a small margin); 120k is the target a clean run
+table): cheap 15k tokens / 60 s, mid 15k / 120 s, strong 56k / 180 s (24k until
+a live research run needed 39.8k, ADR-81), judge 28k / 180 s (the seed's
+"strong + judge"), one retry each. A case may spend 250k tokens (the enforced
+cap, :data:`CASE_TOKEN_CAP`; 160k, the worst case measured on the demo case,
+until the strong reservations grew, ADR-81); 120k is the target a clean run
 fits in (:data:`CASE_TOKEN_TARGET`), which the harness monitor reports against.
 H1 enforces the cap across a case's jobs with its own ledger
 (``fcrm_caseflow.budget``: one attempt of the tier reserved per dispatch, the
@@ -75,14 +75,15 @@ class TierBudget:
 TIER_BUDGETS: Final[Mapping[Tier, TierBudget]] = {
     Tier.CHEAP: TierBudget(Tier.CHEAP, tokens=15_000, wall_s=60),
     Tier.MID: TierBudget(Tier.MID, tokens=15_000, wall_s=120),
-    Tier.STRONG: TierBudget(Tier.STRONG, tokens=24_000, wall_s=180),
+    Tier.STRONG: TierBudget(Tier.STRONG, tokens=56_000, wall_s=180),
     Tier.JUDGE: TierBudget(Tier.JUDGE, tokens=28_000, wall_s=180),
 }
 
-CASE_TOKEN_CAP: Final[int] = 160_000
+CASE_TOKEN_CAP: Final[int] = 250_000
 """Tokens per case across every agent run that H1 enforces (BUILD-PLAN §3.4 priced
 120k; the live demo case measured 115k clean and 126k to 158k with a Guard 4
-retry, so the enforced cap is the worst case measured plus a small margin)."""
+retry, so the cap was the worst case measured plus a small margin, 160k; it is
+250k since the strong tier's attempt budget went to 56k, ADR-81)."""
 
 CASE_TOKEN_TARGET: Final[int] = 120_000
 """Tokens a clean run of a case is expected to fit in: the efficiency target the

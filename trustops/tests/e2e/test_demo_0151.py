@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any, Final, Optional
 
 import pytest
 from conftest import wait_until
+from fcrm_guardrails.budget import CASE_TOKEN_CAP
 
 if TYPE_CHECKING:
     from conftest import Chain, DemoLog, DemoState, Persona
@@ -82,10 +83,11 @@ REQUIRED_TYPES: Final = frozenset(
     }
 )
 VOTE_KEYS: Final = frozenset({"vote", "choice", "option", "rationale"})
-#: What a clean run is meant to cost, and the per-case cap that is enforced (the worst
-#: live run measured 158k): a run is held to the cap and reports the target.
+#: What a clean run is meant to cost, and the per-case cap that is enforced (250k
+#: since the strong reservations grew, ADR-81): a run is held to the cap and reports
+#: the target.
 TARGET_TOKENS: Final = 120_000
-ENFORCED_CAP_TOKENS: Final = 160_000
+ENFORCED_CAP_TOKENS: Final = CASE_TOKEN_CAP
 BAND_EN_DASH: Final = "–"
 
 
@@ -1066,10 +1068,11 @@ def test_scene_21_the_monitor_shows_the_records_the_agents_and_tokens_within_the
     assert not REQUIRED_TYPES - present, f"missing {sorted(REQUIRED_TYPES - present)}"
     assert any(t.startswith("proposal.") for t in present)
     used, budget = counters["tokens_used"], counters["tokens_budget"]
-    # The enforced per-case cap is what the harness reports (160k since the token
-    # ledger, ADR-27); 120k stays the efficiency target a clean run meets. A run is
-    # held to the cap; whether it met the target is reported, not asserted, because
-    # one Guard 4 retry (10 to 25k tokens) is model luck, not a defect.
+    # The enforced per-case cap is what the harness reports (the token ledger,
+    # ADR-27; 250k since ADR-81); 120k stays the efficiency target a clean run
+    # meets. A run is held to the cap; whether it met the target is reported, not
+    # asserted, because one Guard 4 retry (10 to 25k tokens) is model luck, not a
+    # defect.
     assert budget >= TARGET_TOKENS
     assert counters.get("tokens_target", TARGET_TOKENS) == TARGET_TOKENS
     cap = max(

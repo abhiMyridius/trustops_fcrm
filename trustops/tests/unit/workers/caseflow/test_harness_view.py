@@ -44,6 +44,7 @@ from fcrm_contracts.api.case_analyst_read import (
 from fcrm_contracts.common import Page
 from fcrm_contracts.enums import CaseState, StepKind
 from fcrm_contracts.events.payloads import HarnessStep
+from fcrm_guardrails.budget import CASE_TOKEN_CAP
 
 CASE = "FCRM-2026-0151"
 NOW = datetime(2026, 10, 5, 12, tzinfo=UTC)
@@ -229,7 +230,7 @@ def test_the_snapshot_counts_from_the_run_and_the_chain() -> None:
     snapshot = harness_snapshot(run, records, verify, 0)
     c = snapshot.counters
     assert (c.agents_run, c.agents_total) == (2, 9)
-    assert (c.tokens_used, c.tokens_budget) == (41_200, 160_000)
+    assert (c.tokens_used, c.tokens_budget) == (41_200, CASE_TOKEN_CAP)
     assert c.tokens_target == 120_000
     assert (c.guards_passed, c.guards_blocked) == (5, 1)
     assert (c.audit_records, c.chain_verified) == (67, True)

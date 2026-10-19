@@ -1,7 +1,7 @@
 """The per-case token ledger (ADR-14, ADR-27): one budget for every agent job of
 a case, kept by H1.
 
-A case may spend ``CASE_TOKEN_CAP`` tokens (160,000, ``ai/models/tiers.yaml``
+A case may spend ``CASE_TOKEN_CAP`` tokens (250,000, ``ai/models/tiers.yaml``
 ``per_case_budget_tokens``) across all of its agent jobs. H2's Guard 3 keeps
 limiting one job (its attempts, its wall clock, its tier's tokens); this ledger
 is the other half: no job is published unless the case can pay for one attempt of

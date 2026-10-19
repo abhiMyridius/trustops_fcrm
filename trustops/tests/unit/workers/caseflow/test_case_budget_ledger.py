@@ -16,11 +16,13 @@ from fcrm_caseflow.budget import (
     reservation_tokens,
     usage_tokens,
 )
-from fcrm_contracts.enums import AgentName
-from fcrm_guardrails.budget import CASE_TOKEN_CAP, CASE_TOKEN_TARGET
+from fcrm_contracts.enums import AgentName, Tier
+from fcrm_guardrails.budget import CASE_TOKEN_CAP, CASE_TOKEN_TARGET, TIER_BUDGETS
 
 CASE_ID = "FCRM-2026-0151"
 RUN_ID = "run_1"
+#: What the research and assessment pair holds while both are out.
+PAIR = reservation_tokens(AgentName.RESEARCH) + reservation_tokens(AgentName.ASSESSMENT)
 
 
 def job(job_id: str, agent: AgentName) -> JobRequest:
@@ -49,17 +51,25 @@ async def settle(
 
 def test_the_collection_the_enforced_cap_and_the_target_are_the_designed_ones() -> None:
     assert CASE_BUDGETS_COLLECTION == "case_budgets"
-    assert CASE_TOKEN_CAP == 160_000
+    assert CASE_TOKEN_CAP == 250_000  # ADR-81
     assert CASE_TOKEN_TARGET == 120_000
 
 
 def test_a_dispatch_reserves_one_attempt_of_the_tier_not_the_retry() -> None:
-    assert reservation_tokens(AgentName.SCREENING) == 15_000
-    assert reservation_tokens(AgentName.RESEARCH) == 24_000
-    assert reservation_tokens(AgentName.CRITIC) == 28_000
-    assert reservation_tokens(AgentName.NARRATIVE) == 15_000
-    # The design's x (1 + retries) would hold 96k for the research pair alone.
+    assert reservation_tokens(AgentName.SCREENING) == TIER_BUDGETS[Tier.CHEAP].tokens
+    assert reservation_tokens(AgentName.RESEARCH) == TIER_BUDGETS[Tier.STRONG].tokens
+    assert reservation_tokens(AgentName.CRITIC) == TIER_BUDGETS[Tier.JUDGE].tokens
+    assert reservation_tokens(AgentName.NARRATIVE) == TIER_BUDGETS[Tier.MID].tokens
+    assert (
+        reservation_tokens(AgentName.RESEARCH)
+        < TIER_BUDGETS[Tier.STRONG].reservation_tokens
+    )
     assert reservation_tokens(AgentName.RESEARCH) * 2 < CASE_TOKEN_CAP // 2
+    # The design's x (1 + retries) would hold so much for the research pair alone
+    # that the critic after it could not be reserved; one attempt each leaves room.
+    critic = reservation_tokens(AgentName.CRITIC)
+    assert 2 * TIER_BUDGETS[Tier.STRONG].reservation_tokens + critic > CASE_TOKEN_CAP
+    assert PAIR + critic <= CASE_TOKEN_CAP
 
 
 def test_the_oversight_agents_are_not_metered() -> None:
@@ -195,13 +205,17 @@ async def test_a_pair_of_parallel_jobs_reserves_independently_and_settles_apart(
     )
     ledger = await budget_store.get(CASE_ID)
     assert ledger is not None
-    assert ledger.reserved == 48_000
-    assert ledger.jobs["job_r"].reserved == ledger.jobs["job_s"].reserved == 24_000
+    assert ledger.reserved == PAIR
+    assert ledger.jobs["job_r"].reserved == reservation_tokens(AgentName.RESEARCH)
+    assert ledger.jobs["job_s"].reserved == reservation_tokens(AgentName.ASSESSMENT)
 
     await settle(budget_store, session, "job_r", AgentName.RESEARCH, 17_000)
     midway = await budget_store.get(CASE_ID)
     assert midway is not None
-    assert (midway.spent, midway.reserved) == (17_000, 24_000)
+    assert (midway.spent, midway.reserved) == (
+        17_000,
+        reservation_tokens(AgentName.ASSESSMENT),
+    )
     assert midway.jobs["job_s"].status is JobStatus.RESERVED
 
     await settle(budget_store, session, "job_s", AgentName.ASSESSMENT, 19_500)
@@ -213,7 +227,12 @@ async def test_a_pair_of_parallel_jobs_reserves_independently_and_settles_apart(
 async def test_a_pair_that_cannot_both_be_paid_for_is_refused_whole(
     budget_store: CaseBudgetStore, session: FakeSession
 ) -> None:
-    await settle(budget_store, session, "job_a", AgentName.INTAKE, 80_000)
+    # One token short of room for both: either job alone would still fit.
+    cap = budget_store._cap  # noqa: SLF001 - the fixture's cap
+    spent = cap - PAIR + 1
+    assert spent + reservation_tokens(AgentName.RESEARCH) <= cap
+    assert spent + reservation_tokens(AgentName.ASSESSMENT) <= cap
+    await settle(budget_store, session, "job_a", AgentName.INTAKE, spent)
 
     outcome = await budget_store.reserve(
         CASE_ID,
@@ -223,7 +242,7 @@ async def test_a_pair_that_cannot_both_be_paid_for_is_refused_whole(
     )
 
     assert not outcome.granted
-    assert outcome.asked == 48_000
+    assert outcome.asked == PAIR
     ledger = await budget_store.get(CASE_ID)
     assert ledger is not None
     assert ledger.reserved == 0
@@ -278,14 +297,20 @@ async def test_a_case_over_the_target_and_under_the_cap_is_not_refused(
     case_budgets_collection: FakeCollection, session: FakeSession
 ) -> None:
     store = CaseBudgetStore(case_budgets_collection)  # type: ignore[arg-type]
+    narrative = reservation_tokens(AgentName.NARRATIVE)
+    critic = reservation_tokens(AgentName.CRITIC)
+    # Over the target, with room under the cap for a narrative and then one token
+    # too few for the critic.
+    spent = CASE_TOKEN_CAP - narrative - critic + 1
+    assert spent > CASE_TOKEN_TARGET
     await store.settle(
-        CASE_ID, RUN_ID, "job_a", AgentName.RESEARCH, 130_000, session=session
+        CASE_ID, RUN_ID, "job_a", AgentName.RESEARCH, spent, session=session
     )
 
-    # 130,000 spent is over the 120,000 target; the 160,000 cap still has room
-    # for a narrative (15,000) and then refuses the one that would pass it.
+    # Spent is over the target; the cap still has room for a narrative and then
+    # refuses the one that would pass it.
     assert await reserve(store, session, job("job_n", AgentName.NARRATIVE))
-    await settle(store, session, "job_n", AgentName.NARRATIVE, 15_000)
+    await settle(store, session, "job_n", AgentName.NARRATIVE, narrative)
     ledger = await store.get(CASE_ID)
     assert ledger is not None
     assert ledger.cap == CASE_TOKEN_CAP
