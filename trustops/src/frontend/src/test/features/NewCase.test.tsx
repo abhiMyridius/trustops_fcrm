@@ -10,6 +10,15 @@ import { renderApp } from '../render';
 const created = () => getDB().created;
 
 /** The card whose heading is `title`. */
+/**
+ * Wait until the new case's Overview has replaced the form: the URL alone is not enough, since the form can
+ * still be on screen for a moment, and its own "Change types" card would then be found instead of Overview's.
+ */
+async function landOnOverview(router: { state: { location: { pathname: string } } }): Promise<void> {
+  await waitFor(() => expect(router.state.location.pathname).toBe('/case/FCRM-2026-0152/overview'));
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Create case' })).not.toBeInTheDocument());
+}
+
 async function cardOf(title: string): Promise<HTMLElement> {
   const heading = await screen.findByRole('heading', { name: title });
   const card = heading.closest('section');
@@ -96,7 +105,7 @@ describe('New case form', () => {
     await user.click(screen.getByLabelText(/I'll choose the change types/));
     await user.click(screen.getByLabelText('New geography'));
     await user.click(screen.getByRole('button', { name: 'Create case' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/case/FCRM-2026-0152/overview'));
+    await landOnOverview(router);
     expect(created()[0]).toMatchObject({ unit: 'Cards', mode: 'manual', types: ['new_geography'] });
     const card = await cardOf('Change types');
     expect(within(card).getByText('New geography')).toBeInTheDocument();
@@ -114,10 +123,11 @@ describe('owner-added change types on the case', () => {
     await user.click(screen.getByLabelText(/I'll choose the change types/));
     await user.click(screen.getByLabelText('New geography'));
     await user.click(screen.getByRole('button', { name: 'Create case' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/case/FCRM-2026-0152/overview'));
+    await landOnOverview(router);
 
     const card = await cardOf('Change types');
-    const picker = within(card).getByRole('combobox', { name: 'Add change type' });
+    // The picker renders once the case's types load, after the card's heading.
+    const picker = await within(card).findByRole('combobox', { name: 'Add change type' });
     // The type the case already holds is not offered again.
     expect(within(picker).queryByRole('option', { name: /^New geography/ })).not.toBeInTheDocument();
     await user.selectOptions(picker, 'vendor_onboarding');
@@ -139,7 +149,7 @@ describe('owner-added change types on the case', () => {
     await user.click(screen.getByLabelText(/I'll choose the change types/));
     await user.click(screen.getByLabelText('New geography'));
     await user.click(screen.getByRole('button', { name: 'Create case' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/case/FCRM-2026-0152/overview'));
+    await landOnOverview(router);
     const card = await cardOf('Change types');
     expect(within(card).getByText(/required fields? for this type\./)).toBeInTheDocument();
     expect(within(card).queryByText(/18 for these three types/)).not.toBeInTheDocument();

@@ -3,10 +3,15 @@
  * a fresh mock state per test, and the jsdom gaps (matchMedia, ResizeObserver, scrollIntoView).
  */
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
 import { setAccessToken } from '@/api/client';
 import { resetMockState, server } from '@/mocks/server';
+
+// findBy*/waitFor give up after 1 s by default. A spec that loads case data through MSW passes in well under
+// that alone, but with ~40 files sharing the machine a different few timed out on every full run (19-21 Oct).
+// 5 s still fails a real missing element, only less eagerly.
+configure({ asyncUtilTimeout: 5000 });
 
 class ResizeObserverStub {
   observe(): void {}
