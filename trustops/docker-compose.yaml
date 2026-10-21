@@ -351,7 +351,7 @@ services:
       AGENT_PREFETCH: "4"
       FCRM_LLM_MODE: live
       BEDROCK_REGION_FALLBACK: ${BEDROCK_REGION_FALLBACK:-us-west-2}
-      CASE_TOKEN_CAP: ${CASE_TOKEN_CAP:-160000}
+      CASE_TOKEN_CAP: ${CASE_TOKEN_CAP:-250000}
       # The monitor's trace link (ADR-68): OpenObserve's traces page; empty means
       # the bundled one. Set it to your team's OpenObserve traces page when
       # OPENOBSERVE_OTLP_ENDPOINT points there.
