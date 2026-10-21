@@ -22,7 +22,9 @@ from fcrm_case.po_views import (
     activity_event,
     assistant_status,
     blocked_reason,
+    blocking_questions_open,
     case_po,
+    completion_for,
     document_out,
     effective_required,
     guard_line,
@@ -208,19 +210,41 @@ def test_the_blocked_reason_is_the_completion_alone(
     assert blocked_reason(completion) == message
 
 
-def test_a_pending_type_makes_the_required_set_provisional(
+def test_only_confirmed_types_add_to_the_required_set(
     make_case_record: Any,
 ) -> None:
     field_set = active_field_set()
-    record = make_case_record()
-    assert len(effective_required(record, [], field_set)) == 6
-    assert len(effective_required(record, ["new_product"], field_set)) == 11
+    assert len(effective_required(make_case_record(), field_set)) == 6
     confirmed = make_case_record(change_types=[ChangeType.NEW_PRODUCT])
-    # a confirmed type is not counted twice when it is also named pending
-    assert (
-        len(effective_required(confirmed, ["new_product", "new_geography"], field_set))
-        == 15
+    assert len(effective_required(confirmed, field_set)) == 6 + 5
+    both = make_case_record(
+        change_types=[ChangeType.NEW_PRODUCT, ChangeType.NEW_GEOGRAPHY]
     )
+    assert len(effective_required(both, field_set)) == 6 + 5 + 4
+
+
+def test_a_pending_type_adds_nothing_to_the_header(make_case_record: Any) -> None:
+    field_set = active_field_set()
+    summary = CaseSummary(
+        documents=1,
+        intake_ready=True,
+        pending_types=("new_geography", "new_product"),
+        filled_field_ids=frozenset({"F01", "F02", "F03", "F04", "F05", "F06", "F31"}),
+    )
+    pending = completion_for(make_case_record(), summary, field_set)
+    assert (pending.filled, pending.required, pending.pct) == (6, 6, 100)
+    confirmed = completion_for(
+        make_case_record(change_types=[ChangeType.NEW_PRODUCT]),
+        CaseSummary(
+            documents=1,
+            intake_ready=True,
+            pending_types=("new_geography",),
+            filled_field_ids=summary.filled_field_ids,
+        ),
+        field_set,
+    )
+    # the kept F31 counts the moment new_product is confirmed
+    assert (confirmed.filled, confirmed.required) == (7, 11)
 
 
 def test_a_draft_header_and_row_agree(make_case_record: Any) -> None:
@@ -232,10 +256,33 @@ def test_a_draft_header_and_row_agree(make_case_record: Any) -> None:
     header = case_po(record, summary, field_set)
     row = list_item(record, summary, field_set)
     assert header.completion.pct == row.completion_pct == 33
-    assert header.next_action == row.next_action == "Review & submit"
+    # the four empty core fields are asked as blocking questions
+    assert header.next_action == row.next_action == "Answer 4 blocking questions"
     assert header.created == "2026-10-01"
     assert header.submitted is None
     assert row.due is None
+
+
+def test_the_blocking_count_follows_the_confirmed_types(
+    make_case_record: Any,
+) -> None:
+    field_set = active_field_set()
+    core = frozenset({"F01", "F02", "F03", "F04", "F05", "F06"})
+    # q on F10 (vendor_onboarding, pending) and F21 (new_geography, confirmed)
+    summary = CaseSummary(
+        documents=1,
+        intake_ready=True,
+        filled_field_ids=core,
+        pending_types=("vendor_onboarding",),
+        open_gaps=(("F10", True), ("F21", True), ("F22", False), ("", True)),
+    )
+    record = make_case_record(change_types=[ChangeType.NEW_GEOGRAPHY])
+    # F21 and the question tied to no field; F10 is hidden, F22 optional
+    assert blocking_questions_open(record, summary, field_set) == 2
+    missing_core = CaseSummary(
+        documents=1, intake_ready=True, filled_field_ids=core - {"F03"}
+    )
+    assert blocking_questions_open(make_case_record(), missing_core, field_set) == 1
 
 
 def test_a_submitted_row_has_a_due_date_two_business_days_on(
@@ -290,7 +337,6 @@ def test_the_review_shows_a_corrected_value_beside_its_original(
         record,
         active_field_set(),
         rows=[row],
-        pending_types=[],
         docs=[doc()],
     )
     shown = next(r for r in view.rows if r.field_id == "F03")
@@ -319,9 +365,7 @@ def test_a_blank_stored_value_is_still_open(make_case_record: Any) -> None:
         origin="answered",
         created_at=NOW,
     )
-    view = review_view(
-        record, active_field_set(), rows=[row], pending_types=[], docs=[]
-    )
+    view = review_view(record, active_field_set(), rows=[row], docs=[])
     assert next(r for r in view.rows if r.field_id == "F01").origin == "open"
     assert view.completion.filled == 0
 

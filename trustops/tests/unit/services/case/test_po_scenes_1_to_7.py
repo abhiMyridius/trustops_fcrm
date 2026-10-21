@@ -198,7 +198,16 @@ def test_the_owner_lives_scenes_one_to_seven(
         )
     ]
     after = web.post(f"{base}/intake/answers", {"answers": answers})
-    assert [g["answered"] for g in after["gaps"]] == [True, True, True]
+    # the assistant's three are answered; the open fields it asked nothing
+    # about (F11, F22, F30) are asked too, optional for a per-type field
+    assert [(g["id"], g["answered"], g["blocking"]) for g in after["gaps"]] == [
+        ("q_F10", True, True),
+        ("q_F32", True, True),
+        ("q_F21", True, True),
+        ("ask_F11", False, False),
+        ("ask_F22", False, False),
+        ("ask_F30", False, False),
+    ]
     assert after["completion"]["filled"] == 15
     assert after["completion"]["pct"] == 83
     answered = [

@@ -96,7 +96,10 @@ async def test_the_owner_lives_scenes_one_to_seven_on_a_real_replica_set(
     act_as(Role.PO, PO)
     intake = (await client.get(f"/cases/{CASE}/intake")).json()
     assert intake["ready"] is True
-    assert len(intake["values"]) == 18
+    # the three types are only proposed: the core six until they are confirmed
+    assert len(intake["values"]) == 6
+    assert intake["completion"]["required"] == 6
+    assert intake["gaps"] == []
 
     # Scene 4: three gates decided; the required set resolved by the database.
     for change_type in demo["change_types"]:

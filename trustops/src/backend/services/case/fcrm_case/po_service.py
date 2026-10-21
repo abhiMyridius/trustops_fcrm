@@ -132,6 +132,7 @@ from fcrm_case.po_views import (
     completion_result,
     documents_view,
     effective_required,
+    field_of_question,
     intake_view,
     integration_dto,
     list_item,
@@ -883,11 +884,20 @@ class PoService:
         return await self._after(record.case_id, committed)
 
     def _required_map(
-        self, record: CaseRecord, data: IntakeData
+        self, record: CaseRecord, data: IntakeData, *, with_pending: bool = False
     ) -> dict[str, FieldDef]:
-        required = effective_required(
-            record, data.pending_types, self._config.field_set(record.fieldset_v)
-        )
+        """The case's required fields by id: the confirmed change types' (what
+        the owner sees and may edit), or with ``with_pending`` also those of the
+        types still proposed (what a precedent may fill ahead of the decision;
+        the value is kept and shown once the type is confirmed).
+        """
+        field_set = self._config.field_set(record.fieldset_v)
+        if not with_pending:
+            required = effective_required(record, field_set)
+        else:
+            types = [t.value for t in record.change_types]
+            types.extend(t for t in data.pending_types if t not in types)
+            required = resolve_required_fields(types, field_set)
         return {d.field_id: d for d in required}
 
     async def decide_value(
@@ -1044,7 +1054,8 @@ class PoService:
     ) -> IntakeViewPO:
         """Copy values from the precedent the assistant found, each with the
         provenance ``reused · <case>``: ``gate.decided po_reuse`` (once).
-        Only fields the assistant offered as reusable can be copied.
+        Only fields the assistant offered as reusable can be copied; one of a
+        type still proposed is kept and shown once the type is confirmed.
         """
         record = await self._record(case_id, principal, write=True)
         ensure_open(record)
@@ -1058,7 +1069,7 @@ class PoService:
                 ],
             )
         offered = {str(f["field_id"]): f for f in precedent.get("fields", [])}
-        required = self._required_map(record, data)
+        required = self._required_map(record, data, with_pending=True)
         bad = [
             fid
             for fid in body.field_ids
@@ -1141,20 +1152,32 @@ class PoService:
         """Answer the assistant's questions: each answer fills its field
         (``answered``) and is its own ``gate.decided po_answer_gaps``. An answer
         that adds a fact the documents did not state is accepted: it is shown to
-        the analyst as a flag, never a reason to stop the owner.
+        the analyst as a flag, never a reason to stop the owner. A question the
+        Overview built for a required field the assistant asked nothing about
+        (``ask_<field>``) fills its field the same way, with no gate: H1 opened
+        none for it.
         """
         record = await self._record(case_id, principal, write=True)
         ensure_open(record)
         data = await self._load(case_id)
         by_question = {str(g.subject.get("question_id")): g for g in data.gaps}
+        asked = {str(g.subject.get("field_id") or "") for g in data.gaps}
+        required = self._required_map(record, data)
         held = {r.field_id: r for r in data.rows}
         now = utcnow()
         fields: list[FieldWrite] = []
         items: list[ItemDecision] = []
         gates: list[GateEmission] = []
+        own_answers = 0
         for answer in body.answers:
             gap = by_question.get(answer.question_id)
-            if gap is None:
+            own_field = field_of_question(answer.question_id)
+            definition = (
+                required.get(own_field)
+                if own_field is not None and own_field not in asked
+                else None
+            )
+            if gap is None and definition is None:
                 raise NotFoundError(f"no such question {answer.question_id}")
             value = clean(answer.value)
             if not value:
@@ -1163,6 +1186,25 @@ class PoService:
                     errors=[{"loc": "body.answers", "msg": "an answer is required"}],
                 )
             reject_reserved_terms(value, "Your answer", loc="body.answers")
+            if gap is None:
+                row = held.get(own_field or "")
+                if definition is None or (
+                    row is not None and row.origin == "answered" and row.value == value
+                ):
+                    continue
+                fields.append(
+                    FieldWrite(
+                        definition.field_id,
+                        definition.label,
+                        value,
+                        "answered",
+                        FieldSource(
+                            question_id=answer.question_id, label="owner answer"
+                        ),
+                    )
+                )
+                own_answers += 1
+                continue
             field_id = str(gap.subject.get("field_id") or answer.field_id or "")
             if gap.status != ItemStatus.PROPOSED and value == _answered_value(
                 gap, held.get(field_id)
@@ -1204,9 +1246,9 @@ class PoService:
                 gates.append(
                     _gate(GateType.PO_ANSWER_GAPS, answer.question_id, event)[0]
                 )
-        if not items:
+        if not items and not fields:
             return self._intake_dto(record, data)
-        count = len(items)
+        count = len(items) + own_answers
         noun = "question" if count == 1 else "questions"
         committed = await self._po.commit(
             PoCommand(
@@ -1236,7 +1278,6 @@ class PoService:
             record,
             self._config.field_set(record.fieldset_v),
             rows=data.rows,
-            pending_types=data.pending_types,
             docs=data.docs,
         )
 
@@ -1259,7 +1300,7 @@ class PoService:
         self, record: CaseRecord, data: IntakeData
     ) -> tuple[SubmitChecks, CompletionResult, list[FieldDef]]:
         field_set = self._config.field_set(record.fieldset_v)
-        required = effective_required(record, data.pending_types, field_set)
+        required = effective_required(record, field_set)
         result = completion_result(required, _filled_ids(data.rows))
         checks = evaluate_submit_checks(
             result,

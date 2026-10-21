@@ -14,6 +14,7 @@ server's one figure; the client never recomputes it.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from datetime import datetime
 from typing import Final, Literal, Optional
 
@@ -101,16 +102,13 @@ def percent(filled: int, required: int) -> int:
     return (filled * 200 + required) // (2 * required)
 
 
-def effective_required(
-    record: CaseRecord, pending_types: Sequence[str], field_set: FieldSetData
-) -> list[FieldDef]:
-    """The fields the owner sees as required: the confirmed types' fields plus
-    those of every type still waiting for a decision, so the figures are
-    provisional until the last type is decided (a removed type is gone).
+def effective_required(record: CaseRecord, field_set: FieldSetData) -> list[FieldDef]:
+    """The fields the owner sees as required: the always-required core plus the
+    fields of each change type she has confirmed. A type still waiting for a
+    decision adds nothing until it is confirmed (its values are kept, only not
+    shown), and a removed type is gone.
     """
-    types = [t.value for t in record.change_types]
-    types.extend(t for t in pending_types if t not in types)
-    return resolve_required_fields(types, field_set)
+    return resolve_required_fields([t.value for t in record.change_types], field_set)
 
 
 def completion_result(
@@ -186,10 +184,10 @@ def _due(record: CaseRecord, stage: str) -> Optional[str]:
 def completion_for(
     record: CaseRecord, summary: CaseSummary, field_set: FieldSetData
 ) -> Completion:
-    """The completion figures of a case from its summary (the provisional set
-    while change types await a decision).
+    """The completion figures of a case from its summary, over the confirmed
+    change types only (the core six until one is confirmed).
     """
-    required = effective_required(record, summary.pending_types, field_set)
+    required = effective_required(record, field_set)
     return completion_dto(
         required, summary.filled_field_ids, record.completion_threshold, field_set
     )
@@ -210,7 +208,9 @@ def list_item(
         change_types=list(record.change_types),
         stage=stage,
         stage_label=stage_label(stage),
-        next_action=next_action(stage, summary, manual=_is_manual(record)),
+        next_action=next_action(
+            stage, _owner_summary(record, summary, field_set), manual=_is_manual(record)
+        ),
         analyst_name=record.analyst_name,
         submitted=_date(record.submitted_at),
         completion_pct=completion.pct if shown else None,
@@ -236,7 +236,9 @@ def case_po(
         created=record.created_at.date().isoformat(),
         submitted=_date(record.submitted_at),
         analyst_name=record.analyst_name,
-        next_action=next_action(stage, summary, manual=_is_manual(record)),
+        next_action=next_action(
+            stage, _owner_summary(record, summary, field_set), manual=_is_manual(record)
+        ),
         completion=completion_for(record, summary, field_set),
         closed=stage == "closed",
         inbox_open=summary.open_threads,
@@ -455,6 +457,124 @@ def _gap_po(item: ReviewItemRow, rows: Mapping[str, FieldValueRow]) -> GapQuesti
     )
 
 
+#: The id prefix of a question the Overview asks for a required field the
+#: assistant asked nothing about (``ask_F11``); its answer fills the field.
+FIELD_QUESTION_PREFIX: Final = "ask_"
+
+
+def field_question_id(field_id: str) -> str:
+    """The id of the question asked for ``field_id`` when no gap names it."""
+    return f"{FIELD_QUESTION_PREFIX}{field_id}"
+
+
+def field_of_question(question_id: str) -> Optional[str]:
+    """The field a :func:`field_question_id` question fills, else ``None``."""
+    if not question_id.startswith(FIELD_QUESTION_PREFIX):
+        return None
+    return question_id.removeprefix(FIELD_QUESTION_PREFIX) or None
+
+
+def _plain_question(label: str) -> str:
+    """A question built from a field's label (the field set carries no
+    question text): ``Go-live date`` reads ``Please provide the go-live date.``
+    A label that opens with an acronym keeps its case.
+    """
+    if len(label) > 1 and label[1].islower():
+        label = label[0].lower() + label[1:]
+    return f"Please provide the {label}."
+
+
+def _field_question_po(
+    definition: FieldDef, row: Optional[FieldValueRow]
+) -> GapQuestionPO:
+    answered = _origin(row) != "open"
+    return GapQuestionPO(
+        id=field_question_id(definition.field_id),
+        field_id=definition.field_id,
+        label=definition.label,
+        question=_plain_question(definition.label),
+        blocking=definition.always_required,
+        answered=answered,
+        value=row.value if answered and row is not None else None,
+    )
+
+
+def _answered_here(row: Optional[FieldValueRow], field_id: str) -> bool:
+    """Whether ``row`` holds the owner's answer to the field's own question."""
+    return (
+        _origin(row) == "answered"
+        and row is not None
+        and row.source is not None
+        and row.source.question_id == field_question_id(field_id)
+    )
+
+
+def questions_po(
+    required: Sequence[FieldDef],
+    gaps: Sequence[ReviewItemRow],
+    rows: Mapping[str, FieldValueRow],
+) -> list[GapQuestionPO]:
+    """The questions for the owner, over the confirmed required set: each
+    required field with no value, asked by the assistant's question when it
+    wrote one (its own blocking flag) or by a plain one built from the label
+    (blocking for an always-required field), and every question already
+    answered. A question on a field of a type not confirmed is not shown (a
+    pending type's returns when it is confirmed), nor an unanswered one whose
+    field was filled another way. A question tied to no field always shows.
+    """
+    required_ids = {d.field_id for d in required}
+    asked: set[str] = set()
+    shown: list[GapQuestionPO] = []
+    for gap in gaps:
+        field_id = str(gap.subject.get("field_id") or "")
+        if field_id:
+            asked.add(field_id)
+            if field_id not in required_ids:
+                continue
+            if gap.status == ItemStatus.PROPOSED and _origin(rows.get(field_id)) != (
+                "open"
+            ):
+                continue
+        shown.append(_gap_po(gap, rows))
+    for definition in required:
+        if definition.field_id in asked:
+            continue
+        row = rows.get(definition.field_id)
+        if _origin(row) == "open" or _answered_here(row, definition.field_id):
+            shown.append(_field_question_po(definition, row))
+    return shown
+
+
+def blocking_questions_open(
+    record: CaseRecord, summary: CaseSummary, field_set: FieldSetData
+) -> int:
+    """How many blocking questions the Overview shows unanswered, from a case
+    summary (the same rule as :func:`questions_po`).
+    """
+    blocking = {f: b for f, b in summary.open_gaps if f}
+    unfielded = sum(1 for f, b in summary.open_gaps if not f and b)
+    return unfielded + sum(
+        1
+        for d in effective_required(record, field_set)
+        if d.field_id not in summary.filled_field_ids
+        and blocking.get(d.field_id, d.always_required)
+    )
+
+
+def _owner_summary(
+    record: CaseRecord, summary: CaseSummary, field_set: FieldSetData
+) -> CaseSummary:
+    """``summary`` with its blocking-question count taken over the confirmed
+    required set, once the assistant has read the documents.
+    """
+    if not summary.intake_ready:
+        return summary
+    return replace(
+        summary,
+        blocking_gaps_open=blocking_questions_open(record, summary, field_set),
+    )
+
+
 def _precedent_po(
     intake: IntakeViewRow, rows: Sequence[FieldValueRow]
 ) -> Optional[PrecedentPO]:
@@ -499,7 +619,8 @@ def intake_view(
 ) -> IntakeViewPO:
     """The Overview tab: the proposed change types, every required value with
     its source, the precedent and the questions. Nothing is shown before the
-    assistant has pushed its proposals (``ready``).
+    assistant has pushed its proposals (``ready``). A proposed type's values
+    join the list when the owner confirms it.
     """
     by_field = {r.field_id: r for r in rows}
     by_doc = {d.doc_id: d for d in docs}
@@ -508,7 +629,7 @@ def intake_view(
         for c in categories
         if c.status == ItemStatus.PROPOSED and "change_type" in c.subject
     ]
-    required = effective_required(record, pending, field_set)
+    required = effective_required(record, field_set)
     filled = {fid for fid, r in by_field.items() if _origin(r) != "open"}
     completion = completion_dto(
         required, filled, record.completion_threshold, field_set
@@ -516,6 +637,12 @@ def intake_view(
     # A case the owner typed up herself (the manual path, or a type she added
     # before the assistant read anything) is ready as soon as it holds a type.
     ready = intake is not None or bool(record.change_types)
+    # The assistant's questions follow the confirmed types once it has read
+    # the documents; a case typed up by hand has only its Values list.
+    if intake is not None:
+        questions = questions_po(required, gaps, by_field)
+    else:
+        questions = [_gap_po(g, by_field) for g in gaps] if ready else []
     return IntakeViewPO(
         ready=ready,
         change_types=change_types_po(record, categories, by_doc) if ready else [],
@@ -525,7 +652,7 @@ def intake_view(
             else []
         ),
         precedent=_precedent_po(intake, rows) if intake is not None else None,
-        gaps=[_gap_po(g, by_field) for g in gaps] if ready else [],
+        gaps=questions,
         completion=completion,
         required_fields=(
             len(record.required_fields) if ready and not pending else None
@@ -584,15 +711,15 @@ def review_view(
     field_set: FieldSetData,
     *,
     rows: Sequence[FieldValueRow],
-    pending_types: Sequence[str],
     docs: Sequence[DocumentRow],
 ) -> ReviewViewPO:
     """The Review & submit tab: every required value, its origin and the
-    original of a corrected one, and the card that says what is required.
+    original of a corrected one, and the card that says what is required
+    (the confirmed change types' fields only).
     """
     by_field = {r.field_id: r for r in rows}
     by_doc = {d.doc_id: d for d in docs}
-    required = effective_required(record, pending_types, field_set)
+    required = effective_required(record, field_set)
     filled = {fid for fid, r in by_field.items() if _origin(r) != "open"}
     completion = completion_dto(
         required, filled, record.completion_threshold, field_set

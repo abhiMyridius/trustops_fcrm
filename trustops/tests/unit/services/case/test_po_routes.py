@@ -16,7 +16,7 @@ import hashlib
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Optional
 
 import pytest
 from fcrm_case.domain.views import ReviewItemRow
@@ -56,8 +56,15 @@ def ready(
     return scene
 
 
-def events(service: CaseService, type_: str) -> list[Any]:
-    return [e for e in service.store.events if e.type == type_]
+def events(
+    service: CaseService, type_: str, gate_type: Optional[str] = None
+) -> list[Any]:
+    return [
+        e
+        for e in service.store.events
+        if e.type == type_
+        and (gate_type is None or e.payload.get("gate_type") == gate_type)
+    ]
 
 
 def pdf_bytes(name: str = BUSINESS_CASE) -> bytes:
@@ -615,20 +622,19 @@ class TestIntake:
             "new_product",
         ]
         assert body["change_types"][0]["source"]["label"] == f"{BUSINESS_CASE} p.1 l.3"
-        # provisional until the last type is decided: 3 proposed types -> 18 fields
-        assert body["completion"]["required"] == 18
-        assert body["completion"]["filled"] == 9
+        # a proposed type adds nothing until confirmed: the core six only
+        assert body["completion"]["required"] == 6
+        assert body["completion"]["filled"] == 6
         assert body["required_fields"] is None
-        assert [g["id"] for g in body["gaps"]] == ["q_F10", "q_F32", "q_F21"]
+        # each question is on a field of a proposed type: hidden until confirmed
+        assert body["gaps"] == []
         assert body["precedent"]["case_id"] == PRECEDENT
         assert "similarity" not in body["precedent"]
         assert {
             f["field_id"] for f in body["precedent"]["fields"] if f["reusable"]
         } == {"F31", "F33", "F34"}
         values = {v["field_id"]: v for v in body["values"]}
-        assert len(values) == 18
-        assert values["F10"]["origin"] == "open"
-        assert values["F10"]["value"] is None
+        assert sorted(values) == ["F01", "F02", "F03", "F04", "F05", "F06"]
         assert values["F03"]["origin"] == "extracted"
         assert values["F01"]["always_required"] is True
 
@@ -658,6 +664,51 @@ class TestConfirmingChangeTypes:
         assert len(record.required_fields) == 6 + 5
         assert record.domains == ["product"]
 
+    def test_each_confirmed_type_joins_the_count_and_a_pending_one_stays_hidden(
+        self, ready: CaseService
+    ) -> None:
+        def figures(view: dict[str, Any]) -> tuple[int, int]:
+            return view["completion"]["filled"], view["completion"]["required"]
+
+        intake = ready.client.get(f"/cases/{CASE}/intake").json()
+        assert [c["status"] for c in intake["change_types"]] == ["proposed"] * 3
+        assert figures(intake) == (6, 6)
+        assert {v["field_id"] for v in intake["values"]} == {
+            "F01",
+            "F02",
+            "F03",
+            "F04",
+            "F05",
+            "F06",
+        }
+        assert figures(ready.client.get(f"/cases/{CASE}").json()) == (6, 6)
+        assert figures(ready.client.get(f"/cases/{CASE}/documents").json()) == (6, 6)
+
+        confirmed = ready.client.post(
+            self.url("new_geography"), json={"decision": "confirm"}
+        ).json()
+        assert figures(confirmed) == (6 + 2, 6 + 4)  # F20 and F23 were extracted
+        values = {v["field_id"]: v for v in confirmed["values"]}
+        assert {"F20", "F21", "F22", "F23"} <= values.keys()
+        assert (values["F20"]["origin"], values["F23"]["origin"]) == (
+            "extracted",
+            "extracted",
+        )
+        # vendor_onboarding is still proposed: its extracted F12 is kept, not shown
+        assert "F12" not in values
+        assert ready.views.field_values[f"{CASE}:F12"].value is not None
+        assert figures(ready.client.get(f"/cases/{CASE}").json()) == (8, 10)
+        review = ready.client.get(f"/cases/{CASE}/review").json()
+        assert len(review["rows"]) == review["required_card"]["required"] == 10
+
+        vendor = ready.client.post(
+            self.url("vendor_onboarding"), json={"decision": "confirm"}
+        ).json()
+        assert figures(vendor) == (6 + 2 + 1, 6 + 4 + 3)
+        assert {v["field_id"]: v for v in vendor["values"]}["F12"]["origin"] == (
+            "extracted"
+        )
+
     def test_removing_needs_a_reason_and_drops_the_fields(
         self, ready: CaseService
     ) -> None:
@@ -677,7 +728,7 @@ class TestConfirmingChangeTypes:
             "removed",
             "Not a product launch",
         )
-        assert removed["completion"]["required"] == 6 + 3 + 4  # product's five are gone
+        assert removed["completion"]["required"] == 6  # the other two still pending
         (event,) = events(ready, "gate.decided")
         assert event.payload["decision"] == "remove"
         assert event.payload["reason"] == "Not a product launch"
@@ -1203,12 +1254,16 @@ class TestReuse:
             self.url(), json={"from_case_id": PRECEDENT, "field_ids": ["F31", "F33"]}
         )
         assert body.status_code == 200, body.text
-        # F31 and F33 are fields of new_product: provisional until it is decided
-        values = {v["field_id"]: v for v in body.json()["values"]}
+        # F31 and F33 are fields of new_product: kept, shown once it is confirmed
+        assert "F31" not in {v["field_id"] for v in body.json()["values"]}
+        confirmed = ready.client.post(
+            f"/cases/{CASE}/intake/categories/new_product", json={"decision": "confirm"}
+        ).json()
+        values = {v["field_id"]: v for v in confirmed["values"]}
         assert values["F31"]["value"] == "$2,999 per transaction · $10,000 per 30 days"
         assert values["F31"]["origin"] == "reused"
         assert values["F31"]["source"]["label"] == f"reused · {PRECEDENT}"
-        (event,) = events(ready, "gate.decided")
+        event, _ = events(ready, "gate.decided")
         assert event.payload["gate_type"] == "po_reuse"
         assert event.payload["subject"] == {"kind": "precedent", "id": PRECEDENT}
         assert event.payload["value"].keys() == {"F31", "F33"}
@@ -1271,15 +1326,10 @@ class TestAnswers:
         self, ready: CaseService
     ) -> None:
         body = ready.client.post(self.url(), json=self.answers("F10", "F32")).json()
-        gaps = {g["id"]: g for g in body["gaps"]}
-        assert gaps["q_F10"]["answered"]
-        assert gaps["q_F10"]["value"] == "answer F10"
-        assert not gaps["q_F21"]["answered"]
-        values = {v["field_id"]: v for v in body["values"]}
-        assert (values["F10"]["origin"], values["F10"]["source"]["label"]) == (
-            "answered",
-            "owner answer",
-        )
+        # F10 is a field of vendor_onboarding, still proposed: kept, not shown,
+        # and neither is its question
+        assert "F10" not in {v["field_id"] for v in body["values"]}
+        assert body["gaps"] == []
         assert [e.payload["subject"]["id"] for e in events(ready, "gate.decided")] == [
             "q_F10",
             "q_F32",
@@ -1288,6 +1338,76 @@ class TestAnswers:
             e.payload["gate_type"] == "po_answer_gaps"
             for e in events(ready, "gate.decided")
         )
+        confirmed = ready.client.post(
+            f"/cases/{CASE}/intake/categories/vendor_onboarding",
+            json={"decision": "confirm"},
+        ).json()
+        values = {v["field_id"]: v for v in confirmed["values"]}
+        assert (values["F10"]["origin"], values["F10"]["source"]["label"]) == (
+            "answered",
+            "owner answer",
+        )
+        gaps = {g["id"]: g for g in confirmed["gaps"]}
+        assert (gaps["q_F10"]["answered"], gaps["q_F10"]["value"]) == (
+            True,
+            "answer F10",
+        )
+        assert "q_F21" not in gaps  # new_geography is still proposed
+
+    def test_the_questions_follow_the_confirmed_types(self, ready: CaseService) -> None:
+        confirmed = ready.client.post(
+            f"/cases/{CASE}/intake/categories/vendor_onboarding",
+            json={"decision": "confirm"},
+        ).json()
+        gaps = {g["id"]: g for g in confirmed["gaps"]}
+        # vendor_onboarding's open fields: F10 by the assistant's question, F11
+        # by one built from its label; F12 was extracted; the pending types'
+        # q_F32 and q_F21 stay hidden
+        assert list(gaps) == ["q_F10", "ask_F11"]
+        assert gaps["q_F10"]["blocking"] is True
+        assert (gaps["ask_F11"]["field_id"], gaps["ask_F11"]["blocking"]) == (
+            "F11",
+            False,
+        )
+        assert gaps["ask_F11"]["question"].startswith("Please provide the ")
+        answered = ready.client.post(
+            self.url(),
+            json={
+                "answers": [
+                    {"question_id": "ask_F11", "field_id": "F11", "value": "Yes"}
+                ]
+            },
+        ).json()
+        built = next(g for g in answered["gaps"] if g["id"] == "ask_F11")
+        assert (built["answered"], built["value"]) == (True, "Yes")
+        row = ready.views.field_values[f"{CASE}:F11"]
+        assert (row.origin, row.value) == ("answered", "Yes")
+        assert events(ready, "gate.decided", "po_answer_gaps") == []  # H1 opened none
+        geography = ready.client.post(
+            f"/cases/{CASE}/intake/categories/new_geography",
+            json={"decision": "confirm"},
+        ).json()
+        assert [g["id"] for g in geography["gaps"]] == [
+            "q_F10",
+            "q_F21",
+            "ask_F11",
+            "ask_F22",
+        ]
+        removed = ready.client.post(
+            f"/cases/{CASE}/intake/categories/new_geography",
+            json={"decision": "remove", "reason": "Not a new geography after all"},
+        ).json()
+        assert [g["id"] for g in removed["gaps"]] == ["q_F10", "ask_F11"]
+
+    def test_a_built_question_for_a_field_outside_the_set_is_a_404(
+        self, ready: CaseService
+    ) -> None:
+        for question in ("ask_F11", "ask_F10", "ask_F99"):  # pending, asked, unknown
+            refused = ready.client.post(
+                self.url(),
+                json={"answers": [{"question_id": question, "value": "x"}]},
+            )
+            assert refused.status_code == 404, question
 
     def test_a_replay_changes_nothing(self, ready: CaseService) -> None:
         ready.client.post(self.url(), json=self.answers("F10"))
@@ -1301,13 +1421,14 @@ class TestAnswers:
     def test_a_new_value_for_an_answered_question_updates_it_with_one_gate_event(
         self, ready: CaseService
     ) -> None:
+        confirm_all(ready)
         ready.client.post(self.url(), json=self.answers("F10"))
         again = {
             "answers": [{"question_id": "q_F10", "field_id": "F10", "value": "better"}]
         }
         body = ready.client.post(self.url(), json=again).json()
         assert next(g for g in body["gaps"] if g["id"] == "q_F10")["value"] == "better"
-        assert len(events(ready, "gate.decided")) == 1
+        assert len(events(ready, "gate.decided", "po_answer_gaps")) == 1
         assert len(ready.views.field_values[f"{CASE}:F10"].history) == 1
 
     def test_an_optional_question_is_answered_without_a_gate_event(
@@ -1330,6 +1451,7 @@ class TestAnswers:
             },
             created_at=NOW,
         )
+        confirm_all(ready)
         body = ready.client.post(self.url(), json=self.answers("F22")).json()
         gap = next(g for g in body["gaps"] if g["id"] == "q_F22")
         assert (gap["answered"], gap["blocking"], gap["value"]) == (
@@ -1337,7 +1459,7 @@ class TestAnswers:
             False,
             "answer F22",
         )
-        assert events(ready, "gate.decided") == []
+        assert events(ready, "gate.decided", "po_answer_gaps") == []
         assert ready.views.field_values[f"{CASE}:F22"].origin == "answered"
 
     def test_a_question_with_no_field_keeps_its_answer_on_the_item(
@@ -1416,12 +1538,41 @@ class TestAnswers:
 # ── review, validate, submit ────────────────────────────────────────────────
 
 
+def confirm_all(service: CaseService) -> None:
+    """Confirm the three change types the assistant proposed for the demo."""
+    for change_type in ("vendor_onboarding", "new_geography", "new_product"):
+        confirmed = service.client.post(
+            f"/cases/{CASE}/intake/categories/{change_type}",
+            json={"decision": "confirm"},
+        )
+        assert confirmed.status_code == 200, confirmed.text
+
+
 class TestReviewValidateSubmit:
-    def test_review_lists_every_required_value_with_its_origin(
+    def test_review_lists_only_the_core_while_types_are_pending(
         self, ready: CaseService
     ) -> None:
         body = ready.client.get(f"/cases/{CASE}/review").json()
+        assert [r["field_id"] for r in body["rows"]] == [
+            "F01",
+            "F02",
+            "F03",
+            "F04",
+            "F05",
+            "F06",
+        ]
+        assert body["required_card"]["required"] == 6
+        assert len(body["required_card"]["labels"]) == 6
+        assert (body["completion"]["filled"], body["completion"]["required"]) == (6, 6)
+        assert body["submit_blocked_reason"] is None
+
+    def test_review_lists_every_required_value_with_its_origin(
+        self, ready: CaseService
+    ) -> None:
+        confirm_all(ready)
+        body = ready.client.get(f"/cases/{CASE}/review").json()
         assert len(body["rows"]) == 18
+        assert body["required_card"]["required"] == 18
         assert body["required_card"]["labels"][0] == "F01 Change owner"
         assert body["required_card"]["always_required"] == 6
         assert body["required_card"]["threshold_pct"] == 80
@@ -1432,6 +1583,14 @@ class TestReviewValidateSubmit:
     def test_validate_names_the_failing_check_and_is_always_200(
         self, ready: CaseService
     ) -> None:
+        pending = ready.client.post(f"/cases/{CASE}/validate", json={}).json()
+        by_id = {c["id"]: c for c in pending["checks"]}
+        # the core six are filled: only the undecided types stop a submit
+        assert by_id["completion"]["ok"] is True
+        assert by_id["completion"]["detail"] == "100% ≥ 80%"
+        assert by_id["types_confirmed"]["ok"] is False
+        assert by_id["types_confirmed"]["detail"] == "3 still to confirm"
+        confirm_all(ready)
         response = ready.client.post(f"/cases/{CASE}/validate", json={})
         assert response.status_code == 200
         body = response.json()
@@ -1442,7 +1601,7 @@ class TestReviewValidateSubmit:
             by_id["completion"]["detail"] == "50%: 6 more field(s) needed to reach 80%"
         )
         assert by_id["always_required"]["ok"] is True
-        assert by_id["types_confirmed"]["detail"] == "3 still to confirm"
+        assert by_id["types_confirmed"]["detail"] == "3 confirmed"
         assert by_id["no_conflicts"]["ok"] is True
         assert by_id["no_conflicts"]["blocking"] is False
         assert "F05 has 2 candidates" in by_id["no_conflicts"]["detail"]
@@ -1455,11 +1614,8 @@ class TestReviewValidateSubmit:
         assert response.status_code == 422
         body = response.json()
         assert body["type"].endswith("/submit_checks_failed")
-        assert {e["loc"] for e in body["errors"]} == {
-            "checks.completion",
-            "checks.types_confirmed",
-        }
-        assert "Completion" in body["detail"]
+        assert {e["loc"] for e in body["errors"]} == {"checks.types_confirmed"}
+        assert "Change types" in body["detail"]
         assert events(ready, "case.submitted") == []
         assert ready.po.submissions == {}
         assert ready.store.records[CASE].submitted_at is None

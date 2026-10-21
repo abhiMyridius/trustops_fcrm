@@ -174,6 +174,10 @@ class CaseSummary:
     pending_types: tuple[str, ...] = ()
     #: Blocking questions the owner has not answered.
     blocking_gaps_open: int = 0
+    #: ``(field id, blocking)`` of each question the assistant asked that is
+    #: still unanswered (``""`` for a question tied to no field): the PO views
+    #: recount the blocking questions over the confirmed required set from it.
+    open_gaps: tuple[tuple[str, bool], ...] = ()
 
     @property
     def has_values(self) -> bool:

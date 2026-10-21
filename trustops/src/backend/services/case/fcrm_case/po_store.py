@@ -553,7 +553,7 @@ class MongoPoStore:
         summaries: dict[str, CaseSummary] = {}
         for case_id in ids:
             docs = documents.get(case_id, {})
-            types, blocking = pending.get(case_id, ([], 0))
+            types, blocking, gaps = pending.get(case_id, ([], 0, ()))
             summaries[case_id] = CaseSummary(
                 open_conditions=conditions.get(case_id, 0),
                 open_threads=threads.get(case_id, 0),
@@ -564,6 +564,7 @@ class MongoPoStore:
                 intake_ready=case_id in ready,
                 pending_types=tuple(sorted(types)),
                 blocking_gaps_open=blocking,
+                open_gaps=gaps,
             )
         return summaries
 
@@ -597,9 +598,10 @@ class MongoPoStore:
 
     async def _pending_by_case(
         self, ids: Sequence[str]
-    ) -> dict[str, tuple[list[str], int]]:
-        """Per case: the change types still proposed and how many blocking
-        questions are unanswered, from one grouped read of the open intake items.
+    ) -> dict[str, tuple[list[str], int, tuple[tuple[str, bool], ...]]]:
+        """Per case: the change types still proposed, how many blocking
+        questions are unanswered and the field and blocking flag of each, from
+        one grouped read of the open intake items.
         """
         cursor = await self._views.review_items.collection.aggregate(
             [
@@ -614,6 +616,12 @@ class MongoPoStore:
                     "$group": {
                         "_id": {"c": "$case_id", "k": "$kind"},
                         "types": {"$push": "$subject.change_type"},
+                        "gaps": {
+                            "$push": {
+                                "f": "$subject.field_id",
+                                "b": "$subject.blocking",
+                            }
+                        },
                         "blocking": {
                             "$sum": {
                                 "$cond": [{"$eq": ["$subject.blocking", True]}, 1, 0]
@@ -623,15 +631,18 @@ class MongoPoStore:
                 },
             ]
         )
-        pending: dict[str, tuple[list[str], int]] = {}
+        pending: dict[str, tuple[list[str], int, tuple[tuple[str, bool], ...]]] = {}
         for row in await cursor.to_list():
             case_id = str(row["_id"]["c"])
-            types, blocking = pending.get(case_id, ([], 0))
+            types, blocking, gaps = pending.get(case_id, ([], 0, ()))
             if row["_id"]["k"] == ItemKind.CATEGORY.value:
                 types = [str(t) for t in row["types"] if t is not None]
             else:
                 blocking = int(row["blocking"])
-            pending[case_id] = (types, blocking)
+                gaps = tuple(
+                    (str(g.get("f") or ""), g.get("b") is True) for g in row["gaps"]
+                )
+            pending[case_id] = (types, blocking, gaps)
         return pending
 
     async def _ready_cases(self, ids: Sequence[str]) -> set[str]:
@@ -899,6 +910,14 @@ class InMemoryPoStore:
                 1
                 for i in items
                 if i.kind == ItemKind.GAP and i.subject.get("blocking") is True
+            ),
+            open_gaps=tuple(
+                (
+                    str(i.subject.get("field_id") or ""),
+                    i.subject.get("blocking") is True,
+                )
+                for i in items
+                if i.kind == ItemKind.GAP
             ),
         )
 
