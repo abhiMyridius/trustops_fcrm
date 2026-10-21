@@ -44,6 +44,7 @@ from fcrm_context_worker.seedload import load_clauses
 from fcrm_policy.bus import start_events_consumer, start_relay
 from fcrm_policy.config_service import build_config
 from fcrm_policy.corpus import MongoClauseStore
+from fcrm_policy.embedding_cache import MongoEmbeddingCache
 from fcrm_policy.indexing import IndexName, IndexRequester, IndexStatusStore
 from fcrm_policy.precedents import MongoPrecedentStore
 from fcrm_policy.reference import (
@@ -146,7 +147,12 @@ async def register(
     llm = LLMClient.from_config(context_config)
     if settings.seed_on_empty:
         await vector_store.ensure_index()
-        await load_clauses(vector_store, llm)
+        cache = (
+            MongoEmbeddingCache(db["embedding_cache"])
+            if settings.skip_embed_if_present
+            else None
+        )
+        await load_clauses(vector_store, llm, cache=cache)
     vector = VectorClauseSource(vector_store, llm, context_config)
 
     config, scoring_client = await build_config(

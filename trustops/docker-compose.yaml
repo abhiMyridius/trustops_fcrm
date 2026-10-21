@@ -303,6 +303,9 @@ services:
       SCORING_SERVICE_URL: http://api:8000/api/fcrm/scoring
       RRF_K: "60"
       SEARCH_TOP_K_MAX: "30"
+      # Reuse clause embeddings stored in Mongo instead of re-embedding the corpus
+      # on Bedrock at every start (fcrm_policy.embedding_cache; drop it to re-embed).
+      SKIP_EMBED_IF_PRESENT: ${SKIP_EMBED_IF_PRESENT:-true}
       # The ai/ root: EMBEDDING_PROVIDER=bedrock reads the embedding model from
       # ai/models/tiers.yaml, the same file H4 reads (model ids live only there).
       PROMPTS_DIR: /app/ai

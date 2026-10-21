@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Iterable, Mapping
-from typing import Any, Optional
+from typing import Any, Optional, Protocol
 
 from evoq_context.core.config import ContextConfig
 from evoq_context.llm.client import LLMClient
@@ -166,16 +166,66 @@ def clause_records(
     return [clause_metadata(c, version) for c in chosen]
 
 
+class EmbeddingCache(Protocol):
+    """Embeddings kept across restarts, keyed by embedding model and chunk key.
+
+    A chunk key carries the clause text's content hash, so a changed clause
+    misses the cache and is embedded again; a different model misses too.
+    """
+
+    async def get_many(self, model: str, keys: list[str]) -> dict[str, list[float]]:
+        """The cached vectors among ``keys`` for ``model`` (missing keys absent)."""
+        ...
+
+    async def put_many(self, model: str, vectors: Mapping[str, list[float]]) -> None:
+        """Store ``vectors`` (chunk key -> vector) for ``model``."""
+        ...
+
+
+def embedding_model_key(llm: LLMClient) -> str:
+    """What a cached vector is only valid for: provider, model and dimension."""
+    return f"{llm.embed_provider}/{llm.embed_model}/{llm.embed_dimension}"
+
+
+async def _embeddings(
+    records: list[dict[str, Any]], llm: LLMClient, cache: Optional[EmbeddingCache]
+) -> list[list[float]]:
+    """One vector per record: from ``cache`` where present, the rest from ``llm``
+    (and then written back to ``cache``)."""
+    if cache is None:
+        return await llm.embed([r["text"] for r in records])
+    model = embedding_model_key(llm)
+    keys = [str(r["chunk_key"]) for r in records]
+    found = await cache.get_many(model, keys)
+    missing = [r for r in records if r["chunk_key"] not in found]
+    if missing:
+        fresh = await llm.embed([r["text"] for r in missing])
+        new = {str(r["chunk_key"]): v for r, v in zip(missing, fresh, strict=True)}
+        await cache.put_many(model, new)
+        found = {**found, **new}
+    logger.info(
+        "seedload: %d embedding(s) reused from cache, %d embedded",
+        len(records) - len(missing),
+        len(missing),
+    )
+    return [found[k] for k in keys]
+
+
 async def load_clauses(
     store: VectorStore,
     llm: LLMClient,
     clauses: Optional[Iterable[Mapping[str, Any]]] = None,
     *,
     corpus_version: Optional[str] = None,
+    cache: Optional[EmbeddingCache] = None,
 ) -> int:
-    """Embed and upsert clause vectors into ``store``; returns the count."""
+    """Embed and upsert clause vectors into ``store``; returns the count.
+
+    With ``cache``, a clause whose embedding is already cached for this model
+    is not sent to the embedding provider again.
+    """
     records = clause_records(clauses, corpus_version=corpus_version)
-    embeddings = await llm.embed([r["text"] for r in records])
+    embeddings = await _embeddings(records, llm, cache)
     chunks = [
         VectorChunk(chunk_id=r["chunk_key"], text=r["text"], embedding=e, metadata=r)
         for r, e in zip(records, embeddings, strict=True)

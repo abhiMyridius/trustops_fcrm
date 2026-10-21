@@ -29,6 +29,10 @@ class PolicySettings(BaseServiceSettings, S3Settings):
     rrf_k: int = 60
     search_top_k_max: int = 30
     search_candidate_multiplier: int = 3
+    skip_embed_if_present: bool = False
+    """``SKIP_EMBED_IF_PRESENT``: reuse clause embeddings stored in Mongo
+    (``fcrm_policy.embedding_cache``) at startup and embed only the clauses
+    that have none, instead of re-embedding the whole corpus on every start."""
     scoring_service_url: Optional[str] = None
     """S2's base URL, including its mount prefix (``.../api/fcrm/scoring``): the
     one call S3 makes, to put a published scoring model or routing rule into
