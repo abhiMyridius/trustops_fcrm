@@ -28,7 +28,7 @@ export function Integrations() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="Integrations" subtitle="Where documents come from and where notices go." />
+      <PageHeader title="Integrations" />
       <Banner tone="rule">No password, token or secret is collected or stored. Connections use the bank&apos;s directory permissions.</Banner>
       <QueryState query={q} label="Loading integrations">
         {(rows) => (
@@ -77,7 +77,6 @@ export function Integrations() {
         open={connecting !== null}
         onClose={() => setConnecting(null)}
         title={`Connect ${connecting?.name ?? ''}`}
-        description="Location and scope only. No password, token or secret is collected or stored."
         footer={
           <>
             <Button variant="ghost" onClick={() => setConnecting(null)}>

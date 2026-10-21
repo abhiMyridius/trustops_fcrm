@@ -53,7 +53,6 @@ export function ClauseCard({
         <Quote aria-hidden size={14} className="mt-0.5 shrink-0 text-digital-pavo" />
         <span>{clause.quote}</span>
       </blockquote>
-      <p className="text-[11px] text-text-muted">Quoted word for word from the source. Not generated, not paraphrased.</p>
       {analyst && (
         <p className="flex items-start gap-1.5 text-[12px] text-text-secondary">
           <UserPlus aria-hidden size={13} className="mt-0.5 shrink-0" />

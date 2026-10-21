@@ -1,6 +1,5 @@
 import type { ConfigSectionBase, PolicyCorpusData } from '@/api/types/config';
 import { Badge, Tag } from '@/components/ui/Badge';
-import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useToast } from '@/components/ui/Toast';
@@ -17,11 +16,10 @@ export function PolicyCorpus({ s }: { s: ConfigSectionBase<'policy-corpus', Poli
           {d.sources.length} sources · {d.clause_count} clauses
         </Badge>
         <span className="text-[13px] text-text-secondary">Ingested {formatDate(d.ingested)}</span>
-        <Button size="sm" variant="secondary" onClick={() => toast.info('Upload a source', 'Ingestion (H3) and indexing (H4) run as jobs; progress streams on cases/stream. Not available in this build.')}>
+        <Button size="sm" variant="secondary" onClick={() => toast.info('Upload a source', 'Not available in this build.')}>
           Upload source…
         </Button>
       </div>
-      <Banner tone="rule">External clause text is locked. A clause that a case cites is retired, never deleted.</Banner>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {d.sources.map((src) => (
           <Card key={src.id} title={src.title} subtitle={`${src.id} · ${src.kind} · ${src.clauses} clauses`} headingLevel={3}>

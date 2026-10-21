@@ -49,7 +49,7 @@ export function CommitteeQueue() {
   ];
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="Committee queue" subtitle="You read the pack and cast one vote. Votes stay hidden until all three are in." />
+      <PageHeader title="Committee queue" />
       <SegmentedControl
         label="Filter"
         value={filter}

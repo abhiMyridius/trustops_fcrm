@@ -33,7 +33,6 @@ export function ScoreBoxView({ score }: { score: ScoreBox }) {
         <div>
           <p className="text-sm font-semibold">Score withheld</p>
           <p className="text-[13px] text-text-secondary">{score.reason}</p>
-          <p className="mt-1 text-[12px] text-text-muted">Why hide the score? A number seen first anchors the whole review.</p>
         </div>
       </div>
     );
@@ -51,10 +50,10 @@ export function ScoreBoxView({ score }: { score: ScoreBox }) {
       />
       {score.previous && (
         <p className="mt-2 text-[12px] text-text-secondary">
-          Was {score.previous.composite.toFixed(1)} · Band {score.previous.band} before your override. Computed by S2 with scoring model {score.model_version}.
+          Was {score.previous.composite.toFixed(1)} · Band {score.previous.band} before your override. Scoring model {score.model_version}.
         </p>
       )}
-      {!score.previous && <p className="mt-2 text-[12px] text-text-muted">Computed by the scoring engine (S2), model {score.model_version}. No agent writes a score.</p>}
+      {!score.previous && <p className="mt-2 text-[12px] text-text-muted">Scoring model {score.model_version}.</p>}
     </div>
   );
 }
@@ -74,7 +73,7 @@ function HandedToYou({ caseId, failed }: { caseId: string; failed: NonNullable<A
   return (
     <>
       <Banner tone="danger" title={failed.title}>
-        <p>{failed.reason} Nothing was skipped: complete the step by hand below.</p>
+        <p>{failed.reason} Complete the step by hand below.</p>
         {failed.failures.length > 1 && (
           <ul className="mt-1 list-disc pl-4">
             {failed.failures.map((f) => (
@@ -99,7 +98,7 @@ function AskOwnerLink({ caseId, closed }: { caseId: string; closed: boolean }) {
       <Button size="sm" variant="secondary" onClick={() => navigate(`/analyst/case/${caseId}/inbox`)}>
         Ask the owner a question
       </Button>
-      <span>Any time, from the Inbox. It does not pause your clock.</span>
+      <span>Does not pause your clock.</span>
     </div>
   );
 }
@@ -127,15 +126,13 @@ export function SummaryTab() {
             <div className="flex flex-col gap-5">
               <HandedToYou caseId={id} failed={a.agent_failed} />
               <Banner tone="info" title="The assessment core is waiting for this step">
-                The steps after it run once you complete it. This page updates as they finish.
+                The remaining steps run after you complete it.
               </Banner>
               <AskOwnerLink caseId={id} closed={w.closed} />
             </div>
           ) : (
             <div className="flex flex-col gap-4">
-              <Banner tone="info" live="polite" title="The assessment core is running">
-                Screening, research, assessment, critic and the completeness report run before you start. This page updates as they finish.
-              </Banner>
+              <Banner tone="info" live="polite" title="The assessment core is running" />
               <AskOwnerLink caseId={id} closed={w.closed} />
             </div>
           )
@@ -162,7 +159,7 @@ export function SummaryTab() {
                   </ul>
                 )}
               </Card>
-              <Card title={<AiLabel>Completeness report</AiLabel>} subtitle="Drafted by the narrative agent; you decide whether to ask first.">
+              <Card title={<AiLabel>Completeness report</AiLabel>}>
                 <dl className="grid grid-cols-3 gap-3 text-center">
                   {(
                     [
@@ -204,9 +201,6 @@ export function SummaryTab() {
                     Decision recorded: {w.completeness_decision === 'ask' ? 'one clarification round' : 'proceed without a round'}.
                   </p>
                 )}
-                <Banner tone="rule" className="mt-4">
-                  Completeness first. One batched round of questions pauses your clock and keeps the submission untouched.
-                </Banner>
               </Card>
             </div>
             <div className="flex flex-col gap-5">
@@ -223,12 +217,12 @@ export function SummaryTab() {
         onClose={() => setExplaining(null)}
         title="Explain the critic's finding"
         context={explaining?.text}
-        consequence="Your explanation is recorded on the audit trail and shown with the finding in the pack. The finding stays visible; the score does not change."
+        consequence="The explanation is shown with the finding in the pack. The score does not change."
         confirmLabel="Record explanation"
         onConfirm={async ({ reason }) => {
           if (!explaining) return;
           await decideItem.mutateAsync({ item_id: explaining.id, decision: 'explain', reason });
-          toast.success('Explanation recorded', 'The critic finding is decided.');
+          toast.success('Explanation recorded');
         }}
       />
     </>

@@ -6,7 +6,7 @@ import { formatDate } from '@/lib/format';
 /** Append-only version list: every publish is a new immutable snapshot. */
 export function VersionHistory({ versions }: { versions: ConfigVersion[] }) {
   return (
-    <Card title="Version history" subtitle="Append-only; cases pin the version in force when they start.">
+    <Card title="Version history">
       <ol className="flex flex-col gap-2 text-sm">
         {versions.map((v) => (
           <li key={v.version} className="flex flex-wrap items-center gap-2">

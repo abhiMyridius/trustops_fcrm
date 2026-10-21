@@ -53,7 +53,7 @@ export function ConditionsTab() {
               <EmptyState title="No open conditions" />
             )}
             <p className="text-[12px] text-text-muted">
-              Reminders are sent {o.reminder_days} days before each due date. Scores, bands, control ratings and policy clauses are not part of this view.
+              Reminders are sent {o.reminder_days} days before each due date.
             </p>
             <Modal
               open={target !== null}

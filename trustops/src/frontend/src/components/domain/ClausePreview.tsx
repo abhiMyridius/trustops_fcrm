@@ -69,10 +69,7 @@ export function ClausePreviewBody({ clauseId }: { clauseId: string }) {
         <Quote aria-hidden size={14} className="mt-0.5 shrink-0 text-digital-pavo" />
         <span className="whitespace-pre-wrap">{c.text}</span>
       </blockquote>
-      <p className="text-[11px] text-text-muted">
-        Quoted word for word from the source. Not generated, not paraphrased.
-        {c.provenance_kind && c.provenance_kind !== 'verbatim' ? ` Provenance: ${c.provenance_kind}.` : ''}
-      </p>
+      {c.provenance_kind && c.provenance_kind !== 'verbatim' && <p className="text-[11px] text-text-muted">Provenance: {c.provenance_kind}</p>}
     </article>
   );
 }

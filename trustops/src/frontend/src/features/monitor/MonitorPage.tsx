@@ -115,7 +115,7 @@ export function MonitorPage() {
       </header>
 
       <section aria-label="Counters" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Counter label="Agents run" value={`${h.counters.agents_run} / ${h.counters.agents_total}`} hint="One Pydantic AI call per job" />
+        <Counter label="Agents run" value={`${h.counters.agents_run} / ${h.counters.agents_total}`} />
         <Counter label="Guards" value={`${h.counters.guards_passed} passed`} hint={`${h.counters.guards_blocked} blocked`} />
         <Counter label="Audit records" value={formatInt(h.counters.audit_records)} hint={h.counters.chain_verified ? 'chain verified' : 'chain not verified'} />
         <Counter label="Tokens" value={`${Math.round(h.counters.tokens_used / 1000)}k / ${Math.round(h.counters.tokens_budget / 1000)}k`} hint={`${h.counters.tokens_target ? `Target ${Math.round(h.counters.tokens_target / 1000)}k. ` : ''}${h.tokens_note}`}>
@@ -167,7 +167,7 @@ export function MonitorPage() {
           </div>
         </div>
         <ol ref={logRef} aria-live={paused ? 'off' : 'polite'} aria-relevant="additions" className="max-h-[52vh] overflow-y-auto rounded-md bg-ink-10 p-3 font-mono text-[12px] leading-relaxed text-text-on-dark">
-          {lines.length === 0 && <li className="text-text-on-dark-muted">No lines yet. Actions on the case appear here as the harness records them.</li>}
+          {lines.length === 0 && <li className="text-text-on-dark-muted">No lines yet.</li>}
           {lines.map((l) => (
             <li key={l.seq} className={cn('flex gap-3 border-b border-ink-9 py-1', l.level !== 'info' && 'text-neural-beam')}>
               <span className="w-12 shrink-0 text-text-on-dark-muted">{l.at.slice(11, 16)}</span>

@@ -1,6 +1,5 @@
 import type { ConfigSectionBase, ScoringModelData } from '@/api/types/config';
 import { BandChip } from '@/components/domain/ScoreBadge';
-import { Banner } from '@/components/ui/Banner';
 import { Card } from '@/components/ui/Card';
 import { formatFixed } from '@/lib/format';
 import { DraftEdit } from '../DraftEdit';
@@ -65,11 +64,8 @@ export function ScoringModel({ s }: { s: ConfigSectionBase<'scoring-model', Scor
         <p className="text-sm">
           Retention = 1 − {d.retention_factor} × CE / 10, floor <span className="font-bold">{Math.round(d.retention_floor * 100)}%</span>
         </p>
-        <Banner tone="rule" className="mt-3">
-          Fixed at 40 %, on this or any page. Controls mitigate risk and never eliminate it.
-        </Banner>
         <p className="mt-2 text-[12px] text-text-muted">
-          Model approved {d.approved} by {d.owner}. Planned controls are never scored.
+          Model approved {d.approved} by {d.owner}.
         </p>
       </Card>
     </div>

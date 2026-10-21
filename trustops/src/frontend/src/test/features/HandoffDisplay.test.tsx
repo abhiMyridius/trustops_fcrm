@@ -41,16 +41,16 @@ function summaryWith(failed: Failed, ready = true): void {
 }
 
 describe('the Summary handoff banner', () => {
-  it('names the failed agent and says once that nothing was skipped', async () => {
+  it('names the failed agent and says once what to do', async () => {
     resetMockState('released');
     inHandoff();
     summaryWith(RESEARCH);
     renderApp(`/analyst/case/${DEMO}/summary`, { as: USERS.rahul });
     expect(await screen.findByText('Research step handed to you')).toBeInTheDocument();
     const body = screen.getByText(/^The research agent failed on both tries in the assess stage\./);
-    expect(body).toHaveTextContent('The research agent failed on both tries in the assess stage. Nothing was skipped: complete the step by hand below.');
+    expect(body).toHaveTextContent('The research agent failed on both tries in the assess stage. Complete the step by hand below.');
     expect(body.textContent).not.toMatch(/\.\./);
-    expect(screen.getAllByText(/Nothing was skipped/)).toHaveLength(1);
+    expect(screen.getAllByText(/Complete the step by hand below/)).toHaveLength(1);
     expect(screen.queryByText(/agent run/)).not.toBeInTheDocument();
   });
 

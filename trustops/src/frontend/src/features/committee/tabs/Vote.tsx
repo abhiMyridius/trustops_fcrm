@@ -37,9 +37,6 @@ export function VoteTab() {
     <QueryState query={q} label="Loading votes">
       {(v) => (
         <div className="flex max-w-4xl flex-col gap-5">
-          <Banner tone="rule">
-            Three votes, hidden until all are in, each with a written rationale, counted by code. Nobody — not the analyst, not the system — approves or rejects anything on your behalf.
-          </Banner>
           <p className="text-lg font-bold" aria-live="polite">
             {v.cast_count} of {v.quorum} votes in{v.round > 1 ? ` · round ${v.round}` : ''}
           </p>
@@ -49,12 +46,12 @@ export function VoteTab() {
             ))}
           </div>
           {v.revealed && v.tally && (
-            <Banner tone={v.outcome === 'no_majority' ? 'warning' : 'success'} live="polite" title={`Revealed together: ${Object.entries(v.tally).map(([k, n]) => `${OUTCOME_LABEL[k as Outcome].toLowerCase()} ×${n}`).join(' · ')}`}>
-              {v.outcome === 'no_majority' ? 'No majority: a thread opens and a re-vote round is requested (ADR-08). Nothing is decided automatically.' : `Majority: ${v.outcome_label?.toLowerCase()}. Tally counted by code (S5).`}
+            <Banner tone={v.outcome === 'no_majority' ? 'warning' : 'success'} live="polite" title={`Votes: ${Object.entries(v.tally).map(([k, n]) => `${OUTCOME_LABEL[k as Outcome].toLowerCase()} ×${n}`).join(' · ')}`}>
+              {v.outcome === 'no_majority' ? 'No majority. A re-vote round is requested.' : `Majority: ${v.outcome_label?.toLowerCase()}.`}
             </Banner>
           )}
-          {v.revealed && !v.tally && <Banner tone="info">{`Decided before this build: ${v.outcome_label ?? ''}. Individual votes for historical cases are not part of the seed.`}</Banner>}
-          {v.mine && !v.revealed && <Banner tone="success">{`You voted ${OUTCOME_LABEL[v.mine.choice].toLowerCase()}. Your vote is hidden from the others until all three are cast and cannot be changed.`}</Banner>}
+          {v.revealed && !v.tally && <Banner tone="info">{`Decided: ${v.outcome_label ?? ''}. Individual votes are not available for this case.`}</Banner>}
+          {v.mine && !v.revealed && <Banner tone="success">{`You voted ${OUTCOME_LABEL[v.mine.choice].toLowerCase()}. Votes are shown when all three are in.`}</Banner>}
           {!v.mine && !v.revealed && p.status !== 'decided' && (
             <Card title="Cast your vote">
               <form
@@ -65,7 +62,7 @@ export function VoteTab() {
                   if (!choice || !parsed.success) return;
                   cast.mutate(
                     { vote: choice, rationale: parsed.data },
-                    { onSuccess: () => toast.success('Vote cast', 'Hidden until all three are in.'), onError: (er) => toast.error('Not cast', userMessage(er)) },
+                    { onSuccess: () => toast.success('Vote cast'), onError: (er) => toast.error('Not cast', userMessage(er)) },
                   );
                 }}
               >

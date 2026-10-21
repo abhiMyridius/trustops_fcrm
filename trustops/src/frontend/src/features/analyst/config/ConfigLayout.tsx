@@ -1,7 +1,6 @@
-/** 2.24 Config frame: eight sections, the non-retroactive banner and the ownership rationale. */
+/** 2.24 Config frame: eight sections. */
 import { NavLink, Outlet } from 'react-router-dom';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Banner } from '@/components/ui/Banner';
 import { cn } from '@/lib/cn';
 import { useDocumentTitle } from '@/lib/a11y';
 
@@ -20,8 +19,7 @@ export function ConfigLayout() {
   useDocumentTitle('Config');
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="Configuration" subtitle="Rules are tunable by the risk function, never by the business owner of a change." />
-      <Banner tone="rule">Non-retroactive: cases pin the version in force; re-scoring is an explicit, logged choice.</Banner>
+      <PageHeader title="Configuration" />
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[220px_1fr]">
         <nav aria-label="Configuration sections" className="flex flex-row gap-1 overflow-x-auto lg:flex-col">
           {SECTIONS.map((s) => (

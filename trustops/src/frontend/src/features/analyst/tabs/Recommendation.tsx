@@ -80,13 +80,13 @@ function Editor({ caseId, rec, readOnly }: { caseId: string; rec: Recommendation
           )}
         </div>
       </Card>
-      <Card title="Conditions" subtitle="Each one traces to an overridden control, a planned control or a policy gap.">
+      <Card title="Conditions">
         <ConditionTable rows={rec.conditions} showSource caption="Recommended conditions" />
       </Card>
       {!readOnly && (
         <Card title={rec.locked ? 'Locked' : 'Lock the recommendation'}>
           {!rec.locked && rec.lock_blockers.length > 0 && (
-            <Banner tone="warning" title="Not yet: every proposal must be reviewed first">
+            <Banner tone="warning" title="Review every proposal before locking">
               <ul className="list-disc pl-4">
                 {rec.lock_blockers.map((b) => (
                   <li key={b}>{b}</li>
@@ -95,7 +95,7 @@ function Editor({ caseId, rec, readOnly }: { caseId: string; rec: Recommendation
             </Banner>
           )}
           {blockers.length > 0 && (
-            <Banner tone="danger" className="mt-3" title="The server refused the lock">
+            <Banner tone="danger" className="mt-3" title="Lock refused">
               <ul className="list-disc pl-4">
                 {blockers.map((b) => (
                   <li key={b}>{b}</li>
@@ -118,7 +118,7 @@ function Editor({ caseId, rec, readOnly }: { caseId: string; rec: Recommendation
                   lock.mutate(undefined, {
                     onSuccess: () => {
                       setBlockers([]);
-                      toast.success('Recommendation locked', 'The numbers are frozen; generate the pack on the Handoff tab.');
+                      toast.success('Recommendation locked', 'Generate the pack on the Handoff tab.');
                     },
                     onError: (e) => {
                       if (e instanceof ApiError && e.problem.blocking) setBlockers(e.problem.blocking);
@@ -131,9 +131,6 @@ function Editor({ caseId, rec, readOnly }: { caseId: string; rec: Recommendation
               </Button>
             )}
           </div>
-          <Banner tone="rule" className="mt-4">
-            Locking freezes the numbers. Unlocking needs a reason and regenerates the pack; every cast vote is re-requested.
-          </Banner>
         </Card>
       )}
       <ReasonDialog
@@ -164,15 +161,15 @@ export function RecommendationTab() {
     if (!w.is_demo) {
       return (
         <Banner tone="info" live="polite" title="No recommendation drafted">
-          No recommendation is drafted for this case: it has no assessment run, so the narrative agent has not drafted one. Seeded cases never have a run.
+          No recommendation is drafted for this case: it has no assessment run.
         </Banner>
       );
     }
     return (
       <Banner tone="info" live="polite" title="Not drafted yet">
         {w.stage === 'handoff'
-          ? 'The narrative agent has not drafted the recommendation yet: it is waiting for the step handed to you on the Summary tab.'
-          : 'The narrative agent has not drafted the recommendation yet: it is drafted once every review decision is made.'}
+          ? 'It is waiting for the step handed to you on the Summary tab.'
+          : 'It is drafted once every review decision is made.'}
       </Banner>
     );
   }

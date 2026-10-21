@@ -13,7 +13,6 @@ export function Forbidden() {
       <div className="max-w-md rounded-xl border border-border bg-surface p-8 text-center shadow-md">
         <ShieldX aria-hidden size={36} className="mx-auto text-danger" />
         <h1 className="mt-3 text-xl font-extrabold tracking-tight">403 · Not available for your role</h1>
-        <p className="mt-2 text-sm text-text-secondary">Your role and what you can see are set by the bank&apos;s directory, not by this app.</p>
         {role && (
           <Link to={homeFor(role)} className="mt-5 inline-block font-semibold">
             Go to your home page

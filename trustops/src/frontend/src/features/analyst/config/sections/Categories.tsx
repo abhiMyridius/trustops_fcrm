@@ -1,6 +1,5 @@
 import type { CategoriesData, ConfigSectionBase } from '@/api/types/config';
 import { Badge, Tag } from '@/components/ui/Badge';
-import { Banner } from '@/components/ui/Banner';
 import { Card } from '@/components/ui/Card';
 import { formatMoney } from '@/lib/format';
 import { DraftEdit } from '../DraftEdit';
@@ -10,7 +9,7 @@ export function Categories({ s }: { s: ConfigSectionBase<'categories', Categorie
   const d = s.data;
   return (
     <div className="flex flex-col gap-5">
-      <Card title="Change types" subtitle="Domains each type brings into scope. Signals are illustrative: the seed carries no signal table yet.">
+      <Card title="Change types" subtitle="Domains each type brings into scope.">
         <ul className="flex flex-col gap-3">
           {d.types.map((t) => (
             <li key={t.type} className="rounded-lg border border-border p-3">
@@ -41,9 +40,6 @@ export function Categories({ s }: { s: ConfigSectionBase<'categories', Categorie
             <li key={c}>{c}</li>
           ))}
         </ul>
-        <Banner tone="rule" className="mt-3">
-          The screening agent proposes the fast lane; the analyst confirms. Band 1 is expected; the analyst still closes it.
-        </Banner>
       </Card>
     </div>
   );

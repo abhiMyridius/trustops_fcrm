@@ -97,7 +97,7 @@ export function WorkbenchLayout() {
                 onClick={() =>
                   ack.mutate(
                     { kind: w.pending_acknowledgements.includes('band_change') ? 'band_change' : 'boundary' },
-                    { onSuccess: () => toast.success('Acknowledged', 'Recorded in the audit trail (R3).'), onError: (e) => toast.error('Not acknowledged', userMessage(e)) },
+                    { onSuccess: () => toast.success('Acknowledged'), onError: (e) => toast.error('Not acknowledged', userMessage(e)) },
                   )
                 }
               >
@@ -125,8 +125,7 @@ export function WorkbenchLayout() {
           {w.ack_message}
         </Banner>
       )}
-      {w.closed && <Banner tone="rule">Closed means closed. No one, including the signer, can re-run or edit this assessment.</Banner>}
-      {!w.is_demo && <Banner tone="info">Seeded case: shown read-only from the P7 seed. The harness has no assessment run for it, so it cannot be edited here.</Banner>}
+      {!w.is_demo && <Banner tone="info">Read-only: this seeded case has no assessment run, so it cannot be edited.</Banner>}
       {!w.submitted ? (
         <Banner tone="info" title="Not submitted yet">
           The owner is still at intake. The case appears here once it is submitted and triaged.

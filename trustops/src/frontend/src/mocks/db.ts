@@ -89,6 +89,8 @@ export interface DemoState {
   types: Record<string, { status: 'proposed' | 'confirmed' | 'removed'; reason: string | null; origin?: 'owner' }>;
   reused: boolean;
   gapsAnswered: boolean;
+  /** Answers to the questions asked for open fields the assistant asked nothing about, by field id (absent in an older saved state). */
+  ownAnswers?: Record<string, string>;
   corrected: boolean;
   submitted: boolean;
   assessStartedAt: number | null;

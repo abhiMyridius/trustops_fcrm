@@ -34,13 +34,13 @@ function SimulatePreview({ caseId, controlId, value }: { caseId: string; control
     const t = setTimeout(() => mutate({ case_id: caseId, control_id: controlId, value }), 250);
     return () => clearTimeout(t);
   }, [caseId, controlId, value, mutate]);
-  if (sim.isPending) return <p className="text-[12px] text-text-muted">Asking the scoring engine…</p>;
+  if (sim.isPending) return <p className="text-[12px] text-text-muted">Calculating…</p>;
   if (sim.isError) return <p className="text-[12px] text-danger">{userMessage(sim.error)}</p>;
   if (!sim.data) return null;
   const crossed = sim.data.band[0] !== sim.data.band[1];
   return (
     <div className={`rounded-md border-l-4 px-3 py-2 text-[13px] ${crossed ? 'border-danger bg-danger-bg' : 'border-info bg-info-bg'}`}>
-      <p className="font-semibold">Preview from the scoring engine (S2, not saved)</p>
+      <p className="font-semibold">Preview (not saved)</p>
       <p className="tabular-nums">{sim.data.line}</p>
       {crossed && <p className="mt-1 font-semibold text-danger">This crosses a band edge: the route changes and needs your acknowledgement.</p>}
     </div>
@@ -69,7 +69,7 @@ function AreaCard({
   return (
     <Card
       title={`${area.label}`}
-      subtitle={`Area weight ${formatFixed(area.weight, 2)} (renormalised over the in-scope domains) · ${area.matched_caption}${area.lock_blocking ? '' : ' · optional before lock'}`}
+      subtitle={`Area weight ${formatFixed(area.weight, 2)} · ${area.matched_caption}${area.lock_blocking ? '' : ' · optional before lock'}`}
     >
       <div className="flex flex-col gap-4">
         <FactorBlock
@@ -116,7 +116,7 @@ function PlannedForm({ caseId, open, onClose }: { caseId: string; open: boolean;
       open={open}
       onClose={onClose}
       title="Add a planned control"
-      description="A control that does not exist cannot mitigate anything. Planned controls are listed in the pack and never scored."
+      description="Planned controls are listed in the pack but not scored."
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
@@ -131,7 +131,7 @@ function PlannedForm({ caseId, open, onClose }: { caseId: string; open: boolean;
                 { control_id: null, ...v },
                 {
                   onSuccess: () => {
-                    toast.success('Planned control added', 'Not scored.');
+                    toast.success('Planned control added');
                     onClose();
                   },
                   onError: (e) => toast.error('Not saved', userMessage(e)),
@@ -185,12 +185,11 @@ export function RiskControlsTab() {
         ) : (
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_360px]">
             <div className="flex flex-col gap-5">
-              <Banner tone="rule">Confirm or override each rating. A reason is required on every override and is written to the hash-chained record.</Banner>
               {w.is_demo && !w.review_started && !w.closed && <Banner tone="warning">Accept or remove each clause on the Policy tab first; then the score is shown and ratings open for review.</Banner>}
               {r.band_crossed && (
                 <Banner tone="danger" live="assertive" title="Band boundary crossed">
-                  Logged with before, after and cause (<AuditRecordChip seq={r.band_crossed.record_seq} type="human.override" /> · hash {shortHash(r.band_crossed.hash)} · prev #
-                  {r.band_crossed.prev_seq}). Oversight changes from delegated close to committee review. Acknowledge to continue.
+                  Recorded (<AuditRecordChip seq={r.band_crossed.record_seq} type="human.override" /> · hash {shortHash(r.band_crossed.hash)} · prev #
+                  {r.band_crossed.prev_seq}). The route changes from delegated close to committee review. Acknowledge to continue.
                 </Banner>
               )}
               {r.critic && (
@@ -243,7 +242,6 @@ export function RiskControlsTab() {
                     ))}
                   </ul>
                 )}
-                <p className="mt-2 text-[12px] text-text-muted">A control that does not exist cannot mitigate anything.</p>
               </Card>
             </div>
             <div className="flex flex-col gap-5">
@@ -297,7 +295,7 @@ export function RiskControlsTab() {
               onConfirm={async ({ reason, value }) => {
                 if (!overriding) return;
                 await decide.mutateAsync({ item_id: overriding.id, decision: 'override', value, reason });
-                toast.success(`${overriding.id} overridden`, 'Recorded with before, after and your reason.');
+                toast.success(`${overriding.id} overridden`);
               }}
             />
             <PlannedForm caseId={id} open={planning} onClose={() => setPlanning(false)} />

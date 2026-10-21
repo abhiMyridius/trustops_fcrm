@@ -8,7 +8,7 @@ export function AssuranceLayout() {
   useDocumentTitle('Assurance');
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="Assurance" subtitle="Questions answered only from the audit chain, the override log, watchlist re-flags and how each agent is doing." />
+      <PageHeader title="Assurance" />
       <RouteTabs
         base="/analyst/assurance"
         label="Assurance sections"

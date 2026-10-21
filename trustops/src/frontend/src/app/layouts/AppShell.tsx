@@ -131,8 +131,6 @@ export function AppShell() {
             <BrandMark tone="dark" className="h-8" />
             <p className="text-[11px] text-text-on-dark-muted">
               Synthetic data only · seed P7
-              <br />
-              Nothing is approved or rejected automatically.
             </p>
           </div>
         )}

@@ -6,7 +6,7 @@ import { DraftEdit } from '../DraftEdit';
 export function RoutingRules({ s }: { s: ConfigSectionBase<'routing-rules', RoutingRulesData> }) {
   return (
     <div className="flex flex-col gap-5">
-      <Card title={`Routing rules ${s.active_version}`} subtitle="Stored as data, pinned per case, evaluated by code in H1.">
+      <Card title={`Routing rules ${s.active_version}`}>
         <ol className="flex flex-col gap-2 text-sm">
           {s.data.rules.map((r) => (
             <li key={r.id} className="flex gap-3">
@@ -16,7 +16,7 @@ export function RoutingRules({ s }: { s: ConfigSectionBase<'routing-rules', Rout
           ))}
         </ol>
       </Card>
-      <Card title="Parameters" subtitle="Band edges publish through the Scoring Model section.">
+      <Card title="Parameters" subtitle="Edit band edges in the Scoring Model section.">
         <table className="w-full text-sm">
           <caption className="sr-only">Routing parameters</caption>
           <tbody>

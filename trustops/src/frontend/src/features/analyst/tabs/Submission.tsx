@@ -11,7 +11,6 @@ import { DiffTable } from '@/components/domain/DiffTable';
 import { ProvenanceTag } from '@/components/domain/ProvenanceTag';
 import { ReasonDialog } from '@/components/domain/ReasonDialog';
 import { SourceChip } from '@/components/domain/SourceChip';
-import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -72,7 +71,6 @@ export function SubmissionTab() {
         if (!current) return <EmptyState title="Not submitted yet" />;
         return (
           <div className="flex flex-col gap-5">
-            <Banner tone="rule">The analyst never edits the submission; request a clarification instead.</Banner>
             <div className="flex flex-wrap items-end gap-4">
               <Select
                 label="Version"
@@ -100,7 +98,7 @@ export function SubmissionTab() {
               {current.fields.length ? (
                 <Table caption={`Fields in v${current.version}`} columns={columns} rows={current.fields} rowKey={(f) => f.field_id} dense />
               ) : (
-                <p className="text-sm text-text-muted">Field values for seeded cases are not part of the seed.</p>
+                <p className="text-sm text-text-muted">Field values are not available for seeded cases.</p>
               )}
             </Card>
             <ReasonDialog

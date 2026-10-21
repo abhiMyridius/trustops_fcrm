@@ -7,6 +7,7 @@ import { appendExtra, appendSeed, getDB, hasRecord, persist, sceneTime, type Vot
 import { corpusClause } from './corpus';
 import { score, type EngineArea } from './engine';
 import { seed, type SeedDomain } from './seed';
+import { requiredFieldIds } from './views/common';
 import { nameOf } from './users';
 
 export class MockError extends Error {
@@ -123,16 +124,24 @@ export function reuse(fieldIds: string[]): void {
 
 export const GAP_FIELDS = ['F10', 'F32', 'F21'];
 
-export function answerGaps(answers: { field_id: string; value: string }[]): void {
+export function answerGaps(answers: { question_id?: string; field_id: string; value: string }[]): void {
   requireOpen();
   const d = demo();
   if (!d.intakeReady) throw new MockError(409, 'not_ready', 'The AI is still reading your documents.');
-  const missing = GAP_FIELDS.filter((f) => !answers.some((a) => a.field_id === f && a.value.trim()));
-  if (missing.length) throw new MockError(422, 'Answers missing', `Answer every blocking question (${missing.join(', ')}).`);
-  if (!hasRecord(17)) appendSeed(17);
-  d.gapsAnswered = true;
-  appendSeed(18);
-  appendSeed(19);
+  // Only the confirmed types' questions are shown (the real service's rule); the assistant's are answered together.
+  const required = new Set(confirmedRequiredIds());
+  const own = answers.filter((a) => !GAP_FIELDS.includes(a.field_id) && a.value.trim());
+  const unknown = own.find((a) => !required.has(a.field_id));
+  if (unknown) throw new MockError(404, 'Not found', `No such question ${unknown.question_id ?? unknown.field_id}.`);
+  if (own.length === 0 || answers.some((a) => GAP_FIELDS.includes(a.field_id))) {
+    const missing = GAP_FIELDS.filter((f) => required.has(f) && !answers.some((a) => a.field_id === f && a.value.trim()));
+    if (missing.length) throw new MockError(422, 'Answers missing', `Answer every blocking question (${missing.join(', ')}).`);
+    if (!hasRecord(17)) appendSeed(17);
+    d.gapsAnswered = true;
+    appendSeed(18);
+    appendSeed(19);
+  }
+  if (own.length) d.ownAnswers = { ...d.ownAnswers, ...Object.fromEntries(own.map((a) => [a.field_id, a.value.trim()])) };
   persist();
 }
 
@@ -185,21 +194,31 @@ export function submitChecks(): { id: 'completion' | 'always_required' | 'types_
   ];
 }
 
+/** The change types the owner confirmed: only their fields count (a proposed type's values are kept, not shown). */
+export function confirmedTypes(): string[] {
+  return Object.entries(demo().types)
+    .filter(([, t]) => t.status === 'confirmed')
+    .map(([k]) => k);
+}
+
+/** The core fields plus those of each confirmed type. */
+export function confirmedRequiredIds(): string[] {
+  return requiredFieldIds(confirmedTypes());
+}
+
 export function requiredCount(): number {
-  const d = demo();
-  const active = Object.entries(d.types).filter(([, t]) => t.status !== 'removed').map(([k]) => k);
-  const ids = new Set(seed.field_set.always_required.map((f) => f.id));
-  for (const t of active) for (const f of seed.field_set.per_type[t] ?? []) ids.add(f.id);
-  return Math.min(ids.size, seed.field_set.max_required);
+  return Math.min(confirmedRequiredIds().length, seed.field_set.max_required);
 }
 
 export function filledCount(): number {
   const d = demo();
   if (!d.intakeReady) return 0;
-  let n = seed.demo.filled_by_extraction;
-  if (d.reused) n += REUSABLE.length;
-  if (d.gapsAnswered) n += GAP_FIELDS.length;
-  return n;
+  const required = new Set(confirmedRequiredIds());
+  const held = seed.demo.fields.filter(
+    (f) => required.has(f.id) && (f.how === 'extracted' || (f.how === 'reused' && d.reused) || (f.how === 'answered' && d.gapsAnswered)),
+  ).length;
+  const own = Object.keys(d.ownAnswers ?? {}).filter((f) => required.has(f) && !seed.demo.fields.some((x) => x.id === f && x.how !== 'open')).length;
+  return held + own;
 }
 
 export function submit(): void {

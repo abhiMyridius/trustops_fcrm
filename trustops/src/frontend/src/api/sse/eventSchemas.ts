@@ -30,10 +30,14 @@ export const invalidationMap: Record<string, string[]> = {
   'case.updated': ['', 'activity'],
   'case.state_changed': ['', 'activity'],
   'case.clarification_sent': CLARIFICATION_KEYS,
+  // An upload landed (S1): the Documents list and its assistant line change.
+  'document.stored': ['documents'],
   'document.ingested': ['documents', 'intake'],
   'document.extracted': ['documents', 'intake'],
-  'intake.proposed': ['intake', 'review'],
-  'intake.proposals_ready': ['intake', 'review'],
+  // The backend flips the Documents assistant line from reading to done at proposals_ready; without
+  // 'documents' here a live stream never refetches it and the card stays on "Reading…".
+  'intake.proposed': ['documents', 'intake', 'review'],
+  'intake.proposals_ready': ['documents', 'intake', 'review'],
   // The required field set was resolved (the header, the completion ring and both intake tabs change),
   // and an analyst took the case (the header names them): the whole case subtree.
   'fieldset.resolved': ['', 'activity'],

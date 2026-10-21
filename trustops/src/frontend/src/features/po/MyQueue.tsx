@@ -108,7 +108,7 @@ export function MyQueue() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="My queue" subtitle="Every case you own. Filters live in the address bar, so a refresh keeps your view." />
+      <PageHeader title="My queue" subtitle="Every case you own." />
       <div className="flex flex-wrap items-end gap-4">
         <Select label="Stage" value={stage} onChange={(e) => set('stage', e.target.value || null)} options={STAGES} wrapperClassName="w-56" />
         <SegmentedControl

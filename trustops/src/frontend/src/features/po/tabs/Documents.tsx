@@ -2,13 +2,12 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { CloudUpload, FileText } from 'lucide-react';
-import { useDocuments, useUploadDocuments } from '@/api/queries/caseQueries';
+import { CircleCheck, CloudUpload, FileText, LoaderCircle } from 'lucide-react';
+import { useDocuments, useTypesPending, useUploadDocuments } from '@/api/queries/caseQueries';
 import { useStreamStatus } from '@/api/sse/useCaseStream';
 import { userMessage } from '@/api/errors';
 import { CompletionRing } from '@/components/domain/CompletionRing';
 import { AiMark } from '@/components/ui/AiMark';
-import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -17,6 +16,7 @@ import { QueryState } from '@/components/ui/QueryState';
 import { useToast } from '@/components/ui/Toast';
 import { useDocumentTitle } from '@/lib/a11y';
 import { formatDateTime } from '@/lib/format';
+import type { DocumentStatus } from '@/api/types/po';
 
 const DEMO_FILES = [
   { name: 'business_case_remittance_MX.pdf', size: 2_100_000 },
@@ -31,6 +31,7 @@ export function DocumentsTab() {
   const stream = useStreamStatus(id);
   const q = useDocuments(id, { poll: stream !== 'live' });
   const upload = useUploadDocuments(id);
+  const typesPending = useTypesPending(id);
   const toast = useToast();
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -53,7 +54,7 @@ export function DocumentsTab() {
     files.forEach((f) => form.append('files', f));
     try {
       await upload.mutateAsync(form);
-      toast.success(`${files.length} file${files.length > 1 ? 's' : ''} uploaded`, 'Checked for hidden instructions and personal data before any AI reads them.');
+      toast.success(`${files.length} file${files.length > 1 ? 's' : ''} uploaded`);
     } catch (err) {
       toast.error('Upload failed', userMessage(err));
     }
@@ -118,7 +119,7 @@ export function DocumentsTab() {
                     variant="ghost"
                     disabled={!v.sharepoint_connected}
                     title={v.sharepoint_connected ? undefined : 'Connect in Integrations'}
-                    onClick={() => toast.info('SharePoint import', 'Demo connector: choose files with Browse; the S3/MinIO source stands in (ADR-17).')}
+                    onClick={() => toast.info('SharePoint import', 'Demo connector: choose files with Browse.')}
                   >
                     Import from SharePoint
                   </Button>
@@ -135,7 +136,7 @@ export function DocumentsTab() {
             </Card>
 
             {v.documents.length === 0 ? (
-              <EmptyState title="No documents yet" body="Upload what you already have. You can add more later; nothing is submitted until you choose to." />
+              <EmptyState title="No documents yet" body="Upload what you already have." />
             ) : (
               <ul className="flex flex-col gap-2" aria-label="Uploaded documents">
                 {v.documents.map((d) => (
@@ -149,7 +150,7 @@ export function DocumentsTab() {
                       </p>
                       {d.guard_line && d.status !== 'stored' && <p className="mt-0.5 text-[12px] text-band-1-text">{d.guard_line}</p>}
                     </div>
-                    <Badge tone={d.status === 'read' ? 'success' : 'info'}>{{ uploading: 'Uploading', stored: 'Stored', scanned: 'Scanned', read: 'Read' }[d.status]}</Badge>
+                    <DocStatusIcon status={d.status} />
                   </li>
                 ))}
               </ul>
@@ -169,11 +170,33 @@ export function DocumentsTab() {
               )}
             </Card>
             <Card title="Required fields">
-              <CompletionRing completion={v.completion} />
+              <CompletionRing completion={v.completion} typesPending={typesPending} />
             </Card>
           </div>
         </div>
       )}
     </QueryState>
+  );
+}
+
+const DOC_STATUS: Record<DocumentStatus, { label: string; done: boolean }> = {
+  uploading: { label: 'Uploading', done: false },
+  stored: { label: 'Uploaded · waiting to be read', done: false },
+  scanned: { label: 'Checked · being read', done: false },
+  read: { label: 'Read · values extracted', done: true },
+};
+
+/** One line icon per file: a spinner while it is uploading or being read, a check once read. The tooltip and the
+ * accessible name say the state in words, so the icon is never the only signal. */
+function DocStatusIcon({ status }: { status: DocumentStatus }) {
+  const { label, done } = DOC_STATUS[status];
+  return (
+    <span role="img" aria-label={label} title={label} className="inline-flex h-6 w-6 shrink-0 items-center justify-center">
+      {done ? (
+        <CircleCheck aria-hidden size={18} strokeWidth={1.75} className="text-band-1-text" />
+      ) : (
+        <LoaderCircle aria-hidden size={18} strokeWidth={1.75} className="text-chart-deep-1 motion-safe:animate-spin" />
+      )}
+    </span>
   );
 }

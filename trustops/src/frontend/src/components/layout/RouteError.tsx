@@ -26,7 +26,7 @@ export function RouteError() {
         <p className="mt-2 text-sm text-text-secondary">
           {missing
             ? 'Check the address, or go back to your home page.'
-            : 'The page could not be shown. Reloading usually fixes it; nothing you did has been lost or sent.'}
+            : 'The page could not be shown. Try reloading.'}
         </p>
         <p className="mt-2 font-mono text-[11px] text-text-muted">Trace {getTraceId()}</p>
         <div className="mt-5 flex justify-center gap-3">

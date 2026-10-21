@@ -22,7 +22,7 @@ import type {
   ThreadPO,
   ValuePO,
 } from '@/api/types/po';
-import { GAP_FIELDS, REUSABLE, filledCount, requiredCount, roundAnswered, THREAD_IDS } from '../actions';
+import { GAP_FIELDS, REUSABLE, confirmedRequiredIds, filledCount, requiredCount, roundAnswered, THREAD_IDS } from '../actions';
 import { READ_MS, getDB, type AuditEntry } from '../db';
 import { seed, type SeedCase } from '../seed';
 import { nameOf } from '../users';
@@ -82,7 +82,8 @@ function demoNextAction(): string {
   if (d.docs.length === 0) return 'Upload what you already have';
   if (!d.intakeReady) return 'The assistant is reading your documents';
   if (Object.values(d.types).some((t) => t.status === 'proposed')) return 'Confirm the proposed change types';
-  if (!d.gapsAnswered) return 'Answer 3 blocking questions';
+  const blocking = (poIntake(seed.demo.id)?.gaps ?? []).filter((g) => g.blocking && !g.answered).length;
+  if (blocking) return `Answer ${blocking} blocking question${blocking === 1 ? '' : 's'}`;
   return 'Review & submit';
 }
 
@@ -97,7 +98,8 @@ const ANSWERED = seed.demo.fields.filter((f) => f.how === 'answered');
 
 function demoValues(): ValuePO[] {
   const d = getDB().demo;
-  const required = requiredFieldIds(Object.entries(d.types).filter(([, t]) => t.status !== 'removed').map(([k]) => k));
+  // Only the confirmed types' fields are shown; a proposed type's values are kept and appear once it is confirmed.
+  const required = confirmedRequiredIds();
   const always = new Set(seed.field_set.always_required.map((f) => f.id));
   return required.map((id): ValuePO => {
     const label = FIELD_LABEL[id] ?? id;
@@ -113,6 +115,8 @@ function demoValues(): ValuePO[] {
     if (re && d.reused) return { ...base, value: re.value, origin: 'reused', source: src(re.source) };
     const an = ANSWERED.find((f) => f.id === id);
     if (an && d.gapsAnswered) return { ...base, value: an.value, origin: 'answered', source: src(an.source?.split(' · ')[0]) };
+    const own = d.ownAnswers?.[id];
+    if (own) return { ...base, value: own, origin: 'answered', source: src('owner answer') };
     if (id === 'F11' && d.threadAnswers.th_1) return { ...base, value: d.threadAnswers.th_1.text, origin: 'answered', source: src('owner answer · round 1') };
     return { ...base, value: null, origin: 'open', source: null };
   });
@@ -437,16 +441,31 @@ export function poIntake(id: string): IntakeViewPO | null {
   if (isDemo(id)) {
     const d = getDB().demo;
     const values = demoValues();
+    // The questions follow the confirmed types: the assistant's on their fields, then one per open field it did not ask about.
+    const shown = new Set(values.map((v) => v.field_id));
     const gaps: GapQuestionPO[] = d.intakeReady
-      ? GAP_FIELDS.map((f) => ({
-          id: `gap_${f}`,
-          field_id: f,
-          label: FIELD_LABEL[f] ?? f,
-          question: GAP_QUESTION[f] ?? `Please provide ${FIELD_LABEL[f]}.`,
-          blocking: true,
-          answered: d.gapsAnswered,
-          value: d.gapsAnswered ? (ANSWERED.find((a) => a.id === f)?.value ?? null) : null,
-        }))
+      ? [
+          ...GAP_FIELDS.filter((f) => shown.has(f)).map((f) => ({
+            id: `gap_${f}`,
+            field_id: f,
+            label: FIELD_LABEL[f] ?? f,
+            question: GAP_QUESTION[f] ?? `Please provide ${FIELD_LABEL[f]}.`,
+            blocking: true,
+            answered: d.gapsAnswered,
+            value: d.gapsAnswered ? (ANSWERED.find((a) => a.id === f)?.value ?? null) : null,
+          })),
+          ...values
+            .filter((v) => !GAP_FIELDS.includes(v.field_id) && (v.origin === 'open' || d.ownAnswers?.[v.field_id]))
+            .map((v) => ({
+              id: `ask_${v.field_id}`,
+              field_id: v.field_id,
+              label: v.label,
+              question: `Please provide the ${v.label.charAt(0).toLowerCase()}${v.label.slice(1)}.`,
+              blocking: v.always_required,
+              answered: v.origin !== 'open',
+              value: v.origin !== 'open' ? v.value : null,
+            })),
+        ]
       : [];
     const p = seed.cases.find((c) => c.id === seed.demo.precedent.id);
     return {
@@ -554,8 +573,8 @@ export function poReview(id: string): ReviewViewPO | null {
     always_required: v.always_required,
   }));
   const comp = intake.completion;
-  const types = isDemo(id) ? Object.entries(d.types).filter(([, t]) => t.status !== 'removed').map(([k]) => k) : (createdCase(id)?.types ?? []);
-  const labels = requiredFieldIds(types).map((f) => `${f} ${FIELD_LABEL[f] ?? ''}`.trim());
+  const ids = isDemo(id) ? confirmedRequiredIds() : requiredFieldIds(createdCase(id)?.types ?? []);
+  const labels = ids.map((f) => `${f} ${FIELD_LABEL[f] ?? ''}`.trim());
   const submitted = isDemo(id) ? d.submitted : !createdCase(id);
   return {
     rows,

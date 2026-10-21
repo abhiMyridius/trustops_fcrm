@@ -10,4 +10,4 @@ export const reasonSchema = z
   .string()
   .trim()
   .min(1, 'A reason is required.')
-  .min(REASON_MIN, `Give at least ${REASON_MIN} characters so the record explains the decision.`);
+  .min(REASON_MIN, `Enter at least ${REASON_MIN} characters.`);

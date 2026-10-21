@@ -30,7 +30,7 @@ function Composer({ caseId, drafted }: { caseId: string; drafted: DraftQuestion[
   const toast = useToast();
   const kept = qs.filter((q) => q.keep);
   return (
-    <Card title={<AiLabel>Clarification round · draft</AiLabel>} subtitle="Drafted by the narrative agent from the completeness report. You keep, drop or edit each question.">
+    <Card title={<AiLabel>Clarification round · draft</AiLabel>}>
       <ul className="flex flex-col gap-4">
         {qs.map((q, i) => (
           <li key={q.id} className="flex flex-col gap-2 rounded-lg border border-border p-3">
@@ -56,14 +56,14 @@ function Composer({ caseId, drafted }: { caseId: string; drafted: DraftQuestion[
           loading={send.isPending}
           onClick={() =>
             send.mutate(qs, {
-              onSuccess: () => toast.success('Round sent', 'Sent to the owner. Analyst clock paused; total clock keeps running.'),
+              onSuccess: () => toast.success('Round sent'),
               onError: (e) => toast.error('Not sent', userMessage(e)),
             })
           }
         >
           Send round · {kept.length} questions
         </Button>
-        <span className="text-[12px] text-text-muted">One round, field-anchored, sent once. Sending it records your decision to ask.</span>
+        <span className="text-[12px] text-text-muted">Only one round can be sent.</span>
       </div>
     </Card>
   );
@@ -93,7 +93,7 @@ function AskOwner({ caseId, owner }: { caseId: string; owner: string }) {
   const ready = drafts.filter((d) => d.text.trim());
   const update = (key: number, patch: Partial<Draft>) => setDrafts((xs) => xs.map((x) => (x.key === key ? { ...x, ...patch } : x)));
   return (
-    <Card title="Ask the owner" subtitle={`Questions go to ${owner} now, at any stage. They do not pause your clock and do not use up the clarification round.`}>
+    <Card title="Ask the owner" subtitle={`Goes to ${owner}. Does not pause your clock or use the clarification round.`}>
       <form
         className="flex flex-col gap-4"
         onSubmit={(e) => {
@@ -102,7 +102,7 @@ function AskOwner({ caseId, owner }: { caseId: string; owner: string }) {
             ready.map((d) => ({ text: d.text.trim(), field_id: d.fieldId || null, control_id: d.controlId || null })),
             {
               onSuccess: () => {
-                toast.success('Sent to the owner', 'The answer arrives in this inbox. Your clock keeps running.');
+                toast.success('Sent to the owner');
                 setDrafts([emptyDraft(Date.now())]);
               },
               onError: (err) => toast.error('Not sent', userMessage(err)),
@@ -211,8 +211,8 @@ export function AnalystInboxTab() {
           )}
           {v.values_changed.length > 0 && (
             <Banner tone="warning" live="polite" title="Values changed since the agents ran">
-              {w.owner_name} changed {v.values_changed.map((f) => `${f.label} (${f.field_id})`).join(', ')} in an answer. In review the agents re-run on the
-              changed fields on their own; at any other stage, ask for a re-run in review if it matters.
+              {w.owner_name} changed {v.values_changed.map((f) => `${f.label} (${f.field_id})`).join(', ')} in an answer. In review, the agents re-run on
+              changed fields automatically; otherwise, request a re-run in review.
             </Banner>
           )}
           {v.can_send && <Composer key={v.drafted.map((d) => d.id).join('|')} caseId={id} drafted={v.drafted} />}
@@ -222,7 +222,7 @@ export function AnalystInboxTab() {
             v.ask_blocked_reason && <p className="text-[13px] text-text-secondary">Ask the owner: {v.ask_blocked_reason}</p>
           )}
           {v.questions.length > 0 && (
-            <Card title={`Questions to ${w.owner_name}`} subtitle="Asked outside the clarification round. The analyst clock keeps running.">
+            <Card title={`Questions to ${w.owner_name}`}>
               <ul className="flex flex-col gap-3">
                 {v.questions.map((t) => (
                   <ThreadItem key={t.id} t={t} onResolve={onResolve} resolving={resolve.isPending} />
@@ -236,7 +236,7 @@ export function AnalystInboxTab() {
               body={
                 w.completeness_decision === 'proceed'
                   ? 'You chose to proceed without a round.'
-                  : 'The completeness report decides it: ask now from the Summary tab, or proceed.'
+                  : 'Ask now from the Summary tab, or proceed.'
               }
             />
           )}
@@ -249,10 +249,6 @@ export function AnalystInboxTab() {
               </ul>
             </Card>
           ))}
-          <Banner tone="rule">
-            One round, field-anchored, sent once; it pauses your clock. Questions outside the round can go at any time and do not. Answers that change a value
-            arrive as a new submission version; v1 stays untouched.
-          </Banner>
         </div>
       )}
     </QueryState>

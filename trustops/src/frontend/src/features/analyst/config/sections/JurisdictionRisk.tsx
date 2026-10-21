@@ -2,7 +2,6 @@ import { useSaveDraft } from '@/api/queries/configQueries';
 import { userMessage } from '@/api/errors';
 import type { ConfigSectionBase, JurisdictionData } from '@/api/types/config';
 import { Badge, Tag } from '@/components/ui/Badge';
-import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useToast } from '@/components/ui/Toast';
@@ -26,7 +25,7 @@ export function JurisdictionRisk({ s }: { s: ConfigSectionBase<'jurisdiction-ris
             onClick={() =>
               save.mutate(
                 { etag: s.draft.etag, path: 'fatf_sync', before: d.current.version, after: d.fixture.version },
-                { onSuccess: () => toast.success('FATF sync preview added to the draft', 'It never commits directly.'), onError: (e) => toast.error('Not saved', userMessage(e)) },
+                { onSuccess: () => toast.success('FATF sync preview added to the draft'), onError: (e) => toast.error('Not saved', userMessage(e)) },
               )
             }
           >
@@ -57,7 +56,6 @@ export function JurisdictionRisk({ s }: { s: ConfigSectionBase<'jurisdiction-ris
         <p className="text-[13px] text-text-secondary">{d.fixture.note}</p>
         <p className="mt-2 text-sm">Re-lists: {d.fixture.added.join(', ')}</p>
       </Card>
-      <Banner tone="rule">External rows are read-only; a sync creates a draft for review and never commits directly.</Banner>
     </div>
   );
 }

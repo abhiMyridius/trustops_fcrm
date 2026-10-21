@@ -1,7 +1,6 @@
 import type { AgentsData, ConfigSectionBase } from '@/api/types/config';
 import { AiLabel } from '@/components/ui/AiMark';
 import { Badge, Tag } from '@/components/ui/Badge';
-import { Banner } from '@/components/ui/Banner';
 import { Card } from '@/components/ui/Card';
 import { DraftEdit } from '../DraftEdit';
 
@@ -13,7 +12,6 @@ import { DraftEdit } from '../DraftEdit';
 export function AIAgents({ s }: { s: ConfigSectionBase<'ai-agents', AgentsData> }) {
   return (
     <div className="flex flex-col gap-5">
-      <Banner tone="warning">A model change must pass the agent&apos;s eval set before it is used on cases.</Banner>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {s.data.agents.map((a) => (
           <Card

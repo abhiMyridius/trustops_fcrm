@@ -26,7 +26,7 @@ export function CommitteeInboxTab() {
       <QueryState query={q} label="Loading questions">
         {(threads) =>
           threads.length === 0 ? (
-            <EmptyState title="No questions yet" body="A question opens a thread visible to all three members and the analyst." />
+            <EmptyState title="No questions yet" />
           ) : (
             <ul className="flex flex-col gap-3">
               {threads.map((t) => (
@@ -64,7 +64,7 @@ export function CommitteeInboxTab() {
               ask.mutate(text, {
                 onSuccess: () => {
                   setText('');
-                  toast.success('Question sent', 'Visible to all members and the analyst.');
+                  toast.success('Question sent');
                 },
                 onError: (er) => toast.error('Not sent', userMessage(er)),
               });

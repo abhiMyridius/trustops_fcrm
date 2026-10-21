@@ -186,7 +186,6 @@ export function DocumentPreview({ caseId, target }: { caseId: string; target: Do
           })}
         </ol>
       )}
-      <p className="text-[11px] text-text-muted">The text as it was extracted from the upload; the PDF is the record.</p>
     </div>
   );
 }

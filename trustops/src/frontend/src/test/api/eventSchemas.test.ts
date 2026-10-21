@@ -9,10 +9,11 @@ const EXPECTED: Record<string, string[]> = {
   'case.created': ['', 'activity'],
   'case.updated': ['', 'activity'],
   'case.state_changed': ['', 'activity'],
+  'document.stored': ['documents'],
   'document.ingested': ['documents', 'intake'],
   'document.extracted': ['documents', 'intake'],
-  'intake.proposed': ['intake', 'review'],
-  'intake.proposals_ready': ['intake', 'review'],
+  'intake.proposed': ['documents', 'intake', 'review'],
+  'intake.proposals_ready': ['documents', 'intake', 'review'],
   'fieldset.resolved': ['', 'activity'],
   'case.assigned': ['', 'activity'],
   'gate.opened': ['', 'assessment', 'policy', 'risk', 'intake', 'review', 'handoff'],
@@ -51,6 +52,12 @@ describe('invalidationMap', () => {
 
   it('refreshes the inbox for the catalogue name case.clarification_sent', () => {
     expect(caseKeys('case.clarification_sent').sort()).toEqual(['clarifications', 'inbox']);
+  });
+
+  it('refreshes the Documents tab on upload and when ingestion finishes, so a live stream ends "Reading…"', () => {
+    for (const type of ['document.stored', 'intake.proposed', 'intake.proposals_ready']) {
+      expect(invalidationKeys(type, CASE), type).toContainEqual(['case', CASE, 'documents']);
+    }
   });
 
   it('builds case-scoped keys, with the bare case key for the whole subtree', () => {

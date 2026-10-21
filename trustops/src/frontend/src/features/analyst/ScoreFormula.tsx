@@ -33,12 +33,12 @@ export function ScoreFormula({ area }: { area: RiskArea }) {
         <Line label="Inherent" formula="likelihood × impact   (each 1–5)" worked={`${area.L} × ${area.I} = ${area.inherent}`} />
         <Line
           label="Control effectiveness"
-          formula="Σ (control weight × rating) ÷ Σ weights   (ratings 0–10; planned controls are never counted)"
+          formula="Σ (control weight × rating) ÷ Σ weights   (ratings 0–10; planned controls excluded)"
           worked={area.controls.length > 0 ? `${terms} = ${formatFixed(area.ce, 2)}` : `no matched control = ${formatFixed(area.ce, 2)}`}
         />
         <Line
           label="Retention"
-          formula={`1 − ${RETENTION_FLOOR_FACTOR} × CE ÷ 10   (at least 0.40: strong controls never remove all risk)`}
+          formula={`1 − ${RETENTION_FLOOR_FACTOR} × CE ÷ 10   (minimum 0.40)`}
           worked={`1 − ${RETENTION_FLOOR_FACTOR} × ${formatFixed(area.ce, 2)} ÷ 10 = ${formatFixed(area.retention, 2)}`}
         />
         <Line
@@ -53,8 +53,7 @@ export function ScoreFormula({ area }: { area: RiskArea }) {
         />
       </dl>
       <p className="mt-2 text-[12px] text-text-muted">
-        Computed by the scoring engine, not by an agent. It keeps full precision inside the area and rounds once, at the
-        composite, so multiplying the rounded values shown here can differ in the last decimal.
+        Values shown are rounded; multiplying them by hand can differ in the last decimal.
       </p>
     </details>
   );

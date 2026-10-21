@@ -62,7 +62,6 @@ function ScenarioSwitch() {
           Reset to scenario
         </Button>
       </div>
-      <p className="text-[12px] text-text-muted">Switching user keeps the state; this button rebuilds it from the seed.</p>
     </div>
   );
 }
@@ -102,12 +101,6 @@ export function LoginPage() {
         <WaveOrnament tone="dark" className="no-print" />
         <div className="relative z-10 max-w-md">
           <p className="text-[13px] font-semibold uppercase tracking-overline text-pulse-green">TrustOps · FCRM risk assessment workbench</p>
-          <p className="mt-3 text-4xl font-extrabold leading-[1.1] tracking-tight">One governed place for change risk assessments</p>
-          <ul className="mt-6 flex flex-col gap-2 text-sm text-text-on-dark-muted">
-            <li>Scores come only from the deterministic engine; agents propose, people decide.</li>
-            <li>Policy is quoted word for word with its source.</li>
-            <li>Every decision is written to a hash-chained audit trail.</li>
-          </ul>
         </div>
         <div className="relative z-10 flex flex-col items-start gap-3">
           <BrandMark tone="dark" className="h-9" />
@@ -119,8 +112,6 @@ export function LoginPage() {
         <div className="flex w-full max-w-md flex-col gap-6">
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-text-primary">Sign in to TrustOps</h1>
-            <p className="mt-1 text-sm font-semibold text-text-secondary lg:hidden">One governed place for change risk assessments</p>
-            <p className="mt-2 text-sm text-text-secondary">Your role and what you can see are set by the bank&apos;s directory, not by this app.</p>
           </div>
 
           <Button variant="primary" size="lg" icon={<ShieldCheck aria-hidden size={18} />} onClick={() => setSsoOpen(true)} aria-expanded={ssoOpen}>
@@ -129,7 +120,7 @@ export function LoginPage() {
 
           {ssoOpen && showPicker && (
             <div className="flex flex-col gap-4" aria-live="polite">
-              <p className="text-[13px] text-text-muted">Demo directory: choose a seeded person. No password is collected in demo mode.</p>
+              <p className="text-[13px] text-text-muted">Choose a person to sign in as.</p>
               {users.data?.map((g) => (
                 <fieldset key={g.role} className="m-0 flex flex-col gap-1.5 border-0 p-0">
                   <legend className="mb-1 text-[12px] font-semibold uppercase tracking-overline text-text-muted">{g.label}</legend>

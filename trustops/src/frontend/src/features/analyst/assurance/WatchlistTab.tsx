@@ -4,7 +4,6 @@ import { useAcknowledgeReflag, useReflags } from '@/api/queries/assuranceQueries
 import { userMessage } from '@/api/errors';
 import type { Reflag } from '@/api/types/analyst';
 import { Badge } from '@/components/ui/Badge';
-import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { QueryState } from '@/components/ui/QueryState';
@@ -21,7 +20,6 @@ export function WatchlistTab() {
   const [note, setNote] = useState('');
   return (
     <div className="flex flex-col gap-4">
-      <Banner tone="rule">You acknowledge; the agent only flags. Acknowledging queues a research re-run for the case.</Banner>
       <QueryState query={q} label="Loading re-flags">
         {(rows) => (
           <ul className="flex flex-col gap-3">
@@ -75,7 +73,7 @@ export function WatchlistTab() {
                   { id: target.id, note },
                   {
                     onSuccess: () => {
-                      toast.success('Acknowledged', 'Research re-run queued by H1.');
+                      toast.success('Acknowledged', 'Research re-run queued.');
                       setTarget(null);
                     },
                     onError: (e) => toast.error('Not saved', userMessage(e)),

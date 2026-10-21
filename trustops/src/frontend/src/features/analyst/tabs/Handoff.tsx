@@ -43,12 +43,12 @@ function ThreadAnswer({ t }: { t: CommitteeThread }) {
             e.preventDefault();
             answer.mutate(
               { thread_id: t.id, text, numbers_changed: false },
-              { onSuccess: () => toast.success('Answered', 'Attached to the pack as an addendum.'), onError: (er) => toast.error('Not sent', userMessage(er)) },
+              { onSuccess: () => toast.success('Answered'), onError: (er) => toast.error('Not sent', userMessage(er)) },
             );
           }}
         >
           <Textarea label="Your answer (visible to all members)" value={text} onChange={(e) => setText(e.target.value)} rows={3} />
-          <p className="text-[12px] text-text-muted">If the answer changes a number, unlock the recommendation with a reason instead (R6: pack v2, votes re-requested).</p>
+          <p className="text-[12px] text-text-muted">If the answer changes a number, unlock the recommendation instead.</p>
           <div>
             <Button type="submit" size="sm" variant="primary" disabled={!text.trim()} loading={answer.isPending}>
               Answer · attach as addendum
@@ -84,10 +84,10 @@ export function HandoffTab() {
           <div className="flex flex-col gap-5">
             {h.outcome && (
               <Banner tone="success" title={`${h.outcome.label} · ${formatDateTime(h.outcome.at)}`}>
-                The outcome was delivered to the owner without any score, band, rating or clause.
+                Delivered to the owner.
               </Banner>
             )}
-            <Card title="Release checks" subtitle="Nothing leaves half-done: four checks, by code, before release.">
+            <Card title="Release checks">
               <ul className="flex flex-col gap-2">
                 {h.release_checks.map((c) => (
                   <li key={c.id} className="flex items-start gap-2 text-sm">
@@ -102,7 +102,6 @@ export function HandoffTab() {
             </Card>
             <Card
               title={h.pack ? `Decision pack v${h.pack.version}` : 'Decision pack'}
-              subtitle="Assembled by code from locked numbers and pinned versions. No model involved."
               actions={h.pack && <Badge tone={h.pack.status === 'released' ? 'success' : 'info'}>{h.pack.status}</Badge>}
             >
               {h.pack ? (
@@ -153,14 +152,9 @@ export function HandoffTab() {
                   )}
                 </div>
               )}
-              {h.route === 'analyst' && (
-                <p className="mt-3 text-[12px] text-text-muted">
-                  No independent challenge on a delegated close; closed delegated cases appear in the committee&apos;s monthly spot-check digest.
-                </p>
-              )}
             </Card>
             {packId && (
-              <Card title="Committee questions (R6)" subtitle="Visible to all members; each answer is attached to the pack as an addendum.">
+              <Card title="Committee questions (R6)">
                 {threads.data && threads.data.length > 0 ? (
                   <ul className="flex flex-col gap-3">
                     {threads.data.map((t) => (
@@ -180,7 +174,7 @@ export function HandoffTab() {
                   {votes.data.cast_count} of {votes.data.quorum} votes in
                 </p>
                 <p className="mt-1 text-[13px] text-text-secondary">
-                  {votes.data.revealed ? `Revealed: ${votes.data.outcome_label ?? ''}` : 'Choices are hidden from everyone, including you, until all three are cast.'}
+                  {votes.data.revealed ? `Revealed: ${votes.data.outcome_label ?? ''}` : 'Hidden until all three are cast.'}
                 </p>
               </Card>
             )}

@@ -74,12 +74,12 @@ function ThreadCard({ caseId, t }: { caseId: string; t: ThreadPO }) {
           {t.field_id && (
             <Input
               label={`New value for ${t.field_label} (optional)`}
-              hint="Leave it empty to keep the value you submitted. A changed value is saved as a new version."
+              hint="Leave empty to keep the value you submitted."
               value={value}
               onChange={(e) => setValue(e.target.value)}
             />
           )}
-          {t.demo_document && <Checkbox label={`Attach ${t.demo_document}`} description="Goes through the same checks as any upload." checked={attach} onChange={(e) => setAttach(e.target.checked)} />}
+          {t.demo_document && <Checkbox label={`Attach ${t.demo_document}`} checked={attach} onChange={(e) => setAttach(e.target.checked)} />}
           <div>
             <Button type="submit" variant="primary" disabled={!text.trim()} loading={answer.isPending}>
               Send answer
@@ -99,10 +99,6 @@ export function POInboxTab() {
     <QueryState query={q} label="Loading inbox">
       {(v) => (
         <div className="flex max-w-3xl flex-col gap-5">
-          <p className="text-[13px] text-text-secondary">
-            The analyst never edits what you submitted; they ask. Each round of answers, and any answer that changes a value, is saved as a new submission
-            version.
-          </p>
           {v.banner && (
             <Banner tone="success" live="polite">
               {v.banner}

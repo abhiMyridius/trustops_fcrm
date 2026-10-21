@@ -7,7 +7,6 @@ import { BandChip } from '@/components/domain/ScoreBadge';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AiMark } from '@/components/ui/AiMark';
 import { Badge } from '@/components/ui/Badge';
-import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { ErrorState } from '@/components/ui/EmptyState';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
@@ -32,7 +31,7 @@ function FastLaneConfirm({ row }: { row: QueueItem }) {
         onClick={() =>
           m.mutate(
             { decision: 'confirm_fast_lane' },
-            { onSuccess: () => toast.success('Fast lane confirmed', `${row.id}: Band 1 expected; you still close it yourself.`), onError: (e) => toast.error('Not saved', userMessage(e)) },
+            { onSuccess: () => toast.success('Fast lane confirmed', row.id), onError: (e) => toast.error('Not saved', userMessage(e)) },
           )
         }
         aria-label={`Confirm fast lane for ${row.id}`}
@@ -99,12 +98,9 @@ export function AnalystQueue() {
     ...(scope === 'all' ? [{ key: 'analyst', header: 'Analyst', cell: (r: QueueItem) => r.analyst_name } satisfies Column<QueueItem>] : []),
   ];
 
-  const hasNew = q.data?.some((r) => r.is_new);
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title={scope === 'mine' ? `My queue${q.data ? ` · ${q.data.length} cases` : ''}` : 'All open cases'} subtitle="New cases are assigned to the analyst with the fewest open cases (R5)." />
-      {hasNew && <Banner tone="info">While the case sat in the queue, the Assessment core already started Research and Assessment.</Banner>}
-      <Banner tone="rule">The screening agent proposes the fast lane; you confirm. Band 1 is expected; you still close it yourself.</Banner>
+      <PageHeader title={scope === 'mine' ? `My queue${q.data ? ` · ${q.data.length} cases` : ''}` : 'All open cases'} />
       <div className="flex flex-wrap items-end gap-4">
         <SegmentedControl
           label="Scope"

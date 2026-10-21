@@ -11,7 +11,6 @@ import { PackSection } from '@/components/domain/PackSection';
 import { ScoreBadge } from '@/components/domain/ScoreBadge';
 import { ConditionTable } from '@/components/domain/ConditionTable';
 import { AiLabel } from '@/components/ui/AiMark';
-import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { useDocumentTitle } from '@/lib/a11y';
 import { OUTCOME_LABEL, formatDateTime, formatFixed, shortHash } from '@/lib/format';
@@ -21,10 +20,7 @@ export function PackTab() {
   useDocumentTitle('Pack', p.case_id);
   return (
     <div className="flex flex-col gap-4">
-      <div className="no-print flex flex-wrap items-center justify-between gap-3">
-        <Banner tone="rule" className="flex-1">
-          Read-only. You read the pack and cast one vote.
-        </Banner>
+      <div className="no-print flex flex-wrap items-center justify-end gap-3">
         <Button variant="secondary" icon={<Printer aria-hidden size={15} />} onClick={() => window.print()}>
           Print / export
         </Button>

@@ -132,7 +132,7 @@ export function ReasonDialog({
         )}
         {valueField && preview && valueOk && <div aria-live="polite">{preview(num)}</div>}
         <Textarea
-          label="Reason (recorded in the hash-chained audit trail)"
+          label="Reason"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           onBlur={() => setTouched(true)}

@@ -125,7 +125,6 @@ describe('SourcePreview · a clause citation', () => {
     expect(within(dialog).getByText(new RegExp(`${CLAUSE} · FFIEC 2024 ed. · p.312`))).toBeInTheDocument();
     expect(within(dialog).getByText(/Source: FFIEC · p\.312/)).toBeInTheDocument();
     expect(within(dialog).getByText(/banks should assess the risks of the processor/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/Quoted word for word from the source/)).toBeInTheDocument();
     expect(await violations(document.body)).toEqual([]);
   });
 

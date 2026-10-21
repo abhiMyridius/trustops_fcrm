@@ -57,10 +57,7 @@ export function PolicyTab() {
       {(p) => (
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_340px]">
           <div className="flex flex-col gap-4">
-            <Banner tone="rule" title="Word for word, with the source.">
-              There is no accept-all button, on purpose: an accept-all would record consent, not review.
-            </Banner>
-            {gated && w.is_demo && <Banner tone="warning">Completeness first: decide on the Summary tab whether to ask the owner before reviewing proposals (D-16).</Banner>}
+            {gated && w.is_demo && <Banner tone="warning">Decide on the Summary tab whether to ask the owner before reviewing proposals.</Banner>}
             {p.guard4_note && <Banner tone="info">{p.guard4_note}</Banner>}
             {p.clauses.length === 0 ? (
               <EmptyState title="No clauses proposed" body="Research has not proposed clauses for this case." />
@@ -81,7 +78,7 @@ export function PolicyTab() {
                 <p className="text-sm">{p.gap.text}</p>
                 {p.gap.recorded ? (
                   <Banner tone="success" className="mt-3">
-                    Gap recorded. The policy_gap agent will suggest coverage for review under Assurance.
+                    Gap recorded. Suggested coverage will appear under Assurance.
                   </Banner>
                 ) : (
                   !readOnly && (
@@ -157,12 +154,12 @@ export function PolicyTab() {
             onClose={() => setAdding(null)}
             title={`Add clause ${adding?.clause_id ?? ''} to the case?`}
             context={adding?.title}
-            consequence="It is added as accepted, quoted word for word from the pinned corpus with its source, and goes into the pack with your name and reason. It does not change the score."
+            consequence="It is added as accepted and goes into the pack with your reason. It does not change the score."
             confirmLabel="Add clause"
             onConfirm={async ({ reason }) => {
               if (!adding) return;
               await addClause.mutateAsync({ clause_id: adding.clause_id, reason });
-              toast.success('Clause added', `${adding.clause_id} is on the case, accepted.`);
+              toast.success('Clause added', adding.clause_id);
             }}
           />
           <ReasonDialog

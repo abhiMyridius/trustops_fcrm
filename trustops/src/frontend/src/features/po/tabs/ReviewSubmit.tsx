@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { CheckCircle2, CircleDashed, PenLine, XCircle } from 'lucide-react';
-import { useReview, useSubmit, useValidate } from '@/api/queries/caseQueries';
+import { useReview, useSubmit, useTypesPending, useValidate } from '@/api/queries/caseQueries';
 import { userMessage } from '@/api/errors';
 import type { ReviewRowPO, SubmitCheck, SubmitResult } from '@/api/types/po';
 import { CompletionRing } from '@/components/domain/CompletionRing';
@@ -72,8 +72,7 @@ function ValidationModal({ caseId, open, onClose }: { caseId: string; open: bool
       open={open}
       onClose={onClose}
       dismissible={!submit.isPending}
-      title={result ? 'Submitted' : 'Four plain checks before submitting'}
-      description={result ? undefined : 'If one fails you are told which one and asked only for what is missing.'}
+      title={result ? 'Submitted' : 'Checks before submitting'}
       footer={
         result ? (
           <Button variant="primary" onClick={onClose}>
@@ -103,7 +102,7 @@ function ValidationModal({ caseId, open, onClose }: { caseId: string; open: bool
     >
       {result ? (
         <Banner tone="success" live="polite" title={result.message ?? 'Submitted.'}>
-          Submission v{result.submission_version} is kept exactly as sent. FCRM asks if anything is missing; nobody edits what you submitted.
+          Submission v{result.submission_version}.
         </Banner>
       ) : (
         <ol className="flex flex-col gap-2.5" aria-live="polite">
@@ -121,6 +120,7 @@ export function ReviewSubmitTab() {
   const { id = '' } = useParams();
   useDocumentTitle('Review & submit', id);
   const q = useReview(id);
+  const typesPending = useTypesPending(id);
   const [editing, setEditing] = useState<ReviewRowPO | null>(null);
   const [validating, setValidating] = useState(false);
 
@@ -171,12 +171,12 @@ export function ReviewSubmitTab() {
         return (
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px]">
             <div className="flex flex-col gap-4">
-              {v.submitted && <Banner tone="success">Submitted. Your submission is kept exactly as sent; changes now happen only by answering FCRM&apos;s questions.</Banner>}
+              {v.submitted && <Banner tone="success">Submitted. To change a value, answer FCRM&apos;s questions in the Inbox.</Banner>}
               <Table caption="The whole case as it will be submitted" columns={columns} rows={v.rows} rowKey={(r) => r.field_id} empty="No values yet." dense />
             </div>
             <div className="flex flex-col gap-5">
               <Card title="Completion">
-                <CompletionRing completion={v.completion} />
+                <CompletionRing completion={v.completion} typesPending={typesPending} />
               </Card>
               <Card title="Required fields" subtitle={`Field set ${v.required_card.field_set_version} · read-only`}>
                 <p className="text-[13px] text-text-secondary">
@@ -198,7 +198,6 @@ export function ReviewSubmitTab() {
                   <Button variant="primary" className="w-full" disabled={Boolean(v.submit_blocked_reason)} onClick={() => setValidating(true)}>
                     Submit to FCRM
                   </Button>
-                  <p className="mt-2 text-[12px] text-text-muted">Four plain checks run first, visibly.</p>
                 </Card>
               )}
             </div>

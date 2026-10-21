@@ -6,9 +6,7 @@ import type { CasePOListItem } from '@/api/types/po';
 import { useAuth } from '@/auth/AuthProvider';
 import { KpiCard } from '@/components/charts/KpiCard';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { AiLabel } from '@/components/ui/AiMark';
 import { Badge } from '@/components/ui/Badge';
-import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { ErrorState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -51,11 +49,6 @@ export function PODashboard() {
           </Button>
         }
       />
-      <Banner tone="info" title={<AiLabel>Starting a new change?</AiLabel>}>
-        Select New case. Upload what you already have (a business case, a contract, a vendor letter) and the assistant proposes the change
-        types and fills what it can, each value with its source. Or choose the change types yourself and fill in the details. Either way you
-        confirm; nothing is decided for you.
-      </Banner>
       {q.isError && <ErrorState error={q.error} onRetry={() => void q.refetch()} />}
       <section aria-label="Key figures" className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {q.data ? (

@@ -33,7 +33,7 @@ export function ValueDialog({ caseId, row, onClose }: { caseId: string; row: Edi
       description={
         filling
           ? 'Your value is recorded as “owner declared”.'
-          : 'Your correction becomes “owner declared”. The extracted value and its page:line are kept for the analyst.'
+          : 'Your correction is recorded as “owner declared”.'
       }
       footer={
         <>
@@ -51,7 +51,7 @@ export function ValueDialog({ caseId, row, onClose }: { caseId: string; row: Edi
                 {
                   onSuccess: () => {
                     if (filling) toast.success('Value saved', `${row.field_id} is recorded as owner declared.`);
-                    else toast.success('Value corrected', `${row.field_id} is now owner declared; the original is kept.`);
+                    else toast.success('Value corrected', `${row.field_id} is now owner declared.`);
                     onClose();
                   },
                   onError: (err) => toast.error('Not saved', userMessage(err)),

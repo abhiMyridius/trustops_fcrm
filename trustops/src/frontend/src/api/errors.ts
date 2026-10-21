@@ -18,7 +18,7 @@ export class ApiError extends Error {
 }
 
 /** What the monitor and the drawer say when the case exists but no run has recorded anything for it. */
-export const NO_RUN_MESSAGE = 'No run is recorded for this case yet. A run starts when the owner uploads documents; seeded cases have none.';
+export const NO_RUN_MESSAGE = 'No run is recorded for this case yet. A run starts when the owner uploads documents.';
 
 function problemEndsWith(err: unknown, status: number, code: string): boolean {
   return err instanceof ApiError && err.status === status && typeof err.problem.type === 'string' && err.problem.type.endsWith(`/${code}`);

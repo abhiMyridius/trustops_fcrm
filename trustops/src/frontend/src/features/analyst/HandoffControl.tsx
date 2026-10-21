@@ -83,7 +83,7 @@ function GateForm({ caseId, gate }: { caseId: string; gate: HandoffGate }) {
                 {gate.raw_inputs}
               </pre>
               <p className="mt-2 text-[12px] text-text-muted">
-                {gate.raw_inputs_truncated ? 'Cut for display; the stored copy is whole. ' : ''}
+                {gate.raw_inputs_truncated ? 'Truncated for display. ' : ''}
                 Digest {gate.raw_inputs_sha256?.slice(0, 12)}… is on the audit record.
               </p>
             </>
@@ -101,7 +101,7 @@ function GateForm({ caseId, gate }: { caseId: string; gate: HandoffGate }) {
           spellCheck={false}
           className="font-mono text-[12px]"
           error={formError}
-          hint="Each item is one of the agent's proposal objects, the shape its output has. It is checked like an agent's. The claims you write are not matched to their sources, and each item still goes to review."
+          hint="Claims you enter here are not matched to sources. Each item still goes to review."
         />
         {problems.length > 0 && (
           <ul aria-label="Problems with the output" className="list-disc pl-5 text-[13px] text-danger">
@@ -115,7 +115,7 @@ function GateForm({ caseId, gate }: { caseId: string; gate: HandoffGate }) {
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={3}
-          hint={`At least ${HANDOFF_REASON_MIN} characters. Recorded with your name on the audit chain.`}
+          hint={`At least ${HANDOFF_REASON_MIN} characters.`}
         />
         <div>
           <Button variant="primary" onClick={submit} loading={complete.isPending} disabled={!reasonOk || output.trim().length === 0}>

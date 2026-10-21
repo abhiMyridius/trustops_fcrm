@@ -75,7 +75,7 @@ export function NewCase() {
       <PageHeader
         crumbs={[{ label: 'Dashboard', to: '/po' }, { label: 'New case' }]}
         title="New case"
-        subtitle="Tell us what is changing. Nothing is created until you select Create case."
+        subtitle="Tell us what is changing."
       />
       <form noValidate onSubmit={(e) => void submit(e)} className="flex flex-col gap-5" aria-label="New case">
         <Card title="The change">
@@ -96,7 +96,7 @@ export function NewCase() {
           <RadioGroup legend="How do you want to start?" hideLegend name="intake-mode" value={mode} onChange={setMode} options={PATHS} />
         </Card>
         {mode === 'manual' && (
-          <Card title="Change types" subtitle="Choose every type that applies. They decide which details you fill in. You can add or remove types on the case later.">
+          <Card title="Change types" subtitle="Choose every type that applies. You can change them later.">
             <fieldset className="m-0 flex flex-col gap-3 border-0 p-0" aria-describedby={typesError ? 'types-error' : undefined}>
               <legend className="sr-only">Change types</legend>
               {CHANGE_TYPES.map((t) => (

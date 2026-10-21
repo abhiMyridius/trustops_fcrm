@@ -40,11 +40,11 @@ export function OverridesTab() {
           ]}
           wrapperClassName="w-48"
         />
-        <Button variant="ghost" onClick={() => toast.info('CSV export', 'Generated server-side and audited; not available in this build.')}>
+        <Button variant="ghost" onClick={() => toast.info('CSV export', 'Not available in this build.')}>
           Export CSV
         </Button>
       </div>
-      <Banner tone="info">The seed carries per-row override detail for FCRM-2026-0151 only; historical overrides are aggregated under Agent quality (assessment: 38 of 212 proposals).</Banner>
+      <Banner tone="info">Per-row detail is available for FCRM-2026-0151 only; historical overrides are summarised under Agent quality.</Banner>
       {q.isError && <ErrorState error={q.error} onRetry={() => void q.refetch()} />}
       <Table caption="Overrides" columns={columns} rows={q.data} loading={q.isPending} rowKey={(r) => `${r.case_id}-${r.item}`} empty="No overrides recorded yet in this session." />
     </div>

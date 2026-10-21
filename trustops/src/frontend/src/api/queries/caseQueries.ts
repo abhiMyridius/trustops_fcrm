@@ -51,6 +51,12 @@ export function useIntake(id: string) {
   return useQuery({ queryKey: keys.caseSection(id, 'intake'), queryFn: () => api<IntakeViewPO>(paths.cases.intake(id)) });
 }
 
+/** Whether a proposed change type still waits for the owner: the server counts its fields only once it is confirmed. */
+export function useTypesPending(id: string): boolean {
+  const q = useIntake(id);
+  return Boolean(q.data?.change_types.some((t) => t.status === 'proposed'));
+}
+
 export function useReview(id: string) {
   return useQuery({ queryKey: keys.caseSection(id, 'review'), queryFn: () => api<ReviewViewPO>(paths.cases.review(id)) });
 }

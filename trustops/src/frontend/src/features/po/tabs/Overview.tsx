@@ -58,8 +58,8 @@ function ChangeTypes({ caseId, intake, editable }: { caseId: string; intake: Int
   const held = types.filter((t) => t.status === 'confirmed').length;
   const count =
     intake.required_fields !== null
-      ? ` ${intake.required_fields} required field${intake.required_fields === 1 ? '' : 's'} for ${held === 1 ? 'this type' : `these ${held} types`}.`
-      : '';
+      ? `${intake.required_fields} required field${intake.required_fields === 1 ? '' : 's'} for ${held === 1 ? 'this type' : `these ${held} types`}.`
+      : null;
 
   return (
     <Card
@@ -67,7 +67,7 @@ function ChangeTypes({ caseId, intake, editable }: { caseId: string; intake: Int
       subtitle={
         proposed
           ? 'The assistant proposed these from your documents. Confirm or remove each one, or add a type it missed.'
-          : 'The types you chose. They decide which details you fill in. Add or remove a type while the case is a draft.'
+          : 'Add or remove a type while the case is a draft.'
       }
     >
       <ul className="flex flex-col gap-2">
@@ -131,9 +131,7 @@ function ChangeTypes({ caseId, intake, editable }: { caseId: string; intake: Int
           </Button>
         </form>
       )}
-      <Banner tone="rule" className="mt-4" title="You decide the types, the assistant does not.">
-        The change types fix the list of required fields.{count} There is no confirm-all button: each type is one decision.
-      </Banner>
+      {count && <p className="mt-4 text-[12px] text-text-muted">{count}</p>}
       <ReasonDialog
         open={removing !== null}
         onClose={() => setRemoving(null)}
@@ -202,11 +200,7 @@ function Values({ caseId, values, editable, manual }: { caseId: string; values: 
   return (
     <Card
       title={manual ? 'Details to fill in' : <AiLabel>Values found</AiLabel>}
-      subtitle={
-        manual
-          ? 'Fill in each required field. Documents are optional; add them on the Documents tab if you have them.'
-          : 'Every value shows its source. If the assistant cannot point to a source, the value is not shown at all.'
-      }
+      subtitle={manual ? 'Fill in each required field.' : undefined}
     >
       <Table caption="Required field values" columns={columns} rows={values} rowKey={(v) => v.field_id} dense />
       <ValueDialog key={editing?.field_id ?? 'none'} caseId={caseId} row={editing} onClose={() => setEditing(null)} />
@@ -223,7 +217,7 @@ function Precedent({ caseId, intake }: { caseId: string; intake: IntakeViewPO })
   return (
     <Card title="A similar case you can reuse from" subtitle={`${p.case_id} · ${p.title} · ${p.unit} · closed ${p.closed_month}`}>
       {p.reused ? (
-        <Banner tone="success">Values reused with provenance “reused · {p.case_id}”. The analyst sees where each came from.</Banner>
+        <Banner tone="success">Values reused from {p.case_id}.</Banner>
       ) : (
         <form
           className="flex flex-col gap-3"
@@ -236,7 +230,7 @@ function Precedent({ caseId, intake }: { caseId: string; intake: IntakeViewPO })
           }}
         >
           <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-            <legend className="mb-1 text-[13px] font-semibold text-text-secondary">Choose the values to copy, one by one</legend>
+            <legend className="mb-1 text-[13px] font-semibold text-text-secondary">Choose the values to copy</legend>
             {p.fields.map((f) => (
               <Checkbox
                 key={f.field_id}
@@ -264,29 +258,33 @@ function Gaps({ caseId, intake }: { caseId: string; intake: IntakeViewPO }) {
   const toast = useToast();
   const [values, setValues] = useState<Record<string, string>>({});
   if (intake.gaps.length === 0) return null;
-  const answered = intake.gaps.every((g) => g.answered);
+  // The server asks for each open required field of the confirmed types; answered ones stay listed.
+  const done = intake.gaps.filter((g) => g.answered);
+  const open = intake.gaps.filter((g) => !g.answered);
+  const typed = open.filter((g) => (values[g.field_id] ?? '').trim());
   return (
-    <Card title={answered ? 'Questions answered' : `Questions for you · ${intake.gaps.filter((g) => g.blocking).length} blocking`}>
-      {answered ? (
+    <Card title={open.length === 0 ? 'Questions answered' : `Questions for you · ${open.filter((g) => g.blocking).length} blocking`}>
+      {done.length > 0 && (
         <ul className="flex flex-col gap-2 text-sm">
-          {intake.gaps.map((g) => (
+          {done.map((g) => (
             <li key={g.id}>
               <span className="font-semibold">{g.label}:</span> {g.value}
             </li>
           ))}
         </ul>
-      ) : (
+      )}
+      {open.length > 0 && (
         <form
-          className="flex flex-col gap-4"
+          className={`flex flex-col gap-4${done.length > 0 ? ' mt-4' : ''}`}
           onSubmit={(e) => {
             e.preventDefault();
             answer.mutate(
-              intake.gaps.map((g) => ({ question_id: g.id, field_id: g.field_id, value: values[g.field_id] ?? '' })),
+              typed.map((g) => ({ question_id: g.id, field_id: g.field_id, value: values[g.field_id] ?? '' })),
               { onSuccess: () => toast.success('Answers saved'), onError: (err) => toast.error('Not saved', userMessage(err)) },
             );
           }}
         >
-          {intake.gaps.map((g) => (
+          {open.map((g) => (
             <Input
               key={g.id}
               label={`${g.question} (${g.field_id} ${g.label})`}
@@ -296,7 +294,7 @@ function Gaps({ caseId, intake }: { caseId: string; intake: IntakeViewPO }) {
             />
           ))}
           <div>
-            <Button type="submit" variant="primary" loading={answer.isPending} disabled={intake.gaps.some((g) => !(values[g.field_id] ?? '').trim())}>
+            <Button type="submit" variant="primary" loading={answer.isPending} disabled={typed.length === 0 || open.some((g) => g.blocking && !(values[g.field_id] ?? '').trim())}>
               Save answers
             </Button>
           </div>
@@ -332,10 +330,10 @@ export function OverviewTab() {
             </div>
             <div className="flex flex-col gap-5">
               <Card title="Completion">
-                <CompletionRing completion={intake.completion} />
+                <CompletionRing completion={intake.completion} typesPending={intake.change_types.some((t) => t.status === 'proposed')} />
                 <p className="mt-3 text-[12px] text-text-muted">
                   Field set {intake.field_set_version}
-                  {intake.required_fields ? ` · ${intake.required_fields} required fields` : ' · confirm the change types to fix the required set'}
+                  {intake.required_fields ? ` · ${intake.required_fields} required fields` : ''}
                   {intake.candidates_found ? ` · ${intake.candidates_found} candidate values found` : ''}
                 </p>
               </Card>

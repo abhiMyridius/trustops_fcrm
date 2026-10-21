@@ -36,7 +36,7 @@ export function FieldSets({ s }: { s: ConfigSectionBase<'field-sets', FieldSetDa
           ))}
         </ul>
       </Card>
-      <Card title="Per change type" subtitle="The required set for a case is the union of the confirmed types' packs plus the always-required fields.">
+      <Card title="Per change type" subtitle="Required in addition to the always-required fields.">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {d.per_type.map((t) => (
             <div key={t.type} className="rounded-lg border border-border p-3">

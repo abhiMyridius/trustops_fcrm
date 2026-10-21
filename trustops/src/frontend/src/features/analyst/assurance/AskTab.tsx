@@ -37,9 +37,6 @@ export function AskTab() {
               </Button>
             </div>
           </form>
-          <Banner tone="rule" className="mt-4">
-            Every sentence cites a record. Nothing outside the chain.
-          </Banner>
         </Card>
         {ask.isError && <Banner tone="danger">{userMessage(ask.error)}</Banner>}
         {ask.data && (

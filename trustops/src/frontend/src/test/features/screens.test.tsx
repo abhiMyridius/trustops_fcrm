@@ -49,7 +49,7 @@ const SCREENS: Screen[] = [
   { name: '2.23 assurance agent quality', as: USERS.rahul, scenario: 'closed', route: '/analyst/assurance/agent-quality', expect: /suggestion acceptance/ },
   { name: '2.24 config fields', as: USERS.rahul, scenario: 'fresh', route: '/analyst/config/field-sets', expect: /Partner AML programme attestation/ },
   { name: '2.24 config classification', as: USERS.rahul, scenario: 'fresh', route: '/analyst/config/categories', expect: /Fast lane \(R4\)/ },
-  { name: '2.24 config scoring', as: USERS.rahul, scenario: 'fresh', route: '/analyst/config/scoring-model', expect: /Fixed at 40 %/ },
+  { name: '2.24 config scoring', as: USERS.rahul, scenario: 'fresh', route: '/analyst/config/scoring-model', expect: /Likelihood anchors/ },
   { name: '2.24 config controls', as: USERS.rahul, scenario: 'fresh', route: '/analyst/config/control-inventory', expect: /Fourth-party \(subcontractor\) oversight/ },
   { name: '2.24 config corpus', as: USERS.rahul, scenario: 'fresh', route: '/analyst/config/policy-corpus', expect: /197 clauses/ },
   { name: '2.24 config routing', as: USERS.rahul, scenario: 'fresh', route: '/analyst/config/routing-rules', expect: /Auto-triage/ },
