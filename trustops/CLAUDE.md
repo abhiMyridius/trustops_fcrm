@@ -67,7 +67,7 @@ Run from this folder (the one with the `Makefile`). Python runs through the work
 ```bash
 make bootstrap     # opa binary, uv sync, git hooks, pull images
 make env && make keys   # .env with generated secrets, the JWT keypair (never overwrite); add AWS keys to .env yourself
-make up / down     # the stack: 8 containers (make up-obs adds otel-collector (OTLP/HTTP only) and OpenObserve at :5080, which holds traces, metrics, logs and the three dashboards; no Prometheus, Grafana or Jaeger (ADR-72); make up-debug publishes the infrastructure ports); make down-v also deletes the data
+make up / down     # the stack: 8 containers (make up-obs adds otel-collector (OTLP/HTTP only) and OpenObserve at :5080, which holds traces, metrics, logs and the three dashboards; no Prometheus, Grafana or Jaeger (ADR-72); make up-debug is up-obs plus the published infrastructure ports); make down-v also deletes the data
 make seed          # reload the 80-case seed and stage the demo PDFs; make demo-reset re-runs only case 0151
 make check         # commit gate: ruff, format, mypy, OPA check and 121 Rego tests, ai/ registry and model-id guards, 7,689 unit tests, env contract, web tsc and 164 vitest tests (about 6 minutes)
 make test-slow     # the slow-marked unit tests only (full H2 adversarial matrix, 50-job concurrency check, H3's 500-page PDF budgets); make check skips them (FCRM_SLOW_TESTS=1 and FCRM_RUN_SLOW=1 turn them on)

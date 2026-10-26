@@ -171,7 +171,7 @@ The first start already seeds an empty database (80 cases, the 65 closed cases' 
 | Dashboards | in OpenObserve (below), under **Dashboards**: "TrustOps · Agents, tokens and cost", "TrustOps · Case throughput" and "TrustOps · Guards and overrides". `make up-obs` loads them, and `make obs-dashboards` reloads them after a change to `ops/openobserve/dashboards/`. There is no Prometheus, Grafana or Jaeger (ADR-71, ADR-72) |
 | OpenObserve: traces, metrics and logs | http://localhost:5080 after `make up-obs`; sign in with `ZO_ROOT_USER_EMAIL` and `ZO_ROOT_USER_PASSWORD` from `.env`. **Logs**: stream `trustops`; **Traces**: stream `trustops` (an OpenObserve that ignores the stream header for traces files them under `default`); **Metrics**: one stream per metric (`fcrm_agent_tokens_total` and so on, plus RabbitMQ's `rabbitmq_queue_messages_ready`), queried with PromQL in the Metrics tab or on the dashboards. A log line carries its `trace_id`, so you can go from a log to its trace. The same log lines are still on each container's stdout (`docker compose logs api`). To send everything to your team's own OpenObserve instead, see "Send telemetry to your own OpenObserve" below |
 | MongoDB (Compass, mongosh), this machine only | `127.0.0.1:27017`, started by `make up`; use `?authSource=admin&directConnection=true` and the root user from `.env` |
-| RabbitMQ management, MinIO console, OPA | http://localhost:15672, :9001, :8181 after `make up-debug` |
+| RabbitMQ management, MinIO console, OPA | http://localhost:15672, :9001, :8181 after `make up-debug` (which also starts OpenObserve at :5080) |
 
 Every seeded user shares one password, `demo-password-2026` (override with `make env DEMO_PASSWORD=...` before `.env` exists). On the login page "Sign in with corporate SSO" opens a picker of the seeded users; if identity does not serve the picker the page shows a username and password form. The username is the seed id without `u-` (`riyer` or `u-riyer` both work).
 
@@ -267,7 +267,7 @@ If a run stops, check `make dlq` and `make logs svc=harness`, then `ops/runbooks
 | `up` | build and start the 8-container default stack | starts it | the corpus embedding at `api` start | build a few minutes, `api` about 85 s |
 | `up-obs` | `up` plus otel-collector and OpenObserve (10 containers); traces, metrics and logs go to OpenObserve over OTLP/HTTP (port 4318; there is no gRPC receiver), and the three dashboards are loaded. Stops first, with the fix, on an `.env` that would start it wrongly (`ops/scripts/check_obs_env.py`) | starts it | as `up` | as `up` |
 | `up-cache` | `up` plus Redis. **Nothing uses Redis today** (the SSE fan-out is not implemented) | starts it | as `up` | as `up` |
-| `up-debug` | `up` with infrastructure and harness health ports published to the host | starts it | as `up` | as `up` |
+| `up-debug` | `up-obs` (the stack plus the collector and OpenObserve at :5080, dashboards loaded) with infrastructure and harness health ports published to the host; needs the OpenObserve login in `.env`, like `up-obs` | starts it | as `up` | as `up` |
 | `up-dev` | bind-mounted source, `uvicorn --reload`, the Vite dev server | starts it | as `up` | as `up` |
 | `down` | stop every profile, keep volumes | yes | no | seconds |
 | `down-v` | stop and delete every volume (all local data) | yes | no | seconds |
@@ -442,7 +442,7 @@ The full list, each item with its evidence, is `docs/governance/known-gaps.md`. 
 | File | Purpose |
 |---|---|
 | `docker-compose.yaml` | the whole stack; profile `obs` adds the two observability containers (otel-collector, OpenObserve), profile `cache` adds Redis |
-| `compose.debug.yaml` | publishes RabbitMQ (:5672, :15672), MinIO (:9000, :9001), OPA (:8181), Redis and the harness health port (:9100) to the host. `make up-debug` |
+| `compose.debug.yaml` | publishes RabbitMQ (:5672, :15672), MinIO (:9000, :9001), OPA (:8181), Redis and the harness health port (:9100) to the host. `make up-debug` applies it together with the `obs` profile, so OpenObserve (:5080) comes up too |
 | `compose.dev.yaml` | bind mounts, `uvicorn --reload`, the Vite dev server, DEBUG logs. `make up-dev` |
 | `compose.test.yaml` | the test stack: in-memory vectors, dummy embeddings for `api`, AWS keys blanked for `api`; project `trustops-test`. Agents still call live Bedrock. The environment check validates it; no make target starts it today |
 

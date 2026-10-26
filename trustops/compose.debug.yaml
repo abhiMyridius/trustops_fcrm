@@ -1,7 +1,8 @@
 # Debug overlay: publishes the infrastructure and health ports to the host.
 #
 #   make up-debug    (= docker compose -f docker-compose.yaml -f compose.debug.yaml
-#                       up -d --build)
+#                       --profile obs up -d --build, so OpenObserve and the
+#                       collector start too, as with make up-obs)
 #
 # The default stack publishes two ports, both on this machine only: the gateway's
 # (the web app) and MongoDB's (for Compass and mongosh). Use this overlay when you

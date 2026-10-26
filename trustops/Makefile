@@ -27,7 +27,9 @@ COMPOSE_CACHE := $(COMPOSE) --profile cache
 # Every profile on, for the commands that must see optional containers too.
 COMPOSE_ALL   := $(COMPOSE) --profile obs --profile cache
 COMPOSE_DEV   := $(COMPOSE) -f compose.dev.yaml
-COMPOSE_DEBUG := $(COMPOSE) -f compose.debug.yaml
+# The debug stack also runs the obs profile, so the published ports and the
+# telemetry (OpenObserve, the collector) come up together.
+COMPOSE_DEBUG := $(COMPOSE) -f compose.debug.yaml --profile obs
 COMPOSE_TEST  := docker compose -p trustops-test -f docker-compose.yaml -f compose.test.yaml
 
 # The default stack: infrastructure, the two Python processes, the edge.
@@ -143,10 +145,13 @@ up-cache: env keys ## the default stack plus Redis for SSE fan-out (api uses it 
 	REDIS_URL=redis://redis:6379/0 $(COMPOSE_CACHE) up -d --build
 	@$(WAIT) --timeout 600 --compose "$(COMPOSE_CACHE)" $(INFRA) redis $(APPS) $(EDGE)
 
-up-debug: env keys ## the default stack with infrastructure and harness health ports published to the host
+up-debug: env keys obs-env ## up-obs with infrastructure and harness health ports published to the host (10 containers); OpenObserve at :5080
 	$(COMPOSE_DEBUG) up -d --force-recreate --no-deps opa
-	$(COMPOSE_DEBUG) up -d --build
-	@$(WAIT) --timeout 600 --compose "$(COMPOSE_DEBUG)" $(INFRA) $(APPS) $(EDGE)
+	OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318 $(COMPOSE_DEBUG) up -d --build
+	@$(WAIT) --timeout 600 --compose "$(COMPOSE_DEBUG)" $(INFRA) $(OBS) $(APPS) $(EDGE) \
+		--url otel-collector=http://$$($(COMPOSE_DEBUG) port otel-collector 13133)/ \
+		--url openobserve=http://$$($(COMPOSE_DEBUG) port openobserve 5080)/healthz
+	@$(PYTHON) ops/scripts/openobserve_dashboards.py --env-file .env --url http://$$($(COMPOSE_DEBUG) port openobserve 5080)
 
 up-dev: env keys ## default stack with bind-mounted source, uvicorn --reload and vite dev
 	$(COMPOSE_DEV) up -d --force-recreate --no-deps opa

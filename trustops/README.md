@@ -144,7 +144,7 @@ Tests never sit beside source; fixtures live only in `tests/conftest.py`.
 | `ops/reports/` | `token-analysis.md` (budgets, what changed, measured usage per agent and per case) and the resilience drill reports |
 | `ops/aws/README.md` | The AWS production path (a design, not built by this run) |
 
-Compose files at this level: `docker-compose.yaml` (the stack), `compose.dev.yaml` (hot reload and the Vite dev server), `compose.debug.yaml` (infrastructure ports), `compose.test.yaml` (the test overlay).
+Compose files at this level: `docker-compose.yaml` (the stack), `compose.dev.yaml` (hot reload and the Vite dev server), `compose.debug.yaml` (infrastructure ports; `make up-debug` adds the `obs` profile, so OpenObserve starts too), `compose.test.yaml` (the test overlay).
 
 ---
 
