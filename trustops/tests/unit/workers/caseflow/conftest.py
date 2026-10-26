@@ -33,6 +33,7 @@ from urllib.parse import unquote
 
 import httpx
 import pytest
+from fcrm_case.domain.activity import po_may_receive
 from fcrm_case.domain.assessment import build_score_view
 from fcrm_case.domain.views import DecisionRow, ReviewItemRow
 from fcrm_caseflow.audit_client import AuditClient
@@ -1111,7 +1112,18 @@ class FakeCaseService(FakePeer):
             self.roster[call.body["analyst_id"]] = (name, count + 1)
             return httpx.Response(200, json={"ok": True})
         if (call.method, leaf) == ("POST", "events"):
-            self.events.append(call.body)
+            # S1's own rule (``fcrm_case.routes_internal``): an event the owner
+            # may not see is refused if it claims to be for the owner.
+            body = call.body
+            if body["visibility"] != "analyst" and not po_may_receive(
+                body["type"], body["visibility"], body["detail"], body["summary"]
+            ):
+                return problem(
+                    409,
+                    "this event type or payload may not be shown to the PO; "
+                    "write it with visibility 'analyst'",
+                )
+            self.events.append(body)
             return httpx.Response(202, json={"ok": True})
         return self._assessment_route(call, case_id, leaf)
 

@@ -37,13 +37,33 @@ def test_completeness_ask_opens_the_round() -> None:
     assert flags.round_open is True
 
 
-def test_rerun_both_closes_the_round() -> None:
-    flags = next_flags(
+def test_rerun_both_closes_the_round_only_once_resolved() -> None:
+    """D-129: the re-run alone leaves the round open for the analyst."""
+    waiting = next_flags(
+        Trigger.AGENT_DONE_RERUN_BOTH, TransitionContext(), RunFlags(round_open=True)
+    )
+    assert (waiting.round_open, waiting.rerun_done) == (True, True)
+    resolved = next_flags(
         Trigger.AGENT_DONE_RERUN_BOTH,
+        TransitionContext(),
+        RunFlags(round_open=True, round_resolved=True),
+    )
+    assert resolved.round_open is False
+
+
+def test_resolving_closes_the_round_only_once_the_rerun_landed() -> None:
+    early = next_flags(
+        Trigger.CASE_CLARIFICATION_RESOLVED,
         TransitionContext(),
         RunFlags(round_open=True),
     )
-    assert flags.round_open is False
+    assert (early.round_open, early.round_resolved) == (True, True)
+    late = next_flags(
+        Trigger.CASE_CLARIFICATION_RESOLVED,
+        TransitionContext(),
+        RunFlags(round_open=True, rerun_done=True),
+    )
+    assert late.round_open is False
 
 
 def test_case_locked_locks_and_bumps_pack_version() -> None:

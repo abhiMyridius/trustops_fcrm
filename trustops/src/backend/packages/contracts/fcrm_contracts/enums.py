@@ -181,6 +181,8 @@ class StepKind(StrEnum):
     INTAKE_INGESTED = "intake.ingested"
     INTAKE_INGEST_FAILED = "intake.ingest_failed"
     INTAKE_PUBLISH = "intake.publish"
+    INTAKE_JOB_FAILED = "intake.job_failed"
+    INTAKE_RECOVER = "intake.recover"
     INTAKE_FIELDSET_RESOLVED = "intake.fieldset_resolved"
     INTAKE_PO_ACTION = "intake.po_action"
     INTAKE_TYPES_CHANGED = "intake.types_changed"

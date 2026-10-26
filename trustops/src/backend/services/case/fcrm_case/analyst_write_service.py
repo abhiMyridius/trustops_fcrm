@@ -131,6 +131,7 @@ from fcrm_case.domain.clarifications import (
 from fcrm_case.domain.recommendation_edits import (
     RecommendationState,
     apply_edit,
+    changed_condition_texts,
     lock_blockers,
     state_of,
     to_recommendation,
@@ -522,6 +523,15 @@ class AnalystWriteService:
                 "The business summary is read by the owner and may not name a "
                 "score, band, rating or control.",
                 errors=[{"loc": "body.business_summary", "msg": "restricted term"}],
+            )
+        if body.conditions is not None and any(
+            names_a_restricted_term(text)
+            for text in changed_condition_texts(state, body.conditions)
+        ):
+            raise ValidationError(
+                "A condition is read by the owner and may not name a score, "
+                "band, rating or control.",
+                errors=[{"loc": "body.conditions", "msg": "restricted term"}],
             )
         edits = apply_edit(state, body)
         if edits is not None:
@@ -933,7 +943,7 @@ class AnalystWriteService:
             NotFoundError: No such question on the case.
             ConflictError: The owner has not answered it yet.
         """
-        await self._own_case(case_id, principal)
+        record = await self._own_case(case_id, principal)
         thread = await self._store.get_thread(case_id, thread_id)
         if thread is None:
             raise NotFoundError(f"no such question {thread_id}")
@@ -953,9 +963,30 @@ class AnalystWriteService:
                 by=principal.sub,
                 by_name=principal.name,
                 now=utcnow(),
+                closes_round=await self._round_closed_by(record, thread),
+                run_id=record.run_id,
             )
         )
         return ThreadResolveResult(thread_id=thread_id)
+
+    async def _round_closed_by(
+        self, record: CaseRecord, thread: ClarificationThreadRow
+    ) -> list[ClarificationThreadRow]:
+        """The round's questions when resolving ``thread`` leaves none of them
+        open and the case still waits in the clarification stage; else none
+        (D-129). An ad-hoc question never closes the round.
+        """
+        if thread.kind != "round" or record.state is not CaseState.CLARIFICATION:
+            return []
+        round_ = [
+            t
+            for t in await self._store.threads(record.case_id)
+            if t.kind == "round" and t.round == thread.round
+        ]
+        others_done = all(
+            t.status == "resolved" for t in round_ if t.thread_id != thread.thread_id
+        )
+        return round_ if others_done else []
 
     # -- the analyst's other review actions (scenes 11-14) -----------------------
 

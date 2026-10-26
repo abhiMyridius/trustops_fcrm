@@ -13,7 +13,12 @@ from fcrm_agents import REGISTRY
 from fcrm_agents.models import load_tiers_config
 from fcrm_agents.runtime import OFFLINE_MAX_TOKENS
 from fcrm_contracts.enums import Tier
-from fcrm_guardrails.budget import CASE_TOKEN_CAP, CASE_TOKEN_TARGET, TIER_BUDGETS
+from fcrm_guardrails.budget import (
+    ATTEMPT_TOKEN_CAP,
+    CASE_TOKEN_CAP,
+    CASE_TOKEN_TARGET,
+    TIER_BUDGETS,
+)
 from fcrm_prompts import PromptLibrary
 
 REPO_AI = Path(__file__).parents[4] / "ai"
@@ -52,6 +57,24 @@ def test_every_agent_spec_copies_its_tiers_budget(name: str) -> None:
         budget.wall_s,
         budget.retries,
     )
+
+
+@pytest.mark.parametrize("tier", list(Tier))
+def test_every_tiers_attempt_limit_is_the_64k_cap(tier: Tier) -> None:
+    """H2's ``total_tokens_limit`` is the budget plus the output cap (ADR-80);
+    every tier's is 64k (ADR-83)."""
+    entry = load_tiers_config(REPO_AI)["tiers"][tier.value]
+    assert TIER_BUDGETS[tier].tokens + entry["max_tokens"] == ATTEMPT_TOKEN_CAP
+
+
+def test_a_verified_model_limit_holds_its_tiers_output_cap() -> None:
+    """A model with a recorded output cap below its tier's ``max_tokens`` would
+    be held under the tier's figure on every request (ADR-83); none is today."""
+    config = load_tiers_config(REPO_AI)
+    for entry in config["tiers"].values():
+        for model_id in [entry["primary"], *entry["fallbacks"]]:
+            cap = config["models"][model_id].get("max_output_tokens")
+            assert cap is None or cap >= entry["max_tokens"], model_id
 
 
 @pytest.mark.parametrize("tier", list(Tier))

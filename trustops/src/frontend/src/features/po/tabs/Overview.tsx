@@ -334,7 +334,7 @@ export function OverviewTab() {
                 <p className="mt-3 text-[12px] text-text-muted">
                   Field set {intake.field_set_version}
                   {intake.required_fields ? ` · ${intake.required_fields} required fields` : ''}
-                  {intake.candidates_found ? ` · ${intake.candidates_found} candidate values found` : ''}
+                  {intake.candidates_found ? ` · ${intake.candidates_found} values found, counting other readings of the same field` : ''}
                 </p>
               </Card>
               <Card title="Next">

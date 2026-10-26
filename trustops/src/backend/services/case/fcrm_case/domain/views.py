@@ -79,6 +79,15 @@ class FieldHistoryEntry(BaseModel):
     by: Optional[str] = None
 
 
+class FieldAlternative(BaseModel):
+    """Another value intake found for a field, and where (D-132)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: str
+    source: FieldSource
+
+
 class FieldValueRow(BaseModel):
     """``field_values``: one field of one case (``_id = "<case_id>:<field_id>"``)."""
 
@@ -92,6 +101,7 @@ class FieldValueRow(BaseModel):
     source: Optional[FieldSource] = None
     confidence: Optional[float] = None
     candidates: int = 1
+    alternatives: list[FieldAlternative] = Field(default_factory=list)
     history: list[FieldHistoryEntry] = Field(default_factory=list)
     created_at: datetime
     updated_at: Optional[datetime] = None

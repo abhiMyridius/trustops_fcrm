@@ -29,6 +29,7 @@ from pydantic_ai.models.bedrock import BedrockConverseModel, BedrockModelSetting
 from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.providers.bedrock import BedrockProvider
 
+from fcrm_agents.model_limits import ModelLimits, ModelLimitsModel, limits_from_config
 from fcrm_agents.runtime import agent_capabilities
 from fcrm_agents.spec import AgentSpec
 
@@ -68,6 +69,10 @@ class TierModels(BaseModel):
     after the tool definitions (``tiers.yaml models.<id>.prompt_cache``). Nova
     rejects one in the tool list, so it is a per-model default, never chain-wide.
     A prefix under the model's cache minimum is simply not cached (no error)."""
+    model_limits: dict[str, ModelLimits] = Field(default_factory=dict)
+    """Each chain model's own verified limits (``tiers.yaml
+    models.<id>.max_output_tokens`` and ``context_window``); a model absent here
+    is sent the tier's figures (ADR-83, :mod:`fcrm_agents.model_limits`)."""
 
     @property
     def chain(self) -> tuple[str, ...]:
@@ -121,16 +126,32 @@ def tier_models(tier: Tier, tiers_config: Mapping[str, Any]) -> TierModels:
         for model_id in chain
         if per_model.get(model_id, {}).get("prompt_cache")
     )
+    model_limits = {
+        model_id: limits_from_config(per_model.get(model_id) or {})
+        for model_id in chain
+    }
+    max_tokens = int(entry["max_tokens"])
+    for model_id, limits in model_limits.items():
+        cap = limits.max_output_tokens
+        if cap is not None and cap < max_tokens:
+            logger.warning(
+                "tier %s asks %d output a request; %s takes %d and is held to it",
+                tier.value,
+                max_tokens,
+                model_id,
+                cap,
+            )
     return TierModels(
         tier=tier,
         primary=entry["primary"],
         fallbacks=tuple(fallbacks),
-        max_tokens=int(entry["max_tokens"]),
+        max_tokens=max_tokens,
         wall_clock_s=int(entry["wall_clock_s"]),
         send_temperature=send_temperature,
         effort=str(effort) if effort else None,
         effort_models=effort_models,
         cache_models=cache_models,
+        model_limits=model_limits,
     )
 
 
@@ -177,6 +198,21 @@ def model_defaults(models: TierModels, model_id: str) -> Optional[BedrockModelSe
     return settings or None
 
 
+def _limited(
+    models: TierModels,
+    model_id: str,
+    provider: Union[BedrockProvider, Literal["bedrock"]],
+) -> ModelLimitsModel:
+    """One ``BedrockConverseModel`` with its :func:`model_defaults`, held to the
+    model's own token limits (:class:`~fcrm_agents.model_limits.ModelLimitsModel`)."""
+    return ModelLimitsModel(
+        BedrockConverseModel(
+            model_id, provider=provider, settings=model_defaults(models, model_id)
+        ),
+        models.model_limits.get(model_id),
+    )
+
+
 def bedrock_chain(
     models: TierModels,
     model_ids: Sequence[str],
@@ -185,8 +221,10 @@ def bedrock_chain(
     region_fallback: Optional[BedrockProvider] = None,
 ) -> FallbackModel:
     """``FallbackModel`` of ``BedrockConverseModel``s for ``model_ids``, each with
-    its own :func:`model_defaults`. ``provider`` defaults to the AWS default
-    credential chain and region.
+    its own :func:`model_defaults` and wrapped in a
+    :class:`~fcrm_agents.model_limits.ModelLimitsModel` that holds it to its own
+    token limits (ADR-83). ``provider`` defaults to the AWS default credential
+    chain and region.
 
     ``region_fallback`` (a provider for a second Bedrock region) adds one last
     entry: the chain's first model id, served from that region. It is tried only
@@ -197,20 +235,9 @@ def bedrock_chain(
     bedrock: Union[BedrockProvider, Literal["bedrock"]] = (
         provider if provider is not None else "bedrock"
     )
-    children = [
-        BedrockConverseModel(
-            model_id, provider=bedrock, settings=model_defaults(models, model_id)
-        )
-        for model_id in model_ids
-    ]
+    children = [_limited(models, model_id, bedrock) for model_id in model_ids]
     if region_fallback is not None and model_ids:
-        children.append(
-            BedrockConverseModel(
-                model_ids[0],
-                provider=region_fallback,
-                settings=model_defaults(models, model_ids[0]),
-            )
-        )
+        children.append(_limited(models, model_ids[0], region_fallback))
     return FallbackModel(*children)
 
 

@@ -48,8 +48,10 @@ from fcrm_contracts.api.case_internal import (
 )
 from fcrm_contracts.enums import AgentName, CaseState, ChangeType, GateType, StepKind
 from fcrm_contracts.events.payloads import (
+    AgentFailed,
     CaseCreated,
     CaseDocumentStored,
+    CaseIntakeRecover,
     CaseSubmitted,
     CaseTypesChanged,
     GateDecided,
@@ -646,9 +648,80 @@ async def intake_publish(step: HarnessStep, deps: StepDeps) -> StepResult:
         fcrm_common.errors.NotFoundError: no intake result is stored for the
             run (a wiring fault: the engine stores each ``agent.done``).
     """
+    return await _publish(step, deps, allow_empty=False)
+
+
+async def intake_job_failed(step: HarnessStep, deps: StepDeps) -> StepResult:
+    """An intake job failed before the owner submitted (D-130): record it, tell
+    the owner one document could not be read, and, when it was the last intake
+    job still running, publish what the other documents gave (nothing, when
+    none could be read: the owner fills the fields in). The case stays in
+    intake with the owner; no analyst holds a case nobody submitted.
+    """
+    failed = _payload(step, AgentFailed)
+    await deps.append_record(
+        step,
+        "agent.failed",
+        f"intake could not read one of the owner's documents ({failed.reason}); "
+        "the owner completes its fields",
+        {
+            "phase": "intake",
+            "agent": failed.agent.value,
+            "job_id": failed.job_id,
+            "reason": failed.reason,
+        },
+    )
+    await _show(
+        deps,
+        step,
+        "intake.document_unread",
+        "po",
+        "The assistant could not read one of your documents. Enter its values "
+        "yourself, or upload it again.",
+    )
+    if any(key.startswith(AgentName.INTAKE.value) for key in deps.run.pending_agents):
+        return StepResult()
+    return await _publish(step, deps, allow_empty=True)
+
+
+async def intake_recover(step: HarnessStep, deps: StepDeps) -> StepResult:
+    """``case.intake_recover`` (D-130): the case is back with its owner. Record
+    who returned it and why, then publish what the intake jobs that finished
+    proposed (nothing, when none did: the owner fills the fields in).
+    """
+    recover = _payload(step, CaseIntakeRecover)
+    await deps.append_record(
+        step,
+        "human.handoff",
+        f"intake returned to the owner by {recover.actor}: {recover.reason}",
+        {"phase": "recovered", "agent": AgentName.INTAKE.value},
+        actor=recover.actor,
+    )
+    await _show(
+        deps,
+        step,
+        "intake.document_unread",
+        "po",
+        "The assistant could not read one of your documents. Enter its values "
+        "yourself, or upload it again.",
+        {"recovered": True},
+    )
+    return await _publish(step, deps, allow_empty=True)
+
+
+async def _publish(
+    step: HarnessStep, deps: StepDeps, *, allow_empty: bool
+) -> StepResult:
+    """:func:`intake_publish`'s work; ``allow_empty`` publishes an empty set
+    when no intake job of the run succeeded.
+
+    Raises:
+        fcrm_common.errors.NotFoundError: no intake result is stored and
+            ``allow_empty`` is false.
+    """
     case = deps.require_case()
     results = await deps.require_agent_results().list_for(step.run_id, AgentName.INTAKE)
-    if not results:
+    if not results and not allow_empty:
         raise NotFoundError(f"no intake agent result is stored for run {step.run_id}")
     record = await case.get_record(step.case_id)
     labels = {f.field_id: f.label for f in record.fields}
@@ -956,6 +1029,8 @@ HANDLERS: Final[Mapping[StepKind, StepHandler]] = {
     StepKind.INTAKE_INGESTED: intake_ingested,
     StepKind.INTAKE_INGEST_FAILED: intake_ingest_failed,
     StepKind.INTAKE_PUBLISH: intake_publish,
+    StepKind.INTAKE_JOB_FAILED: intake_job_failed,
+    StepKind.INTAKE_RECOVER: intake_recover,
     StepKind.INTAKE_FIELDSET_RESOLVED: intake_fieldset_resolved,
     StepKind.INTAKE_PO_ACTION: intake_po_action,
     StepKind.INTAKE_TYPES_CHANGED: intake_types_changed,

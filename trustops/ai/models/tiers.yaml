@@ -56,6 +56,13 @@ embeddings:
 #               tool round trip re-sent). On Nova Pro the critic used 21.9k on a live run and was
 #               blocked at 20k (6 Oct, D-95), so the tier is 28k, about 28% over that one
 #               measurement; it is a single observation, not a p90 (ADR-62)
+# Since 22 Oct every tier's budget plus its max_tokens is 64k an attempt (ADR-83): cheap and
+# mid 60k + 4k, strong and judge 56k + 8k. The critic used 45.6k against judge's 28k + 8k on a
+# live run, the second agent after research (ADR-81) to outgrow a tier set from one measurement,
+# so every tier now gets the limit strong already had. The figures above stay as what each
+# agent was measured to need; the per-case ledger (per_case_budget_tokens) still caps a case.
+# A model that takes fewer tokens than its tier asks is held to its own limit per request by
+# fcrm_agents.model_limits (models.<id>.max_output_tokens and context_window, below).
 #
 # `effort` (output_config.effort) is set on a tier only when a model of its chain takes
 # it (`effort_param` below): mid and strong run Sonnet 5.5, which does, so both say low;
@@ -74,7 +81,7 @@ tiers:
     max_tokens: 4000               # output cap per request (was 2000: an intake window of 15 values is cut off at 2000, and a cut tool call arrives as {})
     wall_clock_s: 60
     retries: 1
-    budget: {tokens: 15000, wall_s: 60, retries: 1}
+    budget: {tokens: 60000, wall_s: 60, retries: 1}
     cache_min_prefix_tokens: 4096  # Haiku-class minimum; cheap system prompts stay below it, so no cache point is emitted
     used_by: [screening, intake, watchlist]
   mid:
@@ -85,7 +92,7 @@ tiers:
     max_tokens: 4000
     wall_clock_s: 120
     retries: 1
-    budget: {tokens: 15000, wall_s: 120, retries: 1}
+    budget: {tokens: 60000, wall_s: 120, retries: 1}
     cache_min_prefix_tokens: 1024
     used_by: [narrative, examiner, policy_gap]
   strong:
@@ -113,7 +120,7 @@ tiers:
     max_tokens: 8000
     wall_clock_s: 180
     retries: 1
-    budget: {tokens: 28000, wall_s: 180, retries: 1}
+    budget: {tokens: 56000, wall_s: 180, retries: 1}
     cache_min_prefix_tokens: 1024
     used_by: [critic, eval judges]
 
@@ -154,6 +161,14 @@ per_case_target_tokens: 120000
 #    the tool definitions (probed live, 6 Oct 2026: Haiku 4.5 and Sonnet 5.5 accept
 #    both; the Nova models reject one in the tool list). A prefix under the
 #    model's minimum is not cached and is not an error.
+#  - max_output_tokens / context_window: the model's own limits, per request (ADR-83). The
+#    runtime lowers a request's max_tokens to max_output_tokens and to what the context
+#    window leaves after the estimated input, and moves to the next model of the chain when
+#    the input alone does not fit. A model without them is sent the tier's figures; if
+#    Bedrock then rejects max_tokens, the request is re-sent once at the limit the error
+#    names (4096 when it names none). Haiku 4.5 and the Nova models: from LiteLLM 1.97.0's
+#    model table (bedrock_converse rows for these us. profile ids), 22 Oct 2026. Sonnet 5.5
+#    is not in that table, so it has none here until verified.
 #  - label: the name a report may print for the model. Committed result files
 #    live under /evals, where no model id may appear (ADR-04), so the evals
 #    report every model by this label (fcrm_evals.usage.PriceTable.label).
@@ -168,6 +183,8 @@ models:
     forced_tool_choice: allowed
     thinking: off_by_default
     prompt_cache: true
+    max_output_tokens: 64000
+    context_window: 200000
   us.anthropic.claude-sonnet-5-5:
     family: anthropic
     label: "Sonnet 5.5"
@@ -182,12 +199,16 @@ models:
     temperature: 0
     forced_tool_choice: unverified
     thinking: none
+    max_output_tokens: 10000
+    context_window: 300000
   us.amazon.nova-pro-v1:0:
     family: amazon
     label: "Nova Pro"
     temperature: 0
     forced_tool_choice: unverified
     thinking: none
+    max_output_tokens: 10000
+    context_window: 300000
 
 # USD per 1M tokens, on-demand standard tier, used only for the cost estimate
 # (ModelCallRecord.cost_usd, the eval RunUsage and dashboard, the token reports).

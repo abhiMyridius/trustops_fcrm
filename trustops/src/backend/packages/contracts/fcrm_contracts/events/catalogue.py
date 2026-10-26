@@ -78,6 +78,8 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "committee.question_asked",  # S5 -> H1
         "committee.answered",  # S5 -> H1
         "case.clarification_sent",  # S1 -> H1
+        "case.clarification_resolved",  # S1 -> H1: the round's answers resolved
+        "case.intake_recover",  # operator -> H1: an intake stuck in HANDOFF (D-130)
         "case.control_planned",  # S1 -> H1
         "jurisdiction.list_published",  # S3 -> H1 (watchlist)
         "examiner.asked",  # S4 -> H1 (examiner)

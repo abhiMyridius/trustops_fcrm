@@ -190,6 +190,26 @@ class GateStore:
             query["run_id"] = run_id
         return await self._collection.count_documents(query, session=session)
 
+    async def open_ids(
+        self,
+        case_id: str,
+        gate_type: GateType,
+        *,
+        run_id: str,
+        session: Optional[AsyncClientSession] = None,
+    ) -> list[str]:
+        """The ids of ``run_id``'s open gates of ``gate_type``."""
+        docs = await self._collection.find(
+            {
+                "case_id": case_id,
+                "gate_type": gate_type.value,
+                "status": GateStatus.OPEN.value,
+                "run_id": run_id,
+            },
+            session=session,
+        ).to_list()
+        return [str(d["_id"]) for d in docs]
+
     async def count_open_for_run(
         self, run_id: str, *, session: Optional[AsyncClientSession] = None
     ) -> int:

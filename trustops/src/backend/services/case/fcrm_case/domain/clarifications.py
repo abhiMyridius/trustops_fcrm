@@ -168,6 +168,14 @@ def open_threads(
     return [t for t in threads if t.status == "awaiting_response"]
 
 
+def answered_threads(
+    threads: Sequence[ClarificationThreadRow],
+) -> list[ClarificationThreadRow]:
+    """The threads the owner has answered and the analyst has not resolved yet:
+    the replies the analyst's Inbox counts."""
+    return [t for t in threads if t.status == "answered"]
+
+
 def round_threads(
     threads: Sequence[ClarificationThreadRow],
 ) -> list[ClarificationThreadRow]:

@@ -101,6 +101,7 @@ from fcrm_agent_worker.allowance import (
     OutputAllowanceModel,
     estimate_prompt_tokens,
 )
+from fcrm_agent_worker.bedrock_client import SharedBedrockProvider
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +117,9 @@ USAGE_KEYS: Final = (
 )
 
 ModelFactory = Callable[[TierModels, AttemptPlan], Model]
+
+#: A shared client's connection pool when the caller does not size it.
+DEFAULT_POOL_CONNECTIONS: Final = 10
 
 
 def live_model_for_slot(
@@ -142,41 +146,60 @@ def live_model_for_slot(
     )
 
 
-def _bedrock_provider(region: str) -> BedrockProvider:
-    """A Bedrock provider for ``region`` over the default credential chain."""
-    return BedrockProvider(region_name=region)
+def _shared_provider(
+    region: Optional[str], max_pool_connections: int
+) -> SharedBedrockProvider:
+    """A lazily built, shared provider for ``region`` (``None``: the default
+    chain's region)."""
+    return SharedBedrockProvider(region, max_pool_connections=max_pool_connections)
+
+
+ProviderFor = Callable[[Optional[str], int], SharedBedrockProvider]
 
 
 def model_factory_for(
     region_fallback: Optional[str],
     primary_region: Optional[str] = None,
     *,
-    provider_for: Callable[[str], BedrockProvider] = _bedrock_provider,
+    max_pool_connections: int = DEFAULT_POOL_CONNECTIONS,
+    provider_for: ProviderFor = _shared_provider,
 ) -> ModelFactory:
-    """The :data:`ModelFactory` H2 runs with: :func:`live_model_for_slot`, with a
-    second Bedrock region as the last fallback of every chain when
+    """The :data:`ModelFactory` H2 runs with: :func:`live_model_for_slot` over
+    one shared Bedrock client for the primary region (D-130), with a second
+    Bedrock region, also shared, as the last fallback of every chain when
     ``BEDROCK_REGION_FALLBACK`` names one that is not the primary region.
+
+    Nothing is built here: each client is built on the first job that needs it
+    (:class:`~fcrm_agent_worker.bedrock_client.SharedBedrockProvider`), so a
+    missing region fails that job, never the harness's startup.
 
     Args:
         region_fallback: ``settings.bedrock_region_fallback``; empty or ``None``
             means no second region.
-        primary_region: The region the default credential chain resolves
-            (``settings.aws_region``); a fallback equal to it adds nothing and is
-            ignored.
-        provider_for: Builds the provider for a region (a fake in tests). boto3
-            builds its client lazily, so this makes no network call.
+        primary_region: ``settings.aws_region``; ``None`` leaves the region to
+            the default credential chain. A fallback equal to it adds nothing.
+        max_pool_connections: Each client's connection pool: the agent jobs
+            that run at once (``AGENT_PREFETCH``).
+        provider_for: Builds the lazy provider for a region (a fake in tests).
 
     Returns:
         A factory with the ``(TierModels, AttemptPlan)`` signature.
     """
+    primary_name = (primary_region or "").strip() or None
+    primary = provider_for(primary_name, max_pool_connections)
     region = (region_fallback or "").strip()
-    if not region or region == (primary_region or "").strip():
-        return live_model_for_slot
-    provider = provider_for(region)
-    logger.info("model chains end with a second Bedrock region: %s", region)
+    fallback: Optional[SharedBedrockProvider] = None
+    if region and region != (primary_name or ""):
+        fallback = provider_for(region, max_pool_connections)
+        logger.info("model chains end with a second Bedrock region: %s", region)
 
     def factory(models: TierModels, plan: AttemptPlan) -> Model:
-        return live_model_for_slot(models, plan, region_fallback=provider)
+        return live_model_for_slot(
+            models,
+            plan,
+            provider=primary.get(),
+            region_fallback=fallback.get() if fallback is not None else None,
+        )
 
     return factory
 

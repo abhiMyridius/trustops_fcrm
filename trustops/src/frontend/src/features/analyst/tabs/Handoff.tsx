@@ -73,7 +73,13 @@ export function HandoffTab() {
   const suggested = rec?.locked ? { outcome: rec.outcome, summary: rec.business_summary } : null;
   const toast = useToast();
   const [closing, setClosing] = useState(false);
-  const packId = q.data?.pack?.status && q.data.pack.status !== 'built' ? q.data.pack.pack_id : undefined;
+  // Votes and committee questions belong to a committee route only: a Band 1/2
+  // case closed under delegated authority has a decided pack nobody votes on.
+  const handoff = q.data;
+  const packId =
+    handoff?.route === 'committee' && handoff.pack && handoff.pack.status !== 'built'
+      ? handoff.pack.pack_id
+      : undefined;
   const threads = useCommitteeThreads(packId);
   const votes = useVotes(packId);
 

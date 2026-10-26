@@ -18,6 +18,7 @@ import type {
   QuestionsResult,
   QueueItem,
   Recommendation,
+  RecommendationConditionEdit,
   RiskView,
   SimulateRequest,
   SimulateResponse,
@@ -121,11 +122,17 @@ export type ItemDecisionBody = {
   decision: 'accept' | 'remove' | 'confirm' | 'override' | 'explain';
   value?: number;
   reason?: string;
+  /** An area's likelihood and impact (1-5), for an override of its factor item. */
+  likelihood?: number;
+  impact?: number;
 };
 
 export function useDecideItem(id: string) {
   return useCaseMutation(id, (v: { item_id: string } & ItemDecisionBody) =>
-    api(paths.cases.item(id, v.item_id), { method: 'POST', body: { decision: v.decision, value: v.value, reason: v.reason } }),
+    api(paths.cases.item(id, v.item_id), {
+      method: 'POST',
+      body: { decision: v.decision, value: v.value, reason: v.reason, likelihood: v.likelihood, impact: v.impact },
+    }),
   );
 }
 
@@ -212,7 +219,7 @@ export function useSimulate() {
 }
 
 export function useSaveRecommendation(id: string) {
-  return useCaseMutation(id, (v: Partial<Pick<Recommendation, 'narrative' | 'outcome' | 'business_summary'>>) =>
+  return useCaseMutation(id, (v: { narrative?: string; outcome?: Recommendation['outcome']; business_summary?: string; conditions?: RecommendationConditionEdit[] }) =>
     api<Recommendation>(paths.cases.recommendation(id), { method: 'PUT', body: v }),
   );
 }

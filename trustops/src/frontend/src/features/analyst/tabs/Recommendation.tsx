@@ -5,10 +5,11 @@
  */
 import { useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
-import { Lock, LockOpen } from 'lucide-react';
+import { Lock, LockOpen, Plus } from 'lucide-react';
 import { useLock, useRecommendation, useSaveRecommendation, useUnlock } from '@/api/queries/analystQueries';
 import { ApiError, isNotReady, userMessage } from '@/api/errors';
-import type { Recommendation, WorkbenchHeader } from '@/api/types/analyst';
+import type { ConditionAnalyst, Recommendation, WorkbenchHeader } from '@/api/types/analyst';
+import { ConditionEditDialog, type ConditionDraft } from '@/components/domain/ConditionEditDialog';
 import { ConditionTable } from '@/components/domain/ConditionTable';
 import { ReasonDialog } from '@/components/domain/ReasonDialog';
 import { AiLabel } from '@/components/ui/AiMark';
@@ -23,6 +24,25 @@ import { useToast } from '@/components/ui/Toast';
 import { useDocumentTitle } from '@/lib/a11y';
 import { OUTCOME_LABEL } from '@/lib/format';
 
+/** What the server calls a condition the analyst added (it sets the real source on save). */
+const ADDED = 'added by the analyst';
+const NEW_PREFIX = 'new-';
+
+/** The conditions as the PUT carries them: an existing one by id, a new one without. */
+function conditionEdits(list: ConditionAnalyst[]) {
+  return list.map((c) => ({
+    ...(c.id.startsWith(NEW_PREFIX) ? {} : { id: c.id }),
+    text: c.text,
+    owner: c.owner,
+    due: c.due,
+    status: c.status === 'scheduled' ? ('scheduled' as const) : ('open' as const),
+  }));
+}
+
+function sameConditions(a: ConditionAnalyst[], b: ConditionAnalyst[]) {
+  return a.length === b.length && a.every((c, i) => c.id === b[i]?.id && c.text === b[i]?.text && c.owner === b[i]?.owner && c.due === b[i]?.due && c.status === b[i]?.status);
+}
+
 function Editor({ caseId, rec, readOnly }: { caseId: string; rec: Recommendation; readOnly: boolean }) {
   const save = useSaveRecommendation(caseId);
   const lock = useLock(caseId);
@@ -31,10 +51,16 @@ function Editor({ caseId, rec, readOnly }: { caseId: string; rec: Recommendation
   const [narrative, setNarrative] = useState(rec.narrative);
   const [summary, setSummary] = useState(rec.business_summary);
   const [outcome, setOutcome] = useState(rec.outcome);
+  const [conds, setConds] = useState<ConditionAnalyst[]>(rec.conditions);
+  const [editing, setEditing] = useState<{ at: number | null } | null>(null);
   const [unlocking, setUnlocking] = useState(false);
   const [blockers, setBlockers] = useState<string[]>([]);
-  const dirty = narrative !== rec.narrative || summary !== rec.business_summary || outcome !== rec.outcome;
+  const dirty = narrative !== rec.narrative || summary !== rec.business_summary || outcome !== rec.outcome || !sameConditions(conds, rec.conditions);
   const editable = !readOnly && !rec.locked;
+  const editingRow: ConditionDraft | null =
+    editing && editing.at !== null && conds[editing.at]
+      ? { id: conds[editing.at]!.id, text: conds[editing.at]!.text, owner: conds[editing.at]!.owner, due: conds[editing.at]!.due, status: conds[editing.at]!.status === 'scheduled' ? 'scheduled' : 'open' }
+      : null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -69,7 +95,7 @@ function Editor({ caseId, rec, readOnly }: { caseId: string; rec: Recommendation
                 loading={save.isPending}
                 onClick={() =>
                   save.mutate(
-                    { narrative, business_summary: summary, outcome },
+                    { narrative, business_summary: summary, outcome, ...(sameConditions(conds, rec.conditions) ? {} : { conditions: conditionEdits(conds) }) },
                     { onSuccess: () => toast.success('Draft saved'), onError: (e) => toast.error('Not saved', userMessage(e)) },
                   )
                 }
@@ -80,9 +106,53 @@ function Editor({ caseId, rec, readOnly }: { caseId: string; rec: Recommendation
           )}
         </div>
       </Card>
-      <Card title="Conditions">
-        <ConditionTable rows={rec.conditions} showSource caption="Recommended conditions" />
+      <Card
+        title="Conditions"
+        subtitle={editable ? 'Edit, remove or add conditions, then Save draft.' : undefined}
+        actions={
+          editable ? (
+            <Button size="sm" variant="secondary" icon={<Plus aria-hidden size={14} />} onClick={() => setEditing({ at: null })}>
+              Add condition
+            </Button>
+          ) : undefined
+        }
+      >
+        {conds.length === 0 ? (
+          <p className="text-sm text-text-muted">No conditions.</p>
+        ) : (
+          <ConditionTable
+            rows={conds}
+            showSource
+            caption="Recommended conditions"
+            action={
+              editable
+                ? (r) => (
+                    <span className="flex gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => setEditing({ at: conds.findIndex((c) => c.id === r.id) })}>
+                        Edit
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setConds(conds.filter((c) => c.id !== r.id))}>
+                        Remove
+                      </Button>
+                    </span>
+                  )
+                : undefined
+            }
+          />
+        )}
       </Card>
+      <ConditionEditDialog
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        initial={editingRow}
+        onSave={(c) =>
+          setConds((list) => {
+            const at = editing?.at ?? null;
+            const row: ConditionAnalyst = { id: c.id ?? `new-${list.length + 1}-${Date.now()}`, text: c.text, owner: c.owner, due: c.due, status: c.status, from: at !== null ? (list[at]?.from ?? ADDED) : ADDED };
+            return at !== null ? list.map((x, i) => (i === at ? row : x)) : [...list, row];
+          })
+        }
+      />
       {!readOnly && (
         <Card title={rec.locked ? 'Locked' : 'Lock the recommendation'}>
           {!rec.locked && rec.lock_blockers.length > 0 && (
@@ -176,7 +246,7 @@ export function RecommendationTab() {
   // Keyed on the server's version of the text so a saved or locked recommendation re-seeds the editor.
   return (
     <QueryState query={q}>
-      {(rec) => <Editor key={`${rec.edits_by_analyst}-${rec.locked}-${rec.outcome}`} caseId={id} rec={rec} readOnly={!w.is_demo || w.closed} />}
+      {(rec) => <Editor key={`${rec.edits_by_analyst}-${rec.locked}-${rec.outcome}-${rec.conditions.map((c) => c.id).join(',')}`} caseId={id} rec={rec} readOnly={!w.is_demo || w.closed} />}
     </QueryState>
   );
 }

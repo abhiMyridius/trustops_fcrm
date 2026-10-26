@@ -10,6 +10,7 @@ from typing import Any
 
 import pytest
 from fcrm_agents import REGISTRY, ModelConfigError, build_agent, get_spec, tier_models
+from fcrm_agents.model_limits import ModelLimitsModel
 from fcrm_agents.models import (
     bedrock_chain,
     build_model,
@@ -297,7 +298,8 @@ def test_build_agent_constructs_bedrock_fallback_chain_without_calling() -> None
     agent = build_agent(get_spec("research"), FAKE_TIERS, provider=OFFLINE_PROVIDER)
     model = agent.model
     assert isinstance(model, FallbackModel)
-    assert all(isinstance(m, BedrockConverseModel) for m in model.models)
+    assert all(isinstance(m, ModelLimitsModel) for m in model.models)
+    assert all(isinstance(m.wrapped, BedrockConverseModel) for m in model.models)
     assert [m.model_name for m in model.models] == [
         "fixture-primary",
         "fixture-fallback-1",

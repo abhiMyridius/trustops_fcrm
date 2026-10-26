@@ -23,6 +23,12 @@ CASE_ID = "FCRM-2026-0151"
 RUN_ID = "run_1"
 #: What the research and assessment pair holds while both are out.
 PAIR = reservation_tokens(AgentName.RESEARCH) + reservation_tokens(AgentName.ASSESSMENT)
+#: The cap the ``budget_store`` fixture creates a ledger at.
+FIXTURE_CAP = 120_000
+#: One attempt of each tier, as a dispatch reserves it.
+CHEAP = reservation_tokens(AgentName.SCREENING)
+CRITIC = reservation_tokens(AgentName.CRITIC)
+NARRATIVE = reservation_tokens(AgentName.NARRATIVE)
 
 
 def job(job_id: str, agent: AgentName) -> JobRequest:
@@ -96,10 +102,10 @@ async def test_the_first_reservation_creates_the_ledger_at_the_cap(
 
     ledger = await budget_store.get(CASE_ID)
     assert ledger is not None
-    assert (ledger.cap, ledger.spent, ledger.reserved) == (120_000, 0, 15_000)
+    assert (ledger.cap, ledger.spent, ledger.reserved) == (FIXTURE_CAP, 0, CHEAP)
     assert ledger.run_id == RUN_ID
     assert ledger.jobs["job_a"].status is JobStatus.RESERVED
-    assert ledger.headroom == 105_000
+    assert ledger.headroom == FIXTURE_CAP - CHEAP
 
 
 async def test_a_redelivered_dispatch_does_not_reserve_twice(
@@ -114,7 +120,7 @@ async def test_a_redelivered_dispatch_does_not_reserve_twice(
     assert outcome.asked == 0
     ledger = await budget_store.get(CASE_ID)
     assert ledger is not None
-    assert ledger.reserved == 15_000
+    assert ledger.reserved == CHEAP
 
 
 async def test_settling_swaps_the_reservation_for_what_was_spent_exactly_once(
@@ -146,11 +152,13 @@ async def test_a_dispatch_that_would_pass_the_cap_is_refused_and_changes_nothing
     budget_store: CaseBudgetStore, session: FakeSession
 ) -> None:
     await reserve(budget_store, session, job("job_a", AgentName.RESEARCH))
-    await settle(budget_store, session, "job_a", AgentName.RESEARCH, 92_000)
+    await settle(
+        budget_store, session, "job_a", AgentName.RESEARCH, FIXTURE_CAP - CRITIC
+    )
 
-    # 92,000 spent + 28,000 for the critic is exactly the cap: allowed.
+    # What is spent plus one attempt of the critic is exactly the cap: allowed.
     assert await reserve(budget_store, session, job("job_c", AgentName.CRITIC))
-    await settle(budget_store, session, "job_c", AgentName.CRITIC, 28_000)
+    await settle(budget_store, session, "job_c", AgentName.CRITIC, CRITIC)
     before = await budget_store.get(CASE_ID)
     assert before is not None
     assert before.headroom == 0
@@ -160,7 +168,7 @@ async def test_a_dispatch_that_would_pass_the_cap_is_refused_and_changes_nothing
     )
 
     assert not outcome.granted
-    assert outcome.asked == 15_000
+    assert outcome.asked == NARRATIVE
     after = await budget_store.get(CASE_ID)
     assert after == before
     assert "job_n" not in after.jobs
@@ -169,7 +177,9 @@ async def test_a_dispatch_that_would_pass_the_cap_is_refused_and_changes_nothing
 async def test_the_cap_itself_is_allowed_and_one_token_past_it_is_not(
     budget_store: CaseBudgetStore, session: FakeSession
 ) -> None:
-    await settle(budget_store, session, "job_a", AgentName.RESEARCH, 105_000)
+    await settle(
+        budget_store, session, "job_a", AgentName.RESEARCH, FIXTURE_CAP - NARRATIVE
+    )
     assert await reserve(budget_store, session, job("job_n", AgentName.NARRATIVE))
     await settle(budget_store, session, "job_n", AgentName.NARRATIVE, 0)
 
@@ -181,11 +191,14 @@ async def test_the_cap_itself_is_allowed_and_one_token_past_it_is_not(
 async def test_a_retry_may_overshoot_the_cap_once_and_the_next_dispatch_is_refused(
     budget_store: CaseBudgetStore, session: FakeSession
 ) -> None:
-    await settle(budget_store, session, "job_a", AgentName.RESEARCH, 90_000)
+    research = FIXTURE_CAP - CRITIC - 10_000
+    await settle(budget_store, session, "job_a", AgentName.RESEARCH, research)
     assert await reserve(budget_store, session, job("job_c", AgentName.CRITIC))
 
-    # The critic's retry really spent 38,000 against its 20,000 reservation.
-    assert await settle(budget_store, session, "job_c", AgentName.CRITIC, 38_000)
+    # The critic's retry really spent 18,000 more than its one-attempt reservation.
+    assert await settle(
+        budget_store, session, "job_c", AgentName.CRITIC, CRITIC + 18_000
+    )
 
     ledger = await budget_store.get(CASE_ID)
     assert ledger is not None

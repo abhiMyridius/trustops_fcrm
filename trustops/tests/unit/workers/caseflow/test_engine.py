@@ -177,12 +177,28 @@ class TestOpeningARun:
             await engine.handle(_env("case.created", {"data": {}}), None)
 
 
+def _failed(run_id: str, agent: str, job_id: str = "job_1") -> Envelope:
+    return _env(
+        "agent.failed",
+        {
+            "job_id": job_id,
+            "case_id": CASE_ID,
+            "run_id": run_id,
+            "agent": agent,
+            "attempt": 2,
+            "reason": "guard4_rejected: schema mismatch",
+        },
+        run_id=run_id,
+    )
+
+
 class TestAgentFailedAfterRetry:
-    """D-15: every ``agent.failed`` resolves to ``AGENT_FAILED_AFTER_RETRY``
-    unconditionally (see ``fcrm_caseflow.resolve``'s module docstring).
+    """D-15: an ``agent.failed`` hands the step to the analyst, except an intake
+    job that fails before the owner submitted, which stays with the owner
+    (D-130).
     """
 
-    async def test_agent_failed_drives_handoff_and_opens_a_gate(
+    async def test_an_intake_failure_before_submission_stays_in_intake(
         self,
         engine: CaseflowEngine,
         session: FakeSession,
@@ -193,17 +209,76 @@ class TestAgentFailedAfterRetry:
         run = await run_store.get_by_case_id(CASE_ID)
         assert run is not None
 
+        await engine.handle(_failed(run.snapshot.run_id, "intake"), session)
+
+        reloaded = await run_store.get(run.snapshot.run_id)
+        assert reloaded is not None
+        assert reloaded.state is CaseState.INTAKE
+        assert await gate_store.count_open(CASE_ID, GateType.HANDOFF) == 0
+
+    async def test_another_agents_failure_drives_handoff_and_opens_a_gate(
+        self,
+        engine: CaseflowEngine,
+        session: FakeSession,
+        run_store: CaseRunStore,
+        gate_store: GateStore,
+    ) -> None:
+        await _open_run(engine, session)
+        run = await run_store.get_by_case_id(CASE_ID)
+        assert run is not None
+
+        await engine.handle(_failed(run.snapshot.run_id, "screening"), session)
+
+        reloaded = await run_store.get(run.snapshot.run_id)
+        assert reloaded is not None
+        assert reloaded.state is CaseState.HANDOFF
+        assert await gate_store.count_open(CASE_ID, GateType.HANDOFF) == 1
+
+    async def test_a_case_held_from_intake_is_returned_to_its_owner(
+        self,
+        engine: CaseflowEngine,
+        session: FakeSession,
+        run_store: CaseRunStore,
+        gate_store: GateStore,
+    ) -> None:
+        """``case.intake_recover``: the cases that went to HANDOFF from INTAKE
+        before D-130 go back to the owner through an event, never a hand edit."""
+        await _open_run(engine, session)
+        run = await run_store.get_by_case_id(CASE_ID)
+        assert run is not None
+        run_id = run.snapshot.run_id
+        await engine.handle(_failed(run_id, "screening"), session)
+        assert await gate_store.count_open(CASE_ID, GateType.HANDOFF) == 1
+
         await engine.handle(
             _env(
-                "agent.failed",
-                {
-                    "job_id": "job_1",
-                    "case_id": CASE_ID,
-                    "run_id": run.snapshot.run_id,
-                    "agent": "intake",
-                    "attempt": 2,
-                    "reason": "guard4_rejected: schema mismatch",
-                },
+                "case.intake_recover",
+                {"case_id": CASE_ID, "actor": "u-riyer", "reason": "permit timeout"},
+                run_id=run_id,
+            ),
+            session,
+        )
+
+        reloaded = await run_store.get(run_id)
+        assert reloaded is not None
+        assert reloaded.state is CaseState.INTAKE
+        assert reloaded.suspended_from is None
+        assert await gate_store.count_open(CASE_ID, GateType.HANDOFF) == 0
+
+    async def test_the_recovery_leaves_any_other_run_alone(
+        self,
+        engine: CaseflowEngine,
+        session: FakeSession,
+        run_store: CaseRunStore,
+    ) -> None:
+        await _open_run(engine, session)
+        run = await run_store.get_by_case_id(CASE_ID)
+        assert run is not None
+
+        await engine.handle(
+            _env(
+                "case.intake_recover",
+                {"case_id": CASE_ID, "actor": "u-riyer", "reason": "not stuck"},
                 run_id=run.snapshot.run_id,
             ),
             session,
@@ -211,8 +286,7 @@ class TestAgentFailedAfterRetry:
 
         reloaded = await run_store.get(run.snapshot.run_id)
         assert reloaded is not None
-        assert reloaded.state is CaseState.HANDOFF
-        assert await gate_store.count_open(CASE_ID, GateType.HANDOFF) == 1
+        assert reloaded.state is CaseState.INTAKE
 
 
 class TestResearchAssessmentPairJoin:
@@ -535,6 +609,18 @@ class TestFullDemoLifecycle:
         )
         await engine.handle(
             _env("agent.done", {"agent": "assessment"}, run_id=run_id), session
+        )
+        landed = await run_store.get(run_id)
+        assert landed is not None
+        assert landed.state is CaseState.CLARIFICATION  # D-129: not resolved yet
+        # The analyst resolves the owner's answers -> REVIEW, round closed.
+        await engine.handle(
+            _env(
+                "case.clarification_resolved",
+                {"case_id": CASE_ID, "actor": "u-riyer", "round": 1},
+                run_id=run_id,
+            ),
+            session,
         )
         after_rerun = await run_store.get(run_id)
         assert after_rerun is not None

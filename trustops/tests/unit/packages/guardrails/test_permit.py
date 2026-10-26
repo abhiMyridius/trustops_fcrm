@@ -122,3 +122,83 @@ async def test_check_without_agent_fails_closed() -> None:
         GuardContext(case_id="c", run_id="r", tools=["field_rules"])
     )
     assert result.status is GuardStatus.BLOCKED
+
+
+class Unavailable(Exception):
+    """Stands in for fcrm_common's ``AuthzUnavailableError`` (D-130)."""
+
+
+class ScriptedOpa:
+    """Answers each call from ``script``: ``"slow"`` sleeps past the deadline of
+    one attempt, an exception class is raised, a bool is the verdict."""
+
+    def __init__(self, *script: object, delay: float = 1.0) -> None:
+        self.script = list(script)
+        self.delay = delay
+        self.calls = 0
+
+    async def tool_permit(
+        self, *, agent: str, tool: str, case_id: str, role: str, run_id: str
+    ) -> bool:
+        self.calls += 1
+        step = self.script.pop(0)
+        if step == "slow":
+            await asyncio.sleep(self.delay)
+            return True
+        if isinstance(step, type) and issubclass(step, BaseException):
+            raise step("opa")
+        return bool(step)
+
+
+def _decide(guard: PermitGuard) -> object:
+    return guard.decide(
+        agent="intake", tool="field_rules", case_id="c", role="agent", run_id="r"
+    )
+
+
+async def test_a_slow_answer_inside_the_deadline_is_still_read() -> None:
+    """D-130: OPA answered, the event loop stalled for a moment; the decision
+    waits out the stall instead of denying."""
+    opa = ScriptedOpa("slow", delay=0.05)
+    decision = await _decide(PermitGuard(opa, timeout_s=1.0))
+    assert decision.allowed  # type: ignore[attr-defined]
+    assert opa.calls == 1
+
+
+async def test_an_unavailable_opa_is_asked_once_more() -> None:
+    opa = ScriptedOpa(Unavailable, True)
+    decision = await _decide(PermitGuard(opa, retry_on=(TimeoutError, Unavailable)))
+    assert decision.allowed  # type: ignore[attr-defined]
+    assert opa.calls == 2
+
+
+async def test_a_second_failure_denies() -> None:
+    opa = ScriptedOpa(Unavailable, Unavailable, True)
+    decision = await _decide(PermitGuard(opa, retry_on=(TimeoutError, Unavailable)))
+    assert not decision.allowed  # type: ignore[attr-defined]
+    assert decision.reason == "opa unavailable: Unavailable"  # type: ignore[attr-defined]
+    assert opa.calls == 2
+
+
+async def test_a_deny_is_never_retried() -> None:
+    opa = ScriptedOpa(False, True)
+    decision = await _decide(PermitGuard(opa, retry_on=(TimeoutError, Unavailable)))
+    assert not decision.allowed  # type: ignore[attr-defined]
+    assert decision.reason == "opa deny"  # type: ignore[attr-defined]
+    assert opa.calls == 1
+
+
+async def test_an_error_not_named_retryable_denies_at_once() -> None:
+    opa = ScriptedOpa(Unavailable, True)
+    decision = await _decide(PermitGuard(opa))  # timeouts only
+    assert not decision.allowed  # type: ignore[attr-defined]
+    assert opa.calls == 1
+
+
+async def test_the_retry_stays_inside_the_deadline() -> None:
+    opa = ScriptedOpa("slow", "slow", delay=5.0)
+    started = asyncio.get_running_loop().time()
+    decision = await _decide(PermitGuard(opa, timeout_s=0.3))
+    assert not decision.allowed  # type: ignore[attr-defined]
+    assert decision.reason == "opa timeout"  # type: ignore[attr-defined]
+    assert asyncio.get_running_loop().time() - started < 1.0

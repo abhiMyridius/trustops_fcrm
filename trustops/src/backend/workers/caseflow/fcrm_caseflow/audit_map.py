@@ -45,6 +45,8 @@ STEP_FOR: Final[Mapping[Trigger, StepKind]] = MappingProxyType(
         Trigger.INGEST_DONE: K.INTAKE_INGESTED,
         Trigger.INGEST_FAILED: K.INTAKE_INGEST_FAILED,
         Trigger.AGENT_DONE_INTAKE: K.INTAKE_PUBLISH,
+        Trigger.INTAKE_JOB_FAILED: K.INTAKE_JOB_FAILED,
+        Trigger.CASE_INTAKE_RECOVER: K.INTAKE_RECOVER,
         Trigger.GATE_DECIDED_PO_CONFIRM_CATEGORY_ALL: K.INTAKE_FIELDSET_RESOLVED,
         Trigger.GATE_DECIDED_PO_ACTION: K.INTAKE_PO_ACTION,
         Trigger.CASE_TYPES_CHANGED: K.INTAKE_TYPES_CHANGED,
@@ -59,6 +61,7 @@ STEP_FOR: Final[Mapping[Trigger, StepKind]] = MappingProxyType(
         Trigger.GATE_DECIDED_COMPLETENESS_ASK: K.CLARIFICATION_RECORD,
         Trigger.GATE_DECIDED_COMPLETENESS_PROCEED: K.STATE_PUSH,
         Trigger.CASE_ANSWERED: K.RERUN_RECORD,
+        Trigger.CASE_CLARIFICATION_RESOLVED: K.STATE_PUSH,
         Trigger.AGENT_DONE_RERUN_BOTH: K.RERUN_PUBLISH,
         Trigger.GATE_DECIDED_REVIEW_ITEM: K.REVIEW_ITEM,
         Trigger.GATE_DECIDED_ACK: K.REVIEW_ACK,
@@ -119,6 +122,24 @@ RECORDS_FOR: Final[Mapping[StepKind, tuple[str, ...]]] = MappingProxyType(
         K.INTAKE_INGESTED: ("guard.input",),
         K.INTAKE_INGEST_FAILED: ("guard.input",),
         K.INTAKE_PUBLISH: (
+            "proposal.extraction",
+            "proposal.category",
+            "proposal.gaps",
+            "precedent.matched",
+            "fact.flagged",
+        ),
+        # D-130: a failed intake job, then (when it was the last one) the
+        # publish of what the other documents gave.
+        K.INTAKE_JOB_FAILED: (
+            "agent.failed",
+            "proposal.extraction",
+            "proposal.category",
+            "proposal.gaps",
+            "precedent.matched",
+            "fact.flagged",
+        ),
+        K.INTAKE_RECOVER: (
+            "human.handoff",
             "proposal.extraction",
             "proposal.category",
             "proposal.gaps",

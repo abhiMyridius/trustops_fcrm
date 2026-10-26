@@ -43,6 +43,8 @@ EXPECTED = {
     (CaseState.REVIEW, True): "under_assessment",
     (CaseState.RECOMMEND, True): "under_assessment",
     (CaseState.HANDOFF, True): "under_assessment",
+    # D-130: a job that stalled before the owner submitted leaves a draft.
+    (CaseState.HANDOFF, False): "draft",
     (CaseState.CLARIFICATION, True): "awaiting_your_answer",
     (CaseState.DECIDE, True): "decision",
     (CaseState.CLOSED, True): "closed",

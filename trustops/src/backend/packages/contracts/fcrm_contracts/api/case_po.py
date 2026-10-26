@@ -226,6 +226,13 @@ class CategoryProposalPO(_Dto):
     origin: TypeOrigin
 
 
+class ValueAlternativePO(_Dto):
+    """Another value found in the owner's documents for a field, and where."""
+
+    value: str
+    source: SourceRef
+
+
 class ValuePO(_Dto):
     field_id: str
     label: str
@@ -233,6 +240,9 @@ class ValuePO(_Dto):
     origin: Origin
     source: Optional[SourceRef]
     candidates: Optional[int]
+    alternatives: list[ValueAlternativePO]
+    """The other values found, while the value is still the extracted one
+    (empty otherwise); never a score or a confidence."""
     always_required: bool
 
 
@@ -296,6 +306,8 @@ class ReviewRowPO(_Dto):
     origin: Origin
     source: Optional[SourceRef]
     original: Optional[OriginalValue]
+    alternatives: list[ValueAlternativePO]
+    """The other values found while the value is still the extracted one."""
     always_required: bool
 
 

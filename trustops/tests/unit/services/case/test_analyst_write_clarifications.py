@@ -475,6 +475,47 @@ def test_resolving_an_answered_question_and_again(
     assert row.resolved_by == "u-riyer"
 
 
+def _answer_all(service: CaseService) -> list[str]:
+    for thread_id, row in list(service.views.threads.items()):
+        service.views.threads[thread_id] = row.model_copy(update={"status": "answered"})
+    return sorted(service.views.threads)
+
+
+def test_resolving_the_last_answer_of_the_round_tells_caseflow_once(
+    clarification_service: CaseService,
+) -> None:
+    """D-129: the round is done when the analyst has resolved every answer, not
+    when the owner answered; resolving the last one emits the event once."""
+    client = clarification_service.client
+    client.post(COMPLETENESS, json={"decision": "ask"})
+    stage(clarification_service, CaseState.CLARIFICATION)
+    first, *rest = _answer_all(clarification_service)
+    assert rest, "the round needs at least two questions for this test"
+
+    client.post(f"{CLARIFICATIONS}/{first}/resolve", json={})
+    for thread_id in rest[:-1]:
+        client.post(f"{CLARIFICATIONS}/{thread_id}/resolve", json={})
+    assert events(clarification_service, "case.clarification_resolved") == []
+
+    client.post(f"{CLARIFICATIONS}/{rest[-1]}/resolve", json={})
+    client.post(f"{CLARIFICATIONS}/{rest[-1]}/resolve", json={})  # a replay
+
+    [resolved] = events(clarification_service, "case.clarification_resolved")
+    assert resolved["round"] == 1
+    assert sorted(resolved["thread_ids"]) == [first, *rest]
+
+
+def test_resolving_after_the_case_left_clarification_tells_caseflow_nothing(
+    clarification_service: CaseService,
+) -> None:
+    client = clarification_service.client
+    client.post(COMPLETENESS, json={"decision": "ask"})
+    stage(clarification_service, CaseState.REVIEW)
+    for thread_id in _answer_all(clarification_service):
+        client.post(f"{CLARIFICATIONS}/{thread_id}/resolve", json={})
+    assert events(clarification_service, "case.clarification_resolved") == []
+
+
 def test_an_unknown_question_is_a_404(clarification_service: CaseService) -> None:
     response = clarification_service.client.post(
         f"{CLARIFICATIONS}/thr_missing/resolve", json={}

@@ -82,7 +82,7 @@ from fcrm_policy.config_preview import (
     describe,
     open_cases_pinned,
 )
-from fcrm_policy.config_sections import section_spec
+from fcrm_policy.config_sections import list_version, section_spec
 from fcrm_policy.config_store import (
     ConfigStore,
     KeyRecord,
@@ -206,7 +206,8 @@ class ConfigService:
             corpus_v=_number(in_force["policy-corpus"]),
             controls_v=_number(in_force["control-inventory"]),
             fieldset_v=_number(in_force["field-sets"]),
-            jurisdictions_v=in_force["jurisdiction-risk"],
+            # A case pins the FATF list, never an internal revision of it.
+            jurisdictions_v=list_version(in_force["jurisdiction-risk"]),
             routing_v=_number(in_force["routing-rules"]),
             prompts_v=in_force["ai-agents"],
         )
@@ -233,7 +234,8 @@ class ConfigService:
         if key != _JURISDICTION:
             return latest, latest.version, latest.body
         active = await self._reference.jurisdiction_list(None)
-        if active is None or active.version == latest.version:
+        if active is None or active.version == list_version(latest.version):
+            # The list in force, or an internal revision of it (``v2026-06+i1``).
             return latest, latest.version, latest.body
         moved = ConfigDraftChange(
             path="fatf_sync", before=latest.version, after=active.version
@@ -570,6 +572,10 @@ class ConfigService:
         if key == "control-inventory":
             return ControlInventoryEffect(self._writer, new_version, new_body)
         if key == _JURISDICTION:
+            # An internal revision (``v2026-06+i1``) activates no list: cases keep
+            # pinning the FATF list in force and no watchlist run starts.
+            if new_version != new_body["version"]:
+                return None
             return JurisdictionEffect(self._writer, new_version)
         return None
 

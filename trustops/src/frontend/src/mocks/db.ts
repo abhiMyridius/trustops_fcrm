@@ -121,6 +121,8 @@ export interface DemoState {
   voteRound: number;
   outcome: { outcome: 'approve' | 'approve_with_conditions' | 'defer' | 'reject'; at: string; mode: 'committee' | 'delegated' } | null;
   conditionEvidence: Record<string, string>;
+  /** The analyst's edited conditions; null while the draft's stand. */
+  conditionsEdited: { id: string; text: string; owner: string; due: string; status: 'open' | 'scheduled'; from: string }[] | null;
   closed: boolean;
   audit: AuditEntry[];
 }
@@ -265,6 +267,7 @@ function initialDemo(): DemoState {
     voteRound: 1,
     outcome: null,
     conditionEvidence: {},
+    conditionsEdited: null,
     closed: false,
     audit: [],
   };

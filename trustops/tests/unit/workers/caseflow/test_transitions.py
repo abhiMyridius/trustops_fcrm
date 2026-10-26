@@ -43,7 +43,13 @@ _DEMO_SEQUENCE: list[tuple[Trigger, TransitionContext]] = [
     (T.AGENT_DONE_NARRATIVE_COMPLETENESS, TransitionContext()),
     (T.GATE_DECIDED_COMPLETENESS_ASK, TransitionContext()),
     (T.CASE_ANSWERED, TransitionContext()),
+    # D-129: the re-run lands, then the analyst resolves the owner's answers;
+    # only then is the round done.
     (T.AGENT_DONE_RERUN_BOTH, TransitionContext()),
+    (
+        T.CASE_CLARIFICATION_RESOLVED,
+        TransitionContext(flags=RunFlags(round_open=True, rerun_done=True)),
+    ),
     # The vendor due-diligence override: band changes 2 -> 3, boundary
     # flag stays on, so the ack gate opens and is then decided.
     (
@@ -99,6 +105,49 @@ def test_the_demo_sequence_replays_identically_through_eventstore_rebuild() -> N
     events = [RecordedTransition(trigger=t, context=c) for t, c in _DEMO_SEQUENCE]
     final_state = rebuild(open_run(), events)
     assert final_state == S.CLOSED
+
+
+def test_the_owners_answers_alone_never_end_the_clarification_round() -> None:
+    """D-129: the re-run on the owner's answers lands, but the analyst has not
+    resolved them: the case stays in clarification."""
+    result = apply(S.CLARIFICATION, T.AGENT_DONE_RERUN_BOTH, TransitionContext())
+    assert result.to_state == S.CLARIFICATION
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        (T.AGENT_DONE_RERUN_BOTH, T.CASE_CLARIFICATION_RESOLVED),
+        (T.CASE_CLARIFICATION_RESOLVED, T.AGENT_DONE_RERUN_BOTH),
+    ],
+)
+def test_the_round_ends_once_resolved_and_rerun_in_either_order(
+    first: Trigger, second: Trigger
+) -> None:
+    from fcrm_caseflow.flags import next_flags
+
+    flags = RunFlags(round_open=True)
+    state = S.CLARIFICATION
+    for trigger in (T.CASE_ANSWERED, first, second):
+        ctx = TransitionContext(flags=flags)
+        state = apply(state, trigger, ctx).to_state
+        flags = next_flags(trigger, ctx, flags)
+        if trigger is first:
+            assert state == S.CLARIFICATION
+    assert state == S.REVIEW
+    assert flags.round_open is False
+
+
+def test_a_late_second_resolution_in_review_changes_nothing() -> None:
+    result = apply(S.REVIEW, T.CASE_CLARIFICATION_RESOLVED, TransitionContext())
+    assert result.to_state == S.REVIEW
+
+
+def test_enough_to_proceed_still_goes_straight_to_review() -> None:
+    result = apply(
+        S.COMPLETENESS, T.GATE_DECIDED_COMPLETENESS_PROCEED, TransitionContext()
+    )
+    assert result.to_state == S.REVIEW
 
 
 def test_no_majority_reopens_a_vote_round_instead_of_closing() -> None:
@@ -224,3 +273,45 @@ def test_run_flags_default_to_a_fresh_run() -> None:
     assert flags.fast_lane is False
     assert flags.round_open is False
     assert flags.vote_round == 0
+
+
+# ── D-130: an intake job that fails before submission ───────────────────────
+
+
+def test_an_intake_job_that_fails_before_submission_stays_with_the_owner() -> None:
+    result = apply(S.INTAKE, T.INTAKE_JOB_FAILED, TransitionContext())
+    assert result.to_state == S.INTAKE
+
+
+@pytest.mark.parametrize(
+    "state", [S.SCREENING, S.ASSESS, S.CRITIC, S.REVIEW, S.CLARIFICATION]
+)
+def test_an_agent_that_fails_after_submission_still_goes_to_the_analyst(
+    state: CaseState,
+) -> None:
+    result = apply(state, T.AGENT_FAILED_AFTER_RETRY, TransitionContext())
+    assert result.to_state == S.HANDOFF
+
+
+def test_a_case_held_from_intake_is_returned_to_its_owner() -> None:
+    result = apply(
+        S.HANDOFF,
+        T.CASE_INTAKE_RECOVER,
+        TransitionContext(resume_state=S.INTAKE),
+    )
+    assert result.to_state == S.INTAKE
+
+
+@pytest.mark.parametrize("held_from", [None, S.SCREENING, S.REVIEW])
+def test_only_a_case_held_from_intake_can_be_returned(
+    held_from: CaseState | None,
+) -> None:
+    with pytest.raises(IllegalTransition):
+        apply(
+            S.HANDOFF, T.CASE_INTAKE_RECOVER, TransitionContext(resume_state=held_from)
+        )
+
+
+def test_the_intake_recovery_is_refused_outside_handoff() -> None:
+    with pytest.raises(IllegalTransition):
+        apply(S.INTAKE, T.CASE_INTAKE_RECOVER, TransitionContext(resume_state=S.INTAKE))

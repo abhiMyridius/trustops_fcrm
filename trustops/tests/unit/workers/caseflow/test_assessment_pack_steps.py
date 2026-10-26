@@ -867,3 +867,53 @@ class TestUnlockSupersede:
         assert old not in {g.subject["id"] for g in gates}
         assert "itm_new" in {g.subject["id"] for g in gates}
         assert old not in {r.item_id for r in rewrites}
+
+
+class TestPackPeopleAndCriticResponses:
+    """The committee reads names, not user ids, and each critic finding with the
+    analyst's response."""
+
+    @staticmethod
+    def _record() -> Any:
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            analyst=SimpleNamespace(id="u-riyer", name="Rahul Iyer"),
+            owner=SimpleNamespace(id="u-priya", name="Priya Nair"),
+        )
+
+    def test_a_user_id_becomes_the_name_of_the_analyst_or_the_owner(self) -> None:
+        record = self._record()
+
+        assert assessment_pack._who(record, "u-riyer") == "Rahul Iyer"
+        assert assessment_pack._who(record, "u-priya") == "Priya Nair"
+        assert assessment_pack._who(record, "u-other") == "u-other"
+        assert assessment_pack._who(record, None) == ""
+
+    def test_a_finding_carries_the_analyst_response_and_who_gave_it(self) -> None:
+        from types import SimpleNamespace
+
+        row = SimpleNamespace(
+            item_id="itm_1",
+            subject={"finding_type": "scope_gap", "severity": "high", "text": "Gap"},
+            decided=SimpleNamespace(reason="Covered by the attestation.", by="u-riyer"),
+        )
+
+        finding = assessment_pack._critic_finding(self._record(), row)
+
+        assert finding["response"] == "Covered by the attestation."
+        assert finding["responded_by"] == "Rahul Iyer"
+
+    def test_an_unanswered_finding_has_no_response_keys(self) -> None:
+        from types import SimpleNamespace
+
+        row = SimpleNamespace(
+            item_id="itm_1",
+            subject={"finding_type": "scope_gap", "severity": "high", "text": "Gap"},
+            decided=None,
+        )
+
+        finding = assessment_pack._critic_finding(self._record(), row)
+
+        assert "response" not in finding
+        assert "responded_by" not in finding

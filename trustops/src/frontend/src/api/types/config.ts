@@ -40,6 +40,8 @@ export interface FieldSetData {
   completion_threshold: number;
   always_required: { id: string; label: string; note: string | null }[];
   per_type: { type: ChangeType; label: string; fields: { id: string; label: string }[] }[];
+  /** Each change type's FFIEC AML risk categories: the risk areas a case is assessed in. Read-only. */
+  aml_mapping: { type: ChangeType; label: string; categories: { domain: Domain; label: string }[] }[];
 }
 
 export interface CategoriesData {
@@ -81,7 +83,8 @@ export interface PolicyCorpusData {
 
 export interface RoutingRulesData {
   rules: { id: string; rule: string }[];
-  parameters: { key: string; label: string; value: string }[];
+  /** `editable` is false for a value shown but set elsewhere (the boundary, the case SLA). */
+  parameters: { key: string; label: string; value: string; editable: boolean }[];
 }
 
 export interface JurisdictionData {
@@ -96,6 +99,23 @@ export interface JurisdictionData {
   };
   fixture: { version: string; note: string; added: string[] };
   unlisted_default: string;
+  /** The 1-5 scale: each level's label and what it means. */
+  anchors: { level: number; label: string; definition: string }[];
+  /** One row per jurisdiction, strictest first; an internal row is edited at `path` (a draft). */
+  entries: JurisdictionEntry[];
+}
+
+export interface JurisdictionEntry {
+  id: string;
+  jurisdiction: string;
+  rating: number;
+  rating_label: string;
+  source: string;
+  publisher: string;
+  source_type: 'external' | 'internal';
+  editable: boolean;
+  path: string | null;
+  note: string | null;
 }
 
 export interface AgentsData {

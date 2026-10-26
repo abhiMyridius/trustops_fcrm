@@ -253,7 +253,13 @@ def test_the_restricted_scan_has_exactly_the_web_keys() -> None:
 
 def test_the_checker_is_not_vacuous() -> None:
     assert set(interface_members("Recommendation")) >= {"narrative", "locked"}
-    assert web_body_keys("useDecideItem") == {"decision", "value", "reason"}
+    assert web_body_keys("useDecideItem") == {
+        "decision",
+        "value",
+        "reason",
+        "likelihood",
+        "impact",
+    }
     assert web_body_keys("useResolveThread") == set()
     assert web_body_keys("useAskOwner") == {"questions"}
     assert web_body_keys("useRetag") == {"change_type", "reason"}
@@ -261,4 +267,5 @@ def test_the_checker_is_not_vacuous() -> None:
         "narrative",
         "outcome",
         "business_summary",
+        "conditions",
     }

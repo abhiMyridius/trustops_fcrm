@@ -114,6 +114,12 @@ export interface CategoryProposalPO {
   origin: TypeOrigin;
 }
 
+/** Another value found in the owner's documents for a field, and where. */
+export interface ValueAlternativePO {
+  value: string;
+  source: SourceRef;
+}
+
 export interface ValuePO {
   field_id: string;
   label: string;
@@ -121,6 +127,8 @@ export interface ValuePO {
   origin: Origin;
   source: SourceRef | null;
   candidates: number | null;
+  /** The other values found while the value is still the extracted one; empty otherwise. */
+  alternatives: ValueAlternativePO[];
   always_required: boolean;
 }
 
@@ -170,6 +178,8 @@ export interface ReviewRowPO {
   origin: Origin;
   source: SourceRef | null;
   original: { value: string; source: SourceRef | null } | null;
+  /** The other values found while the value is still the extracted one; the Edit dialog lists them. */
+  alternatives: ValueAlternativePO[];
   always_required: boolean;
 }
 

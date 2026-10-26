@@ -43,6 +43,16 @@ class Trigger(StrEnum):
     GATE_DECIDED_COMPLETENESS_PROCEED = "gate.decided.completeness.proceed"
 
     CASE_ANSWERED = "case.answered"
+    # D-130: an intake job failed before the owner submitted. Resolved by the
+    # engine from ``agent.failed`` in INTAKE (never on the wire): the run stays
+    # in INTAKE with the owner instead of going to HANDOFF.
+    INTAKE_JOB_FAILED = "agent.failed.intake"
+    # D-130: an operator returns a case stuck in HANDOFF from INTAKE to its
+    # owner (the cases that failed before INTAKE_JOB_FAILED existed).
+    CASE_INTAKE_RECOVER = "case.intake_recover"
+    # The analyst resolved the last answer of the clarification round (D-129):
+    # the round is done once the re-run has landed too.
+    CASE_CLARIFICATION_RESOLVED = "case.clarification_resolved"
     AGENT_DONE_RERUN_BOTH = "agent.done.rerun.research_and_assessment"
 
     # H3's result for an ``ingest.run`` H1 published. Both are self-loops:

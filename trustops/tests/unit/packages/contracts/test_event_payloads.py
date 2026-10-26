@@ -16,6 +16,7 @@ from fcrm_contracts.events import payloads
 from fcrm_contracts.events.catalogue import EVENT_TYPES
 from fcrm_contracts.events.payloads import (
     CaseAnswered,
+    CaseClarificationResolved,
     CaseClarificationSent,
     CaseClauseAdded,
     CaseClauseRemoved,
@@ -24,6 +25,7 @@ from fcrm_contracts.events.payloads import (
     CaseCreated,
     CaseDocumentStored,
     CaseGapRecorded,
+    CaseIntakeRecover,
     CaseLocked,
     CaseQuestionAnswered,
     CaseQuestionAsked,
@@ -104,6 +106,8 @@ ANNEX_E_STEP_KINDS = {
     "intake.ingested",
     "intake.ingest_failed",
     "intake.publish",
+    "intake.job_failed",
+    "intake.recover",
     "intake.fieldset_resolved",
     "intake.po_action",
     "intake.types_changed",
@@ -196,6 +200,17 @@ EXAMPLES: dict[type[BaseModel], dict[str, Any]] = {
         "round": 1,
         "thread_ids": ["thr_1", "thr_2"],
         "question_count": 2,
+    },
+    CaseClarificationResolved: {
+        "case_id": CASE,
+        "actor": "u-riyer",
+        "round": 1,
+        "thread_ids": ["thr_1", "thr_2"],
+    },
+    CaseIntakeRecover: {
+        "case_id": CASE,
+        "actor": "u-riyer",
+        "reason": "intake job stalled on a permit timeout",
     },
     CaseQuestionAsked: {
         "case_id": CASE,
@@ -456,10 +471,11 @@ class TestCatalogue:
     def test_the_catalogue_count_is_locked(self) -> None:
         """57 before the live wiring, plus the nine above, plus ADR-75's
         ``case.types_changed``, the four of an analyst's clause (ADR-74) and
-        ADR-73's four. A change here is a contract change: update
+        ADR-73's four, plus D-129's ``case.clarification_resolved`` and D-130's
+        ``case.intake_recover``. A change here is a contract change: update
         docs/architecture/event-catalogue.md too.
         """
-        assert len(EVENT_TYPES) == 75
+        assert len(EVENT_TYPES) == 77
 
     def test_the_adr_73_types_are_catalogued(self) -> None:
         assert ADR_73_EVENT_TYPES <= EVENT_TYPES

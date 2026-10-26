@@ -34,6 +34,7 @@ export function FactorBlock({
   likelihood,
   impact,
   onConfirm,
+  onEdit,
   busy = false,
 }: {
   area: RiskArea;
@@ -41,6 +42,8 @@ export function FactorBlock({
   impact: FactorAnchor[];
   /** Given when the analyst may decide this area's likelihood and impact (its gate is open). */
   onConfirm?: () => void;
+  /** Given with `onConfirm`: change the two values with a reason, which re-scores the case. */
+  onEdit?: () => void;
   busy?: boolean;
 }) {
   return (
@@ -57,10 +60,15 @@ export function FactorBlock({
         <span className="font-semibold">Assessment agent justification:</span> {area.justification}
       </p>
       {onConfirm && (area as RiskArea & RiskAreaGate).factor_gate_open && (
-        <div>
+        <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="secondary" disabled={busy} onClick={onConfirm}>
             Confirm likelihood and impact
           </Button>
+          {onEdit && (
+            <Button size="sm" variant="ghost" disabled={busy} onClick={onEdit}>
+              Edit
+            </Button>
+          )}
         </div>
       )}
     </div>

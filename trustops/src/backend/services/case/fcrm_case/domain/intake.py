@@ -110,4 +110,13 @@ def value_set_fields(value: ValueProposal) -> dict[str, object]:
         "source": FieldSource.from_doc_ref(value.source).model_dump(mode="python"),
         "confidence": value.confidence,
         "candidates": value.candidates,
+        "alternatives": [
+            {
+                "value": alternative.value,
+                "source": FieldSource.from_doc_ref(alternative.source).model_dump(
+                    mode="python"
+                ),
+            }
+            for alternative in value.alternatives
+        ],
     }

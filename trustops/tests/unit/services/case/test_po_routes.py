@@ -521,7 +521,10 @@ class TestDocuments:
         act_as(Role.PO, PO)
         view = scene.client.get(f"/cases/{CASE}/documents").json()
         assert view["assistant"]["state"] == "done"
-        assert "15 values found, 3 change types proposed" in view["assistant"]["line"]
+        assert (
+            "15 values found (including other possible readings of the same field), "
+            "3 change types proposed"
+        ) in view["assistant"]["line"]
         assert {d["status"] for d in view["documents"]} == {"read"}
         assert {d["pages"] for d in view["documents"]} == {14}
         assert all(
@@ -1489,6 +1492,73 @@ class TestAnswers:
         ready.client.post(self.url(), json=answer)  # a replay
         rows = [e for e in ready.store.activity.entries if e.type == "owner.answered"]
         assert len(rows) == 1
+
+    def _unfielded(
+        self, ready: CaseService, question_id: str, text: str, blocking: bool
+    ) -> None:
+        """A question the assistant wrote without its field id (D-128)."""
+        ready.views.items[f"itm_{question_id}"] = ReviewItemRow(
+            item_id=f"itm_{question_id}",
+            case_id=CASE,
+            kind=ItemKind.GAP,
+            status=ItemStatus.PROPOSED,
+            subject={
+                "question_id": question_id,
+                "label": "Question",
+                "text": text,
+                "blocking": blocking,
+            },
+            created_at=NOW,
+        )
+
+    def test_a_question_naming_no_field_is_asked_once_as_its_fields(
+        self, ready: CaseService
+    ) -> None:
+        confirmed = ready.client.post(
+            f"/cases/{CASE}/intake/categories/vendor_onboarding",
+            json={"decision": "confirm"},
+        ).json()
+        label = next(v["label"] for v in confirmed["values"] if v["field_id"] == "F11")
+        self._unfielded(ready, "Q03", f"What is the {label}?", blocking=False)
+
+        gaps = ready.client.get(f"/cases/{CASE}/intake").json()["gaps"]
+
+        # It replaces F11's built question rather than standing beside it.
+        assert {g["id"]: g["field_id"] for g in gaps} == {"q_F10": "F10", "Q03": "F11"}
+        assert next(g["label"] for g in gaps if g["id"] == "Q03") == label
+        ready.client.post(
+            self.url(),
+            json={"answers": [{"question_id": "Q03", "field_id": "F11", "value": "Y"}]},
+        )
+        row = ready.views.field_values[f"{CASE}:F11"]
+        assert (row.origin, row.value) == ("answered", "Y")
+        assert f"{CASE}:Q03" not in ready.views.field_values
+
+    def test_answering_a_field_answers_its_duplicate_question_and_gate(
+        self, ready: CaseService
+    ) -> None:
+        confirmed = ready.client.post(
+            f"/cases/{CASE}/intake/categories/vendor_onboarding",
+            json={"decision": "confirm"},
+        ).json()
+        label = next(v["label"] for v in confirmed["values"] if v["field_id"] == "F10")
+        self._unfielded(ready, "Q01", f"Could you give the {label}?", blocking=True)
+
+        gaps = ready.client.get(f"/cases/{CASE}/intake").json()["gaps"]
+        assert [g["id"] for g in gaps] == ["q_F10", "ask_F11"]
+
+        body = ready.client.post(self.url(), json=self.answers("F10")).json()
+
+        assert ready.views.items["itm_Q01"].status == ItemStatus.CONFIRMED
+        assert [
+            e.payload["subject"]["id"]
+            for e in events(ready, "gate.decided", "po_answer_gaps")
+        ] == ["q_F10", "Q01"]
+        assert [g["id"] for g in body["gaps"]] == ["q_F10", "ask_F11"]
+        entry = next(
+            e for e in ready.store.activity.entries if e.type == "owner.answered"
+        )
+        assert entry.summary == "You answered 1 question"
 
     def test_a_new_fact_is_accepted_never_blocking(self, ready: CaseService) -> None:
         answer = {

@@ -13,6 +13,9 @@ export interface PackCriticFinding {
   text: string;
   records: number[];
   target: string | null;
+  /** The analyst's explanation of the finding and who gave it; absent when none was recorded. */
+  response?: string | null;
+  responded_by?: string | null;
 }
 
 export interface CommitteeQueueItem {

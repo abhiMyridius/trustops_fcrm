@@ -80,6 +80,53 @@ def test_the_po_and_the_observer_may_not_read_a_clause(
     assert corpus_as(role).get(f"/clauses/{DEMO_CLAUSE}").status_code == 403
 
 
+# ── GET /sources/{source_id}/clauses ──────────────────────────────────────
+
+
+def _source_clauses(client: TestClient, source_id: str, limit: int) -> list[Any]:
+    clauses: list[Any] = []
+    cursor: str | None = None
+    while True:
+        params: dict[str, Any] = {"limit": limit}
+        if cursor:
+            params["cursor"] = cursor
+        response = client.get(f"/sources/{source_id}/clauses", params=params)
+        assert response.status_code == 200, response.text
+        page = response.json()
+        clauses.extend(page["items"])
+        cursor = page["next_cursor"]
+        if cursor is None:
+            return clauses
+
+
+def test_a_source_lists_every_one_of_its_clauses_verbatim(
+    corpus_as: ClientFor,
+) -> None:
+    """The Policy Corpus page opens a source: every clause of it, in a stable
+    order, with the stored text; the count matches the source card."""
+    client = corpus_as(Role.ANALYST)
+    sources = {s["id"]: s for s in load_raw()["corpus"]["sources"]}
+    for source_id, source in sources.items():
+        listed = _source_clauses(client, source_id, limit=30)
+        assert len(listed) == source["clauses"], source_id
+        assert {c["source_id"] for c in listed} == {source_id}
+        ids = [c["clause_id"] for c in listed]
+        assert len(set(ids)) == len(ids)
+        first = client.get(f"/clauses/{listed[0]['clause_id']}").json()
+        assert listed[0]["text"] == first["text"]
+
+
+def test_an_unknown_source_is_a_404(corpus_as: ClientFor) -> None:
+    assert corpus_as(Role.ANALYST).get("/sources/NOPE/clauses").status_code == 404
+
+
+@pytest.mark.parametrize("role", [Role.PO, Role.OBSERVER, Role.COMMITTEE])
+def test_only_the_analyst_and_the_service_list_a_source(
+    corpus_as: ClientFor, role: Role
+) -> None:
+    assert corpus_as(role).get("/sources/FFIEC/clauses").status_code == 403
+
+
 # ── the web's policy search ───────────────────────────────────────────────
 
 

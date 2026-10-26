@@ -143,6 +143,11 @@ export function ReviewSubmitTab() {
             cell: (r) => (
               <div>
                 {r.value ?? <span className="text-text-muted">Not answered</span>}
+                {r.alternatives.length > 0 && (
+                  <p className="mt-0.5 text-[11px] text-warning-text">
+                    {r.alternatives.length} other {r.alternatives.length === 1 ? 'value' : 'values'} found. Edit to switch.
+                  </p>
+                )}
                 {r.original && (
                   <p className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px] text-text-muted">
                     was “{r.original.value}” <SourceChip source={r.original.source} />

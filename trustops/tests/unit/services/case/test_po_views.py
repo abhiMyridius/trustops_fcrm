@@ -13,6 +13,7 @@ from fcrm_case.domain.activity import ActivityEntry
 from fcrm_case.domain.po_stage import CaseSummary
 from fcrm_case.domain.views import (
     DocumentRow,
+    FieldAlternative,
     FieldHistoryEntry,
     FieldSource,
     FieldValueRow,
@@ -28,6 +29,7 @@ from fcrm_case.po_views import (
     document_out,
     effective_required,
     guard_line,
+    intake_view,
     list_item,
     percent,
     review_view,
@@ -431,3 +433,82 @@ def test_the_feed_says_who_did_it_without_naming_a_component(
     assert event.actor == who
     assert event.id == "ev_3"
     assert set(event.model_dump()) == {"id", "at", "actor", "text"}
+
+
+def _intake(make_case_record: Any, row: FieldValueRow) -> Any:
+    record = make_case_record(change_types=[ChangeType.NEW_PRODUCT])
+    return intake_view(
+        record,
+        active_field_set(),
+        rows=[row],
+        categories=[],
+        gaps=[],
+        docs=[doc(), doc(doc_id="doc_2", name="product_spec.pdf")],
+        intake=None,
+    )
+
+
+def _extracted_f04(**overrides: Any) -> FieldValueRow:
+    base: dict[str, Any] = {
+        "case_id": "FCRM-2026-0151",
+        "field_id": "F04",
+        "label": "Customer segment",
+        "value": "Registered charities, income below GBP 5 million",
+        "origin": "extracted",
+        "source": FieldSource(doc_id="doc_1", page=1, line_start=26),
+        "candidates": 3,
+        "alternatives": [
+            FieldAlternative(
+                value="Registered charities",
+                source=FieldSource(doc_id="doc_2", page=2, line_start=4),
+            ),
+            FieldAlternative(
+                value="Charities and community interest companies",
+                source=FieldSource(doc_id="doc_1", page=3, line_start=11),
+            ),
+        ],
+        "created_at": NOW,
+    }
+    return FieldValueRow(**{**base, **overrides})
+
+
+def test_an_extracted_value_lists_the_other_values_found_with_their_places(
+    make_case_record: Any,
+) -> None:
+    view = _intake(make_case_record, _extracted_f04())
+    row = next(v for v in view.values if v.field_id == "F04")
+
+    assert row.candidates == 3
+    assert [(a.value, a.source.label) for a in row.alternatives] == [
+        ("Registered charities", "product_spec.pdf p.2 l.4"),
+        ("Charities and community interest companies", "business_case.pdf p.3 l.11"),
+    ]
+
+
+def test_a_corrected_value_lists_no_alternatives(make_case_record: Any) -> None:
+    row = _extracted_f04(
+        value="Charities",
+        origin="owner_declared",
+        source=FieldSource(label="owner declared"),
+    )
+    view = _intake(make_case_record, row)
+    assert next(v for v in view.values if v.field_id == "F04").alternatives == []
+
+
+def test_an_alternative_with_no_place_is_left_out(make_case_record: Any) -> None:
+    row = _extracted_f04(
+        alternatives=[FieldAlternative(value="Charities", source=FieldSource())]
+    )
+    view = _intake(make_case_record, row)
+    assert next(v for v in view.values if v.field_id == "F04").alternatives == []
+
+
+def test_an_alternative_never_carries_a_score_or_a_confidence(
+    make_case_record: Any,
+) -> None:
+    from fcrm_guardrails.rules.r3_po_no_restricted import find_restricted
+
+    view = _intake(make_case_record, _extracted_f04())
+    shown = [v for v in view.values if v.field_id == "F04"][0].alternatives
+    assert find_restricted([a.model_dump(mode="json") for a in shown]) == []
+    assert all(set(a.model_dump()) == {"value", "source"} for a in shown)

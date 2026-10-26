@@ -7,10 +7,12 @@ import { useState } from 'react';
 import { useCorrectValue } from '@/api/queries/caseQueries';
 import { userMessage } from '@/api/errors';
 import type { SourceRef } from '@/api/types/common';
+import type { ValueAlternativePO } from '@/api/types/po';
 import { SourceChip } from '@/components/domain/SourceChip';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
+import { RadioGroup } from '@/components/ui/Radio';
 import { useToast } from '@/components/ui/Toast';
 
 export interface EditableValue {
@@ -18,6 +20,8 @@ export interface EditableValue {
   label: string;
   value: string | null;
   source: SourceRef | null;
+  /** Other values found in the documents; the owner may switch to one. */
+  alternatives?: ValueAlternativePO[];
 }
 
 export function ValueDialog({ caseId, row, onClose }: { caseId: string; row: EditableValue | null; onClose: () => void }) {
@@ -25,6 +29,10 @@ export function ValueDialog({ caseId, row, onClose }: { caseId: string; row: Edi
   const [value, setValue] = useState(row?.value ?? '');
   const toast = useToast();
   const filling = !row?.value;
+  // The value the assistant chose first, then the others it found: one pick fills the box below.
+  const found: { value: string; source: SourceRef }[] =
+    row?.value && row.source && row.alternatives?.length ? [{ value: row.value, source: row.source }, ...row.alternatives] : [];
+  const picked = found.findIndex((f) => f.value === value);
   return (
     <Modal
       open={row !== null}
@@ -64,10 +72,32 @@ export function ValueDialog({ caseId, row, onClose }: { caseId: string; row: Edi
         </>
       }
     >
-      {row?.source && row.value && (
-        <p className="mb-3 flex items-center gap-2 text-[13px] text-text-secondary">
-          Extracted: “{row.value}” <SourceChip source={row.source} />
-        </p>
+      {found.length > 0 ? (
+        <div className="mb-4">
+          <RadioGroup
+            legend="Found in your documents. Pick one, or type your own below."
+            name={`found-${row?.field_id ?? ''}`}
+            value={picked >= 0 ? String(picked) : null}
+            onChange={(index) => setValue(found[Number(index)]?.value ?? value)}
+            options={found.map((f, index) => ({
+              value: String(index),
+              label: (
+                <span className="flex flex-wrap items-center gap-2">
+                  <span>{f.value}</span>
+                  <SourceChip source={f.source} />
+                </span>
+              ),
+              description: index === 0 ? 'Chosen first by the assistant' : undefined,
+            }))}
+          />
+        </div>
+      ) : (
+        row?.source &&
+        row.value && (
+          <p className="mb-3 flex items-center gap-2 text-[13px] text-text-secondary">
+            Extracted: “{row.value}” <SourceChip source={row.source} />
+          </p>
+        )
       )}
       <Input label={filling ? 'Value' : 'Corrected value'} value={value} onChange={(e) => setValue(e.target.value)} data-autofocus />
     </Modal>

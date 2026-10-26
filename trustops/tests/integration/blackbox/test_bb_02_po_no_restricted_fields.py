@@ -81,6 +81,7 @@ def test_the_models_the_demo_fills_are_clean_as_data(demo: dict[str, Any]) -> No
             origin=f["how"] if f["how"] != "open" else "open",
             source=SourceRef(label=f.get("source") or "owner answer"),
             candidates=f.get("candidates"),
+            alternatives=[],
             always_required=f["id"] in {"F01", "F02", "F03", "F04", "F05", "F06"},
         )
         for f in demo["fields"]

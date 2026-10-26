@@ -595,7 +595,12 @@ export function lockBlockers(): string[] {
   return out;
 }
 
-export function saveRecommendation(patch: { narrative?: string; outcome?: 'approve' | 'approve_with_conditions' | 'defer' | 'reject'; business_summary?: string }): void {
+export function saveRecommendation(patch: {
+  narrative?: string;
+  outcome?: 'approve' | 'approve_with_conditions' | 'defer' | 'reject';
+  business_summary?: string;
+  conditions?: { id?: string; text: string; owner: string; due: string; status: 'open' | 'scheduled' }[];
+}): void {
   requireOpen();
   requireUnlocked();
   const d = demo();
@@ -605,6 +610,21 @@ export function saveRecommendation(patch: { narrative?: string; outcome?: 'appro
   }
   if (patch.business_summary !== undefined && patch.business_summary !== d.businessSummary) {
     d.businessSummary = patch.business_summary;
+    d.edits += 1;
+  }
+  if (patch.conditions) {
+    const known = new Map((d.conditionsEdited ?? seed.demo.conditions).map((c) => [c.id, c]));
+    if (patch.conditions.some((c) => restrictedTermsIn(c.text).length)) {
+      throw new MockError(422, 'validation_error', 'A condition is read by the owner and may not name a score, band, rating or control.');
+    }
+    let top = 0;
+    for (const id of known.keys()) top = Math.max(top, Number(/(\d+)$/.exec(id)?.[1] ?? 0));
+    d.conditionsEdited = patch.conditions.map((c) => {
+      const old = c.id ? known.get(c.id) : undefined;
+      if (old) return { id: old.id, text: c.text, owner: c.owner, due: c.due, status: c.status, from: old.from };
+      top += 1;
+      return { id: `COND-${top}`, text: c.text, owner: c.owner, due: c.due, status: c.status, from: 'added by the analyst' };
+    });
     d.edits += 1;
   }
   if (patch.outcome) d.outcomeChoice = patch.outcome;

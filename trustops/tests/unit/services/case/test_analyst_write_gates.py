@@ -287,6 +287,34 @@ def test_a_planned_control_is_never_given_a_rating(
     assert gate_events(review_service) == []
 
 
+def test_a_planned_control_is_denied_with_a_reason_and_changes_no_score(
+    review_service: CaseService,
+) -> None:
+    """D-133: "Deny control" is a removal. A planned control is never scored, so
+    the gate event says no rating or control changed and Caseflow needs no
+    re-score."""
+    row = planned_t01(review_service)
+
+    response = post_item(review_service, row, {"decision": "remove", "reason": REASON})
+
+    assert response.status_code == 200
+    assert review_service.views.items[row.item_id].status == ItemStatus.REMOVED
+    [event] = gate_events(review_service)
+    assert event["decision"] == "remove"
+    assert event["rating_or_control_changed"] is False
+
+
+def test_denying_a_planned_control_needs_a_reason(
+    review_service: CaseService,
+) -> None:
+    row = planned_t01(review_service)
+
+    response = post_item(review_service, row, {"decision": "remove"})
+
+    assert response.status_code == 422
+    assert gate_events(review_service) == []
+
+
 def test_overriding_to_the_proposed_value_is_refused_confirm_it_instead(
     review_service: CaseService,
 ) -> None:

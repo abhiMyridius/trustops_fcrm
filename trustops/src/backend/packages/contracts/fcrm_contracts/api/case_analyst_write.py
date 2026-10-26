@@ -435,11 +435,38 @@ class RecordedWrite(BaseModel):
 # ── the recommendation ──────────────────────────────────────────────────────────
 
 
+MAX_CONDITIONS: Final = 20
+
+
+class ConditionEdit(BaseModel):
+    """One condition in the analyst's edited list. ``id`` names an existing
+    condition (it keeps its source); without one, or with one the case does not
+    have, the condition is new and S1 gives it the next ``COND-n``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: Optional[str] = Field(default=None, max_length=40)
+    text: str = Field(min_length=1, max_length=MAX_TEXT_CHARS)
+    owner: str = Field(min_length=1, max_length=120)
+    due: str = Field(min_length=1, max_length=80)
+    status: Literal["open", "scheduled"] = "open"
+
+    @field_validator("text", "owner", "due")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be blank")
+        return value
+
+
 class RecommendationEditBody(BaseModel):
     """``PUT /cases/{id}/recommendation``: what the analyst changed in the draft.
     Each field is optional; an absent one is not edited (the draft stands). The
     analyst's own edits need no reason; the lock and the unlock are separate
-    gates.
+    gates. ``conditions`` is the whole list as the analyst wants it: it replaces
+    the draft's, so a condition left out is removed.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -447,6 +474,9 @@ class RecommendationEditBody(BaseModel):
     narrative: Optional[str] = Field(default=None, max_length=20000)
     outcome: Optional[Outcome] = None
     business_summary: Optional[str] = Field(default=None, max_length=MAX_TEXT_CHARS)
+    conditions: Optional[list[ConditionEdit]] = Field(
+        default=None, max_length=MAX_CONDITIONS
+    )
 
     @model_validator(mode="after")
     def _says_something(self) -> RecommendationEditBody:
@@ -454,9 +484,11 @@ class RecommendationEditBody(BaseModel):
             self.narrative is None
             and self.outcome is None
             and self.business_summary is None
+            and self.conditions is None
         ):
             raise ValueError(
-                "an edit changes the narrative, the outcome or the summary"
+                "an edit changes the narrative, the outcome, the summary "
+                "or the conditions"
             )
         return self
 

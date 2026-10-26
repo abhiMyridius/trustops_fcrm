@@ -82,9 +82,15 @@ class ClauseStore(Protocol):
         ...
 
     async def page(
-        self, corpus_version: int, *, cursor: Optional[str], limit: int
+        self,
+        corpus_version: int,
+        *,
+        cursor: Optional[str],
+        limit: int,
+        source_id: Optional[str] = None,
     ) -> Page[ClauseDetailOut]:
-        """One page of a corpus version, in id order."""
+        """One page of a corpus version, in id order; only ``source_id``'s
+        clauses when it is given."""
         ...
 
 
@@ -119,22 +125,28 @@ class InMemoryClauseStore:
         return clause_out(found) if found is not None else None
 
     async def page(
-        self, corpus_version: int, *, cursor: Optional[str], limit: int
+        self,
+        corpus_version: int,
+        *,
+        cursor: Optional[str],
+        limit: int,
+        source_id: Optional[str] = None,
     ) -> Page[ClauseDetailOut]:
         """Seek pagination by ``_id``, like the Mongo store."""
         after = decode_cursor(cursor) if cursor is not None else None
-        rows = [
+        held = [
             d
             for d in self._docs
             if d["corpus_version"] == corpus_version
-            and (after is None or d["_id"] > after)
+            and (source_id is None or d["source_id"] == source_id)
         ]
+        rows = [d for d in held if after is None or d["_id"] > after]
         window = rows[:limit]
         more = len(rows) > limit
         return Page(
             items=[clause_out(d) for d in window],
             next_cursor=encode_cursor(window[-1]["_id"]) if more else None,
-            total=sum(1 for d in self._docs if d["corpus_version"] == corpus_version),
+            total=len(held),
         )
 
 
@@ -158,6 +170,14 @@ class MongoClauseStore:
                 IndexModel(
                     [("corpus_version", ASCENDING), ("_id", ASCENDING)],
                     name="version_id_order",
+                ),
+                IndexModel(
+                    [
+                        ("corpus_version", ASCENDING),
+                        ("source_id", ASCENDING),
+                        ("_id", ASCENDING),
+                    ],
+                    name="version_source_id_order",
                 ),
             ]
         )
@@ -184,10 +204,18 @@ class MongoClauseStore:
         return clause_out(doc) if doc is not None else None
 
     async def page(
-        self, corpus_version: int, *, cursor: Optional[str], limit: int
+        self,
+        corpus_version: int,
+        *,
+        cursor: Optional[str],
+        limit: int,
+        source_id: Optional[str] = None,
     ) -> Page[ClauseDetailOut]:
-        """Seek pagination by ``_id`` within one corpus version."""
+        """Seek pagination by ``_id`` within one corpus version (and one source
+        when ``source_id`` is given)."""
         base: dict[str, Any] = {"corpus_version": corpus_version}
+        if source_id is not None:
+            base["source_id"] = source_id
         query = base
         if cursor is not None:
             query = {"$and": [base, {"_id": {"$gt": decode_cursor(cursor)}}]}

@@ -36,7 +36,7 @@ Each has a matching `<exchange>.dlx` dead-letter exchange and per-queue retry qu
 `reflag.proposed` · `reflag.acknowledged` · `chain.verified` · `outcome.delivered` · `eval.recorded`
 
 **Live wiring (ADR-28)**
-`harness.step` · `pack.released` · `vote.tallied` · `committee.question_asked` · `committee.answered` · `case.clarification_sent` · `case.control_planned` · `jurisdiction.list_published` · `examiner.asked`
+`harness.step` · `pack.released` · `vote.tallied` · `committee.question_asked` · `committee.answered` · `case.clarification_sent` · `case.clarification_resolved` · `case.control_planned` · `jurisdiction.list_published` · `examiner.asked`
 
 **A clause the analyst adds from a corpus search (ADR-74)**
 `case.clause_added` · `case.clause_removed` (S1 → H1, payloads `CaseClauseAdded{case_id, actor, item_id, clause_id, corpus_v, reason, title, ref}` and `CaseClauseRemoved{case_id, actor, item_id, clause_id, reason}`; step-only triggers `CASE_CLAUSE_ADDED` / `CASE_CLAUSE_REMOVED` start `clause.record`, the run does not move) · `clause.added` · `clause.removed` (the audit records that step writes)
@@ -58,6 +58,8 @@ All nine publish to `case.events` (topic) with the event type as routing key, th
 | `committee.question_asked` | S5 | H1 (`COMMITTEE_QUESTION_ASKED`) | `CommitteeQuestionAsked{pack_id, thread_id, member_id, text}` |
 | `committee.answered` | S5 | H1: `numbers_changed` picks `COMMITTEE_ANSWERED_CHANGED` or `…_NO_CHANGE` | `CommitteeAnswered{pack_id, thread_id, addendum_id, by, numbers_changed, committee_numbers_changed, unlock_reason}` |
 | `case.clarification_sent` | S1 | H1 (informational, no state change; the round opens on the analyst's `completeness` gate) | `CaseClarificationSent{case_id, actor, round, thread_ids, question_count}` |
+| `case.intake_recover` | operator (`python -m fcrm_caseflow.recover_intake`, through the harness outbox) | H1 (D-130: a run in HANDOFF suspended from INTAKE: close its open handoff gates, resume to INTAKE, publish what the finished intake jobs proposed; any other run is left alone) | `CaseIntakeRecover{case_id, actor, reason}` |
+| `case.clarification_resolved` | S1 | H1 (D-129: the analyst resolved the round's last answer; CLARIFICATION → REVIEW once the re-run on the answers has landed, else a flag the re-run's landing reads) | `CaseClarificationResolved{case_id, actor, round, thread_ids}` |
 | `case.control_planned` | S1 | H1 (`CASE_CONTROL_PLANNED`, REVIEW self-loop; a planned control is never scored) | `CaseControlPlanned{case_id, actor, planned_control}` |
 | `jurisdiction.list_published` | S3 | H1 (oversight: names no case, so it gets a harness run of its own; `watchlist.publish` asks S1 for the candidates and dispatches the watchlist agent) | `JurisdictionListPublished{version, added, removed, fixture}` |
 | `examiner.asked` | S4, published directly after the question is stored (the insert-only audit role cannot update, so it has no outbox relay) | H1 (oversight: `examiner.answer` records the question and dispatches the examiner agent on the case's run, or an oversight run) | `ExaminerAsked{case_id, question_id, question, asked_by}` |

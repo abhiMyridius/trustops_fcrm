@@ -44,6 +44,7 @@ function header(over: Partial<WorkbenchHeader> = {}): WorkbenchHeader {
     route: null,
     audit: { count: 40, verified: true },
     is_demo: true,
+    inbox_replies: 0,
     ...over,
   };
 }

@@ -6,10 +6,11 @@ Nothing here talks to a peer except :func:`show`, and nothing decides anything.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, Final, Optional
 
-from fcrm_common.errors import NotFoundError
+from fcrm_common.errors import ConflictError, NotFoundError
 from fcrm_common.errors import ValidationError as FcrmValidationError
 from fcrm_common.ids import deterministic_id
 from fcrm_contracts.api.audit import Proposal, ProposalAppend, ProposalTokens
@@ -20,14 +21,40 @@ from fcrm_contracts.api.case_internal import (
     UiVisibility,
 )
 from fcrm_contracts.events.payloads import HarnessStep
+from fcrm_guardrails.restricted_terms import RESTRICTED_KEYS
+from fcrm_guardrails.rules.r3_po_no_restricted import find_restricted
 from pydantic import BaseModel, ValidationError
 
 from fcrm_caseflow.dispatch import AGENT_TIERS
 from fcrm_caseflow.steps import StepDeps
 from fcrm_caseflow.store import AgentResult, CaseRun
 
+logger = logging.getLogger(__name__)
+
 #: Who H1 is on the case stream.
 UI_ACTOR: Final = UiActor(id="H1", role="system", component="H1")
+
+#: Harness identifiers S1's owner fence refuses beside the shared guardrails list
+#: (``fcrm_case.domain.activity.PO_RESTRICTED_KEYS``); a test holds the two
+#: together, so a key added there is added here.
+HARNESS_ID_KEYS: Final = frozenset(
+    {
+        "agent",
+        "boundary_flag",
+        "cost",
+        "job_id",
+        "model",
+        "prompt",
+        "record_seq",
+        "run_id",
+        "step_id",
+        "tokens",
+        "trace_id",
+    }
+)
+OWNER_REFUSED_KEYS: Final = RESTRICTED_KEYS | HARNESS_ID_KEYS
+#: Visibilities the owner can see.
+_OWNER_VISIBLE: Final = ("po", "all")
 
 
 def step_payload[P: BaseModel](step: HarnessStep, model: type[P]) -> P:
@@ -63,22 +90,110 @@ async def show(
 
     ``visibility="analyst"`` is the only value the assessment half uses: a score,
     a band, a rating or a critic finding never reaches the PO.
+
+    A note for the owner never stops the step (D-130: a refused note once left a
+    step stuck, and a stuck step blocks the case's next automatic step). It is
+    checked before it is sent and anything the owner fence refuses is dropped;
+    if S1 still refuses it, it is sent again without its detail, and, if that is
+    refused too, to the analysts instead, with a warning. Only an error that is
+    not a refusal (S1 down, a timeout) fails the step, for the broker to retry.
     """
-    event = UiEventIn(
-        type=event_type,
-        visibility=visibility,
-        summary=summary,
-        detail=dict(detail or {}),
-        actor=UI_ACTOR,
-        record_seq=record_seq,
+    kept = dict(detail or {})
+    if visibility in _OWNER_VISIBLE:
+        visibility, kept = _owner_safe(event_type, visibility, summary, kept)
+    note = _Note(deps, step, event_type, summary, record_seq, ordinal)
+    try:
+        await note.post(visibility, kept)
+        return
+    except ConflictError:
+        if visibility not in _OWNER_VISIBLE:
+            raise
+    logger.warning(
+        "S1 refused an owner note; sending it again without its detail",
+        extra={"event_type": event_type, "case_id": step.case_id},
     )
-    await deps.require_case().post_event(
-        step.case_id,
-        event,
-        idempotency_key=deterministic_id(
-            "idem", step.step_id, "ui", event_type, str(ordinal)
-        ),
+    try:
+        await note.post(visibility, {}, "bare")
+        return
+    except ConflictError:
+        pass
+    logger.warning(
+        "S1 refused an owner note again; showing it to the analysts instead",
+        extra={"event_type": event_type, "case_id": step.case_id},
     )
+    await note.post("analyst", kept, "staff")
+
+
+def _owner_safe(
+    event_type: str,
+    visibility: UiVisibility,
+    summary: str,
+    detail: dict[str, Any],
+) -> tuple[UiVisibility, dict[str, Any]]:
+    """What may be sent to the owner: the detail without any key the owner fence
+    refuses (named in a warning), and the analysts' view instead when the
+    summary itself names a restricted term."""
+    if find_restricted(summary):
+        logger.warning(
+            "an owner note names a restricted term; showing it to the analysts",
+            extra={"event_type": event_type},
+        )
+        return "analyst", detail
+    kept = {
+        key: value
+        for key, value in detail.items()
+        if not (str(key).lower() in OWNER_REFUSED_KEYS or find_restricted({key: value}))
+    }
+    if len(kept) != len(detail):
+        logger.warning(
+            "an owner note carried details the owner fence refuses; dropped",
+            extra={
+                "event_type": event_type,
+                "dropped_keys": sorted(str(k) for k in set(detail) - set(kept)),
+            },
+        )
+    return visibility, kept
+
+
+class _Note:
+    """One event a step shows, posted under an idempotency key that depends on
+    which attempt it is, so a re-run of the step lands on the same attempts."""
+
+    def __init__(
+        self,
+        deps: StepDeps,
+        step: HarnessStep,
+        event_type: str,
+        summary: str,
+        record_seq: Optional[int],
+        ordinal: int,
+    ) -> None:
+        self._deps = deps
+        self._step = step
+        self._type = event_type
+        self._summary = summary
+        self._record_seq = record_seq
+        self._ordinal = ordinal
+
+    async def post(
+        self, visibility: UiVisibility, detail: Mapping[str, Any], attempt: str = ""
+    ) -> None:
+        """Post the event; ``attempt`` is ``""`` for the first try."""
+        parts = ["ui", self._type, str(self._ordinal)]
+        if attempt:
+            parts.append(attempt)
+        await self._deps.require_case().post_event(
+            self._step.case_id,
+            UiEventIn(
+                type=self._type,
+                visibility=visibility,
+                summary=self._summary,
+                detail=dict(detail),
+                actor=UI_ACTOR,
+                record_seq=self._record_seq,
+            ),
+            idempotency_key=deterministic_id("idem", self._step.step_id, *parts),
+        )
 
 
 def idem(step: HarnessStep, *parts: str) -> str:

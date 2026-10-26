@@ -163,7 +163,7 @@ const AI_OR_ONWARD =
   /upload|browse files|choose files|demo'?s two files|use the demo|submit|send answer|send question|^ask\b|ask now|search corpus|^search\b|publish|cast vote|^lock|lock recommendation|release|generate|re-?run|complete by hand|save answers|reuse|import from sharepoint|close under delegated authority/i;
 /** Controls that change seeded or shared data (not on the operator's allowed list). Never clicked. */
 const CHANGES_DATA =
-  /^confirm\b|^remove\b|^resolve\b|^acknowledge|^save\b|save draft|save to draft|^apply|mark evidenced|^discard\b|^unlock\b|^accept|^decline|re-?tag|fill in the demo answer|preview fatf sync|confirm planned control|^override/i;
+  /^confirm\b|^remove\b|^resolve\b|^acknowledge|^save\b|save draft|save to draft|^apply|mark evidenced|^discard\b|^unlock\b|^accept|^decline|re-?tag|fill in the demo answer|preview fatf sync|confirm planned control|deny control|^override/i;
 
 const FILTER_SELECTS = /^(stage|band|who|guard|week|scope|filter)\b/i;
 const FILTER_CHECKBOXES = /warnings and errors only/i;

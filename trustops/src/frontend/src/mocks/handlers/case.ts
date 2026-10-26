@@ -324,9 +324,9 @@ export const caseHandlers = [
   // ------------------------------------------------------------ analyst workbench
   http.get(`${P}/workbench`, ({ request, params }) => guarded(request, ['fcrm_analyst'], () => ok(AV.workbench(id(params))))),
   http.get(`${P}/assessment`, ({ request, params }) => guarded(request, ['fcrm_analyst'], () => ok(AV.assessment(id(params))))),
-  http.get(`${P}/submissions`, ({ request, params }) => guarded(request, ['fcrm_analyst'], () => okPage(AV.submissions(id(params))))),
+  http.get(`${P}/submissions`, ({ request, params }) => guarded(request, ['fcrm_analyst', 'fcrm_committee'], () => okPage(AV.submissions(id(params))))),
   http.get(`${P}/submissions/diff`, ({ request, params }) =>
-    guarded(request, ['fcrm_analyst'], () => {
+    guarded(request, ['fcrm_analyst', 'fcrm_committee'], () => {
       const url = new URL(request.url);
       return ok(AV.submissionDiff(id(params), Number(url.searchParams.get('from') ?? 1), Number(url.searchParams.get('to') ?? 2)));
     }),
@@ -468,7 +468,7 @@ export const caseHandlers = [
   http.put(`${P}/recommendation`, ({ request, params }) =>
     guarded(request, ['fcrm_analyst'], async () => {
       if (!isDemo(id(params))) return problem(409, 'Read-only', 'Only FCRM-2026-0151 is live in mock mode.');
-      const b = await body<{ narrative?: string; outcome?: 'approve' | 'approve_with_conditions' | 'defer' | 'reject'; business_summary?: string }>(request);
+      const b = await body<Parameters<typeof A.saveRecommendation>[0]>(request);
       A.saveRecommendation(b);
       return HttpResponse.json(AV.recommendation(id(params)));
     }),

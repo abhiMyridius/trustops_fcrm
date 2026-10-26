@@ -1789,6 +1789,8 @@ class TestHandlerTable:
             StepKind.INTAKE_INGESTED,
             StepKind.INTAKE_INGEST_FAILED,
             StepKind.INTAKE_PUBLISH,
+            StepKind.INTAKE_JOB_FAILED,
+            StepKind.INTAKE_RECOVER,
             StepKind.INTAKE_FIELDSET_RESOLVED,
             StepKind.INTAKE_PO_ACTION,
             StepKind.INTAKE_TYPES_CHANGED,
@@ -1804,3 +1806,81 @@ class TestHandlerTable:
                 _step(StepKind.INTAKE_OPEN, TestIntakeOpen.PAYLOAD),
                 step_deps_factory(case=None),
             )
+
+
+# --- D-130: an intake job that fails before submission ---------------------------
+
+
+def _failed_body(job_id: str = "job_bad") -> dict[str, Any]:
+    return {
+        "job_id": job_id,
+        "case_id": CASE,
+        "run_id": RUN,
+        "agent": "intake",
+        "attempt": 1,
+        "reason": "permit blocked: opa timeout",
+    }
+
+
+class TestIntakeJobFailed:
+    async def test_while_another_job_runs_it_records_and_tells_the_owner_only(
+        self,
+        step_deps_factory: DepsFactory,
+        case_service: FakeCaseService,
+        recording_audit: RecordingAudit,
+    ) -> None:
+        import dataclasses
+
+        run = dataclasses.replace(make_run(), pending_agents=["intake:job_good"])
+        result = await intake.intake_job_failed(
+            _step(StepKind.INTAKE_JOB_FAILED, _failed_body()), step_deps_factory(run)
+        )
+
+        assert _types(recording_audit) == ["agent.failed"]
+        assert _record(recording_audit, "agent.failed").data["job_id"] == "job_bad"
+        event = _event(case_service, "intake.document_unread")
+        assert event["visibility"] == "po"
+        assert "job_id" not in event["detail"]  # the owner fence refuses it
+        assert case_service.calls_to("PUT", "/intake") == []
+        assert not result.gates_to_open
+
+    async def test_as_the_last_job_it_publishes_what_the_others_read(
+        self,
+        step_deps_factory: DepsFactory,
+        case_service: FakeCaseService,
+        policy_service: FakePolicyService,
+        agent_results: AgentResultStore,
+        session: FakeSession,
+        recording_audit: RecordingAudit,
+    ) -> None:
+        _seed_round_one(case_service, policy_service)
+        await _save_round_one(agent_results, session)
+
+        result = await intake.intake_job_failed(
+            _step(StepKind.INTAKE_JOB_FAILED, _failed_body()), step_deps_factory()
+        )
+
+        assert _types(recording_audit)[0] == "agent.failed"
+        [put] = case_service.calls_to("PUT", "/intake")
+        assert [v["field_id"] for v in put.body["values"]] == [
+            "F02",
+            "F05",
+            "F06",
+            "F20",
+        ]
+        assert result.gates_to_open
+
+    async def test_when_no_document_could_be_read_the_owner_types_the_fields(
+        self,
+        step_deps_factory: DepsFactory,
+        case_service: FakeCaseService,
+        policy_service: FakePolicyService,
+    ) -> None:
+        _seed_round_one(case_service, policy_service)
+
+        await intake.intake_job_failed(
+            _step(StepKind.INTAKE_JOB_FAILED, _failed_body()), step_deps_factory()
+        )
+
+        [put] = case_service.calls_to("PUT", "/intake")
+        assert (put.body["values"], put.body["categories"]) == ([], [])

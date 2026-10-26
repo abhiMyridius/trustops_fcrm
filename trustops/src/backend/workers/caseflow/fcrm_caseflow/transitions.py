@@ -132,6 +132,17 @@ _INTAKE = [
         "write proposals to S4; push items to S1; resolve field set "
         "against S3; match precedents; open PO gates",
     ),
+    # D-130: an intake job that failed before submission stays with the owner.
+    # Its document is left unread; when it was the last intake job running, the
+    # other documents' values are published (or none, and the owner types them).
+    # No analyst holds a case nobody has submitted.
+    Transition(
+        S.INTAKE,
+        Trigger.INTAKE_JOB_FAILED,
+        S.INTAKE,
+        "record agent.failed; tell the owner a document could not be read; "
+        "publish the other documents' proposals once no intake job is running",
+    ),
     Transition(
         S.INTAKE,
         Trigger.GATE_DECIDED_PO_CONFIRM_CATEGORY_ALL,
@@ -286,17 +297,52 @@ _CLARIFICATION = [
         "H3 could not extract an added document (or Guard 1 quarantined "
         "it): record why and flag the analyst",
     ),
+    # D-129: the round ends when the analyst has resolved the owner's answers
+    # and the re-run on them has landed, in either order; the owner's answer
+    # alone no longer moves the case to review.
     Transition(
         S.CLARIFICATION,
         Trigger.AGENT_DONE_RERUN_BOTH,
         S.REVIEW,
         "new proposals supersede the ones whose inputs changed; "
-        "POST /score; push the new snapshot",
+        "POST /score; push the new snapshot; the analyst already resolved "
+        "the answers, so the round is done",
+        guard=lambda ctx: ctx.flags.round_resolved,
+    ),
+    Transition(
+        S.CLARIFICATION,
+        Trigger.AGENT_DONE_RERUN_BOTH,
+        S.CLARIFICATION,
+        "new proposals supersede the ones whose inputs changed; "
+        "POST /score; push the new snapshot; wait for the analyst to "
+        "resolve the owner's answers",
+    ),
+    Transition(
+        S.CLARIFICATION,
+        Trigger.CASE_CLARIFICATION_RESOLVED,
+        S.REVIEW,
+        "the analyst resolved the owner's answers and the re-run has "
+        "landed: the round is done; proceed to review",
+        guard=lambda ctx: ctx.flags.rerun_done,
+    ),
+    Transition(
+        S.CLARIFICATION,
+        Trigger.CASE_CLARIFICATION_RESOLVED,
+        S.CLARIFICATION,
+        "the analyst resolved the owner's answers; the re-run's landing "
+        "moves the case to review",
     ),
 ]
 
 # --- REVIEW --------------------------------------------------------------
 _REVIEW = [
+    Transition(
+        S.REVIEW,
+        Trigger.CASE_CLARIFICATION_RESOLVED,
+        S.REVIEW,
+        "a second resolution of the round (two resolves raced): nothing "
+        "left to do (D-129)",
+    ),
     Transition(
         S.REVIEW,
         Trigger.GATE_DECIDED_REVIEW_ITEM,
@@ -607,6 +653,18 @@ _HANDOFF_AGAIN = Transition(
 
 TRANSITIONS.extend(_HANDOFF_FROM_ANY)
 TRANSITIONS.append(_HANDOFF_AGAIN)
+# D-130: a case that went to HANDOFF from INTAKE under the old rule goes back to
+# its owner when an operator asks (``case.intake_recover``).
+TRANSITIONS.append(
+    Transition(
+        S.HANDOFF,
+        Trigger.CASE_INTAKE_RECOVER,
+        S.INTAKE,
+        "close the run's open handoff gates; resume to INTAKE; publish what the "
+        "intake jobs that finished proposed",
+        guard=lambda ctx: ctx.resume_state is S.INTAKE,
+    )
+)
 
 
 def apply(

@@ -179,6 +179,10 @@ class PackCriticFinding(_Strict):
     text: str
     records: list[int]
     target: Optional[str] = None
+    # The analyst's explanation of the finding and who gave it; absent when none
+    # was given (and absent from the snapshot, so its hash is unchanged).
+    response: Optional[str] = None
+    responded_by: Optional[str] = None
 
 
 class PackClarificationRound(_Strict):

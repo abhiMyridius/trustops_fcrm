@@ -25,6 +25,7 @@ from fcrm_guardrails.base import (
     LedgerAnnotation,
 )
 from fcrm_guardrails.budget import (
+    ATTEMPT_TOKEN_CAP,
     CASE_TOKEN_CAP,
     CASE_TOKEN_TARGET,
     TIER_BUDGETS,
@@ -46,6 +47,7 @@ from fcrm_guardrails.rules import RULES, RulesContext, check_all
 from fcrm_guardrails.rules_guard import RulesGuard
 
 __all__ = [
+    "ATTEMPT_TOKEN_CAP",
     "CASE_TOKEN_CAP",
     "CASE_TOKEN_TARGET",
     "GUARD_ORDER",

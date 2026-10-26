@@ -388,6 +388,17 @@ async def _to_review(
         ),
     )
     await scene.drain()
+    # D-129: the analyst resolves the owner's answers; the round is done
+    await scene.send(
+        "case.clarification_resolved",
+        {
+            "case_id": CASE,
+            "actor": "u-riyer",
+            "round": 1,
+            "thread_ids": ["thr_1", "thr_2"],
+        },
+    )
+    await scene.drain()
 
 
 async def _decide_everything_but_the_ratings(scene: Scene) -> None:
@@ -594,6 +605,20 @@ async def test_scenes_eight_to_eleven_assessment_critic_completeness_and_the_rer
     )
     assert await scene.drain() == [StepKind.RERUN_PUBLISH]
     run = await scene.run()
+    # D-129: the re-run landed, but the analyst has not resolved the answers
+    assert run.state is CaseState.CLARIFICATION
+    assert run.snapshot.flags.round_open is True
+    await scene.send(
+        "case.clarification_resolved",
+        {
+            "case_id": CASE,
+            "actor": "u-riyer",
+            "round": 1,
+            "thread_ids": ["thr_1", "thr_2"],
+        },
+    )
+    assert await scene.drain() == [StepKind.STATE_PUSH]
+    run = await scene.run()
     assert run.state is CaseState.REVIEW
     assert run.snapshot.flags.round_open is False
     assert run.refs["score_summary"]["composite"] == 9.8
@@ -722,7 +747,8 @@ async def test_scenes_twelve_to_sixteen_review_override_narrative_lock_and_relea
     }
     snapshot = decision_service.builds[0]["snapshot"]
     assert snapshot["score"]["composite"] == 10.4
-    assert snapshot["boundary"]["acknowledged_by"] == ANALYST
+    # The pack says who acknowledged by name, not by user id (ADR-89).
+    assert snapshot["boundary"]["acknowledged_by"] == "Rahul Iyer"
     assert len(snapshot["conditions"]) == 3
     assert [o["item"] for o in snapshot["overrides"]] == ["CTL-T01"]
     assert [p["description"] for p in snapshot["planned"]] == ["CTL-T01 rationale"]

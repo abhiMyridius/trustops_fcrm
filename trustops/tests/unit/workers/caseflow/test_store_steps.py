@@ -329,6 +329,8 @@ class TestContextIsBsonSafe:
         assert bson.decode(bson.encode(document))["data"]["context"]["flags"] == {
             "fast_lane": False,
             "round_open": False,
+            "rerun_done": False,
+            "round_resolved": False,
             "locked": True,
             "pack_version": 2,
             "vote_round": 0,

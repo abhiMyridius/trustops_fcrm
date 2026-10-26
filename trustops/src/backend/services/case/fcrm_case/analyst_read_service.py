@@ -73,6 +73,7 @@ from fcrm_case.domain.analyst_views import (
     workbench_header,
 )
 from fcrm_case.domain.assessment import CompletenessViewRow
+from fcrm_case.domain.clarifications import answered_threads
 from fcrm_case.domain.diffing import RowDiff, SubmissionVersionNotFoundError, diff_rows
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.handoff_store import HandoffGateStore
@@ -246,6 +247,9 @@ class AnalystReadService:
                 audit_count=monitor.counters.audit_records if monitor else 0,
                 audit_verified=monitor.counters.chain_verified if monitor else False,
                 now=self._clock(),
+                inbox_replies=len(
+                    answered_threads(await self._decisions.threads(case_id))
+                ),
             )
         )
 

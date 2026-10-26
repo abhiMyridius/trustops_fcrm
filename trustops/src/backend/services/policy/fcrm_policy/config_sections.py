@@ -15,7 +15,7 @@ What the analyst can edit, by section (``path`` values the draft accepts):
 ``scoring-model``      ``domain_weights.<domain>``
 ``control-inventory``  ``<control id>.weight``
 ``routing-rules``      ``recency``, ``nearing``, ``fast_lane_volume``,
-                       ``quorum``, ``reminder``
+                       ``reminder`` (the case SLA is shown, fixed in code)
 ``jurisdiction-risk``  ``fatf_sync`` (the stored list version to activate)
 =====================  ======================================================
 
@@ -36,6 +36,7 @@ from fcrm_contracts.api.policy_config import (
     AgentRow,
     AgentsData,
     AlwaysRequiredField,
+    AmlCategoryRef,
     CategoriesData,
     CategoryType,
     ConfigBandDef,
@@ -48,8 +49,10 @@ from fcrm_contracts.api.policy_config import (
     FastLane,
     FieldRef,
     FieldSetData,
+    JurisdictionAnchor,
     JurisdictionCurrent,
     JurisdictionData,
+    JurisdictionEntry,
     JurisdictionFixture,
     PerTypeFields,
     PolicyCorpusData,
@@ -58,8 +61,10 @@ from fcrm_contracts.api.policy_config import (
     RoutingRulesData,
     ScaleAnchor,
     ScoringModelData,
+    TypeAmlCategories,
 )
 from fcrm_contracts.enums import ChangeType, Domain
+from fcrm_contracts.sla import CASE_SLA_BUSINESS_DAYS
 from fcrm_seed.loader import load_raw
 
 from fcrm_policy.config import (
@@ -131,10 +136,14 @@ _ROUTING_PARAMETERS: Final = [
     ("recency", "Evidence recency (stale after)", "18 months"),
     ("nearing", "Nearing-due reminder", "3 days"),
     ("fast_lane_volume", "Fast-lane annual volume", "under $5M"),
-    ("quorum", "Committee quorum", "3"),
     ("reminder", "Condition reminder", "14 days before due"),
 ]
 BOUNDARY_PARAMETER: Final = ("boundary", "Boundary flag distance")
+#: The case SLA the page shows in place of the committee quorum (fixed at three
+#: by S5's vote rules): S1 computes every due date from it.
+SLA_PARAMETER: Final = ("sla", "SLA target for closing a case")
+#: A parameter an older stored body still holds that the page no longer shows.
+RETIRED_PARAMETERS: Final = frozenset({"quorum"})
 _ROUTING_FORMATS: Final[dict[str, tuple[re.Pattern[str], str]]] = {
     "recency": (re.compile(r"^\d{1,3} months?$"), "like '18 months'"),
     "nearing": (re.compile(r"^\d{1,3} days?$"), "like '3 days'"),
@@ -239,7 +248,8 @@ class FieldSetsSpec(SectionSpec):
         return next_numeric_version(current)
 
     async def view(self, body: Mapping[str, Any], env: ViewEnv) -> FieldSetData:
-        """The thresholds, the always-required set and each change type's pack."""
+        """The thresholds, the always-required set, each change type's pack and
+        each type's FFIEC AML risk categories."""
         labels = _change_type_labels()
         return FieldSetData(
             max_required=body["max_required"],
@@ -256,7 +266,29 @@ class FieldSetsSpec(SectionSpec):
                 )
                 for t, fields in body["per_type"].items()
             ],
+            aml_mapping=_aml_mapping(labels),
         )
+
+
+def _aml_mapping(labels: Mapping[str, str]) -> list[TypeAmlCategories]:
+    """Each change type's FFIEC AML risk categories, from the seed's
+    ``type_domains``: the same table S1 reads to set a case's domains
+    (``fcrm_case.fieldset_provider.active_type_domains``), so the page shows what
+    cases are assessed in. Read-only: no draft path edits it.
+    """
+    raw: Mapping[str, list[str]] = load_raw()["type_domains"]
+    domain_labels = _domain_labels()
+    return [
+        TypeAmlCategories(
+            type=ChangeType(t),
+            label=label,
+            categories=[
+                AmlCategoryRef(domain=Domain(d), label=domain_labels.get(d, d))
+                for d in raw.get(t, [])
+            ],
+        )
+        for t, label in labels.items()
+    ]
 
 
 class CategoriesSpec(SectionSpec):
@@ -640,13 +672,13 @@ class RoutingRulesSpec(SectionSpec):
         return str(self._parameter(body, path)["value"])
 
     def normalise(self, body: Mapping[str, Any], path: str, after: str) -> str:
-        """The quorum is a whole number from 1 to 9; the others keep the format
-        the page shows (``18 months``, ``under $5M``).
+        """Each parameter keeps the format the page shows (``18 months``,
+        ``under $5M``); a retired one cannot be edited.
         """
         self._parameter(body, path)
+        if path in RETIRED_PARAMETERS:
+            raise unknown_path(self.key, path)
         text = " ".join(after.split())
-        if path == "quorum":
-            return number_text(parse_number(path, text, low=1, high=9, integer=True))
         pattern, hint = _ROUTING_FORMATS[path]
         if pattern.match(text) is None:
             raise invalid_value(path, f"{after!r} must look {hint}.")
@@ -661,25 +693,148 @@ class RoutingRulesSpec(SectionSpec):
         return next_numeric_version(current)
 
     async def view(self, body: Mapping[str, Any], env: ViewEnv) -> RoutingRulesData:
-        """The rules, and the parameters led by the scoring model's boundary."""
+        """The rules, and the parameters led by the scoring model's boundary and
+        the case SLA (both shown, neither edited here); a retired parameter an
+        older body holds is left out.
+        """
         scoring = await env.active_body("scoring-model")
         boundary = RoutingParameter(
             key=BOUNDARY_PARAMETER[0],
             label=BOUNDARY_PARAMETER[1],
             value=number_text(scoring["boundary_flag"]),
+            editable=False,
+        )
+        sla = RoutingParameter(
+            key=SLA_PARAMETER[0],
+            label=SLA_PARAMETER[1],
+            value=f"{CASE_SLA_BUSINESS_DAYS} business days",
+            editable=False,
         )
         return RoutingRulesData(
             rules=[RoutingRuleRow(**r) for r in body["rules"]],
-            parameters=[boundary, *(RoutingParameter(**p) for p in body["parameters"])],
+            parameters=[
+                boundary,
+                sla,
+                *(
+                    RoutingParameter(**p, editable=True)
+                    for p in body["parameters"]
+                    if p["key"] not in RETIRED_PARAMETERS
+                ),
+            ],
         )
 
 
+#: The 1-5 jurisdiction risk scale: each level's label and what it means.
+JURISDICTION_ANCHORS: Final = (
+    (
+        1,
+        "Low",
+        "Comprehensive AML regime, strong supervisory record, no international "
+        "listing.",
+    ),
+    (2, "Standard", "Established regime with minor identified weaknesses, no listing."),
+    (
+        3,
+        "Elevated",
+        "Identified strategic deficiencies or elevated exposure; enhanced monitoring "
+        "warranted.",
+    ),
+    (
+        4,
+        "High",
+        "FATF grey list, or equivalent identified deficiencies under active "
+        "remediation.",
+    ),
+    (
+        5,
+        "Severe",
+        "FATF blacklist, comprehensive sanctions program, or equivalent "
+        "prohibition-level exposure.",
+    ),
+)
+_ANCHOR_LABELS: Final = {level: label for level, label, _ in JURISDICTION_ANCHORS}
+FATF_PUBLISHER: Final = "Financial Action Task Force"
+INTERNAL_SOURCE: Final = "Internal AML jurisdiction methodology"
+INTERNAL_PUBLISHER: Final = "FCRM Sanctions"
+#: The draft path of an internal rating: ``internal.<id>``.
+INTERNAL_PREFIX: Final = "internal."
+#: What separates a list version from its internal revision (``v2026-06+i2``).
+INTERNAL_REV_MARK: Final = "+i"
+#: The bank's own ratings of jurisdictions no FATF list names, spelt as FATF
+#: spells them; edited through drafts (``internal.<id>``).
+INTERNAL_JURISDICTIONS: Final = (
+    ("united-states", "United States", 1),
+    ("united-kingdom", "United Kingdom", 1),
+    ("canada", "Canada", 1),
+    ("germany", "Germany", 1),
+    ("france", "France", 1),
+    ("japan", "Japan", 1),
+    ("australia", "Australia", 1),
+    ("switzerland", "Switzerland", 2),
+    ("singapore", "Singapore", 2),
+    ("hong-kong", "Hong Kong, China", 2),
+    ("india", "India", 2),
+    ("brazil", "Brazil", 2),
+    ("qatar", "Qatar", 2),
+    ("south-africa", "South Africa", 3),
+    ("saudi-arabia", "Saudi Arabia", 3),
+    ("united-arab-emirates", "United Arab Emirates", 3),
+    ("indonesia", "Indonesia", 3),
+    ("thailand", "Thailand", 3),
+    ("mexico", "Mexico", 3),
+    ("philippines", "Philippines", 3),
+    ("cayman-islands", "Cayman Islands", 3),
+    ("colombia", "Colombia", 3),
+    ("nigeria", "Nigeria", 3),
+    ("panama", "Panama", 3),
+)
+#: The keys of the FATF list in a body (the rest is the internal ratings).
+_FATF_KEYS: Final = (
+    "version",
+    "published",
+    "source",
+    "call_for_action",
+    "increased_monitoring",
+    "added",
+    "removed",
+)
+
+
+def _internal_rows(body: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The body's internal ratings; a body published before they existed reads
+    the starting ones."""
+    stored = body.get("internal")
+    if stored is None:
+        return [
+            {"id": i, "jurisdiction": name, "rating": rating}
+            for i, name, rating in INTERNAL_JURISDICTIONS
+        ]
+    return [dict(row) for row in stored]
+
+
+def list_version(version: str) -> str:
+    """The FATF list version of a jurisdiction-risk version: ``v2026-06+i2``
+    (an internal revision) is list ``v2026-06``."""
+    return version.split(INTERNAL_REV_MARK, 1)[0]
+
+
+def _fatf_listed(body: Mapping[str, Any]) -> set[str]:
+    return {*body["call_for_action"], *body["increased_monitoring"]}
+
+
 class JurisdictionRiskSpec(SectionSpec):
-    """Jurisdiction Risk List: the active list and the re-flag fixture. The
-    external rows are read-only; the one edit is ``fatf_sync``, naming a stored
-    list version to activate, and publishing it is the activation (the same
-    transaction and the same ``jurisdiction.list_published`` event as S3's
-    activate route).
+    """Jurisdiction Risk List: the FATF list in force (read-only) and the bank's
+    internal ratings of the jurisdictions it does not name, on one 1-5 scale.
+
+    Two edits. ``fatf_sync`` names a stored FATF list version to activate:
+    publishing it is the activation (the same transaction and the same
+    ``jurisdiction.list_published`` event as S3's activate route), and the
+    internal ratings carry over. ``internal.<id>`` changes one internal rating:
+    publishing only internal ratings makes an internal revision
+    (``<list version>+i<n>``) that activates nothing, so cases keep pinning the
+    same FATF list and no watchlist run starts. A jurisdiction an FATF list names
+    takes the FATF rating; its internal rating stays, flagged, and cannot be
+    edited while it is listed.
     """
 
     key = "jurisdiction-risk"
@@ -688,7 +843,8 @@ class JurisdictionRiskSpec(SectionSpec):
     _PATH = "fatf_sync"
 
     def seed(self, raw: Mapping[str, Any]) -> SeedSnapshot:
-        """The seed's current list (``v2026-06``)."""
+        """The seed's current list (``v2026-06``) and the starting internal
+        ratings."""
         current = raw["jurisdictions"]["current"]
         body: Body = {
             "version": current["version"],
@@ -698,21 +854,47 @@ class JurisdictionRiskSpec(SectionSpec):
             "increased_monitoring": list(current["increased_monitoring"]),
             "added": list(current["changes"]["added"]),
             "removed": list(current["changes"]["removed"]),
+            "internal": _internal_rows({}),
+            "internal_rev": 0,
         }
         return SeedSnapshot(
             current["version"], body, utc_midnight(current["published"]), self.owner
         )
 
+    def _internal_row(self, body: Mapping[str, Any], path: str) -> dict[str, Any]:
+        """The internal row ``path`` names.
+
+        Raises:
+            ValidationError: No such row.
+        """
+        row_id = path.removeprefix(INTERNAL_PREFIX)
+        for row in _internal_rows(body):
+            if row["id"] == row_id:
+                return row
+        raise unknown_path(self.key, path)
+
     def value_of(self, body: Mapping[str, Any], path: str) -> str:
-        """The version of the list in force."""
-        if path != self._PATH:
-            raise unknown_path(self.key, path)
-        return str(body["version"])
+        """The version of the list in force, or an internal rating."""
+        if path == self._PATH:
+            return str(body["version"])
+        if path.startswith(INTERNAL_PREFIX):
+            return number_text(self._internal_row(body, path)["rating"])
+        raise unknown_path(self.key, path)
 
     def normalise(self, body: Mapping[str, Any], path: str, after: str) -> str:
-        """The target list version, trimmed; whether it exists is
-        :meth:`check_change`'s question.
+        """The target list version, trimmed (whether it exists is
+        :meth:`check_change`'s question), or an internal rating: a whole number
+        from 1 to 5 for a jurisdiction no FATF list names.
         """
+        if path.startswith(INTERNAL_PREFIX):
+            row = self._internal_row(body, path)
+            if row["jurisdiction"] in _fatf_listed(body):
+                raise invalid_value(
+                    path,
+                    f"{row['jurisdiction']} is FATF-listed; the FATF rating applies.",
+                )
+            rating = parse_number(path, after, low=1, high=5, integer=True)
+            return number_text(rating)
         if path != self._PATH:
             raise unknown_path(self.key, path)
         target = after.strip()
@@ -721,13 +903,23 @@ class JurisdictionRiskSpec(SectionSpec):
         return target
 
     def set_value(self, body: Body, path: str, value: str) -> None:
-        """The target is built into the whole list by :meth:`build_body`."""
-        raise ConflictError("A jurisdiction publish activates a stored list.")
+        """Write an internal rating; the target list is built into the whole
+        list by :meth:`build_body`."""
+        if not path.startswith(INTERNAL_PREFIX):
+            raise ConflictError("A jurisdiction publish activates a stored list.")
+        rows = _internal_rows(body)
+        row_id = path.removeprefix(INTERNAL_PREFIX)
+        for row in rows:
+            if row["id"] == row_id:
+                row["rating"] = int(value)
+        body["internal"] = rows
 
     async def check_change(
         self, body: Mapping[str, Any], path: str, after: str, env: ViewEnv
     ) -> None:
-        """The target must be a stored list other than the one in force."""
+        """A target list must be stored and not the one in force."""
+        if path != self._PATH:
+            return
         if after == body["version"]:
             raise invalid_value(path, f"{after} is already the list in force.")
         if await env.reference.jurisdiction_list(after) is None:
@@ -736,44 +928,64 @@ class JurisdictionRiskSpec(SectionSpec):
     async def build_body(
         self, body: Mapping[str, Any], changes: list[ConfigDraftChange], env: ViewEnv
     ) -> Body:
-        """The target list's content, with what it adds to and removes from the
-        list in force.
+        """The published body: the internal ratings changed; and, for a
+        ``fatf_sync``, the target list's content with what it adds to and
+        removes from the list in force (a sync to the list in force keeps it).
+        An internal-only change bumps the internal revision.
         """
-        target = changes[-1].after
-        stored = await env.reference.jurisdiction_list(target)
-        if stored is None:
-            raise invalid_value(self._PATH, f"no stored jurisdiction list {target!r}.")
-        now = {*stored.call_for_action, *stored.increased_monitoring}
-        before = {*body["call_for_action"], *body["increased_monitoring"]}
-        return {
-            "version": stored.version,
-            "published": stored.published,
-            "source": stored.source,
-            "call_for_action": list(stored.call_for_action),
-            "increased_monitoring": list(stored.increased_monitoring),
-            "added": sorted(now - before),
-            "removed": sorted(before - now),
-        }
+        new: Body = copy.deepcopy(dict(body))
+        new["internal"] = _internal_rows(body)
+        new.setdefault("internal_rev", 0)
+        internal = [c for c in changes if c.path.startswith(INTERNAL_PREFIX)]
+        for change in internal:
+            self.set_value(new, change.path, change.after)
+        syncs = [c for c in changes if c.path == self._PATH]
+        target = syncs[-1].after if syncs else None
+        if target is not None and target != body["version"]:
+            stored = await env.reference.jurisdiction_list(target)
+            if stored is None:
+                raise invalid_value(
+                    self._PATH, f"no stored jurisdiction list {target!r}."
+                )
+            now = {*stored.call_for_action, *stored.increased_monitoring}
+            before = _fatf_listed(body)
+            new.update(
+                {
+                    "version": stored.version,
+                    "published": stored.published,
+                    "source": stored.source,
+                    "call_for_action": list(stored.call_for_action),
+                    "increased_monitoring": list(stored.increased_monitoring),
+                    "added": sorted(now - before),
+                    "removed": sorted(before - now),
+                }
+            )
+        elif internal:
+            new["internal_rev"] = int(new["internal_rev"]) + 1
+        return new
 
     def next_version(self, current: str, body: Mapping[str, Any]) -> str:
-        """The version of the list that becomes active."""
-        return str(body["version"])
+        """The list that becomes active; an internal revision of the list in
+        force when only internal ratings changed (``v2026-06+i1``)."""
+        if str(body["version"]) != list_version(current):
+            return str(body["version"])
+        return f"{body['version']}{INTERNAL_REV_MARK}{body['internal_rev']}"
 
     async def view(self, body: Mapping[str, Any], env: ViewEnv) -> JurisdictionData:
-        """The list in force and the stored fixture list."""
+        """The list in force, every rated jurisdiction on the 1-5 scale, the
+        anchors and the stored fixture list."""
         fixture = await env.reference.jurisdiction_list("fixture")
-        current = JurisdictionCurrent(**body)
+        current = JurisdictionCurrent(**{k: body[k] for k in _FATF_KEYS})
         if fixture is None:
             note, added = "No fixture list is stored.", []
             fixture_version = ""
         else:
             fixture_version, note = fixture.version, fixture.source
-            known = {*body["call_for_action"], *body["increased_monitoring"]}
             listed = {*fixture.call_for_action, *fixture.increased_monitoring}
             added = (
                 list(body["added"])
                 if fixture.version == body["version"]
-                else sorted(listed - known)
+                else sorted(listed - _fatf_listed(body))
             )
         return JurisdictionData(
             current=current,
@@ -781,7 +993,67 @@ class JurisdictionRiskSpec(SectionSpec):
                 version=fixture_version, note=note, added=added
             ),
             unlisted_default=UNLISTED_DEFAULT,
+            anchors=[
+                JurisdictionAnchor(level=level, label=label, definition=definition)
+                for level, label, definition in JURISDICTION_ANCHORS
+            ],
+            entries=_jurisdiction_entries(body),
         )
+
+
+def _jurisdiction_entries(body: Mapping[str, Any]) -> list[JurisdictionEntry]:
+    """One row per jurisdiction, strictest first then by name: the FATF
+    blacklist (5) and grey list (4), read-only; the internal ratings of the rest,
+    editable. An internal rating of a jurisdiction FATF now lists is kept on its
+    row as a note, not shown as a row of its own.
+    """
+    internal = {row["jurisdiction"]: row for row in _internal_rows(body)}
+
+    def external(name: str, rating: int, source: str) -> JurisdictionEntry:
+        held = internal.get(name)
+        note = (
+            f"Now FATF-listed; the internal rating ({held['rating']} · "
+            f"{_ANCHOR_LABELS[int(held['rating'])]}) no longer applies."
+            if held is not None
+            else None
+        )
+        return JurisdictionEntry(
+            id=f"fatf-{name}",
+            jurisdiction=name,
+            rating=rating,
+            rating_label=_ANCHOR_LABELS[rating],
+            source=source,
+            publisher=FATF_PUBLISHER,
+            source_type="external",
+            editable=False,
+            path=None,
+            note=note,
+        )
+
+    blacklist = list(body["call_for_action"])
+    greylist = [n for n in body["increased_monitoring"] if n not in blacklist]
+    rows = [
+        *(external(n, 5, "FATF blacklist (call for action)") for n in blacklist),
+        *(external(n, 4, "FATF grey list (increased monitoring)") for n in greylist),
+    ]
+    listed = {*blacklist, *greylist}
+    rows += [
+        JurisdictionEntry(
+            id=row["id"],
+            jurisdiction=row["jurisdiction"],
+            rating=int(row["rating"]),
+            rating_label=_ANCHOR_LABELS[int(row["rating"])],
+            source=INTERNAL_SOURCE,
+            publisher=INTERNAL_PUBLISHER,
+            source_type="internal",
+            editable=True,
+            path=f"{INTERNAL_PREFIX}{row['id']}",
+            note=None,
+        )
+        for row in internal.values()
+        if row["jurisdiction"] not in listed
+    ]
+    return sorted(rows, key=lambda r: (-r.rating, r.jurisdiction))
 
 
 class AiAgentsSpec(SectionSpec):

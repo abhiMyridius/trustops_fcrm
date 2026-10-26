@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any, Final, Literal, Optional
@@ -133,6 +133,7 @@ from fcrm_case.po_views import (
     documents_view,
     effective_required,
     field_of_question,
+    gap_field,
     intake_view,
     integration_dto,
     list_item,
@@ -241,6 +242,84 @@ def _gate_event(
         case_id=record.case_id,
         run_id=record.run_id,
     )
+
+
+def _answer_field(
+    gap: ReviewItemRow, sent: Optional[str], labels: Mapping[str, str]
+) -> tuple[str, str]:
+    """The field an answer to ``gap`` fills and its label: the field the
+    question asks about (:func:`~fcrm_case.po_views.gap_field`), else the one
+    the client sent when it is a required field (``labels``), else none (``""``).
+    Never a field named after the question (D-128)."""
+    field_id = gap_field(gap, labels) or (sent if sent in labels else None)
+    if not field_id:
+        return "", ""
+    if gap.subject.get("field_id"):
+        return field_id, str(gap.subject.get("label") or field_id)
+    return field_id, labels.get(field_id, field_id)
+
+
+def _decide_gaps(
+    record: CaseRecord,
+    sub: str,
+    now: datetime,
+    gaps: Sequence[ReviewItemRow],
+    value: str,
+) -> tuple[list[ItemDecision], list[GateEmission]]:
+    """Confirm each of ``gaps`` with the owner's ``value``, and decide the
+    ``po_answer_gaps`` gate H1 opened for each blocking one."""
+    items: list[ItemDecision] = []
+    gates: list[GateEmission] = []
+    for gap in gaps:
+        question_id = str(gap.subject.get("question_id", gap.item_id))
+        items.append(
+            ItemDecision(
+                gap.item_id,
+                ItemStatus.CONFIRMED,
+                DecisionRow(value={"value": value}, by=sub, at=now),
+            )
+        )
+        if gap.subject.get("blocking") is True:
+            # H1 opens a gate for a blocking question only; an optional one is
+            # shown and answered, with nothing to decide.
+            event = _gate_event(
+                record,
+                sub,
+                now,
+                gate_type=GateType.PO_ANSWER_GAPS,
+                key=question_id,
+                decision="answer",
+                subject_kind="gap",
+                item_kind=ItemKind.GAP,
+                value=value,
+            )
+            gates.append(_gate(GateType.PO_ANSWER_GAPS, question_id, event)[0])
+    return items, gates
+
+
+def _same_field_gaps(
+    gap: ReviewItemRow,
+    field_id: str,
+    gaps: Sequence[ReviewItemRow],
+    labels: Mapping[str, str],
+    answered_ids: set[str],
+) -> list[ReviewItemRow]:
+    """``gap`` and the other open questions on ``field_id`` that this request
+    does not answer itself: one answer answers them all, a question that named
+    no field among them (D-128)."""
+    if not field_id:
+        return [gap]
+    return [
+        gap,
+        *(
+            other
+            for other in gaps
+            if other is not gap
+            and other.status == ItemStatus.PROPOSED
+            and str(other.subject.get("question_id")) not in answered_ids
+            and gap_field(other, labels) == field_id
+        ),
+    ]
 
 
 def _gate(gate_type: GateType, key: str, event: Envelope) -> tuple[GateEmission, str]:
@@ -1155,7 +1234,10 @@ class PoService:
         the analyst as a flag, never a reason to stop the owner. A question the
         Overview built for a required field the assistant asked nothing about
         (``ask_<field>``) fills its field the same way, with no gate: H1 opened
-        none for it.
+        none for it. A question that names no field fills the field it asks
+        about (:func:`~fcrm_case.po_views.gap_field`), never a field named
+        after the question, and answering a field answers every other open
+        question on it, gates included (D-128).
         """
         record = await self._record(case_id, principal, write=True)
         ensure_open(record)
@@ -1163,12 +1245,15 @@ class PoService:
         by_question = {str(g.subject.get("question_id")): g for g in data.gaps}
         asked = {str(g.subject.get("field_id") or "") for g in data.gaps}
         required = self._required_map(record, data)
+        labels = {field_id: d.label for field_id, d in required.items()}
         held = {r.field_id: r for r in data.rows}
+        answered_ids = {a.question_id for a in body.answers}
         now = utcnow()
         fields: list[FieldWrite] = []
         items: list[ItemDecision] = []
         gates: list[GateEmission] = []
         own_answers = 0
+        gap_answers = 0
         for answer in body.answers:
             gap = by_question.get(answer.question_id)
             own_field = field_of_question(answer.question_id)
@@ -1205,7 +1290,7 @@ class PoService:
                 )
                 own_answers += 1
                 continue
-            field_id = str(gap.subject.get("field_id") or answer.field_id or "")
+            field_id, label = _answer_field(gap, answer.field_id, labels)
             if gap.status != ItemStatus.PROPOSED and value == _answered_value(
                 gap, held.get(field_id)
             ):
@@ -1214,7 +1299,7 @@ class PoService:
                 fields.append(
                     FieldWrite(
                         field_id,
-                        str(gap.subject.get("label") or field_id),
+                        label,
                         value,
                         "answered",
                         FieldSource(
@@ -1222,33 +1307,19 @@ class PoService:
                         ),
                     )
                 )
-            items.append(
-                ItemDecision(
-                    gap.item_id,
-                    ItemStatus.CONFIRMED,
-                    DecisionRow(value={"value": value}, by=principal.sub, at=now),
-                )
+            gap_answers += 1
+            decided = _same_field_gaps(gap, field_id, data.gaps, labels, answered_ids)
+            answered_ids.update(
+                str(g.subject.get("question_id", g.item_id)) for g in decided
             )
-            if gap.subject.get("blocking") is True:
-                # H1 opens a gate for a blocking question only; an optional
-                # one is shown and answered, with nothing to decide.
-                event = _gate_event(
-                    record,
-                    principal.sub,
-                    now,
-                    gate_type=GateType.PO_ANSWER_GAPS,
-                    key=answer.question_id,
-                    decision="answer",
-                    subject_kind="gap",
-                    item_kind=ItemKind.GAP,
-                    value=value,
-                )
-                gates.append(
-                    _gate(GateType.PO_ANSWER_GAPS, answer.question_id, event)[0]
-                )
+            decided_items, decided_gates = _decide_gaps(
+                record, principal.sub, now, decided, value
+            )
+            items.extend(decided_items)
+            gates.extend(decided_gates)
         if not items and not fields:
             return self._intake_dto(record, data)
-        count = len(items) + own_answers
+        count = gap_answers + own_answers
         noun = "question" if count == 1 else "questions"
         committed = await self._po.commit(
             PoCommand(

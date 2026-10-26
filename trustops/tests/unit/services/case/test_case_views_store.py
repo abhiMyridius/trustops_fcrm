@@ -31,6 +31,7 @@ from fcrm_contracts.api.case_internal import (
     PrecedentMatch,
     ReusableField,
     ReviewItemUpsert,
+    ValueAlternative,
     ValueProposal,
 )
 from fcrm_contracts.enums import ChangeType, ItemKind, ItemStatus
@@ -502,3 +503,32 @@ async def test_a_document_patch_records_what_h3_made_and_is_idempotent(
     assert third.pages == 14
     assert await view_store.patch_document("missing", patch) is None
     assert await view_store.get_document("missing") is None
+
+
+async def test_a_push_keeps_the_other_values_found_and_a_new_extraction_replaces_them(
+    view_store: InMemoryViewStore,
+) -> None:
+    """D-132: what the owner may switch to is stored with the value, and moves
+    with it when a later extraction replaces the value."""
+    first = value(
+        "F04",
+        "Registered charities, income below GBP 5 million",
+        candidates=3,
+        alternatives=[
+            ValueAlternative(value="Registered charities", source=SPAN),
+            ValueAlternative(value="Charities and CICs", source=SPAN),
+        ],
+    )
+    await view_store.apply_intake_push(CASE, push(values=[first]))
+    (row,) = await view_store.list_field_values(CASE)
+    assert [a.value for a in row.alternatives] == [
+        "Registered charities",
+        "Charities and CICs",
+    ]
+    assert row.alternatives[0].source.doc_id == SPAN.doc_id
+
+    await view_store.apply_intake_push(
+        CASE, push(values=[value("F04", "Charities")], run_id="run_2")
+    )
+    (row,) = await view_store.list_field_values(CASE)
+    assert (row.value, row.alternatives) == ("Charities", [])

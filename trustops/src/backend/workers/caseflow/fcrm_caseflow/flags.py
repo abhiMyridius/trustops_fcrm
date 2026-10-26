@@ -18,6 +18,30 @@ from fcrm_caseflow.states import RunFlags
 from fcrm_caseflow.transitions import TransitionContext
 from fcrm_caseflow.triggers import Trigger
 
+#: The triggers that move the clarification round on (D-129).
+_ROUND_TRIGGERS = frozenset(
+    {
+        Trigger.CASE_ANSWERED,
+        Trigger.AGENT_DONE_RERUN_BOTH,
+        Trigger.CASE_CLARIFICATION_RESOLVED,
+    }
+)
+
+
+def _round_flags(trigger: Trigger, current: RunFlags) -> RunFlags:
+    """The round's flags after ``trigger``: the owner's answer starts the
+    re-run; the round closes once the re-run has landed and the analyst has
+    resolved the answers, whichever comes second (D-129).
+    """
+    if trigger is Trigger.CASE_ANSWERED:
+        return current.model_copy(update={"rerun_done": False})
+    rerun_done = current.rerun_done or trigger is Trigger.AGENT_DONE_RERUN_BOTH
+    resolved = current.round_resolved or trigger is Trigger.CASE_CLARIFICATION_RESOLVED
+    update: dict[str, bool] = {"rerun_done": rerun_done, "round_resolved": resolved}
+    if rerun_done and resolved:
+        update["round_open"] = False
+    return current.model_copy(update=update)
+
 
 def next_flags(trigger: Trigger, ctx: TransitionContext, current: RunFlags) -> RunFlags:
     """``current`` unchanged, except for the one flag (if any) the action
@@ -29,8 +53,13 @@ def next_flags(trigger: Trigger, ctx: TransitionContext, current: RunFlags) -> R
       ...; declined: full path" -> ``fast_lane = ctx.fast_lane_confirmed``.
     - ``GATE_DECIDED_COMPLETENESS_ASK``: "pause the analyst clock (one
       round only, D-16)" -> opens the one clarification round.
-    - ``AGENT_DONE_RERUN_BOTH``: the rerun that answers the one
-      clarification round completes -> closes it.
+    - ``CASE_ANSWERED``: the owner answered the round; its re-run starts ->
+      ``rerun_done = False``.
+    - ``AGENT_DONE_RERUN_BOTH``: the rerun that answers the round landed ->
+      ``rerun_done``; it closes the round only when the analyst has already
+      resolved the answers (D-129).
+    - ``CASE_CLARIFICATION_RESOLVED``: the analyst resolved the answers ->
+      ``round_resolved``; it closes the round only when the re-run has landed.
     - ``CASE_LOCKED``: "build the pack from S1's view and S4's head; POST
       /packs" -> locks the case and starts a new pack version.
     - ``CASE_UNLOCKED`` / ``COMMITTEE_ANSWERED_CHANGED`` ("R6: unlock with
@@ -49,8 +78,8 @@ def next_flags(trigger: Trigger, ctx: TransitionContext, current: RunFlags) -> R
         return current.model_copy(update={"fast_lane": ctx.fast_lane_confirmed})
     if trigger is Trigger.GATE_DECIDED_COMPLETENESS_ASK:
         return current.model_copy(update={"round_open": True})
-    if trigger is Trigger.AGENT_DONE_RERUN_BOTH:
-        return current.model_copy(update={"round_open": False})
+    if trigger in _ROUND_TRIGGERS:
+        return _round_flags(trigger, current)
     if trigger is Trigger.CASE_LOCKED:
         return current.model_copy(
             update={"locked": True, "pack_version": current.pack_version + 1}

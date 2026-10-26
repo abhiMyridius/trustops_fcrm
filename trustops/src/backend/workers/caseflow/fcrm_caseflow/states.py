@@ -20,6 +20,10 @@ class RunFlags(BaseModel):
 
     fast_lane: bool = False
     round_open: bool = False
+    rerun_done: bool = False
+    """The re-run that answers the clarification round has landed (D-129)."""
+    round_resolved: bool = False
+    """The analyst resolved every answer of the clarification round (D-129)."""
     locked: bool = False
     pack_version: int = 0
     vote_round: int = 0

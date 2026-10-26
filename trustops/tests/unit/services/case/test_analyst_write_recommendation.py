@@ -287,6 +287,85 @@ def test_a_business_summary_that_names_a_restricted_term_is_refused(
     assert recommendation.client.get(RECOMMENDATION).json()["edits_by_analyst"] == 0
 
 
+def _conditions(service: CaseService) -> list[dict[str, Any]]:
+    return list(service.client.get(RECOMMENDATION).json()["conditions"])
+
+
+def _as_edit(c: dict[str, Any]) -> dict[str, Any]:
+    return {k: c[k] for k in ("id", "text", "owner", "due")} | {"status": c["status"]}
+
+
+def test_the_analyst_edits_adds_and_removes_conditions(
+    recommendation: CaseService, act_as: Callable[[Role, str], None]
+) -> None:
+    before = _conditions(recommendation)
+    assert before, "the demo draft carries conditions"
+    first, *rest = before
+    kept = [_as_edit(first) | {"text": "Evidence the vendor attestation by go-live."}]
+    kept += [_as_edit(c) for c in rest[:-1]]
+    kept.append(
+        {"text": "Review the QA sample.", "owner": "FCRM Ops", "due": "6 months"}
+    )
+
+    response = recommendation.client.put(RECOMMENDATION, json={"conditions": kept})
+
+    assert response.status_code == 200, response.text
+    after = response.json()["conditions"]
+    assert after[0]["id"] == first["id"]
+    assert after[0]["text"] == "Evidence the vendor attestation by go-live."
+    assert after[0]["from"] == first["from"]  # an edited condition keeps its source
+    assert after[-1]["from"] == "added by the analyst"
+    assert after[-1]["id"] not in {c["id"] for c in before}  # a fresh id
+    assert response.json()["edits_by_analyst"] == 1
+    # H1's pack builder reads the same list the analyst sees.
+    act_as(Role.SERVICE, "svc:caseflow")
+    internal = recommendation.client.get(f"/internal/cases/{CASE}/recommendation")
+    rec = RecommendationInternal.model_validate(internal.json())
+    assert [c.condition_id for c in assessment_pack.effective_conditions(rec)] == [
+        c["id"] for c in after
+    ]
+
+
+def test_sending_the_same_conditions_back_is_not_an_edit(
+    recommendation: CaseService,
+) -> None:
+    same = [_as_edit(c) for c in _conditions(recommendation)]
+
+    response = recommendation.client.put(RECOMMENDATION, json={"conditions": same})
+
+    assert response.status_code == 200
+    assert response.json()["edits_by_analyst"] == 0
+
+
+def test_a_condition_that_names_a_restricted_term_is_refused(
+    recommendation: CaseService,
+) -> None:
+    edit = {"text": "Lower the score below 5.", "owner": "Ops", "due": "1 month"}
+
+    response = recommendation.client.put(
+        RECOMMENDATION,
+        json={
+            "conditions": [_as_edit(c) for c in _conditions(recommendation)] + [edit]
+        },
+    )
+
+    assert response.status_code == 422
+    assert recommendation.client.get(RECOMMENDATION).json()["edits_by_analyst"] == 0
+
+
+def test_a_condition_needs_its_text_owner_and_due_date(
+    recommendation: CaseService,
+) -> None:
+    blank = {"text": "  ", "owner": "Ops", "due": "1 month"}
+
+    assert (
+        recommendation.client.put(
+            RECOMMENDATION, json={"conditions": [blank]}
+        ).status_code
+        == 422
+    )
+
+
 def test_the_summary_the_agent_withheld_is_reported_in_the_scan(
     recommendation: CaseService,
 ) -> None:

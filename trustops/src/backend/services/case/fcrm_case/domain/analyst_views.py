@@ -46,6 +46,7 @@ from fcrm_contracts.api.case_analyst_read import (
 )
 from fcrm_contracts.api.case_po import StageStep
 from fcrm_contracts.enums import CaseState, ChangeType, Domain
+from fcrm_contracts.sla import CASE_SLA_BUSINESS_DAYS
 from fcrm_contracts.versions import PinnedVersions
 
 from fcrm_case.domain.analyst_commands import ack_kind_of, open_ack_snapshots
@@ -61,8 +62,9 @@ from fcrm_case.reference import (
     scoring_model_version,
 )
 
-#: A case is decision-ready this many business days after it is submitted.
-SLA_BUSINESS_DAYS: Final = 2
+#: A case is decision-ready this many business days after it is submitted (the
+#: case SLA Rules & Routing shows).
+SLA_BUSINESS_DAYS: Final = CASE_SLA_BUSINESS_DAYS
 #: A case due within this many business days (or already late) is "approaching due".
 APPROACHING_DUE_DAYS: Final = 1
 
@@ -355,7 +357,7 @@ class QueueRow:
 
 
 def due_date(submitted_at: Optional[datetime], state: CaseState) -> Optional[date]:
-    """When a case is due: two business days after it was submitted; ``None``
+    """When a case is due: the SLA's business days after it was submitted; ``None``
     once closed or before it is submitted.
     """
     if submitted_at is None or state is CaseState.CLOSED:
@@ -693,6 +695,7 @@ class HeaderInputs:
     audit_count: int
     audit_verified: bool
     now: datetime
+    inbox_replies: int = 0
 
 
 def workbench_header(inputs: HeaderInputs) -> WorkbenchHeader:
@@ -748,4 +751,5 @@ def workbench_header(inputs: HeaderInputs) -> WorkbenchHeader:
         route=box.route if isinstance(box, ScoreShown) else None,
         audit=AuditBadge(count=inputs.audit_count, verified=inputs.audit_verified),
         is_demo=record.run_id is not None,
+        inbox_replies=inputs.inbox_replies,
     )

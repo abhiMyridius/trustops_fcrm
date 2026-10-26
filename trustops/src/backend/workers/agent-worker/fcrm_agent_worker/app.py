@@ -254,7 +254,11 @@ def build_unit(
         tiers_config=tiers_config,
         instructions_for=_instructions_for(settings),
         model_factory=model_factory
-        or model_factory_for(settings.bedrock_region_fallback, settings.aws_region),
+        or model_factory_for(
+            settings.bedrock_region_fallback,
+            settings.aws_region,
+            max_pool_connections=settings.prefetch,
+        ),
         raw_inputs=MongoRawInputs(db[RAW_INPUTS_COLLECTION]),
         tool_call_cap=settings.agent_max_tool_calls,
         transact=mongo_transact(mongo),

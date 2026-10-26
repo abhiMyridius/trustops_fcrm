@@ -103,7 +103,7 @@ function demoValues(): ValuePO[] {
   const always = new Set(seed.field_set.always_required.map((f) => f.id));
   return required.map((id): ValuePO => {
     const label = FIELD_LABEL[id] ?? id;
-    const base = { field_id: id, label, always_required: always.has(id), candidates: null as number | null };
+    const base = { field_id: id, label, always_required: always.has(id), candidates: null as number | null, alternatives: [] };
     const ex = EXTRACTED.find((f) => f.id === id);
     if (ex && d.intakeReady) {
       if (id === seed.demo.review_edit.id && d.corrected) {
@@ -179,6 +179,7 @@ function createdValues(id: string): ValuePO[] {
       origin: value ? 'owner_declared' : 'open',
       source: value ? src('owner declared') : null,
       candidates: null,
+      alternatives: [],
       always_required: always.has(fid),
     };
   });
@@ -378,7 +379,7 @@ export function poDocuments(id: string, now = Date.now()): DocumentsViewPO | nul
         cursor -= doc.pages;
       }
     } else if (d.intakeReady) {
-      line = `Done. ${seed.demo.candidates_found} values found, ${seed.demo.change_types.length} change types proposed. Review them on the Overview tab.`;
+      line = `Done. ${seed.demo.candidates_found} values found (including other possible readings of the same field), ${seed.demo.change_types.length} change types proposed. Review them on the Overview tab.`;
     }
     return {
       documents: d.docs.map((doc) => {
@@ -545,6 +546,7 @@ export function poIntake(id: string): IntakeViewPO | null {
       origin: 'open',
       source: null,
       candidates: null,
+      alternatives: [],
       always_required: seed.field_set.always_required.some((a) => a.id === fid),
     })),
     precedent: null,
@@ -570,6 +572,7 @@ export function poReview(id: string): ReviewViewPO | null {
       isDemo(id) && v.field_id === seed.demo.review_edit.id && d.corrected
         ? { value: seed.demo.review_edit.from, source: src('case p.1 l.9') }
         : null,
+    alternatives: v.alternatives,
     always_required: v.always_required,
   }));
   const comp = intake.completion;

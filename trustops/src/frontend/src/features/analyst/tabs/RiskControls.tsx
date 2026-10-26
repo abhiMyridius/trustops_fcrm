@@ -11,6 +11,7 @@ import type { ControlItem, PlannedControl, PlannedControlGate, RiskArea, RiskAre
 import { AuditRecordChip } from '@/components/domain/AuditRecordChip';
 import { ControlRow, ControlTable } from '@/components/domain/ControlRow';
 import { FactorBlock } from '@/components/domain/FactorBlock';
+import { FactorEditDialog } from '@/components/domain/FactorEditDialog';
 import { ReasonDialog } from '@/components/domain/ReasonDialog';
 import { RiskMatrix } from '@/components/domain/RiskMatrix';
 import { Banner } from '@/components/ui/Banner';
@@ -55,6 +56,7 @@ function AreaCard({
   onConfirm,
   onOverride,
   onConfirmFactor,
+  onEditFactor,
   busy,
 }: {
   area: RiskArea;
@@ -64,6 +66,7 @@ function AreaCard({
   onConfirm: (c: ControlItem) => void;
   onOverride: (c: ControlItem) => void;
   onConfirmFactor: (a: RiskArea) => void;
+  onEditFactor: (a: RiskArea) => void;
   busy: string | null;
 }) {
   return (
@@ -78,6 +81,7 @@ function AreaCard({
           impact={impact}
           busy={busy === (area as RiskArea & RiskAreaGate).factor_item_id}
           onConfirm={readOnly ? undefined : () => onConfirmFactor(area)}
+          onEdit={readOnly ? undefined : () => onEditFactor(area)}
         />
         <ControlTable caption={`Matched controls for ${area.label}`}>
           {area.controls.map((c) => (
@@ -162,6 +166,8 @@ export function RiskControlsTab() {
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
   const [overriding, setOverriding] = useState<ControlItem | null>(null);
+  const [denying, setDenying] = useState<PlannedControl | null>(null);
+  const [editingFactor, setEditingFactor] = useState<RiskArea | null>(null);
   const [planning, setPlanning] = useState(false);
   const readOnly = !w.is_demo || w.closed || w.locked || !w.review_started;
 
@@ -211,6 +217,7 @@ export function RiskControlsTab() {
                     const factorId = (area as RiskArea & RiskAreaGate).factor_item_id;
                     if (factorId) void confirmItem(factorId);
                   }}
+                  onEditFactor={(area) => setEditingFactor(area)}
                 />
               ))}
               <Card
@@ -234,9 +241,14 @@ export function RiskControlsTab() {
                           {p.control_id ? ` · for ${p.control_id}` : ''}
                         </span>
                         {(p as PlannedControl & PlannedControlGate).gate_open && !readOnly && (
-                          <Button size="sm" variant="secondary" disabled={busy === p.id} onClick={() => void confirmItem(p.id)}>
-                            Confirm planned control
-                          </Button>
+                          <>
+                            <Button size="sm" variant="secondary" disabled={busy === p.id} onClick={() => void confirmItem(p.id)}>
+                              Confirm planned control
+                            </Button>
+                            <Button size="sm" variant="ghost" disabled={busy === p.id} onClick={() => setDenying(p)}>
+                              Deny control
+                            </Button>
+                          </>
                         )}
                       </li>
                     ))}
@@ -296,6 +308,33 @@ export function RiskControlsTab() {
                 if (!overriding) return;
                 await decide.mutateAsync({ item_id: overriding.id, decision: 'override', value, reason });
                 toast.success(`${overriding.id} overridden`);
+              }}
+            />
+            <FactorEditDialog
+              open={editingFactor !== null}
+              onClose={() => setEditingFactor(null)}
+              area={editingFactor?.label ?? ''}
+              likelihood={{ value: editingFactor?.L ?? 1, scale: r.likelihood_scale }}
+              impact={{ value: editingFactor?.I ?? 1, scale: r.impact_scale }}
+              onSave={async ({ likelihood, impact, reason }) => {
+                const factorId = editingFactor ? (editingFactor as RiskArea & RiskAreaGate).factor_item_id : null;
+                if (!editingFactor || !factorId) return;
+                await decide.mutateAsync({ item_id: factorId, decision: 'override', likelihood, impact, reason });
+                toast.success(`${editingFactor.label} likelihood and impact saved`, 'The case is being re-scored.');
+              }}
+            />
+            <ReasonDialog
+              open={denying !== null}
+              onClose={() => setDenying(null)}
+              title="Deny planned control"
+              context={denying ? `${denying.description}${denying.control_id ? ` · for ${denying.control_id}` : ''}` : undefined}
+              consequence="The planned control is removed from this case. It was never scored, so the score does not change."
+              confirmLabel="Deny with reason"
+              danger
+              onConfirm={async ({ reason }) => {
+                if (!denying) return;
+                await decide.mutateAsync({ item_id: denying.id, decision: 'remove', reason });
+                toast.success('Planned control denied');
               }}
             />
             <PlannedForm caseId={id} open={planning} onClose={() => setPlanning(false)} />

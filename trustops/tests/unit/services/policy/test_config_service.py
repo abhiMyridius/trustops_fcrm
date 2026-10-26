@@ -64,6 +64,34 @@ async def test_a_section_is_read_with_its_data_history_and_an_empty_draft(
     assert section.versions[0].published_at.startswith("2026-10-01")
 
 
+async def test_categories_and_fields_show_each_types_ffiec_aml_categories(
+    config_service: ConfigService,
+) -> None:
+    """The mapping is the one S1 reads to set a case's domains (seed
+    ``type_domains``), labelled with the four FFIEC AML risk categories."""
+    from fcrm_contracts.api.policy_config import FieldSetData
+    from fcrm_seed.loader import load_raw
+
+    section = await config_service.read("field-sets")
+    data = FieldSetData.model_validate(section.model_dump()["data"])
+    mapping = {
+        t.type.value: [c.domain.value for c in t.categories] for t in data.aml_mapping
+    }
+    assert mapping == load_raw()["type_domains"]
+    labels = {c.label for t in data.aml_mapping for c in t.categories}
+    assert labels == {
+        "Customer and entity",
+        "Product and service",
+        "Geography",
+        "Delivery channel and third party",
+    }
+    vendor = next(t for t in data.aml_mapping if t.type.value == "vendor_onboarding")
+    assert (vendor.label, [c.label for c in vendor.categories]) == (
+        "Vendor / third-party onboarding",
+        ["Delivery channel and third party"],
+    )
+
+
 async def test_an_unknown_section_is_not_found(config_service: ConfigService) -> None:
     with pytest.raises(NotFoundError):
         await config_service.read("prompts")
@@ -167,7 +195,7 @@ async def test_the_stored_before_is_the_published_value_not_the_clients(
         ("scoring-model", "domain_weights.channel", "heavy", "domain_weights.channel"),
         ("scoring-model", "retention_floor", "0.5", "Fixed at 40 %"),
         ("control-inventory", "CTL-T01.weight", "2", "CTL-T01.weight"),
-        ("routing-rules", "quorum", "0", "quorum"),
+        ("routing-rules", "quorum", "5", "quorum"),
         ("routing-rules", "boundary", "1", "Scoring Model section"),
         (
             "categories",
@@ -353,11 +381,9 @@ async def test_what_the_stored_data_cannot_answer_is_said_to_be_not_computable(
 ) -> None:
     await edit(config_service, "routing-rules", "recency", "24 months")
     await edit(config_service, "routing-rules", "fast_lane_volume", "under $2M")
-    await edit(config_service, "routing-rules", "quorum", "5")
     summary = (await config_service.preview("routing-rules")).summary
     assert "recency 18 months -> 24 months. Not computable for seeded cases" in summary
     assert "no seeded case stores its annual volume" in summary
-    assert "2 seeded cases are at committee (FCRM-2026-0138, FCRM-2026-0145)" in summary
 
 
 async def test_the_categories_preview_counts_fast_lane_cases_it_cannot_re_decide(
@@ -469,7 +495,7 @@ async def test_when_s2_refuses_nothing_is_published_here(
     config_store: InMemoryConfigStore,
     scoring_publisher: InMemoryScoringPublisher,
 ) -> None:
-    await edit(config_service, "routing-rules", "quorum", "5")
+    await edit(config_service, "routing-rules", "nearing", "5 days")
     scoring_publisher.fail_next = ConflictError("The active routing rules are v9.")
     with pytest.raises(ConflictError, match="active routing rules are v9"):
         await publish(config_service, "routing-rules")
@@ -480,19 +506,19 @@ async def test_when_s2_refuses_nothing_is_published_here(
     assert section.active_version == "v5"
 
 
-async def test_publishing_routing_rules_records_the_parameters_and_the_quorum_in_s2(
+async def test_publishing_routing_rules_records_the_parameters_in_s2(
     config_service: ConfigService, scoring_publisher: InMemoryScoringPublisher
 ) -> None:
-    await edit(config_service, "routing-rules", "quorum", "5")
     await edit(config_service, "routing-rules", "recency", "24 months")
     section = await publish(config_service, "routing-rules")
     assert section.active_version == "v5"
     routing = scoring_publisher.routings[5]
-    assert routing.committee_quorum == 5
+    assert routing.committee_quorum == 3  # S5's vote rules; no longer on the page
     assert routing.parameters["recency"] == "24 months"
     assert [r.rule_id for r in routing.rules] == ["R1", "R2", "R3", "R4", "R5", "R6"]
     shown = {p.key: p.value for p in section.data.parameters}
-    assert shown["quorum"] == "5"
+    assert "quorum" not in shown
+    assert shown["sla"] == "2 business days"
     assert shown["boundary"] == "0.5"
 
 
@@ -537,6 +563,49 @@ async def test_publishing_the_jurisdiction_list_activates_it_with_one_event(
     assert payload["version"] == "v2026-10-fixture"
     assert payload["added"] == ["Algeria", "Namibia"]
     assert payload["fixture"] is True
+
+
+async def test_an_internal_rating_publishes_a_revision_that_activates_nothing(
+    config_service: ConfigService, config_reference: InMemoryReferenceStore
+) -> None:
+    """Cases keep pinning the FATF list; no list is activated and no watchlist
+    run starts; the revision is the version in force on the page."""
+    await edit(config_service, "jurisdiction-risk", "internal.mexico", "4")
+    preview = (await config_service.preview("jurisdiction-risk")).summary
+    assert "Internal rating of Mexico: 3 -> 4." in preview
+    assert "jurisdiction.list_published" not in preview
+    section = await publish(config_service, "jurisdiction-risk")
+    assert section.active_version == "v2026-06+i1"
+    assert [(v.version, v.active) for v in section.versions][:2] == [
+        ("v2026-06+i1", True),
+        ("v2026-06", False),
+    ]
+    mexico = next(e for e in section.data.entries if e.jurisdiction == "Mexico")
+    assert mexico.rating == 4
+    assert config_reference.events == []
+    active = await config_reference.jurisdiction_list(None)
+    assert active is not None
+    assert active.version == "v2026-06"
+    assert (await config_service.pinned_versions()).jurisdictions_v == "v2026-06"
+    await edit(config_service, "jurisdiction-risk", "internal.mexico", "2")
+    again = await publish(config_service, "jurisdiction-risk")
+    assert again.active_version == "v2026-06+i2"
+
+
+async def test_a_fatf_sync_carries_the_internal_ratings_over(
+    config_service: ConfigService, config_reference: InMemoryReferenceStore
+) -> None:
+    await edit(config_service, "jurisdiction-risk", "internal.mexico", "4")
+    await publish(config_service, "jurisdiction-risk")
+    await edit(config_service, "jurisdiction-risk", "fatf_sync", "v2026-10-fixture")
+    section = await publish(config_service, "jurisdiction-risk")
+    assert section.active_version == "v2026-10-fixture"
+    assert [e.type for e in config_reference.events] == ["jurisdiction.list_published"]
+    mexico = next(e for e in section.data.entries if e.jurisdiction == "Mexico")
+    assert mexico.rating == 4
+    assert (await config_service.pinned_versions()).jurisdictions_v == (
+        "v2026-10-fixture"
+    )
 
 
 async def test_a_jurisdiction_publish_whose_activation_refuses_writes_nothing(

@@ -93,6 +93,8 @@ export interface WorkbenchHeader {
   route: 'analyst' | 'committee' | null;
   audit: { count: number; verified: boolean };
   is_demo: boolean;
+  /** Owner replies waiting in the Inbox: answered, not yet resolved. */
+  inbox_replies: number;
 }
 
 export interface Flag {
@@ -429,6 +431,15 @@ export interface ConditionAnalyst {
   due: string;
   status: 'open' | 'scheduled' | 'evidence_submitted' | 'closed';
   from: string;
+}
+
+/** One condition in the analyst's edited list: an existing one by `id`, a new one without. */
+export interface RecommendationConditionEdit {
+  id?: string;
+  text: string;
+  owner: string;
+  due: string;
+  status: 'open' | 'scheduled';
 }
 
 export interface Recommendation {

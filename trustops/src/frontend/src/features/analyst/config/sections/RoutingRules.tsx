@@ -16,7 +16,10 @@ export function RoutingRules({ s }: { s: ConfigSectionBase<'routing-rules', Rout
           ))}
         </ol>
       </Card>
-      <Card title="Parameters" subtitle="Edit band edges in the Scoring Model section.">
+      <Card
+        title="Parameters"
+        subtitle="Edit band edges in the Scoring Model section. The SLA target sets every case's due date: business days from submission to a decision-ready case."
+      >
         <table className="w-full text-sm">
           <caption className="sr-only">Routing parameters</caption>
           <tbody>
@@ -27,7 +30,7 @@ export function RoutingRules({ s }: { s: ConfigSectionBase<'routing-rules', Rout
                 </th>
                 <td className="py-2 text-right font-bold">{p.value}</td>
                 <td className="w-20 py-2 text-right">
-                  <DraftEdit section={s.section} etag={s.draft.etag} path={p.key} label={p.label} current={p.value} />
+                  {p.editable && <DraftEdit section={s.section} etag={s.draft.etag} path={p.key} label={p.label} current={p.value} />}
                 </td>
               </tr>
             ))}

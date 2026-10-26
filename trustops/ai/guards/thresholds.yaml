@@ -57,13 +57,16 @@ restricted_terms:
 
 # Context pack section caps in tokens, design B §3.3: a section is cut at 4 characters per token; the pack totals are checked against the estimate (the larger of words x 1.35 and len(text)/3.6, ADR-77).
 # Totals: cheap <= 4600, mid <= 7500, strong/judge <= 9000.
+# `fields` is 1500 (6,000 characters) wherever an agent reads the case's fields (ADR-86): a live
+# case's fourteen required fields came to 3,853 characters against screening's 2,400, and the
+# section is never cut, so the agent failed before any model call.
 pack_section_caps:
-  screening: {fields: 600, precedents: 300}
+  screening: {fields: 1500, precedents: 300}
   intake: {field_set: 700, document: 3400}
-  research: {fields: 700, clauses: 2400, precedents: 900, jurisdictions: 300, controls: 500}
-  assessment: {fields: 700, controls: 1300, evidence: 1200, precedent_ratings: 700, clauses_brief: 400}
+  research: {fields: 1500, clauses: 2400, precedents: 900, jurisdictions: 300, controls: 500}
+  assessment: {fields: 1500, controls: 1300, evidence: 1200, precedent_ratings: 700, clauses_brief: 400}
   critic: {proposals: 4200, precedent_ratings: 600, rules: 400, evidence_dates: 400}
-  narrative_completeness: {fields: 900, findings: 700, gaps: 300, evidence_dates: 300, answers: 400}
+  narrative_completeness: {fields: 1500, findings: 700, gaps: 300, evidence_dates: 300, answers: 400}
   narrative_recommendation: {ratings: 1200, clauses: 800, planned: 200, findings: 600, gaps: 200, answers: 500, owner_facts: 300}
   examiner: {records: 5200, routing: 400}
   watchlist: {list_diff: 400, candidates: 900, clauses: 300}

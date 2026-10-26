@@ -45,8 +45,14 @@ describe('invalidationMap', () => {
   }
 
   it('maps the whole clarification.* and thread.* families to the inbox and clarifications', () => {
-    for (const type of ['clarification.sent', 'clarification.answered', 'thread.updated', 'thread.opened', 'question.asked', 'question.answered', 'values.changed']) {
+    for (const type of ['clarification.sent', 'clarification.answered', 'thread.updated', 'thread.opened', 'question.asked', 'values.changed']) {
       expect(caseKeys(type).sort(), type).toEqual(['clarifications', 'inbox']);
+    }
+  });
+
+  it('refreshes the header too when the owner replies, so the Inbox count moves', () => {
+    for (const type of ['thread.answered', 'question.answered', 'case.answered']) {
+      expect(caseKeys(type).sort(), type).toEqual(['', 'clarifications', 'inbox']);
     }
   });
 

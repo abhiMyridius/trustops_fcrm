@@ -1,5 +1,5 @@
 /**
- * 2.26 Committee › Pack: the frozen snapshot in 12 sections (score, recommendation, boundary +
+ * 2.26 Committee › Summary (the pack): the frozen snapshot in 12 sections (score, recommendation, boundary +
  * acknowledgement, overrides with reasons, removals, clauses, controls, planned, critic, rounds,
  * conditions, versions) plus addenda. Read-only; prints as a document.
  */
@@ -17,7 +17,7 @@ import { OUTCOME_LABEL, formatDateTime, formatFixed, shortHash } from '@/lib/for
 
 export function PackTab() {
   const p = useOutletContext<PackView>();
-  useDocumentTitle('Pack', p.case_id);
+  useDocumentTitle('Summary', p.case_id);
   return (
     <div className="flex flex-col gap-4">
       <div className="no-print flex flex-wrap items-center justify-end gap-3">
@@ -137,7 +137,20 @@ export function PackTab() {
         {p.planned.length === 0 ? <p className="text-text-muted">None.</p> : p.planned.map((x) => <p key={x.description}>{`${x.description} · ${x.owner} · due ${x.due}`}</p>)}
       </PackSection>
       <PackSection n={9} title="Critic findings and responses">
-        {p.critic_findings.length === 0 ? <p className="text-text-muted">None recorded.</p> : p.critic_findings.map((f) => <p key={f.id}>{f.text}</p>)}
+        {p.critic_findings.length === 0 ? <p className="text-text-muted">None recorded.</p> : p.critic_findings.map((f) => (
+            <div key={f.id} className="mb-3">
+              <p>
+                <span className="text-text-muted">[{f.type}]</span> {f.text}
+              </p>
+              {f.response ? (
+                <p className="mt-0.5 border-l-2 border-border pl-3 text-text-secondary">
+                  <span className="font-semibold">Analyst response{f.responded_by ? ` (${f.responded_by})` : ''}:</span> {f.response}
+                </p>
+              ) : (
+                <p className="mt-0.5 pl-3 text-[12px] text-text-muted">No response recorded.</p>
+              )}
+            </div>
+          ))}
       </PackSection>
       <PackSection n={10} title="Clarification rounds">
         {p.clarification_rounds.length === 0 ? (

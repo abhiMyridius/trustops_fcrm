@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fcrm_common.auth import require_roles
 from fcrm_common.errors import NotFoundError
 from fcrm_contracts.api.policy import (
@@ -23,9 +23,14 @@ from fcrm_contracts.api.policy import (
     PrecedentSearchRequest,
     PrecedentSearchResponse,
 )
-from fcrm_contracts.common import Principal
+from fcrm_contracts.common import Page, Principal
 
-from fcrm_policy.corpus import ClauseStore, corpus_label
+from fcrm_policy.corpus import (
+    DEFAULT_CLAUSE_PAGE,
+    MAX_CLAUSE_PAGE,
+    ClauseStore,
+    corpus_label,
+)
 from fcrm_policy.deps import (
     ANALYST_SEARCH_ROLES,
     REFERENCE_ROLES,
@@ -96,6 +101,30 @@ async def get_clause(
     if clause is None:
         raise NotFoundError(f"No clause {clause_id!r}.")
     return clause
+
+
+@router.get("/sources/{source_id}/clauses", response_model=Page[ClauseDetailOut])
+async def source_clauses(
+    source_id: str,
+    _principal: Annotated[Principal, Depends(require_roles(*ANALYST_SEARCH_ROLES))],
+    clauses: Annotated[ClauseStore, Depends(get_clause_store)],
+    limit: Annotated[int, Query(ge=1, le=MAX_CLAUSE_PAGE)] = DEFAULT_CLAUSE_PAGE,
+    cursor: Optional[str] = None,
+) -> Page[ClauseDetailOut]:
+    """One page of a policy source's clauses at the latest corpus version, in
+    id order, verbatim: what the Policy Corpus page lists when the analyst
+    opens a source. Follow ``next_cursor`` until it is ``None``.
+
+    Raises:
+        NotFoundError: The corpus is empty, or holds no clause of ``source_id``.
+    """
+    version = await clauses.latest_version()
+    if version is None:
+        raise NotFoundError("The policy corpus is empty.")
+    page = await clauses.page(version, cursor=cursor, limit=limit, source_id=source_id)
+    if cursor is None and not page.items:
+        raise NotFoundError(f"No clauses of source {source_id!r}.")
+    return page
 
 
 @router.post("/precedents/search", response_model=PrecedentSearchResponse)

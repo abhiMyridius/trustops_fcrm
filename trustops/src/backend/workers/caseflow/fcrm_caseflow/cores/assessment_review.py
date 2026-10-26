@@ -270,10 +270,15 @@ def _shown(value: Optional[Mapping[str, Any]]) -> str:
     return " ".join(f"{k[0].upper()}{v}" for k, v in value.items())
 
 
-def _needs_rescore(decided: GateDecided, kind: Optional[ItemKind]) -> bool:
-    """Whether the decision changed a value S2 reads."""
+def _needs_rescore(
+    decided: GateDecided, kind: Optional[ItemKind], planned: bool = False
+) -> bool:
+    """Whether the decision changed a value S2 reads. Denying a planned control
+    changes none: it was recorded and never scored (D-133)."""
     if decided.rating_or_control_changed:
         return True
+    if planned and decided.decision == "remove":
+        return False
     return kind in (ItemKind.CONTROL, ItemKind.FACTOR) and (
         decided.decision in _VALUE_DECISIONS
     )
@@ -382,7 +387,8 @@ async def review_item(step: HarnessStep, deps: StepDeps) -> StepResult:
         )
     decision_seq = await _record_decision(step, deps, decided, row)
     kind = row.kind if row is not None else decided.item_kind
-    if not _needs_rescore(decided, kind):
+    planned = row is not None and row.subject.get("planned") is True
+    if not _needs_rescore(decided, kind, planned):
         return StepResult()
     outcome = await score_case(step, deps, items)
     await push_score(step, deps, outcome, "confirmed")

@@ -661,6 +661,14 @@ async def test_one_case_runs_its_whole_cycle_through_h1_and_h2(  # noqa: PLR0915
     assert (await cycle.run()).state is CaseState.CLARIFICATION  # reading the letter
     await _ingested(cycle, SCOPE_LETTER)
     await bridge.settle()
+    # D-129: the re-run landed; the round ends when the analyst resolves the
+    # owner's answers
+    assert (await cycle.run()).state is CaseState.CLARIFICATION
+    await cycle.send(
+        "case.clarification_resolved",
+        {"case_id": CASE, "actor": ANALYST, "round": 1, "thread_ids": []},
+    )
+    await bridge.settle()
     run = await cycle.run()
     assert run.state is CaseState.REVIEW
     assert run.refs["submission_version"] == 2

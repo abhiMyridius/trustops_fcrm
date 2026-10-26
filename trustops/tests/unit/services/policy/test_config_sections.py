@@ -431,9 +431,6 @@ def test_the_boundary_distance_is_the_scoring_models_and_is_refused_here(
 @pytest.mark.parametrize(
     ("path", "good", "bad"),
     [
-        ("quorum", "5", "0"),
-        ("quorum", "9", "10"),
-        ("quorum", "3", "two"),
         ("recency", "24 months", "two years"),
         ("nearing", "5 days", "soon"),
         ("fast_lane_volume", "under $2M", "$2M"),
@@ -459,14 +456,40 @@ async def test_the_routing_view_leads_with_the_scoring_models_boundary(
         seed_body(raw_seed, "routing-rules"), env_for(config_reference, scoring)
     )
     assert [r.id for r in data.rules] == ["R1", "R2", "R3", "R4", "R5", "R6"]
-    assert [(p.key, p.value) for p in data.parameters] == [
-        ("boundary", "0.5"),
-        ("recency", "18 months"),
-        ("nearing", "3 days"),
-        ("fast_lane_volume", "under $5M"),
-        ("quorum", "3"),
-        ("reminder", "14 days before due"),
+    assert [(p.key, p.value, p.editable) for p in data.parameters] == [
+        ("boundary", "0.5", False),
+        ("sla", "2 business days", False),
+        ("recency", "18 months", True),
+        ("nearing", "3 days", True),
+        ("fast_lane_volume", "under $5M", True),
+        ("reminder", "14 days before due", True),
     ]
+
+
+async def test_an_older_body_still_holding_the_quorum_hides_it_and_refuses_it(
+    raw_seed: dict[str, Any], config_reference: InMemoryReferenceStore
+) -> None:
+    """The committee quorum left the page for the case SLA; a body published
+    before that still holds it, and it is neither shown nor editable."""
+    spec = section_spec("routing-rules")
+    body = seed_body(raw_seed, "routing-rules")
+    body["parameters"].append(
+        {"key": "quorum", "label": "Committee quorum", "value": "3"}
+    )
+    data = await spec.view(
+        body, env_for(config_reference, seed_body(raw_seed, "scoring-model"))
+    )
+    assert "quorum" not in {p.key for p in data.parameters}
+    with pytest.raises(ValidationError):
+        spec.normalise(body, "quorum", "5")
+
+
+def test_the_case_sla_shown_is_the_one_due_dates_use() -> None:
+    from fcrm_case.domain.analyst_views import SLA_BUSINESS_DAYS
+    from fcrm_case.po_views import TARGET_BUSINESS_DAYS
+    from fcrm_contracts.sla import CASE_SLA_BUSINESS_DAYS
+
+    assert SLA_BUSINESS_DAYS == TARGET_BUSINESS_DAYS == CASE_SLA_BUSINESS_DAYS
 
 
 # ── jurisdiction-risk ───────────────────────────────────────────────────────
@@ -484,6 +507,59 @@ async def test_the_jurisdiction_view_shows_the_list_in_force_and_the_fixture(
     assert data.fixture.version == "v2026-10-fixture"
     assert data.fixture.added == ["Algeria", "Namibia"]
     assert "never silently" in data.unlisted_default
+
+
+async def test_the_jurisdiction_list_rates_every_country_on_the_1_to_5_scale(
+    raw_seed: dict[str, Any], config_reference: InMemoryReferenceStore
+) -> None:
+    """The FATF blacklist is 5 and the grey list 4, read-only; the internal
+    methodology rates the rest, editable; strictest first, then by name."""
+    data = await section_spec("jurisdiction-risk").view(
+        seed_body(raw_seed, "jurisdiction-risk"), env_for(config_reference, {})
+    )
+    assert [(a.level, a.label) for a in data.anchors] == [
+        (1, "Low"),
+        (2, "Standard"),
+        (3, "Elevated"),
+        (4, "High"),
+        (5, "Severe"),
+    ]
+    by_name = {e.jurisdiction: e for e in data.entries}
+    iran, kenya, mexico = by_name["Iran"], by_name["Kenya"], by_name["Mexico"]
+    assert (iran.rating, iran.rating_label, iran.editable) == (5, "Severe", False)
+    assert iran.source == "FATF blacklist (call for action)"
+    assert (kenya.rating, kenya.source_type, kenya.path) == (4, "external", None)
+    assert (mexico.rating, mexico.source_type, mexico.editable) == (3, "internal", True)
+    assert mexico.path == "internal.mexico"
+    assert mexico.source == "Internal AML jurisdiction methodology"
+    assert [e.rating for e in data.entries] == sorted(
+        (e.rating for e in data.entries), reverse=True
+    )
+    assert len(data.entries) == 3 + 22 + 24
+    assert len(by_name) == len(data.entries), "a country appears once"
+
+
+async def test_an_internal_rating_is_edited_from_1_to_5_unless_fatf_lists_it(
+    raw_seed: dict[str, Any], config_reference: InMemoryReferenceStore
+) -> None:
+    spec = section_spec("jurisdiction-risk")
+    body = seed_body(raw_seed, "jurisdiction-risk")
+    assert spec.value_of(body, "internal.mexico") == "3"
+    assert spec.normalise(body, "internal.mexico", " 4 ") == "4"
+    for bad in ("0", "6", "high"):
+        with pytest.raises(ValidationError):
+            spec.normalise(body, "internal.mexico", bad)
+    with pytest.raises(ValidationError):
+        spec.normalise(body, "internal.atlantis", "2")
+    body["internal"].append({"id": "kenya", "jurisdiction": "Kenya", "rating": 2})
+    with pytest.raises(ValidationError, match="FATF-listed"):
+        spec.normalise(body, "internal.kenya", "3")
+    data = await spec.view(body, env_for(config_reference, {}))
+    kenya = [e for e in data.entries if e.jurisdiction == "Kenya"]
+    assert len(kenya) == 1, "the FATF row only, the internal rating flagged on it"
+    assert kenya[0].rating == 4
+    assert kenya[0].note is not None
+    assert "no longer applies" in kenya[0].note
 
 
 async def test_a_target_must_be_a_stored_list_other_than_the_one_in_force(

@@ -208,6 +208,9 @@ class WorkbenchHeader(_Dto):
     route: Optional[RouteName]
     audit: AuditBadge
     is_demo: bool
+    inbox_replies: int
+    """Owner replies waiting in the Inbox: questions the owner answered that the
+    analyst has not resolved yet (round and ad-hoc)."""
 
 
 # --- the assessment summary ------------------------------------------------------

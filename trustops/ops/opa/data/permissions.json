@@ -372,24 +372,26 @@
         "effect": "allow"
       },
       {
-        "id": "case-get-cases-id-submissions-analyst",
+        "id": "case-get-cases-id-submissions-analyst-committee",
         "description": "analyst read: submissions",
         "service": "case",
         "method": "GET",
         "path": "/cases/{id}/submissions",
         "roles": [
-          "fcrm_analyst"
+          "fcrm_analyst",
+          "fcrm_committee"
         ],
         "effect": "allow"
       },
       {
-        "id": "case-get-cases-id-submissions-diff-analyst",
+        "id": "case-get-cases-id-submissions-diff-analyst-committee",
         "description": "analyst read: submissions/diff",
         "service": "case",
         "method": "GET",
         "path": "/cases/{id}/submissions/diff",
         "roles": [
-          "fcrm_analyst"
+          "fcrm_analyst",
+          "fcrm_committee"
         ],
         "effect": "allow"
       },

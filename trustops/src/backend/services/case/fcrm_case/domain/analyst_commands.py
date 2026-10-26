@@ -53,6 +53,7 @@ from fcrm_contracts.enums import (
 )
 from fcrm_contracts.events.envelope import Envelope
 from fcrm_contracts.events.payloads import (
+    CaseClarificationResolved,
     CaseClarificationSent,
     CaseLocked,
     CaseQuestionAsked,
@@ -886,12 +887,36 @@ def resolve_thread_command(
     by: str,
     by_name: str,
     now: datetime,
+    closes_round: Sequence[ClarificationThreadRow] = (),
+    run_id: Optional[str] = None,
 ) -> AnalystCommand:
-    """The command that resolves an answered question."""
+    """The command that resolves an answered question. ``closes_round`` is the
+    round's questions when this resolution is the last one open and the case is
+    still in the clarification stage: ``case.clarification_resolved`` then tells
+    Caseflow the analyst is done with the owner's answers (D-129).
+    """
     where = "" if thread.kind == "adhoc" else f" (round {thread.round})"
+    events = (
+        [
+            build_envelope(
+                "case.clarification_resolved",
+                CaseClarificationResolved(
+                    case_id=case_id,
+                    actor=by,
+                    round=thread.round,
+                    thread_ids=[t.thread_id for t in closes_round],
+                ).model_dump(mode="json"),
+                case_id=case_id,
+                run_id=run_id,
+            )
+        ]
+        if closes_round
+        else []
+    )
     return AnalystCommand(
         case_id=case_id,
         actor=by,
+        events=events,
         resolutions=[ThreadResolution(thread.thread_id, by, now, note)],
         activity=[
             activity_row(

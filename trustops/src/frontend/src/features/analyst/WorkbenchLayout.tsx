@@ -137,7 +137,7 @@ export function WorkbenchLayout() {
           tabs={[
             { key: 'summary', label: 'Summary' },
             { key: 'submission', label: 'Submission' },
-            { key: 'inbox', label: 'Inbox' },
+            { key: 'inbox', label: 'Inbox', count: w.inbox_replies, countLabel: 'replies from the owner' },
             { key: 'policy', label: 'Policy' },
             { key: 'risk-controls', label: 'Risk & Controls' },
             { key: 'recommendation', label: 'Recommendation' },

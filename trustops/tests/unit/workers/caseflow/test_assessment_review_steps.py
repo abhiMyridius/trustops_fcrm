@@ -851,3 +851,29 @@ class TestRerunRequested:
 
         assert "treated as full" in _record(recording_audit, "agent.rerun").summary
         assert result.refs_patch[RERUN_REF]["scope"] == "full"
+
+
+class TestPlannedControlDenied:
+    """D-133: a planned control was recorded and never scored, so denying it
+    needs no re-score; denying a scored control still does."""
+
+    @staticmethod
+    def _needs(decision: str, *, planned: bool, changed: bool) -> bool:
+        from fcrm_caseflow.cores.assessment_review import _needs_rescore
+        from fcrm_contracts.enums import ItemKind
+        from fcrm_contracts.events.payloads import GateDecided
+
+        decided = GateDecided.model_validate(
+            _decided("itm_x", decision, changed=changed)
+        )
+        return _needs_rescore(decided, ItemKind.CONTROL, planned)
+
+    def test_denying_a_planned_control_does_not_rescore(self) -> None:
+        assert self._needs("remove", planned=True, changed=False) is False
+
+    def test_denying_a_scored_control_still_rescores(self) -> None:
+        assert self._needs("remove", planned=False, changed=True) is True
+        assert self._needs("remove", planned=False, changed=False) is True
+
+    def test_confirming_a_planned_control_is_only_recorded(self) -> None:
+        assert self._needs("confirm", planned=True, changed=False) is False

@@ -86,6 +86,8 @@ export const paths = {
   policy: {
     search: `${API_PREFIX}/policy/search`,
     clause: (clauseId: string) => `${API_PREFIX}/policy/clauses/${e(clauseId)}`,
+    /** Every clause of one policy source at the latest corpus version (the Policy Corpus page). */
+    sourceClauses: (sourceId: string) => `${API_PREFIX}/policy/sources/${e(sourceId)}/clauses`,
     config: (s: ConfigSectionKey) => `${API_PREFIX}/policy/config/${s}`,
     configDraft: (s: ConfigSectionKey) => `${API_PREFIX}/policy/config/${s}/draft`,
     configPreview: (s: ConfigSectionKey) => `${API_PREFIX}/policy/config/${s}/draft/preview`,

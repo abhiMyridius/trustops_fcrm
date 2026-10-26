@@ -96,17 +96,17 @@ PRELUDE: Final[frozenset[str]] = frozenset(
 MAX_OMITTED_IDS: Final = 6
 
 DEFAULT_SECTION_TOKEN_CAPS: Final[Mapping[str, Mapping[str, int]]] = {
-    "screening": {"fields": 600, "precedents": 300},
+    "screening": {"fields": 1500, "precedents": 300},
     "intake": {"field_set": 700, "document": 3400},
     "research": {
-        "fields": 700,
+        "fields": 1500,
         "clauses": 2400,
         "precedents": 900,
         "jurisdictions": 300,
         "controls": 500,
     },
     "assessment": {
-        "fields": 700,
+        "fields": 1500,
         "controls": 1300,
         "evidence": 1200,
         "precedent_ratings": 700,
@@ -119,7 +119,7 @@ DEFAULT_SECTION_TOKEN_CAPS: Final[Mapping[str, Mapping[str, int]]] = {
         "evidence_dates": 400,
     },
     "narrative_completeness": {
-        "fields": 900,
+        "fields": 1500,
         "findings": 700,
         "gaps": 300,
         "evidence_dates": 300,

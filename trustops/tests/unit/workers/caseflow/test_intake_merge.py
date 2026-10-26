@@ -218,6 +218,43 @@ class TestGaps:
         merged = merge_intake(shards, run_id=RUN)
         assert merged.gaps == ()
 
+    def test_a_question_that_names_no_field_is_tied_to_the_field_it_asks_about(
+        self,
+    ) -> None:
+        """D-128: "Who is the change owner?" with no field id was asked beside
+        the F01 question; it is the F01 question."""
+        unfielded = {
+            **gap("Q01", None),
+            "text": "Who is the change owner?",
+        }
+        shards = [
+            result("job_a", gap("q_F01", "F01", blocking=True)),
+            result("job_b", unfielded),
+            result(
+                "job_c",
+                {
+                    **gap("Q03", None, blocking=False),
+                    "text": "What is the product sign-off reference?",
+                },
+            ),
+        ]
+        labels = {"F01": "Change owner", "F30": "Product sign-off reference"}
+
+        merged = merge_intake(shards, run_id=RUN, labels=labels)
+
+        assert [(g.question_id, g.field_id, g.label) for g in merged.gaps] == [
+            ("Q01", "F01", "Change owner"),
+            ("Q03", "F30", "Product sign-off reference"),
+        ]
+
+    def test_an_inferred_field_another_document_answered_is_dropped(self) -> None:
+        shards = [
+            result("job_a", {**gap("Q01", None), "text": "Who is the change owner?"}),
+            result("job_b", extraction(field("F01", "Jane Doe, Payments"))),
+        ]
+        merged = merge_intake(shards, run_id=RUN, labels={"F01": "Change owner"})
+        assert merged.gaps == ()
+
     def test_a_question_with_no_field_is_kept_under_its_own_id(self) -> None:
         shard = result("job_a", gap("q1", None), gap("q2", None))
         merged = merge_intake([shard], run_id=RUN)
@@ -274,3 +311,75 @@ class TestMalformedOutput:
             (),
         )
         assert merged.candidates_found == 0
+
+
+class TestAlternatives:
+    """D-132: the owner can switch to another value intake found for a field."""
+
+    def test_the_other_distinct_values_are_kept_most_confident_first(self) -> None:
+        shards = [
+            result(
+                "job_a",
+                extraction(
+                    field(
+                        "F04",
+                        "Registered charities, income below GBP 5m",
+                        0.95,
+                        source=src("doc_1", 1, 26),
+                    ),
+                    field(
+                        "F04", "Registered charities", 0.8, source=src("doc_2", 2, 4)
+                    ),
+                ),
+            ),
+            result(
+                "job_b",
+                extraction(
+                    field(
+                        "F04",
+                        "Charities and community interest companies",
+                        0.6,
+                        source=src("doc_3", 3, 11),
+                    ),
+                ),
+            ),
+        ]
+
+        [value] = merge_intake(shards, run_id=RUN).values
+
+        assert value.value == "Registered charities, income below GBP 5m"
+        assert value.candidates == 3
+        assert [(a.value, a.source.doc_id) for a in value.alternatives] == [
+            ("Registered charities", "doc_2"),
+            ("Charities and community interest companies", "doc_3"),
+        ]
+
+    def test_the_same_value_in_another_spelling_is_not_an_alternative(self) -> None:
+        shard = result(
+            "job_a",
+            extraction(
+                field("F03", "Q2 2027", 0.9, source=src("doc_1", 1, 68)),
+                field("F03", "  q2   2027 ", 0.7, source=src("doc_2", 1, 5)),
+            ),
+        )
+
+        [value] = merge_intake([shard], run_id=RUN).values
+
+        assert (value.candidates, value.alternatives) == (1, [])
+
+    def test_only_the_first_few_are_kept_but_all_are_counted(self) -> None:
+        fields = [
+            field(
+                "F02", f"Description {n}", 0.9 - n / 100, source=src("doc_1", 1, n + 1)
+            )
+            for n in range(9)
+        ]
+
+        [value] = merge_intake(
+            [result("job_a", extraction(*fields))], run_id=RUN
+        ).values
+
+        assert value.candidates == 9
+        assert [a.value for a in value.alternatives] == [
+            f"Description {n}" for n in range(1, 6)
+        ]

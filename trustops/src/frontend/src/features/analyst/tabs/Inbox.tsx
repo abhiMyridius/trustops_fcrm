@@ -242,6 +242,11 @@ export function AnalystInboxTab() {
           )}
           {v.rounds.map((r) => (
             <Card key={r.round} title={`Round ${r.round} · sent ${formatDateTime(r.sent_at)} to ${r.to}`}>
+              {w.stage === 'awaiting_business' && r.threads.some((t) => t.status !== 'resolved') && (
+                <p className="mb-3 text-[13px] text-text-secondary">
+                  The clarification stage ends when you resolve every answer below; the case then moves to review.
+                </p>
+              )}
               <ul className="flex flex-col gap-3">
                 {r.threads.map((t) => (
                   <ThreadItem key={t.id} t={t} onResolve={onResolve} resolving={resolve.isPending} />

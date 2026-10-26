@@ -61,9 +61,21 @@ from fcrm_common.mongo import Document, with_transaction
 from fcrm_common.outbox import Outbox
 from fcrm_contracts.api.audit import RecordAppend
 from fcrm_contracts.common import GateDecision, Principal
-from fcrm_contracts.enums import AgentName, CaseState, GateType, Role, StepKind
+from fcrm_contracts.enums import (
+    AgentName,
+    CaseState,
+    GateStatus,
+    GateType,
+    Role,
+    StepKind,
+)
 from fcrm_contracts.events.envelope import Envelope
-from fcrm_contracts.events.payloads import AgentFailed, GateOpened, HarnessStep
+from fcrm_contracts.events.payloads import (
+    AgentFailed,
+    CaseIntakeRecover,
+    GateOpened,
+    HarnessStep,
+)
 from fcrm_guardrails.base import AUDIT_TYPES, GuardName, GuardResult, GuardStatus
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -689,6 +701,11 @@ class CaseflowEngine:
         run: CaseRun,
         session: AsyncClientSession,
     ) -> Optional[tuple[Trigger, TransitionContext]]:
+        intake_failure = await self._resolve_intake_failure(envelope, run, session)
+        if intake_failure is not None:
+            return intake_failure
+        if envelope.type == Trigger.CASE_INTAKE_RECOVER.value:
+            return await self._resolve_intake_recover(envelope, run, session)
         simple = resolve_simple(envelope)
         if simple is not None:
             return simple.trigger, simple.context
@@ -702,6 +719,68 @@ class CaseflowEngine:
             extra={"case_id": envelope.case_id, "run_id": envelope.run_id},
         )
         return None
+
+    async def _resolve_intake_failure(
+        self,
+        envelope: Envelope,
+        run: CaseRun,
+        session: AsyncClientSession,
+    ) -> Optional[tuple[Trigger, TransitionContext]]:
+        """An intake job that failed while the case is still in INTAKE (D-130):
+        clear its join entry, so the others' last ``agent.done`` publishes, and
+        keep the run with the owner (``INTAKE_JOB_FAILED``), never HANDOFF.
+        ``None`` for every other ``agent.failed`` and every other event.
+        """
+        if envelope.type != "agent.failed" or run.state is not CaseState.INTAKE:
+            return None
+        failed = AgentFailed.model_validate(envelope.payload)
+        if failed.agent is not AgentName.INTAKE:
+            return None
+        await self._clear_join_key(run, AgentName.INTAKE, failed.job_id, session)
+        return Trigger.INTAKE_JOB_FAILED, TransitionContext()
+
+    async def _resolve_intake_recover(
+        self,
+        envelope: Envelope,
+        run: CaseRun,
+        session: AsyncClientSession,
+    ) -> Optional[tuple[Trigger, TransitionContext]]:
+        """``case.intake_recover`` (D-130): for a run in HANDOFF suspended from
+        INTAKE, close its open handoff gates (the stalled intake jobs: what they
+        would have read the owner now enters), drop their join entries, and
+        resume to INTAKE. Any other run is left alone (logged, acknowledged).
+        """
+        recover = CaseIntakeRecover.model_validate(envelope.payload)
+        if (
+            run.state is not CaseState.HANDOFF
+            or run.suspended_from is not CaseState.INTAKE
+        ):
+            logger.warning(
+                "case.intake_recover for a run not held from INTAKE; ignored",
+                extra={"case_id": envelope.case_id, "state": run.state.value},
+            )
+            return None
+        for gate_id in await self._gates.open_ids(
+            run.snapshot.case_id,
+            GateType.HANDOFF,
+            run_id=run.snapshot.run_id,
+            session=session,
+        ):
+            await self._gates.close_if_open(
+                gate_id,
+                status=GateStatus.EXPIRED,
+                decision="superseded",
+                reason=recover.reason,
+                session=session,
+            )
+        for key in list(run.pending_agents):
+            if key.startswith(AgentName.INTAKE.value):
+                await self._runs.remove_pending_agent(
+                    run.snapshot.run_id, key, session=session
+                )
+        return Trigger.CASE_INTAKE_RECOVER, TransitionContext(
+            resume_state=CaseState.INTAKE
+        )
 
     async def _resolve_gate_decided(
         self,

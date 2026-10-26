@@ -89,6 +89,10 @@ shared_router = APIRouter(
 
 Analyst = Annotated[Principal, Depends(require_roles(Role.ANALYST))]
 Reader = Annotated[Principal, Depends(require_roles(Role.PO, Role.ANALYST))]
+#: The committee reads a case's submissions too (the Submission tab of its pack).
+SubmissionReader = Annotated[
+    Principal, Depends(require_roles(Role.ANALYST, Role.COMMITTEE))
+]
 #: Who may see the harness monitor (ADR-19): never the owner.
 MonitorReader = Annotated[
     Principal,
@@ -277,7 +281,7 @@ async def handoff(case_id: str, principal: Analyst, service: Service) -> Handoff
 
 @router.get("/cases/{case_id}/submissions")
 async def submissions(
-    case_id: str, principal: Analyst, service: Service
+    case_id: str, principal: SubmissionReader, service: Service
 ) -> Page[SubmissionVersion]:
     """The case's frozen submissions, oldest first: every field with its value,
     origin and source, and what a corrected value replaced.
@@ -288,7 +292,7 @@ async def submissions(
 @router.get("/cases/{case_id}/submissions/diff")
 async def submission_diff(
     case_id: str,
-    principal: Analyst,
+    principal: SubmissionReader,
     service: Service,
     from_version: Annotated[int, Query(alias="from", ge=1)],
     to_version: Annotated[int, Query(alias="to", ge=1)],

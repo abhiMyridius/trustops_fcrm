@@ -520,6 +520,25 @@
         "title": "AlwaysRequiredField",
         "type": "object"
       },
+      "AmlCategoryRef": {
+        "additionalProperties": false,
+        "description": "One of the four FFIEC BSA/AML risk categories (a scoring domain).",
+        "properties": {
+          "domain": {
+            "$ref": "#/components/schemas/Domain"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "label"
+        ],
+        "title": "AmlCategoryRef",
+        "type": "object"
+      },
       "AnswerItem": {
         "additionalProperties": false,
         "properties": {
@@ -2399,6 +2418,58 @@
         "title": "ConditionAnalyst",
         "type": "object"
       },
+      "ConditionEdit": {
+        "additionalProperties": false,
+        "description": "One condition in the analyst's edited list. ``id`` names an existing\ncondition (it keeps its source); without one, or with one the case does not\nhave, the condition is new and S1 gives it the next ``COND-n``.",
+        "properties": {
+          "due": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Due",
+            "type": "string"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "owner": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Owner",
+            "type": "string"
+          },
+          "status": {
+            "default": "open",
+            "enum": [
+              "open",
+              "scheduled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "owner",
+          "due"
+        ],
+        "title": "ConditionEdit",
+        "type": "object"
+      },
       "ConditionEvidenceBody": {
         "additionalProperties": false,
         "description": "``POST /cases/{id}/conditions/{condition_id}/evidence``: the owner's evidence.\n\nThe owner says in words what evidence they attach. (A document goes through\nthe case's own document upload; evidence is not read by an agent, so it is\ntext here.)",
@@ -4203,6 +4274,13 @@
             "title": "Always Required",
             "type": "array"
           },
+          "aml_mapping": {
+            "items": {
+              "$ref": "#/components/schemas/TypeAmlCategories"
+            },
+            "title": "Aml Mapping",
+            "type": "array"
+          },
           "completion_threshold": {
             "title": "Completion Threshold",
             "type": "number"
@@ -4223,7 +4301,8 @@
           "max_required",
           "completion_threshold",
           "always_required",
-          "per_type"
+          "per_type",
+          "aml_mapping"
         ],
         "title": "FieldSetData",
         "type": "object"
@@ -5420,6 +5499,31 @@
         "title": "JurisdictionActivateOut",
         "type": "object"
       },
+      "JurisdictionAnchor": {
+        "additionalProperties": false,
+        "description": "One level of the 1-5 jurisdiction risk scale and what it means.",
+        "properties": {
+          "definition": {
+            "title": "Definition",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "level": {
+            "title": "Level",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "level",
+          "label",
+          "definition"
+        ],
+        "title": "JurisdictionAnchor",
+        "type": "object"
+      },
       "JurisdictionCurrent": {
         "additionalProperties": false,
         "properties": {
@@ -5479,8 +5583,22 @@
       "JurisdictionData": {
         "additionalProperties": false,
         "properties": {
+          "anchors": {
+            "items": {
+              "$ref": "#/components/schemas/JurisdictionAnchor"
+            },
+            "title": "Anchors",
+            "type": "array"
+          },
           "current": {
             "$ref": "#/components/schemas/JurisdictionCurrent"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/JurisdictionEntry"
+            },
+            "title": "Entries",
+            "type": "array"
           },
           "fixture": {
             "$ref": "#/components/schemas/JurisdictionFixture"
@@ -5493,9 +5611,89 @@
         "required": [
           "current",
           "fixture",
-          "unlisted_default"
+          "unlisted_default",
+          "anchors",
+          "entries"
         ],
         "title": "JurisdictionData",
+        "type": "object"
+      },
+      "JurisdictionEntry": {
+        "additionalProperties": false,
+        "description": "One country of the jurisdiction risk list: its rating and where it comes\nfrom. An external row (an FATF listing) is read-only; an internal one (the\nbank's own methodology) is edited through a draft at ``path``.",
+        "properties": {
+          "editable": {
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "jurisdiction": {
+            "title": "Jurisdiction",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "rating": {
+            "title": "Rating",
+            "type": "integer"
+          },
+          "rating_label": {
+            "title": "Rating Label",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_type": {
+            "enum": [
+              "external",
+              "internal"
+            ],
+            "title": "Source Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "jurisdiction",
+          "rating",
+          "rating_label",
+          "source",
+          "publisher",
+          "source_type",
+          "editable",
+          "path",
+          "note"
+        ],
+        "title": "JurisdictionEntry",
         "type": "object"
       },
       "JurisdictionFixture": {
@@ -6815,6 +7013,28 @@
             },
             "title": "Records",
             "type": "array"
+          },
+          "responded_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responded By"
+          },
+          "response": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response"
           },
           "severity": {
             "enum": [
@@ -9621,7 +9841,7 @@
       },
       "RecommendationEditBody": {
         "additionalProperties": false,
-        "description": "``PUT /cases/{id}/recommendation``: what the analyst changed in the draft.\nEach field is optional; an absent one is not edited (the draft stands). The\nanalyst's own edits need no reason; the lock and the unlock are separate\ngates.",
+        "description": "``PUT /cases/{id}/recommendation``: what the analyst changed in the draft.\nEach field is optional; an absent one is not edited (the draft stands). The\nanalyst's own edits need no reason; the lock and the unlock are separate\ngates. ``conditions`` is the whole list as the analyst wants it: it replaces\nthe draft's, so a condition left out is removed.",
         "properties": {
           "business_summary": {
             "anyOf": [
@@ -9634,6 +9854,21 @@
               }
             ],
             "title": "Business Summary"
+          },
+          "conditions": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ConditionEdit"
+                },
+                "maxItems": 20,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conditions"
           },
           "narrative": {
             "anyOf": [
@@ -10176,6 +10411,13 @@
       "ReviewRowPO": {
         "additionalProperties": false,
         "properties": {
+          "alternatives": {
+            "items": {
+              "$ref": "#/components/schemas/ValueAlternativePO"
+            },
+            "title": "Alternatives",
+            "type": "array"
+          },
           "always_required": {
             "title": "Always Required",
             "type": "boolean"
@@ -10240,6 +10482,7 @@
           "origin",
           "source",
           "original",
+          "alternatives",
           "always_required"
         ],
         "title": "ReviewRowPO",
@@ -10639,6 +10882,10 @@
       "RoutingParameter": {
         "additionalProperties": false,
         "properties": {
+          "editable": {
+            "title": "Editable",
+            "type": "boolean"
+          },
           "key": {
             "title": "Key",
             "type": "string"
@@ -10655,7 +10902,8 @@
         "required": [
           "key",
           "label",
-          "value"
+          "value",
+          "editable"
         ],
         "title": "RoutingParameter",
         "type": "object"
@@ -12656,6 +12904,33 @@
         "title": "ThreadResolveResult",
         "type": "object"
       },
+      "TypeAmlCategories": {
+        "additionalProperties": false,
+        "description": "The AML risk categories a change type brings a case into: the risk areas\nthe case is assessed in (Risk & Controls).",
+        "properties": {
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/AmlCategoryRef"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ChangeType"
+          }
+        },
+        "required": [
+          "type",
+          "label",
+          "categories"
+        ],
+        "title": "TypeAmlCategories",
+        "type": "object"
+      },
       "TypeCount": {
         "additionalProperties": false,
         "properties": {
@@ -12763,6 +13038,25 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "ValueAlternativePO": {
+        "additionalProperties": false,
+        "description": "Another value found in the owner's documents for a field, and where.",
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/SourceRef"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "source"
+        ],
+        "title": "ValueAlternativePO",
+        "type": "object"
+      },
       "ValueDecisionBody": {
         "additionalProperties": false,
         "properties": {
@@ -12808,6 +13102,13 @@
       "ValuePO": {
         "additionalProperties": false,
         "properties": {
+          "alternatives": {
+            "items": {
+              "$ref": "#/components/schemas/ValueAlternativePO"
+            },
+            "title": "Alternatives",
+            "type": "array"
+          },
           "always_required": {
             "title": "Always Required",
             "type": "boolean"
@@ -12873,6 +13174,7 @@
           "origin",
           "source",
           "candidates",
+          "alternatives",
           "always_required"
         ],
         "title": "ValuePO",
@@ -13241,6 +13543,10 @@
             "title": "Id",
             "type": "string"
           },
+          "inbox_replies": {
+            "title": "Inbox Replies",
+            "type": "integer"
+          },
           "is_demo": {
             "title": "Is Demo",
             "type": "boolean"
@@ -13341,7 +13647,8 @@
           "locked",
           "route",
           "audit",
-          "is_demo"
+          "is_demo",
+          "inbox_replies"
         ],
         "title": "WorkbenchHeader",
         "type": "object"
@@ -20096,6 +20403,83 @@
         ],
         "summary": "Search",
         "tags": [
+          "policy"
+        ]
+      }
+    },
+    "/api/fcrm/policy/sources/{source_id}/clauses": {
+      "get": {
+        "description": "One page of a policy source's clauses at the latest corpus version, in\nid order, verbatim: what the Policy Corpus page lists when the analyst\nopens a source. Follow ``next_cursor`` until it is ``None``.\n\nRaises:\n    NotFoundError: The corpus is empty, or holds no clause of ``source_id``.",
+        "operationId": "S3_source_clauses_sources__source_id__clauses_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ClauseDetailOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Source Clauses",
+        "tags": [
+          "policy",
           "policy"
         ]
       }

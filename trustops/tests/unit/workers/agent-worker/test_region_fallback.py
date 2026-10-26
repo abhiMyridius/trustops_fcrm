@@ -15,10 +15,10 @@ from unittest.mock import MagicMock
 import pytest
 from fcrm_agent_worker import app as agent_app
 from fcrm_agent_worker.live_runtime import (
-    live_model_for_slot,
     model_factory_for,
 )
 from fcrm_agent_worker.settings import AgentWorkerSettings
+from fcrm_agents.model_limits import ModelLimitsModel
 from fcrm_agents.models import TierModels, bedrock_chain, build_model, tier_models
 from fcrm_contracts.enums import Tier
 from fcrm_guardrails.budget import attempt_plan
@@ -48,8 +48,12 @@ def _provider(region: str) -> BedrockProvider:
 
 
 def _children(model: Any) -> list[BedrockConverseModel]:
+    """The chain's Bedrock models, read through the limits wrapper (ADR-83)."""
     assert isinstance(model, FallbackModel)
-    children = [m for m in model.models if isinstance(m, BedrockConverseModel)]
+    assert all(isinstance(m, ModelLimitsModel) for m in model.models)
+    children = [
+        m.wrapped for m in model.models if isinstance(m.wrapped, BedrockConverseModel)
+    ]
     assert len(children) == len(model.models)
     return children
 
@@ -97,36 +101,65 @@ def test_the_retry_chain_ends_in_its_own_first_model_never_the_rejected_one(
     assert strong.primary not in names
 
 
+class _FakeShared:
+    """A lazy shared provider over a dummy-key provider for ``region``."""
+
+    def __init__(self, region: Any) -> None:
+        self.region = region
+        self.calls = 0
+
+    def get(self) -> BedrockProvider:
+        self.calls += 1
+        return _provider(self.region or "us-east-1")
+
+
 @pytest.mark.parametrize("region", [None, "", "  "])
-def test_an_unset_region_keeps_the_plain_factory(region: Any) -> None:
-    assert model_factory_for(region, "us-east-1") is live_model_for_slot
+def test_an_unset_region_adds_no_second_region(region: Any, strong: TierModels) -> None:
+    built: list[Any] = []
+
+    def provider_for(name: Any, pool: int) -> Any:
+        built.append(name)
+        return _FakeShared(name)
+
+    factory = model_factory_for(region, "us-east-1", provider_for=provider_for)
+    chain = factory(strong, attempt_plan(Tier.STRONG, 1))
+
+    assert built == ["us-east-1"]
+    assert [m.model_name for m in _children(chain)] == list(strong.chain)
 
 
-def test_a_fallback_equal_to_the_primary_region_adds_nothing() -> None:
-    built: list[str] = []
-
-    factory = model_factory_for(
-        "us-east-1", "us-east-1", provider_for=lambda r: built.append(r) or _provider(r)
-    )
-
-    assert factory is live_model_for_slot
-    assert built == []
-
-
-def test_the_factory_builds_the_provider_once_and_adds_the_region_to_both_attempts(
+def test_a_fallback_equal_to_the_primary_region_adds_nothing(
     strong: TierModels,
 ) -> None:
-    built: list[str] = []
+    built: list[Any] = []
 
-    def provider_for(region: str) -> BedrockProvider:
-        built.append(region)
-        return _provider(region)
+    def provider_for(name: Any, pool: int) -> Any:
+        built.append(name)
+        return _FakeShared(name)
 
-    factory = model_factory_for("us-west-2", "us-east-1", provider_for=provider_for)
+    factory = model_factory_for("us-east-1", "us-east-1", provider_for=provider_for)
+    chain = factory(strong, attempt_plan(Tier.STRONG, 1))
+
+    assert built == ["us-east-1"]
+    assert [m.model_name for m in _children(chain)] == list(strong.chain)
+
+
+def test_the_factory_builds_each_provider_once_and_adds_the_region_to_both_attempts(
+    strong: TierModels,
+) -> None:
+    built: list[Any] = []
+
+    def provider_for(name: Any, pool: int) -> Any:
+        built.append((name, pool))
+        return _FakeShared(name)
+
+    factory = model_factory_for(
+        "us-west-2", "us-east-1", max_pool_connections=4, provider_for=provider_for
+    )
     first = factory(strong, attempt_plan(Tier.STRONG, 1))
     retry = factory(strong, attempt_plan(Tier.STRONG, 2))
 
-    assert built == ["us-west-2"]
+    assert built == [("us-east-1", 4), ("us-west-2", 4)]
     assert [m.model_name for m in _children(first)][-1] == "fixture-primary"
     assert [m.model_name for m in _children(retry)][-1] == "fixture-fallback-1"
     assert len(_children(first)) == len(strong.chain) + 1
@@ -165,8 +198,9 @@ def test_build_unit_asks_for_the_second_region_from_its_two_settings(
 ) -> None:
     asked: list[tuple[Any, Any]] = []
 
-    def fake_factory_for(region: Any, primary: Any) -> Any:
+    def fake_factory_for(region: Any, primary: Any, **kwargs: Any) -> Any:
         asked.append((region, primary))
+        assert kwargs == {"max_pool_connections": 2}  # AGENT_PREFETCH's default
         return "the-factory"
 
     monkeypatch.setattr(agent_app, "model_factory_for", fake_factory_for)

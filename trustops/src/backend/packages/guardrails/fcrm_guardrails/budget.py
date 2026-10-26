@@ -12,9 +12,13 @@ Budget table (BUILD-PLAN §3.4 priced it cheap 6k, mid 12k, strong 20k, judge 20
 the first live run showed a run costs more, and the tokens are now set from
 measured usage, about 30% over the p90 of an attempt, in ``ai/models/tiers.yaml``,
 which ``tests/unit/packages/agents/test_budgets_agree.py`` keeps equal to this
-table): cheap 15k tokens / 60 s, mid 15k / 120 s, strong 56k / 180 s (24k until
-a live research run needed 39.8k, ADR-81), judge 28k / 180 s (the seed's
-"strong + judge"), one retry each. A case may spend 250k tokens (the enforced
+table): cheap 60k tokens / 60 s, mid 60k / 120 s, strong 56k / 180 s, judge 56k /
+180 s (the seed's "strong + judge"), one retry each. Every tier's budget plus its
+``max_tokens`` output cap is :data:`ATTEMPT_TOKEN_CAP`, 64k an attempt (ADR-83:
+strong reached it first, ADR-81, after a live research run needed 39.8k; the
+critic then needed 45.6k against judge's 28k + 8k); a model of a chain that takes
+fewer output tokens per request is held to its own limit by
+``fcrm_agents.model_limits``. A case may spend 250k tokens (the enforced
 cap, :data:`CASE_TOKEN_CAP`; 160k, the worst case measured on the demo case,
 until the strong reservations grew, ADR-81); 120k is the target a clean run
 fits in (:data:`CASE_TOKEN_TARGET`), which the harness monitor reports against.
@@ -73,11 +77,16 @@ class TierBudget:
 
 
 TIER_BUDGETS: Final[Mapping[Tier, TierBudget]] = {
-    Tier.CHEAP: TierBudget(Tier.CHEAP, tokens=15_000, wall_s=60),
-    Tier.MID: TierBudget(Tier.MID, tokens=15_000, wall_s=120),
+    Tier.CHEAP: TierBudget(Tier.CHEAP, tokens=60_000, wall_s=60),
+    Tier.MID: TierBudget(Tier.MID, tokens=60_000, wall_s=120),
     Tier.STRONG: TierBudget(Tier.STRONG, tokens=56_000, wall_s=180),
-    Tier.JUDGE: TierBudget(Tier.JUDGE, tokens=28_000, wall_s=180),
+    Tier.JUDGE: TierBudget(Tier.JUDGE, tokens=56_000, wall_s=180),
 }
+
+ATTEMPT_TOKEN_CAP: Final[int] = 64_000
+"""What one attempt of any tier may spend: its ``tokens`` plus the tier's
+``max_tokens`` output cap (``ai/models/tiers.yaml``), which Pydantic AI's
+``total_tokens_limit`` enforces in H2 (ADR-80, ADR-83)."""
 
 CASE_TOKEN_CAP: Final[int] = 250_000
 """Tokens per case across every agent run that H1 enforces (BUILD-PLAN §3.4 priced

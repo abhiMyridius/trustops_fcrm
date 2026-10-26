@@ -135,6 +135,16 @@ class CaseRecordInternal(BaseModel):
     submission_version: Optional[int] = None
 
 
+class ValueAlternative(BaseModel):
+    """Another value intake found for the same field, with where it is (D-132):
+    what the owner may switch to when the first one is not the right one."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: str
+    source: DocSourceRef
+
+
 class ValueProposal(BaseModel):
     """One field value the intake agent extracted (from an ``ExtractedField``)."""
 
@@ -147,6 +157,9 @@ class ValueProposal(BaseModel):
     quote: str
     confidence: float = Field(ge=0.0, le=1.0)
     candidates: int = 1
+    alternatives: list[ValueAlternative] = Field(default_factory=list)
+    """The other distinct values found, most confident first (at most
+    ``MAX_ALTERNATIVES``); ``candidates`` counts every distinct value."""
 
 
 class CategoryProposalItem(BaseModel):

@@ -96,6 +96,10 @@ def po_stage(record: CaseRecord) -> POStage:
         stage = "awaiting_your_answer"
     elif state in _DRAFT_STATES:
         stage = "submitted" if submitted else "draft"
+    elif state == CaseState.HANDOFF and not submitted:
+        # A job that stalled before the owner submitted (D-130): the case is
+        # still the owner's draft, never "under assessment".
+        stage = "draft"
     elif state == _TRIAGE_STATE:
         stage = "submitted"
     else:
@@ -116,7 +120,10 @@ def stage_filter(stage: str) -> dict[str, Any]:
         ValueError: ``stage`` is not one of the six PO stages.
     """
     if stage == "draft":
-        return {"state": _states(*_DRAFT_STATES), "submitted_at": None}
+        return {
+            "state": _states(*_DRAFT_STATES, CaseState.HANDOFF),
+            "submitted_at": None,
+        }
     if stage == "submitted":
         return {
             "$or": [
@@ -125,7 +132,12 @@ def stage_filter(stage: str) -> dict[str, Any]:
             ]
         }
     if stage == "under_assessment":
-        return {"state": _states(*_ASSESSMENT_STATES)}
+        return {
+            "$or": [
+                {"state": _states(*(_ASSESSMENT_STATES - {CaseState.HANDOFF}))},
+                {"state": CaseState.HANDOFF.value, "submitted_at": {"$ne": None}},
+            ]
+        }
     if stage == "awaiting_your_answer":
         return {"state": CaseState.CLARIFICATION.value}
     if stage == "decision":

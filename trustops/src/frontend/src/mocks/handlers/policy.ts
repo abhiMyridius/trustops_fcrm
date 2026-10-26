@@ -4,7 +4,7 @@ import { API_PREFIX, paths } from '@/api/endpoints';
 import type { ConfigSectionKey } from '@/api/types/config';
 import { mockCorpus } from '../corpus';
 import { persist } from '../db';
-import { body, guarded, problem } from '../http';
+import { body, guarded, page, problem } from '../http';
 import { seed } from '../seed';
 import { SECTION_KEYS, configSection, discardDraft, etagOf, openCasesPinned, publish, saveDraft } from '../views/config';
 
@@ -51,7 +51,7 @@ export const policyHandlers = [
       const clauseId = String(params.clauseId);
       const c = seed.demo.clauses.find((x) => x.clause_id === clauseId);
       if (!c) return problem(404, 'Not found', `No clause ${clauseId}.`);
-      const page = /p\.(\d+)/.exec(c.ref);
+      const at = /p\.(\d+)/.exec(c.ref);
       return HttpResponse.json({
         clause_id: c.clause_id,
         source_id: c.src,
@@ -59,12 +59,38 @@ export const policyHandlers = [
         text: c.quote,
         ref: c.ref,
         corpus_version: Number(String(seed.corpus.version).replace(/\D/g, '')) || 0,
-        page: page ? Number(page[1]) : null,
+        page: at ? Number(at[1]) : null,
         line_start: null,
         line_end: null,
         quotable: true,
         provenance_kind: 'verbatim',
       });
+    }),
+  ),
+  // The Policy Corpus page opens a source: every clause of it the mock corpus holds; analyst only.
+  http.get(`${API_PREFIX}/policy/sources/:sourceId/clauses`, ({ request, params }) =>
+    guarded(request, ['fcrm_analyst'], () => {
+      const sourceId = String(params.sourceId);
+      const version = Number(String(seed.corpus.version).replace(/\D/g, '')) || 0;
+      const clauses = mockCorpus()
+        .filter((c) => c.src === sourceId)
+        .map((c) => {
+          const at = /p\.(\d+)/.exec(c.ref);
+          return {
+            clause_id: c.clause_id,
+            source_id: c.src,
+            title: c.title,
+            text: c.quote,
+            ref: c.ref,
+            corpus_version: version,
+            page: at ? Number(at[1]) : null,
+            line_start: null,
+            line_end: null,
+            quotable: c.quotable,
+            provenance_kind: 'verbatim',
+          };
+        });
+      return clauses.length ? page(clauses) : problem(404, 'Not found', `No clauses of source ${sourceId}.`);
     }),
   ),
   http.get(`${API_PREFIX}/policy/config/:section`, ({ request, params }) =>

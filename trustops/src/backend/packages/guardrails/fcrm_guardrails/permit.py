@@ -39,8 +39,17 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_PERMIT_TIMEOUT_S = 2.0
-"""Matches the HTTP connect timeout in BUILD-PLAN §3.9."""
+DEFAULT_PERMIT_TIMEOUT_S = 6.0
+"""The whole decision's deadline, retries included (D-130). It is longer than
+the OPA client's own 2 s HTTP timeout, so the client's transport retry can run
+inside it, and a decision OPA already answered is still read after the event
+loop stalls for a moment."""
+PERMIT_ATTEMPTS = 2
+"""A permit is asked at most twice: once, then once more on a retryable error."""
+PERMIT_RETRY_PAUSE_S = 0.2
+MIN_RETRY_WINDOW_S = 0.5
+"""A retry is only worth starting with at least this long left before the
+deadline."""
 
 
 class PermitDecision(BaseModel):
@@ -65,11 +74,23 @@ class PermitGuard(Guard):
         *,
         allow_list: Optional[Mapping[str, Collection[str]]] = None,
         timeout_s: float = DEFAULT_PERMIT_TIMEOUT_S,
+        retry_on: tuple[type[BaseException], ...] = (TimeoutError,),
     ) -> None:
-        """Check permits with ``opa``; ``allow_list`` maps agent -> tools."""
+        """Check permits with ``opa``.
+
+        Args:
+            opa: The OPA client.
+            allow_list: Agent -> the tools it may call at all.
+            timeout_s: The deadline of one decision, its retry included.
+            retry_on: The errors that mean OPA could not be asked, so the
+                decision is asked once more (a timeout; the caller adds its
+                client's "unavailable" error). A deny is never retried, and
+                every other error denies at once.
+        """
         self._opa = opa
         self._allow_list = allow_list
         self._timeout_s = timeout_s
+        self._retry_on = retry_on
 
     async def decide(
         self, *, agent: str, tool: str, case_id: str, role: str, run_id: str
@@ -80,27 +101,56 @@ class PermitGuard(Guard):
             return PermitDecision(
                 tool=tool, allowed=False, reason="not in the agent's tool list"
             )
-        try:
-            verdict = await asyncio.wait_for(
-                self._opa.tool_permit(
-                    agent=agent, tool=tool, case_id=case_id, role=role, run_id=run_id
-                ),
-                timeout=self._timeout_s,
-            )
-        except TimeoutError:
-            logger.warning(
-                "opa permit timed out; denying",
-                extra={"agent": agent, "tool": tool, "case_id": case_id},
-            )
-            return PermitDecision(tool=tool, allowed=False, reason="opa timeout")
-        except Exception as exc:  # deny-closed on any client failure (see module doc)
-            logger.exception(
-                "opa permit failed; denying",
-                extra={"agent": agent, "tool": tool, "case_id": case_id},
-            )
-            return PermitDecision(
-                tool=tool, allowed=False, reason=f"opa error: {type(exc).__name__}"
-            )
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + self._timeout_s
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                verdict = await asyncio.wait_for(
+                    self._opa.tool_permit(
+                        agent=agent,
+                        tool=tool,
+                        case_id=case_id,
+                        role=role,
+                        run_id=run_id,
+                    ),
+                    timeout=max(deadline - loop.time(), 0.0),
+                )
+            except self._retry_on as exc:
+                left = deadline - loop.time()
+                extra = {"agent": agent, "tool": tool, "case_id": case_id}
+                if attempt < PERMIT_ATTEMPTS and left > MIN_RETRY_WINDOW_S:
+                    logger.warning(
+                        "opa permit not answered (%s); asking once more",
+                        type(exc).__name__,
+                        extra=extra,
+                    )
+                    await asyncio.sleep(PERMIT_RETRY_PAUSE_S)
+                    continue
+                if isinstance(exc, TimeoutError):
+                    logger.warning("opa permit timed out; denying", extra=extra)
+                    return PermitDecision(
+                        tool=tool, allowed=False, reason="opa timeout"
+                    )
+                logger.warning(
+                    "opa permit unavailable; denying",
+                    extra={**extra, "error": type(exc).__name__},
+                )
+                return PermitDecision(
+                    tool=tool,
+                    allowed=False,
+                    reason=f"opa unavailable: {type(exc).__name__}",
+                )
+            except Exception as exc:  # deny-closed on any client failure (module doc)
+                logger.exception(
+                    "opa permit failed; denying",
+                    extra={"agent": agent, "tool": tool, "case_id": case_id},
+                )
+                return PermitDecision(
+                    tool=tool, allowed=False, reason=f"opa error: {type(exc).__name__}"
+                )
+            break
         if verdict is True:
             return PermitDecision(tool=tool, allowed=True, reason="opa allow")
         return PermitDecision(tool=tool, allowed=False, reason="opa deny")

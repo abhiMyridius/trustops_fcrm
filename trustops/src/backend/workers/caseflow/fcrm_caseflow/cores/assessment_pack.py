@@ -500,6 +500,38 @@ def pack_clause(row: ReviewItemInternal) -> dict[str, Any]:
     }
 
 
+def _who(record: CaseRecordInternal, who: Optional[str]) -> str:
+    """A person as the committee reads them: the name of the case's owner or
+    analyst when ``who`` is their user id, else ``who`` as it came.
+    """
+    if not who:
+        return ""
+    for person in (record.analyst, record.owner):
+        if person is not None and person.id == who:
+            return str(person.name)
+    return who
+
+
+def _critic_finding(
+    record: CaseRecordInternal, row: ReviewItemInternal
+) -> dict[str, Any]:
+    """A critic finding for the pack, with the analyst's response when there is
+    one. The response keys are left out when there is none, so a finding nobody
+    answered hashes as it always did.
+    """
+    finding: dict[str, Any] = {
+        "id": row.item_id,
+        "type": row.subject.get("finding_type"),
+        "severity": row.subject.get("severity"),
+        "text": row.subject.get("text"),
+        "records": _record_seqs(row.subject.get("record_refs", [])),
+    }
+    if row.decided is not None and row.decided.reason:
+        finding["response"] = row.decided.reason
+        finding["responded_by"] = _who(record, row.decided.by)
+    return finding
+
+
 def build_pack_snapshot(inputs: PackInputs) -> dict[str, Any]:
     """The frozen content of the pack: ``PackView``'s body (design C §1.4, the
     web's ``PackView`` less the fields S5 adds: id, version, hash, status, the
@@ -534,8 +566,10 @@ def build_pack_snapshot(inputs: PackInputs) -> dict[str, Any]:
         "boundary": {
             "flag": response.boundary_flag,
             "distance": response.boundary_distance,
-            "acknowledged_by": inputs.acknowledged_by,
-            "text": _boundary_text(response, inputs.acknowledged_by),
+            "acknowledged_by": _who(record, inputs.acknowledged_by) or None,
+            "text": _boundary_text(
+                response, _who(record, inputs.acknowledged_by) or None
+            ),
         },
         "recommendation": {
             "outcome": outcome.value,
@@ -559,7 +593,7 @@ def build_pack_snapshot(inputs: PackInputs) -> dict[str, Any]:
                 "item": o.subject_id,
                 "from": o.proposed.get("rating"),
                 "to": o.decided.get("rating"),
-                "by": o.by,
+                "by": _who(record, o.by),
                 "reason": o.reason or "",
                 "record_seq": None,
             }
@@ -569,7 +603,7 @@ def build_pack_snapshot(inputs: PackInputs) -> dict[str, Any]:
             {
                 "item": str(r.subject.get("clause_id") or r.subject.get("control_id")),
                 "reason": r.decided.reason or "",
-                "by": r.decided.by,
+                "by": _who(record, r.decided.by),
             }
             for r in current
             if r.status is ItemStatus.REMOVED and r.decided is not None
@@ -595,13 +629,7 @@ def build_pack_snapshot(inputs: PackInputs) -> dict[str, Any]:
             if r.kind is ItemKind.CONTROL and r.subject.get("planned")
         ],
         "critic_findings": [
-            {
-                "id": r.item_id,
-                "type": r.subject.get("finding_type"),
-                "severity": r.subject.get("severity"),
-                "text": r.subject.get("text"),
-                "records": _record_seqs(r.subject.get("record_refs", [])),
-            }
+            _critic_finding(record, r)
             for r in current
             if r.kind is ItemKind.CRITIC_FINDING
         ],

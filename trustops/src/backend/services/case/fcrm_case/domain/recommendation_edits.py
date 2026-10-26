@@ -28,6 +28,7 @@ from typing import Final, Optional
 
 from fcrm_contracts.api.case_analyst_close import ConditionAnalyst
 from fcrm_contracts.api.case_analyst_write import (
+    ConditionEdit,
     Recommendation,
     RecommendationEditBody,
     RestrictedScan,
@@ -182,17 +183,73 @@ def _edited_sections(
     return [s for s in wanted if drafted.get(s.key) != s.text]
 
 
+#: The source a condition the analyst added carries.
+ADDED_SOURCE: Final = "added by the analyst"
+_CONDITION_NUMBER: Final = re.compile(r"(\d+)$")
+
+
+def edited_conditions(
+    state: RecommendationState, items: Sequence[ConditionEdit]
+) -> list[Condition]:
+    """The conditions ``items`` make: a known ``id`` keeps its source, anything
+    else is new, takes the next free ``COND-n`` and the analyst source.
+    """
+    known = {c.condition_id: c for c in effective_conditions(state)}
+    used = {i.id for i in items if i.id in known}
+    top = 0
+    for cid in [*known, *used]:
+        found = _CONDITION_NUMBER.search(cid)
+        top = max(top, int(found.group(1)) if found else 0)
+    result: list[Condition] = []
+    seen: set[str] = set()
+    for item in items:
+        if item.id in known and item.id not in seen:
+            cid, source = item.id, known[item.id].source
+        else:
+            top += 1
+            cid, source = f"COND-{top}", ADDED_SOURCE
+        seen.add(cid)
+        result.append(
+            Condition(
+                condition_id=cid,
+                text=item.text,
+                owner=item.owner,
+                due=item.due,
+                status=item.status,
+                source=source,
+            )
+        )
+    return result
+
+
+def changed_condition_texts(
+    state: RecommendationState, items: Sequence[ConditionEdit]
+) -> list[str]:
+    """The texts in ``items`` that are new or reworded (the ones the restricted
+    term scan must read; an untouched condition already stands).
+    """
+    standing = {c.text for c in effective_conditions(state)}
+    return [i.text for i in items if i.text not in standing]
+
+
 def apply_edit(
     state: RecommendationState, body: RecommendationEditBody
 ) -> Optional[RecommendationEdits]:
     """The edits after ``body``, or ``None`` when it changes nothing. ``edit_count``
-    grows by the number of parts (narrative, outcome, summary) that differ from
-    what stands now. The caller scans the summary for restricted terms first.
+    grows by the number of parts (narrative, outcome, summary, conditions) that
+    differ from what stands now. The caller scans the summary and the conditions
+    for restricted terms first.
     """
     sections = list(state.edits.sections)
     outcome = state.edits.outcome
     summary = state.edits.business_summary
+    conditions = state.edits.conditions
     changed = 0
+    if body.conditions is not None:
+        wanted = edited_conditions(state, body.conditions)
+        if wanted != effective_conditions(state):
+            conditions = wanted
+            changed += 1
     if body.narrative is not None and body.narrative.strip() != effective_narrative(
         state
     ):
@@ -210,7 +267,7 @@ def apply_edit(
         return None
     return RecommendationEdits(
         sections=sections,
-        conditions=state.edits.conditions,
+        conditions=conditions,
         business_summary=summary,
         outcome=outcome,
         edit_count=state.edits.edit_count + changed,

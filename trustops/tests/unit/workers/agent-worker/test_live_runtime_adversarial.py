@@ -547,10 +547,8 @@ OVERRIDES: dict[tuple[str, AgentName], Outcome] = {
     ("nul_in_json_str", NO_QUOTE): PASS,
     # No source to break.
     ("A1_bad_source->A2_ok", NO_QUOTE): ("pass", 1, None),
-    # 200 copies are over the attempt budget plus one request's output: a budget
-    # block, never retried.
-    ("large_200", AgentName.EXAMINER): ("blocked@budget", 1, None),
-    ("large_200", AgentName.POLICY_GAP): ("blocked@budget", 1, None),
+    # 200 copies fit every tier's 64k attempt limit (ADR-83); under the mid
+    # tier's 19k they were a budget block for the examiner and policy_gap.
     **{("empty_list", agent): EMPTY_PASS for agent in MAY_BE_EMPTY},
 }
 

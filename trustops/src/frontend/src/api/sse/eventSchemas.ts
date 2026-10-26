@@ -30,6 +30,10 @@ export const invalidationMap: Record<string, string[]> = {
   'case.updated': ['', 'activity'],
   'case.state_changed': ['', 'activity'],
   'case.clarification_sent': CLARIFICATION_KEYS,
+  // An owner reply also changes the workbench header's Inbox count (`inbox_replies`).
+  'thread.answered': ['', ...CLARIFICATION_KEYS],
+  'question.answered': ['', ...CLARIFICATION_KEYS],
+  'case.answered': ['', ...CLARIFICATION_KEYS],
   // An upload landed (S1): the Documents list and its assistant line change.
   'document.stored': ['documents'],
   'document.ingested': ['documents', 'intake'],

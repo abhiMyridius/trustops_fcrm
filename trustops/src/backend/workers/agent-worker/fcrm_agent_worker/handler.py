@@ -63,6 +63,7 @@ from fcrm_agents.context_pack import (
 from fcrm_agents.pricing import PriceTable
 from fcrm_agents.runtime import AgentRunResult, AttemptRecord, RunVerdict
 from fcrm_agents.spec import AgentSpec, get_spec
+from fcrm_common.errors import AuthzUnavailableError
 from fcrm_common.events import (
     Consumer,
     Publisher,
@@ -450,7 +451,11 @@ class AgentJobConsumer(Consumer):
         )
         self._registry = registry
         self._raw_inputs = raw_inputs
-        self._permit = PermitGuard(permit_client)
+        # A timeout or an unreachable OPA is asked once more within the
+        # deadline; a deny never is (D-130).
+        self._permit = PermitGuard(
+            permit_client, retry_on=(TimeoutError, AuthzUnavailableError)
+        )
         self._audit = audit
         self._tiers_config = tiers_config
         self._metrics = metrics if metrics is not None else get_metrics()

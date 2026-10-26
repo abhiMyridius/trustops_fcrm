@@ -4,7 +4,7 @@
  * server-side with an etag so two analysts see the same working set.
  */
 import type { ChangeType, Domain } from '@/api/types/common';
-import type { ConfigSection, ConfigSectionKey, ConfigVersion } from '@/api/types/config';
+import type { ConfigSection, ConfigSectionKey, ConfigVersion, JurisdictionEntry } from '@/api/types/config';
 import { getDB, STORY_TODAY, type ConfigState } from '../db';
 import { seed, type SeedDomain } from '../seed';
 
@@ -59,6 +59,11 @@ function data(section: ConfigSectionKey): ConfigSection['data'] {
         completion_threshold: seed.field_set.completion_threshold,
         always_required: seed.field_set.always_required.map((f) => ({ id: f.id, label: f.label, note: f.note ?? null })),
         per_type: Object.entries(seed.field_set.per_type).map(([type, fields]) => ({ type: type as ChangeType, label: seed.change_types[type] ?? type, fields })),
+        aml_mapping: Object.entries(seed.change_types).map(([type, label]) => ({
+          type: type as ChangeType,
+          label,
+          categories: (seed.type_domains[type] ?? []).map((domain) => ({ domain: domain as Domain, label: seed.domains[domain] })),
+        })),
       };
     case 'categories':
       return {
@@ -100,12 +105,12 @@ function data(section: ConfigSectionKey): ConfigSection['data'] {
       return {
         rules: seed.routing.rules,
         parameters: [
-          { key: 'boundary', label: 'Boundary flag distance', value: String(seed.scoring_model.boundary_flag) },
-          { key: 'recency', label: 'Evidence recency (stale after)', value: '18 months' },
-          { key: 'nearing', label: 'Nearing-due reminder', value: '3 days' },
-          { key: 'fast_lane_volume', label: 'Fast-lane annual volume', value: 'under $5M' },
-          { key: 'quorum', label: 'Committee quorum', value: '3' },
-          { key: 'reminder', label: 'Condition reminder', value: '14 days before due' },
+          { key: 'boundary', label: 'Boundary flag distance', value: String(seed.scoring_model.boundary_flag), editable: false },
+          { key: 'sla', label: 'SLA target for closing a case', value: '2 business days', editable: false },
+          { key: 'recency', label: 'Evidence recency (stale after)', value: '18 months', editable: true },
+          { key: 'nearing', label: 'Nearing-due reminder', value: '3 days', editable: true },
+          { key: 'fast_lane_volume', label: 'Fast-lane annual volume', value: 'under $5M', editable: true },
+          { key: 'reminder', label: 'Condition reminder', value: '14 days before due', editable: true },
         ],
       };
     case 'jurisdiction-risk':
@@ -121,6 +126,8 @@ function data(section: ConfigSectionKey): ConfigSection['data'] {
         },
         fixture: { version: seed.jurisdictions.fixture.version, note: seed.jurisdictions.fixture.note, added: seed.jurisdictions.fixture.added },
         unlisted_default: 'Unlisted jurisdictions default to "standard" and are shown as such, never silently.',
+        anchors: JURISDICTION_ANCHORS.map(([level, label, definition]) => ({ level, label, definition })),
+        entries: jurisdictionEntries(),
       };
     case 'ai-agents':
       return {
@@ -192,4 +199,81 @@ export function publish(section: ConfigSectionKey, note: string, by: string): vo
   st.extraVersions.push({ version: next, published_at: STORY_TODAY, by, note });
   st.draft = [];
   st.etag += 1;
+}
+
+/** The 1-5 jurisdiction risk scale, as S3 serves it. */
+const JURISDICTION_ANCHORS: [number, string, string][] = [
+  [1, 'Low', 'Comprehensive AML regime, strong supervisory record, no international listing.'],
+  [2, 'Standard', 'Established regime with minor identified weaknesses, no listing.'],
+  [3, 'Elevated', 'Identified strategic deficiencies or elevated exposure; enhanced monitoring warranted.'],
+  [4, 'High', 'FATF grey list, or equivalent identified deficiencies under active remediation.'],
+  [5, 'Severe', 'FATF blacklist, comprehensive sanctions program, or equivalent prohibition-level exposure.'],
+];
+
+/** The internal methodology's starting ratings, as S3 seeds them. */
+const INTERNAL_JURISDICTIONS: [string, string, number][] = [
+  ['united-states', 'United States', 1],
+  ['united-kingdom', 'United Kingdom', 1],
+  ['canada', 'Canada', 1],
+  ['germany', 'Germany', 1],
+  ['france', 'France', 1],
+  ['japan', 'Japan', 1],
+  ['australia', 'Australia', 1],
+  ['switzerland', 'Switzerland', 2],
+  ['singapore', 'Singapore', 2],
+  ['hong-kong', 'Hong Kong, China', 2],
+  ['india', 'India', 2],
+  ['brazil', 'Brazil', 2],
+  ['qatar', 'Qatar', 2],
+  ['south-africa', 'South Africa', 3],
+  ['saudi-arabia', 'Saudi Arabia', 3],
+  ['united-arab-emirates', 'United Arab Emirates', 3],
+  ['indonesia', 'Indonesia', 3],
+  ['thailand', 'Thailand', 3],
+  ['mexico', 'Mexico', 3],
+  ['philippines', 'Philippines', 3],
+  ['cayman-islands', 'Cayman Islands', 3],
+  ['colombia', 'Colombia', 3],
+  ['nigeria', 'Nigeria', 3],
+  ['panama', 'Panama', 3],
+];
+
+function anchorLabel(level: number): string {
+  return JURISDICTION_ANCHORS.find(([l]) => l === level)?.[1] ?? '';
+}
+
+/** One row per jurisdiction, strictest first: FATF blacklist 5 and grey list 4 (read-only), then the internal ratings. */
+function jurisdictionEntries(): JurisdictionEntry[] {
+  const fatf = (name: string, rating: number, source: string): JurisdictionEntry => ({
+    id: `fatf-${name}`,
+    jurisdiction: name,
+    rating,
+    rating_label: anchorLabel(rating),
+    source,
+    publisher: 'Financial Action Task Force',
+    source_type: 'external',
+    editable: false,
+    path: null,
+    note: null,
+  });
+  const black = seed.jurisdictions.current.call_for_action;
+  const grey = seed.jurisdictions.current.increased_monitoring.filter((n) => !black.includes(n));
+  const listed = new Set([...black, ...grey]);
+  const rows: JurisdictionEntry[] = [
+    ...black.map((n) => fatf(n, 5, 'FATF blacklist (call for action)')),
+    ...grey.map((n) => fatf(n, 4, 'FATF grey list (increased monitoring)')),
+    ...INTERNAL_JURISDICTIONS.filter(([, name]) => !listed.has(name)).map(([id, name, rating]) => ({
+      id,
+      jurisdiction: name,
+      rating,
+      rating_label: anchorLabel(rating),
+      source: 'Internal AML jurisdiction methodology',
+      publisher: 'FCRM Sanctions',
+      source_type: 'internal' as const,
+      editable: true,
+      path: `internal.${id}`,
+      note: null,
+    })),
+  ];
+  return rows.sort((a, b) => b.rating - a.rating || a.jurisdiction.localeCompare(b.jurisdiction));
 }

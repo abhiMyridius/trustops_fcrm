@@ -88,6 +88,7 @@ _LITERAL_TRIGGERS: Final[dict[str, Trigger]] = {
     Trigger.CASE_DOCUMENT_STORED.value: Trigger.CASE_DOCUMENT_STORED,
     Trigger.CASE_SUBMITTED.value: Trigger.CASE_SUBMITTED,
     Trigger.CASE_ANSWERED.value: Trigger.CASE_ANSWERED,
+    Trigger.CASE_CLARIFICATION_RESOLVED.value: Trigger.CASE_CLARIFICATION_RESOLVED,
     Trigger.CASE_RETAGGED.value: Trigger.CASE_RETAGGED,
     Trigger.CASE_TYPES_CHANGED.value: Trigger.CASE_TYPES_CHANGED,
     Trigger.CASE_RERUN_REQUESTED.value: Trigger.CASE_RERUN_REQUESTED,

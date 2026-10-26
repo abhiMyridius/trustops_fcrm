@@ -222,6 +222,31 @@ class CaseClarificationSent(EventPayload):
     question_count: int = 0
 
 
+class CaseClarificationResolved(EventPayload):
+    """``case.clarification_resolved`` (D-129): the analyst resolved the last
+    open answer of the clarification round. Caseflow moves the case to review
+    once the re-run on the owner's answers has landed too.
+    """
+
+    case_id: str
+    actor: str
+    round: int
+    thread_ids: list[str] = Field(default_factory=list)
+
+
+class CaseIntakeRecover(EventPayload):
+    """``case.intake_recover`` (D-130): an operator returns a case whose intake
+    job failed before submission, and which went to HANDOFF under the old rule,
+    to its owner. Caseflow closes the run's open handoff gates, resumes it to
+    INTAKE and publishes what the intake jobs that did finish proposed. It acts
+    only on a run in HANDOFF suspended from INTAKE.
+    """
+
+    case_id: str
+    actor: str
+    reason: str
+
+
 class CaseQuestionAsked(EventPayload):
     """``case.question_asked`` (ADR-73): the analyst asked the owner questions
     outside the clarification round, one thread per question. It decides no gate

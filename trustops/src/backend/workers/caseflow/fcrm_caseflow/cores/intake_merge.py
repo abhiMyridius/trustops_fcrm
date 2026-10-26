@@ -21,10 +21,12 @@ from dataclasses import dataclass
 from typing import Any, Final, Optional
 
 from fcrm_common.errors import ValidationError as FcrmValidationError
+from fcrm_common.field_match import field_for_question
 from fcrm_contracts.api.case_internal import (
     CategoryProposalItem,
     FactFlagItem,
     GapQuestionItem,
+    ValueAlternative,
     ValueProposal,
 )
 from fcrm_contracts.enums import ChangeType, GateType
@@ -42,6 +44,10 @@ from fcrm_caseflow.gates import deterministic_gate_id
 from fcrm_caseflow.store import AgentResult
 
 logger = logging.getLogger(__name__)
+
+#: The other values a field keeps for the owner to switch to (the rest are
+#: still counted in ``candidates``).
+MAX_ALTERNATIVES: Final = 5
 
 #: Labels the PO sees for each change type (the walkthrough seed's
 #: ``change_types``). Changing one is a UI change, not a policy change.
@@ -180,9 +186,20 @@ def merge_values(fields: Sequence[ExtractedField]) -> tuple[list[ValueProposal],
     values: list[ValueProposal] = []
     for field_id in sorted(by_field):
         candidates = by_field[field_id]
-        best, source = min(
+        ranked = sorted(
             candidates, key=lambda c: _rank(c[1], c[0].confidence, c[0].value)
         )
+        best, source = ranked[0]
+        seen = {_normalised(best.value)}
+        alternatives: list[ValueAlternative] = []
+        for other, other_source in ranked[1:]:
+            key = _normalised(other.value)
+            if key in seen:
+                continue
+            seen.add(key)
+            alternatives.append(
+                ValueAlternative(value=other.value, source=other_source)
+            )
         values.append(
             ValueProposal(
                 field_id=field_id,
@@ -191,7 +208,8 @@ def merge_values(fields: Sequence[ExtractedField]) -> tuple[list[ValueProposal],
                 source=source,
                 quote=best.quote,
                 confidence=best.confidence,
-                candidates=len({_normalised(c.value) for c, _ in candidates}),
+                candidates=len(seen),
+                alternatives=alternatives[:MAX_ALTERNATIVES],
             )
         )
     return values, dropped
@@ -255,6 +273,9 @@ def merge_gaps(
 ) -> list[GapQuestionItem]:
     """One :class:`GapQuestionItem` per field still to ask about.
 
+    A question that names no field is tied to the field it asks about
+    (:func:`fcrm_common.field_match.field_for_question` over ``labels``), so
+    "Who is the change owner?" is the F01 question, not a second one (D-128).
     Questions about the same field collapse into one (blocking if any was; the
     smallest ``question_id`` wins so the choice does not depend on order). A
     question about a field some document did answer is dropped: the agent that
@@ -268,10 +289,12 @@ def merge_gaps(
         labels: Field id -> label, for the PO's list.
     """
     by_key: dict[str, list[GapQuestion]] = {}
-    for question in questions:
-        if question.field_id in answered_fields:
+    for asked in questions:
+        field_id = asked.field_id or field_for_question(asked.text, labels)
+        if field_id in answered_fields:
             continue
-        key = question.field_id or f"q:{question.question_id}"
+        question = asked.model_copy(update={"field_id": field_id})
+        key = field_id or f"q:{question.question_id}"
         by_key.setdefault(key, []).append(question)
     items: list[GapQuestionItem] = []
     for key in sorted(by_key):
@@ -324,7 +347,9 @@ def merge_intake(
     shards = _shards(results)
     values, dropped_values = merge_values(shards.fields)
     categories, dropped_categories = merge_categories(shards.categories, run_id)
-    known_labels = {**(labels or {}), **{v.field_id: v.label for v in values}}
+    # The field set's labels win over the agent's own: a question is tied to
+    # its field by the label the field set gives it (D-128).
+    known_labels = {**{v.field_id: v.label for v in values}, **(labels or {})}
     gaps = merge_gaps(
         shards.gaps,
         run_id=run_id,

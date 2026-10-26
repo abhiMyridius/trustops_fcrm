@@ -91,11 +91,28 @@ class PerTypeFields(_Strict):
     fields: list[FieldRef]
 
 
+class AmlCategoryRef(_Strict):
+    """One of the four FFIEC BSA/AML risk categories (a scoring domain)."""
+
+    domain: Domain
+    label: str
+
+
+class TypeAmlCategories(_Strict):
+    """The AML risk categories a change type brings a case into: the risk areas
+    the case is assessed in (Risk & Controls)."""
+
+    type: ChangeType
+    label: str
+    categories: list[AmlCategoryRef]
+
+
 class FieldSetData(_Strict):
     max_required: int
     completion_threshold: float
     always_required: list[AlwaysRequiredField]
     per_type: list[PerTypeFields]
+    aml_mapping: list[TypeAmlCategories]
 
 
 class CategoryType(_Strict):
@@ -193,6 +210,9 @@ class RoutingParameter(_Strict):
     key: str
     label: str
     value: str
+    editable: bool
+    """Whether a draft may change it here (the boundary is the scoring model's,
+    the case SLA is fixed in code)."""
 
 
 class RoutingRulesData(_Strict):
@@ -216,10 +236,38 @@ class JurisdictionFixture(_Strict):
     added: list[str]
 
 
+class JurisdictionAnchor(_Strict):
+    """One level of the 1-5 jurisdiction risk scale and what it means."""
+
+    level: int
+    label: str
+    definition: str
+
+
+class JurisdictionEntry(_Strict):
+    """One country of the jurisdiction risk list: its rating and where it comes
+    from. An external row (an FATF listing) is read-only; an internal one (the
+    bank's own methodology) is edited through a draft at ``path``.
+    """
+
+    id: str
+    jurisdiction: str
+    rating: int
+    rating_label: str
+    source: str
+    publisher: str
+    source_type: Literal["external", "internal"]
+    editable: bool
+    path: Optional[str]
+    note: Optional[str]
+
+
 class JurisdictionData(_Strict):
     current: JurisdictionCurrent
     fixture: JurisdictionFixture
     unlisted_default: str
+    anchors: list[JurisdictionAnchor]
+    entries: list[JurisdictionEntry]
 
 
 class AgentRow(_Strict):

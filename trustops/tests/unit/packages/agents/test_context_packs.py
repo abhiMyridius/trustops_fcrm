@@ -8,7 +8,7 @@ import math
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import pytest
 from fcrm_agents import BUILDERS, PackOverflowError, builder_for, estimate_tokens
@@ -574,3 +574,63 @@ def test_a_deferred_overflow_keeps_the_section_whole() -> None:
     assert isinstance(draft.overflows["fields"], PackOverflowError)
     with pytest.raises(PackOverflowError):
         PackDraft({"fields": 50}).add("fields", items)
+
+
+# ── the `fields` section holds a whole case (ADR-86, D-131) ─────────────────────
+
+
+def _thresholds() -> dict[str, Any]:
+    import yaml
+
+    path = Path(__file__).parents[4] / "ai" / "guards" / "thresholds.yaml"
+    loaded: dict[str, Any] = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return loaded
+
+
+@pytest.mark.parametrize(
+    "pack", ["screening", "research", "assessment", "narrative_completeness"]
+)
+def test_the_python_mirror_of_these_section_caps_is_the_yaml(pack: str) -> None:
+    """Only the packs ADR-86 changed: the examiner's ``records`` cap already
+    differs between the two (5,200 in the yaml, 6,500 in the mirror), which is
+    reported, not decided here."""
+    from fcrm_agents.context_pack import DEFAULT_SECTION_TOKEN_CAPS
+
+    assert _thresholds()["pack_section_caps"][pack] == dict(
+        DEFAULT_SECTION_TOKEN_CAPS[pack]
+    )
+
+
+def test_every_packs_sections_still_fit_its_tiers_total() -> None:
+    thresholds = _thresholds()
+    tier_of = {
+        "screening": "cheap",
+        "intake": "cheap",
+        "watchlist": "cheap",
+        "narrative_completeness": "mid",
+        "narrative_recommendation": "mid",
+        "examiner": "mid",
+        "policy_gap": "mid",
+        "research": "strong",
+        "assessment": "strong",
+        "critic": "judge",
+    }
+    for pack, caps in thresholds["pack_section_caps"].items():
+        assert sum(caps.values()) <= thresholds["pack_totals"][tier_of[pack]], pack
+
+
+@pytest.mark.parametrize(
+    "pack", ["screening", "research", "assessment", "narrative_completeness"]
+)
+def test_the_fields_section_holds_a_fourteen_field_case_of_long_answers(
+    pack: str,
+) -> None:
+    """A live case's required fields came to 3,853 characters, over screening's
+    old 2,400; the section is never cut, so it raised before any model call."""
+    from fcrm_agents.context_pack import fit_items
+
+    items = [(f"F{n:02d}", f"F{n:02d} · Field {n} · " + "x" * 280) for n in range(14)]
+    cap = _thresholds()["pack_section_caps"][pack]["fields"]
+    section = fit_items("fields", items, cap, never_truncate=True)
+    assert not section.truncated
+    assert len("\n".join(line for _, line in items)) > 3800

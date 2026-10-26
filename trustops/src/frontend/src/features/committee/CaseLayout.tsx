@@ -1,4 +1,4 @@
-/** Committee case frame: frozen pack header and the three tabs (Pack, Inbox, Vote). */
+/** Committee case frame: frozen pack header and the four tabs (Summary, Submission, Inbox, Vote). */
 import { Outlet, useParams } from 'react-router-dom';
 import { usePackForCase } from '@/api/queries/committeeQueries';
 import { ClausePreviewBody } from '@/components/domain/ClausePreview';
@@ -36,7 +36,8 @@ export function CommitteeCaseLayout() {
         base={`/committee/case/${p.case_id}`}
         label="Committee case sections"
         tabs={[
-          { key: 'pack', label: 'Pack' },
+          { key: 'pack', label: 'Summary' },
+          { key: 'submission', label: 'Submission' },
           { key: 'inbox', label: 'Inbox' },
           { key: 'vote', label: 'Vote' },
         ]}

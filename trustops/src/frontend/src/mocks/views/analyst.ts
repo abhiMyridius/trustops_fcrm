@@ -280,6 +280,7 @@ export function workbench(id: string): WorkbenchHeader | null {
       route: box.withheld ? null : box.route,
       audit: { count: d.audit.length, verified: true },
       is_demo: true,
+      inbox_replies: inboxReplies(id),
     };
   }
   const c = seedCase(id);
@@ -309,7 +310,15 @@ export function workbench(id: string): WorkbenchHeader | null {
     route: c.score.route,
     audit: { count: 0, verified: false },
     is_demo: false,
+    inbox_replies: 0,
   };
+}
+
+/** The owner's answers the analyst has not resolved, as the server counts them. */
+function inboxReplies(id: string): number {
+  const view = clarifications(id);
+  if (!view) return 0;
+  return [...view.rounds.flatMap((r) => r.threads), ...view.questions].filter((t) => t.status === 'answered').length;
 }
 
 const DEMO_FLAGS = () => {
@@ -749,7 +758,8 @@ export function risk(id: string): RiskView | null {
 export function conditionsAnalyst(id: string): ConditionAnalyst[] | null {
   if (!isDemo(id)) return seedCase(id) ? [] : null;
   const d = getDB().demo;
-  return seed.demo.conditions.map((c) => ({ ...c, status: d.conditionEvidence[c.id] ? 'evidence_submitted' : c.status }));
+  const list = d.conditionsEdited ?? seed.demo.conditions;
+  return list.map((c) => ({ ...c, status: d.conditionEvidence[c.id] ? ('evidence_submitted' as const) : c.status }));
 }
 
 export function recommendation(id: string): Recommendation | null {

@@ -26,9 +26,9 @@ TOOL_DIFF = f"/internal/cases/{CASE}/submissions/diff"
 # ── who may read ────────────────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("role", [Role.PO, Role.COMMITTEE, Role.OBSERVER, Role.SERVICE])
+@pytest.mark.parametrize("role", [Role.PO, Role.OBSERVER, Role.SERVICE])
 @pytest.mark.parametrize("path", [SUBMISSIONS, f"{DIFF}?from=1&to=2"])
-def test_only_an_analyst_may_read_the_submissions(
+def test_only_an_analyst_or_the_committee_may_read_the_submissions(
     submitted_case: AssessedCase,
     act_as: Callable[[Role, str], None],
     role: Role,
@@ -36,6 +36,16 @@ def test_only_an_analyst_may_read_the_submissions(
 ) -> None:
     act_as(role, "u-someone")
     assert submitted_case.client.get(path).status_code == 403
+
+
+@pytest.mark.parametrize("path", [SUBMISSIONS, f"{DIFF}?from=1&to=2"])
+def test_the_committee_reads_the_submissions_its_pack_came_from(
+    submitted_case: AssessedCase,
+    act_as: Callable[[Role, str], None],
+    path: str,
+) -> None:
+    act_as(Role.COMMITTEE, "u-amendes")
+    assert submitted_case.client.get(path).status_code == 200
 
 
 @pytest.mark.parametrize("role", [Role.PO, Role.ANALYST, Role.COMMITTEE, Role.OBSERVER])

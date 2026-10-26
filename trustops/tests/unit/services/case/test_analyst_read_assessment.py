@@ -998,3 +998,34 @@ def test_the_inbox_shows_the_round_with_the_owners_answers_and_the_paused_clock(
     after = ClarificationsView.model_validate(get(assessed_case, "clarifications"))
     assert after.clock_paused is False
     assert after.rounds[0].threads[1].status == "resolved"
+
+
+def test_the_inbox_tab_counts_the_owners_replies_not_yet_resolved(
+    assessed_case: AssessedCase,
+) -> None:
+    from datetime import UTC
+
+    from fcrm_case.domain.clarifications import ThreadAnswerRow
+    from fcrm_contracts.api.case_analyst_read import WorkbenchHeader
+
+    def header() -> WorkbenchHeader:
+        return WorkbenchHeader.model_validate(get(assessed_case, "workbench"))
+
+    assert header().inbox_replies == 0
+    reply = ThreadAnswerRow(
+        text="Licence MX-114",
+        documents=[],
+        at=datetime(2026, 10, 5, 15, tzinfo=UTC),
+        by="u-pnair",
+    )
+    views = assessed_case.read.service.views
+    for row in (
+        thread_row("Q1", "answered", reply),
+        thread_row("Q2", "answered", reply),
+        thread_row("Q3"),
+    ):
+        views.threads[row.thread_id] = row
+    assert header().inbox_replies == 2
+    resolved = thread_row("Q2", "resolved", reply)
+    views.threads[resolved.thread_id] = resolved
+    assert header().inbox_replies == 1

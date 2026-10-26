@@ -18,6 +18,7 @@ from dataclasses import replace
 from datetime import datetime
 from typing import Final, Literal, Optional
 
+from fcrm_common.field_match import field_for_question
 from fcrm_common.time import add_business_days
 from fcrm_contracts.api.case_po import (
     ActivityEventPO,
@@ -42,9 +43,11 @@ from fcrm_contracts.api.case_po import (
     SourceRef,
     SubmitCheck,
     SubmitResult,
+    ValueAlternativePO,
     ValuePO,
 )
 from fcrm_contracts.enums import ChangeType, ItemStatus
+from fcrm_contracts.sla import CASE_SLA_BUSINESS_DAYS
 
 from fcrm_case.domain.activity import ActivityEntry
 from fcrm_case.domain.completion import CompletionResult, compute_completion
@@ -71,8 +74,9 @@ from fcrm_case.domain.views import (
 )
 from fcrm_case.reference import change_type_labels
 
-#: Working days FCRM aims to take from a submission to a decision-ready case.
-TARGET_BUSINESS_DAYS: Final = 2
+#: Working days FCRM aims to take from a submission to a decision-ready case (the
+#: case SLA Rules & Routing shows).
+TARGET_BUSINESS_DAYS: Final = CASE_SLA_BUSINESS_DAYS
 
 BYTES_PER_MB: Final = 1024 * 1024
 
@@ -319,7 +323,8 @@ def assistant_status(
     return AssistantStatus(
         state="done",
         line=(
-            f"Done. {intake.candidates_found} values found, {len(categories)} "
+            f"Done. {intake.candidates_found} values found (including other "
+            f"possible readings of the same field), {len(categories)} "
             "change types proposed. Review them on the Overview tab."
         ),
     )
@@ -353,6 +358,21 @@ def _origin(row: Optional[FieldValueRow]) -> Origin:
     return origin
 
 
+def _alternatives_po(
+    row: Optional[FieldValueRow], origin: str, docs: Mapping[str, DocumentRow]
+) -> list[ValueAlternativePO]:
+    """The other values found for an extracted field, each with its place in a
+    document; none once the owner has corrected or answered it."""
+    if row is None or origin != "extracted":
+        return []
+    shown: list[ValueAlternativePO] = []
+    for alternative in row.alternatives:
+        place = source_ref(alternative.source, docs)
+        if place is not None:
+            shown.append(ValueAlternativePO(value=alternative.value, source=place))
+    return shown
+
+
 def _value_po(
     definition: FieldDef,
     row: Optional[FieldValueRow],
@@ -370,6 +390,7 @@ def _value_po(
         candidates=row.candidates
         if row is not None and origin == "extracted"
         else None,
+        alternatives=_alternatives_po(row, origin, docs),
         always_required=definition.always_required,
     )
 
@@ -436,10 +457,29 @@ def _is_manual(record: CaseRecord) -> bool:
     return record.intake_mode == "manual"
 
 
-def _gap_po(item: ReviewItemRow, rows: Mapping[str, FieldValueRow]) -> GapQuestionPO:
+def gap_field(item: ReviewItemRow, labels: Mapping[str, str]) -> Optional[str]:
+    """The field a gap question asks about: the one it names, else the one its
+    text asks for (``labels``: field id -> label), else ``None`` (D-128)."""
+    named = item.subject.get("field_id")
+    if named:
+        return str(named)
+    return field_for_question(str(item.subject.get("text") or ""), labels)
+
+
+def _gap_po(
+    item: ReviewItemRow,
+    rows: Mapping[str, FieldValueRow],
+    labels: Optional[Mapping[str, str]] = None,
+) -> GapQuestionPO:
     subject = item.subject
     question_id = str(subject.get("question_id", item.item_id))
-    field_id = str(subject.get("field_id") or question_id)
+    resolved = gap_field(item, labels or {})
+    field_id = resolved or question_id
+    label = (
+        str(subject.get("label") or field_id)
+        if subject.get("field_id") or resolved is None
+        else (labels or {}).get(resolved, resolved)
+    )
     answered = item.status != ItemStatus.PROPOSED
     row = rows.get(field_id)
     answer = row.value if answered and row is not None else None
@@ -449,7 +489,7 @@ def _gap_po(item: ReviewItemRow, rows: Mapping[str, FieldValueRow]) -> GapQuesti
     return GapQuestionPO(
         id=question_id,
         field_id=field_id,
-        label=str(subject.get("label") or field_id),
+        label=label,
         question=str(subject.get("text") or ""),
         blocking=bool(subject.get("blocking")),
         answered=answered,
@@ -520,22 +560,33 @@ def questions_po(
     (blocking for an always-required field), and every question already
     answered. A question on a field of a type not confirmed is not shown (a
     pending type's returns when it is confirmed), nor an unanswered one whose
-    field was filled another way. A question tied to no field always shows.
+    field was filled another way. A question that names no field is tied to the
+    field it asks about (:func:`gap_field`), and a field is asked once: by the
+    question already answered, else the one that named it, else the first
+    (D-128). A question tied to no field always shows.
     """
-    required_ids = {d.field_id for d in required}
+    labels = {d.field_id: d.label for d in required}
+    fields = {gap.item_id: gap_field(gap, labels) for gap in gaps}
+    chosen: dict[str, ReviewItemRow] = {}
+    for gap in gaps:
+        field_id = fields[gap.item_id]
+        if field_id and (
+            field_id not in chosen or _gap_rank(gap) < _gap_rank(chosen[field_id])
+        ):
+            chosen[field_id] = gap
     asked: set[str] = set()
     shown: list[GapQuestionPO] = []
     for gap in gaps:
-        field_id = str(gap.subject.get("field_id") or "")
+        field_id = fields[gap.item_id] or ""
         if field_id:
             asked.add(field_id)
-            if field_id not in required_ids:
+            if chosen[field_id] is not gap or field_id not in labels:
                 continue
             if gap.status == ItemStatus.PROPOSED and _origin(rows.get(field_id)) != (
                 "open"
             ):
                 continue
-        shown.append(_gap_po(gap, rows))
+        shown.append(_gap_po(gap, rows, labels))
     for definition in required:
         if definition.field_id in asked:
             continue
@@ -543,6 +594,16 @@ def questions_po(
         if _origin(row) == "open" or _answered_here(row, definition.field_id):
             shown.append(_field_question_po(definition, row))
     return shown
+
+
+def _gap_rank(gap: ReviewItemRow) -> tuple[bool, bool, str]:
+    """Which of several questions on one field the owner sees: an answered one
+    first, then one that named its field, then the smallest question id."""
+    return (
+        gap.status == ItemStatus.PROPOSED,
+        not gap.subject.get("field_id"),
+        str(gap.subject.get("question_id", gap.item_id)),
+    )
 
 
 def blocking_questions_open(
@@ -686,6 +747,7 @@ def _review_row(
         if row is not None and origin != "open"
         else None,
         original=original if origin != "open" else None,
+        alternatives=_alternatives_po(row, origin, docs),
         always_required=definition.always_required,
     )
 

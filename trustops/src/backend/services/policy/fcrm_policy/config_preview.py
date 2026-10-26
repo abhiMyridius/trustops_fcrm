@@ -234,6 +234,16 @@ async def _jurisdiction(
     new: Mapping[str, Any],
     env: PreviewEnv,
 ) -> list[str]:
+    if not any(c.path == "fatf_sync" for c in changes):
+        names = {r["id"]: r["jurisdiction"] for r in new.get("internal") or []}
+        return [
+            f"Internal rating of {names.get(key, key)}: {c.before} -> {c.after}."
+            for c in changes
+            for key in [c.path.removeprefix("internal.")]
+        ] + [
+            "An internal revision: the FATF list in force, what cases pin and the "
+            "watchlist are unchanged."
+        ]
     moved = {*new["added"], *new["removed"]}
     touched = [c for c in env.cases if moved & set(c.get("geographies") or [])]
     opened = [c["id"] for c in touched if _is_open(c)]
@@ -306,14 +316,6 @@ async def _routing(
 
 
 def _routing_line(change: ConfigDraftChange, env: PreviewEnv) -> str:
-    if change.path == "quorum":
-        committee = [c["id"] for c in env.cases if c.get("stage") == "committee"]
-        return (
-            f"The committee quorum moves {change.before} -> {change.after}: "
-            f"{len(committee)} seeded cases are at committee ({capped(committee)}). "
-            "S5 takes the quorum it enforces from its own environment today; "
-            "the published value is recorded and pinned as the routing version."
-        )
     return _fast_lane_line(
         change, env, f"{change.path} {change.before} -> {change.after}"
     )

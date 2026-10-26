@@ -280,8 +280,28 @@ analyst_read_routes := {
 	["GET", "/cases/{case_id}/risk"],
 	["GET", "/cases/{case_id}/policy"],
 	["GET", "/cases/{case_id}/handoff"],
+}
+
+# The committee reads a case's submissions too (the Submission tab of its pack, ADR-89).
+submission_read_routes := {
 	["GET", "/cases/{case_id}/submissions"],
 	["GET", "/cases/{case_id}/submissions/diff"],
+}
+
+test_analyst_and_committee_may_read_the_submissions if {
+	every role in {"fcrm_analyst", "fcrm_committee"} {
+		every r in submission_read_routes {
+			authz.allow with input as req(role, "case", r[0], r[1])
+		}
+	}
+}
+
+test_po_and_observer_may_not_read_the_submissions if {
+	every role in {"fcrm_po", "fcrm_observer"} {
+		every r in submission_read_routes {
+			not authz.allow with input as req(role, "case", r[0], r[1])
+		}
+	}
 }
 
 test_analyst_may_read_every_analyst_read_route if {
