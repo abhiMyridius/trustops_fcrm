@@ -120,14 +120,14 @@ flowchart TB
     harness --> minio
     harness --> opa
     harness -->|"model calls, embeddings"| bedrock
-    api -->|"embeds the policy corpus"| bedrock
+    api -->|"embeds new or changed clauses"| bedrock
 ```
 
 | Container | Runs | Notes |
 |---|---|---|
 | `gateway` | nginx | The only published port (8080). Routes by prefix, verifies the token with X1, applies rate limits and size limits, hides `/internal/` routes, maps the SSE `access_token`. |
 | `web` | static React build | Role-aware UI for every persona and the harness monitor. |
-| `api` | `fcrm_api.main:app` | Hosts X1 and S1 to S5 as sub-apps mounted by URL prefix. About 85 seconds to become healthy because S3 embeds 197 policy clauses on start. |
+| `api` | `fcrm_api.main:app` | Hosts X1 and S1 to S5 as sub-apps mounted by URL prefix. S3 loads the policy clause vectors at start-up, reusing the embeddings stored in Mongo and calling Bedrock only for new or changed clauses (`SKIP_EMBED_IF_PRESENT`, default true). A full re-embed took about 85 seconds. |
 | `harness` | `python -m fcrm_harness` | Hosts H1 to H4 as workers on one broker and one Mongo client. |
 | `mongo` | MongoDB 8 | One database per service and per harness; separate users, including an insert-only user for audit. |
 | `rabbitmq` | RabbitMQ 4 | Four topic exchanges; a work queue, retry queue and dead-letter queue per consumer. |

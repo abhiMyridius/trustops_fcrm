@@ -578,7 +578,7 @@ Business data is kept. Only plumbing expires.
 | MinIO `packs` | Committee packs, versioned | A pack is built unreleased; the analyst's release opens it |
 | MinIO `vectors` | Local fixture mode only | Not the default |
 | MinIO `jobs` | Scratch space and large job payloads | Short-lived |
-| In-memory index (S3, H4) | Titan Text Embeddings V2 vectors (1,024 dimensions) for the 197 policy clauses | Rebuilt at start, which is why `api` takes about 85 seconds to become healthy. `VECTOR_BACKEND=memory` by default; an S3 Vectors backend exists but is not in the shipped image (ADR-49) |
+| In-memory index (S3, H4) | Titan Text Embeddings V2 vectors (1,024 dimensions) for the 197 policy clauses | Loaded into memory at start-up from the embeddings stored in Mongo; only new or changed clauses are sent to Bedrock (`SKIP_EMBED_IF_PRESENT`, default true; a full re-embed took about 85 seconds). `VECTOR_BACKEND=memory` by default; an S3 Vectors backend exists but is not in the shipped image (ADR-49) |
 
 Keyword search for precedents and controls uses MongoDB itself (a text index on `search_text`); clause search fuses the vector leg with keyword ranking by reciprocal rank fusion.
 
@@ -618,6 +618,6 @@ Keyword search for precedents and controls uses MongoDB itself (a text index on 
 - **Embedded legacy arrays on `cases`.** The case record still declares embedded fields, documents and submission versions beside the dedicated collections. Confirm which a given read uses before depending on either.
 - **Tamper-evident, not tamper-proof.** A root database user could rewrite the audit chain; verification would reveal it, and the insert-only role prevents it for every application path.
 - **Configuration pins.** `known-gaps.md` records that S1 still reads its pinned versions from the seed rather than from S3's published pins; a configuration publish goes live in S2 and S3 before S1 reflects it. That file is dated, so check it for the current state.
-- **Vectors are in memory** and rebuilt at each start; there is no persistent vector store in the shipped image.
+- **Vectors are in memory** and reloaded at each start from the embeddings stored in Mongo; there is no dedicated vector store in the shipped image.
 - **Synthetic data.** The corpus (197 clauses, of which only four carry original text) and every case are synthetic.
 - **Catalogue not generated.** Unlike the API reference, the collection catalogue in section 5 is maintained by hand from `data-model.md` and the code. When a row model changes, update both.

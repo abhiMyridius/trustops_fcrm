@@ -1,8 +1,8 @@
 # Risk Assessment Workbench · final document set
 
-Genius Hacks Q3 2026 · Myridius · submitted 9 October 2026 · this index last brought in line with the build on 19 October 2026
+Genius Hacks Q3 2026 · Myridius · submitted 9 October 2026 · this index last brought in line with the build on 26 October 2026
 
-Open the HTML files in a browser (they load fonts and the Mermaid renderer from the web). The same pages were published as live artifacts on claude.ai; links below. The local files are the current versions: the live pages have not been republished with the 19 October changes.
+Open the HTML files in a browser (they load fonts and the Mermaid renderer from the web). Pages 1 to 6 were also published as live artifacts on claude.ai; links below. The local files are the current versions: the live pages have not been republished with the 19 and 26 October changes. Pages 7 to 13 are Markdown with Mermaid diagrams (they render on GitHub) and exist only here.
 
 ## The set
 
@@ -14,18 +14,27 @@ Open the HTML files in a browser (they load fonts and the Mermaid renderer from 
 | 4 | `04-walkthrough.html` | **This copy is v2**: the 21-scene guided demo by the BA and architect (1 October): cursor, user switching, callouts, harness monitor; every figure from the embedded seed (`window.FCRM_SEED`); set `window.FCRM_PROTO=true` to run it as a click-through prototype. The as-built v3 (24 scenes) is `Documents/04-walkthrough.html` | https://claude.ai/artifact/BZ94Y4R6frCmnfg82VTVNu |
 | 5 | `05-prototype-teardown.html` | Analysis of the BA's TrustOps prototype (FCRM_v2): screens, agents, flows, rubric fit, gaps | https://claude.ai/artifact/Fd4nnxqPuaF3EAsihTQZNW |
 | 6 | `06-flow-map.html` | Standalone pan-and-zoom flow map of the full case cycle with glossary and component filter (same content as the Blueprint's Flow map tab) | https://claude.ai/artifact/DN6Mo94R8ehjuV8aDRw3Qq |
+| 7 | `07-api-reference.md` | Every HTTP operation (127) with roles from the OPA rules, parameters, bodies, responses and `curl` examples; generated from the OpenAPI export; plus auth, conventions and workflow diagrams | local only |
+| 8 | `08-architecture-overview.md` | The system as built on a few pages: context, containers, components, request and case flow, outbox, AI layer, deterministic core, data, security, resilience, key decisions | local only |
+| 9 | `09-database-design.md` | The eight MongoDB databases, every collection, indexes and what they guarantee, transactions and idempotency, the audit chain, access control, retention | local only |
+| 10 | `10-ai-harness-and-agent-design.md` | The nine agents (generated from their specs), one job end to end, the seven guards, tools and permits, tiers and retry, token budgets, context engineering, prompts and the registry | local only |
+| 11 | `11-events-and-messaging-reference.md` | RabbitMQ topology, the envelope, publishing through the outbox, the consumer retry and dead-letter pipeline, the 77 event types, how events drive Caseflow | local only |
+| 12 | `12-human-gates-and-governance.md` | The gate register, how a gate works, the eight rules and R1&ndash;R6, the committee vote, the PO fence, reasons and overrides, handoff, build-time governance | local only |
+| 13 | `13-evals-and-quality-report.md` | What the evals measure, how a run works, the promotion gate, committed results and their limits, token use and cost, the wider test strategy | local only |
 
-Inputs, unchanged from the organisers and the BA: `Genius Hacks Q3 2026.html` and `Genius_Hacks_Connect.pdf` (the brief and rubric; the deadline printed on the page is out of date, the real one was 9 October), `TrustOps — How the Risk Assessment Workbench Works.html` (the product concept, written for the prototype), and `trascript - session1 - genius-hacks-3.txt` (the kickoff call).
+Inputs, unchanged from the organisers and the BA: `Genius Hacks Q3 2026.html` and `Genius_Hacks_Connect.pdf` (the brief and rubric; the deadline printed on the page is out of date, the real one was 9 October), `TrustOps — How the Risk Assessment Workbench Works.html` (the product concept, written for the prototype; only its "As built" notice is ours), and `trascript - session1 - genius-hacks-3.txt` (the kickoff call).
+
+Snapshots of 7 October, kept as published and not regenerated: `build-report-2026-10-07.html` (the build report: timeline of agent lanes, token economics, quality, status) and `git-history-2026-10-07.html` (its companion git graph by work session). Each opens with an "As of 7 October" notice giving today's headline figures.
 
 ## Planning set and build
 
-Pages 1, 2, 3 and 6 are the plan the team approved on 1 to 3 October and are kept as that record; the concept page predates them. Each now opens with an "As built" notice listing where the build differs. The as-built truth is in the repository:
+Pages 1, 2, 3 and 6 are the plan the team approved on 1 to 3 October and are kept as that record; the concept page predates them. Each opens with an "As built" notice listing where the build differs, last refreshed on 26 October. Page 5 analyses the BA's prototype, which has not changed; its notice says what became of the gaps it found. Pages 7 to 13 describe the system as built. The as-built truth is in the repository:
 
 - `trustops/BUILD-PLAN.md`, section "Status as built": every departure from the plan, with its reason and decision row.
-- `trustops/docs/governance/decision-log.md`: ADR-01 to ADR-76, each saying which D-row it adds to or amends. D-98 onward are in `defect-trail.md`.
+- `trustops/docs/governance/decision-log.md`: ADR-01 to ADR-89, each saying which D-row it adds to or amends. D-98 onward are in `defect-trail.md`.
 - `trustops/docs/governance/known-gaps.md`: what is not done. `trustops/RUNNING.md`: how to run it.
 
-This folder is the copy of `Documents/` inside the repository's build tree. It is identical except for `04-walkthrough.html`: this copy is the v2 walkthrough (21 scenes, 1 October), kept because it embeds the canonical seed (`window.FCRM_SEED`) that the seed package `fcrm_seed` is generated from.
+This folder is the copy of `Documents/` inside the repository's build tree: this index, pages 1 to 6 and the inputs. It is identical except for `04-walkthrough.html`: this copy is the v2 walkthrough (21 scenes, 1 October), kept because it embeds the canonical seed (`window.FCRM_SEED`) that the seed package `fcrm_seed` is generated from. Pages 7 to 13 and the two 7 October snapshots are only in `Documents/`.
 
 ## Decisions in force, as built
 
@@ -52,8 +61,8 @@ This folder is the copy of `Documents/` inside the repository's build tree. It i
   | policy_gap | when the analyst notes a corpus gap | coverage suggestions, off the decision path | analyst (ADR-18); the review screen is not built |
 
 - **Models**: Amazon Bedrock only, no direct vendor keys (ADR-03). Tiers in `trustops/ai/models/tiers.yaml`: cheap Haiku 4.5 then Nova Lite; mid Sonnet 5.5 then Haiku 4.5; strong Sonnet 5.5, retried on Sonnet 5.5, then Nova Pro; judge Nova Pro then Haiku 4.5, for the critic and the eval judges. No Opus (ADR-62, ADR-65). Live only: no replay or mock mode (ADR-27).
-- **Tokens**: per-attempt budgets cheap 15k, mid 15k, strong 24k, judge 28k; a per-case ledger in H1, 160,000 enforced and 120,000 the target (ADR-50). Prompt caching is on for the Haiku and Sonnet models.
-- **Failure**: one retry on the first fallback with the error shown and the full allowance, then a handoff gate the analyst completes by hand with a reason (ADR-14, ADR-48, ADR-51).
+- **Tokens**: one attempt may spend 64,000 tokens on every tier: cheap and mid 60k plus a 4k output cap, strong and judge 56k plus 8k (ADR-81, ADR-83). A per-case ledger in H1 reserves one attempt before each job and settles the real use: 250,000 enforced and 120,000 the target (ADR-50, ADR-81). An input too large for its tier's pack is split into parts inside H2 and the answers merged by code (ADR-77, ADR-78). Prompt caching is on for the Haiku and Sonnet models.
+- **Failure**: one retry on the first fallback with the error shown and the full allowance, then a handoff gate the analyst completes by hand with a reason (ADR-14, ADR-48, ADR-51). An intake job that fails before the owner submits stays in intake and tells the owner instead (ADR-85).
 - **Seven guards**: input scan (injection patterns, rule-based PII masking), OPA tool permit, budget, output shape (verbatim quotes and sources), the eight rules, the critic, the human gate. No agent has a scoring tool (ADR-07).
 - **Context**: per-agent context packs built in code and snapshotted by hash; a 197-clause synthetic policy corpus (ADR-29) searched by Titan embeddings held in memory, fused with keyword search; precedents and controls by keyword search (ADR-41, ADR-49).
 - **Evals**: nine datasets, 27 deterministic metrics and a judge model, one gate per agent (ADR-43). The baseline is 8 of 9 gates, measured on the 6 October chain (assessment at 0.70 against 0.85); no baseline exists on the committed chain. The weekly figures in the walkthrough are the seed's targets.
