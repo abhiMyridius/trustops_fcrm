@@ -178,7 +178,6 @@ body.flow svg.pyr{width:100%;height:auto;max-width:786px}
 body.flow .edges{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))!important}
 body.flow .costfoot{grid-template-columns:1fr!important}
 @media (max-width:720px){
-  body.flow #evals{grid-template-columns:1fr!important}
   body.flow .callgrid{grid-template-columns:64px 1fr 1fr!important}
   body.flow .callgrid3{grid-template-columns:64px 1fr 1fr 1fr!important}
   body.flow .rub span{font-size:12px}
@@ -200,49 +199,392 @@ body.flow .limits{gap:6px 14px}
   body.flow .costfoot{margin-top:52px!important}
 }
 
-/* ---------- cover: page 1 of trustops-deck_v2 ---------- */
-.slide.cover{background:var(--moss);padding:0 100px}
-.slide.cover.active{display:flex}
-.slide.cover{flex-direction:column;justify-content:center}
-.slide.cover .wave,.slide.cover .foot{display:none}
-.cwave{position:absolute;right:0;top:0;height:100%;width:38%;pointer-events:none;opacity:.6}
-.cwave svg{position:absolute;right:0;bottom:0;height:100%;width:100%}
-.title-wrap{position:relative;z-index:1;width:1310px;display:flex;flex-direction:column;gap:30px;margin-top:-40px}
-.ceyebrow{font-size:17px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--pulse);margin:0}
-.ctitle{font-size:86px;font-weight:800;line-height:1.05;letter-spacing:-.02em;color:#fff;margin:0;max-width:1180px;text-wrap:balance}
-.ctitle span{color:var(--pulse)}
-.title-claim{font-size:36px;font-weight:400;line-height:1.4;color:rgba(246,243,240,.78);margin:0}
-.title-claim em{font-style:normal;color:var(--pulse);font-weight:700}
-.cdivider{height:1px;background:rgba(246,243,240,.2)}
-.meta-line{font-size:20px;font-weight:500;color:rgba(246,243,240,.78);margin:-12px 0 0}
-.meta-line.faint{color:rgba(246,243,240,.5)}
-.cfoot{position:absolute;left:100px;right:100px;bottom:76px;display:flex;justify-content:space-between;font-size:16px;font-weight:500;color:rgba(246,243,240,.5);z-index:1}
-body.flow .slide.cover{display:block!important;padding:48px clamp(18px,5vw,56px) 70px}
-body.flow .title-wrap{width:auto;margin-top:0;gap:20px}
-body.flow .ctitle{font-size:clamp(38px,8vw,80px)}
-body.flow .title-claim{font-size:clamp(18px,3.4vw,30px)}
-body.flow .meta-line{font-size:clamp(14px,2.2vw,19px);margin-top:-6px}
-body.flow .cfoot{position:relative;left:auto;right:auto;bottom:auto;margin-top:28px}
-body.flow .cwave{width:60%;opacity:.35}
+/* ---------- cover ---------- */
+.cv-l{position:absolute;left:64px;top:122px;width:1000px;height:700px;z-index:2}
+.cv-pill{display:inline-flex;align-items:center;gap:10px;font-size:14px;font-weight:700;color:var(--leaf);background:var(--white);border:1px solid var(--line);border-radius:999px;padding:7px 16px}
+.cv-pill i{width:10px;height:10px;border-radius:50%;background:var(--pulse);box-shadow:0 0 0 0 rgba(82,224,129,.6);animation:pulse 1.8s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(82,224,129,.6)}70%{box-shadow:0 0 0 10px rgba(82,224,129,0)}100%{box-shadow:0 0 0 0 rgba(82,224,129,0)}}
+.cv-title{font-size:150px;line-height:1;font-weight:800;letter-spacing:-.035em;color:var(--moss);margin-top:60px;white-space:nowrap}
+.cv-sub{font-size:50px;font-weight:800;letter-spacing:-.02em;color:var(--tide-d);margin-top:6px;line-height:1.08;white-space:nowrap}
+.cv-claim{font-size:25px;line-height:1.55;color:var(--muted);margin-top:40px;max-width:980px}
+.cv-claim b{color:var(--moss);font-weight:700}
+.cv-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:34px;max-width:900px}
+.cv-kpis .k .v{font-size:40px}
+.cv-meta{margin-top:56px;font-size:17px;font-weight:600;color:var(--leaf);line-height:1.5;display:flex;gap:14px;align-items:baseline;flex-wrap:wrap}
+.cv-meta + .cv-meta{margin-top:12px}
+.cv-lbl{font-size:12.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--tide-d);min-width:58px}
+.cv-r{left:1110px;top:122px;width:746px;height:700px}
+.cv-hero{display:block;width:100%;height:auto;margin-top:30px}
+.cv-hero text{font-family:Montserrat,system-ui,sans-serif}
+.cv-n{font-size:15px;font-weight:800;fill:#07806C;letter-spacing:.08em}
+.cv-h{font-size:25px;font-weight:800;fill:#0C2226}
+.cv-s{font-size:14px;font-weight:500;fill:#4A6461}
+.cv-c{font-size:14px;font-weight:700;fill:#194247;text-anchor:middle}
+.cv-node{cursor:help;transition:transform .25s}
+.cv-node:hover{transform:translateY(-3px)}
+.cv-float{animation:float 5s ease-in-out infinite;cursor:help}
+.cv-float.f2{animation-delay:-1s}.cv-float.f3{animation-delay:-2s}.cv-float.f4{animation-delay:-3s}.cv-float.f5{animation-delay:-1.6s}.cv-float.f6{animation-delay:-3.6s}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@media (prefers-reduced-motion:reduce){.cv-float,.cv-pill i,.wire.flow{animation:none}}
+.toc{position:absolute;left:64px;right:64px;top:862px;display:grid;grid-template-columns:130px 1fr 1fr 1fr 1fr;gap:14px;z-index:2}
+.toc-lbl{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);display:flex;align-items:center}
+.toc-c{display:grid;grid-template-columns:52px 1fr 26px;gap:12px;align-items:center;background:var(--white);border:1px solid var(--line);border-radius:14px;padding:18px 20px;cursor:pointer;transition:transform .2s,box-shadow .2s,border-color .2s;position:relative;overflow:hidden}
+.toc-c::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--pulse)}
+.toc-c:nth-child(2)::before{background:var(--beam)}.toc-c:nth-child(4)::before{background:var(--tide)}.toc-c:nth-child(5)::before{background:var(--pavo)}
+.toc-c:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(12,34,38,.10);border-color:var(--tide)}
+.toc-c:hover .toc-go{transform:translateX(4px)}
+.toc-c:focus-visible{outline:2px solid var(--tide);outline-offset:2px}
+.toc-no{font-size:22px;font-weight:800;color:var(--tide-d)}
+.toc-h{font-size:20px;font-weight:800;color:var(--moss);line-height:1.15}
+.toc-s{font-size:14px;color:var(--muted);margin-top:3px}
+.toc-go{font-size:24px;font-weight:700;color:var(--tide-d);transition:transform .2s}
+body.flow .cv-l,body.flow .cv-r{position:relative;left:auto;top:auto;width:auto!important;height:auto!important;margin-top:20px}
+body.flow .cv-title{font-size:clamp(60px,13vw,120px);white-space:normal}
+body.flow .cv-sub{font-size:clamp(26px,5.4vw,46px);white-space:normal}
+body.flow .cv-claim{font-size:clamp(16px,2.4vw,21px)}
+body.flow .cv-kpis{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+body.flow .toc{position:relative;left:auto;right:auto;top:auto;margin-top:20px;grid-template-columns:1fr}
+
+.whisk{position:absolute;top:calc(50% + 19px);height:0;border-top:2px solid var(--moss);pointer-events:none}
+.whisk::before,.whisk::after{content:"";position:absolute;top:-5px;height:9px;border-left:2px solid var(--moss)}
+.whisk::before{left:0}.whisk::after{right:0}
+.cv-n.on-dark{fill:#52E081}.cv-h.on-dark{fill:#F6F3F0}.cv-s.on-dark{fill:#CBEBBD}
+.cv-c.on-dark{fill:#52E081}.cv-c.on-tide{fill:#FFFFFF}.cv-c.on-red{fill:#B8433F}
+/* ---------- the problem ---------- */
+.mp-heads{display:flex;justify-content:space-between;margin:14px 0 8px;font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.mp-heads span:last-child{width:256px}
+.map{display:block;width:100%;height:auto}
+.map text{font-family:Montserrat,system-ui,sans-serif}
+.mp-t{font-size:17px;font-weight:700;fill:#0C2226}
+.mp-d{font-size:17px;font-weight:800;fill:#0C2226}
+.mp-d2{font-size:13px;font-weight:600;fill:#4A6461}
+.mp{cursor:help;transition:transform .2s}
+.mp:hover{transform:translateY(-2px)}
+.fails{position:absolute;left:20px;right:20px;top:372px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.fsum{position:absolute;left:20px;right:20px;top:468px;display:flex;align-items:center;gap:12px;font-size:15px;color:var(--muted);background:var(--linen);border-radius:10px;padding:9px 14px}
+.fsum b{color:var(--moss)}
+.fsum .t{font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--red);flex:0 0 auto}
+body.flow .fsum{position:relative;left:auto;right:auto;top:auto;margin-top:12px;flex-wrap:wrap}
+.fl{background:#FBECEB;border:1px solid #EFC9C6;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:3px;cursor:help}
+.fl b{font-size:18px;font-weight:800;color:var(--red)}
+.fl span{font-size:14px;color:var(--muted);line-height:1.3}
+.goal{display:grid;grid-template-columns:1fr 28px 1fr 28px 1fr 28px 1fr 28px 1fr 1.25fr;gap:8px;align-items:stretch;margin-top:14px}
+.gstep{background:var(--linen);border:1px solid var(--line2);border-radius:12px;padding:10px 12px;cursor:help;transition:transform .2s,box-shadow .2s}
+.gstep:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(12,34,38,.10)}
+.gtag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;border-radius:999px;padding:2px 8px}
+.gtag.ai{background:#EAF8EE;color:#118A4A;border:1px solid #A9E2BA}
+.gtag.as{background:#EAF8EE;color:#118A4A;border:1px dashed #A9E2BA}
+.gtag.hu{background:#F9FDE6;color:#6B7A12;border:1px solid #D8E79A}
+.gtag.co{background:var(--moss);color:var(--pulse)}
+.gh{font-size:18px;font-weight:800;color:var(--moss);margin-top:6px}
+.gs{font-size:13px;color:var(--muted);line-height:1.3;margin-top:3px}
+.garr{display:flex;align-items:center;justify-content:center;color:var(--tide);font-size:20px;font-weight:700}
+.gwhat{border-left:1px solid var(--line);padding-left:16px;margin-left:6px;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
+.gw-l{width:100%;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tide-d);margin-bottom:2px}
+body.flow .fails{position:relative;left:auto;right:auto;top:auto;margin-top:14px;grid-template-columns:1fr}
+body.flow .goal{grid-template-columns:1fr}
+body.flow .garr{transform:rotate(90deg);height:24px}
+body.flow .gwhat{border-left:0;padding-left:0;margin-left:0;border-top:1px solid var(--line);padding-top:12px}
+
+/* ---------- cover personas view ---------- */
+.ps-wrap{position:relative;margin-top:26px;display:flex;flex-direction:column;gap:16px;padding-left:34px}
+.ps-rail{position:absolute;left:12px;top:30px;bottom:30px;width:2px;background:repeating-linear-gradient(180deg,#9DB5B1 0 6px,transparent 6px 12px)}
+.ps-rail i{position:absolute;left:-7px;width:16px;height:16px;border-radius:50%;background:var(--pulse);border:2px solid var(--moss);animation:rail 7s ease-in-out infinite}
+@keyframes rail{0%{top:0}45%{top:50%}90%,100%{top:100%}}
+.ps{display:grid;grid-template-columns:76px 1fr;gap:16px;align-items:center;background:var(--white);border:1px solid var(--line);border-radius:16px;padding:20px 20px;cursor:help;transition:transform .2s,box-shadow .2s}
+.ps:hover{transform:translateX(3px);box-shadow:0 8px 22px rgba(12,34,38,.10)}
+.ps-av{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:var(--moss)}
+.ps-av.po{background:#F9FDE6;border:2px solid #D8E79A}
+.ps-av.an{background:#EAF8EE;border:2px solid #A9E2BA}
+.ps-av.cm{background:none;position:relative}
+.ps-av.cm span{position:absolute;width:34px;height:34px;border-radius:50%;background:#EEF6F3;border:2px solid #B5CBC7;font-size:11px;display:flex;align-items:center;justify-content:center}
+.ps-av.cm span:nth-child(1){left:-2px;top:0}.ps-av.cm span:nth-child(2){left:32px;top:0}.ps-av.cm span:nth-child(3){left:15px;top:30px}
+.ps-r{font-size:23px;font-weight:800;color:var(--moss);line-height:1.1}
+.ps-d{font-size:15.5px;color:var(--muted);margin-top:5px;line-height:1.35}
+.ps-see{display:inline-block;margin-top:8px;font-size:12.5px;font-weight:700;color:var(--leaf);background:var(--linen);border-radius:999px;padding:3px 10px}
+.ps-link,.ps-foot{display:flex;align-items:center;gap:12px;font-size:14.5px;color:var(--muted);border-radius:12px;padding:9px 14px;cursor:help;margin-left:48px}
+.ps-link.ai{background:#EAF8EE;border:1px dashed #A9E2BA}
+.ps-link.code{background:#EEF4F3;border:1px dashed #B5CBC7}
+.ps-foot{background:var(--linen);border:1px solid var(--line2);margin-left:0}
+.ps-tag{flex:0 0 auto;font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;border-radius:999px;padding:3px 10px;background:#fff;color:#118A4A;border:1px solid #A9E2BA}
+.ps-link.code .ps-tag{background:var(--moss);color:var(--pulse);border-color:var(--moss)}
+.ps-tag.dark{background:var(--tide-d);color:#fff;border-color:var(--tide-d)}
+body.flow .ps-wrap{padding-left:0}
+body.flow .ps-rail{display:none}
+body.flow .ps-link{margin-left:0;flex-wrap:wrap}
+body.flow .ps{grid-template-columns:56px 1fr}
+body.flow .ps-av{width:50px;height:50px;font-size:16px}
+@media (prefers-reduced-motion:reduce){.ps-rail i{animation:none}}
+.ecgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.ec{background:var(--linen);border:1px solid var(--line2);border-left:4px solid var(--tide);border-radius:10px;padding:10px 14px;cursor:help;transition:transform .2s,box-shadow .2s}
+.ec:nth-child(4n+2),.ec:nth-child(4n+3){border-left-color:var(--pulse)}
+.ec:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(12,34,38,.10)}
+.ec-h{font-size:16px;font-weight:800;color:var(--moss)}
+.ec-s{font-size:13.5px;color:var(--muted);margin-top:2px}
+body.flow .ecgrid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
 </style>
 </head>
 <body>
 <div id="viewport"><div class="stage" id="stage">
 
 <!-- ================================================================ -->
-<!-- SLIDE 0 · COVER, page 1 of trustops-deck_v2 in this deck's canvas  -->
+<!-- SLIDE 0 · COVER                                                    -->
 <!-- ================================================================ -->
-<section class="slide dark cover" data-notes="n0">
-  <div class="cwave"><svg viewBox="0 0 900 900" preserveAspectRatio="xMaxYMax slice" fill="none" stroke-width="1" aria-hidden="true"><path d="M910 910C720 780 480 380 760 -20" stroke="#09A78D" stroke-opacity="0.18"/><path d="M910 908C714 772 476 377 752 -20" stroke="#52E081" stroke-opacity="0.19"/><path d="M910 906C709 765 472 374 744 -20" stroke="#52E081" stroke-opacity="0.20"/><path d="M910 903C703 758 468 370 736 -20" stroke="#09A78D" stroke-opacity="0.21"/><path d="M910 901C698 750 464 367 728 -20" stroke="#52E081" stroke-opacity="0.23"/><path d="M910 899C692 742 460 364 720 -20" stroke="#52E081" stroke-opacity="0.24"/><path d="M910 897C686 735 456 361 712 -20" stroke="#09A78D" stroke-opacity="0.25"/><path d="M910 895C681 728 452 358 704 -20" stroke="#52E081" stroke-opacity="0.26"/><path d="M910 892C675 720 448 354 696 -20" stroke="#52E081" stroke-opacity="0.27"/><path d="M910 890C670 712 444 351 688 -20" stroke="#09A78D" stroke-opacity="0.28"/><path d="M910 888C664 705 440 348 680 -20" stroke="#52E081" stroke-opacity="0.29"/><path d="M910 886C658 698 436 345 672 -20" stroke="#52E081" stroke-opacity="0.31"/><path d="M910 884C653 690 432 342 664 -20" stroke="#09A78D" stroke-opacity="0.32"/><path d="M910 881C647 682 428 338 656 -20" stroke="#52E081" stroke-opacity="0.33"/><path d="M910 879C642 675 424 335 648 -20" stroke="#52E081" stroke-opacity="0.34"/><path d="M910 877C636 668 420 332 640 -20" stroke="#09A78D" stroke-opacity="0.35"/><path d="M910 875C630 660 416 329 632 -20" stroke="#52E081" stroke-opacity="0.36"/><path d="M910 873C625 652 412 326 624 -20" stroke="#52E081" stroke-opacity="0.37"/><path d="M910 870C619 645 408 322 616 -20" stroke="#09A78D" stroke-opacity="0.39"/><path d="M910 868C614 638 404 319 608 -20" stroke="#52E081" stroke-opacity="0.40"/><path d="M910 866C608 630 400 316 600 -20" stroke="#52E081" stroke-opacity="0.41"/><path d="M910 864C602 622 396 313 592 -20" stroke="#09A78D" stroke-opacity="0.42"/><path d="M910 862C597 615 392 310 584 -20" stroke="#52E081" stroke-opacity="0.43"/><path d="M910 859C591 608 388 306 576 -20" stroke="#52E081" stroke-opacity="0.44"/><path d="M910 857C586 600 384 303 568 -20" stroke="#09A78D" stroke-opacity="0.45"/><path d="M910 855C580 592 380 300 560 -20" stroke="#52E081" stroke-opacity="0.46"/><path d="M910 853C574 585 376 297 552 -20" stroke="#52E081" stroke-opacity="0.48"/><path d="M910 851C569 578 372 294 544 -20" stroke="#09A78D" stroke-opacity="0.49"/><path d="M910 848C563 570 368 290 536 -20" stroke="#52E081" stroke-opacity="0.50"/><path d="M910 846C558 562 364 287 528 -20" stroke="#52E081" stroke-opacity="0.51"/><path d="M910 844C552 555 360 284 520 -20" stroke="#09A78D" stroke-opacity="0.52"/><path d="M910 842C546 548 356 281 512 -20" stroke="#52E081" stroke-opacity="0.53"/><path d="M910 840C541 540 352 278 504 -20" stroke="#52E081" stroke-opacity="0.54"/><path d="M910 837C535 532 348 274 496 -20" stroke="#09A78D" stroke-opacity="0.56"/><path d="M910 835C530 525 344 271 488 -20" stroke="#52E081" stroke-opacity="0.57"/><path d="M910 833C524 518 340 268 480 -20" stroke="#52E081" stroke-opacity="0.58"/><path d="M910 831C518 510 336 265 472 -20" stroke="#09A78D" stroke-opacity="0.59"/><path d="M910 829C513 502 332 262 464 -20" stroke="#52E081" stroke-opacity="0.58"/><path d="M910 826C507 495 328 258 456 -20" stroke="#52E081" stroke-opacity="0.57"/><path d="M910 824C502 488 324 255 448 -20" stroke="#09A78D" stroke-opacity="0.56"/><path d="M910 822C496 480 320 252 440 -20" stroke="#52E081" stroke-opacity="0.54"/><path d="M910 820C490 472 316 249 432 -20" stroke="#52E081" stroke-opacity="0.53"/><path d="M910 818C485 465 312 246 424 -20" stroke="#09A78D" stroke-opacity="0.52"/><path d="M910 815C479 458 308 242 416 -20" stroke="#52E081" stroke-opacity="0.51"/><path d="M910 813C474 450 304 239 408 -20" stroke="#52E081" stroke-opacity="0.50"/><path d="M910 811C468 442 300 236 400 -20" stroke="#09A78D" stroke-opacity="0.49"/><path d="M910 809C462 435 296 233 392 -20" stroke="#52E081" stroke-opacity="0.48"/><path d="M910 807C457 428 292 230 384 -20" stroke="#52E081" stroke-opacity="0.46"/><path d="M910 804C451 420 288 226 376 -20" stroke="#09A78D" stroke-opacity="0.45"/><path d="M910 802C446 412 284 223 368 -20" stroke="#52E081" stroke-opacity="0.44"/><path d="M910 800C440 405 280 220 360 -20" stroke="#52E081" stroke-opacity="0.43"/><path d="M910 798C434 398 276 217 352 -20" stroke="#09A78D" stroke-opacity="0.42"/><path d="M910 796C429 390 272 214 344 -20" stroke="#52E081" stroke-opacity="0.41"/><path d="M910 793C423 382 268 210 336 -20" stroke="#52E081" stroke-opacity="0.40"/><path d="M910 791C418 375 264 207 328 -20" stroke="#09A78D" stroke-opacity="0.39"/><path d="M910 789C412 368 260 204 320 -20" stroke="#52E081" stroke-opacity="0.37"/><path d="M910 787C406 360 256 201 312 -20" stroke="#52E081" stroke-opacity="0.36"/><path d="M910 785C401 352 252 198 304 -20" stroke="#09A78D" stroke-opacity="0.35"/><path d="M910 782C395 345 248 194 296 -20" stroke="#52E081" stroke-opacity="0.34"/><path d="M910 780C390 338 244 191 288 -20" stroke="#52E081" stroke-opacity="0.33"/><path d="M910 778C384 330 240 188 280 -20" stroke="#09A78D" stroke-opacity="0.32"/><path d="M910 776C378 322 236 185 272 -20" stroke="#52E081" stroke-opacity="0.31"/><path d="M910 774C373 315 232 182 264 -20" stroke="#52E081" stroke-opacity="0.29"/><path d="M910 771C367 308 228 178 256 -20" stroke="#09A78D" stroke-opacity="0.28"/><path d="M910 769C362 300 224 175 248 -20" stroke="#52E081" stroke-opacity="0.27"/><path d="M910 767C356 292 220 172 240 -20" stroke="#52E081" stroke-opacity="0.26"/><path d="M910 765C350 285 216 169 232 -20" stroke="#09A78D" stroke-opacity="0.25"/><path d="M910 763C345 278 212 166 224 -20" stroke="#52E081" stroke-opacity="0.24"/><path d="M910 760C339 270 208 162 216 -20" stroke="#52E081" stroke-opacity="0.23"/><path d="M910 758C334 262 204 159 208 -20" stroke="#09A78D" stroke-opacity="0.21"/><path d="M910 756C328 255 200 156 200 -20" stroke="#52E081" stroke-opacity="0.20"/><path d="M910 754C322 248 196 153 192 -20" stroke="#52E081" stroke-opacity="0.19"/><path d="M910 752C317 240 192 150 184 -20" stroke="#09A78D" stroke-opacity="0.18"/></svg></div>
-  <div class="title-wrap rv">
-    <p class="ceyebrow">Genius Hacks Q3 2026 · Team TrustOps</p>
-    <h1 class="ctitle">TrustOps<br><span>FCRM Risk Assessment Workbench</span></h1>
-    <p class="title-claim">Banks must assess every material change for AML, CFT and sanctions risk before it goes live. TrustOps turns that assessment into one traceable case: <em>AI proposes with citations, people decide every item, and a deterministic engine calculates the score.</em></p>
-    <div class="cdivider"></div>
-    <p class="meta-line">Divya Jain · Amey Phansalkar · Ayushi Gupta · Abhishek Pahuja · Vishal Wankhede · Ramesh Sen</p>
-    <p class="meta-line faint">FastAPI · React 19 · MongoDB 8 · RabbitMQ · Pydantic AI on Amazon Bedrock · OPA · OpenTelemetry · Claude Code</p>
+<section class="slide cover" data-notes="n0">
+  <div class="top">
+    <div class="eyebrow">Genius Hacks Q3 2026 <span>·</span> Team TrustOps</div>
+    <div class="rub"><span>Risk Assessment Workbench track</span><span class="pg">1 / 5</span></div>
   </div>
-  <div class="cfoot"><span>Risk Assessment Workbench track</span><span>1 / 4</span></div>
+
+  <div class="cv-l rv">
+    <h1 class="cv-title">TrustOps</h1>
+    <div class="cv-sub">FCRM Risk Assessment Workbench</div>
+    <p class="cv-claim">Banks must assess every material change for AML, CFT and sanctions risk before it goes live. TrustOps turns that assessment into one traceable case: <b>AI proposes with citations, people decide every item, and a deterministic engine calculates the score.</b></p>
+    <div class="cv-meta"><span class="cv-lbl">Team</span>Divya Jain · Amey Phansalkar · Ayushi Gupta · Abhishek Pahuja · Vishal Wankhede · Ramesh Sen</div>
+    <div class="cv-meta"><span class="cv-lbl">Stack</span><span class="chips" style="display:inline-flex"><span class="chip">FastAPI</span><span class="chip">React 19</span><span class="chip">MongoDB 8</span><span class="chip">RabbitMQ</span><span class="chip g">Pydantic AI on Bedrock</span><span class="chip">OPA</span><span class="chip">OpenTelemetry</span><span class="chip d">Claude Code</span></span></div>
+  </div>
+
+  <div class="panel cv-r rv" style="--d:.12s">
+    <div class="pl">Who does what in every case <small>hover for detail</small></div>
+    <div class="ps-wrap">
+      <div class="ps-rail"><i></i></div>
+      <div class="ps" data-tip="<b>Product owner · Priya Nair, Payments</b><br>Raises the change, uploads documents, confirms or corrects each value the intake agent extracted, and answers one batched round of questions. Sees plain-language updates only, never a score, band or rating.">
+        <div class="ps-av po">PN</div>
+        <div class="ps-b"><div class="ps-r">Product owner</div><div class="ps-d">Raises the change, uploads documents, confirms every extracted value</div><div class="ps-see">sees plain-language updates, never a score</div></div>
+      </div>
+      <div class="ps-link ai" data-tip="Intake reads each document; research finds and quotes the policy; assessment rates likelihood, impact and controls; a critic on another model family checks the work. Every claim has a source."><span class="ps-tag">AI proposes</span><span>intake · research · rating · critic, each claim with its source</span></div>
+      <div class="ps" data-tip="<b>FCRM analyst · Rahul Iyer</b><br>Reviews every proposal one at a time, overrides with a written reason, resolves critic findings, locks the recommendation, and closes Band 1 to 2 cases. Owns the configuration: fields, controls, policy corpus, scoring and routing.">
+        <div class="ps-av an">RI</div>
+        <div class="ps-b"><div class="ps-r">FCRM analyst</div><div class="ps-d">Reviews each item, overrides with a reason, locks the recommendation</div><div class="ps-see">sees sources, ratings, critic findings, scores · owns the configuration</div></div>
+      </div>
+      <div class="ps-link code" data-tip="A versioned scoring engine turns the confirmed inputs into a score and a band from 1 to 4. Routing rules then send Band 1 to 2 to the analyst and Band 3 to 4 to the committee. No agent can reach it."><span class="ps-tag">Code scores</span><span>deterministic engine · band 1 to 4 · routing rules</span></div>
+      <div class="ps" data-tip="<b>Risk committee · Ana Mendes, Joseph Okafor, Lin Chen</b><br>Reads a frozen pack, asks questions that become a visible addendum, and casts one of four votes with a written rationale. Votes stay hidden until all three are in; a 1-1-1 split opens a new round.">
+        <div class="ps-av cm"><span>AM</span><span>JO</span><span>LC</span></div>
+        <div class="ps-b"><div class="ps-r">Risk committee</div><div class="ps-d">Votes in secret on Band 3 to 4 cases, a rationale on each vote</div><div class="ps-see">sees a frozen pack that cannot change under them</div></div>
+      </div>
+      <div class="ps-foot" data-tip="Every step writes to a per-case hash chain through an insert-only database user. An observer or examiner can verify it and ask the examiner agent, which answers only from those records."><span class="ps-tag dark">Examiner</span><span>reads a hash-chained audit trail of every step, months later</span></div>
+    </div>
+  </div>
+
+  <div class="toc rv" style="--d:.22s">
+    <div class="toc-lbl">In this section</div>
+    <div class="toc-c" data-go="1"><span class="toc-no">02</span><div><div class="toc-h">The problem</div><div class="toc-s">6 change types · FFIEC · one traceable case</div></div><span class="toc-go">→</span></div>
+    <div class="toc-c" data-go="2"><span class="toc-no">03</span><div><div class="toc-h">The AI inside it</div><div class="toc-s">agents · guardrails · models · memory</div></div><span class="toc-go">→</span></div>
+    <div class="toc-c" data-go="3"><span class="toc-no">04</span><div><div class="toc-h">The AI that built it</div><div class="toc-s">109 agents · 56 h · gated SDLC</div></div><span class="toc-go">→</span></div>
+    <div class="toc-c" data-go="4"><span class="toc-no">05</span><div><div class="toc-h">Proof</div><div class="toc-s">cost per case · testing</div></div><span class="toc-go">→</span></div>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- SLIDE 1 · THE PROBLEM (BA)                                        -->
+<!-- ================================================================ -->
+<section class="slide" data-notes="np">
+  <div class="top">
+    <div class="eyebrow">The problem <span>·</span> as given, and what we set out to build</div>
+    <div class="rub"><span>Context engineering and requirement expansion<b>10%</b></span><span>Human-in-the-loop<b>15%</b></span><span class="pg">2 / 5</span></div>
+  </div>
+  <div class="head">
+    <div>
+      <h1>One traceable assessment, <em>from intake to recommendation</em></h1>
+      <div class="sub">A US national bank must assess the financial-crime risk of every change before it goes live. Today that runs on <b>email, Word, Excel and memory</b>. We replace it with one governed case, with AI assisting or leading where it earns its place.</div>
+    </div>
+    <div class="kpis rv">
+      <div class="k"><div class="v">6</div><div class="t">change<br>types</div></div>
+      <div class="k"><div class="v">4</div><div class="t">FFIEC risk<br>domains</div></div>
+      <div class="k"><div class="v">15–20</div><div class="t">days today<br>per case</div></div>
+      <div class="k dark"><div class="v">~2</div><div class="t">days<br>target</div></div>
+    </div>
+  </div>
+
+  <!-- scope: change types -> FFIEC domains -->
+  <div class="panel rv" style="left:64px;top:200px;width:760px;height:540px;--d:.08s">
+    <div class="pl">What the bank assesses <small>6 change types → the FFIEC exam manual's 4 risk domains</small></div>
+    <div class="mp-heads"><span>Change a business unit raises</span><span>Category examiners assess</span></div>
+    <svg class="map" viewBox="0 0 702 420" aria-label="Six change types mapped to four FFIEC risk domains">
+      <text x="0" y="-8" class="mp-l" style="display:none">x</text>
+      <path d="M292 32 C360 32 380 58 446 58" stroke="#09A78D" stroke-width="2.5" fill="none" opacity=".75"/><path d="M292 100 C360 100 380 58 446 58" stroke="#09A78D" stroke-width="2.5" fill="none" opacity=".75"/><path d="M292 168 C360 168 380 58 446 58" stroke="#09A78D" stroke-width="2.5" fill="none" opacity=".75"/><path d="M292 168 C360 168 380 162 446 162" stroke="#52E081" stroke-width="2.5" fill="none" opacity=".75"/><path d="M292 236 C360 236 380 370 446 370" stroke="#285C62" stroke-width="2.5" fill="none" opacity=".75"/><path d="M292 304 C360 304 380 266 446 266" stroke="#337077" stroke-width="2.5" fill="none" opacity=".75"/><path d="M292 372 C360 372 380 162 446 162" stroke="#52E081" stroke-width="2.5" fill="none" opacity=".75"/>
+      <g class="mp" data-tip="<b>New product</b> → Product and service"><rect x="0" y="6" width="292" height="52" rx="12" fill="#fff" stroke="rgba(25,66,71,.14)"/><text x="18" y="38" class="mp-t">New product</text></g><g class="mp" data-tip="<b>New feature</b> → Product and service"><rect x="0" y="74" width="292" height="52" rx="12" fill="#fff" stroke="rgba(25,66,71,.14)"/><text x="18" y="106" class="mp-t">New feature</text></g><g class="mp" data-tip="<b>Process change</b> → Product and service + Customer and entity"><rect x="0" y="142" width="292" height="52" rx="12" fill="#fff" stroke="rgba(25,66,71,.14)"/><text x="18" y="174" class="mp-t">Process change</text></g><g class="mp" data-tip="<b>Vendor / third party</b> → Delivery channel and third party"><rect x="0" y="210" width="292" height="52" rx="12" fill="#fff" stroke="rgba(25,66,71,.14)"/><text x="18" y="242" class="mp-t">Vendor / third party</text></g><g class="mp" data-tip="<b>New geography</b> → Geography"><rect x="0" y="278" width="292" height="52" rx="12" fill="#fff" stroke="rgba(25,66,71,.14)"/><text x="18" y="310" class="mp-t">New geography</text></g><g class="mp" data-tip="<b>New customer segment</b> → Customer and entity"><rect x="0" y="346" width="292" height="52" rx="12" fill="#fff" stroke="rgba(25,66,71,.14)"/><text x="18" y="378" class="mp-t">New customer segment</text></g>
+      <g class="mp" data-tip="<b>FFIEC domain · Product and service</b><br>New or changed products, features and processes"><rect x="446" y="14" width="256" height="88" rx="14" fill="#fff" stroke="#09A78D" stroke-width="2"/><rect x="446" y="14" width="8" height="88" rx="4" fill="#09A78D"/><text x="470" y="50" class="mp-d">Product and service</text></g><g class="mp" data-tip="<b>FFIEC domain · Customer and entity</b><br>Who the bank serves: segments, entity types, onboarding"><rect x="446" y="118" width="256" height="88" rx="14" fill="#fff" stroke="#52E081" stroke-width="2"/><rect x="446" y="118" width="8" height="88" rx="4" fill="#52E081"/><text x="470" y="154" class="mp-d">Customer and entity</text></g><g class="mp" data-tip="<b>FFIEC domain · Geography</b><br>Countries and corridors, jurisdiction lists, sanctions"><rect x="446" y="222" width="256" height="88" rx="14" fill="#fff" stroke="#337077" stroke-width="2"/><rect x="446" y="222" width="8" height="88" rx="4" fill="#337077"/><text x="470" y="258" class="mp-d">Geography</text></g><g class="mp" data-tip="<b>FFIEC domain · Delivery channel and third party</b><br>How the service is delivered, and who delivers it"><rect x="446" y="326" width="256" height="88" rx="14" fill="#fff" stroke="#285C62" stroke-width="2"/><rect x="446" y="326" width="8" height="88" rx="4" fill="#285C62"/><text x="470" y="362" class="mp-d">Delivery channel</text><text x="470" y="384" class="mp-d2">and third party</text></g>
+    </svg>
+    <div class="note" style="margin-top:10px">The FFIEC BSA/AML manual is what US examiners use to assess AML, CFT and sanctions risk. Mapping each change to its domains is what makes two assessments comparable.</div>
+  </div>
+
+  <!-- today -->
+  <div class="panel rv" style="left:840px;top:200px;width:1016px;height:540px;--d:.14s">
+    <div class="pl">How it runs today <span class="legend"><span><i style="background:#FBECEB;border:1px solid #EFC9C6"></i>where it breaks</span><span style="color:var(--dim)">hover for detail</span></span></div>
+    <div class="dg" style="left:20px;top:46px;width:976px;height:300px">
+      <svg class="wires" width="976" height="300" viewBox="0 0 976 300">
+        <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5 0 10z" fill="#9DB5B1"/></marker></defs>
+        <path class="wire" d="M226 96 L250 96" marker-end="url(#arr)"/>
+        <path class="wire" d="M476 96 L500 96" marker-end="url(#arr)"/>
+        <path class="wire" d="M726 96 L750 96" marker-end="url(#arr)"/>
+        <path class="wire flow" style="stroke:#B8433F" d="M600 136 C600 200 120 200 120 140" marker-end="url(#arr)"/>
+        <path class="wire soft" d="M850 136 L850 230"/>
+      </svg>
+      <div class="n" style="left:0;top:56px;width:226px;height:80px" data-tip="The product owner fills a form shaped by their own change and their own experience, not by what the assessment needs."><div class="h">Product owner</div><div class="s">gathers information from experience</div></div>
+      <div class="n" style="left:250px;top:56px;width:226px;height:80px;background:#FBECEB;border-color:#EFC9C6" data-tip="Fields the assessment needs are missing or stale, so gaps surface one question at a time over email. Most of a case's 15 to 20 days is spent waiting on answers."><div class="h">Submission</div><div class="s">often incomplete</div></div>
+      <div class="n" style="left:500px;top:56px;width:226px;height:80px;background:#FBECEB;border-color:#EFC9C6" data-tip="Policy is looked up from scratch each time, control strength is judged from memory with no evidence required, and scoring lives in personal spreadsheets that drift apart. Two analysts reach two answers on the same change."><div class="h">Analyst</div><div class="s">assesses from own judgement</div></div>
+      <div class="n" style="left:750px;top:56px;width:226px;height:80px" data-tip="The decision is recorded. The reasoning behind it lives in email threads, local files and memory."><div class="h">Recommendation</div><div class="s">approve, reject, defer, conditions</div></div>
+      <div class="n" style="left:300px;top:172px;width:376px;height:44px;padding:9px 14px;background:#FBECEB;border-color:#EFC9C6;text-align:center" data-tip="Questions go back and forth by email, one at a time. Each round adds days."><div class="h" style="font-size:14px;color:var(--red)">back and forth, one question at a time</div></div>
+      <div class="n" style="left:712px;top:230px;width:264px;height:64px;background:#FBECEB;border-color:#EFC9C6" data-tip="When an examiner asks months later why a risk was rated the way it was, the answer has to be rebuilt by hand, and often cannot be."><div class="h" style="font-size:15px">Examiner, months later: why?</div><div class="s">limited traceability, rebuilt by hand</div></div>
+      <div class="chips" style="position:absolute;left:0;top:236px"><span class="chip">Email</span><span class="chip">Word</span><span class="chip">Excel</span><span class="chip">SharePoint</span><span class="chip">memory</span></div>
+    </div>
+    <div class="fails">
+      <div class="fl" data-tip="Submissions depend on what the product owner happens to know and remember."><b>Incomplete</b><span>information gathered from experience, gaps found late</span></div>
+      <div class="fl" data-tip="The outcome depends on which analyst picks up the case."><b>Inconsistent</b><span>two analysts, two assessments of the same change</span></div>
+      <div class="fl" data-tip="An outcome with no record of why can only be asserted, not defended."><b>Untraceable</b><span>why a recommendation was made is not kept</span></div>
+    </div>
+    <div class="fsum"><span class="t">Result</span><span><b>15 to 20 business days per case</b>, an answer that depends on who picked it up, and a decision the bank cannot fully explain to its examiner later.</span></div>
+  </div>
+
+  <!-- what we set out to build -->
+  <div class="panel rv" style="left:64px;top:756px;width:1792px;height:230px;--d:.2s">
+    <div class="pl">What we set out to build <small>one governed case, every step recorded, AI assists or leads where it earns its place</small></div>
+    <div class="goal">
+      <div class="gstep" data-tip="The owner uploads documents. AI extracts the values and change types with a page:line source for each; the owner confirms every value before anything is submitted."><div class="gtag ai">AI leads</div><div class="gh">Intake</div><div class="gs">AI reads the documents, the owner confirms each value</div></div>
+      <div class="garr">→</div>
+      <div class="gstep" data-tip="AI finds the policy that applies and quotes it word for word, and rates likelihood, impact and controls with evidence. A second model checks the work. The analyst accepts or overrides each item with a reason."><div class="gtag ai">AI leads</div><div class="gh">Assessment</div><div class="gs">policy found and quoted, ratings with evidence, a critic checks</div></div>
+      <div class="garr">→</div>
+      <div class="gstep" data-tip="One batched round of questions to the owner, drafted by AI, instead of weeks of email. Then the analyst reviews every item one at a time."><div class="gtag hu">Person decides</div><div class="gh">Review</div><div class="gs">one question round, then item-by-item review</div></div>
+      <div class="garr">→</div>
+      <div class="gstep" data-tip="A versioned scoring engine, never AI, turns the confirmed inputs into a score and band and applies the routing rules."><div class="gtag co">Code scores</div><div class="gh">Score and route</div><div class="gs">deterministic engine, band 1 to 4, routing rules</div></div>
+      <div class="garr">→</div>
+      <div class="gstep" data-tip="AI drafts the recommendation and a plain-language summary; the analyst edits and locks it. Lower risk closes under delegated authority, higher risk goes to a hidden committee vote."><div class="gtag as">AI assists</div><div class="gh">Recommendation</div><div class="gs">AI drafts, the analyst locks, the committee decides</div></div>
+      <div class="gwhat">
+        <div class="gw-l">What good looks like</div>
+        <span class="chip g">intake to decision-ready in ~2 days</span><span class="chip g">every rating traceable to its inputs</span><span class="chip g">rules tunable by the risk function</span><span class="chip g">an audit trail an examiner can hold</span><span class="chip d">nothing approved automatically</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- SLIDE 2 · THE AI INSIDE TRUSTOPS                                  -->
+<!-- ================================================================ -->
+<section class="slide" data-notes="n2">
+  <div class="top">
+    <div class="eyebrow">Part 1 <span>·</span> The AI inside TrustOps</div>
+    <div class="rub"><span>AI harness<b>30%</b></span><span>Human-in-the-loop<b>15%</b></span><span>Context engineering<b>10%</b></span><span>Engineering judgement<b>5%</b></span><span class="pg">3 / 5</span></div>
+  </div>
+  <div class="head">
+    <div>
+      <h1>Nine agents propose. People decide. <em>Code scores.</em></h1>
+      <div class="sub">Each case flows through one harness. <b>AI drafts with sources</b>, a person decides at every gate, and only code computes a score.</div>
+    </div>
+    <div class="kpis rv">
+      <div class="k"><div class="v">9</div><div class="t">AI agents</div></div>
+      <div class="k"><div class="v">7</div><div class="t">guardrails<br>per call</div></div>
+      <div class="k"><div class="v">18</div><div class="t">human gates</div></div>
+      <div class="k dark"><div class="v">0</div><div class="t">AI-written<br>scores</div></div>
+    </div>
+  </div>
+
+  <!-- case flow swimlanes -->
+  <div class="panel rv" style="left:64px;top:200px;width:1792px;height:306px;--d:.08s">
+    <div class="pl">One case, start to finish <span class="legend"><span><i style="background:#F9FDE6;border:1px solid #D8E79A"></i>Person decides</span><span><i style="background:#EAF8EE;border:1px solid #A9E2BA"></i>AI agent proposes</span><span><i style="background:#E7EFEE;border:1px solid #B5CBC7"></i>Code computes, no AI</span><span style="color:var(--dim)">hover any step for detail</span></span></div>
+    <div class="dg" id="lanes" style="left:20px;top:46px;width:1752px;height:240px">
+      <div style="position:absolute;left:0;top:0;width:1752px;height:74px;background:#FCFEF3;border-radius:10px"></div>
+      <div style="position:absolute;left:0;top:83px;width:1752px;height:74px;background:#F4FBF6;border-radius:10px"></div>
+      <div style="position:absolute;left:0;top:166px;width:1752px;height:74px;background:#F2F6F5;border-radius:10px"></div>
+      <div style="position:absolute;left:14px;top:27px;font-size:12px;font-weight:800;letter-spacing:.12em;color:#6B7A12">PEOPLE</div>
+      <div style="position:absolute;left:14px;top:110px;font-size:12px;font-weight:800;letter-spacing:.12em;color:var(--tide-d)">AI AGENTS</div>
+      <div style="position:absolute;left:14px;top:193px;font-size:12px;font-weight:800;letter-spacing:.12em;color:var(--leaf)">CODE</div>
+      <svg class="wires" width="1752" height="240" viewBox="0 0 1752 240">
+        <path id="track" class="wire" d="M202 37 L202 203 C260 203 276 120 336 120 C392 120 410 37 470 37 C528 37 546 120 604 120 C662 120 680 37 738 37 C796 37 814 120 872 120 C930 120 948 203 1006 203 C1060 203 1072 120 1128 120 L1280 120 C1336 120 1352 37 1408 37 L1408 203 C1466 203 1484 120 1542 120 C1600 120 1640 37 1694 37 L1694 203"/>
+        <path d="M1196 114 L1210 120 L1196 126 z" fill="#9DB5B1"/>
+        <circle r="7" fill="#52E081" stroke="#0C2226" stroke-width="2"><animateMotion dur="13s" repeatCount="indefinite"><mpath href="#track"/></animateMotion></circle>
+      </svg>
+      <!-- people lane -->
+      <div class="n human" style="left:140px;top:9px;width:124px;height:56px;padding:7px 10px" data-tip="The product owner raises a change and uploads documents. Text is extracted and PII is masked by code before any agent sees it."><div class="h" style="font-size:14px">Upload</div><div class="s" style="margin-top:2px;font-size:12px">owner</div></div>
+      <div class="n human" style="left:408px;top:9px;width:124px;height:56px;padding:7px 10px" data-tip="<b>Gate:</b> the owner confirms or corrects each extracted value one at a time, with its source shown. An extraction error never becomes a submitted fact."><div class="h" style="font-size:14px">Confirm values</div><div class="s" style="margin-top:2px;font-size:12px">owner</div></div>
+      <div class="n human" style="left:676px;top:9px;width:124px;height:56px;padding:7px 10px" data-tip="<b>Gate:</b> the analyst confirms the fast lane, or declines it with a reason. A proposal always opens a gate; it never skips to confirmed."><div class="h" style="font-size:14px">Confirm route</div><div class="s" style="margin-top:2px;font-size:12px">analyst</div></div>
+      <div class="n human" style="left:1346px;top:9px;width:124px;height:56px;padding:7px 10px" data-tip="<b>Gate:</b> the analyst accepts, overrides, adjusts or removes every clause, rating and critic finding, one at a time. There's no bulk accept, and an override needs a reason of 20+ characters."><div class="h" style="font-size:14px">Review items</div><div class="s" style="margin-top:2px;font-size:12px">analyst, one by one</div></div>
+      <div class="n human" style="left:1636px;top:9px;width:116px;height:56px;padding:7px 10px" data-tip="<b>Gate:</b> Band 1 to 2, the analyst closes with a reason. Band 3 to 4, 3 committee members vote in secret with a rationale each. A 1-1-1 split means a re-vote, never a default."><div class="h" style="font-size:14px">Decide</div><div class="s" style="margin-top:2px;font-size:12px">committee</div></div>
+      <!-- ai lane -->
+      <div class="n ai" style="left:274px;top:92px;width:124px;height:56px;padding:7px 10px" data-tip="<b>Intake · Haiku 4.5</b><br>Reads each document and proposes field values and change types, each with a page:line source. One job per document."><div class="h" style="font-size:14px">Intake</div><div class="s" style="margin-top:2px;font-size:12px">Haiku 4.5</div></div>
+      <div class="n ai" style="left:542px;top:92px;width:124px;height:56px;padding:7px 10px" data-tip="<b>Screening · Haiku 4.5</b><br>Proposes the fast lane or a full assessment, using routing rule R4."><div class="h" style="font-size:14px">Screening</div><div class="s" style="margin-top:2px;font-size:12px">Haiku 4.5</div></div>
+      <div class="n ai" style="left:790px;top:92px;width:164px;height:56px;padding:7px 10px" data-tip="<b>Research + Assessment · Sonnet 5.5, in parallel</b><br>Research quotes the policy clauses that apply word for word, or declares a gap. Assessment rates likelihood, impact and control strength with evidence. Neither can compute a score."><div class="h" style="font-size:14px">Research + Assess</div><div class="s" style="margin-top:2px;font-size:12px">Sonnet 5.5 · in parallel</div></div>
+      <div class="n ai" style="left:1070px;top:92px;width:116px;height:56px;padding:7px 10px" data-tip="<b>Critic · Nova Pro</b><br>A different model family from the assessor. It checks every claim has a source, ratings against precedents, evidence dates and the 8 rules. It flags but never changes a value."><div class="h" style="font-size:14px">Critic</div><div class="s" style="margin-top:2px;font-size:12px">Nova Pro</div></div>
+      <div class="n ai" style="left:1222px;top:92px;width:116px;height:56px;padding:7px 10px" data-tip="<b>Narrative · Sonnet 5.5, completeness mode</b><br>Lists missing, stale or contradictory inputs and drafts one round of questions for the owner. The analyst asks or proceeds."><div class="h" style="font-size:14px">Completeness</div><div class="s" style="margin-top:2px;font-size:12px">Sonnet 5.5</div></div>
+      <div class="n ai" style="left:1480px;top:92px;width:124px;height:56px;padding:7px 10px" data-tip="<b>Narrative · Sonnet 5.5, recommendation mode</b><br>Drafts the recommendation, conditions and a plain-language summary for the owner. Numbers are read-only inputs; the analyst edits and locks it."><div class="h" style="font-size:14px">Recommend</div><div class="s" style="margin-top:2px;font-size:12px">Sonnet 5.5</div></div>
+      <!-- code lane -->
+      <div class="n code" style="left:140px;top:175px;width:124px;height:56px;padding:7px 10px" data-tip="Ingestion turns each upload into text with page:line anchors, scans it for prompt injection and masks PII with rules. No model is involved."><div class="h" style="font-size:14px">Extract, mask</div><div class="s" style="margin-top:2px;font-size:12px">no AI</div></div>
+      <div class="n code" style="left:944px;top:175px;width:124px;height:56px;padding:7px 10px" data-tip="The scoring engine: likelihood × impact, reduced by control strength, gives a band from 1 to 4. It's versioned and tested on all 80 seed cases. No agent can reach it."><div class="h" style="font-size:14px">Score</div><div class="s" style="margin-top:2px;font-size:12px">risk engine</div></div>
+      <div class="n code" style="left:1346px;top:175px;width:124px;height:56px;padding:7px 10px" data-tip="Every override re-scores through the same engine. In the demo, one override moves 9.8 (Band 2) to 10.4 (Band 3), and the case goes to committee."><div class="h" style="font-size:14px">Re-score</div><div class="s" style="margin-top:2px;font-size:12px">per override</div></div>
+      <div class="n code" style="left:1636px;top:175px;width:116px;height:56px;padding:7px 10px" data-tip="The vote tally is one pure function. Every state change writes to the hash-chained audit trail, which anyone can verify."><div class="h" style="font-size:14px">Tally + audit</div><div class="s" style="margin-top:2px;font-size:12px">hash chain</div></div>
+    </div>
+  </div>
+
+  <!-- inside every call -->
+  <div class="panel rv" style="left:64px;top:522px;width:600px;height:464px;--d:.14s">
+    <div class="pl">Inside every agent call <small>7 guardrails, fixed order</small></div>
+    <div style="position:relative;margin-top:12px">
+      <div class="n code" style="position:relative;padding:9px 12px" data-tip="Built by code, never by a model: only the fields, clauses and evidence this step needs. Capped at 4.6k to 9k tokens, SHA-256 hashed so any proposal traces back to exactly what the agent saw, and every version pinned to the case."><div class="row" style="justify-content:space-between"><div class="h" style="font-size:15px">Context pack</div><div class="chips"><span class="chip">built by code</span><span class="chip">capped</span><span class="chip">hashed</span><span class="chip">versions pinned</span></div></div></div>
+      <div style="text-align:center;color:var(--dim);font-size:13px;line-height:18px">▼</div>
+      <div class="callgrid3" style="display:grid;grid-template-columns:96px 1fr 1fr 1fr;gap:8px;align-items:stretch">
+        <div style="font-size:11.5px;font-weight:800;letter-spacing:.1em;color:var(--tide-d);display:flex;align-items:center">BEFORE</div>
+        <div class="n ai" style="position:relative;padding:8px 10px" data-tip="<b>1 · Input scan</b><br>Weighted prompt-injection patterns: a score of 0.8 or more blocks the input and flags the analyst. PII is masked, so agents only ever see masked text. Counts are logged, never the matched value."><div class="h" style="font-size:14px">1 Input scan</div><div class="s" style="font-size:12px;margin-top:2px">injection · PII</div></div>
+        <div class="n ai" style="position:relative;padding:8px 10px" data-tip="<b>2 · Tool permit</b><br>OPA allow-list per agent, checked at job start and before each tool call. Default deny. If OPA can't be reached, the call is blocked."><div class="h" style="font-size:14px">2 Permit</div><div class="s" style="font-size:12px;margin-top:2px">OPA, default deny</div></div>
+        <div class="n ai" style="position:relative;padding:8px 10px" data-tip="<b>3 · Budget</b><br>One attempt is reserved against the case cap before the job is sent. At most 64k tokens per attempt, a wall clock per tier, and a 250k cap per case."><div class="h" style="font-size:14px">3 Budget</div><div class="s" style="font-size:12px;margin-top:2px">tokens · time</div></div>
+      </div>
+      <div style="text-align:center;color:var(--dim);font-size:13px;line-height:18px">▼</div>
+      <div class="n dark" style="position:relative;padding:10px 12px;text-align:center" data-tip="One Pydantic AI call on Amazon Bedrock. A forced output schema, read-only tools, at most 1 tool round trip, and no memory between calls. Agents never call other agents."><div class="h" style="font-size:15px">One model call <span style="font-weight:600;color:var(--mint2);font-size:13px">· Bedrock · read-only tools · no memory</span></div></div>
+      <div style="text-align:center;color:var(--dim);font-size:13px;line-height:18px">▼</div>
+      <div class="callgrid" style="display:grid;grid-template-columns:96px 1fr 1fr;gap:8px">
+        <div style="font-size:11.5px;font-weight:800;letter-spacing:.1em;color:var(--tide-d);display:flex;align-items:center">AFTER</div>
+        <div class="n ai" style="position:relative;padding:8px 10px" data-tip="<b>4 · Output check</b><br>Strict schema with no extra fields. Every source must resolve, every quote must match its source (12 to 600 characters), and confidence must be in range. Restricted words are blocked in owner-facing text."><div class="h" style="font-size:14px">4 Output check</div><div class="s" style="font-size:12px;margin-top:2px">schema · sources · quotes</div></div>
+        <div class="n ai" style="position:relative;padding:8px 10px" data-tip="<b>5 · Rules as code</b><br>8 rules checked before every state change. Examples: no agent wrote a score, no bulk accept, the owner never sees a score, a planned control is not scored, policy is quoted, not generated."><div class="h" style="font-size:14px">5 Rules as code</div><div class="s" style="font-size:12px;margin-top:2px">8 product rules</div></div>
+      </div>
+      <div style="text-align:center;color:var(--dim);font-size:13px;line-height:18px">▼</div>
+      <div class="callgrid" style="display:grid;grid-template-columns:96px 1fr 1fr;gap:8px">
+        <div style="font-size:11.5px;font-weight:800;letter-spacing:.1em;color:#6B7A12;display:flex;align-items:center">DECIDE</div>
+        <div class="n human" style="position:relative;padding:8px 10px" data-tip="<b>6 · Critic</b><br>Runs on a different model family and reviews proposals against precedents, evidence dates and the rules. Each finding must be explained or acted on."><div class="h" style="font-size:14px">6 Critic</div><div class="s" style="font-size:12px;margin-top:2px">another model family</div></div>
+        <div class="n human" style="position:relative;padding:8px 10px" data-tip="<b>7 · Human gate</b><br>The case waits until a person decides. The service account is denied on every decision route, so a machine can never decide for a person."><div class="h" style="font-size:14px">7 Person decides</div><div class="s" style="font-size:12px;margin-top:2px">case waits until then</div></div>
+      </div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);background:#FBECEB;border:1px solid #EFC9C6;border-radius:9px;padding:7px 10px" data-tip="Attempt 1 uses the model chain. If the output is rejected, attempt 2 runs on the first fallback with the error shown. A second failure opens a handoff: the analyst sees the exact inputs and completes the step with a reason, and the case resumes. Nothing is silently cut.">
+        <b style="color:var(--red);font-size:11.5px;letter-spacing:.1em">ON FAILURE</b> 1 retry on a fallback <span style="color:var(--red)">→</span> still failing <span style="color:var(--red)">→</span> <b style="color:var(--moss)">a person takes over</b>
+      </div>
+    </div>
+  </div>
+
+  <!-- model selection -->
+  <div class="panel rv" style="left:680px;top:522px;width:760px;height:464px;--d:.2s">
+    <div class="pl">How each model was chosen <small>cheapest model that passes its eval gate</small></div>
+    <div class="tscroll"><table class="mx" style="margin-top:8px">
+      <tr><th>Tier</th><th>Agents</th><th>Model → fallback</th><th>Per-model guardrails</th></tr>
+      <tr data-tip="<b>Cheap tier</b>: high-volume reading. Measured 3 to 6k tokens per job. The pack holds everything, so these agents get no tool round trip."><td><span class="mdot" style="background:var(--m-haiku)"></span>Cheap</td><td>intake · screening · watchlist</td><td>Haiku 4.5 → Nova Lite</td><td>full pack, no tool call · 60 s</td></tr>
+      <tr data-tip="<b>Mid tier</b>: writing for people. Numbers are read-only inputs, and Guard 4 checks every number in the text against the case."><td><span class="mdot" style="background:var(--m-sonnet)"></span>Mid</td><td>narrative · examiner · policy gap</td><td>Sonnet 5.5 → Haiku 4.5</td><td>numbers checked · no restricted words · 120 s</td></tr>
+      <tr data-tip="<b>Strong tier</b>: judgement with evidence. In live runs, retrying on Haiku or Nova failed the research and assessment schemas, so the retry stays on Sonnet. Thinking effort is set to low: 12 to 51% fewer output tokens with no metric lost."><td><span class="mdot" style="background:var(--m-sonnet)"></span>Strong</td><td>research · assessment</td><td>Sonnet 5.5 → Sonnet 5.5 → Nova Pro</td><td>retry stays on Sonnet · effort low · 180 s</td></tr>
+      <tr data-tip="<b>Judge tier</b>: the critic and the eval judge run on Amazon Nova, a different family from the Claude assessor, so no model grades its own family's work."><td><span class="mdot" style="background:var(--m-nova)"></span>Judge</td><td>critic · eval judge</td><td>Nova Pro → Haiku 4.5</td><td>different family from the assessor · 180 s</td></tr>
+    </table></div>
+    <div style="margin-top:14px;font-size:12.5px;font-weight:700;letter-spacing:.1em;color:var(--dim);text-transform:uppercase">Guardrails on every model</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      <div class="n" style="position:relative;padding:9px 12px" data-tip="A wrapper lowers max tokens to each model's own output cap and context window, moves to the next model if the input won't fit, and re-sends once at the limit Bedrock names."><div class="h" style="font-size:14px">Held to its own limits</div><div class="s">64k per attempt; each model's own output cap and context window</div></div>
+      <div class="n" style="position:relative;padding:9px 12px" data-tip="validate_ai.py scans the whole repo for model-id shapes and fails on any hit outside ai/models/tiers.yaml. A unit test fails if an Opus model or price row comes back."><div class="h" style="font-size:14px">One file names every model</div><div class="s">a test fails on any model id elsewhere, or if Opus returns</div></div>
+      <div class="n" style="position:relative;padding:9px 12px" data-tip="Haiku and Sonnet get cache points after the system prompt and the tool list. Nova rejects a cache point in the tool list, so it gets none. System prompts hold no case data, which keeps them cacheable."><div class="h" style="font-size:14px">Prompt caching where it pays</div><div class="s">Haiku and Sonnet cached; cache reads cost 1/10</div></div>
+      <div class="n" style="position:relative;padding:9px 12px" data-tip="Changing a model or tier needs a verified price row, a decision-log entry and live eval evidence. Prompts are versioned files that are never edited, and a hash lock catches any change."><div class="h" style="font-size:14px">No change without evidence</div><div class="s">price row, decision entry and live eval for any swap</div></div>
+    </div>
+  </div>
+
+  <!-- memory + zero trust -->
+  <div class="panel rv" style="left:1456px;top:522px;width:400px;height:464px;--d:.26s">
+    <div class="pl">Memory: four kinds, none hidden</div>
+    <div style="display:flex;flex-direction:column;gap:7px;margin-top:12px">
+      <div class="n" style="position:relative;padding:8px 12px;margin:0 36px;background:var(--mint3);border-color:#BFE6C9" data-tip="Working memory: only what this step needs, built by code from the job payload and discarded after the call. Never a rolling chat."><div class="h" style="font-size:14px">Working <span style="font-weight:600;color:var(--muted)">· one call</span></div><div class="s">the pack, then discarded</div></div>
+      <div class="n" style="position:relative;padding:8px 12px;margin:0 24px;background:#E6F5E9" data-tip="Short-term memory: every step, proposal, guard result, gate decision and retry for one case run, in the event store and the evidence ledger. It survives restarts and replays the case."><div class="h" style="font-size:14px">Short-term <span style="font-weight:600;color:var(--muted)">· one case</span></div><div class="s">event store + evidence ledger</div></div>
+      <div class="n" style="position:relative;padding:8px 12px;margin:0 12px;background:#EEF6F3" data-tip="Long-term memory: closed cases as precedents, overrides, policy corpus versions, control evidence and jurisdiction lists. It's versioned, so it never changes a past decision."><div class="h" style="font-size:14px">Long-term <span style="font-weight:600;color:var(--muted)">· across cases</span></div><div class="s">precedents, corpus versions, overrides</div></div>
+      <div class="n" style="position:relative;padding:8px 12px;background:#F3F6F6" data-tip="Learning memory: what analysts keep overriding feeds an eval row, then a new prompt version. An agent never changes silently, and a regulator can see when and why it did."><div class="h" style="font-size:14px">Learning <span style="font-weight:600;color:var(--muted)">· over time</span></div><div class="s">overrides → eval → new prompt version</div></div>
+    </div>
+    <div style="font-size:13px;color:var(--muted);margin-top:8px;line-height:1.35;font-style:italic">No agent-memory product: nothing an agent recalls lacks a source.</div>
+    <div style="margin-top:12px;font-size:12.5px;font-weight:700;letter-spacing:.1em;color:var(--dim);text-transform:uppercase">Zero trust</div>
+    <div class="chips" style="margin-top:7px">
+      <span class="chip g" data-tip="OPA default deny; if it can't be reached, the call is blocked.">deny by default</span>
+      <span class="chip g" data-tip="All 13 tools are read-only and scoped to one case. No agent has a scoring tool.">13 read-only tools</span>
+      <span class="chip g" data-tip="The service account is denied by name on every decision route.">machines can't decide</span>
+      <span class="chip g" data-tip="The response contract, the router and a response scanner each independently stop scores from reaching the owner.">3 fences on scores</span>
+      <span class="chip g" data-tip="An insert-only database user writes a per-case SHA-256 hash chain. Tampering anywhere is detected.">tamper-evident audit</span>
+    </div>
+  </div>
 </section>
 
 <!-- ================================================================ -->
@@ -250,8 +592,8 @@ body.flow .cwave{width:60%;opacity:.35}
 <!-- ================================================================ -->
 <section class="slide" data-notes="n1">
   <div class="top">
-    <div class="eyebrow">Part 1 <span>·</span> The AI that built TrustOps</div>
-    <div class="rub"><span>SDLC automation<b>20%</b></span><span>AI harness<b>30%</b></span><span>Token efficiency<b>5%</b></span><span class="pg">2 / 4</span></div>
+    <div class="eyebrow">Part 2 <span>·</span> The AI that built TrustOps</div>
+    <div class="rub"><span>SDLC automation<b>20%</b></span><span>AI harness<b>30%</b></span><span>Token efficiency<b>5%</b></span><span class="pg">4 / 5</span></div>
   </div>
   <div class="head">
     <div>
@@ -377,150 +719,22 @@ body.flow .cwave{width:60%;opacity:.35}
 </section>
 
 <!-- ================================================================ -->
-<!-- SLIDE 2 · THE AI INSIDE TRUSTOPS                                  -->
-<!-- ================================================================ -->
-<section class="slide" data-notes="n2">
-  <div class="top">
-    <div class="eyebrow">Part 2 <span>·</span> The AI inside TrustOps</div>
-    <div class="rub"><span>AI harness<b>30%</b></span><span>Human-in-the-loop<b>15%</b></span><span>Context engineering<b>10%</b></span><span>Engineering judgement<b>5%</b></span><span class="pg">3 / 4</span></div>
-  </div>
-  <div class="head">
-    <div>
-      <h1>Nine agents propose. People decide. <em>Code scores.</em></h1>
-      <div class="sub">Each case flows through one harness. <b>AI drafts with sources</b>, a person decides at every gate, and only code computes a score.</div>
-    </div>
-    <div class="kpis rv">
-      <div class="k"><div class="v">9</div><div class="t">AI agents</div></div>
-      <div class="k"><div class="v">7</div><div class="t">guardrails<br>per call</div></div>
-      <div class="k"><div class="v">18</div><div class="t">human gates</div></div>
-      <div class="k dark"><div class="v">0</div><div class="t">AI-written<br>scores</div></div>
-    </div>
-  </div>
-
-  <!-- case flow swimlanes -->
-  <div class="panel rv" style="left:64px;top:200px;width:1792px;height:306px;--d:.08s">
-    <div class="pl">One case, start to finish <span class="legend"><span><i style="background:#F9FDE6;border:1px solid #D8E79A"></i>Person decides</span><span><i style="background:#EAF8EE;border:1px solid #A9E2BA"></i>AI agent proposes</span><span><i style="background:#E7EFEE;border:1px solid #B5CBC7"></i>Code computes, no AI</span><span style="color:var(--dim)">hover any step for detail</span></span></div>
-    <div class="dg" id="lanes" style="left:20px;top:46px;width:1752px;height:240px">
-      <div style="position:absolute;left:0;top:0;width:1752px;height:74px;background:#FCFEF3;border-radius:10px"></div>
-      <div style="position:absolute;left:0;top:83px;width:1752px;height:74px;background:#F4FBF6;border-radius:10px"></div>
-      <div style="position:absolute;left:0;top:166px;width:1752px;height:74px;background:#F2F6F5;border-radius:10px"></div>
-      <div style="position:absolute;left:14px;top:27px;font-size:12px;font-weight:800;letter-spacing:.12em;color:#6B7A12">PEOPLE</div>
-      <div style="position:absolute;left:14px;top:110px;font-size:12px;font-weight:800;letter-spacing:.12em;color:var(--tide-d)">AI AGENTS</div>
-      <div style="position:absolute;left:14px;top:193px;font-size:12px;font-weight:800;letter-spacing:.12em;color:var(--leaf)">CODE</div>
-      <svg class="wires" width="1752" height="240" viewBox="0 0 1752 240">
-        <path id="track" class="wire" d="M202 37 L202 203 C260 203 276 120 336 120 C392 120 410 37 470 37 C528 37 546 120 604 120 C662 120 680 37 738 37 C796 37 814 120 872 120 C930 120 948 203 1006 203 C1064 203 1082 120 1140 120 L1274 120 C1332 120 1350 37 1408 37 L1408 203 C1466 203 1484 120 1542 120 C1600 120 1640 37 1694 37 L1694 203"/>
-        <circle r="7" fill="#52E081" stroke="#0C2226" stroke-width="2"><animateMotion dur="13s" repeatCount="indefinite"><mpath href="#track"/></animateMotion></circle>
-      </svg>
-      <!-- people lane -->
-      <div class="n human" style="left:140px;top:9px;width:124px;height:56px;padding:7px 10px" data-tip="The product owner raises a change and uploads documents. Text is extracted and PII is masked by code before any agent sees it."><div class="h" style="font-size:14px">Upload</div><div class="s" style="margin-top:2px;font-size:12px">owner</div></div>
-      <div class="n human" style="left:408px;top:9px;width:124px;height:56px;padding:7px 10px" data-tip="<b>Gate:</b> the owner confirms or corrects each extracted value one at a time, with its source shown. An extraction error never becomes a submitted fact."><div class="h" style="font-size:14px">Confirm values</div><div class="s" style="margin-top:2px;font-size:12px">owner</div></div>
-      <div class="n human" style="left:676px;top:9px;width:124px;height:56px;padding:7px 10px" data-tip="<b>Gate:</b> the analyst confirms the fast lane, or declines it with a reason. A proposal always opens a gate; it never skips to confirmed."><div class="h" style="font-size:14px">Confirm route</div><div class="s" style="margin-top:2px;font-size:12px">analyst</div></div>
-      <div class="n human" style="left:1346px;top:9px;width:124px;height:56px;padding:7px 10px" data-tip="<b>Gate:</b> the analyst accepts, overrides, adjusts or removes every clause, rating and critic finding, one at a time. There's no bulk accept, and an override needs a reason of 20+ characters."><div class="h" style="font-size:14px">Review items</div><div class="s" style="margin-top:2px;font-size:12px">analyst, one by one</div></div>
-      <div class="n human" style="left:1636px;top:9px;width:116px;height:56px;padding:7px 10px" data-tip="<b>Gate:</b> Band 1 to 2, the analyst closes with a reason. Band 3 to 4, 3 committee members vote in secret with a rationale each. A 1-1-1 split means a re-vote, never a default."><div class="h" style="font-size:14px">Decide</div><div class="s" style="margin-top:2px;font-size:12px">committee</div></div>
-      <!-- ai lane -->
-      <div class="n ai" style="left:274px;top:92px;width:124px;height:56px;padding:7px 10px" data-tip="<b>Intake · Haiku 4.5</b><br>Reads each document and proposes field values and change types, each with a page:line source. One job per document."><div class="h" style="font-size:14px">Intake</div><div class="s" style="margin-top:2px;font-size:12px">Haiku 4.5</div></div>
-      <div class="n ai" style="left:542px;top:92px;width:124px;height:56px;padding:7px 10px" data-tip="<b>Screening · Haiku 4.5</b><br>Proposes the fast lane or a full assessment, using routing rule R4."><div class="h" style="font-size:14px">Screening</div><div class="s" style="margin-top:2px;font-size:12px">Haiku 4.5</div></div>
-      <div class="n ai" style="left:790px;top:92px;width:164px;height:56px;padding:7px 10px" data-tip="<b>Research + Assessment · Sonnet 5.5, in parallel</b><br>Research quotes the policy clauses that apply word for word, or declares a gap. Assessment rates likelihood, impact and control strength with evidence. Neither can compute a score."><div class="h" style="font-size:14px">Research + Assess</div><div class="s" style="margin-top:2px;font-size:12px">Sonnet 5.5 · in parallel</div></div>
-      <div class="n ai" style="left:1078px;top:92px;width:124px;height:56px;padding:7px 10px" data-tip="<b>Critic · Nova Pro</b><br>A different model family from the assessor. It checks every claim has a source, ratings against precedents, evidence dates and the 8 rules. It flags but never changes a value."><div class="h" style="font-size:14px">Critic</div><div class="s" style="margin-top:2px;font-size:12px">Nova Pro</div></div>
-      <div class="n ai" style="left:1212px;top:92px;width:124px;height:56px;padding:7px 10px" data-tip="<b>Narrative · Sonnet 5.5, completeness mode</b><br>Lists missing, stale or contradictory inputs and drafts one round of questions for the owner. The analyst asks or proceeds."><div class="h" style="font-size:14px">Completeness</div><div class="s" style="margin-top:2px;font-size:12px">Sonnet 5.5</div></div>
-      <div class="n ai" style="left:1480px;top:92px;width:124px;height:56px;padding:7px 10px" data-tip="<b>Narrative · Sonnet 5.5, recommendation mode</b><br>Drafts the recommendation, conditions and a plain-language summary for the owner. Numbers are read-only inputs; the analyst edits and locks it."><div class="h" style="font-size:14px">Recommend</div><div class="s" style="margin-top:2px;font-size:12px">Sonnet 5.5</div></div>
-      <!-- code lane -->
-      <div class="n code" style="left:140px;top:175px;width:124px;height:56px;padding:7px 10px" data-tip="Ingestion turns each upload into text with page:line anchors, scans it for prompt injection and masks PII with rules. No model is involved."><div class="h" style="font-size:14px">Extract, mask</div><div class="s" style="margin-top:2px;font-size:12px">no AI</div></div>
-      <div class="n code" style="left:944px;top:175px;width:124px;height:56px;padding:7px 10px" data-tip="The scoring engine: likelihood × impact, reduced by control strength, gives a band from 1 to 4. It's versioned and tested on all 80 seed cases. No agent can reach it."><div class="h" style="font-size:14px">Score</div><div class="s" style="margin-top:2px;font-size:12px">risk engine</div></div>
-      <div class="n code" style="left:1346px;top:175px;width:124px;height:56px;padding:7px 10px" data-tip="Every override re-scores through the same engine. In the demo, one override moves 9.8 (Band 2) to 10.4 (Band 3), and the case goes to committee."><div class="h" style="font-size:14px">Re-score</div><div class="s" style="margin-top:2px;font-size:12px">per override</div></div>
-      <div class="n code" style="left:1636px;top:175px;width:116px;height:56px;padding:7px 10px" data-tip="The vote tally is one pure function. Every state change writes to the hash-chained audit trail, which anyone can verify."><div class="h" style="font-size:14px">Tally + audit</div><div class="s" style="margin-top:2px;font-size:12px">hash chain</div></div>
-    </div>
-  </div>
-
-  <!-- inside every call -->
-  <div class="panel rv" style="left:64px;top:522px;width:600px;height:464px;--d:.14s">
-    <div class="pl">Inside every agent call <small>7 guardrails, fixed order</small></div>
-    <div style="position:relative;margin-top:12px">
-      <div class="n code" style="position:relative;padding:9px 12px" data-tip="Built by code, never by a model: only the fields, clauses and evidence this step needs. Capped at 4.6k to 9k tokens, SHA-256 hashed so any proposal traces back to exactly what the agent saw, and every version pinned to the case."><div class="row" style="justify-content:space-between"><div class="h" style="font-size:15px">Context pack</div><div class="chips"><span class="chip">built by code</span><span class="chip">capped</span><span class="chip">hashed</span><span class="chip">versions pinned</span></div></div></div>
-      <div style="text-align:center;color:var(--dim);font-size:13px;line-height:18px">▼</div>
-      <div class="callgrid3" style="display:grid;grid-template-columns:96px 1fr 1fr 1fr;gap:8px;align-items:stretch">
-        <div style="font-size:11.5px;font-weight:800;letter-spacing:.1em;color:var(--tide-d);display:flex;align-items:center">BEFORE</div>
-        <div class="n ai" style="position:relative;padding:8px 10px" data-tip="<b>1 · Input scan</b><br>Weighted prompt-injection patterns: a score of 0.8 or more blocks the input and flags the analyst. PII is masked, so agents only ever see masked text. Counts are logged, never the matched value."><div class="h" style="font-size:14px">1 Input scan</div><div class="s" style="font-size:12px;margin-top:2px">injection · PII</div></div>
-        <div class="n ai" style="position:relative;padding:8px 10px" data-tip="<b>2 · Tool permit</b><br>OPA allow-list per agent, checked at job start and before each tool call. Default deny. If OPA can't be reached, the call is blocked."><div class="h" style="font-size:14px">2 Permit</div><div class="s" style="font-size:12px;margin-top:2px">OPA, default deny</div></div>
-        <div class="n ai" style="position:relative;padding:8px 10px" data-tip="<b>3 · Budget</b><br>One attempt is reserved against the case cap before the job is sent. At most 64k tokens per attempt, a wall clock per tier, and a 250k cap per case."><div class="h" style="font-size:14px">3 Budget</div><div class="s" style="font-size:12px;margin-top:2px">tokens · time</div></div>
-      </div>
-      <div style="text-align:center;color:var(--dim);font-size:13px;line-height:18px">▼</div>
-      <div class="n dark" style="position:relative;padding:10px 12px;text-align:center" data-tip="One Pydantic AI call on Amazon Bedrock. A forced output schema, read-only tools, at most 1 tool round trip, and no memory between calls. Agents never call other agents."><div class="h" style="font-size:15px">One model call <span style="font-weight:600;color:var(--mint2);font-size:13px">· Bedrock · read-only tools · no memory</span></div></div>
-      <div style="text-align:center;color:var(--dim);font-size:13px;line-height:18px">▼</div>
-      <div class="callgrid" style="display:grid;grid-template-columns:96px 1fr 1fr;gap:8px">
-        <div style="font-size:11.5px;font-weight:800;letter-spacing:.1em;color:var(--tide-d);display:flex;align-items:center">AFTER</div>
-        <div class="n ai" style="position:relative;padding:8px 10px" data-tip="<b>4 · Output check</b><br>Strict schema with no extra fields. Every source must resolve, every quote must match its source (12 to 600 characters), and confidence must be in range. Restricted words are blocked in owner-facing text."><div class="h" style="font-size:14px">4 Output check</div><div class="s" style="font-size:12px;margin-top:2px">schema · sources · quotes</div></div>
-        <div class="n ai" style="position:relative;padding:8px 10px" data-tip="<b>5 · Rules as code</b><br>8 rules checked before every state change. Examples: no agent wrote a score, no bulk accept, the owner never sees a score, a planned control is not scored, policy is quoted, not generated."><div class="h" style="font-size:14px">5 Rules as code</div><div class="s" style="font-size:12px;margin-top:2px">8 product rules</div></div>
-      </div>
-      <div style="text-align:center;color:var(--dim);font-size:13px;line-height:18px">▼</div>
-      <div class="callgrid" style="display:grid;grid-template-columns:96px 1fr 1fr;gap:8px">
-        <div style="font-size:11.5px;font-weight:800;letter-spacing:.1em;color:#6B7A12;display:flex;align-items:center">DECIDE</div>
-        <div class="n human" style="position:relative;padding:8px 10px" data-tip="<b>6 · Critic</b><br>Runs on a different model family and reviews proposals against precedents, evidence dates and the rules. Each finding must be explained or acted on."><div class="h" style="font-size:14px">6 Critic</div><div class="s" style="font-size:12px;margin-top:2px">another model family</div></div>
-        <div class="n human" style="position:relative;padding:8px 10px" data-tip="<b>7 · Human gate</b><br>The case waits until a person decides. The service account is denied on every decision route, so a machine can never decide for a person."><div class="h" style="font-size:14px">7 Person decides</div><div class="s" style="font-size:12px;margin-top:2px">case waits until then</div></div>
-      </div>
-      <div style="margin-top:10px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);background:#FBECEB;border:1px solid #EFC9C6;border-radius:9px;padding:7px 10px" data-tip="Attempt 1 uses the model chain. If the output is rejected, attempt 2 runs on the first fallback with the error shown. A second failure opens a handoff: the analyst sees the exact inputs and completes the step with a reason, and the case resumes. Nothing is silently cut.">
-        <b style="color:var(--red);font-size:11.5px;letter-spacing:.1em">ON FAILURE</b> 1 retry on a fallback <span style="color:var(--red)">→</span> still failing <span style="color:var(--red)">→</span> <b style="color:var(--moss)">a person takes over</b>
-      </div>
-    </div>
-  </div>
-
-  <!-- model selection -->
-  <div class="panel rv" style="left:680px;top:522px;width:760px;height:464px;--d:.2s">
-    <div class="pl">How each model was chosen <small>cheapest model that passes its eval gate</small></div>
-    <div class="tscroll"><table class="mx" style="margin-top:8px">
-      <tr><th>Tier</th><th>Agents</th><th>Model → fallback</th><th>Per-model guardrails</th></tr>
-      <tr data-tip="<b>Cheap tier</b>: high-volume reading. Measured 3 to 6k tokens per job. The pack holds everything, so these agents get no tool round trip."><td><span class="mdot" style="background:var(--m-haiku)"></span>Cheap</td><td>intake · screening · watchlist</td><td>Haiku 4.5 → Nova Lite</td><td>full pack, no tool call · 60 s</td></tr>
-      <tr data-tip="<b>Mid tier</b>: writing for people. Numbers are read-only inputs, and Guard 4 checks every number in the text against the case."><td><span class="mdot" style="background:var(--m-sonnet)"></span>Mid</td><td>narrative · examiner · policy gap</td><td>Sonnet 5.5 → Haiku 4.5</td><td>numbers checked · no restricted words · 120 s</td></tr>
-      <tr data-tip="<b>Strong tier</b>: judgement with evidence. In live runs, retrying on Haiku or Nova failed the research and assessment schemas, so the retry stays on Sonnet. Thinking effort is set to low: 12 to 51% fewer output tokens with no metric lost."><td><span class="mdot" style="background:var(--m-sonnet)"></span>Strong</td><td>research · assessment</td><td>Sonnet 5.5 → Sonnet 5.5 → Nova Pro</td><td>retry stays on Sonnet · effort low · 180 s</td></tr>
-      <tr data-tip="<b>Judge tier</b>: the critic and the eval judge run on Amazon Nova, a different family from the Claude assessor, so no model grades its own family's work."><td><span class="mdot" style="background:var(--m-nova)"></span>Judge</td><td>critic · eval judge</td><td>Nova Pro → Haiku 4.5</td><td>different family from the assessor · 180 s</td></tr>
-    </table></div>
-    <div style="margin-top:14px;font-size:12.5px;font-weight:700;letter-spacing:.1em;color:var(--dim);text-transform:uppercase">Guardrails on every model</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
-      <div class="n" style="position:relative;padding:9px 12px" data-tip="A wrapper lowers max tokens to each model's own output cap and context window, moves to the next model if the input won't fit, and re-sends once at the limit Bedrock names."><div class="h" style="font-size:14px">Held to its own limits</div><div class="s">64k per attempt; each model's own output cap and context window</div></div>
-      <div class="n" style="position:relative;padding:9px 12px" data-tip="validate_ai.py scans the whole repo for model-id shapes and fails on any hit outside ai/models/tiers.yaml. A unit test fails if an Opus model or price row comes back."><div class="h" style="font-size:14px">One file names every model</div><div class="s">a test fails on any model id elsewhere, or if Opus returns</div></div>
-      <div class="n" style="position:relative;padding:9px 12px" data-tip="Haiku and Sonnet get cache points after the system prompt and the tool list. Nova rejects a cache point in the tool list, so it gets none. System prompts hold no case data, which keeps them cacheable."><div class="h" style="font-size:14px">Prompt caching where it pays</div><div class="s">Haiku and Sonnet cached; cache reads cost 1/10</div></div>
-      <div class="n" style="position:relative;padding:9px 12px" data-tip="Changing a model or tier needs a verified price row, a decision-log entry and live eval evidence. Prompts are versioned files that are never edited, and a hash lock catches any change."><div class="h" style="font-size:14px">No change without evidence</div><div class="s">price row, decision entry and live eval for any swap</div></div>
-    </div>
-  </div>
-
-  <!-- memory + zero trust -->
-  <div class="panel rv" style="left:1456px;top:522px;width:400px;height:464px;--d:.26s">
-    <div class="pl">Memory: four kinds, none hidden</div>
-    <div style="display:flex;flex-direction:column;gap:7px;margin-top:12px">
-      <div class="n" style="position:relative;padding:8px 12px;margin:0 36px;background:var(--mint3);border-color:#BFE6C9" data-tip="Working memory: only what this step needs, built by code from the job payload and discarded after the call. Never a rolling chat."><div class="h" style="font-size:14px">Working <span style="font-weight:600;color:var(--muted)">· one call</span></div><div class="s">the pack, then discarded</div></div>
-      <div class="n" style="position:relative;padding:8px 12px;margin:0 24px;background:#E6F5E9" data-tip="Short-term memory: every step, proposal, guard result, gate decision and retry for one case run, in the event store and the evidence ledger. It survives restarts and replays the case."><div class="h" style="font-size:14px">Short-term <span style="font-weight:600;color:var(--muted)">· one case</span></div><div class="s">event store + evidence ledger</div></div>
-      <div class="n" style="position:relative;padding:8px 12px;margin:0 12px;background:#EEF6F3" data-tip="Long-term memory: closed cases as precedents, overrides, policy corpus versions, control evidence and jurisdiction lists. It's versioned, so it never changes a past decision."><div class="h" style="font-size:14px">Long-term <span style="font-weight:600;color:var(--muted)">· across cases</span></div><div class="s">precedents, corpus versions, overrides</div></div>
-      <div class="n" style="position:relative;padding:8px 12px;background:#F3F6F6" data-tip="Learning memory: what analysts keep overriding feeds an eval row, then a new prompt version. An agent never changes silently, and a regulator can see when and why it did."><div class="h" style="font-size:14px">Learning <span style="font-weight:600;color:var(--muted)">· over time</span></div><div class="s">overrides → eval → new prompt version</div></div>
-    </div>
-    <div style="font-size:13px;color:var(--muted);margin-top:8px;line-height:1.35;font-style:italic">No agent-memory product: nothing an agent recalls lacks a source.</div>
-    <div style="margin-top:12px;font-size:12.5px;font-weight:700;letter-spacing:.1em;color:var(--dim);text-transform:uppercase">Zero trust</div>
-    <div class="chips" style="margin-top:7px">
-      <span class="chip g" data-tip="OPA default deny; if it can't be reached, the call is blocked.">deny by default</span>
-      <span class="chip g" data-tip="All 13 tools are read-only and scoped to one case. No agent has a scoring tool.">13 read-only tools</span>
-      <span class="chip g" data-tip="The service account is denied by name on every decision route.">machines can't decide</span>
-      <span class="chip g" data-tip="The response contract, the router and a response scanner each independently stop scores from reaching the owner.">3 fences on scores</span>
-      <span class="chip g" data-tip="An insert-only database user writes a per-case SHA-256 hash chain. Tampering anywhere is detected.">tamper-evident audit</span>
-    </div>
-  </div>
-</section>
-
-<!-- ================================================================ -->
 <!-- SLIDE 3 · PROOF: COST AND TESTING                                 -->
 <!-- ================================================================ -->
 <section class="slide" data-notes="n3">
   <div class="top">
     <div class="eyebrow">Proof <span>·</span> Cost per case and how we tested it</div>
-    <div class="rub"><span>Token efficiency<b>5%</b></span><span>Evaluation<b>10%</b></span><span>Production readiness<b>5%</b></span><span class="pg">4 / 4</span></div>
+    <div class="rub"><span>Token efficiency<b>5%</b></span><span>Evaluation<b>10%</b></span><span>Production readiness<b>5%</b></span><span class="pg">5 / 5</span></div>
   </div>
   <div class="head">
     <div>
-      <h1>A typical case: <em>115k tokens, about 31 cents</em></h1>
-      <div class="sub">Measured on live runs of the demo case. <b>Every case is capped at 250k tokens</b>, and every layer of the system is tested, from single functions up to live AI.</div>
+      <h1>Cost grows with documents, <em>not with judgement</em></h1>
+      <div class="sub">The demo case (2 documents) used <b>115k tokens, about 31 cents</b>. Each extra document adds about 12k tokens on Haiku, roughly 2 cents, while the Sonnet judgement work stops growing at 4 packs.</div>
     </div>
     <div class="kpis rv">
-      <div class="k"><div class="v">115k</div><div class="t">typical case<br>measured</div></div>
-      <div class="k"><div class="v">$0.31</div><div class="t">per typical<br>case</div></div>
-      <div class="k"><div class="v">9,377</div><div class="t">automated<br>checks</div></div>
+      <div class="k"><div class="v">115k</div><div class="t">small case<br>measured</div></div>
+      <div class="k"><div class="v">$0.31</div><div class="t">small case<br>2 documents</div></div>
+      <div class="k"><div class="v">~2¢</div><div class="t">per extra<br>document</div></div>
       <div class="k dark"><div class="v">12/12</div><div class="t">chaos drills<br>pass</div></div>
     </div>
   </div>
@@ -529,46 +743,46 @@ body.flow .cwave{width:60%;opacity:.35}
   <div class="panel rv" style="left:64px;top:200px;width:950px;height:740px;--d:.08s">
     <div class="pl">Tokens and cost by case size <span class="legend"><span><i style="background:var(--m-haiku)"></i>Haiku 4.5</span><span><i style="background:var(--m-sonnet)"></i>Sonnet 5.5</span><span><i style="background:var(--m-nova)"></i>Nova Pro</span></span></div>
     <div class="tscroll"><table class="mx" style="margin-top:10px">
-      <tr><th style="width:230px">What sets the size</th><th>Small</th><th>Medium <span class="tg m">measured</span></th><th>Large</th></tr>
-      <tr><td>Documents uploaded</td><td>1</td><td>2</td><td>4 or more</td></tr>
-      <tr><td>Change types</td><td>1, e.g. vendor onboarding</td><td>3 (vendor, geography, product)</td><td>4 or more</td></tr>
-      <tr><td>Countries involved</td><td>1</td><td>2 (US → Mexico)</td><td>3 or more</td></tr>
-      <tr><td>Route</td><td>fast lane, no research</td><td>full assessment</td><td>full, big inputs split in parts</td></tr>
-      <tr><td>Owner question round</td><td>none</td><td>1 round, agents re-run</td><td>1 round, agents re-run</td></tr>
-      <tr><td>Agent jobs</td><td>6</td><td>11</td><td>14 or more</td></tr>
-      <tr class="em"><td>Tokens per case</td><td>~52k <span class="tg e">estimate</span></td><td>115k</td><td>~200k <span class="tg e">estimate</span></td></tr>
-      <tr class="em"><td>Cost per case</td><td>~$0.14</td><td>~$0.31</td><td>~$0.55</td></tr>
+      <tr><th style="width:250px">How the pipeline scales</th><th>Small <span class="tg m">measured</span></th><th>Medium</th><th>Large</th></tr>
+      <tr><td>Documents uploaded</td><td>2 (demo case 0151)</td><td>10 to 50</td><td>50 or more</td></tr>
+      <tr data-tip="Intake runs one cheap Haiku job per document window: about 11k tokens per document in the live run."><td>Intake jobs · Haiku</td><td>2</td><td>10 to 50</td><td>50+, one per document</td></tr>
+      <tr data-tip="Research and rating read a context pack capped at 9k tokens. Bigger cases split into whole packs, at most 4 per job; past that, a person takes over (ADR-77)."><td>Research + rating · Sonnet</td><td>1 pack</td><td>2 to 4 packs</td><td>4 packs, the maximum</td></tr>
+      <tr><td>Critic · Nova Pro</td><td>1 pack</td><td>1 to 3 packs</td><td>4 packs</td></tr>
+      <tr><td>Owner question round</td><td>1 round, agents re-run</td><td>1 round, changed fields only</td><td>1 round, changed fields only</td></tr>
+      <tr class="em"><td>Tokens per case</td><td>115k</td><td>~250k to 850k <span class="tg e">estimate</span></td><td>~1.5M at 100 docs <span class="tg e">estimate</span></td></tr>
+      <tr class="em"><td>Cost per case</td><td>$0.31</td><td>~$0.60 to $1.90</td><td>~$3.00 at 100 docs</td></tr>
+      <tr data-tip="The per-case cap is one setting in tiers.yaml. Today's 250k holds a full case of up to about 11 documents; a case that would pass it waits for a person instead of being cut."><td>Fits today's 250k cap</td><td>yes</td><td>up to ~11 documents</td><td>set a cap per case size</td></tr>
     </table></div>
 
-    <div style="margin-top:18px;font-size:12.5px;font-weight:700;letter-spacing:.1em;color:var(--dim);text-transform:uppercase">Tokens by model, against the per-case limits</div>
+    <div style="margin-top:16px;font-size:12.5px;font-weight:700;letter-spacing:.1em;color:var(--dim);text-transform:uppercase">Tokens by model per case <span style="text-transform:none;letter-spacing:0;font-weight:600">· medium at 30 documents (line = 10 to 50) · large at 100</span></div>
     <div style="position:relative;margin-top:8px;padding-right:4px">
       <div class="axis" style="position:relative;height:18px;margin-left:96px;font-size:12px;color:var(--dim);font-weight:600">
-        <span style="position:absolute;left:0">0</span><span style="position:absolute;left:20%;transform:translateX(-50%)">50k</span><span style="position:absolute;left:40%;transform:translateX(-50%)">100k</span><span style="position:absolute;left:60%;transform:translateX(-50%)">150k</span><span style="position:absolute;left:80%;transform:translateX(-50%)">200k</span><span style="position:absolute;right:0">250k</span>
+        <span style="position:absolute;left:0">0</span><span style="position:absolute;left:25%;transform:translateX(-50%)">400k</span><span style="position:absolute;left:50%;transform:translateX(-50%)">800k</span><span style="position:absolute;left:75%;transform:translateX(-50%)">1.2M</span><span style="position:absolute;right:0">1.6M</span>
       </div>
       <div style="position:relative">
         <div style="display:grid;grid-template-columns:96px 1fr;align-items:center;height:40px"><b style="color:var(--moss);font-size:15px">Small</b>
-          <div class="hb" style="width:20.96%;height:28px" data-tip="Small: Haiku 14.2k ($0.026) · Sonnet 27.3k ($0.098) · Nova Pro 10.9k ($0.012) + cache ≈ $0.14"><div style="width:27.1%;background:var(--m-haiku)">14k</div><div style="width:52.1%;background:var(--m-sonnet);color:#fff">27k</div><div style="width:20.8%;background:var(--m-nova);color:#fff">11k</div></div></div>
-        <div style="display:grid;grid-template-columns:96px 1fr;align-items:center;height:40px"><b style="color:var(--moss);font-size:15px">Medium</b>
-          <div class="hb" style="width:46%;height:28px" data-tip="Medium (demo case 0151): Haiku 26.1k ($0.048) · Sonnet 66.7k ($0.226) · Nova Pro 22.2k ($0.025) + cache ≈ $0.31. A clean live run measured 115k; 136k with one retry, 158k worst case with 3 retries."><div style="width:22.7%;background:var(--m-haiku)">26k</div><div style="width:58%;background:var(--m-sonnet);color:#fff">67k</div><div style="width:19.3%;background:var(--m-nova);color:#fff">22k</div></div></div>
+          <div class="hb" style="width:7.1%;height:28px" data-tip="Small, 2 documents (measured): Haiku 26k ($0.05) · Sonnet 66k ($0.23) · Nova Pro 22k ($0.02) = 115k, $0.31. 136k with one retry; 158k worst case with 3 retries."><div style="width:22.8%;background:var(--m-haiku)"></div><div style="width:57.9%;background:var(--m-sonnet)"></div><div style="width:19.3%;background:var(--m-nova)"></div></div></div>
+        <div style="display:grid;grid-template-columns:96px 1fr;align-items:center;height:48px;position:relative"><b style="color:var(--moss);font-size:15px">Medium</b>
+          <div class="hb" style="width:33.9%;height:28px" data-tip="Medium, 30 documents: Haiku 364k ($0.67) · Sonnet 146k ($0.52) · Nova Pro 33k ($0.04) ≈ 540k, $1.22. 10 documents ≈ 250k, $0.62; 50 documents ≈ 850k, $1.87."><div style="width:67%;background:var(--m-haiku)">364k</div><div style="width:26.9%;background:var(--m-sonnet);color:#fff">146k</div><div style="width:6.1%;background:var(--m-nova)"></div></div>
+          <div class="whisk" style="left:calc(96px + (100% - 96px)*.154);width:calc((100% - 96px)*.378)"></div></div>
         <div style="display:grid;grid-template-columns:96px 1fr;align-items:center;height:40px"><b style="color:var(--moss);font-size:15px">Large</b>
-          <div class="hb" style="width:80.8%;height:28px" data-tip="Large: Haiku 48k ($0.089) · Sonnet 124k ($0.41) · Nova Pro 30k ($0.034) + cache ≈ $0.55. Anchored on live highs: one research attempt used 39.8k (case 0153) and one critic run 45.6k."><div style="width:23.8%;background:var(--m-haiku)">48k</div><div style="width:61.4%;background:var(--m-sonnet);color:#fff">124k</div><div style="width:14.8%;background:var(--m-nova);color:#fff">30k</div></div></div>
-        <div style="position:absolute;top:-4px;bottom:-4px;left:calc(96px + (100% - 96px)*.48);border-left:2px dashed var(--tide-d)"><span class="tlab" style="position:absolute;bottom:-20px;left:4px;font-size:12px;font-weight:800;color:var(--tide-d);white-space:nowrap">120k target</span></div>
-        <div style="position:absolute;top:-4px;bottom:-4px;right:0;border-left:2px dashed var(--red)"><span class="clab" style="position:absolute;bottom:-20px;right:6px;font-size:12px;font-weight:800;color:var(--red);white-space:nowrap">250k hard cap</span></div>
+          <div class="hb" style="width:92.5%;height:28px" data-tip="Large, 100 documents: Haiku 1.2M ($2.21) · Sonnet 211k ($0.74) · Nova Pro 65k ($0.07) ≈ 1.5M, $3.03. Sonnet and Nova stop growing at 4 packs; each further document adds ~12k Haiku tokens."><div style="width:81.3%;background:var(--m-haiku)">1.2M reading</div><div style="width:14.3%;background:var(--m-sonnet);color:#fff">211k</div><div style="width:4.4%;background:var(--m-nova)"></div></div></div>
+        <div style="position:absolute;top:-4px;bottom:-4px;left:calc(96px + (100% - 96px)*.156);border-left:2px dashed var(--red)"><span class="clab" style="position:absolute;bottom:-20px;left:4px;font-size:12px;font-weight:800;color:var(--red);white-space:nowrap">250k cap today</span></div>
       </div>
     </div>
 
-    <div class="costfoot" style="margin-top:34px;display:grid;grid-template-columns:1.05fr 1fr;gap:14px">
+    <div class="costfoot" style="margin-top:32px;display:grid;grid-template-columns:1fr 1.05fr;gap:14px">
       <div style="background:var(--linen);border-radius:12px;padding:12px 14px">
         <div style="font-size:12.5px;font-weight:700;letter-spacing:.1em;color:var(--dim);text-transform:uppercase">How the cost is calculated</div>
-        <div style="margin-top:8px;font-size:15px;font-weight:700;color:var(--moss)">input tokens × input price + output tokens × output price</div>
-        <div style="margin-top:6px;font-size:13px;color:var(--muted);line-height:1.4">Per-job tokens come from the live demo run. Each agent's input/output split was measured in the live eval run: output is 5 to 20% of tokens. Cache reads add about $0.01.</div>
+        <div style="margin-top:8px;font-size:14.5px;font-weight:700;color:var(--moss)">input tokens × input price + output tokens × output price</div>
+        <div style="margin-top:6px;font-size:13px;color:var(--muted);line-height:1.4">Units from the live demo run: ~11k tokens per document (intake), 12k research, 15k rating and 11k critic per pack. Each agent's input/output split was measured live. Medium and large scale those units.</div>
       </div>
       <div class="tscroll"><table class="mx" style="font-size:13px">
-        <tr><th>Model · per 1M tokens</th><th>In</th><th>Out</th><th>Medium</th></tr>
-        <tr><td><span class="mdot" style="background:var(--m-haiku)"></span>Haiku 4.5</td><td>$1.10</td><td>$5.50</td><td>$0.05</td></tr>
-        <tr><td><span class="mdot" style="background:var(--m-sonnet)"></span>Sonnet 5.5</td><td>$2.20</td><td>$11.00</td><td>$0.23</td></tr>
-        <tr><td><span class="mdot" style="background:var(--m-nova)"></span>Nova Pro</td><td>$0.80</td><td>$3.20</td><td>$0.03</td></tr>
-        <tr><td><span class="mdot" style="background:#C9D96B"></span>Nova Lite <span style="font-weight:500;color:var(--dim)">fallback</span></td><td>$0.06</td><td>$0.24</td><td>–</td></tr>
+        <tr><th>Model · per 1M tokens</th><th>In</th><th>Out</th><th>Small</th><th>Medium</th></tr>
+        <tr><td><span class="mdot" style="background:var(--m-haiku)"></span>Haiku 4.5</td><td>$1.10</td><td>$5.50</td><td>$0.05</td><td>$0.67</td></tr>
+        <tr><td><span class="mdot" style="background:var(--m-sonnet)"></span>Sonnet 5.5</td><td>$2.20</td><td>$11.00</td><td>$0.23</td><td>$0.52</td></tr>
+        <tr><td><span class="mdot" style="background:var(--m-nova)"></span>Nova Pro</td><td>$0.80</td><td>$3.20</td><td>$0.02</td><td>$0.04</td></tr>
+        <tr><td><span class="mdot" style="background:#C9D96B"></span>Nova Lite <span style="font-weight:500;color:var(--dim)">fallback</span></td><td>$0.06</td><td>$0.24</td><td>–</td><td>–</td></tr>
       </table></div>
     </div>
   </div>
@@ -599,34 +813,18 @@ body.flow .cwave{width:60%;opacity:.35}
       </g>
     </svg>
 
-    <div style="margin-top:12px;font-size:12.5px;font-weight:700;letter-spacing:.1em;color:var(--dim);text-transform:uppercase">Edge cases we deliberately broke it with</div>
-    <div class="edges" style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:8px">
-      <span class="chip g" data-tip="A red-team set of 50 injection attempts runs on every push gate.">50 prompt injections</span>
-      <span class="chip g" data-tip="A red-team set of 20 PII cases runs on every push gate.">20 PII leak attempts</span>
-      <span class="chip g" data-tip="An adversarial audit drove the real apps with hostile input and found 8 hardening defects, all fixed.">hostile inputs · 8 fixes</span>
-      <span class="chip g" data-tip="The owner's 129 pages and every API answer they received were scanned for scores, bands and ratings.">owner tries to see scores</span>
-      <span class="chip" data-tip="SIGKILL the harness mid-job: the job is redelivered and nothing is repeated.">worker killed mid-job</span>
-      <span class="chip" data-tip="Stop RabbitMQ or MongoDB in the middle of work: writes survive and heal.">broker or DB outage</span>
-      <span class="chip" data-tip="Cut-off and invalid messages are parked in a dead-letter queue while other work goes on, then replayed.">poison messages</span>
-      <span class="chip" data-tip="A second 'done' event for a finished job changes nothing.">duplicate results</span>
-      <span class="chip" data-tip="A case whose token ledger runs out ends in a person's handoff, before any model is called.">token budget runs out</span>
-      <span class="chip" data-tip="Change any record in the audit chain and verification reports the first break.">tampered audit chain</span>
-      <span class="chip" data-tip="A 1-1-1 committee split opens a new round; it never defaults to defer.">split committee vote</span>
-      <span class="chip" data-tip="An input too big for its tier is split into up to 4 parts and merged by code, never truncated.">oversized documents</span>
-    </div>
-
     <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:baseline">
-      <div style="font-size:12.5px;font-weight:700;letter-spacing:.1em;color:var(--dim);text-transform:uppercase">Live eval gate per agent <span style="text-transform:none;letter-spacing:0;font-weight:600">· bar = score, line = pass mark</span></div>
-      <div style="font-size:14px;font-weight:700;color:var(--muted)">run 1 <b style="color:var(--dim);font-size:20px">1/9</b> → run 2 <b style="color:var(--tide-d);font-size:20px">8/9</b></div>
+      <div style="font-size:12.5px;font-weight:700;letter-spacing:.1em;color:var(--dim);text-transform:uppercase">Edge cases we deliberately broke it with</div>
+      <div style="font-size:13.5px;font-weight:600;color:var(--dim)">hover for detail</div>
     </div>
-    <div id="evals" style="display:grid;grid-template-columns:1fr 1fr;gap:12px 26px;margin-top:12px"></div>
+    <div class="ecgrid"><div class="ec" data-tip="A red-team set of 50 injection attempts runs on every push gate. A score of 0.8 or more blocks the input and flags the analyst."><div class="ec-h">50 prompt injections</div><div class="ec-s">a red-team set run on every push</div></div><div class="ec" data-tip="A red-team set of 20 PII cases runs on every push gate. Matched values are never logged."><div class="ec-h">20 PII leak attempts</div><div class="ec-s">masked before any agent sees them</div></div><div class="ec" data-tip="An adversarial audit drove the real apps with hostile input and found 8 hardening defects, all fixed."><div class="ec-h">Hostile inputs</div><div class="ec-s">8 hardening fixes, all made</div></div><div class="ec" data-tip="The owner's 129 pages and every API answer they received were scanned for scores, bands and ratings."><div class="ec-h">Owner tries to see a score</div><div class="ec-s">129 pages scanned, none leaked</div></div><div class="ec" data-tip="Every role tried every other role's screens and endpoints: 403 for the wrong role, 401 signed out, 404 for another owner's case."><div class="ec-h">Wrong role, wrong case</div><div class="ec-s">403, 401 and 404 every time</div></div><div class="ec" data-tip="Change any record in the audit chain and verification reports the first break."><div class="ec-h">Tampered audit chain</div><div class="ec-s">verification finds the first break</div></div><div class="ec" data-tip="A 1-1-1 committee split opens a new round; it never defaults to defer."><div class="ec-h">Split committee vote</div><div class="ec-s">a new round, never a default</div></div><div class="ec" data-tip="An input too big for its tier is split into up to 4 parts and merged by code."><div class="ec-h">Oversized documents</div><div class="ec-s">split into parts, never truncated</div></div><div class="ec" data-tip="One of 12 kill-and-restart drills on the live stack: the job is redelivered and nothing is lost or repeated."><div class="ec-h">Worker killed mid-job</div><div class="ec-s">redelivered, nothing repeated</div></div><div class="ec" data-tip="RabbitMQ or MongoDB stopped mid-work: the outbox holds the write, and the case heals on restart."><div class="ec-h">Broker or database down</div><div class="ec-s">writes survive and heal</div></div></div>
   </div>
 
   <div class="limits rv" style="top:952px;--d:.24s">
     <span class="t">Known limits</span>
-    <span>Assessment gate at 0.70 vs 0.85: its labels can't be reproduced from one row, so we reported it rather than move the bar</span><span class="dot">·</span>
-    <span>Evals not yet re-run on the current model chain</span><span class="dot">·</span>
-    <span>Small and large are built from measured jobs</span>
+    <span>Medium and large are estimates scaled from the measured run</span><span class="dot">·</span>
+    <span>Drills cover the platform; a Bedrock outage itself was not simulated</span><span class="dot">·</span>
+    <span>Prompt pinning is recorded, not yet enforced</span>
   </div>
 </section>
 
@@ -641,10 +839,21 @@ body.flow .cwave{width:60%;opacity:.35}
     <ul>
       <li>One sentence on what it is, one on the stance: AI proposes, people decide, a deterministic engine calculates the score. Then move on.</li>
       <li>The repository is the primary submission; these slides are the guided tour of how the AI was built and governed.</li>
+      <li>The diagram on the right is the whole idea in one picture: AI proposes, a person decides, code scores. The cards at the bottom jump straight to each part. Hand over to the BA for the problem.</li>
     </ul>
   </div>
+  <div id="np" class="nt" style="display:none">
+    <h3>Slide 2 · The problem · BA · about 1:00</h3>
+    <ul>
+      <li>We are considering a US national bank and 6 change types: new product, new feature, process change, vendor or third party, new geography and new customer segment.</li>
+      <li>We mapped these to the FFIEC exam manual's risk categories, which examiners across the US use to assess AML, CFT and sanctions risk. (Point at the left diagram: each change lands in one or two of the four domains.)</li>
+      <li>Today the process is manual and inconsistent. The product owner gathers information from their own experience, so it is often incomplete, which means back and forth with the analyst. The analyst assesses from their own experience and judgement, so different analysts reach different assessments. And there is limited traceability to why a recommendation was made.</li>
+      <li>So what we set out to do is one traceable assessment from intake to a final recommendation, with AI as an assistant, or leading the step where that earns its place, and a person deciding every item. (Walk the bottom strip left to right.)</li>
+    </ul>
+    <div class="qa"><b>"Why FFIEC?"</b> It is the published supervisory framework US examiners actually use, so the decomposition is grounded, not invented. <b>"Where does AI lead?"</b> Reading documents and finding policy: judgement over text, always with a source, always confirmed by a person. Scores never come from AI.</div>
+  </div>
   <div id="n1" class="nt" style="display:none">
-    <h3>Slide 1 · The AI that built it · about 1:20</h3>
+    <h3>Slide 4 · The AI that built it · about 1:20</h3>
     <ul>
       <li>We built it the way we'd want an AI team to work: one lead agent plans, writes briefs and merges; subagents do the work in their own worktrees; a person approves the plan and every decision.</li>
       <li>Walk the diagram left to right: operator, lead, lanes, main. 109 agents in 56 hours, up to 11 at once.</li>
@@ -656,7 +865,7 @@ body.flow .cwave{width:60%;opacity:.35}
     <div class="qa"><b>"How did build agents fail?"</b> 5 logged incidents, e.g. worktrees committed as embedded repos, and a fix that skipped app startup silently. Each one became a rule in the brief or a hook.</div>
   </div>
   <div id="n2" class="nt" style="display:none">
-    <h3>Slide 2 · The AI inside it · about 1:30</h3>
+    <h3>Slide 3 · The AI inside it · about 1:30</h3>
     <ul>
       <li>Follow the green dot: people at the top, AI in the middle, code at the bottom. Every AI step ends at a person, and every number comes from the code lane.</li>
       <li>Inside every call: 3 guards before the model, one call, 2 after, then a critic on another model family and a person. On failure: one retry, then a person takes over.</li>
@@ -667,14 +876,15 @@ body.flow .cwave{width:60%;opacity:.35}
     <div class="qa"><b>"Why no agent framework?"</b> Pydantic AI runs one call; our own state machine owns the flow, so the whole flow reads in one file and every step is deterministic.</div>
   </div>
   <div id="n3" class="nt" style="display:none">
-    <h3>Slide 3 · Proof · about 1:00</h3>
+    <h3>Slide 5 · Proof · about 1:00</h3>
     <ul>
-      <li>Case size is set by documents, change types, countries and route. The medium case is our demo, measured live at 115k tokens, about 31 cents.</li>
-      <li>The formula is on the slide: tokens times price per model. Sonnet is most of the cost because it does the judgement.</li>
+      <li>Our demo case had 2 documents: that is the small case, measured live at 115k tokens, about 31 cents.</li>
+      <li>What grows with size is reading: one cheap Haiku job per document, about 2 cents each. The expensive Sonnet judgement reads capped packs and stops at 4, so a 100-document case is about $3, not $15.</li>
+      <li>The formula is on the slide: tokens times price per model. The 250k cap is one setting; today it fits about 11 documents, and bigger cases get their own cap.</li>
       <li>Testing runs from 7,707 unit tests up to live AI evals and 12 kill-and-restart drills, plus deliberate attacks: injection, PII, hostile input, outages.</li>
-      <li>Eval gates went from 1 of 9 to 8 of 9. We report the one that fails, and why.</li>
+      <li>The drills: we killed the workers, the broker, the database and the API mid-job on the live stack. 12 of 12 pass, nothing lost or repeated, and they found 2 real bugs.</li>
     </ul>
-    <div class="qa"><b>"Why is the cap 250k?"</b> A live research attempt needed 39.8k, and research plus assessment each reserve up to 64k, twice when the owner answers questions. 250k holds that with room to spare (ADR-81).</div>
+    <div class="qa"><b>"What bugs did the drills find?"</b> An access policy that was never reloaded after a restart, and a retry window shorter than an API restart. Both fixed. <b>"Is 250k enough for big cases?"</b> Not for 10+ documents. The cap is a per-case setting; a case that would pass it waits for a person and is never cut, so raising it is a config change with a decision row.</div>
   </div>
 </div>
 
@@ -684,8 +894,6 @@ body.flow .cwave{width:60%;opacity:.35}
   document.querySelectorAll('.slide').forEach(s=>{
     s.insertAdjacentHTML('beforeend',`<svg class="wave" viewBox="0 0 520 400" aria-hidden="true">${paths}</svg><div class="foot"><span class="team">Team TrustOps · Genius Hacks Q3 2026</span></div>`);
   });
-  const ev=[['screening',1.00,.90],['critic',1.00,.85],['intake',1.00,.90],['narrative',1.00,1.00],['research',1.00,.85],['examiner',1.00,1.00],['assessment',.70,.85],['watchlist',1.00,1.00],['policy gap',1.00,1.00]];
-  document.getElementById('evals').innerHTML=ev.map(([n,s,t])=>{const f=s<t;return `<div style="display:grid;grid-template-columns:92px 1fr 40px;gap:8px;align-items:center;font-size:13px;font-weight:600;color:var(--muted)"><span>${n}</span><div style="position:relative;height:14px;background:#EEEAE4;border-radius:7px"><div style="position:absolute;left:0;top:0;bottom:0;width:${s*100}%;background:${f?'#E3B341':'var(--tide)'};border-radius:7px;transform-origin:left;animation:grow .9s both"></div><div style="position:absolute;top:-3px;bottom:-3px;left:calc(${t*100}% - 1px);width:2px;background:var(--moss)"></div></div><b style="color:${f?'var(--amber)':'var(--moss)'};text-align:right">${s.toFixed(2)}</b></div>`}).join('');
 
   const stage=document.getElementById('stage'),vp=document.getElementById('viewport');
   const slides=[...document.querySelectorAll('.slide')],notes=document.getElementById('notes'),dots=document.getElementById('dots'),tip=document.getElementById('tip');
@@ -718,7 +926,7 @@ body.flow .cwave{width:60%;opacity:.35}
   }
   function show(n){
     i=Math.max(0,Math.min(slides.length-1,n));
-    slides.forEach((s,k)=>{s.classList.remove('active');if(k===i){void s.offsetWidth;s.classList.add('active');if(typeof fitSlide==='function')fitSlide(s);}});
+    slides.forEach((s,k)=>{s.classList.remove('active');if(k===i){void s.offsetWidth;s.classList.add('active');if(typeof fitSlide==='function'){fitSlide(s);setTimeout(()=>{if(s.classList.contains('active'))fitSlide(s);},700);}}});
     [...dots.children].forEach((d,k)=>d.classList.toggle('on',k===i));
     const dark=slides[i].classList.contains('dark')&&!document.body.classList.contains('flow');document.documentElement.style.background=document.body.style.background=dark?'#0C2226':'';
     document.querySelectorAll('.nt').forEach(x=>x.style.display=(x.id===slides[i].dataset.notes)?'block':'none');
@@ -738,17 +946,17 @@ body.flow .cwave{width:60%;opacity:.35}
     {
       const h1=sl.querySelector('.head h1'),sub=sl.querySelector('.head .sub');
       if(h1&&sub){h1.style.fontSize='';sub.style.fontSize='';}
-      const tw=sl.querySelector('.title-wrap');if(tw){tw.style.zoom='';if(!flow){let z=1;while(tw.offsetHeight>860&&z>.7){z-=.04;tw.style.zoom=z;}}}
-      if(!flow&&h1&&sub){
-        let fs=50;while(h1.scrollWidth>h1.clientWidth+1&&fs>30){fs-=1;h1.style.fontSize=fs+'px';}
-        let ss=19;while(sub.offsetHeight>Math.ceil(ss*1.4*2)+2&&ss>13){ss-=.5;sub.style.fontSize=ss+'px';}
-      }
+      const cl=sl.querySelector('.cv-l');if(cl){if(!flow){shrinkToFit(cl);sl.querySelectorAll('.toc-c,.ps,.ps-link,.ps-foot').forEach(e=>shrinkToFit(e));}else{[...cl.children].forEach(c=>c.style.zoom='');}}
       if(flow){
         sl.querySelectorAll('.n,.sv,.k,.limits,.panel').forEach(e=>[...e.children].forEach(c=>c.style.zoom=''));
         sl.querySelectorAll('.dg > .n').forEach(e=>shrinkToFit(e));
       }else{
         sl.querySelectorAll('.n,.sv,.k,.limits').forEach(e=>shrinkToFit(e));
         sl.querySelectorAll('.panel').forEach(e=>{if(!e.querySelector('.fit'))shrinkToFit(e);});
+      }
+      if(!flow&&h1&&sub){
+        let fs=50;while(h1.scrollWidth>h1.clientWidth+1&&fs>30){fs-=1;h1.style.fontSize=fs+'px';}
+        let ss=19;while(sub.offsetHeight>Math.ceil(ss*1.4*2)+2&&ss>13){ss-=.5;sub.style.fontSize=ss+'px';}
       }
       sl.querySelectorAll('.hb > div').forEach(d=>{d.style.fontSize='';if(!d.textContent.trim())return;const rg=document.createRange();rg.selectNodeContents(d);const tw=rg.getBoundingClientRect().width,bw=d.getBoundingClientRect().width;if(bw&&tw/bw>.8)d.style.fontSize='0';});
     }
