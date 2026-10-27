@@ -727,6 +727,10 @@ i.ai{display:inline-block;width:1.15em;height:1.15em;margin-right:5px;vertical-a
    unit-test goldens (9.8 Band 2 → 10.4 Band 3). A live run computes its own. */
 var CASE='FCRM-2026-0151', TITLE='Consumer remittances US → Mexico via payout partner';
 var TYPES=['Vendor onboarding','New geography','New product'];
+/* Required fields as the owner confirms types: 6 always required, then +3, +4, +5 = 18 (field set v6). Of the 9 values found, 6 are always-required ones, 1 is vendor onboarding's (F12), 2 geography's (F20, F23). */
+var REQ_BY_TYPES=[6,9,13,18],FILLED_BY_TYPES=[6,7,9,9];
+function ringTxt(n){return '<b>'+FILLED_BY_TYPES[n]+' of '+REQ_BY_TYPES[n]+' fields</b><br>Always-required 6 of 6<br>Submit threshold 80%';}
+function ringPct(n){return Math.round(FILLED_BY_TYPES[n]/REQ_BY_TYPES[n]*100);}
 var U={
   po:{n:'Priya Nair',t:'Product Owner',i:'PN',role:'Product owner',unit:'Payments'},
   an:{n:'Rahul Iyer',t:'FCRM Analyst',i:'RI',role:'FCRM analyst'},
@@ -830,6 +834,10 @@ var CLAUSES=[
  ['TP71-2.3','Internal Third-Party AML Standard 7.1 · Payout Agents','Standard 7.1 §2 · v2025-11','…the bank shall obtain an independent assessment of the agent network’s AML controls covering the specific corridor…'],
  ['OFAC-1.2','OFAC Sanctions Screening Standard','OFAC std §1 · v2026-01','…screen all parties to a cross-border payment against the SDN and sectoral lists at initiation and on list update…']];
 var CH_CTL=[['CTL-T01','Vendor due-diligence assessment','0.35','7.6','DD report, audit 2023-11, domestic scope','Nov 15, 2023',1],['CTL-T02','Payout-agent transaction monitoring','0.20','6.8','monitoring rule set v3','May 6, 2026'],['CTL-T03','Third-party contract AML clauses','0.15','7.0','contract §9','Aug 28, 2026'],['CTL-T04','Agent KYC file sampling','0.30','8.4','sampling programme report (existing partners)','Jun 18, 2026']];
+/* The 13 scored controls frozen in the pack: id, name, area, normalised weight, final rating. */
+var PACK_CTL=[['CTL-T01','Vendor due-diligence assessment','Delivery channel and third party','0.35','4.5'],['CTL-T02','Payout-agent transaction monitoring','Delivery channel and third party','0.20','6.8'],['CTL-T03','Third-party contract AML clauses','Delivery channel and third party','0.15','7.0'],['CTL-T04','Agent KYC file sampling','Delivery channel and third party','0.30','8.4'],
+ ['CTL-G01','Jurisdiction screening at onboarding','Geography','0.25','6.3'],['CTL-G02','Corridor enhanced due diligence','Geography','0.25','4.0'],['CTL-G03','Sanctions list screening (OFAC / UN / EU)','Geography','0.35','8.5'],['CTL-G04','Local licensing confirmation','Geography','0.15','3.0'],
+ ['CTL-P01','Transaction limits and velocity rules','Product and service','0.30','7.5'],['CTL-P02','Product sign-off','Product and service','0.15','5.0'],['CTL-P03','Monitoring rule coverage','Product and service','0.25','6.8'],['CTL-P04','Disclosure and consent','Product and service','0.15','7.0'],['CTL-P05','Fee transparency','Product and service','0.15','5.0']];
 var Q_ROUND=[['CTL-T01 / F11','Is a corridor-specific due-diligence review of Remesas del Norte planned or complete? Please attach the scope and date if available.','A corridor review is scheduled with the auditor for Nov 2026. Scope letter attached.'],['F21','Please confirm the cash-pickup agent locations and whether agent onboarding follows the partner’s KYC standard.','38 agent locations in 6 states. Agents onboarded under the partner’s KYC standard v4.']];
 var REC_TEXT='Residual risk sits in Band 3, driven by the third-party channel. Sanctions screening and transaction monitoring are effective and evidenced. Vendor due diligence is not yet evidenced for the corridor; a review is scheduled for Nov 2026. Recommend approval conditional on that review completing before go-live and enhanced payout-agent monitoring for six months.';
 var PO_SUM='Your change can go ahead once three conditions are met: a corridor-specific review of Remesas del Norte is completed and filed before go-live; enhanced monitoring of payout agents goes live with the launch; and a quarterly sample review of agent customer files runs for the first six months.';
@@ -1163,7 +1171,7 @@ function poDocs(S){
       '<div class="drop">'+I('upload',26)+'<p>Drop files here, or browse</p><div class="row" style="justify-content:center">'+btn('Browse files','secondary','browse')+btn('Use the demo’s two files','accent','demo-files')+btn('Import from SharePoint','ghost','sp',{dis:1})+'</div></div>'+
       '<div style="margin-top:14px">'+ban('rule','','Before any AI reads a file, it is checked for hidden instructions and personal data is masked.','guard-ban')+'</div>')+
     list+'</div>'+
-    '<div class="stack">'+card('Assistant','',asst,{id:'asst',bid:'asst-b'})+ringCard(S.readDone?50:0,S.readDone?'<b>9 of 18 fields</b><br>Always-required 4 of 6<br>Submit threshold 80%':'<b>0 of 6 fields</b><br>Always-required 0 of 6<br>Submit threshold 80%')+'</div></div>'));
+    '<div class="stack">'+card('Assistant','',asst,{id:'asst',bid:'asst-b'})+ringCard(S.readDone?ringPct(0):0,S.readDone?ringTxt(0):'<b>0 of 6 fields</b><br>Always-required 0 of 6<br>Submit threshold 80%')+'</div></div>'));
 }
 /* ── PO overview tab ── */
 function poOverview(S){
@@ -1174,7 +1182,7 @@ function poOverview(S){
   var vals=FIELDS.map(function(f){var corrected=false;return '<tr id="val-'+f[0]+'"><td><span class="cid">'+f[0]+'</span> '+f[1]+(f[4]?'<span class="muted xs"> · always required</span>':'')+'</td><td>'+esc(f[2])+(f[5]?' <span style="color:var(--warn-tx)" class="xs">'+f[5]+'</span>':'')+'</td><td>'+prov('ex')+'</td><td>'+src(f[3])+'</td></tr>';}).join('');
   if(S.reused)vals+=REUSE.filter(function(r){return r[3];}).map(function(r){return '<tr><td><span class="cid">'+r[0]+'</span> '+r[1]+'</td><td>'+esc(r[2])+'</td><td>'+prov('re')+'</td><td>'+src('reused · 0118')+'</td></tr>';}).join('');
   var nConf=S.types.filter(Boolean).length;
-  var pct=S.saved?83:S.reused?67:50, filled=S.saved?15:S.reused?12:9;
+  var later=S.saved||S.reused, req=later?18:REQ_BY_TYPES[nConf], filled=S.saved?15:S.reused?12:FILLED_BY_TYPES[nConf], pct=Math.round(filled/req*100);
   return shell('po','My queue',poFrame(S,'Overview',
    '<div class="grid g-side"><div class="stack">'+
     card('<i class="ai"></i>Proposed change types','The assistant proposed these from your documents. Confirm or remove each one.',types+'<div style="margin-top:12px">'+ban('rule','You confirm, the assistant does not.','Confirming fixes the list of required fields (18 for these three types). There is no confirm-all button: each type is one decision.')+'</div>',{id:'types'})+
@@ -1185,8 +1193,8 @@ function poOverview(S){
     card('<i class="ai"></i>Values found','Every value shows its source. If the assistant cannot point to a source, the value is not shown at all.',
       '<div class="tw"><table class="t"><thead><tr><th>Field</th><th>Value</th><th>Provenance</th><th>Source</th></tr></thead><tbody>'+vals+'</tbody></table></div>',{id:'values'})+
    '</div><div class="stack">'+
-    card('Completion','Field set v6 · '+(nConf===3?'18 required fields':'confirm the types to fix the list')+' · 15 candidate values found',
-      '<div class="ringrow"><div class="ring" id="ring" style="--p:'+pct+'"><b>'+pct+'%</b></div><p id="ring-t"><b>'+filled+' of 18 fields</b><br>Submit threshold 80%</p></div>',{id:'ring-card'})+
+    card('Completion','<span id="ring-sub">Field set v6 · '+(nConf===3?'18 required fields':req+' required so far · confirm the types to fix the list')+' · 15 candidate values found</span>',
+      '<div class="ringrow"><div class="ring" id="ring" style="--p:'+pct+'"><b>'+pct+'%</b></div><p id="ring-t"><b>'+filled+' of '+req+' fields</b><br>Submit threshold 80%</p></div>',{id:'ring-card'})+
     card('Next','','<p class="small muted" style="margin:0 0 10px">When the case reads right, review it once and submit.</p><b style="color:var(--moss)">Review & submit</b>')+
    '</div></div>'));
 }
@@ -1239,9 +1247,31 @@ function anQueue(){
    rows.map(function(r){return '<tr'+idA(r[7])+(r[7]==='q-0151'?' class="hlo"':'')+'><td><span class="cid">'+r[0]+'</span> <b style="font-weight:600">'+r[1]+'</b></td><td class="small">'+r[2]+'</td><td class="small">'+r[3]+'</td><td class="small">'+r[4]+'</td><td>'+r[5]+'</td><td>'+r[6]+'</td></tr>';}).join('')+'</tbody></table></div>');
 }
 /* ── analyst summary / inbox ── */
+/* The critic's findings as the analyst sees them: each one has to be explained (a reason is required) or acted on. */
+function critFinding(f){
+  var row=function(l,v){return '<div style="display:grid;grid-template-columns:150px 1fr;gap:6px 12px;margin-top:8px"><span class="small" style="color:var(--tx2);font-weight:600">'+l+'</span><div class="small">'+v+'</div></div>';};
+  return '<div class="card" style="border-left:4px solid var(--bad);margin-top:12px"><div style="padding:16px 18px">'+
+   '<div class="row" style="justify-content:space-between;align-items:flex-start"><div style="font-weight:700;font-size:15px">'+I('alert',16)+' '+f.title+'</div>'+bdg('High','bad')+'</div>'+
+   '<div class="small muted" style="margin:4px 0 6px">'+f.control+'</div>'+f.rows.map(function(r){return row(r[0],r[1]);}).join('')+
+   row('What to do',f.todo)+
+   '<div class="row" style="margin-top:14px">'+btn('Explain why','primary',f.id+'-explain',{size:'sm'})+btn('Change rating','secondary',f.id+'-change',{size:'sm'})+btn('Ask the owner for the evidence','secondary',f.id+'-ask',{size:'sm'})+'</div></div></div>';
+}
+function criticReview(){
+  return '<div id="critic"><div style="font-weight:700;font-size:16px">Critic review · 2 findings to explain</div>'+
+   '<div class="small muted" style="margin-top:2px">A second AI checked the assessment. Each finding below needs your explanation before the review can finish.</div>'+
+   critFinding({id:'cf1',title:'Rating higher than in similar cases',control:'CTL-T01 · Vendor due-diligence assessment',
+    rows:[['This case','<b>7.6</b> / 10'],['Similar cases','<b>4.9</b> on average <span class="muted">(2.7 higher)</span><div class="xs muted" style="margin-top:3px">&#9656; Show the 5 cases</div>'],
+     ['Why it was rated 7.6','<i>&ldquo;The due-diligence report finds an established AML programme at Remesas del Norte with no adverse findings, so the control is rated effective.&rdquo;</i><div style="margin-top:6px"><span class="rchip">#30</span></div>']],
+    todo:'Confirm the high rating is right (for example, the evidence covers this corridor), or change it.'})+
+   critFinding({id:'cf2',title:'Evidence may be out of date',control:'CTL-T01 · Vendor due-diligence assessment',
+    rows:[['Evidence on file','Partner audit, November 2023'],
+     ['Why it matters','<i>&ldquo;The audit covers domestic operations; the US to Mexico corridor was not in its scope.&rdquo;</i><div style="margin-top:6px"><span class="rchip">#30</span></div>']],
+    todo:'Confirm the evidence is enough, or ask the owner for newer evidence.'})+
+  '</div>';
+}
 function anSummary(S){
   var flags=[['New fact at intake: cash pickup at partner agents (owner answer 3), not in the business case','owner answer 3'],['Partner audit Nov 2023 covers domestic operations only; the corridor is not covered','contract p.8'],['Mexico is not on the FATF call-for-action or increased-monitoring lists (v2026-06)','jurisdictions v2026-06'],['Owner corrected 1 extracted value: go-live Q1 2027 → February 2027 (owner declared, original kept)','case p.1 l.9']];
-  return '<div class="stack">'+ban('bad','Critic · 2 findings (high)','<div style="margin-top:4px">Vendor due-diligence rating 7.6 is 2.7 above the 4.9 average across the five closest payout-partner cases <span class="rchip">#30</span></div><div style="margin-top:3px">Only evidence is a 2023 audit of domestic operations; corridor not covered <span class="rchip">#30</span></div>','critic')+
+  return '<div class="stack">'+criticReview()+
    '<div class="grid g-side-w"><div class="stack">'+
     card('Submission v1','15 of 18 fields · 2 documents','<div class="small" style="font-weight:700;margin-bottom:6px">Flags · 4</div>'+flags.map(function(f){return '<div class="rec">'+I('alert',14)+'<div>'+f[0]+' '+src(f[1])+'</div></div>';}).join(''))+
     card('<i class="ai"></i>Completeness report','Drafted by the narrative agent; you decide whether to ask first.',
@@ -1329,8 +1359,8 @@ function anRecommend(S){
     '<span class="lbl" style="margin-top:14px">Business summary (what the product owner receives)</span><div class="inp ta" id="rec-s" style="font-size:13px">'+PO_SUM+'</div>'+
     '<p class="xs" style="margin:6px 0 0;color:var(--ok-tx);font-weight:600" id="rec-scan">'+I('shield',12)+' Guard 4 scan: 0 restricted terms (score, band, rating, clause).</p>'+
     '<div style="margin-top:12px">'+btn('Save draft','secondary',null,{size:'sm'})+'</div>',{id:'rec-card',right:bdg(S.locked?'Locked':'Draft',S.locked?'ok':'neutral','rec-badge')})+
-   card('Conditions','Each one traces to an overridden control, a planned control or a policy gap.',
-    '<div class="tw"><table class="t"><thead><tr><th>Condition</th><th>Owner</th><th>Due</th><th>From</th></tr></thead><tbody>'+CONDS.map(function(c){return '<tr><td><span class="cid">'+c[0]+'</span> '+c[1]+'</td><td class="small">'+c[2]+'</td><td class="small">'+c[3]+'</td><td class="small">'+c[5]+'</td></tr>';}).join('')+'</tbody></table></div>',{id:'conds'})+
+   card('Conditions',S.locked?'Locked with the recommendation. Unlock to change them.':'Edit, remove or add conditions, then Save draft. Each one traces to an overridden control, a planned control or a policy gap.',
+    '<div class="tw"><table class="t"><thead><tr><th>Condition</th><th>Owner</th><th>Due</th><th>Status</th><th>From</th>'+(S.locked?'':'<th></th>')+'</tr></thead><tbody>'+CONDS.map(function(c,i){return '<tr><td><span class="cid">'+c[0]+'</span> '+c[1]+'</td><td class="small">'+c[2]+'</td><td class="small">'+c[3]+'</td><td>'+bdg(c[4],c[4]==='Open'?'warn':'info')+'</td><td class="small">'+c[5]+'</td>'+(S.locked?'':'<td style="white-space:nowrap">'+btn('Edit','ghost','cond-edit-'+i,{size:'sm'})+btn('Remove','ghost','cond-rm-'+i,{size:'sm'})+'</td>')+'</tr>';}).join('')+'</tbody></table></div>',{id:'conds',right:S.locked?'':btn('Add condition','secondary','cond-add',{size:'sm',ic:'plus'})})+
   '</div><div class="stack">'+
    card('Lock the recommendation','',(S.locked?ban('ok','Locked by Rahul Iyer','Numbers frozen at 10.4 · Band 3.'):ban('warn','','Every proposal has been reviewed and the band change acknowledged. Ready to lock.'))+
     '<div class="row" style="margin-top:12px">'+(S.locked?btn('Unlock…','ghost',null,{size:'sm'}):btn('Lock recommendation','primary','lock',{ic:'lock'}))+'</div>'+
@@ -1360,7 +1390,7 @@ function packSections(){
    S(4,'Override log','<div class="tw"><table class="t"><thead><tr><th>Control</th><th>Proposed → final</th><th>By</th><th>Reason</th></tr></thead><tbody><tr><td><span class="cid">CTL-T01</span> Vendor due-diligence assessment</td><td>7.6 → 4.5</td><td>Rahul Iyer</td><td class="small">'+OVR_REASON+' <span class="rchip">#49</span></td></tr></tbody></table></div>')+
    S(5,'Policy removals','<p class="small muted" style="margin:0">None. 4 of 4 proposed clauses accepted.</p>')+
    S(6,'Policy clauses (verbatim)',CLAUSES.map(function(c){return '<p class="small" style="margin:0 0 6px"><span class="cid">'+c[0]+'</span> <i>'+c[3]+'</i></p>';}).join(''))+
-   S(7,'Controls','<p class="small" style="margin:0">13 controls · 12 confirmed · 1 overridden · 1 with stale evidence</p>')+
+   S(7,'Controls','<p class="small" style="margin:0 0 8px">13 controls · 12 confirmed · 1 overridden · 1 with stale evidence</p><div class="tw"><table class="t"><caption class="xs muted" style="text-align:left;padding:0 0 4px">Every control in the pack, as frozen at the lock</caption><thead><tr><th>Control</th><th>Area</th><th class="num">Weight</th><th class="num">Rating</th><th>Status</th></tr></thead><tbody>'+PACK_CTL.map(function(c){var ov=c[0]==='CTL-T01';return '<tr'+(ov?' class="hlb"':'')+'><td><span class="cid">'+c[0]+'</span> '+c[1]+(ov?'<div class="row" style="gap:5px;margin-top:4px">'+bdg('Stale evidence','warn')+'</div>':'')+'</td><td class="small">'+c[2]+'</td><td class="num">'+c[3]+'</td><td class="num"><b>'+c[4]+'</b>'+(ov?'<div class="xs muted">was 7.6</div>':'')+'</td><td>'+(ov?'<span class="dec ov">'+I('pen',12)+'Overridden</span>':'<span class="dec ok">'+I('check',12)+'Confirmed</span>')+'</td></tr>';}).join('')+'</tbody></table></div>')+
    S(8,'Planned controls (not scored)','<p class="small" style="margin:0">Corridor DD review scheduled Nov 2026 (scope letter)</p>')+
    S(9,'Critic findings and responses','<div class="rec">'+I('alert',14)+'<div>Vendor due-diligence rating 7.6 is 2.7 above the precedent average of 4.9 <small>Response: overridden to 4.5 with reason (#49)</small></div></div><div class="rec">'+I('alert',14)+'<div>Only evidence is a 2023 domestic-scope audit <small>Response: corridor review planned, condition CND-1</small></div></div>')+
    S(10,'Clarification rounds','<p class="small" style="margin:0">1 round · 2 questions · both answered · submission v2</p>')+
@@ -1522,7 +1552,7 @@ scene({ch:1,who:'PO',title:'Upload what she has',sum:'Guard 1 scans and masks; t
      tween(3000,function(p){var t=q('#asst-t');if(t)t.textContent='Reading business_case_remittance_MX.pdf · page '+Math.max(1,Math.round(14*p))+' of 14';});}],
    [5200,function(){note('#asst','ai','The intake agent reads','One call per document window, on the cheap tier (Haiku 4.5, falling back to Nova Lite). Its tools are read-only and permitted by OPA (Guard 2).','left');}],
    [8000,function(S){S.readDone=1;rec(8);rec(9);setHTML('#asst-b','<div class="asst">'+I('sparkles')+'<div>Done. 15 values found, 3 change types proposed. Review them on the Overview tab.<div style="margin-top:8px"><b style="color:var(--moss)" id="asst-link">Review on the Overview tab</b></div></div></div>');
-     setHTML('#f0-st','Read');setHTML('#f1-st','Read');qa('[id$="-st"]').forEach(function(b){b.className='bdg ok';});setRing(0,50,'<b>9 of 18 fields</b><br>Always-required 4 of 6<br>Submit threshold 80%');}],
+     setHTML('#f0-st','Read');setHTML('#f1-st','Read');qa('[id$="-st"]').forEach(function(b){b.className='bdg ok';});setRing(0,ringPct(0),ringTxt(0));}],
    [8900,function(){rec(10);note('#asst','guard','Guard 4 · no source, no value','All 15 values carry a page:line source. A value the agent cannot point to is never shown to the owner.','left');}]],
   clk(12400,'#asst-link',function(el,S){setUrl('/case/'+CASE+'/overview');render(poOverview({types:[0,0,0],poStage:0}),true);unnote();}))
 });
@@ -1533,9 +1563,9 @@ scene({ch:1,who:'PO',title:'Confirm what was proposed',sum:'One decision per cha
  view:function(S){return poOverview(S);},
  poster:function(S){S.types=[1,1,1];S.typesConfirmed=1;},
  steps:seq([[300,function(){note('#types','gate','You confirm, the assistant does not','Each change type is one decision. There is no confirm-all, so every click means the owner read it.','below',{dx:220});}]],
-  clk(1700,'#tc-0',function(el,S){S.types[0]=1;setHTML('#ta-0',bdg(I('check',12)+'Confirmed by you','ok'));rec(11);}),
-  clk(3000,'#tc-1',function(el,S){S.types[1]=1;setHTML('#ta-1',bdg(I('check',12)+'Confirmed by you','ok'));rec(12);}),
-  clk(4300,'#tc-2',function(el,S){S.types[2]=1;S.typesConfirmed=1;setHTML('#ta-2',bdg(I('check',12)+'Confirmed by you','ok'));rec(13);setHTML('#po-badges',bdg('Draft','info')+TYPES.map(function(t){return bdg(t,'plain');}).join(''));}),
+  clk(1700,'#tc-0',function(el,S){S.types[0]=1;setHTML('#ta-0',bdg(I('check',12)+'Confirmed by you','ok'));rec(11);setRing(ringPct(0),ringPct(1),ringTxt(1));setHTML('#ring-sub','Field set v6 · 9 required so far · confirm the types to fix the list · 15 candidate values found');}),
+  clk(3000,'#tc-1',function(el,S){S.types[1]=1;setHTML('#ta-1',bdg(I('check',12)+'Confirmed by you','ok'));rec(12);setRing(ringPct(1),ringPct(2),ringTxt(2));setHTML('#ring-sub','Field set v6 · 13 required so far · confirm the types to fix the list · 15 candidate values found');}),
+  clk(4300,'#tc-2',function(el,S){S.types[2]=1;S.typesConfirmed=1;setHTML('#ta-2',bdg(I('check',12)+'Confirmed by you','ok'));rec(13);setRing(ringPct(2),ringPct(3),ringTxt(3));setHTML('#ring-sub','Field set v6 · 18 required fields · 15 candidate values found');setHTML('#po-badges',bdg('Draft','info')+TYPES.map(function(t){return bdg(t,'plain');}).join(''));}),
   [[5600,function(){rec(14);note('#ring-card','det','18 required fields, by rule','The field set is the union of the three confirmed types (field set v6). A rule decides what is required, not a model.','left');}],
    [7900,function(){unnote();scrollToEl('#values',1200);}],
    [9600,function(){note('#val-F03 .src','guard','Every value shows its source','Page and line for each one. A value without a source is dropped by Guard 4 before it reaches the screen.','left');}],
@@ -1606,19 +1636,21 @@ scene({ch:3,who:'Analyst',title:'The analyst’s queue',sum:'0151 arrives with i
   clk(7200,'#q-0151 .cid',function(){unnote();setUrl('/analyst/case/'+CASE+'/summary');render(shell('an','Queue',anFrame({stageLbl:'Review',step:6,recs:E.aud,live:1},'Summary',anSummary({}))),true);}))
 });
 /* 10 · summary and clarification */
-scene({ch:3,who:'Analyst',title:'Critic first, score withheld',sum:'Critic findings, a completeness report, and one round of questions.',url:'/analyst/case/'+CASE+'/summary',dur:18500,rec0:35,
- cap:'<b>The case summary.</b> Critic findings sit at the top. The score is withheld. The completeness check runs before any review.',
+scene({ch:3,who:'Analyst',title:'Critic first, score withheld',sum:'Critic findings, a completeness report, and one round of questions.',url:'/analyst/case/'+CASE+'/summary',dur:24000,rec0:35,
+ cap:'<b>The case summary.</b> Critic findings sit at the top, each with Explain why, Change rating and Ask the owner for the evidence. The score is withheld. The completeness check runs before any review.',
  init:function(){return {tab:'Summary',stageLbl:'Review',step:6,recs:35,sent:false};},
  view:function(S){return shell('an','Queue',anFrame(S,S.tab,S.tab==='Inbox'?anInboxDraft(S):anSummary(S)));},
  enter:function(){tabsTop();},
  steps:seq([[500,function(){note('#critic','guard','The critic’s findings come first','Two high findings on vendor due diligence (CTL-T01): the rating is 2.7 above five similar cases, and the only evidence is a 2023 domestic audit.','below',{dx:200});}],
-   [3100,function(){spot('#withheld',4);note('#withheld','det','Score withheld','The number exists, but a number seen first anchors the whole review. It appears after Policy and Controls are reviewed.','left');}],
-   [5800,function(){unspot();unnote();scrollToEl('#compl',800,16);}],
-   [6900,function(){note('#compl','gate','Completeness before review','The narrative agent found 1 stale and 1 contradictory input and drafted 3 questions; it kept 2. Rahul decides whether to ask now.','right');}]],
-  clk(9300,'#ask-now',function(el,S){unnote();S.tab='Inbox';S.step=7;setUrl('/analyst/case/'+CASE+'/inbox');render(E.sc.view(S),true);tabsTop();}),
-  [[10700,function(){note('#qd-2','ai','One question dropped, with a reason','“Already answered in contract §9.” Rahul can keep it anyway.','above');}]],
-  clk(13000,'#send-round',function(el,S){S.sent=true;S.paused=true;S.stageLbl='Awaiting business';setHTML('#an-clk',I('pause',13)+'Analyst 0d 3h (paused)');setHTML('#an-stage','Awaiting business');var b=q('#send-round');if(b)b.outerHTML=bdg(I('check',12)+'Round 1 sent to Priya Nair','ok');toast('Sent to the owner.','Analyst clock paused; total clock keeps running.');rec(36);}),
-  [[13900,function(){scrollMain(0,500);}],[14500,function(){note('#an-clk','harness','Two clocks','The analyst clock pauses while the owner answers; the total clock keeps running. One batched round, sent once.','below');}]])
+   [3300,function(){spot('#cf1-explain',4);note('#cf1-explain','gate','Explain why: a reason is required','To dismiss a finding Rahul must write a reason. It goes into the hash-chained record with his name. He can instead change the rating, or ask the owner for the evidence.','right',{w:320});}],
+   [7300,function(){unspot();unnote();scrollToEl('#withheld',700,16);}],
+   [8600,function(){spot('#withheld',4);note('#withheld','det','Score withheld','The number exists, but a number seen first anchors the whole review. It appears after Policy and Controls are reviewed.','left');}],
+   [11300,function(){unspot();unnote();scrollToEl('#compl',800,16);}],
+   [12400,function(){note('#compl','gate','Completeness before review','The narrative agent found 1 stale and 1 contradictory input and drafted 3 questions; it kept 2. Rahul decides whether to ask now.','right');}]],
+  clk(14800,'#ask-now',function(el,S){unnote();S.tab='Inbox';S.step=7;setUrl('/analyst/case/'+CASE+'/inbox');render(E.sc.view(S),true);tabsTop();}),
+  [[16200,function(){note('#qd-2','ai','One question dropped, with a reason','“Already answered in contract §9.” Rahul can keep it anyway.','above');}]],
+  clk(18500,'#send-round',function(el,S){S.sent=true;S.paused=true;S.stageLbl='Awaiting business';setHTML('#an-clk',I('pause',13)+'Analyst 0d 3h (paused)');setHTML('#an-stage','Awaiting business');var b=q('#send-round');if(b)b.outerHTML=bdg(I('check',12)+'Round 1 sent to Priya Nair','ok');toast('Sent to the owner.','Analyst clock paused; total clock keeps running.');rec(36);}),
+  [[19400,function(){scrollMain(0,500);}],[20000,function(){note('#an-clk','harness','Two clocks','The analyst clock pauses while the owner answers; the total clock keeps running. One batched round, sent once.','below');}]])
 });
 /* 11 · owner answers */
 scene({ch:3,who:'PO',title:'Priya answers',sum:'Answers and a scope letter create submission v2; v1 is kept.',url:'/case/'+CASE+'/inbox',dur:15000,rec0:36,fence:1,
@@ -1703,7 +1735,7 @@ scene({ch:3,who:'Analyst',title:'Recommend and lock',sum:'Narrative and business
  steps:seq([[400,function(){rec(52);note('#rec-n','ai','Drafted by the narrative agent','Rahul made two edits. Guard 4 checks that every figure in the text matches the engine’s numbers.','right',{dx:-60});}],
    [3200,function(){rec(53);spot('#rec-s',3);note('#rec-s','fence','What the owner will read','Guard 4 scans the business summary for restricted terms: score, band, rating, clause. None found.','right',{dx:-60});}],
    [6200,function(){unspot();unnote();scrollToEl('#conds',800);}],
-   [7200,function(){note('#conds','det','Each condition traces to a cause','An overridden control, a planned control, or a policy gap. Nothing is made up.','right',{dx:-60});}],
+   [7200,function(){note('#conds','det','Conditions the analyst can change','Rahul can edit or remove a condition, or add one of his own, until he locks. Each carries its cause (an overridden control, a planned control or a policy gap); one he adds is marked “added by the analyst”. The owner and the committee read the edited list.','right',{dx:-60});}],
    [9400,function(){unnote();scrollToEl('.tabs',700,8);}]],
   clk(10500,'#lock',function(el,S){S.locked=true;redraw();rec(54);}),
   [[11600,function(){note('#lock-card','gate','Locking freezes the numbers','Unlocking needs a reason, regenerates the pack and re-requests every vote.','left');}]])
@@ -1724,16 +1756,18 @@ scene({ch:3,who:'Analyst',title:'Pack and release',sum:'The pack is built by cod
   [[11000,function(){note('#rel-ban','gate','Checks are code; release is a person','Rahul approves the pack. Votes stay hidden from everyone, including him.','above');}]])
 });
 /* 17 · committee pack */
-scene({ch:4,who:'Committee',title:'A frozen pack',sum:'Twelve sections, each frozen and hashed, read-only for the committee.',url:'/committee/case/'+CASE+'/pack',dur:15500,rec0:57,
- cap:'<b>The committee reads the pack.</b> Ana Mendes sees the score, the override and its reason, the verbatim clauses, the critic’s findings with the analyst’s response to each, and the conditions.',
+scene({ch:4,who:'Committee',title:'A frozen pack',sum:'Twelve sections, each frozen and hashed, read-only for the committee.',url:'/committee/case/'+CASE+'/pack',dur:20500,rec0:57,
+ cap:'<b>The committee reads the pack.</b> Ana Mendes sees the score, the override and its reason, the verbatim clauses, the full controls list, the critic’s findings with the analyst’s response to each, and the conditions.',
  init:function(){return {tab:'Summary'};},
  view:function(S){return shell('co','Queue',coFrame(S,'Summary','<div class="row" style="justify-content:space-between">'+ban('rule','','Read-only. You read the pack and cast one vote.')+btn('Print / export','secondary',null,{size:'sm'})+'</div>'+packSections()));},
  steps:seq(handover(0,'Released to the committee','Ana Mendes reads the pack','Three members, one vote each, hidden until all are in.','an','co',1700),
   [[2200,function(){note('#sec-1 .fz','det','Frozen','Every section is read-only and hashed. A change after release means pack v2 and every vote re-requested.','left');}],
    [4600,function(){unnote();scrollToEl('#sec-4',2200,20);}],
    [7200,function(){note('#sec-4','audit','The override travels with the pack','Who, from what, to what, and the reason, exactly as written to the chain.','below',{dx:300});}],
-   [9400,function(){unnote();scrollToEl('#sec-9',2000,20);}],
-   [11800,function(){note('#sec-9','guard','Findings and what was done about them','Each critic finding sits next to the analyst’s response.','below',{dx:300});}]])
+   [9400,function(){unnote();scrollToEl('#sec-7',1800,20);}],
+   [11400,function(){note('#sec-7','det','The full controls list','All 13 scored controls with their area, weight and final rating. CTL-T01 shows its override (7.6 → 4.5) and its stale evidence. Nothing is summarised away.','below',{dx:300});}],
+   [14200,function(){unnote();scrollToEl('#sec-9',2000,20);}],
+   [16600,function(){note('#sec-9','guard','Findings and what was done about them','Each critic finding sits next to the analyst’s response.','below',{dx:300});}]])
 });
 /* 18 · committee question */
 scene({ch:4,who:'Committee',title:'A question, answered',sum:'R6: a thread for all members; the answer becomes addendum 1.',url:'/committee/case/'+CASE+'/inbox',dur:15000,rec0:57,
