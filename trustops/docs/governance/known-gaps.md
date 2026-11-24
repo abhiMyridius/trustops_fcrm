@@ -12,6 +12,7 @@ Rules for this file: add a dated line when something changes; do not delete a ga
 | No SharePoint. The Integrations screen shows the connector list with SharePoint "not connected"; a `DocumentSource` interface ships with the S3/MinIO source | ADR-17 |
 | No Temporal, no GitHub Actions, no Trivy (also no mobile layout, notification settings or multi-language documents). Local gates (`make check`, `make gate`, the hooks) stand in for CI | ADR-15; `docs/requirements/source/00-README.md` ("Out of scope") |
 | Synthetic data and a synthetic corpus. The seed declares 197 clauses over nine sources but holds four clause texts; 193 were generated once on Bedrock and carry `provenance` (`seed_verbatim`, `synthetic_internal_standard`, `synthetic_public_stand_in`). A "verbatim quote" is verbatim from that stored text, not from a real FFIEC, OFAC or FATF publication | ADR-29; `src/backend/packages/seed/fcrm_seed/clauses.json` |
+| The pack's section 10 (clarification rounds) is filled when H1 builds a pack, from S1's `clarification_threads` through `GET /internal/cases/{id}/clarification-rounds`. A pack frozen before that change keeps "No round." until the recommendation is locked again, and the seeded packs (S5 `pack_snapshot`) still show none because the seed holds no clarification threads | `workers/caseflow/fcrm_caseflow/cores/assessment_pack.py`; `services/decision/fcrm_decision/seedmodel.py` |
 
 ## B. Targets and tests that print "not yet wired" or do not exist
 

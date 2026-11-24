@@ -1001,6 +1001,8 @@ class FakeCaseService(FakePeer):
         self.views: dict[str, list[dict[str, Any]]] = {name: [] for name in VIEW_LEAVES}
         self.write_keys: dict[tuple[str, str], tuple[str, dict[str, Any]]] = {}
         self.recommendation_edits: Optional[dict[str, Any]] = None
+        #: What ``GET .../clarification-rounds`` answers.
+        self.clarification_rounds: list[dict[str, int]] = []
         self.locked = False
         self.harness_pushes: list[dict[str, Any]] = []
         self._item_counter = 0
@@ -1150,6 +1152,8 @@ class FakeCaseService(FakePeer):
             return self._score_request()
         if (call.method, leaf) == ("GET", "recommendation"):
             return self._recommendation()
+        if (call.method, leaf) == ("GET", "clarification-rounds"):
+            return httpx.Response(200, json=self.clarification_rounds)
         return problem(404, f"no route {call.method} {call.path}")
 
     def _items_route(self, call: Call) -> httpx.Response:

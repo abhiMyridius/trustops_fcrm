@@ -135,6 +135,19 @@ class CaseRecordInternal(BaseModel):
     submission_version: Optional[int] = None
 
 
+class ClarificationRoundInternal(BaseModel):
+    """``GET /internal/cases/{case_id}/clarification-rounds``: one round of
+    questions the analyst sent the owner, as H1 freezes it into the pack
+    (section 10). Ad-hoc questions belong to no round and are not counted.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    round: int
+    questions: int
+    answered: int
+
+
 class ValueAlternative(BaseModel):
     """Another value intake found for the same field, with where it is (D-132):
     what the owner may switch to when the first one is not the right one."""

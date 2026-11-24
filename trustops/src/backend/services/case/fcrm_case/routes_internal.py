@@ -32,6 +32,7 @@ from fcrm_contracts.api.case_internal import (
     AssignAnalystRequest,
     AssignResult,
     CaseRecordInternal,
+    ClarificationRoundInternal,
     DocumentInternal,
     DocumentPatch,
     IntakePush,
@@ -57,6 +58,7 @@ from fcrm_case.deps import (
 )
 from fcrm_case.directory import AnalystLoadService, IdentityDirectory
 from fcrm_case.domain.activity import po_may_receive
+from fcrm_case.domain.clarifications import round_threads
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.errors import ensure_open
 from fcrm_case.shaping import (
@@ -143,6 +145,32 @@ async def list_items(
     """The case's review items, optionally of one ``kind``."""
     await _require_case(store, case_id)
     return [to_review_item_internal(r) for r in await views.list_items(case_id, kind)]
+
+
+@router.get("/cases/{case_id}/clarification-rounds")
+async def list_clarification_rounds(
+    case_id: str,
+    store: Annotated[CaseStore, Depends(get_store)],
+    views: Annotated[ViewStore, Depends(get_views)],
+) -> list[ClarificationRoundInternal]:
+    """The case's clarification rounds, oldest first, each with how many
+    questions it asked and how many the owner has answered (an answer the analyst
+    has since resolved still counts). Ad-hoc questions are left out. H1 freezes
+    this into the pack's section 10.
+    """
+    await _require_case(store, case_id)
+    asked: dict[int, int] = {}
+    answered: dict[int, int] = {}
+    for thread in round_threads(await views.list_threads(case_id)):
+        asked[thread.round] = asked.get(thread.round, 0) + 1
+        if thread.status != "awaiting_response":
+            answered[thread.round] = answered.get(thread.round, 0) + 1
+    return [
+        ClarificationRoundInternal(
+            round=number, questions=asked[number], answered=answered.get(number, 0)
+        )
+        for number in sorted(asked)
+    ]
 
 
 @router.put("/cases/{case_id}/items")
