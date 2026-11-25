@@ -418,6 +418,7 @@ async def locked(
         "edit_count": 2,
     }
     assessed_case.locked = True
+    assessed_case.clarification_rounds = [{"round": 1, "questions": 3, "answered": 2}]
     # the analyst acknowledged the band change
     gates_collection.docs.append(
         {
@@ -536,6 +537,17 @@ class TestLockBuildPack:
             "new_geography",
             "new_product",
         }
+
+    async def test_the_pack_carries_the_clarification_rounds_s1_holds(
+        self,
+        locked: tuple[StepResult, StepDeps, dict[str, Any]],
+        decision_service: FakeDecisionService,
+    ) -> None:
+        snapshot = decision_service.builds[0]["snapshot"]
+
+        assert snapshot["clarification_rounds"] == [
+            {"round": 1, "questions": 3, "answered": 2}
+        ]
 
     async def test_the_pack_is_built_against_the_lock_record_and_checks_pass(
         self,

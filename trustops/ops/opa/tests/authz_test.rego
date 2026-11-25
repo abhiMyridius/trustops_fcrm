@@ -44,6 +44,7 @@ internal_case_routes := {
 	["GET", "/internal/cases/{case_id}/record"],
 	["GET", "/internal/cases/{case_id}/items"],
 	["PUT", "/internal/cases/{case_id}/items"],
+	["GET", "/internal/cases/{case_id}/clarification-rounds"],
 	["PUT", "/internal/cases/{case_id}/intake"],
 	["PATCH", "/internal/cases/{case_id}/state"],
 	["PUT", "/internal/cases/{case_id}/outcome"],

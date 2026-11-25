@@ -30,6 +30,7 @@ from typing import Any, Final, Optional
 
 from fcrm_contracts.api.case_internal import (
     CaseRecordInternal,
+    ClarificationRoundInternal,
     ItemsUpsert,
     ReviewItemInternal,
     ReviewItemUpsert,
@@ -347,6 +348,7 @@ class PackInputs:
         head_hash: Its hash.
         as_of: The date "stale" is judged on (the lock's).
         checks: The four release checks.
+        clarification_rounds: The rounds of questions sent to the owner (S1).
     """
 
     record: CaseRecordInternal
@@ -361,6 +363,7 @@ class PackInputs:
     head_hash: str
     as_of: date
     checks: Mapping[str, bool]
+    clarification_rounds: Sequence[ClarificationRoundInternal] = ()
 
 
 def _area(request: ScoreRequest, response: ScoreResponse) -> list[dict[str, Any]]:
@@ -633,7 +636,10 @@ def build_pack_snapshot(inputs: PackInputs) -> dict[str, Any]:
             for r in current
             if r.kind is ItemKind.CRITIC_FINDING
         ],
-        "clarification_rounds": [],
+        "clarification_rounds": [
+            {"round": r.round, "questions": r.questions, "answered": r.answered}
+            for r in inputs.clarification_rounds
+        ],
         "pins": _display_pins(record.pins.model_dump(mode="json")),
         "audit_head": {"seq": inputs.head_seq, "hash": inputs.head_hash},
         "checks": dict(inputs.checks),
@@ -680,6 +686,7 @@ async def lock_build_pack(step: HarnessStep, deps: StepDeps) -> StepResult:
         items=items,
         acks_open=acks_open,
     )
+    rounds = await case.list_clarification_rounds(step.case_id)
     snapshot = build_pack_snapshot(
         PackInputs(
             record=record,
@@ -694,6 +701,7 @@ async def lock_build_pack(step: HarnessStep, deps: StepDeps) -> StepResult:
             head_hash=lock.hash,
             as_of=lock.created_at.date(),
             checks=checks,
+            clarification_rounds=rounds,
         )
     )
     pack = await deps.require_decision().build_pack(

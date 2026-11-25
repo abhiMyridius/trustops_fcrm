@@ -7,9 +7,11 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from fcrm_case.domain.clarifications import ClarificationThreadRow
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.views import DocumentRow, FieldSource
 from fcrm_contracts.api.case_internal import (
@@ -95,6 +97,7 @@ def intake_body(**overrides: Any) -> dict[str, Any]:
     [
         ("get", f"/internal/cases/{CASE}/record"),
         ("get", f"/internal/cases/{CASE}/items"),
+        ("get", f"/internal/cases/{CASE}/clarification-rounds"),
         ("put", f"/internal/cases/{CASE}/items"),
         ("put", f"/internal/cases/{CASE}/intake"),
         ("patch", f"/internal/cases/{CASE}/state"),
@@ -264,6 +267,53 @@ def test_items_are_upserted_in_one_call_and_read_back_by_kind(
         ).json()
         == []
     )
+
+
+def thread(
+    round_no: int, question: str, status: str, kind: str = "round"
+) -> ClarificationThreadRow:
+    return ClarificationThreadRow(
+        thread_id=f"thr_{kind}_{round_no}_{question}",
+        case_id=CASE,
+        kind=kind,  # type: ignore[arg-type]
+        round=round_no,
+        question_id=question,
+        text="What are the limits?",
+        field_label="Your submission",
+        status=status,  # type: ignore[arg-type]
+        opened_at=datetime(2026, 10, 5, 12, 0, tzinfo=UTC),
+        opened_by="u-riyer",
+    )
+
+
+def test_clarification_rounds_count_what_was_asked_and_answered_per_round(
+    service: CaseService,
+) -> None:
+    for row in (
+        thread(1, "q1", "answered"),
+        thread(1, "q2", "resolved"),
+        thread(1, "q3", "awaiting_response"),
+        thread(2, "q1", "awaiting_response"),
+        thread(0, "adhoc1", "answered", kind="adhoc"),
+    ):
+        service.views.threads[row.thread_id] = row
+
+    response = service.client.get(f"/internal/cases/{CASE}/clarification-rounds")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"round": 1, "questions": 3, "answered": 2},
+        {"round": 2, "questions": 1, "answered": 0},
+    ]
+
+
+def test_a_case_with_no_round_has_an_empty_list_and_an_unknown_case_is_a_404(
+    service: CaseService,
+) -> None:
+    empty = service.client.get(f"/internal/cases/{CASE}/clarification-rounds")
+    assert (empty.status_code, empty.json()) == (200, [])
+    missing = service.client.get("/internal/cases/FCRM-2026-9999/clarification-rounds")
+    assert missing.status_code == 404
 
 
 def test_replaying_an_items_push_is_the_same_state(service: CaseService) -> None:

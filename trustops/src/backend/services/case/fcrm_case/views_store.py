@@ -209,6 +209,12 @@ class ViewStore(Protocol):
         """The case's intake view, or ``None`` before the first push."""
         ...
 
+    async def list_threads(self, case_id: str) -> list[ClarificationThreadRow]:
+        """Every clarification question of the case (rounds and ad-hoc), oldest
+        round first.
+        """
+        ...
+
 
 @dataclass(frozen=True)
 class ViewRepos:
@@ -325,6 +331,11 @@ class MongoViewStore:
         self._client = client
         self._outbox = outbox
         self._repos = build_view_repos(db)
+        self._threads: Repository[ClarificationThreadRow] = Repository(
+            db["clarification_threads"],
+            ClarificationThreadRow,
+            id_of=lambda r: r.thread_id,
+        )
 
     @property
     def repos(self) -> ViewRepos:
@@ -581,6 +592,13 @@ class MongoViewStore:
         doc = await repo.collection.find_one({"_id": case_id})
         return repo.from_document(doc) if doc is not None else None
 
+    async def list_threads(self, case_id: str) -> list[ClarificationThreadRow]:
+        return await self._threads.find(
+            {"case_id": case_id},
+            sort=[("round", ASCENDING), ("question_id", ASCENDING)],
+            limit=MAX_ITEMS_PER_CASE,
+        )
+
 
 def next_field_row(
     previous: Optional[FieldValueRow],
@@ -834,3 +852,7 @@ class InMemoryViewStore:
 
     async def get_intake_view(self, case_id: str) -> Optional[IntakeViewRow]:
         return self.intake.get(case_id)
+
+    async def list_threads(self, case_id: str) -> list[ClarificationThreadRow]:
+        rows = [t for t in self.threads.values() if t.case_id == case_id]
+        return sorted(rows, key=lambda t: (t.round, t.question_id))

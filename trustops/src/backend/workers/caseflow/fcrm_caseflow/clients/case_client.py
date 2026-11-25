@@ -21,6 +21,7 @@ from fcrm_contracts.api.case_internal import (
     AnalystLoadResponse,
     AssignAnalystRequest,
     CaseRecordInternal,
+    ClarificationRoundInternal,
     DocumentInternal,
     DocumentPatch,
     IntakePush,
@@ -72,6 +73,7 @@ HANDOFF_PATH: Final = "/internal/cases/{case_id}/handoff"
 SCORE_REQUEST_PATH: Final = "/internal/cases/{case_id}/score-request"
 RECOMMENDATION_PATH: Final = "/internal/cases/{case_id}/recommendation"
 HARNESS_PATH: Final = "/internal/cases/{case_id}/harness"
+CLARIFICATION_ROUNDS_PATH: Final = "/internal/cases/{case_id}/clarification-rounds"
 
 
 def _fill(template: str, **values: str) -> str:
@@ -305,6 +307,39 @@ class CaseClient:
             )
         return [
             parse_body(ReviewItemInternal, row, dependency=DEPENDENCY, route=ITEMS_PATH)
+            for row in rows
+        ]
+
+    async def list_clarification_rounds(
+        self, case_id: str
+    ) -> list[ClarificationRoundInternal]:
+        """``GET /internal/cases/{case_id}/clarification-rounds``: each round of
+        questions sent to the owner and how many were answered.
+
+        Raises:
+            fcrm_common.errors.NotFoundError: no such case.
+            fcrm_common.errors.UpstreamUnavailableError: the body is neither
+                ``{"items": [...]}`` nor a bare list.
+        """
+        body = await self._client.request_json(
+            "GET",
+            _fill(CLARIFICATION_ROUNDS_PATH, case_id=case_id),
+            timeout=CALL_TIMEOUTS,
+        )
+        rows = body.get("items") if isinstance(body, dict) else body
+        if not isinstance(rows, list):
+            raise UpstreamUnavailableError(
+                f"{DEPENDENCY} answered {CLARIFICATION_ROUNDS_PATH} with an "
+                "unexpected body",
+                dependency=DEPENDENCY,
+            )
+        return [
+            parse_body(
+                ClarificationRoundInternal,
+                row,
+                dependency=DEPENDENCY,
+                route=CLARIFICATION_ROUNDS_PATH,
+            )
             for row in rows
         ]
 
