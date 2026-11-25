@@ -26,9 +26,10 @@ mccabe.max-complexity = 10
 [lint.per-file-ignores]
 "tests/**" = ["D", "S101", "BLE001"]
 "**/conftest.py" = ["D"]
-# Standalone developer tool, like sonarqubescript.py: it talks to the terminal with print
-# and keeps its long explanatory comments.
+# Standalone developer tools (the SonarQube and Opengrep scan scripts): they talk to the
+# terminal with print and keep long explanatory comments.
 "opengrepscript.py" = ["T201", "E501", "D103"]
+"sonarqubescript.py" = ["T201", "E501", "D103"]
 "**/routes.py" = ["B008"]  # FastAPI's Depends() idiom requires a call in the
                            # default argument; this is the documented, safe
                            # exception (Depends is not a mutable default).
