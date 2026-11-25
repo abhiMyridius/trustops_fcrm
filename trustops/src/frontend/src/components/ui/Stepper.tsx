@@ -3,7 +3,7 @@ import type { StageStep } from '@/api/types/common';
 import { cn } from '@/lib/cn';
 
 /** Ordered list of steps; the current one carries aria-current="step". */
-export function Stepper({ steps, label, compact }: { steps: StageStep[]; label: string; compact?: boolean }) {
+export function Stepper({ steps, label, compact }: Readonly<{ steps: StageStep[]; label: string; compact?: boolean }>) {
   return (
     <nav aria-label={label}>
       <ol className="flex flex-wrap items-center gap-x-1 gap-y-2">

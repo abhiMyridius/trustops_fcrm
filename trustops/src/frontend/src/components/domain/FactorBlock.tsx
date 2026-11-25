@@ -2,7 +2,7 @@
 import type { FactorAnchor, RiskArea, RiskAreaGate } from '@/api/types/analyst';
 import { Button } from '@/components/ui/Button';
 
-function Scale({ name, value, anchors }: { name: string; value: number; anchors: FactorAnchor[] }) {
+function Scale({ name, value, anchors }: Readonly<{ name: string; value: number; anchors: FactorAnchor[] }>) {
   const anchor = anchors.find((a) => a.value === value);
   return (
     <div>
@@ -36,7 +36,7 @@ export function FactorBlock({
   onConfirm,
   onEdit,
   busy = false,
-}: {
+}: Readonly<{
   area: RiskArea;
   likelihood: FactorAnchor[];
   impact: FactorAnchor[];
@@ -45,7 +45,7 @@ export function FactorBlock({
   /** Given with `onConfirm`: change the two values with a reason, which re-scores the case. */
   onEdit?: () => void;
   busy?: boolean;
-}) {
+}>) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-tertiary p-4">
       <div className="flex flex-wrap gap-6">

@@ -8,7 +8,7 @@ export interface BrandMarkProps {
 }
 
 /** The Myridius brand mark (`public/brand-mark*.png`, from the supplied logo), placed bottom-left per the guide. */
-export function BrandMark({ tone = 'light', className }: BrandMarkProps) {
+export function BrandMark({ tone = 'light', className }: Readonly<BrandMarkProps>) {
   return (
     <img
       src={tone === 'dark' ? '/brand-mark-dark.png' : '/brand-mark.png'}

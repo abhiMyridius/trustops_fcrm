@@ -28,7 +28,7 @@ const icons: Record<ToastTone, ReactNode> = {
   danger: <XCircle aria-hidden size={18} className="text-danger" />,
 };
 
-export function ToastProvider({ children }: { children: ReactNode }) {
+export function ToastProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [items, setItems] = useState<ToastItem[]>([]);
   const nextId = useRef(1);
 

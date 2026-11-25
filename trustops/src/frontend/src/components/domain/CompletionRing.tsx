@@ -5,7 +5,7 @@ import { ProgressRing } from '@/components/ui/ProgressRing';
  * Completion from the server (pinned field set); threshold tick at the submit threshold. The server
  * counts only confirmed change types, so `typesPending` adds a line saying the total can still grow.
  */
-export function CompletionRing({ completion, size = 96, typesPending = false }: { completion: Completion; size?: number; typesPending?: boolean }) {
+export function CompletionRing({ completion, size = 96, typesPending = false }: Readonly<{ completion: Completion; size?: number; typesPending?: boolean }>) {
   const below = completion.pct < completion.threshold_pct;
   return (
     <div className="flex items-center gap-4">

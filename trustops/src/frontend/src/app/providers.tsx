@@ -18,7 +18,7 @@ export function makeQueryClient(): QueryClient {
   });
 }
 
-export function AppProviders({ client, children }: { client: QueryClient; children: ReactNode }) {
+export function AppProviders({ client, children }: Readonly<{ client: QueryClient; children: ReactNode }>) {
   return (
     <QueryClientProvider client={client}>
       <ToastProvider>

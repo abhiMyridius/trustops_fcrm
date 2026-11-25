@@ -10,7 +10,7 @@ import { chipClass } from './SourceChip';
 import { previewMessage, useSourcePreview } from './SourcePreview';
 
 /** "FFIEC 2024 ed. · p.312" chip; a button that opens the clause when the frame previews clauses. */
-export function ClauseChip({ clauseId, label }: { clauseId: string; label: string }) {
+export function ClauseChip({ clauseId, label }: Readonly<{ clauseId: string; label: string }>) {
   const preview = useSourcePreview();
   const body = (
     <>
@@ -39,7 +39,7 @@ export function ClauseChip({ clauseId, label }: { clauseId: string; label: strin
 }
 
 /** The drawer body: the clause verbatim with its id, title, source and reference. */
-export function ClausePreviewBody({ clauseId }: { clauseId: string }) {
+export function ClausePreviewBody({ clauseId }: Readonly<{ clauseId: string }>) {
   const q = useClause(clauseId);
   if (q.isPending) return <SkeletonCard lines={5} label="Loading clause" />;
   if (q.isError) {

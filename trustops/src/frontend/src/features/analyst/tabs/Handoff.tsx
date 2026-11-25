@@ -23,7 +23,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useDocumentTitle } from '@/lib/a11y';
 import { formatDateTime, shortHash } from '@/lib/format';
 
-function ThreadAnswer({ t }: { t: CommitteeThread }) {
+function ThreadAnswer({ t }: Readonly<{ t: CommitteeThread }>) {
   const answer = useAnswerCommitteeThread();
   const toast = useToast();
   const [text, setText] = useState('');

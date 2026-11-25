@@ -14,7 +14,7 @@ export interface ProgressRingProps {
 }
 
 /** SVG completion ring with role=progressbar; the centre shows the value (or children). */
-export function ProgressRing({ value, label, size = 96, stroke = 9, threshold, children, tone = 'teal' }: ProgressRingProps) {
+export function ProgressRing({ value, label, size = 96, stroke = 9, threshold, children, tone = 'teal' }: Readonly<ProgressRingProps>) {
   const clamped = Math.max(0, Math.min(100, value));
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
@@ -66,7 +66,7 @@ export function ProgressRing({ value, label, size = 96, stroke = 9, threshold, c
   );
 }
 
-export function ProgressBar({ value, label, tone = 'teal', showValue = true }: { value: number; label: string; tone?: 'teal' | 'warning' | 'danger'; showValue?: boolean }) {
+export function ProgressBar({ value, label, tone = 'teal', showValue = true }: Readonly<{ value: number; label: string; tone?: 'teal' | 'warning' | 'danger'; showValue?: boolean }>) {
   const clamped = Math.max(0, Math.min(100, value));
   const fill = { teal: 'bg-virtual-tide', warning: 'bg-warning', danger: 'bg-danger' }[tone];
   return (

@@ -26,7 +26,7 @@ function options(scale: FactorAnchor[]) {
   return scale.map((a) => ({ value: String(a.value), label: `${a.value} · ${a.label}` }));
 }
 
-export function FactorEditDialog({ open, onClose, area, likelihood, impact, onSave }: FactorEditDialogProps) {
+export function FactorEditDialog({ open, onClose, area, likelihood, impact, onSave }: Readonly<FactorEditDialogProps>) {
   const [l, setL] = useState(likelihood.value);
   const [i, setI] = useState(impact.value);
   const [reason, setReason] = useState('');

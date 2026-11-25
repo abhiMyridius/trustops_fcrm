@@ -34,7 +34,7 @@ export interface CloseCaseDialogProps {
   onConfirm: (v: CloseCaseValues) => Promise<unknown>;
 }
 
-export function CloseCaseDialog({ open, onClose, suggested, onConfirm }: CloseCaseDialogProps) {
+export function CloseCaseDialog({ open, onClose, suggested, onConfirm }: Readonly<CloseCaseDialogProps>) {
   const [outcome, setOutcome] = useState<Outcome>(suggested?.outcome ?? 'approve_with_conditions');
   const [summary, setSummary] = useState(suggested?.summary ?? '');
   const [reason, setReason] = useState('');

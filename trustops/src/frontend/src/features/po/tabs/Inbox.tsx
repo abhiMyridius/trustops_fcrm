@@ -22,7 +22,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useDocumentTitle } from '@/lib/a11y';
 import { formatDateTime } from '@/lib/format';
 
-function ThreadCard({ caseId, t }: { caseId: string; t: ThreadPO }) {
+function ThreadCard({ caseId, t }: Readonly<{ caseId: string; t: ThreadPO }>) {
   const answer = useAnswerThread(caseId);
   const toast = useToast();
   const [text, setText] = useState('');

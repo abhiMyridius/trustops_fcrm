@@ -188,7 +188,7 @@ const DOC_STATUS: Record<DocumentStatus, { label: string; done: boolean }> = {
 
 /** One line icon per file: a spinner while it is uploading or being read, a check once read. The tooltip and the
  * accessible name say the state in words, so the icon is never the only signal. */
-function DocStatusIcon({ status }: { status: DocumentStatus }) {
+function DocStatusIcon({ status }: Readonly<{ status: DocumentStatus }>) {
   const { label, done } = DOC_STATUS[status];
   return (
     <span role="img" aria-label={label} title={label} className="inline-flex h-6 w-6 shrink-0 items-center justify-center">

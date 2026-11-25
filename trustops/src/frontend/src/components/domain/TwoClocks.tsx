@@ -1,7 +1,7 @@
 import { Clock, PauseCircle } from 'lucide-react';
 
 /** Analyst-active and total elapsed clocks, both computed by S1 (no client arithmetic). */
-export function TwoClocks({ active, total, paused }: { active: string; total: string; paused: boolean }) {
+export function TwoClocks({ active, total, paused }: Readonly<{ active: string; total: string; paused: boolean }>) {
   return (
     <p className="inline-flex flex-wrap items-center gap-3 text-[12px] text-text-secondary">
       <span className="inline-flex items-center gap-1">

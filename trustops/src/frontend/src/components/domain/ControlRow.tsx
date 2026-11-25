@@ -13,13 +13,13 @@ export function ControlRow({
   onOverride,
   readOnly,
   busy,
-}: {
+}: Readonly<{
   control: ControlItem;
   onConfirm?: () => void;
   onOverride?: () => void;
   readOnly?: boolean;
   busy?: boolean;
-}) {
+}>) {
   // `#control-<id>` (the critic review's "Change rating") scrolls to and focuses this row.
   const anchor = `control-${control.id}`;
   const { hash } = useLocation();
@@ -86,7 +86,7 @@ export function ControlRow({
 }
 
 /** Table wrapper so ControlRow is always rendered inside correct table semantics. */
-export function ControlTable({ caption, children }: { caption: string; children: ReactNode }) {
+export function ControlTable({ caption, children }: Readonly<{ caption: string; children: ReactNode }>) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-sm">

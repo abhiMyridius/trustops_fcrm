@@ -13,7 +13,7 @@ import { DraftEdit } from '../DraftEdit';
 /** The badge tone of a 1-5 rating: a label always goes with it, so tone is never the only signal. */
 const RATING_TONE: Record<number, Tone> = { 1: 'success', 2: 'neutral', 3: 'info', 4: 'warning', 5: 'danger' };
 
-function Rating({ e }: { e: JurisdictionEntry }) {
+function Rating({ e }: Readonly<{ e: JurisdictionEntry }>) {
   return (
     <Badge tone={RATING_TONE[e.rating] ?? 'neutral'}>
       {e.rating} · {e.rating_label}
@@ -22,7 +22,7 @@ function Rating({ e }: { e: JurisdictionEntry }) {
 }
 
 /** Every rated jurisdiction, strictest first: FATF listings read-only, internal ratings editable into the draft. */
-function JurisdictionList({ s }: { s: ConfigSectionBase<'jurisdiction-risk', JurisdictionData> }) {
+function JurisdictionList({ s }: Readonly<{ s: ConfigSectionBase<'jurisdiction-risk', JurisdictionData> }>) {
   const [filter, setFilter] = useState('');
   const shown = s.data.entries.filter((e) => e.jurisdiction.toLowerCase().includes(filter.trim().toLowerCase()));
   return (
@@ -79,7 +79,7 @@ function JurisdictionList({ s }: { s: ConfigSectionBase<'jurisdiction-risk', Jur
 }
 
 /** 7. Jurisdiction Risk List: every jurisdiction on one 1-5 scale (FATF read-only, internal editable), its anchors and the re-flag fixture. */
-export function JurisdictionRisk({ s }: { s: ConfigSectionBase<'jurisdiction-risk', JurisdictionData> }) {
+export function JurisdictionRisk({ s }: Readonly<{ s: ConfigSectionBase<'jurisdiction-risk', JurisdictionData> }>) {
   const d = s.data;
   const save = useSaveDraft(s.section);
   const toast = useToast();

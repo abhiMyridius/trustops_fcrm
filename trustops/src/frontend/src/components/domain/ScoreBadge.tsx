@@ -18,7 +18,7 @@ export interface ScoreBadgeProps {
   size?: 'sm' | 'lg';
 }
 
-export function ScoreBadge({ composite, band, bandLabel, bandRange, routeLabel, boundaryText, size = 'sm' }: ScoreBadgeProps) {
+export function ScoreBadge({ composite, band, bandLabel, bandRange, routeLabel, boundaryText, size = 'sm' }: Readonly<ScoreBadgeProps>) {
   const tone = bandTone(band);
   if (size === 'sm') {
     return (
@@ -48,6 +48,6 @@ export function ScoreBadge({ composite, band, bandLabel, bandRange, routeLabel, 
 }
 
 /** Band-only chip for tables (band arrives from the server; label printed, colour secondary). */
-export function BandChip({ band, label }: { band: BandNo; label?: string | null }) {
+export function BandChip({ band, label }: Readonly<{ band: BandNo; label?: string | null }>) {
   return <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-[12px] font-semibold', bandTone(band).badge)}>{bandName(band, label)}</span>;
 }

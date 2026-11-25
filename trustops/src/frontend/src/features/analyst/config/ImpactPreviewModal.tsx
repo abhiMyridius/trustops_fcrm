@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
 
 /** Publish: impact preview from the server, a required version note, then a new immutable snapshot. */
-export function ImpactPreviewModal({ section, open, onClose }: { section: ConfigSection; open: boolean; onClose: () => void }) {
+export function ImpactPreviewModal({ section, open, onClose }: Readonly<{ section: ConfigSection; open: boolean; onClose: () => void }>) {
   const preview = usePreviewDraft(section.section);
   const publish = usePublishDraft(section.section);
   const toast = useToast();

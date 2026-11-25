@@ -23,7 +23,7 @@ const TONE: Record<Origin, string> = {
 };
 
 /** Where a value came from. Always a visible label, never a tooltip (design C §1.6). */
-export function ProvenanceTag({ origin, detail }: { origin: Origin; detail?: string | null }) {
+export function ProvenanceTag({ origin, detail }: Readonly<{ origin: Origin; detail?: string | null }>) {
   return (
     <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap', TONE[origin])}>
       {origin === 'extracted' && <AiMark size={11} />}

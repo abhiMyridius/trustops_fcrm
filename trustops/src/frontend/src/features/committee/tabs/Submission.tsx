@@ -55,7 +55,7 @@ export function CommitteeSubmissionTab() {
   return (
     <QueryState query={q} label="Loading submission">
       {(versions) => {
-        const current = versions.find((v) => v.version === picked) ?? versions[versions.length - 1];
+        const current = versions.find((v) => v.version === picked) ?? versions.at(-1);
         if (!current) return <EmptyState title="Not submitted yet" />;
         return (
           <div className="flex flex-col gap-5">

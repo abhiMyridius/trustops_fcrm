@@ -6,12 +6,12 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
   options,
-}: {
+}: Readonly<{
   label: string;
   value: T;
   onChange: (v: T) => void;
   options: { value: T; label: string }[];
-}) {
+}>) {
   return (
     <div role="radiogroup" aria-label={label} className="inline-flex rounded-full border border-border-strong bg-surface p-0.5">
       {options.map((o) => {

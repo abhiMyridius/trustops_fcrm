@@ -1,7 +1,7 @@
 import { Link2 } from 'lucide-react';
 
 /** "#49 · human.override" chip. With `href` it links to the record in the case activity view. */
-export function AuditRecordChip({ seq, type, href }: { seq: number; type?: string; href?: string }) {
+export function AuditRecordChip({ seq, type, href }: Readonly<{ seq: number; type?: string; href?: string }>) {
   const body = (
     <>
       <Link2 aria-hidden size={11} />#{seq}

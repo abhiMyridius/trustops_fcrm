@@ -34,7 +34,7 @@ export function AiLabel({ children, size = 16, animated, className }: AiMarkProp
  * doing. Decorative: the words beside it already say what the AI did, so it is hidden from
  * assistive technology and never changes an accessible name.
  */
-export function AiMark({ size = 16, animated = true, className }: AiMarkProps) {
+export function AiMark({ size = 16, animated = true, className }: Readonly<AiMarkProps>) {
   const gradient = useId();
   const spin = animated && !prefersReducedMotion();
   return (

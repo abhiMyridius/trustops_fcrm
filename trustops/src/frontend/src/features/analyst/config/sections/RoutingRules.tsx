@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/Card';
 import { DraftEdit } from '../DraftEdit';
 
 /** 6. Rules & Routing: routing v4 R1–R6 as data rows; thresholds editable into the draft. */
-export function RoutingRules({ s }: { s: ConfigSectionBase<'routing-rules', RoutingRulesData> }) {
+export function RoutingRules({ s }: Readonly<{ s: ConfigSectionBase<'routing-rules', RoutingRulesData> }>) {
   return (
     <div className="flex flex-col gap-5">
       <Card title={`Routing rules ${s.active_version}`}>

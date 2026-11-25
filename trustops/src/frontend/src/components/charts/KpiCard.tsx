@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 
 /** A single figure with its label and an optional context line. Values are server-computed. */
-export function KpiCard({ label, value, unit, hint, tone = 'default' }: { label: string; value: ReactNode; unit?: string; hint?: ReactNode; tone?: 'default' | 'attention' }) {
+export function KpiCard({ label, value, unit, hint, tone = 'default' }: Readonly<{ label: string; value: ReactNode; unit?: string; hint?: ReactNode; tone?: 'default' | 'attention' }>) {
   return (
     <div className={cn('flex flex-col gap-1 rounded-lg border bg-surface px-5 py-4 shadow-sm', tone === 'attention' ? 'border-warning' : 'border-border')}>
       <p className="text-[12px] font-semibold uppercase tracking-overline text-text-muted">{label}</p>

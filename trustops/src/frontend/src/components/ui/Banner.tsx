@@ -23,14 +23,14 @@ export function Banner({
   action,
   live,
   className,
-}: {
+}: Readonly<{
   tone?: BannerTone;
   title?: ReactNode;
   children?: ReactNode;
   action?: ReactNode;
   live?: 'polite' | 'assertive';
   className?: string;
-}) {
+}>) {
   const t = tones[tone];
   return (
     <div

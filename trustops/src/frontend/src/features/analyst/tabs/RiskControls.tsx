@@ -28,7 +28,7 @@ import { ScoreBoxView } from './Summary';
 import { CompositeRules, ScoreFormula } from '@/features/analyst/ScoreFormula';
 
 /** Live consequence preview from POST scoring/simulate (the server computes; we only show it). */
-function SimulatePreview({ caseId, controlId, value }: { caseId: string; controlId: string; value: number }) {
+function SimulatePreview({ caseId, controlId, value }: Readonly<{ caseId: string; controlId: string; value: number }>) {
   const sim = useSimulate();
   const { mutate } = sim;
   useEffect(() => {
@@ -58,7 +58,7 @@ function AreaCard({
   onConfirmFactor,
   onEditFactor,
   busy,
-}: {
+}: Readonly<{
   area: RiskArea;
   likelihood: { value: number; label: string }[];
   impact: { value: number; label: string }[];
@@ -68,7 +68,7 @@ function AreaCard({
   onConfirmFactor: (a: RiskArea) => void;
   onEditFactor: (a: RiskArea) => void;
   busy: string | null;
-}) {
+}>) {
   return (
     <Card
       title={`${area.label}`}
@@ -110,7 +110,7 @@ function AreaCard({
   );
 }
 
-function PlannedForm({ caseId, open, onClose }: { caseId: string; open: boolean; onClose: () => void }) {
+function PlannedForm({ caseId, open, onClose }: Readonly<{ caseId: string; open: boolean; onClose: () => void }>) {
   const add = useAddPlanned(caseId);
   const toast = useToast();
   const [v, setV] = useState({ description: '', owner: '', due: '' });

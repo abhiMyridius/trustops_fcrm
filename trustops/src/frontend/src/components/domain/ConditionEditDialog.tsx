@@ -23,13 +23,13 @@ export function ConditionEditDialog({
   onClose,
   initial,
   onSave,
-}: {
+}: Readonly<{
   open: boolean;
   onClose: () => void;
   /** The condition being edited; null when adding. */
   initial: ConditionDraft | null;
   onSave: (c: ConditionDraft) => void;
-}) {
+}>) {
   const [text, setText] = useState('');
   const [owner, setOwner] = useState('');
   const [due, setDue] = useState('');

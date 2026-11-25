@@ -9,7 +9,7 @@ const CELL = 44;
 const PAD = 34;
 
 
-export function RiskMatrix({ areas }: { areas: RiskArea[] }) {
+export function RiskMatrix({ areas }: Readonly<{ areas: RiskArea[] }>) {
   const size = PAD + CELL * 5 + 8;
   const summary = areas
     .map((a) => `${a.label}: likelihood ${a.L}, impact ${a.I}, inherent ${a.inherent}, residual ${a.residual}`)

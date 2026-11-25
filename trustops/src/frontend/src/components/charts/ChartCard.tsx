@@ -16,13 +16,13 @@ export function ChartCard({
   children,
   data,
   height = 220,
-}: {
+}: Readonly<{
   title: string;
   insight: ReactNode;
   children: ReactNode;
   data: ChartDatum[];
   height?: number;
-}) {
+}>) {
   return (
     <Card title={title} subtitle={insight}>
       {/* Hidden from assistive technology, so also out of the tab order: `inert` keeps anything inside from taking focus. */}

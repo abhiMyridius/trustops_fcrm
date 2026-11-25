@@ -47,7 +47,7 @@ export interface RouteTabsProps {
   children: ReactNode;
 }
 
-export function RouteTabs({ tabs, base, label, children }: RouteTabsProps) {
+export function RouteTabs({ tabs, base, label, children }: Readonly<RouteTabsProps>) {
   const id = useStableId('rtabs');
   const listRef = useRef<HTMLDivElement>(null);
   const { pathname } = useLocation();

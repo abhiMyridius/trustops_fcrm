@@ -9,13 +9,13 @@ export function PackSection({
   locked = true,
   children,
   className,
-}: {
+}: Readonly<{
   n: number;
   title: string;
   locked?: boolean;
   children: ReactNode;
   className?: string;
-}) {
+}>) {
   return (
     <section aria-labelledby={`pack-s${n}`} className={cn('print-section rounded-lg border border-border bg-surface p-5 shadow-sm', className)}>
       <header className="mb-3 flex items-center justify-between gap-2">

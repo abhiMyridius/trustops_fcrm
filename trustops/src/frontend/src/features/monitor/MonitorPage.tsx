@@ -30,7 +30,7 @@ function prefersReducedMotion(): boolean {
   return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-function Counter({ label, value, hint, children }: { label: string; value: string; hint?: string; children?: ReactNode }) {
+function Counter({ label, value, hint, children }: Readonly<{ label: string; value: string; hint?: string; children?: ReactNode }>) {
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface px-4 py-3 shadow-sm">
       <p className="text-[11px] font-semibold uppercase tracking-overline text-text-muted">{label}</p>

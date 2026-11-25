@@ -12,12 +12,12 @@ export function QueryState<T>({
   children,
   skeletonLines = 4,
   label = 'Loading',
-}: {
+}: Readonly<{
   query: UseQueryResult<T>;
   children: (data: T) => ReactNode;
   skeletonLines?: number;
   label?: string;
-}) {
+}>) {
   if (query.isPending) return <SkeletonCard lines={skeletonLines} label={label} />;
   if (query.isError) return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
   return <>{children(query.data)}</>;

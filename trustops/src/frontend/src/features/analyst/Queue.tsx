@@ -16,7 +16,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useDocumentTitle } from '@/lib/a11y';
 import { CHANGE_TYPE_LABEL, caseShortId, formatDate } from '@/lib/format';
 
-function FastLaneConfirm({ row }: { row: QueueItem }) {
+function FastLaneConfirm({ row }: Readonly<{ row: QueueItem }>) {
   const m = useFastLane(row.id);
   const toast = useToast();
   if (!row.fast_lane?.proposed) return null;

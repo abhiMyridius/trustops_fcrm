@@ -5,7 +5,7 @@ import { formatMoney } from '@/lib/format';
 import { DraftEdit } from '../DraftEdit';
 
 /** 2. Classification Rules: per-type domains and signals; the screening fast-lane rule (R4). */
-export function Categories({ s }: { s: ConfigSectionBase<'categories', CategoriesData> }) {
+export function Categories({ s }: Readonly<{ s: ConfigSectionBase<'categories', CategoriesData> }>) {
   const d = s.data;
   return (
     <div className="flex flex-col gap-5">

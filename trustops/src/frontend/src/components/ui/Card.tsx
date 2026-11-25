@@ -11,7 +11,7 @@ interface CardProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
 }
 
 /** Raised surface with an optional header. A titled card is a labelled region for screen readers. */
-export function Card({ title, subtitle, actions, padded = true, as = 'section', headingLevel = 2, className, children, ...rest }: CardProps) {
+export function Card({ title, subtitle, actions, padded = true, as = 'section', headingLevel = 2, className, children, ...rest }: Readonly<CardProps>) {
   const Tag = as;
   const H = headingLevel === 2 ? 'h2' : 'h3';
   return (

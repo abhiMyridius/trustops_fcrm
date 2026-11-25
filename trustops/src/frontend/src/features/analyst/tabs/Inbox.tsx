@@ -24,7 +24,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useDocumentTitle } from '@/lib/a11y';
 import { formatDateTime } from '@/lib/format';
 
-function Composer({ caseId, drafted }: { caseId: string; drafted: DraftQuestion[] }) {
+function Composer({ caseId, drafted }: Readonly<{ caseId: string; drafted: DraftQuestion[] }>) {
   const [qs, setQs] = useState(drafted);
   const send = useSendRound(caseId);
   const toast = useToast();
@@ -85,7 +85,7 @@ function useAnchorOptions(caseId: string) {
 }
 
 /** ADR-73: one or more questions to the owner, at any stage from triage to an unlocked recommendation. */
-function AskOwner({ caseId, owner }: { caseId: string; owner: string }) {
+function AskOwner({ caseId, owner }: Readonly<{ caseId: string; owner: string }>) {
   const [drafts, setDrafts] = useState<Draft[]>([emptyDraft(1)]);
   const ask = useAskOwner(caseId);
   const options = useAnchorOptions(caseId);
@@ -151,7 +151,7 @@ function AskOwner({ caseId, owner }: { caseId: string; owner: string }) {
   );
 }
 
-function ThreadItem({ t, onResolve, resolving }: { t: ThreadAnalyst; onResolve: (id: string) => void; resolving: boolean }) {
+function ThreadItem({ t, onResolve, resolving }: Readonly<{ t: ThreadAnalyst; onResolve: (id: string) => void; resolving: boolean }>) {
   return (
     <li className="flex flex-col gap-2 rounded-lg border border-border p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">

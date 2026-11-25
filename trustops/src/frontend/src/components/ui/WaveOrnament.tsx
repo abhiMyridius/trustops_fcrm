@@ -27,7 +27,7 @@ function makeRng(seed: number): () => number {
  * (guide §6.1). Decorative only — aria-hidden, never carries information. The parent element needs
  * `relative overflow-hidden`; sibling content needs `relative z-10` to sit above it.
  */
-export function WaveOrnament({ tone = 'dark', lines = 120, width = 420, height = 900, seed = 7, className }: WaveOrnamentProps) {
+export function WaveOrnament({ tone = 'dark', lines = 120, width = 420, height = 900, seed = 7, className }: Readonly<WaveOrnamentProps>) {
   const paths = useMemo(() => {
     const rng = makeRng(seed);
     const band = width * 0.75;

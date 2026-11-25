@@ -81,28 +81,26 @@ function isTimeout(err: unknown): boolean {
 
 /** POST auth/refresh with the cookie; concurrent callers share one request. */
 export function refreshSession(): Promise<boolean> {
-  if (!refreshInFlight) {
-    refreshInFlight = (async () => {
-      try {
-        const res = await fetch(absolute(paths.auth.refresh), {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'X-Trace-Id': traceId },
-          signal: deadline(REFRESH_TIMEOUT_MS),
-        });
-        if (!res.ok) return false;
-        const body = (await res.json()) as LoginResponse;
-        accessToken = body.access_token;
-        return true;
-      } catch {
-        return false;
-      } finally {
-        queueMicrotask(() => {
-          refreshInFlight = null;
-        });
-      }
-    })();
-  }
+  refreshInFlight ??= (async () => {
+    try {
+      const res = await fetch(absolute(paths.auth.refresh), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'X-Trace-Id': traceId },
+        signal: deadline(REFRESH_TIMEOUT_MS),
+      });
+      if (!res.ok) return false;
+      const body = (await res.json()) as LoginResponse;
+      accessToken = body.access_token;
+      return true;
+    } catch {
+      return false;
+    } finally {
+      queueMicrotask(() => {
+        refreshInFlight = null;
+      });
+    }
+  })();
   return refreshInFlight;
 }
 

@@ -8,7 +8,7 @@ export function AuthLayout() {
   const [params] = useSearchParams();
   if (status === 'signed_in' && role) {
     const next = params.get('next');
-    return <Navigate to={next && next.startsWith('/') ? next : homeFor(role)} replace />;
+    return <Navigate to={next?.startsWith('/') ? next : homeFor(role)} replace />;
   }
   return (
     <div className="flex min-h-full items-stretch bg-carbon-moss">

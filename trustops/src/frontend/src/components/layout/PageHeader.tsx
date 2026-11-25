@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Breadcrumb, type Crumb } from '@/components/ui/Breadcrumb';
 
 /** Page title block: breadcrumb, the single h1 of the page, a subtitle and actions. */
-export function PageHeader({ title, subtitle, crumbs, actions, meta }: { title: ReactNode; subtitle?: ReactNode; crumbs?: Crumb[]; actions?: ReactNode; meta?: ReactNode }) {
+export function PageHeader({ title, subtitle, crumbs, actions, meta }: Readonly<{ title: ReactNode; subtitle?: ReactNode; crumbs?: Crumb[]; actions?: ReactNode; meta?: ReactNode }>) {
   return (
     <div className="flex flex-col gap-2">
       {crumbs && <Breadcrumb items={crumbs} />}

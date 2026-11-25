@@ -7,12 +7,12 @@ export function SimpleBarChart({
   colorFor,
   layout = 'horizontal',
   valueSuffix = '',
-}: {
+}: Readonly<{
   data: { label: string; value: number; key?: string | number }[];
   colorFor?: (d: { label: string; value: number; key?: string | number }, i: number) => string;
   layout?: 'horizontal' | 'vertical';
   valueSuffix?: string;
-}) {
+}>) {
   const vertical = layout === 'vertical';
   return (
     <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 400, height: 200 }}>

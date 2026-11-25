@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/Badge';
 import { ProvenanceTag } from './ProvenanceTag';
 
 /** v1 -> v2 submission diff. Changed rows carry a visible "changed" label (colour is not the only cue). */
-export function DiffTable({ diff }: { diff: SubmissionDiff }) {
+export function DiffTable({ diff }: Readonly<{ diff: SubmissionDiff }>) {
   return (
     <div className="flex flex-col gap-3">
       <div className="overflow-x-auto rounded-lg border border-border">

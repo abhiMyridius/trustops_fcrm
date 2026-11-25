@@ -4,7 +4,7 @@
  * types herself and fills in the details (lands on Overview; documents stay optional). Cancel creates
  * nothing.
  */
-import { useState, type FormEvent } from 'react';
+import { useState, type SyntheticEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCreateCase } from '@/api/queries/caseQueries';
 import { userMessage } from '@/api/errors';
@@ -52,7 +52,7 @@ export function NewCase() {
     setTypes((xs) => (on ? [...xs, t] : xs.filter((x) => x !== t)));
   }
 
-  async function submit(e: FormEvent) {
+  async function submit(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     setTried(true);
     setServerError(null);

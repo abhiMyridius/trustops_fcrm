@@ -25,7 +25,7 @@ const STAGES = [
   { value: 'closed', label: 'Closed' },
 ];
 
-function DiscardButton({ row }: { row: CasePOListItem }) {
+function DiscardButton({ row }: Readonly<{ row: CasePOListItem }>) {
   const [open, setOpen] = useState(false);
   const discard = useDiscardDraft(row.id);
   const toast = useToast();

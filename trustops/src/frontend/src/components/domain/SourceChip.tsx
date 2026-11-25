@@ -12,9 +12,9 @@ export const chipClass =
  * the cited page with its lines marked (ADR-76); `onOpen` overrides that for a caller with its own
  * viewer. A source with only a label (an owner's answer, a reused value) stays plain text.
  */
-export function SourceChip({ source, onOpen }: { source: SourceRef | null | undefined; onOpen?: (s: SourceRef) => void }) {
+export function SourceChip({ source, onOpen }: Readonly<{ source: SourceRef | null | undefined; onOpen?: (s: SourceRef) => void }>) {
   const preview = useSourcePreview();
-  if (!source || !source.label) return null;
+  if (!source?.label) return null;
   const body = (
     <>
       <FileText aria-hidden size={11} />

@@ -7,7 +7,7 @@ import { useToast } from '@/components/ui/Toast';
 import { ImpactPreviewModal } from './ImpactPreviewModal';
 
 /** Sticky working set: the server-side draft for this section (two analysts see the same draft). */
-export function WorkingSetBanner({ section }: { section: ConfigSection }) {
+export function WorkingSetBanner({ section }: Readonly<{ section: ConfigSection }>) {
   const discard = useDiscardDraft(section.section);
   const toast = useToast();
   const [publishing, setPublishing] = useState(false);

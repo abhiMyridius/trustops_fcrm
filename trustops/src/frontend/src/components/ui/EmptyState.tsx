@@ -5,7 +5,7 @@ import { getTraceId } from '@/api/client';
 import { Banner } from './Banner';
 import { Button } from './Button';
 
-export function EmptyState({ title, body, action, icon }: { title: string; body?: ReactNode; action?: ReactNode; icon?: ReactNode }) {
+export function EmptyState({ title, body, action, icon }: Readonly<{ title: string; body?: ReactNode; action?: ReactNode; icon?: ReactNode }>) {
   return (
     <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border-strong bg-surface px-6 py-10 text-center">
       <span aria-hidden className="text-text-faint">
@@ -23,7 +23,7 @@ export function EmptyState({ title, body, action, icon }: { title: string; body?
  * One answer is not an error: "no run is recorded" (the case exists, nothing ran yet) is shown as a calm
  * information message with no Retry, because trying again changes nothing.
  */
-export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+export function ErrorState({ error, onRetry }: Readonly<{ error: unknown; onRetry?: () => void }>) {
   if (isNoRunRecorded(error)) {
     return (
       <Banner tone="info" live="polite" title="No run recorded yet">

@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/Card';
 import { DraftEdit } from '../DraftEdit';
 
 /** 1. Categories & Fields: field library, always-required set, per-type packs, threshold, max required. */
-export function FieldSets({ s }: { s: ConfigSectionBase<'field-sets', FieldSetData> }) {
+export function FieldSets({ s }: Readonly<{ s: ConfigSectionBase<'field-sets', FieldSetData> }>) {
   const d = s.data;
   return (
     <div className="flex flex-col gap-5">

@@ -5,7 +5,7 @@ import { formatFixed } from '@/lib/format';
 import { DraftEdit } from '../DraftEdit';
 
 /** 3. Scoring Model: domain weights, L/I anchors, bands (read-only here), retention floor fixed. */
-export function ScoringModel({ s }: { s: ConfigSectionBase<'scoring-model', ScoringModelData> }) {
+export function ScoringModel({ s }: Readonly<{ s: ConfigSectionBase<'scoring-model', ScoringModelData> }>) {
   const d = s.data;
   return (
     <div className="flex flex-col gap-5">

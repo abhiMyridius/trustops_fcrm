@@ -40,7 +40,7 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean
         return;
       }
       const head = items[0];
-      const tail = items[items.length - 1];
+      const tail = items.at(-1);
       if (e.shiftKey && document.activeElement === head) {
         e.preventDefault();
         tail?.focus();
@@ -58,7 +58,7 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean
 }
 
 export function useStableId(prefix: string): string {
-  return `${prefix}-${useId().replace(/:/g, '')}`;
+  return `${prefix}-${useId().replaceAll(':', '')}`;
 }
 
 /** "Risk & Controls · FCRM-2026-0151 · TrustOps" (design C §1.8). */

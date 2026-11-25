@@ -24,7 +24,7 @@ export interface EditableValue {
   alternatives?: ValueAlternativePO[];
 }
 
-export function ValueDialog({ caseId, row, onClose }: { caseId: string; row: EditableValue | null; onClose: () => void }) {
+export function ValueDialog({ caseId, row, onClose }: Readonly<{ caseId: string; row: EditableValue | null; onClose: () => void }>) {
   const correct = useCorrectValue(caseId);
   const [value, setValue] = useState(row?.value ?? '');
   const toast = useToast();

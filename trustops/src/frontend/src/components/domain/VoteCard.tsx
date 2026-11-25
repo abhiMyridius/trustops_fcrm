@@ -8,7 +8,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { OUTCOME_LABEL, formatDateTime } from '@/lib/format';
 
-export function VoteCard({ member, revealed }: { member: VoteMember; revealed: boolean }) {
+export function VoteCard({ member, revealed }: Readonly<{ member: VoteMember; revealed: boolean }>) {
   return (
     <article aria-label={`Vote of ${member.name}`} className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4 shadow-sm">
       <header className="flex items-center gap-2.5">

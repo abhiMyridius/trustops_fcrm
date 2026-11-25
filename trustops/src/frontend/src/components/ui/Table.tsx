@@ -32,7 +32,7 @@ export interface TableProps<T> {
 
 type Sort = { key: string; dir: 'asc' | 'desc' } | null;
 
-export function Table<T>({ columns, rows, rowKey, caption, loading, empty, rowClassName, captionVisible, dense }: TableProps<T>) {
+export function Table<T>({ columns, rows, rowKey, caption, loading, empty, rowClassName, captionVisible, dense }: Readonly<TableProps<T>>) {
   const [sort, setSort] = useState<Sort>(null);
 
   const sorted = useMemo(() => {
@@ -103,7 +103,7 @@ export function Table<T>({ columns, rows, rowKey, caption, loading, empty, rowCl
                 ))}
               </tr>
             ))}
-          {!loading && sorted && sorted.length === 0 && (
+          {!loading && sorted?.length === 0 && (
             <tr>
               <td colSpan={columns.length} className="px-4 py-10 text-center text-sm text-text-muted">
                 {empty ?? 'Nothing to show.'}

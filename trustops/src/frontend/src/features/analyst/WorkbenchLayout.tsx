@@ -26,7 +26,7 @@ import { RouteTabs } from '@/components/ui/Tabs';
 import { useToast } from '@/components/ui/Toast';
 import { CHANGE_TYPE_LABEL } from '@/lib/format';
 
-function HarnessDrawer({ caseId, open, onClose }: { caseId: string; open: boolean; onClose: () => void }) {
+function HarnessDrawer({ caseId, open, onClose }: Readonly<{ caseId: string; open: boolean; onClose: () => void }>) {
   const stream = useStreamStatus(caseId);
   const h = useHarness(caseId, { poll: open && stream !== 'live' });
   return (

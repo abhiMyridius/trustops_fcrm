@@ -67,7 +67,7 @@ export function SubmissionTab() {
   return (
     <QueryState query={q} label="Loading submissions">
       {(versions) => {
-        const current = versions.find((v) => v.version === version) ?? versions[versions.length - 1];
+        const current = versions.find((v) => v.version === version) ?? versions.at(-1);
         if (!current) return <EmptyState title="Not submitted yet" />;
         return (
           <div className="flex flex-col gap-5">

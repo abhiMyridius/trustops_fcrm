@@ -12,7 +12,7 @@ import { formatFixed } from '@/lib/format';
 /** The engine's constants (scoring model v3, ADR-07): shown, never used to compute. */
 const RETENTION_FLOOR_FACTOR = '0.6';
 
-function Line({ label, formula, worked }: { label: string; formula: string; worked: string }) {
+function Line({ label, formula, worked }: Readonly<{ label: string; formula: string; worked: string }>) {
   return (
     <div className="grid grid-cols-1 gap-0.5 border-t border-border-hairline py-2 first:border-t-0 sm:grid-cols-[140px_1fr]">
       <dt className="font-semibold text-text-primary">{label}</dt>
@@ -24,7 +24,7 @@ function Line({ label, formula, worked }: { label: string; formula: string; work
   );
 }
 
-export function ScoreFormula({ area }: { area: RiskArea }) {
+export function ScoreFormula({ area }: Readonly<{ area: RiskArea }>) {
   const terms = area.controls.map((c) => `${formatFixed(c.weight_norm, 2)} × ${formatFixed(c.rating)}`).join(' + ');
   return (
     <details className="rounded-md border border-border-hairline bg-surface px-3 py-2 text-[13px]">

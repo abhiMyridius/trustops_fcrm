@@ -25,7 +25,7 @@ import { QueryState } from '@/components/ui/QueryState';
 import { useToast } from '@/components/ui/Toast';
 import { useDocumentTitle } from '@/lib/a11y';
 
-export function ScoreBoxView({ score }: { score: ScoreBox }) {
+export function ScoreBoxView({ score }: Readonly<{ score: ScoreBox }>) {
   if (score.withheld) {
     return (
       <div className="flex items-start gap-3 rounded-lg border border-dashed border-border-strong bg-surface-tertiary p-4">
@@ -59,7 +59,7 @@ export function ScoreBoxView({ score }: { score: ScoreBox }) {
 }
 
 /** `policy_gap` as `policy gap`: an agent or stage id in a sentence. */
-const words = (id: string) => id.replace(/_/g, ' ');
+const words = (id: string) => id.replaceAll('_', ' ');
 
 /** What an empty flags list means: the four things a flag is raised for, all checked (`analyst_assessment._flags`). */
 export const NO_FLAGS_TEXT =
@@ -69,7 +69,7 @@ export const NO_FLAGS_TEXT =
  * An agent failed on both tries and the run waits for the analyst (D-117): the server names the agent and
  * the stage; the banner adds what to do once, and lists the jobs when several failed.
  */
-function HandedToYou({ caseId, failed }: { caseId: string; failed: NonNullable<AssessmentSummary['agent_failed']> }) {
+function HandedToYou({ caseId, failed }: Readonly<{ caseId: string; failed: NonNullable<AssessmentSummary['agent_failed']> }>) {
   return (
     <>
       <Banner tone="danger" title={failed.title}>
@@ -90,7 +90,7 @@ function HandedToYou({ caseId, failed }: { caseId: string; failed: NonNullable<A
 }
 
 /** ADR-73: the analyst may ask the owner a question at any stage; the Inbox holds the composer. */
-function AskOwnerLink({ caseId, closed }: { caseId: string; closed: boolean }) {
+function AskOwnerLink({ caseId, closed }: Readonly<{ caseId: string; closed: boolean }>) {
   const navigate = useNavigate();
   if (closed) return null;
   return (

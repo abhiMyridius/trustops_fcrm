@@ -9,7 +9,7 @@ import { DraftEdit } from '../DraftEdit';
 type Row = ControlInventoryData['controls'][number];
 
 /** 4. Control Inventory: 24 controls, weight sum per domain, evidence + date, stale state. */
-export function ControlInventory({ s }: { s: ConfigSectionBase<'control-inventory', ControlInventoryData> }) {
+export function ControlInventory({ s }: Readonly<{ s: ConfigSectionBase<'control-inventory', ControlInventoryData> }>) {
   const toast = useToast();
   const columns: Column<Row>[] = [
     { key: 'id', header: 'Control', sortValue: (r) => r.id, cell: (r) => <span className="font-mono text-[12px]">{r.id}</span> },

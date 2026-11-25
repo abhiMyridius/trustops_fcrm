@@ -59,7 +59,7 @@ export function CriticFindingCard({
   closed,
   canExplain,
   onExplain,
-}: {
+}: Readonly<{
   finding: Finding;
   caseId: string;
   /** The case is closed: no actions. */
@@ -67,7 +67,7 @@ export function CriticFindingCard({
   /** The explain decision is available (today: an open demo case, as before). */
   canExplain: boolean;
   onExplain: (f: CriticFinding) => void;
-}) {
+}>) {
   const navigate = useNavigate();
   const headingId = useId();
   const label = findingLabel(f);
@@ -194,13 +194,13 @@ export function CriticReview({
   closed,
   canExplain,
   onExplain,
-}: {
+}: Readonly<{
   findings: CriticFinding[];
   caseId: string;
   closed: boolean;
   canExplain: boolean;
   onExplain: (f: CriticFinding) => void;
-}) {
+}>) {
   const headingId = useId();
   if (findings.length === 0) return null;
   const sorted = [...(findings as Finding[])].sort((a, b) => SEVERITY[a.severity].order - SEVERITY[b.severity].order);

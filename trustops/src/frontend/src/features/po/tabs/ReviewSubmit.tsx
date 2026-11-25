@@ -22,7 +22,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useDocumentTitle } from '@/lib/a11y';
 import { ValueDialog } from '../ValueDialog';
 
-function CheckLine({ check, shown }: { check: SubmitCheck; shown: boolean }) {
+function CheckLine({ check, shown }: Readonly<{ check: SubmitCheck; shown: boolean }>) {
   if (!shown)
     return (
       <li className="flex items-center gap-2 text-sm text-text-muted">
@@ -41,7 +41,7 @@ function CheckLine({ check, shown }: { check: SubmitCheck; shown: boolean }) {
   );
 }
 
-function ValidationModal({ caseId, open, onClose }: { caseId: string; open: boolean; onClose: () => void }) {
+function ValidationModal({ caseId, open, onClose }: Readonly<{ caseId: string; open: boolean; onClose: () => void }>) {
   const validate = useValidate(caseId);
   const submit = useSubmit(caseId);
   const toast = useToast();

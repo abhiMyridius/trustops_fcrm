@@ -28,7 +28,7 @@ function focusMenuItem(root: HTMLElement | null, idx: number): void {
   els[(idx + els.length) % els.length]?.focus();
 }
 
-export function Dropdown({ label, trigger, items, align = 'right', triggerClassName }: DropdownProps) {
+export function Dropdown({ label, trigger, items, align = 'right', triggerClassName }: Readonly<DropdownProps>) {
   const [open, setOpen] = useState(false);
   const id = useStableId('menu');
   const btn = useRef<HTMLButtonElement>(null);

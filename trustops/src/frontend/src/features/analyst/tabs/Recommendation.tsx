@@ -43,7 +43,7 @@ function sameConditions(a: ConditionAnalyst[], b: ConditionAnalyst[]) {
   return a.length === b.length && a.every((c, i) => c.id === b[i]?.id && c.text === b[i]?.text && c.owner === b[i]?.owner && c.due === b[i]?.due && c.status === b[i]?.status);
 }
 
-function Editor({ caseId, rec, readOnly }: { caseId: string; rec: Recommendation; readOnly: boolean }) {
+function Editor({ caseId, rec, readOnly }: Readonly<{ caseId: string; rec: Recommendation; readOnly: boolean }>) {
   const save = useSaveRecommendation(caseId);
   const lock = useLock(caseId);
   const unlock = useUnlock(caseId);

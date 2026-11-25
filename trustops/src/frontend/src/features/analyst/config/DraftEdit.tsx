@@ -9,7 +9,7 @@ import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 
 /** Edit one configuration value into the server-side draft (If-Match etag; 409 on a concurrent edit). */
-export function DraftEdit({ section, etag, path, label, current }: { section: ConfigSectionKey; etag: string; path: string; label: string; current: string }) {
+export function DraftEdit({ section, etag, path, label, current }: Readonly<{ section: ConfigSectionKey; etag: string; path: string; label: string; current: string }>) {
   const save = useSaveDraft(section);
   const toast = useToast();
   const [open, setOpen] = useState(false);

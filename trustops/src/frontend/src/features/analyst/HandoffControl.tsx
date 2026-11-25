@@ -40,7 +40,7 @@ function problemsOf(err: unknown): string[] {
   return (err.problem.errors ?? []).map((e) => e.msg);
 }
 
-function GateForm({ caseId, gate }: { caseId: string; gate: HandoffGate }) {
+function GateForm({ caseId, gate }: Readonly<{ caseId: string; gate: HandoffGate }>) {
   const complete = useCompleteHandoff(caseId);
   const toast = useToast();
   const [output, setOutput] = useState('[\n  \n]');
@@ -128,7 +128,7 @@ function GateForm({ caseId, gate }: { caseId: string; gate: HandoffGate }) {
 }
 
 /** The open handoff gates of a case, each with its form. Rendered only for a case in handoff. */
-export function HandoffControl({ caseId }: { caseId: string }) {
+export function HandoffControl({ caseId }: Readonly<{ caseId: string }>) {
   const gates = useHandoffGates(caseId, true);
   if (gates.isPending) return <p className="text-[13px] text-text-muted">Loading the steps waiting for you…</p>;
   if (gates.isError) {

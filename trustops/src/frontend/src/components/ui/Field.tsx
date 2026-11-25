@@ -19,7 +19,7 @@ interface FieldShellProps {
   className?: string;
 }
 
-export function FieldShell({ id, label, hint, error, required, hideLabel, children, className }: FieldShellProps) {
+export function FieldShell({ id, label, hint, error, required, hideLabel, children, className }: Readonly<FieldShellProps>) {
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
       <label htmlFor={id} className={cn('text-[13px] font-semibold text-quantum-leaf', hideLabel && 'sr-only')}>

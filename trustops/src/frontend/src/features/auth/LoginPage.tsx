@@ -87,7 +87,7 @@ export function LoginPage() {
       const principal = await login(u, p);
       const next = params.get('next');
       const role = principal.roles[0];
-      navigate(next && next.startsWith('/') ? next : role ? homeFor(role) : '/', { replace: true });
+      navigate(next?.startsWith('/') ? next : role ? homeFor(role) : '/', { replace: true });
     } catch (err) {
       toast.error('Sign-in failed', signInMessage(err));
     } finally {

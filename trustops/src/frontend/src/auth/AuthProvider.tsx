@@ -34,7 +34,7 @@ async function fetchMe(): Promise<Principal> {
   return { id: me.id ?? me.sub ?? '', name: me.name, roles: me.roles, title: me.title ?? '', unit: me.unit };
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<Status>('loading');
   const [user, setUser] = useState<Principal | null>(null);

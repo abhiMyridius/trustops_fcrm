@@ -16,7 +16,7 @@ import { PolicyCorpus } from './sections/PolicyCorpus';
 import { RoutingRules } from './sections/RoutingRules';
 import { ScoringModel } from './sections/ScoringModel';
 
-function Body({ s }: { s: ConfigSection }) {
+function Body({ s }: Readonly<{ s: ConfigSection }>) {
   switch (s.section) {
     case 'field-sets':
       return <FieldSets s={s} />;
@@ -37,7 +37,7 @@ function Body({ s }: { s: ConfigSection }) {
   }
 }
 
-function Section({ section }: { section: ConfigSectionKey }) {
+function Section({ section }: Readonly<{ section: ConfigSectionKey }>) {
   const q = useConfigSection(section);
   return (
     <QueryState query={q} label="Loading section">

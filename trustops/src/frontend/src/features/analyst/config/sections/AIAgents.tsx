@@ -9,7 +9,7 @@ import { DraftEdit } from '../DraftEdit';
  * budget, eval set and last eval score. Model names are the seed's aliases; live values come from
  * ai/models/tiers.yaml (the only file that names model ids, ADR-04).
  */
-export function AIAgents({ s }: { s: ConfigSectionBase<'ai-agents', AgentsData> }) {
+export function AIAgents({ s }: Readonly<{ s: ConfigSectionBase<'ai-agents', AgentsData> }>) {
   return (
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

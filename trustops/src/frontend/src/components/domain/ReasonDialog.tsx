@@ -46,7 +46,7 @@ export function ReasonDialog({
   confirmLabel = 'Save with reason',
   danger,
   onConfirm,
-}: ReasonDialogProps) {
+}: Readonly<ReasonDialogProps>) {
   const [reason, setReason] = useState('');
   const [value, setValue] = useState<string>(valueField ? String(valueField.initial) : '');
   const [touched, setTouched] = useState(false);

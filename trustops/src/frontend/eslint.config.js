@@ -2,6 +2,7 @@
 // visibility import fences (design C §1.6: features/po/** can never import score-bearing components or
 // analyst/committee DTOs, so a PO screen is structurally unable to render a score, band or rating).
 import js from '@eslint/js';
+import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import reactHooks from 'eslint-plugin-react-hooks';
@@ -41,7 +42,7 @@ const APP_FORBIDDEN = [
   },
 ];
 
-export default tseslint.config(
+export default defineConfig(
   { ignores: ['dist', 'node_modules', 'public', 'src/api/generated'] },
   {
     files: ['src/**/*.{ts,tsx}'],

@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/Card';
 import { formatDate } from '@/lib/format';
 
 /** Append-only version list: every publish is a new immutable snapshot. */
-export function VersionHistory({ versions }: { versions: ConfigVersion[] }) {
+export function VersionHistory({ versions }: Readonly<{ versions: ConfigVersion[] }>) {
   return (
     <Card title="Version history">
       <ol className="flex flex-col gap-2 text-sm">

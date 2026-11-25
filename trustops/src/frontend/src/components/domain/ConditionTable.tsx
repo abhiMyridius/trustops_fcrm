@@ -26,12 +26,12 @@ export function ConditionTable({
   showSource,
   action,
   caption = 'Conditions',
-}: {
+}: Readonly<{
   rows: ConditionRowData[];
   showSource?: boolean;
   action?: (row: ConditionRowData) => ReactNode;
   caption?: string;
-}) {
+}>) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-sm">

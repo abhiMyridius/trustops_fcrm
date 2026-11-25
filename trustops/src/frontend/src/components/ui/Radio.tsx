@@ -20,7 +20,7 @@ export function RadioGroup<T extends string>({
   options,
   hideLegend,
   orientation = 'vertical',
-}: RadioGroupProps<T>) {
+}: Readonly<RadioGroupProps<T>>) {
   const base = useStableId('rg');
   return (
     <fieldset className="flex flex-col gap-2 border-0 p-0 m-0">

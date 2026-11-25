@@ -7,7 +7,7 @@ export interface Crumb {
   to?: string;
 }
 
-export function Breadcrumb({ items }: { items: Crumb[] }) {
+export function Breadcrumb({ items }: Readonly<{ items: Crumb[] }>) {
   return (
     <nav aria-label="Breadcrumb" className="no-print">
       <ol className="flex flex-wrap items-center gap-1 text-[13px] text-text-muted">

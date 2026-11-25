@@ -1,6 +1,6 @@
 import { Skeleton } from '@/components/ui/Skeleton';
 
-export function PageSkeleton({ label = 'Loading' }: { label?: string }) {
+export function PageSkeleton({ label = 'Loading' }: Readonly<{ label?: string }>) {
   return (
     <div role="status" aria-label={label} className="flex flex-col gap-4 p-8">
       <Skeleton className="h-7 w-72" />

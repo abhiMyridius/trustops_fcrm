@@ -58,12 +58,12 @@ export function SourcePreviewProvider({
   caseId,
   clause,
   children,
-}: {
+}: Readonly<{
   caseId: string;
   /** The clause body for the analyst and committee frames; absent in the PO frame. */
   clause?: ComponentType<{ clauseId: string }>;
   children: ReactNode;
-}) {
+}>) {
   const [target, setTarget] = useState<PreviewTarget | null>(null);
   const open = useCallback(
     (next: PreviewTarget) => {
@@ -90,7 +90,7 @@ function spanLabel(start: number, end: number): string {
 }
 
 /** One page of a document with the cited span marked; previous/next page and the PDF. */
-export function DocumentPreview({ caseId, target }: { caseId: string; target: DocumentTarget }) {
+export function DocumentPreview({ caseId, target }: Readonly<{ caseId: string; target: DocumentTarget }>) {
   const citedPage = target.page ?? 1;
   const [page, setPage] = useState(citedPage);
   const [wholePage, setWholePage] = useState(false);

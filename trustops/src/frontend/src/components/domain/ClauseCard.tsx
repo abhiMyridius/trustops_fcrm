@@ -15,13 +15,13 @@ export function ClauseCard({
   onRemove,
   readOnly,
   busy,
-}: {
+}: Readonly<{
   clause: ClauseItem;
   onAccept?: () => void;
   onRemove?: () => void;
   readOnly?: boolean;
   busy?: boolean;
-}) {
+}>) {
   const analyst = clause.origin === 'analyst';
   return (
     <article aria-labelledby={`clause-${clause.id}`} className="print-section flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-sm">

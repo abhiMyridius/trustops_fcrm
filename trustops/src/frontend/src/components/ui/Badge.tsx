@@ -21,7 +21,7 @@ const dotTone: Record<Tone, string> = {
 };
 
 /** Status label. Tone is never the only signal: the text always says what the state is. */
-export function Badge({ tone = 'neutral', children, className, icon }: { tone?: Tone; children: ReactNode; className?: string; icon?: ReactNode }) {
+export function Badge({ tone = 'neutral', children, className, icon }: Readonly<{ tone?: Tone; children: ReactNode; className?: string; icon?: ReactNode }>) {
   return (
     <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-semibold whitespace-nowrap', badgeTone[tone], className)}>
       {icon}
@@ -30,7 +30,7 @@ export function Badge({ tone = 'neutral', children, className, icon }: { tone?: 
   );
 }
 
-export function StatusDot({ tone = 'neutral', label, pulse }: { tone?: Tone; label: string; pulse?: boolean }) {
+export function StatusDot({ tone = 'neutral', label, pulse }: Readonly<{ tone?: Tone; label: string; pulse?: boolean }>) {
   return (
     <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-text-secondary">
       <span aria-hidden className={cn('h-2 w-2 shrink-0 rounded-full', dotTone[tone], pulse && 'animate-pulse')} />
@@ -40,7 +40,7 @@ export function StatusDot({ tone = 'neutral', label, pulse }: { tone?: Tone; lab
 }
 
 /** Small count; never rendered at zero (callers pass a positive number). */
-export function Pill({ count, label }: { count: number; label: string }) {
+export function Pill({ count, label }: Readonly<{ count: number; label: string }>) {
   if (count <= 0) return null;
   return (
     <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-text-on-dark">
@@ -50,7 +50,7 @@ export function Pill({ count, label }: { count: number; label: string }) {
   );
 }
 
-export function Tag({ children, onRemove, removeLabel, className }: { children: ReactNode; onRemove?: () => void; removeLabel?: string; className?: string }) {
+export function Tag({ children, onRemove, removeLabel, className }: Readonly<{ children: ReactNode; onRemove?: () => void; removeLabel?: string; className?: string }>) {
   return (
     <span className={cn('inline-flex items-center gap-1.5 rounded-md bg-surface-secondary px-2 py-0.5 text-[12px] font-semibold text-quantum-leaf', className)}>
       {children}

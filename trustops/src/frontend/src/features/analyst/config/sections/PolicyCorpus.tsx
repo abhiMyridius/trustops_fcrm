@@ -16,7 +16,7 @@ import { formatDate } from '@/lib/format';
 type Source = PolicyCorpusData['sources'][number];
 
 /** One clause, verbatim: its title and reference, the text behind a disclosure. */
-function ClauseEntry({ title, reference, text }: { title: string; reference: string; text: string }) {
+function ClauseEntry({ title, reference, text }: Readonly<{ title: string; reference: string; text: string }>) {
   return (
     <li className="rounded-lg border border-border p-3">
       <details>
@@ -31,7 +31,7 @@ function ClauseEntry({ title, reference, text }: { title: string; reference: str
 }
 
 /** Every clause of one source, in the corpus's own order. */
-function SourceClauses({ source }: { source: Source }) {
+function SourceClauses({ source }: Readonly<{ source: Source }>) {
   const q = useSourceClauses(source.id);
   return (
     <QueryState query={q} label={`Loading the clauses of ${source.title}`}>
@@ -99,7 +99,7 @@ function CorpusSearch() {
 }
 
 /** 5. Policy Corpus: 9 sources, 197 clauses; external text locked; retire, never delete, when cited. */
-export function PolicyCorpus({ s }: { s: ConfigSectionBase<'policy-corpus', PolicyCorpusData> }) {
+export function PolicyCorpus({ s }: Readonly<{ s: ConfigSectionBase<'policy-corpus', PolicyCorpusData> }>) {
   const toast = useToast();
   const d = s.data;
   const [open, setOpen] = useState<Source | null>(null);

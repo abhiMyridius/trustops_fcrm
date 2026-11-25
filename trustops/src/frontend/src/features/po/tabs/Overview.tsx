@@ -30,7 +30,7 @@ import { useDocumentTitle } from '@/lib/a11y';
 import { CHANGE_TYPES, CHANGE_TYPE_HINT, CHANGE_TYPE_LABEL } from '@/lib/format';
 import { ValueDialog } from '../ValueDialog';
 
-function ChangeTypes({ caseId, intake, editable }: { caseId: string; intake: IntakeViewPO; editable: boolean }) {
+function ChangeTypes({ caseId, intake, editable }: Readonly<{ caseId: string; intake: IntakeViewPO; editable: boolean }>) {
   const types = intake.change_types;
   const decide = useConfirmCategory(caseId);
   const toast = useToast();
@@ -147,7 +147,7 @@ function ChangeTypes({ caseId, intake, editable }: { caseId: string; intake: Int
   );
 }
 
-function Values({ caseId, values, editable, manual }: { caseId: string; values: ValuePO[]; editable: boolean; manual: boolean }) {
+function Values({ caseId, values, editable, manual }: Readonly<{ caseId: string; values: ValuePO[]; editable: boolean; manual: boolean }>) {
   const [editing, setEditing] = useState<ValuePO | null>(null);
   const columns: Column<ValuePO>[] = [
     {
@@ -208,7 +208,7 @@ function Values({ caseId, values, editable, manual }: { caseId: string; values: 
   );
 }
 
-function Precedent({ caseId, intake }: { caseId: string; intake: IntakeViewPO }) {
+function Precedent({ caseId, intake }: Readonly<{ caseId: string; intake: IntakeViewPO }>) {
   const p = intake.precedent;
   const reuse = useReuse(caseId);
   const toast = useToast();
@@ -253,7 +253,7 @@ function Precedent({ caseId, intake }: { caseId: string; intake: IntakeViewPO })
   );
 }
 
-function Gaps({ caseId, intake }: { caseId: string; intake: IntakeViewPO }) {
+function Gaps({ caseId, intake }: Readonly<{ caseId: string; intake: IntakeViewPO }>) {
   const answer = useAnswerGaps(caseId);
   const toast = useToast();
   const [values, setValues] = useState<Record<string, string>>({});
