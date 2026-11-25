@@ -1,0 +1,958 @@
+{
+  "project": "TrustOpsAI-FCRM",
+  "tool": "opengrep",
+  "version": "2.0.0",
+  "rule_pack_commit": "83144bd2ec7d3200cda96347fa923f81c8ad8413",
+  "groups": [
+    "mit",
+    "apache",
+    "lgpl",
+    "lgpl-cc",
+    "gpl",
+    "gitlab-ee"
+  ],
+  "exported_at": "2026-11-25T07:15:58+00:00",
+  "exclude": [
+    "node_modules",
+    ".venv",
+    "venv",
+    "env",
+    "__pycache__",
+    "dist",
+    "build",
+    "out",
+    "target",
+    ".git",
+    ".next",
+    ".nuxt",
+    "coverage",
+    "htmlcov",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".tox",
+    "vendor",
+    "bower_components",
+    "*.min.js",
+    "*.min.css",
+    "*.map",
+    "tests",
+    "test",
+    "__tests__",
+    "*.test.*",
+    "*.spec.*",
+    "test_*.py",
+    "*_test.py",
+    "*_test.go",
+    "conftest.py",
+    "e2e",
+    "mocks",
+    "docs",
+    "reports",
+    ".cache",
+    "mockServiceWorker.js"
+  ],
+  "files_scanned": 872,
+  "seconds": 18.1,
+  "summary": {
+    "issue_count": 40,
+    "by_severity": {
+      "critical": 3,
+      "major": 14,
+      "minor": 1,
+      "info": 22
+    },
+    "by_type": {
+      "vulnerability": 40
+    }
+  },
+  "scan_info": {
+    "rule_errors": 0,
+    "timeouts": [],
+    "timeout_count": 0,
+    "warnings": 16,
+    "outside_code_folder": 0,
+    "below_min_severity": 0
+  },
+  "issues": [
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "critical",
+      "file": "sonarqubescript.py",
+      "line": 72,
+      "rule": "python_exec_rule-subprocess-popen-shell-true",
+      "message": "Improper neutralization of special elements used in an OS Command ('OS Command Injection'): Found `subprocess` function `Popen` with `shell=True`. This is dangerous because this call will spawn the command using a shell process. Doing so propagates current shell settings and variables, which makes it much easier for a malicious actor to execute commands. Use `shell=False` instead.",
+      "key": "python_exec_rule-subprocess-popen-shell-true:72:15",
+      "code_hash": "e9f043a49d8a93ff",
+      "refs": {
+        "cwe": [
+          "CWE-78"
+        ],
+        "owasp": [
+          "A1:2017-Injection",
+          "A03:2021-Injection",
+          "A05:2025-Injection"
+        ]
+      },
+      "fingerprint": "853a5d29b0261c93"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "critical",
+      "file": "src/frontend/src/api/client.ts",
+      "line": 149,
+      "rule": "rules_lgpl_javascript_ssrf_rule-node-ssrf",
+      "message": "Server-side request forgery (SSRF): This application allows user-controlled URLs to be passed directly to HTTP client libraries. This can result in Server-Side Request Forgery (SSRF). SSRF refers to an attack where the attacker can abuse functionality on the server to force it to make requests to other internal systems within your infrastructure that are not directly exposed to the internet. This allows the attacker to access internal resources they do not have direct access to. Some risks of SS",
+      "key": "rules_lgpl_javascript_ssrf_rule-node-ssrf:149:23",
+      "code_hash": "1ceb4a14075c7d80",
+      "refs": {
+        "cwe": [
+          "CWE-918"
+        ],
+        "owasp": [
+          "A1:2017-Injection",
+          "A10:2021-Server-Side Request Forgery",
+          "A01:2025-Broken Access Control"
+        ]
+      },
+      "fingerprint": "1b4d4707f81ac6f9"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "critical",
+      "file": "src/frontend/src/api/client.ts",
+      "line": 191,
+      "rule": "rules_lgpl_javascript_ssrf_rule-node-ssrf",
+      "message": "Server-side request forgery (SSRF): This application allows user-controlled URLs to be passed directly to HTTP client libraries. This can result in Server-Side Request Forgery (SSRF). SSRF refers to an attack where the attacker can abuse functionality on the server to force it to make requests to other internal systems within your infrastructure that are not directly exposed to the internet. This allows the attacker to access internal resources they do not have direct access to. Some risks of SS",
+      "key": "rules_lgpl_javascript_ssrf_rule-node-ssrf:191:27",
+      "code_hash": "bc293ab1f2301fdf",
+      "refs": {
+        "cwe": [
+          "CWE-918"
+        ],
+        "owasp": [
+          "A1:2017-Injection",
+          "A10:2021-Server-Side Request Forgery",
+          "A01:2025-Broken Access Control"
+        ]
+      },
+      "fingerprint": "e05399f56a3e6850"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "major",
+      "file": "ai/_tools/validate_ai.py",
+      "line": 201,
+      "rule": "python_escaping_rule-jinja2-autoescape-false",
+      "message": "Improper encoding or escaping of output: The application was found using Jinja2 `Environment` without autoescaping enabled. If using in the context of HTML this could lead to Cross-Site Scripting (XSS) attacks when rendering with user-supplied input. Unfortunately, Jinja2 does not support context-aware escaping, meaning it is insufficient to protect against XSS for the various web contexts. It is important to encode the data depending on the specific context it is used in. There are at least six",
+      "key": "python_escaping_rule-jinja2-autoescape-false:201:11",
+      "code_hash": "74abe68d60f7fc52",
+      "refs": {
+        "cwe": [
+          "CWE-116"
+        ],
+        "owasp": [
+          "A7:2017-Cross-Site Scripting (XSS)",
+          "A03:2021-Injection",
+          "A05:2025-Injection"
+        ]
+      },
+      "fingerprint": "06c8c8e4f9d01947"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "major",
+      "file": "opengrepscript.py",
+      "line": 79,
+      "rule": "python_urlopen_rule-urllib-urlopen",
+      "message": "Server-side request forgery (SSRF): The application was found passing in a non-literal value to the `urllib` methods which issue requests. `urllib` supports the `file://` scheme, which may allow an adversary who can control the URL value to read arbitrary files on the file system. To remediate this issue either hardcode the URLs being used in urllib or use the `requests` module instead. Example using the `requests` module to issue an HTTPS request: ``` import requests # Issue a GET request to ht",
+      "key": "python_urlopen_rule-urllib-urlopen:79:10",
+      "code_hash": "52931faaf297f171",
+      "refs": {
+        "cwe": [
+          "CWE-918"
+        ],
+        "owasp": [
+          "A1:2017-Injection",
+          "A10:2021-Server-Side Request Forgery",
+          "A01:2025-Broken Access Control"
+        ]
+      },
+      "fingerprint": "9a50441d197e8516"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "major",
+      "file": "opengrepscript.py",
+      "line": 268,
+      "rule": "python_crypto_rule-hash-sha1",
+      "message": "Use of a broken or risky cryptographic algorithm: The application was found using an insecure or risky digest or signature algorithm. MD2, MD4, MD5 and SHA1 hash algorithms have been found to be vulnerable to producing collisions. This means that two different values, when hashed, can lead to the same hash value. If the application is trying to use these hash methods for storing passwords, then it is recommended to switch to a password hashing algorithm such as Argon2id or PBKDF2. Note that the ",
+      "key": "python_crypto_rule-hash-sha1:268:12",
+      "code_hash": "0cb1a5e352777b9d",
+      "refs": {
+        "cwe": [
+          "CWE-327"
+        ],
+        "owasp": [
+          "A3:2017-Sensitive Data Exposure",
+          "A02:2021-Cryptographic Failures",
+          "A04:2025-Cryptographic Failures"
+        ]
+      },
+      "fingerprint": "4cc4567a409d886f"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "major",
+      "file": "opengrepscript.py",
+      "line": 293,
+      "rule": "python_crypto_rule-hash-sha1",
+      "message": "Use of a broken or risky cryptographic algorithm: The application was found using an insecure or risky digest or signature algorithm. MD2, MD4, MD5 and SHA1 hash algorithms have been found to be vulnerable to producing collisions. This means that two different values, when hashed, can lead to the same hash value. If the application is trying to use these hash methods for storing passwords, then it is recommended to switch to a password hashing algorithm such as Argon2id or PBKDF2. Note that the ",
+      "key": "python_crypto_rule-hash-sha1:293:21",
+      "code_hash": "fb63fbf347b66cf0",
+      "refs": {
+        "cwe": [
+          "CWE-327"
+        ],
+        "owasp": [
+          "A3:2017-Sensitive Data Exposure",
+          "A02:2021-Cryptographic Failures",
+          "A04:2025-Cryptographic Failures"
+        ]
+      },
+      "fingerprint": "de09372f8e948368"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "major",
+      "file": "ops/scripts/openobserve_client.py",
+      "line": 111,
+      "rule": "python_urlopen_rule-urllib-urlopen",
+      "message": "Server-side request forgery (SSRF): The application was found passing in a non-literal value to the `urllib` methods which issue requests. `urllib` supports the `file://` scheme, which may allow an adversary who can control the URL value to read arbitrary files on the file system. To remediate this issue either hardcode the URLs being used in urllib or use the `requests` module instead. Example using the `requests` module to issue an HTTPS request: ``` import requests # Issue a GET request to ht",
+      "key": "python_urlopen_rule-urllib-urlopen:111:18",
+      "code_hash": "ca760ebedefb748b",
+      "refs": {
+        "cwe": [
+          "CWE-918"
+        ],
+        "owasp": [
+          "A1:2017-Injection",
+          "A10:2021-Server-Side Request Forgery",
+          "A01:2025-Broken Access Control"
+        ]
+      },
+      "fingerprint": "e3ef570ee5e72048"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "major",
+      "file": "ops/scripts/wait_for_ready.py",
+      "line": 79,
+      "rule": "python_urlopen_rule-urllib-urlopen",
+      "message": "Server-side request forgery (SSRF): The application was found passing in a non-literal value to the `urllib` methods which issue requests. `urllib` supports the `file://` scheme, which may allow an adversary who can control the URL value to read arbitrary files on the file system. To remediate this issue either hardcode the URLs being used in urllib or use the `requests` module instead. Example using the `requests` module to issue an HTTPS request: ``` import requests # Issue a GET request to ht",
+      "key": "python_urlopen_rule-urllib-urlopen:79:14",
+      "code_hash": "ccca18483b5168ad",
+      "refs": {
+        "cwe": [
+          "CWE-918"
+        ],
+        "owasp": [
+          "A1:2017-Injection",
+          "A10:2021-Server-Side Request Forgery",
+          "A01:2025-Broken Access Control"
+        ]
+      },
+      "fingerprint": "c69f87fd39a89681"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "major",
+      "file": "src/backend/workers/context-worker/evoq_context/chunking/profiler.py",
+      "line": 488,
+      "rule": "python_crypto_rule-hash-sha1",
+      "message": "Use of a broken or risky cryptographic algorithm: The application was found using an insecure or risky digest or signature algorithm. MD2, MD4, MD5 and SHA1 hash algorithms have been found to be vulnerable to producing collisions. This means that two different values, when hashed, can lead to the same hash value. If the application is trying to use these hash methods for storing passwords, then it is recommended to switch to a password hashing algorithm such as Argon2id or PBKDF2. Note that the ",
+      "key": "python_crypto_rule-hash-sha1:488:24",
+      "code_hash": "d7287705b8e21854",
+      "refs": {
+        "cwe": [
+          "CWE-327"
+        ],
+        "owasp": [
+          "A3:2017-Sensitive Data Exposure",
+          "A02:2021-Cryptographic Failures",
+          "A04:2025-Cryptographic Failures"
+        ]
+      },
+      "fingerprint": "e304eb6de28237c9"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "major",
+      "file": "src/backend/workers/ingestion-worker/evoq_ingestion/core/profile.py",
+      "line": 183,
+      "rule": "python_crypto_rule-hash-sha1",
+      "message": "Use of a broken or risky cryptographic algorithm: The application was found using an insecure or risky digest or signature algorithm. MD2, MD4, MD5 and SHA1 hash algorithms have been found to be vulnerable to producing collisions. This means that two different values, when hashed, can lead to the same hash value. If the application is trying to use these hash methods for storing passwords, then it is recommended to switch to a password hashing algorithm such as Argon2id or PBKDF2. Note that the ",
+      "key": "python_crypto_rule-hash-sha1:183:30",
+      "code_hash": "ded587a7dd9ab68e",
+      "refs": {
+        "cwe": [
+          "CWE-327"
+        ],
+        "owasp": [
+          "A3:2017-Sensitive Data Exposure",
+          "A02:2021-Cryptographic Failures",
+          "A04:2025-Cryptographic Failures"
+        ]
+      },
+      "fingerprint": "d29b7c564edf5aae"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "major",
+      "file": "src/backend/workers/ingestion-worker/evoq_ingestion/extractors/docx/parts.py",
+      "line": 336,
+      "rule": "python_xml_rule-etree",
+      "message": "Improper restriction of XML external entity reference: The application was found using the `lxml.etree` package for processing XML. Python's default XML processors suffer from various XML parsing vulnerabilities and care must be taken when handling XML data. Additionally, depending on the version of Python, more critical vulnerabilities such as eXternal XML Entity injection maybe exploitable. The `etree` package suffers from the following security risks as of Python 3.7.1: * Billion laughs / exp",
+      "key": "python_xml_rule-etree:336:40",
+      "code_hash": "43155be0354e1b23",
+      "refs": {
+        "cwe": [
+          "CWE-611"
+        ],
+        "owasp": [
+          "A4:2017-XML External Entities (XXE)",
+          "A05:2021-Security Misconfiguration",
+          "A02:2025-Security Misconfiguration"
+        ]
+      },
+      "fingerprint": "9c33fbfa31ac8a99"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "major",
+      "file": "src/backend/workers/ingestion-worker/evoq_ingestion/extractors/xlsx/merged.py",
+      "line": 114,
+      "rule": "python_xml_rule-element",
+      "message": "Improper restriction of XML external entity reference: The application was found using the `xml.etree` package for processing XML. Pythons default xml processors suffer from various XML parsing vulnerabilities and care must be taken when handling XML data. Additionally, depending on the version of Python, more critical vulnerabilities such as eXternal XML Entity injection maybe exploitable. The `etree` package suffers from the following security risks as of Python 3.7.1: * Billion laughs / expon",
+      "key": "python_xml_rule-element:114:28",
+      "code_hash": "f404b2528b87c6c5",
+      "refs": {
+        "cwe": [
+          "CWE-611"
+        ],
+        "owasp": [
+          "A4:2017-XML External Entities (XXE)",
+          "A05:2021-Security Misconfiguration",
+          "A02:2025-Security Misconfiguration"
+        ]
+      },
+      "fingerprint": "b0a6ee0b661fa676"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "major",
+      "file": "src/backend/workers/ingestion-worker/evoq_ingestion/extractors/xlsx/merged.py",
+      "line": 117,
+      "rule": "python_xml_rule-element",
+      "message": "Improper restriction of XML external entity reference: The application was found using the `xml.etree` package for processing XML. Pythons default xml processors suffer from various XML parsing vulnerabilities and care must be taken when handling XML data. Additionally, depending on the version of Python, more critical vulnerabilities such as eXternal XML Entity injection maybe exploitable. The `etree` package suffers from the following security risks as of Python 3.7.1: * Billion laughs / expon",
+      "key": "python_xml_rule-element:117:26",
+      "code_hash": "7fd7b93f3d9d4d61",
+      "refs": {
+        "cwe": [
+          "CWE-611"
+        ],
+        "owasp": [
+          "A4:2017-XML External Entities (XXE)",
+          "A05:2021-Security Misconfiguration",
+          "A02:2025-Security Misconfiguration"
+        ]
+      },
+      "fingerprint": "72342ace99140556"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "major",
+      "file": "src/backend/workers/ingestion-worker/evoq_ingestion/extractors/xlsx/merged.py",
+      "line": 137,
+      "rule": "python_xml_rule-element",
+      "message": "Improper restriction of XML external entity reference: The application was found using the `xml.etree` package for processing XML. Pythons default xml processors suffer from various XML parsing vulnerabilities and care must be taken when handling XML data. Additionally, depending on the version of Python, more critical vulnerabilities such as eXternal XML Entity injection maybe exploitable. The `etree` package suffers from the following security risks as of Python 3.7.1: * Billion laughs / expon",
+      "key": "python_xml_rule-element:137:24",
+      "code_hash": "813cc6c0e1d88057",
+      "refs": {
+        "cwe": [
+          "CWE-611"
+        ],
+        "owasp": [
+          "A4:2017-XML External Entities (XXE)",
+          "A05:2021-Security Misconfiguration",
+          "A02:2025-Security Misconfiguration"
+        ]
+      },
+      "fingerprint": "663398f815d39312"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "major",
+      "file": "src/frontend/src/components/domain/ControlRow.tsx",
+      "line": 28,
+      "rule": "javascript_timing_rule-possible-timing-attacks",
+      "message": "Observable timing discrepancy: The application was found executing string comparisons using one of `===`, `!==`, `==` or `!=` against security sensitive values. String comparisons like this are not constant time, meaning the first character found not to match in the two strings will immediately exit the conditional statement. This allows an adversary to calculate or observe small timing differences depending on the strings passed to this comparison. This potentially allows an adversary the abili",
+      "key": "javascript_timing_rule-possible-timing-attacks:28:5",
+      "code_hash": "3fe2af3abd07cdf8",
+      "refs": {
+        "cwe": [
+          "CWE-208"
+        ],
+        "owasp": [
+          "A3:2017-Sensitive Data Exposure",
+          "A01:2021-Broken Access Control",
+          "A01:2025-Broken Access Control"
+        ]
+      },
+      "fingerprint": "815c3289106e5333"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "major",
+      "file": "src/frontend/src/components/domain/ControlRow.tsx",
+      "line": 28,
+      "rule": "rules_lgpl_javascript_crypto_rule-node-timing-attack",
+      "message": "Observable timing discrepancy: 'String comparisons using ''==='', ''!=='', ''!='' and ''=='' is vulnerable to timing attacks. More info: https://snyk.io/blog/node-js-timing-attack-ccc-ctf/'",
+      "key": "rules_lgpl_javascript_crypto_rule-node-timing-attack:28:5",
+      "code_hash": "3fe2af3abd07cdf8",
+      "refs": {
+        "cwe": [
+          "CWE-208"
+        ],
+        "owasp": [
+          "A3:2017-Sensitive Data Exposure",
+          "A01:2021-Broken Access Control",
+          "A01:2025-Broken Access Control"
+        ]
+      },
+      "fingerprint": "c8140e2303ac4c58"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "minor",
+      "file": "src/backend/workers/context-worker/evoq_context/llm/retry.py",
+      "line": 114,
+      "rule": "python_random_rule-random",
+      "message": "Use of cryptographically weak pseudo-random number generator (PRNG): Depending on the context, generating weak random numbers may expose cryptographic functions, which rely on these numbers, to be exploitable. When generating numbers for sensitive values such as tokens, nonces, and cryptographic keys, it is recommended that the `secrets` module be used instead. Example using the secrets module: ``` import secrets # Generate a secure random 64 byte array random_bytes = secrets.token_bytes(64) pri",
+      "key": "python_random_rule-random:114:67",
+      "code_hash": "df1daa3feac73c04",
+      "refs": {
+        "cwe": [
+          "CWE-338"
+        ],
+        "owasp": [
+          "A3:2017-Sensitive Data Exposure",
+          "A02:2021-Cryptographic Failures",
+          "A04:2025-Cryptographic Failures"
+        ]
+      },
+      "fingerprint": "808a0f0453bccb65"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "ops/scripts/check_env_contract.py",
+      "line": 94,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:94:5",
+      "code_hash": "587c84b7878e0190",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "879a49a23e689c50"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "ops/scripts/check_env_contract.py",
+      "line": 105,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:105:5",
+      "code_hash": "587c84b7878e0190",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "879a49a23e689c50"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/packages/seed/fcrm_seed/gen_clauses.py",
+      "line": 458,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:458:5",
+      "code_hash": "ed7e448d326a6b33",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "f368a9d957dc3c1a"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/services/case/fcrm_case/analyst_clause_service.py",
+      "line": 298,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:298:9",
+      "code_hash": "8d10e6d380027750",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "300660e24d50b3d8"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/services/case/fcrm_case/analyst_write_store.py",
+      "line": 146,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:146:9",
+      "code_hash": "ce217bfedd66ce59",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "95e8fb792b5462c9"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/services/case/fcrm_case/domain/analyst_commands.py",
+      "line": 561,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:561:9",
+      "code_hash": "fefce49ab88b5d25",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "a8ab1e9ee2f6166c"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/services/case/fcrm_case/po_followup_store.py",
+      "line": 388,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:388:9",
+      "code_hash": "d5622f599ecc7c5b",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "13b498623ebb9d2d"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/services/case/fcrm_case/po_followup_store.py",
+      "line": 551,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:551:9",
+      "code_hash": "1fa5309bf8436d20",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "fdb15576c3cdb175"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/services/case/fcrm_case/po_followup_store.py",
+      "line": 736,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:736:9",
+      "code_hash": "d5622f599ecc7c5b",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "13b498623ebb9d2d"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/services/case/fcrm_case/po_followup_store.py",
+      "line": 813,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:813:9",
+      "code_hash": "f9d118b0991c6da5",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "f94af9b6f86c6fcc"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/services/case/fcrm_case/store.py",
+      "line": 284,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:284:9",
+      "code_hash": "2da531d62eb87034",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "7adfeee9748d454d"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/services/identity/fcrm_identity/lifespan.py",
+      "line": 69,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:69:5",
+      "code_hash": "0059fa3a81a65e13",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "5b5e4370ced3b37d"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/services/identity/fcrm_identity/lifespan.py",
+      "line": 87,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:87:9",
+      "code_hash": "680ae370c0f88624",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "cee4a3caa78c459a"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/workers/context-worker/evoq_context/chunking/normalize.py",
+      "line": 140,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:140:13",
+      "code_hash": "b3e772df2346e15b",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "7fc53a9e9afbdf6a"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/workers/context-worker/evoq_context/chunking/tokens.py",
+      "line": 139,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:139:9",
+      "code_hash": "7f0ee2b0210a8644",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "82771288bfe86491"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/workers/context-worker/evoq_context/chunking/tokens.py",
+      "line": 145,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:145:9",
+      "code_hash": "7f0ee2b0210a8644",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "82771288bfe86491"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/workers/context-worker/evoq_context/chunking/tokens.py",
+      "line": 152,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:152:9",
+      "code_hash": "7f0ee2b0210a8644",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "82771288bfe86491"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/workers/context-worker/evoq_context/pipeline/stages.py",
+      "line": 195,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:195:9",
+      "code_hash": "07d1d2bb142b58b1",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "e72de57e94e2a934"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/workers/context-worker/evoq_context/pipeline/stages.py",
+      "line": 274,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:274:9",
+      "code_hash": "07d1d2bb142b58b1",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "e72de57e94e2a934"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/workers/context-worker/evoq_context/pipeline/stages.py",
+      "line": 392,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:392:9",
+      "code_hash": "07d1d2bb142b58b1",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "e72de57e94e2a934"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/workers/context-worker/evoq_context/pipeline/vectors.py",
+      "line": 212,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:212:9",
+      "code_hash": "86a67a9a65222247",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "7b0c46339f81d504"
+    },
+    {
+      "tool": "opengrep",
+      "type": "vulnerability",
+      "severity": "info",
+      "file": "src/backend/workers/ingestion-worker/evoq_ingestion/extractors/pdf_extractor.py",
+      "line": 322,
+      "rule": "python_assert_rule-assert-used",
+      "message": "Improper check for unusual or exceptional conditions: The application was found using `assert` in non-test code. Usually reserved for debug and test code, the `assert` function is commonly used to test conditions before continuing execution. However, enclosed code will be removed when compiling Python code to optimized byte code. Depending on the assertion and subsequent logic, this could lead to undefined behavior of the application or application crashes. To remediate this issue, remove the `a",
+      "key": "python_assert_rule-assert-used:322:9",
+      "code_hash": "0854568b2333db1b",
+      "refs": {
+        "cwe": [
+          "CWE-754"
+        ],
+        "owasp": [
+          "A6:2017-Security Misconfiguration",
+          "A05:2021-Security Misconfiguration",
+          "A10:2025-Mishandling of Exceptional Conditions"
+        ]
+      },
+      "fingerprint": "25f87431ac77b3fb"
+    }
+  ]
+}
