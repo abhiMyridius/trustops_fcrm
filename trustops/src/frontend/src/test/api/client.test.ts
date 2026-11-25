@@ -1,7 +1,7 @@
 /** The HTTP client: list unwrapping and the in-memory access token. */
 import { HttpResponse, delay, http } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { api, apiList, getAccessToken, setAccessToken } from '@/api/client';
+import { absolute, api, apiList, getAccessToken, setAccessToken } from '@/api/client';
 import { server } from '@/mocks/server';
 
 const LIST = '/api/fcrm/__test/list';
@@ -64,5 +64,26 @@ describe('api timeouts', () => {
       status: 504,
       problem: { title: 'Request timed out' },
     });
+  });
+});
+
+describe('absolute', () => {
+  it('resolves a path against the page origin', () => {
+    expect(absolute('/api/fcrm/cases?x=1')).toBe(`${window.location.origin}/api/fcrm/cases?x=1`);
+  });
+
+  it('accepts a full URL on the same origin', () => {
+    expect(absolute(`${window.location.origin}/api/fcrm/me`)).toBe(`${window.location.origin}/api/fcrm/me`);
+  });
+
+  it.each(['https://evil.example/steal', '//evil.example/steal', 'http://localhost.evil.example/x'])(
+    'refuses %s: every request carries the session cookie and the bearer token',
+    (path) => {
+      expect(() => absolute(path)).toThrow('another origin');
+    },
+  );
+
+  it('refuses to send a request that would leave the origin', async () => {
+    await expect(api('//evil.example/steal')).rejects.toThrow();
   });
 });

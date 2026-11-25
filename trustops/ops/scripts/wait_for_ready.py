@@ -75,8 +75,10 @@ def service_state(rows: list[dict[str, object]], service: str, oneshot: bool) ->
 
 def url_ok(url: str) -> bool:
     """Return True when ``url`` answers 2xx within two seconds."""
+    if not url.startswith(("http://", "https://")):
+        return False  # a probe is http(s) only: never file: or ftp:
     try:
-        with urllib.request.urlopen(url, timeout=2) as response:  # noqa: S310 - local probe
+        with urllib.request.urlopen(url, timeout=2) as response:  # noqa: S310 - http(s) checked above
             status: int = response.status
             return 200 <= status < 300
     except OSError:

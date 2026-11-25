@@ -29,12 +29,12 @@ metadata still extracts its cell values.
 from __future__ import annotations
 
 import posixpath
-import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import IO
+from typing import IO, Any
 
+from lxml import etree  # type: ignore[import-untyped]
 from openpyxl.utils.cell import range_boundaries  # type: ignore[import-untyped]
 
 from evoq_ingestion.core.limits import Limits
@@ -92,7 +92,7 @@ class MergedRangeReader:
                     return MergeMap(skipped=True)
                 with archive.open(part) as handle:
                     refs = _parse_merge_refs(handle)
-        except (KeyError, zipfile.BadZipFile, ET.ParseError, OSError):
+        except (KeyError, zipfile.BadZipFile, etree.XMLSyntaxError, OSError):
             return MergeMap()
         return _build_merge_map(refs)
 
@@ -111,15 +111,15 @@ class MergedRangeReader:
         try:
             rel_targets = {
                 rel.get("Id"): rel.get("Target")
-                for rel in ET.fromstring(rels_xml).iter(_RELATIONSHIP_TAG)
+                for rel in _fromstring(rels_xml).iter(_RELATIONSHIP_TAG)
             }
             parts: dict[str, str] = {}
-            for sheet in ET.fromstring(workbook_xml).iter(_SHEET_TAG):
+            for sheet in _fromstring(workbook_xml).iter(_SHEET_TAG):
                 name = sheet.get("name")
                 target = rel_targets.get(sheet.get(_SHEET_RID_ATTR))
                 if name and target:
                     parts[name] = _resolve_part(target)
-        except ET.ParseError:
+        except etree.XMLSyntaxError:
             return {}
         return parts
 
@@ -131,10 +131,18 @@ def _resolve_part(target: str) -> str:
     return posixpath.normpath(f"xl/{target}")
 
 
+def _fromstring(data: bytes) -> Any:
+    """Parse package XML from an upload without resolving entities or touching the network."""
+    parser = etree.XMLParser(resolve_entities=False, no_network=True, huge_tree=False)
+    return etree.fromstring(data, parser)
+
+
 def _parse_merge_refs(handle: IO[bytes]) -> list[str]:
     refs: list[str] = []
-    sheet_data: ET.Element | None = None
-    for event, elem in ET.iterparse(handle, events=("start", "end")):
+    sheet_data: Any | None = None
+    for event, elem in etree.iterparse(
+        handle, events=("start", "end"), resolve_entities=False, no_network=True, huge_tree=False
+    ):
         if event == "start":
             if sheet_data is None and elem.tag == _SHEET_DATA_TAG:
                 sheet_data = elem

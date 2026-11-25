@@ -80,6 +80,7 @@ Correctness fixes only; structural smells stay as upstream wrote them.
 - `core/profile.py`: `hashlib.sha1(..., usedforsecurity=False)` for `body_prefix_sha1`; the digest is unchanged and a test pins it.
 - `# noqa: CODE - reason` comments (Sonar S7632 cannot parse the tail): the reason moved to a comment line above and the `noqa` is bare (`core/profile.py`, `core/utils.py`, `extractors/pptx_extractor.py`). `core/orchestrator.py` logs a failed source with `logger.exception`.
 - `extractors/docx/tables.py`: a write-only column counter removed; `sources/uploads_source.py`: a ruler comment reworded.
+- Untrusted XML (Opengrep `python_xml_rule-*`): `extractors/docx/parts.py` parses a part blob with an lxml parser that has `resolve_entities=False, no_network=True, huge_tree=False`; `extractors/xlsx/merged.py` moves from `xml.etree` to lxml with the same parser settings (`_fromstring`, `iterparse` options) and catches `etree.XMLSyntaxError`. `tests/.../test_untrusted_xml.py` pins that an entity bomb and an external entity are not expanded and that merge refs still read.
 
 ## After
 

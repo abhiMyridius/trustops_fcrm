@@ -97,6 +97,8 @@ class OpenObserve:
         """``method`` ``/api/<org><path>`` with ``body`` as JSON; the decoded
         JSON answer. An HTTP error or an unreachable host raises
         :class:`OpenObserveError` naming the status, never the login."""
+        if not self.base.startswith(("http://", "https://")):
+            raise OpenObserveError(f"OpenObserve URL must be http(s): {self.base[:40]}")
         token = base64.b64encode(f"{self.user}:{self.password}".encode()).decode()
         req = urllib.request.Request(  # noqa: S310 - operator-configured URL
             f"{self.base}/api/{self.org}{path}",

@@ -333,7 +333,8 @@ def _parsed_root(part: Part) -> BaseOxmlElement | None:
     if not blob:
         return None
     try:
-        return cast("BaseOxmlElement", etree.fromstring(blob))
+        parser = etree.XMLParser(resolve_entities=False, no_network=True, huge_tree=False)
+        return cast("BaseOxmlElement", etree.fromstring(blob, parser))
     except etree.XMLSyntaxError:
         return None
 

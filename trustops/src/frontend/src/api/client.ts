@@ -125,9 +125,16 @@ function withQuery(path: string, query: RequestOptions['query']): string {
   return qs ? `${path}?${qs}` : path;
 }
 
-/** Absolute URL against the page origin (Node's fetch, used under vitest, rejects relative URLs). */
+/**
+ * Absolute URL against the page origin (Node's fetch, used under vitest, rejects relative URLs).
+ * A path that would leave the origin (`https://host/x`, `//host/x`) is refused: every request here
+ * carries the session cookie and the bearer token, which must never go to another host.
+ */
 export function absolute(path: string): string {
-  return typeof window !== 'undefined' && window.location ? new URL(path, window.location.origin).toString() : path;
+  if (typeof window === 'undefined' || !window.location) return path;
+  const url = new URL(path, window.location.origin);
+  if (url.origin !== window.location.origin) throw new Error('refusing a request to another origin');
+  return url.toString();
 }
 
 export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T> {
