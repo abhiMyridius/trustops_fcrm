@@ -1,0 +1,126 @@
+python3 ops/scripts/seed_reset.py --demo-case --compose "docker compose -f docker-compose.yaml"
+deleting the documents of FCRM-2026-0151
+  deleted fcrm_decision.votes: 0
+  deleted fcrm_decision.questions: 0
+  deleted fcrm_decision.answers: 0
+  deleted fcrm_decision.outcomes: 0
+  deleted fcrm_case.cases: 1
+  demo case FCRM-2026-0151: 1 document(s) deleted
+deleting the MinIO objects of FCRM-2026-0151
+  Removed `fcrm/uploads/FCRM-2026-0151/doc_01M89FBVEH6Y93WP28VVWFECFS/business_case_remittance_MX.pdf`.
+  Removed `fcrm/uploads/FCRM-2026-0151/doc_01M89FBVEH6Y93WP28VVWFECFT/payout_partner_contract.pdf`.
+  nothing under fcrm/canonical/FCRM-2026-0151/
+restoring the seed's draft of FCRM-2026-0151
+  {"ts": "2026-11-25T13:51:46.199Z", "level": "INFO", "logger": "__main__", "msg": "demo case restored", "service": "fcrm-case", "version": "0.1.0", "env": "local", "case_id": "FCRM-2026-0151"}
+  restored FCRM-2026-0151 to the seed's draft
+/usr/local/bin/uv run --project src/backend --all-packages pytest tests/e2e/test_demo_0151.py -m e2e -o log_cli=true --log-cli-level=INFO
+warning: Declaring conflicts for packages (`package = ...`) is experimental and may change without warning. Pass `--preview-features package-conflicts` to disable this warning.
+
+tests/e2e/test_demo_0151.py::test_scene_01_the_po_dashboard_shows_the_work_and_no_risk_numbers 
+-------------------------------- live log call ---------------------------------
+INFO     e2e:conftest.py:355 scene 1                    4 active cases, no risk numbers
+PASSED                                                                   [  4%]
+tests/e2e/test_demo_0151.py::test_scene_02_the_new_case_has_the_pinned_field_set PASSED [  9%]
+tests/e2e/test_demo_0151.py::test_scene_03_two_pdfs_are_scanned_read_and_every_value_has_a_page_and_line 
+-------------------------------- live log call ---------------------------------
+INFO     e2e:conftest.py:355 scene 3 types proposed     ['new_geography', 'new_product', 'vendor_onboarding']
+INFO     e2e:conftest.py:355 scene 3 values extracted   6
+PASSED                                                                   [ 14%]
+tests/e2e/test_demo_0151.py::test_scene_04_each_change_type_is_one_gate_and_the_required_set_resolves 
+-------------------------------- live log call ---------------------------------
+INFO     e2e:conftest.py:355 scene 4 required fields    18
+PASSED                                                                   [ 19%]
+tests/e2e/test_demo_0151.py::test_scene_05_values_are_reused_from_the_precedent_with_their_provenance 
+-------------------------------- live log call ---------------------------------
+INFO     e2e:conftest.py:355 scene 5 reused             2 values from FCRM-2026-0118
+PASSED                                                                   [ 23%]
+tests/e2e/test_demo_0151.py::test_scene_06_gaps_are_answered_until_the_threshold_without_blocking_on_a_new_fact FAILED [ 28%]
+tests/e2e/test_demo_0151.py::test_scene_07_a_correction_keeps_the_original_four_checks_pass_triage_picks_rahul SKIPPED [ 33%]
+tests/e2e/test_demo_0151.py::test_scene_08_screening_research_and_assessment_run_and_join_with_no_human_input SKIPPED [ 38%]
+tests/e2e/test_demo_0151.py::test_scene_09_the_score_comes_from_s2_and_only_the_cases_analyst_sees_it SKIPPED [ 42%]
+tests/e2e/test_demo_0151.py::test_scene_10_one_round_of_questions_goes_to_the_owner_and_the_clock_pauses SKIPPED [ 47%]
+tests/e2e/test_demo_0151.py::test_scene_11_the_owner_answers_with_a_document_and_v2_reruns_the_changed_fields SKIPPED [ 52%]
+tests/e2e/test_demo_0151.py::test_scene_12_clauses_are_accepted_one_call_each_and_a_search_can_record_a_gap SKIPPED [ 57%]
+tests/e2e/test_demo_0151.py::test_scene_13_controls_ratings_and_critic_findings_are_decided_one_at_a_time SKIPPED [ 61%]
+tests/e2e/test_demo_0151.py::test_scene_14_an_override_with_a_reason_rescores_and_the_acknowledgements_follow SKIPPED [ 66%]
+tests/e2e/test_demo_0151.py::test_scene_15_the_narrative_is_edited_locked_and_the_pack_is_built SKIPPED [ 71%]
+tests/e2e/test_demo_0151.py::test_scene_16_the_four_checks_pass_the_pack_is_released_and_tallies_are_hidden SKIPPED [ 76%]
+tests/e2e/test_demo_0151.py::test_scene_17_a_committee_question_is_answered_as_an_addendum_numbers_unchanged SKIPPED [ 80%]
+tests/e2e/test_demo_0151.py::test_scene_18_votes_are_hidden_until_three_then_reveal_with_the_outcome SKIPPED [ 85%]
+tests/e2e/test_demo_0151.py::test_scene_19_the_po_reads_a_plain_outcome_and_a_closed_case_takes_no_write SKIPPED [ 90%]
+tests/e2e/test_demo_0151.py::test_scene_20_the_examiner_cites_only_the_chain_and_a_new_list_flags_cases SKIPPED [ 95%]
+tests/e2e/test_demo_0151.py::test_scene_21_the_monitor_shows_the_records_the_agents_and_tokens_within_the_cap SKIPPED [100%]
+
+=================================== FAILURES ===================================
+_ test_scene_06_gaps_are_answered_until_the_threshold_without_blocking_on_a_new_fact _
+
+po = <conftest.Persona object at 0x72d2e9265a90>
+demo = DemoState(case_id='FCRM-2026-0151', failed=None, po_stream=<conftest.SseRecorder object at 0x72d2e9265fd0>, committee_...rted_at': '2026-11-25T13:51:49.122679+00:00', 'proposed_types': ['new_geography', 'new_product', 'vendor_onboarding']})
+demo_log = DemoLog(lines=[('scene 1', '4 active cases, no risk numbers'), ('scene 3 types proposed', "['new_geography', 'new_prod...cene 3 values extracted', '6'), ('scene 4 required fields', '18'), ('scene 5 reused', '2 values from FCRM-2026-0118')])
+
+    def test_scene_06_gaps_are_answered_until_the_threshold_without_blocking_on_a_new_fact(
+        po: Persona, demo: DemoState, demo_log: DemoLog
+    ) -> None:
+        # The count is empty while the field set resolves again after scene 5 reuses the
+        # precedent's values, and the questions are drawn again with it: read them once the
+        # count is back, and when an answer names a question that has just been replaced
+        # (404), read them again, as the owner's browser does.
+        view: dict[str, Any] = {}
+        target = 0
+        answers: list[dict[str, Any]] = []
+        for _attempt in range(5):
+>           view = wait_until(
+                lambda: (v := po.json(po.get(_case("/intake"))))["required_fields"] and v,
+                60,
+                2,
+                "the required field count to be set again",
+            )
+
+tests/e2e/test_demo_0151.py:441: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+predicate = <function test_scene_06_gaps_are_answered_until_the_threshold_without_blocking_on_a_new_fact.<locals>.<lambda> at 0x72d2e92f5260>
+timeout = 60, interval = 2, what = 'the required field count to be set again'
+
+    def wait_until(
+        predicate: Callable[[], Any],
+        timeout: float,
+        interval: float = 2.0,
+        what: str = "the condition",
+    ) -> Any:
+        """Poll ``predicate`` until it returns something truthy; return that.
+    
+        A network error inside the predicate counts as "not yet" (the stack may be
+        restarting a process), anything else propagates.
+    
+        Raises:
+            AssertionError: ``timeout`` seconds passed; the message names ``what``
+                and the last thing the predicate raised.
+        """
+        deadline = time.monotonic() + timeout
+        last_error: Optional[Exception] = None
+        while True:
+            try:
+                value = predicate()
+            except httpx.HTTPError as exc:
+                value, last_error = None, exc
+            if value:
+                return value
+            if time.monotonic() >= deadline:
+                detail = f" (last error: {last_error})" if last_error else ""
+>               raise AssertionError(
+                    f"timed out after {timeout:.0f}s waiting for {what}{detail}"
+                )
+E               AssertionError: timed out after 60s waiting for the required field count to be set again
+
+tests/e2e/conftest.py:307: AssertionError
+============================== live demo numbers ===============================
+  scene 1                    4 active cases, no risk numbers
+  scene 3 types proposed     ['new_geography', 'new_product', 'vendor_onboarding']
+  scene 3 values extracted   6
+  scene 4 required fields    18
+  scene 5 reused             2 values from FCRM-2026-0118
+=========================== short test summary info ============================
+FAILED tests/e2e/test_demo_0151.py::test_scene_06_gaps_are_answered_until_the_threshold_without_blocking_on_a_new_fact
+============= 1 failed, 5 passed, 15 skipped in 118.84s (0:01:58) ==============
+make: *** [Makefile:193: demo] Error 1
