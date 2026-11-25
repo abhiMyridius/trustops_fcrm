@@ -61,7 +61,6 @@ _SECTION_SIGNS = re.compile(r"§§\s*")
 _SECTION_SIGN = re.compile(r"§\s*")
 _SECTION_WORD = re.compile(r"\bSection(s?)\b")
 _LEADING_ELLIPSIS = re.compile(r"^(?:\s*\.{3})+")
-_TRAILING_ELLIPSIS = re.compile(r"(?:\.{3}\s*)+$")
 _WRAPPING_QUOTES = "\"'"
 
 _CHAR_MAP = str.maketrans(
@@ -129,6 +128,16 @@ def normalise(text: str) -> str:
     return _WHITESPACE.sub(" ", out).strip()
 
 
+def _strip_trailing_ellipses(text: str) -> str:
+    """``text`` without a trailing run of ``...`` (each optionally followed by
+    whitespace). A loop, not a regex with a nested quantifier, which backtracks
+    quadratically.
+    """
+    while (trimmed := text.rstrip()).endswith("..."):
+        text = trimmed[:-3]
+    return text
+
+
 def normalise_quote(quote: str) -> str:
     """Normalise a quote and strip edge ellipses and wrapping quotation marks,
     repeatedly, so ``"…text…"`` and ``... text ...`` both reduce to ``text``.
@@ -137,7 +146,7 @@ def normalise_quote(quote: str) -> str:
     previous = None
     while previous != out:
         previous = out
-        out = _TRAILING_ELLIPSIS.sub("", _LEADING_ELLIPSIS.sub("", out)).strip()
+        out = _strip_trailing_ellipses(_LEADING_ELLIPSIS.sub("", out)).strip()
         if len(out) >= 2 and out[0] == out[-1] and out[0] in _WRAPPING_QUOTES:
             out = out[1:-1].strip()
     return out

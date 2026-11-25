@@ -222,3 +222,21 @@ def test_line_span_negative_tolerance_raises_instead_of_returning_empty() -> Non
 )
 def test_normalise_quote_strips_only_edge_ellipses(quote: str, expected: str) -> None:
     assert normalise_quote(quote) == expected
+
+
+@pytest.mark.parametrize(
+    ("quote", "expected"),
+    [
+        ("alpha...", "alpha"),
+        ("alpha... ...", "alpha"),
+        ("alpha....", "alpha."),
+        ("alpha.... ", "alpha."),
+        ("alpha..", "alpha.."),
+        ("..." * 3, ""),
+        ("alpha" + "... " * 2000, "alpha"),
+    ],
+)
+def test_trailing_ellipses_are_stripped_the_way_the_regex_did(
+    quote: str, expected: str
+) -> None:
+    assert normalise_quote(quote) == expected
