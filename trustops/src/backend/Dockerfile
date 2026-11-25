@@ -36,7 +36,10 @@ RUN groupadd --system --gid 10001 app \
 
 WORKDIR /app
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
-ENV PATH="/app/.venv/bin:${PATH}"
+# H4's snapshot root: owned by the service user, not a world-writable /tmp.
+RUN mkdir -p /var/lib/fcrm-context && chown app:app /var/lib/fcrm-context
+ENV PATH="/app/.venv/bin:${PATH}" \
+    CONTEXT_PROJECTS_ROOT=/var/lib/fcrm-context
 
 USER app
 EXPOSE 8000

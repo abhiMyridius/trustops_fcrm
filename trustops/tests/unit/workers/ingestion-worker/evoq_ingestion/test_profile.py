@@ -153,3 +153,10 @@ class TestProfileScannerDirectly:
     def test_detect_language_constructor_arg(self):
         hints = ProfileScanner(detect_language=True).scan("hello there general kenobi")
         assert hints.language == "en"
+
+
+def test_body_prefix_sha1_is_unchanged_by_the_usedforsecurity_flag():
+    assert (
+        compute_profile("hello")["body_prefix_sha1"]
+        == "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d"
+    )

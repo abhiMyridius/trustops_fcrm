@@ -101,6 +101,14 @@ def vector_backend(env: Optional[Mapping[str, str]] = None) -> str:
     return name
 
 
+def default_projects_root(env: Mapping[str, str]) -> Path:
+    """The snapshot root when ``CONTEXT_PROJECTS_ROOT`` is not set: a per-user state
+    directory, never a world-writable one (the image sets the variable itself).
+    """
+    state = env.get("XDG_STATE_HOME") or str(Path.home() / ".local" / "state")
+    return Path(state) / "fcrm-context"
+
+
 def context_config_from_env(
     env: Optional[Mapping[str, str]] = None, *, projects_root: Optional[Path] = None
 ) -> ContextConfig:
@@ -110,7 +118,7 @@ def context_config_from_env(
     default_provider = "dummy" if backend == "memory" else "bedrock"
     provider = source.get("EMBEDDING_PROVIDER", default_provider)
     root = projects_root or Path(
-        source.get("CONTEXT_PROJECTS_ROOT", "/tmp/fcrm-context")
+        source.get("CONTEXT_PROJECTS_ROOT") or default_projects_root(source)
     )
     model = source.get("EMBEDDING_MODEL", "").strip()
     dimension = int(source.get("EMBEDDING_DIMENSION", "0") or 0)

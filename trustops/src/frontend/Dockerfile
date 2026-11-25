@@ -32,16 +32,15 @@ RUN npm run build
 # MSW must never ship: vite copies public/mockServiceWorker.js into dist, so drop it.
 RUN rm -f dist/mockServiceWorker.js
 
-FROM nginx:1.27-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 
 COPY src/frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/src/frontend/dist /usr/share/nginx/html
 
-# The stock nginx image already runs its master process as root and
-# workers as nginx (uid 101); nginx needs root to bind :80 and manage its
-# worker processes, so we keep the image's own user model rather than
-# forcing a non-privileged one that cannot bind the port.
-EXPOSE 80
+# The unprivileged build runs master and workers as nginx (uid 101) and cannot
+# bind a port below 1024, so the web container listens on 8080 (SonarQube
+# docker:S6471, ADR-90). The gateway proxies to web:8080.
+EXPOSE 8080
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=12 \
-  CMD ["wget", "-q", "-O", "/dev/null", "http://localhost:80/"]
+  CMD ["wget", "-q", "-O", "/dev/null", "http://localhost:8080/"]

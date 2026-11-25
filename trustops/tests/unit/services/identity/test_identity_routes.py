@@ -308,3 +308,49 @@ def test_jwks_endpoint_matches_the_signing_key_issuing_tokens(app):
 def test_healthz_and_readyz_need_no_auth(client: TestClient):
     assert client.get("/healthz").status_code == 200
     assert client.get("/readyz").status_code == 200
+
+
+# ── refresh cookie attributes ────────────────────────────────────────────
+
+
+def _login_cookie(users, **settings) -> str:
+    application, _key = build_app(users, **settings)
+    login = TestClient(application).post(
+        "/login", json={"email": "u-riyer", "password": DEMO_PASSWORD}
+    )
+    return login.headers["set-cookie"].lower()
+
+
+def test_the_refresh_cookie_is_secure_outside_a_local_stack(users):
+    cookie = _login_cookie(users, env="production")
+
+    assert "secure" in cookie.split("; ")
+    assert "httponly" in cookie.split("; ")
+    assert "samesite=strict" in cookie
+
+
+def test_the_refresh_cookie_is_not_secure_on_the_plain_http_local_stack(users):
+    cookie = _login_cookie(users, env="local")
+
+    assert "secure" not in cookie.split("; ")
+    assert "httponly" in cookie.split("; ")
+
+
+def test_the_secure_flag_can_be_forced_on_a_local_stack(users):
+    cookie = _login_cookie(users, env="local", refresh_cookie_secure=True)
+
+    assert "secure" in cookie.split("; ")
+
+
+def test_logout_clears_the_cookie_with_the_same_attributes(users):
+    application, _key = build_app(users, env="production")
+    client = TestClient(application, base_url="https://testserver")
+    login = client.post("/login", json={"email": "u-riyer", "password": DEMO_PASSWORD})
+    access = login.json()["access_token"]
+
+    response = client.post("/logout", headers={"Authorization": f"Bearer {access}"})
+    cleared = response.headers["set-cookie"].lower()
+
+    assert response.status_code == 204
+    assert "max-age=0" in cleared
+    assert "secure" in cleared.split("; ")

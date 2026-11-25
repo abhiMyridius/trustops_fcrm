@@ -47,6 +47,7 @@ class IdentitySettings(BaseServiceSettings):
     jwt_refresh_ttl_s: int = 28800
     refresh_cookie_name: str = "fcrm_refresh"
     refresh_cookie_path: str = "/api/fcrm/auth"
+    refresh_cookie_secure: Optional[bool] = None
     demo_users_password_hash: Optional[SecretStr] = None
     demo_users_enabled: bool = False
 
@@ -60,6 +61,28 @@ class IdentitySettings(BaseServiceSettings):
         if isinstance(value, str) and not value.strip():
             return False
         return value
+
+    @field_validator("refresh_cookie_secure", mode="before")
+    @classmethod
+    def _blank_secure_is_unset(cls, value: Any) -> Any:
+        """``REFRESH_COOKIE_SECURE=`` (an empty value) means "not set"."""
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @property
+    def cookie_secure(self) -> bool:
+        """Whether the refresh cookie carries the ``Secure`` flag.
+
+        ``REFRESH_COOKIE_SECURE`` decides when it is set. Otherwise the cookie is
+        ``Secure`` everywhere except a developer or CI environment
+        (:attr:`is_local`), where the stack is served over plain http and a browser
+        would never send a ``Secure`` cookie back (the gateway has no TLS, see
+        known-gaps).
+        """
+        if self.refresh_cookie_secure is not None:
+            return self.refresh_cookie_secure
+        return not self.is_local
 
     @property
     def demo_login_active(self) -> bool:

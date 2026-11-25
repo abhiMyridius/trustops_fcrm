@@ -71,7 +71,7 @@ C4Container
 | Container | Image and port | Holds | Health |
 |---|---|---|---|
 | `gateway` | `nginx:1.27-alpine`, host port 8080 (the only one published by default) | `ops/nginx/default.conf` | `GET /healthz` |
-| `web` | `trustops/web:local` (`src/frontend/Dockerfile`), internal :80 | static build, MSW removed from the image | `GET /` |
+| `web` | `trustops/web:local` (`src/frontend/Dockerfile`), internal :8080 | static build, MSW removed from the image | `GET /` |
 | `api` | `trustops/backend:local`, internal :8000, command `uvicorn fcrm_api.main:app` | X1, S1 to S5 | `GET /readyz`; about 85 s to healthy (S3 embeds 197 clauses) |
 | `harness` | `trustops/backend:local`, internal :9100, command `python -m fcrm_harness` | H1 to H4 | `GET /readyz` on 9100 |
 | `mongo` | `mongo:8.0`, entrypoint `ops/mongo/entrypoint.sh` (replica set, users, validators, indexes) | state | initialised marker plus `rs.status()` |

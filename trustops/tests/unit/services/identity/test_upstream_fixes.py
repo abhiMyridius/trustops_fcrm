@@ -221,3 +221,14 @@ def test_no_hard_coded_secret_identifier_remains_in_source():
         identifiers = {name.lower() for name in _code_identifiers(py_file)}
         found = suspicious & identifiers
         assert not found, f"found {found} as an identifier in {py_file}"
+
+
+def test_the_dummy_hash_is_a_valid_bcrypt_hash_of_a_value_nobody_holds():
+    import bcrypt
+    from fcrm_identity.security import DUMMY_HASH, verify_password
+
+    assert DUMMY_HASH.startswith("$2b$")
+    assert bcrypt.checkpw(b"anything", DUMMY_HASH.encode()) is False
+    assert (
+        verify_password("fcrm-identity-dummy-hash-no-such-account", DUMMY_HASH) is False
+    )

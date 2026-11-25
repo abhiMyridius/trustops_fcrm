@@ -100,6 +100,7 @@ def _set_refresh_cookie(
         refresh.token,
         max_age=settings.jwt_refresh_ttl_s,
         httponly=True,
+        secure=settings.cookie_secure,
         samesite="strict",
         path=settings.refresh_cookie_path,
     )
@@ -220,7 +221,11 @@ async def logout(
         else:
             await store.revoke_refresh(decoded.jti)
     response.delete_cookie(
-        settings.refresh_cookie_name, path=settings.refresh_cookie_path
+        settings.refresh_cookie_name,
+        path=settings.refresh_cookie_path,
+        secure=settings.cookie_secure,
+        httponly=True,
+        samesite="strict",
     )
 
 

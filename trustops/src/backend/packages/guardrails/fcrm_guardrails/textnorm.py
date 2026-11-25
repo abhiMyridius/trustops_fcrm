@@ -30,11 +30,11 @@ from typing import Final
 #: Mongolian vowel separator (U+180E).
 ZERO_WIDTH_CHARS: Final[str] = "".join(
     (
-        "​‌‍‎‏",
-        "‪‫‬‭‮",
-        "⁠⁡⁢⁣⁤",
-        "⁦⁧⁨⁩",
-        "﻿­͏᠎",
+        "\u200b\u200c\u200d\u200e\u200f",
+        "\u202a\u202b\u202c\u202d\u202e",
+        "\u2060\u2061\u2062\u2063\u2064",
+        "\u2066\u2067\u2068\u2069",
+        "\ufeff\u00ad\u034f\u180e",
     )
 )
 ZERO_WIDTH: Final[re.Pattern[str]] = re.compile(f"[{ZERO_WIDTH_CHARS}]")

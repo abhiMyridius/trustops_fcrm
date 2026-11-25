@@ -180,7 +180,7 @@ class _TextQualityStats:
             ),
             language=language,
             body_prefix_sha1=hashlib.sha1(  # noqa: S324 - fingerprint, not security
-                text[:256].encode("utf-8", "replace")
+                text[:256].encode("utf-8", "replace"), usedforsecurity=False
             ).hexdigest(),
         )
 

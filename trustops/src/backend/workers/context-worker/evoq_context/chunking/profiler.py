@@ -485,7 +485,7 @@ def compute_profile(
         round(len(_NON_PRINTABLE_RE.findall(text)) / char_count, 5) if char_count else 0.0
     )
     body_prefix_sha1 = hashlib.sha1(  # noqa: S324 - fingerprint, not security
-        text[:256].encode("utf-8", "replace")
+        text[:256].encode("utf-8", "replace"), usedforsecurity=False
     ).hexdigest()
 
     selector_extras = _selector_extras(

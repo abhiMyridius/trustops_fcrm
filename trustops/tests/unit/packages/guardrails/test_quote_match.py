@@ -192,12 +192,12 @@ def test_match_quote_inserted_word_never_verifies(
         "‎",  # left-to-right mark
         "‏",  # right-to-left mark
         "⁡",  # function application
-        "⁤",  # invisible plus
-        "͏",  # combining grapheme joiner
-        "‪",  # LRE
-        "‮",  # RLO
-        "᠎",  # Mongolian vowel separator
-        "⁦",  # LRI
+        "\u2064",  # invisible plus
+        "\u034f",  # combining grapheme joiner
+        "\u202a",  # LRE
+        "\u202e",  # RLO
+        "\u180e",  # Mongolian vowel separator
+        "\u2066",  # LRI
     ],
 )
 def test_match_quote_ignores_every_zero_width_and_bidi_control(hidden: str) -> None:

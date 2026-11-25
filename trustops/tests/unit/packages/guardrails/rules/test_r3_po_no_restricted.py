@@ -155,9 +155,9 @@ def test_check_many_hits_are_truncated_in_detail() -> None:
         ("Residual risk sits in Band 3", "band"),  # NBSP
         ("Residual risk sits in Band\n3", "band"),  # newline between words
         ("Residual risk sits in Band    3", "band"),  # run of spaces
-        ("sits in Ba​nd 3", "band"),  # zero-width space inside the word
-        ("sits in B‍and 3", "band"),  # zero-width joiner
-        ("sits in ‮Band 3", "band"),  # bidi override before the word
+        ("sits in Ba\u200bnd 3", "band"),  # zero-width space inside the word
+        ("sits in B\u200dand 3", "band"),  # zero-width joiner
+        ("sits in \u202eBand 3", "band"),  # bidi override before the word
         ("Ｂａｎｄ 3", "band"),  # fullwidth letters
         ("Bаnd 3", "band"),  # Cyrillic а
         ("Сomposite 10.4", "composite"),  # Cyrillic С

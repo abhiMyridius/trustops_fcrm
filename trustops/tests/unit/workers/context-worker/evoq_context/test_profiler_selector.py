@@ -423,3 +423,16 @@ def test_selector_can_reach_adopted_numbered_section_count() -> None:
     decision = select_strategy(profile, source_type="file", rules_json=rules_json)
     assert decision.strategy == "heading_sections"
     assert decision.rule_name == "numbered"
+
+
+def test_body_prefix_fingerprint_is_the_sha1_of_the_first_256_characters() -> None:
+    """``usedforsecurity=False`` (S4790) changes the flag, never the digest."""
+    assert (
+        compute_profile("hello").body_prefix_sha1
+        == "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d"
+    )
+    long_body = "hello" + "x" * 300
+    assert (
+        compute_profile(long_body).body_prefix_sha1
+        == compute_profile(long_body[:256]).body_prefix_sha1
+    )

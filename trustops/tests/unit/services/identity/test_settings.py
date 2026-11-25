@@ -103,3 +103,32 @@ def test_demo_login_needs_both_the_flag_and_a_local_env(
     monkeypatch.setenv("DEMO_USERS_ENABLED", flag)
     settings = IdentitySettings.load()
     assert settings.demo_login_active is active
+
+
+@pytest.mark.parametrize(
+    ("env", "explicit", "expected"),
+    [
+        ("production", None, True),
+        ("staging", None, True),
+        ("local", None, False),
+        ("test", None, False),
+        ("ci", None, False),
+        ("local", True, True),
+        ("production", False, False),
+    ],
+)
+def test_the_refresh_cookie_is_secure_unless_the_stack_is_local(
+    env, explicit, expected
+):
+    settings = IdentitySettings(env=env, refresh_cookie_secure=explicit)
+    assert settings.cookie_secure is expected
+
+
+def test_a_blank_refresh_cookie_secure_variable_means_unset(monkeypatch):
+    for name, value in ALL_REQUIRED.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("REFRESH_COOKIE_SECURE", "")
+    monkeypatch.setenv("ENV", "production")
+    settings = IdentitySettings.load()
+    assert settings.refresh_cookie_secure is None
+    assert settings.cookie_secure is True

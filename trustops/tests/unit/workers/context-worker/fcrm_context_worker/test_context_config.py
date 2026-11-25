@@ -136,3 +136,25 @@ def test_the_dummy_provider_never_reads_tiers_yaml(tmp_path: Path) -> None:
     )
     assert config.embedding_provider == "dummy"
     assert config.embedding_dimension == 1024
+
+
+def test_the_default_snapshot_root_is_a_per_user_state_dir_not_tmp(tmp_path) -> None:
+    config = context_config_from_env({"XDG_STATE_HOME": str(tmp_path)})
+
+    assert config.projects_root == tmp_path / "fcrm-context"
+
+
+def test_the_default_snapshot_root_falls_back_to_the_home_directory() -> None:
+    config = context_config_from_env({})
+
+    assert config.projects_root.name == "fcrm-context"
+    assert not str(config.projects_root).startswith("/tmp")
+    assert ".local" in config.projects_root.parts
+
+
+def test_the_snapshot_root_variable_still_wins(tmp_path) -> None:
+    config = context_config_from_env(
+        {"CONTEXT_PROJECTS_ROOT": str(tmp_path), "XDG_STATE_HOME": "/elsewhere"}
+    )
+
+    assert config.projects_root == tmp_path

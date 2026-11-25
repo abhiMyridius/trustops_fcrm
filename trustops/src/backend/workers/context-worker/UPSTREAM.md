@@ -104,6 +104,7 @@ is the workaround until one does.
 ### SonarQube fixes (25 Nov 2026, ADR-90)
 Correctness fixes only; the structural smells (complexity, unused parameters, long signatures) stay as upstream wrote them.
 - Zero-norm guards use `<= 0.0` instead of `== 0.0`: `chunking/topic.py` (`_cosine`), `llm/client.py` (embedding validation), `vector/memory_store.py` (`_cosine_distance`). Behaviour is unchanged for any finite input; the new `test_zero_norm_guards.py` pins it.
+- `chunking/profiler.py`: `hashlib.sha1(..., usedforsecurity=False)` for `body_prefix_sha1` (a fingerprint, not a security use). The digest is unchanged; a test pins it.
 
 ## After
 

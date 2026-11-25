@@ -75,6 +75,9 @@ Edited to remove every reference:
 - `fcrm_ingestion_worker/jobs/ingest_document.py`: `async def handle(IngestDocumentPayload) -> IngestResult` (extract → Guard 1 → anchors on the masked text). Not yet wired to FastStream.
 - Tests: `evoq_ingestion/test_pruned_connectors.py`; `fcrm_ingestion_worker/{test_anchors.py,test_guard1.py,jobs/test_ingest_document.py}` (a real 3-page PDF generated with reportlab).
 
+### SonarQube fixes (25 Nov 2026, ADR-90)
+Correctness fixes only; structural smells stay as upstream wrote them.
+- `core/profile.py`: `hashlib.sha1(..., usedforsecurity=False)` for `body_prefix_sha1`; the digest is unchanged and a test pins it.
 ## After
 
 `uv run --project ../.. --package fcrm-ingestion-worker pytest ../../../tests/unit/workers/ingestion-worker`

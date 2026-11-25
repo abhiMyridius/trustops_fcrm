@@ -20,15 +20,17 @@ this by capturing every log record a login attempt produces.
 
 from __future__ import annotations
 
+import secrets
+
 import bcrypt
 
-# A bcrypt hash of a fixed, non-secret placeholder. Used when no real user
+# A bcrypt hash of a random value nobody holds, made at import. Used when no real user
 # record exists, so ``verify_password`` always does the same amount of work
 # whether the account is missing or the password is merely wrong -- an
 # unknown login name and a wrong password must look identical from the
 # outside.
 DUMMY_HASH = bcrypt.hashpw(
-    b"fcrm-identity-dummy-hash-no-such-account", bcrypt.gensalt()
+    secrets.token_urlsafe(32).encode("ascii"), bcrypt.gensalt()
 ).decode("utf-8")
 
 
