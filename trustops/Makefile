@@ -200,7 +200,7 @@ verify: ## verify one case's audit chain through S4: make verify case=FCRM-2026-
 	$(UV_RUN) python ops/scripts/seed_verify.py --case "$(case)"
 
 # ── quality gates ────────────────────────────────────────────────────────
-.PHONY: check lint format-check typecheck test test-unit test-slow opa-check opa-test ai-check compose-check web-install web-check gate
+.PHONY: check lint format-check typecheck test test-unit coverage test-slow opa-check opa-test ai-check compose-check web-install web-check gate
 check: lint format-check typecheck opa-check opa-test ai-check test-unit compose-check web-check ## commit gate: ruff, format, mypy, OPA, ai/ registry and model-id guards, unit tests, env contract, web typecheck and vitest
 	@echo "check: green"
 
@@ -228,6 +228,9 @@ test-unit: ## every unit test under tests/ (integration and e2e markers excluded
 	$(UV_RUN) pytest -m "not integration and not e2e and not resilience"
 
 test: test-unit ## alias of test-unit
+
+coverage: ## the unit tests with branch coverage over src/backend -> coverage.xml (read by the SonarQube scan, sonar-project.properties)
+	$(UV_RUN) pytest -m "not integration and not e2e and not resilience" --cov --cov-config=.coveragerc --cov-report=xml:coverage.xml --cov-report=term:skip-covered
 
 test-slow: ## the slow unit tests only (full H2 adversarial matrix, concurrency sweep, H3's 500-page PDF budgets; skipped by test-unit)
 	# FCRM_SLOW_TESTS switches on the root conftest's slow tests, FCRM_RUN_SLOW H3's own

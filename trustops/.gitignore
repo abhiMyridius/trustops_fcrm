@@ -26,3 +26,7 @@ src/backend/uv.lock.bak
 # Playwright outputs (the browser sweep writes screenshots and a JSON report here)
 src/frontend/test-results/
 src/frontend/playwright-report/
+
+coverage.xml
+.coverage.*
+src/frontend/coverage/

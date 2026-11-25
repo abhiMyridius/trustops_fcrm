@@ -1,0 +1,17 @@
+# Used by `make coverage`. Relative paths so the SonarQube scanner, which runs in a
+# container with this folder mounted elsewhere, can match files to the report.
+[run]
+branch = True
+relative_files = True
+include =
+    src/backend/apps/*
+    src/backend/packages/*
+    src/backend/services/*
+    src/backend/workers/*
+omit =
+    */.venv/*
+
+[report]
+exclude_also =
+    if TYPE_CHECKING:
+    raise NotImplementedError
