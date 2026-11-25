@@ -427,21 +427,62 @@ def test_scene_05_values_are_reused_from_the_precedent_with_their_provenance(
     )
 
 
+def _settle_proposed_types(po: Persona) -> None:
+    """The intake agent's second pass can propose one more change type after the
+    owner has settled the first ones; the required count stays empty until the owner
+    decides on it. Do what scene 4 does: confirm the demo's types, remove the rest.
+    """
+    for proposed in po.json(po.get(_case("/intake")))["change_types"]:
+        if proposed["status"] != "proposed":
+            continue
+        if proposed["type"] in DEMO_TYPES:
+            body: dict[str, Any] = {"decision": "confirm"}
+        else:
+            label = proposed["label"].lower()
+            body = {
+                "decision": "remove",
+                "reason": f"This change does not add a {label}.",
+            }
+        po.json(po.post(_case(f"/intake/categories/{proposed['type']}"), body))
+
+
 def test_scene_06_gaps_are_answered_until_the_threshold_without_blocking_on_a_new_fact(
     po: Persona, demo: DemoState, demo_log: DemoLog
 ) -> None:
-    view = po.json(po.get(_case("/intake")))
-    open_ids = {v["field_id"] for v in view["values"] if v["origin"] == "open"}
-    ratio = view["completion"]["threshold_pct"] / 100
-    target = math.ceil(ratio * view["required_fields"])
-    answers = [
-        {"question_id": g["id"], "value": f"{OWNER_TEXT}: {g['label']}"}
-        for g in view["gaps"]
-        if not g["answered"] and g["field_id"] in open_ids
-    ]
-    answers = answers[: max(target - view["completion"]["filled"], 0)][:50]
-    if answers:
-        view = po.json(po.post(_case("/intake/answers"), {"answers": answers}))
+    # The count is empty while the field set resolves again after scene 5 reuses the
+    # precedent's values, and the questions are drawn again with it: read them once the
+    # count is back, and when an answer names a question that has just been replaced
+    # (404), read them again, as the owner's browser does.
+    view: dict[str, Any] = {}
+    target = 0
+    answers: list[dict[str, Any]] = []
+    for _attempt in range(5):
+        _settle_proposed_types(po)
+        view = wait_until(
+            lambda: (v := po.json(po.get(_case("/intake"))))["required_fields"] and v,
+            60,
+            2,
+            "the required field count to be set again",
+        )
+        open_ids = {v["field_id"] for v in view["values"] if v["origin"] == "open"}
+        ratio = view["completion"]["threshold_pct"] / 100
+        target = math.ceil(ratio * view["required_fields"])
+        answers = [
+            {"question_id": g["id"], "value": f"{OWNER_TEXT}: {g['label']}"}
+            for g in view["gaps"]
+            if not g["answered"] and g["field_id"] in open_ids
+        ]
+        answers = answers[: max(target - view["completion"]["filled"], 0)][:50]
+        if not answers:
+            break
+        response = po.post(_case("/intake/answers"), {"answers": answers})
+        if response.status_code == 200:
+            view = po.json(response)
+            break
+        assert response.status_code == 404, response.text
+        time.sleep(4)
+    else:
+        raise AssertionError("the intake questions kept changing under the answers")
     # What the agents did not ask about, the owner states on the review tab.
     for value in list(view["values"]):
         if view["completion"]["filled"] >= target:
@@ -666,9 +707,29 @@ def test_scene_11_the_owner_answers_with_a_document_and_v2_reruns_the_changed_fi
 # -- scenes 12-15: the analyst's review, the override, the narrative, the lock
 
 
+def _resolve_the_owners_answers(analyst: Persona, po: Persona, demo: DemoState) -> None:
+    """D-129: the clarification round ends when the analyst has resolved the owner's
+    answers and the re-run on them has landed. The owner's answer alone leaves the case
+    at "awaiting your answer", where decisions on items are refused (409 wrong_stage).
+    """
+    for thread in demo.facts["threads"]:
+        analyst.json(analyst.post(_case(f"/clarifications/{thread}/resolve"), {}))
+    wait_until(
+        lambda: po.json(po.get(_case()))["stage"] != "awaiting_your_answer",
+        120,
+        3,
+        "the case to leave clarification for review once the answers are resolved",
+    )
+
+
 def test_scene_12_clauses_are_accepted_one_call_each_and_a_search_can_record_a_gap(
-    analyst: Persona, chain: Chain, demo: DemoState, demo_log: DemoLog
+    po: Persona,
+    analyst: Persona,
+    chain: Chain,
+    demo: DemoState,
+    demo_log: DemoLog,
 ) -> None:
+    _resolve_the_owners_answers(analyst, po, demo)
     clauses = analyst.json(analyst.get(_case("/policy")))["clauses"]
     assert clauses, "research proposed no clause"
     two = [{"decision": "accept"}, {"decision": "accept"}]

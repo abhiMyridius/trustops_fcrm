@@ -31,7 +31,7 @@ interface KbResult {
   unreached: string[];
 }
 interface KbWindow {
-  __kb: { step: () => void; finish: () => KbResult; count: () => number };
+  __kb: { step: () => void; finish: () => Promise<KbResult>; count: () => number };
 }
 
 async function tabThrough(page: Page): Promise<KbResult> {
@@ -89,10 +89,13 @@ async function tabThrough(page: Page): Promise<KbResult> {
         state.stops.push({ tag: el.tagName.toLowerCase(), name: nameOf(el), outline: hasOutline(el), focused: styleOf(el), indicator: null, same: state.prev === el, el });
         state.prev = el;
       },
-      finish: () => {
+      finish: async () => {
         const last = state.stops[state.stops.length - 1];
         if (last?.el && last.indicator === null) {
           last.el.blur();
+          // Buttons ease their box-shadow over 150 ms: judge the look once it has settled, or the focused and
+          // the blurred look are still the same value and the last stop wrongly reads "no visible focus".
+          await new Promise((resolve) => setTimeout(resolve, 250));
           finalize(last);
         }
         const all = focusables();

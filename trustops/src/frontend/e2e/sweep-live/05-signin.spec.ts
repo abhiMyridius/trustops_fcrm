@@ -77,6 +77,8 @@ for (const role of ROLE_KEYS) {
         await page.getByRole('menuitem', { name: role === 'committee' ? /Switch user/ : /^Sign out$/ }).click();
       }
       await page.waitForURL(/\/login/, { timeout: 10_000 });
+      // The address changes before the page is drawn: read the text only once the sign-in heading is there.
+      await page.getByRole('heading', { name: 'Sign in to TrustOps' }).waitFor({ state: 'visible', timeout: 10_000 }).catch(() => undefined);
       const out = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
       await page.goto(info.homePath);
       await page.waitForURL(/\/login/, { timeout: 10_000 }).catch(() => undefined);

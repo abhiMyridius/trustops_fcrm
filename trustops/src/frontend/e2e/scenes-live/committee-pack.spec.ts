@@ -1,6 +1,6 @@
 /**
- * Live: a committee member opens a pack still waiting for votes and the page says the votes are hidden
- * until all three are in, counting how many are; nothing on it shows a peer's choice. The seed holds
+ * Live: a committee member opens a pack still waiting for votes; the page counts the votes in and each card shows
+ * only voted or not voted, never a peer's choice. The seed holds
  * two cases at the decision (FCRM-2026-0138, FCRM-2026-0145); the demo case is already decided.
  */
 import { expect, test } from '@playwright/test';
@@ -19,6 +19,10 @@ test('an open pack shows its votes as hidden until all three are cast', async ({
 
   await page.getByRole('tab', { name: /vote/i }).click();
   await expect(page).toHaveURL(/\/vote$/);
-  await expect(page.getByText(/hidden until all are in/i)).toBeVisible();
   await expect(page.getByText(/\d of 3 votes in/)).toBeVisible();
+  // Votes stay hidden until all three are in: each member's card says only that they have or have not
+  // voted, never what they chose (the choices appear after the reveal).
+  const cards = page.getByRole('article', { name: /^Vote of / });
+  await expect(cards).toHaveCount(3);
+  await expect(cards.filter({ hasText: /Not yet voted|Voted · hidden/ })).toHaveCount(3);
 });

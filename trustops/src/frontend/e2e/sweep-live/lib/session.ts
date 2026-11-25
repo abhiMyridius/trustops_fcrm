@@ -21,7 +21,7 @@ export interface RoleInfo {
 }
 
 export const ROLES: Record<RoleKey, RoleInfo> = {
-  po: { key: 'po', person: 'Priya Nair', username: 'pnair', home: /\/$/, homePath: '/' },
+  po: { key: 'po', person: 'Priya Nair', username: 'pnair', home: /\/po\/?$/, homePath: '/po' },
   analyst: { key: 'analyst', person: 'Rahul Iyer', username: 'riyer', home: /\/analyst\/?$/, homePath: '/analyst' },
   committee: { key: 'committee', person: 'Ana Mendes', username: 'amendes', home: /\/committee\/?$/, homePath: '/committee' },
   observer: { key: 'observer', person: 'Panel Observer', username: 'observer', home: /\/monitor\/FCRM-2026-0151$/, homePath: '/monitor/FCRM-2026-0151' },
