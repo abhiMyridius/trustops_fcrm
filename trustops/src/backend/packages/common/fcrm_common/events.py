@@ -348,7 +348,8 @@ async def _park(
     """Republish to ``exchange`` then ack, or nack-requeue if that fails."""
     try:
         await _republish(publisher, exchange, queue, body, headers, attempt, error)
-    except Exception:  # noqa: BLE001 - broker down: requeue, never drop
+    # broker down: requeue, never drop
+    except Exception:  # noqa: BLE001
         logger.exception("could not publish to %s for %s; requeueing", exchange, queue)
         await nack(True)
         return Disposition.REQUEUED

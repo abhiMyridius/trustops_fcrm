@@ -132,7 +132,7 @@ async def _issue_tokens(
     )
 
 
-@router.post("/login", response_model=LoginResponse, response_model_exclude_none=True)
+@router.post("/login", response_model_exclude_none=True)
 async def login(
     body: LoginRequest,
     response: Response,
@@ -166,7 +166,7 @@ async def login(
     return await _issue_tokens(store, issuer, settings, response, user=user)
 
 
-@router.post("/refresh", response_model=LoginResponse, response_model_exclude_none=True)
+@router.post("/refresh", response_model_exclude_none=True)
 async def refresh(
     request: Request,
     response: Response,
@@ -243,7 +243,7 @@ async def _own_profile(principal: Principal, store: IdentityStore) -> PrincipalO
     return principal_out(user)
 
 
-@router.get("/me", response_model=PrincipalOut, response_model_exclude_none=True)
+@router.get("/me", response_model_exclude_none=True)
 async def me(
     principal: Annotated[Principal, Depends(current_user)],
     _authorized: Annotated[Principal, Depends(opa_dependency("identity"))],
@@ -253,7 +253,7 @@ async def me(
     return await _own_profile(principal, store)
 
 
-@router.get("/users/me", response_model=PrincipalOut, response_model_exclude_none=True)
+@router.get("/users/me", response_model_exclude_none=True)
 async def users_me(
     principal: Annotated[Principal, Depends(current_user)],
     _authorized: Annotated[Principal, Depends(opa_dependency("identity"))],
@@ -263,7 +263,7 @@ async def users_me(
     return await _own_profile(principal, store)
 
 
-@router.get("/users", response_model=list[RosterUser], response_model_exclude_none=True)
+@router.get("/users", response_model_exclude_none=True)
 async def users(
     role: Role,
     _principal: Annotated[Principal, Depends(current_user)],
@@ -280,7 +280,6 @@ async def users(
 
 @router.get(
     "/demo-users",
-    response_model=list[DemoUserGroup],
     response_model_exclude_none=True,
 )
 async def demo_users(
@@ -302,7 +301,7 @@ async def demo_users(
     return demo_groups(await store.list_users())
 
 
-@router.post("/core/validate", response_model=ValidateResponse)
+@router.post("/core/validate")
 async def core_validate(
     principal: Annotated[Principal, Depends(current_user)],
 ) -> ValidateResponse:
@@ -317,7 +316,7 @@ async def core_validate(
     )
 
 
-@router.get("/core/userinfo", response_model=ValidateResponse)
+@router.get("/core/userinfo")
 async def core_userinfo(
     principal: Annotated[Principal, Depends(current_user)],
 ) -> ValidateResponse:

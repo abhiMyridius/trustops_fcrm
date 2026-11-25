@@ -400,7 +400,7 @@ class ExaminerService:
                     envelope,
                 )
         except BROKER_ERRORS as exc:
-            logger.error(
+            logger.exception(
                 "examiner.asked could not be published",
                 extra={
                     "case_id": row.case_id,

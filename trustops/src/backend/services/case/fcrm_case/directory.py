@@ -111,7 +111,7 @@ class HttpIdentityDirectory:
         try:
             return _ROSTER.validate_python(body)
         except PydanticValidationError as exc:
-            logger.error(
+            logger.exception(
                 "identity roster has an unexpected shape",
                 extra={"dependency": "identity", "errors": exc.error_count()},
             )

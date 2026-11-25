@@ -95,12 +95,12 @@ SearchBody = Annotated[
 ]
 
 
-@router.post("/search", response_model=Union[SearchResponse, PolicySearchResultOut])
+@router.post("/search")
 async def search(
     body: SearchBody,
     request: Request,
     principal: Annotated[Principal, Depends(require_roles(*SEARCH_ROLES))],
-    service: SearchService = Depends(get_search_service),
+    service: Annotated[SearchService, Depends(get_search_service)],
 ) -> Union[SearchResponse, PolicySearchResultOut]:
     """Hybrid search over one of the three indexes (``policy_clauses``,
     ``precedent_cases``, ``controls``): rank fusion of a keyword ranking
@@ -117,11 +117,11 @@ async def search(
     return await service.search(body)
 
 
-@router.get("/jurisdictions", response_model=JurisdictionListOut)
+@router.get("/jurisdictions")
 async def get_jurisdictions(
     _principal: Annotated[Principal, Depends(require_roles(*REFERENCE_ROLES))],
+    store: Annotated[ReferenceStore, Depends(get_reference_store)],
     version: Optional[str] = None,
-    store: ReferenceStore = Depends(get_reference_store),
 ) -> JurisdictionListOut:
     """One jurisdiction list: ``version`` is a version id (``v2026-06``),
     ``latest``/``current`` or none for the active list, or ``fixture`` for the
@@ -133,21 +133,21 @@ async def get_jurisdictions(
     return listing
 
 
-@router.get("/jurisdictions/versions", response_model=Page[JurisdictionVersionOut])
+@router.get("/jurisdictions/versions")
 async def list_jurisdiction_versions(
     _principal: Annotated[Principal, Depends(require_roles(*REFERENCE_ROLES))],
-    store: ReferenceStore = Depends(get_reference_store),
+    store: Annotated[ReferenceStore, Depends(get_reference_store)],
 ) -> Page[JurisdictionVersionOut]:
     """Every stored jurisdiction list version, the active one flagged."""
     items = await store.jurisdiction_versions()
     return Page(items=items, next_cursor=None, total=len(items))
 
 
-@router.get("/field-sets/{version}", response_model=FieldSetOut)
+@router.get("/field-sets/{version}")
 async def get_field_set(
     version: str,
     _principal: Annotated[Principal, Depends(require_roles(*REFERENCE_ROLES))],
-    store: ReferenceStore = Depends(get_reference_store),
+    store: Annotated[ReferenceStore, Depends(get_reference_store)],
 ) -> FieldSetOut:
     """One field-set version (``v6`` or ``6``; ``latest`` is the active one)."""
     field_set = await store.field_set(version)
@@ -156,14 +156,14 @@ async def get_field_set(
     return field_set
 
 
-@router.get("/field-sets/{version}/resolve", response_model=ResolvedFieldSetOut)
+@router.get("/field-sets/{version}/resolve")
 async def resolve_field_set(
     version: str,
     _principal: Annotated[Principal, Depends(require_roles(*REFERENCE_ROLES))],
+    store: Annotated[ReferenceStore, Depends(get_reference_store)],
     change_types: Annotated[
         Optional[str], Query(description="Comma-separated change types.")
     ] = None,
-    store: ReferenceStore = Depends(get_reference_store),
 ) -> ResolvedFieldSetOut:
     """The fields a case with ``change_types`` must fill at this field-set
     version: always-required first, then each type's own fields in the order
@@ -175,12 +175,12 @@ async def resolve_field_set(
     return resolve_fields(field_set, parse_change_types(change_types))
 
 
-@router.get("/controls", response_model=ControlInventoryOut)
+@router.get("/controls")
 async def get_controls(
     _principal: Annotated[Principal, Depends(require_roles(*REFERENCE_ROLES))],
+    store: Annotated[ReferenceStore, Depends(get_reference_store)],
     version: Optional[str] = None,
     domain: Optional[Domain] = None,
-    store: ReferenceStore = Depends(get_reference_store),
 ) -> ControlInventoryOut:
     """One control-inventory version (``v9`` or ``9``; the active one when
     omitted), optionally only the controls of one risk ``domain``.
@@ -193,10 +193,10 @@ async def get_controls(
     return inventory
 
 
-@router.get("/controls/versions", response_model=Page[ControlVersionOut])
+@router.get("/controls/versions")
 async def list_control_versions(
     _principal: Annotated[Principal, Depends(require_roles(*REFERENCE_ROLES))],
-    store: ReferenceStore = Depends(get_reference_store),
+    store: Annotated[ReferenceStore, Depends(get_reference_store)],
 ) -> Page[ControlVersionOut]:
     """Every stored control-inventory version, the active one flagged."""
     items = await store.control_versions()
@@ -205,12 +205,11 @@ async def list_control_versions(
 
 @router.post(
     "/jurisdictions/versions/{version}/activate",
-    response_model=JurisdictionActivateOut,
 )
 async def activate_jurisdiction_version(
     version: str,
     principal: Annotated[Principal, Depends(require_roles(Role.ANALYST))],
-    store: ReferenceStore = Depends(get_reference_store),
+    store: Annotated[ReferenceStore, Depends(get_reference_store)],
 ) -> JurisdictionActivateOut:
     """Make a stored jurisdiction list the active one (the analyst only: the
     service account never decides this). The previous list is deactivated and

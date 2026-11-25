@@ -290,7 +290,7 @@ class ObjectStore:
                 raise
             raise mapped from error
         except (BotoConnectionError, HTTPClientError) as error:
-            logger.error(
+            logger.exception(
                 "object store unreachable",
                 extra={
                     "dependency": "s3",

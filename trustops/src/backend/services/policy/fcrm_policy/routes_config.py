@@ -67,7 +67,7 @@ def _actor(principal: Principal) -> str:
     return principal.name or principal.sub
 
 
-@router.get("/internal/config/pins", response_model=PinnedVersions)
+@router.get("/internal/config/pins")
 async def get_pins(
     _principal: Annotated[Principal, Depends(require_roles(*PIN_ROLES))],
     service: Service,
@@ -79,7 +79,7 @@ async def get_pins(
     return await service.pinned_versions()
 
 
-@router.get("/config/{section}", response_model=ConfigSection)
+@router.get("/config/{section}")
 async def get_config(
     section: str, _principal: Analyst, service: Service
 ) -> ConfigSection:
@@ -89,7 +89,7 @@ async def get_config(
     return await service.read(section)
 
 
-@router.put("/config/{section}/draft", response_model=ConfigSection)
+@router.put("/config/{section}/draft")
 async def put_draft(
     section: str,
     body: ConfigDraftIn,
@@ -111,7 +111,7 @@ async def put_draft(
     )
 
 
-@router.delete("/config/{section}/draft", response_model=ConfigSection)
+@router.delete("/config/{section}/draft")
 async def delete_draft(
     section: str,
     principal: Analyst,
@@ -124,7 +124,7 @@ async def delete_draft(
     )
 
 
-@router.post("/config/{section}/draft/preview", response_model=ImpactPreview)
+@router.post("/config/{section}/draft/preview")
 async def preview_draft(
     section: str, _principal: Analyst, service: Service
 ) -> ImpactPreview:
@@ -134,7 +134,7 @@ async def preview_draft(
     return await service.preview(section)
 
 
-@router.post("/config/{section}/draft/publish", response_model=ConfigSection)
+@router.post("/config/{section}/draft/publish")
 async def publish_draft(
     section: str,
     body: ConfigPublishIn,

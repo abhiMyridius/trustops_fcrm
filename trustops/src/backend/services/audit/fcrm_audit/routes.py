@@ -118,7 +118,6 @@ def to_row(record: AuditRecord) -> AuditRecordRow:
 
 @router.post(
     "/records",
-    response_model=AuditRecord,
     status_code=201,
     responses={
         200: {
@@ -132,8 +131,8 @@ async def append_record(
     body: RecordAppend,
     response: Response,
     _principal: Annotated[Principal, Depends(require_roles(*_APPEND_ROLES))],
+    store: Annotated[AuditStore, Depends(get_store)],
     idempotency_key: IdempotencyKeyHeader = None,
-    store: AuditStore = Depends(get_store),
 ) -> AuditRecord:
     """Append one record to ``body.case_id``'s chain. The only chain write
     route S4 exposes (design A §2.4; ``docs/governance/audit-chain.md``).
@@ -150,7 +149,6 @@ async def append_record(
 
 @router.post(
     "/proposals",
-    response_model=Proposal,
     status_code=201,
     responses={
         200: {
@@ -167,8 +165,8 @@ async def append_proposal(
     body: ProposalAppend,
     response: Response,
     _principal: Annotated[Principal, Depends(require_roles(*_APPEND_ROLES))],
+    store: Annotated[AuditStore, Depends(get_store)],
     idempotency_key: IdempotencyKeyHeader = None,
-    store: AuditStore = Depends(get_store),
 ) -> Proposal:
     """Append one validated agent output to the case's evidence ledger. The
     ledger is append-only: a later version of a proposal is a new entry whose
@@ -183,16 +181,16 @@ async def append_proposal(
     return stored.value
 
 
-@router.get("/proposals", response_model=Page[Proposal])
+@router.get("/proposals")
 async def list_proposals(
     _principal: Annotated[Principal, Depends(require_roles(*_READ_ROLES))],
     case_id: Annotated[str, Query(min_length=1)],
+    store: Annotated[AuditStore, Depends(get_store)],
     run_id: Optional[str] = None,
     agent: Optional[str] = None,
     kind: Optional[str] = None,
     cursor: Optional[str] = None,
-    limit: int = Query(default=DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
-    store: AuditStore = Depends(get_store),
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE_LIMIT)] = DEFAULT_PAGE_LIMIT,
 ) -> Page[Proposal]:
     """One page of ``case_id``'s proposals in ``seq`` order, optionally for
     one run, one agent and one kind.
@@ -202,11 +200,11 @@ async def list_proposals(
     )
 
 
-@router.get("/head/{case_id}", response_model=ChainHead)
+@router.get("/head/{case_id}")
 async def chain_head(
     case_id: str,
     _principal: Annotated[Principal, Depends(require_roles(*_READ_ROLES))],
-    store: AuditStore = Depends(get_store),
+    store: Annotated[AuditStore, Depends(get_store)],
 ) -> ChainHead:
     """The last ``seq`` and hash of ``case_id``'s chain (``seq=0`` and the
     genesis hash for a case with no records): what a pack records so it can
@@ -215,11 +213,11 @@ async def chain_head(
     return await store.head(case_id)
 
 
-@router.get("/verify/{case_id}", response_model=VerifyResult)
+@router.get("/verify/{case_id}")
 async def verify_case(
     case_id: str,
     _principal: Annotated[Principal, Depends(require_roles(*_READ_ROLES))],
-    store: AuditStore = Depends(get_store),
+    store: Annotated[AuditStore, Depends(get_store)],
 ) -> VerifyResult:
     """Recompute ``case_id``'s whole chain and report whether it is
     intact, and the first broken ``seq`` if not (``fcrm_audit.chain.
@@ -229,13 +227,13 @@ async def verify_case(
     return await store.verify(case_id)
 
 
-@router.get("/records", response_model=Page[AuditRecordRow])
+@router.get("/records")
 async def list_record_rows(
     _principal: Annotated[Principal, Depends(require_roles(*_READ_ROLES))],
     case_id: Annotated[str, Query(min_length=1)],
+    store: Annotated[AuditStore, Depends(get_store)],
     cursor: Optional[str] = None,
-    limit: int = Query(default=DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
-    store: AuditStore = Depends(get_store),
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE_LIMIT)] = DEFAULT_PAGE_LIMIT,
 ) -> Page[AuditRecordRow]:
     """One page of ``case_id``'s chain in the web's row shape (web path
     ``audit/records?case_id=``), in ``seq`` order, oldest first.
@@ -248,13 +246,13 @@ async def list_record_rows(
     )
 
 
-@router.get("/records/{case_id}", response_model=Page[AuditRecord])
+@router.get("/records/{case_id}")
 async def list_records(
     case_id: str,
     _principal: Annotated[Principal, Depends(require_roles(*_READ_ROLES))],
+    store: Annotated[AuditStore, Depends(get_store)],
     cursor: Optional[str] = None,
-    limit: int = Query(default=DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
-    store: AuditStore = Depends(get_store),
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE_LIMIT)] = DEFAULT_PAGE_LIMIT,
 ) -> Page[AuditRecord]:
     """One page of ``case_id``'s chain, in ``seq`` order, oldest first."""
     return await store.records_for_case(case_id, cursor=cursor, limit=limit)

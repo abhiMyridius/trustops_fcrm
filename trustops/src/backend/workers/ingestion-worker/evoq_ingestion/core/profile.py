@@ -179,7 +179,8 @@ class _TextQualityStats:
                 len(_NON_PRINTABLE_RE.findall(text)) / char_count if char_count else 0.0
             ),
             language=language,
-            body_prefix_sha1=hashlib.sha1(  # noqa: S324 - fingerprint, not security
+            # fingerprint, not security
+            body_prefix_sha1=hashlib.sha1(  # noqa: S324
                 text[:256].encode("utf-8", "replace"), usedforsecurity=False
             ).hexdigest(),
         )

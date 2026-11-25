@@ -36,7 +36,7 @@ router = APIRouter()
 Service = Annotated[Principal, Depends(require_roles(*SERVICE_ROLES))]
 
 
-@router.post("/packs/{pack_id}/supersede", response_model=SupersedeResult)
+@router.post("/packs/{pack_id}/supersede")
 async def supersede(
     pack_id: str,
     body: SupersedeRequest,
@@ -58,7 +58,7 @@ async def supersede(
     )
 
 
-@router.post("/packs/{pack_id}/revote", response_model=RevoteResult)
+@router.post("/packs/{pack_id}/revote")
 async def revote(
     pack_id: str,
     body: RevoteRequest,
@@ -79,7 +79,7 @@ async def revote(
     )
 
 
-@router.post("/outcomes", response_model=CaseOutcome)
+@router.post("/outcomes")
 async def outcomes(
     body: OutcomeRecord,
     _principal: Service,

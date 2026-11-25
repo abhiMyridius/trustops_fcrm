@@ -234,7 +234,7 @@ class HttpScoringPublisher:
         try:
             return PublishedVersionOut.model_validate(answer).version
         except ValidationError as exc:
-            logger.error(
+            logger.exception(
                 "S2 answered a publish with a body that breaks its contract",
                 extra={"path": path, "errors_count": exc.error_count()},
             )

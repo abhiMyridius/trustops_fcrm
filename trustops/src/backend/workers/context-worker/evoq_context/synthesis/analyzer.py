@@ -114,7 +114,8 @@ class RunningAnalysisState:
     intent_alignment: dict[str, Any] = field(default_factory=dict)
     recommended_actions: list[dict[str, Any]] = field(default_factory=list)
 
-    def __getitem__(self, key: str) -> Any:  # noqa: ANN401 - dict-protocol shim, value type varies by field
+    # dict-protocol shim, value type varies by field
+    def __getitem__(self, key: str) -> Any:  # noqa: ANN401
         """Dict-style read: ``state["goals"]`` == ``state.goals``."""
         return getattr(self, key)
 

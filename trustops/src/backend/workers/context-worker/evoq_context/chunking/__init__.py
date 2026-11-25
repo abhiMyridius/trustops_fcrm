@@ -49,6 +49,7 @@ def __getattr__(name: str) -> object:  # noqa: ANN401 - PEP 562 lazy module attr
     attr = _LAZY.get(name)
     if attr is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    from evoq_context.chunking import pipeline  # noqa: PLC0415 - deliberate, breaks the cycle
+    # deliberate, breaks the cycle
+    from evoq_context.chunking import pipeline  # noqa: PLC0415
 
     return getattr(pipeline, attr)

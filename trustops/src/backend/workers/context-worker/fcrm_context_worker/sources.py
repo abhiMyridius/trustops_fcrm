@@ -101,7 +101,7 @@ class PolicyRecordSource:
         try:
             return model.model_validate(payload)
         except PydanticValidationError as exc:
-            logger.error(
+            logger.exception(
                 "S3 answered with an unexpected shape",
                 extra={"path": path, "errors": exc.error_count()},
             )

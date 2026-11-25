@@ -36,7 +36,7 @@ async def list_reflags(
     _principal: Analyst,
     reflags: Annotated[ReflagStore, Depends(get_reflags)],
     cursor: Optional[str] = None,
-    limit: int = Query(default=DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE_LIMIT)] = DEFAULT_PAGE_LIMIT,
 ) -> Page[ReflagOut]:
     """The watchlist re-flags, newest first, acknowledged ones included."""
     return await reflags.list_page(cursor=cursor, limit=limit)

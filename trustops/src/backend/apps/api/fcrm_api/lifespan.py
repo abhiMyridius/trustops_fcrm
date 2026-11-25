@@ -73,7 +73,7 @@ async def start_broker(broker: RabbitBroker) -> None:
             return
         except (OSError, TimeoutError, AMQPException) as exc:
             if monotonic() + BROKER_RETRY_S >= deadline:
-                logger.error(
+                logger.exception(
                     "rabbitmq unreachable at startup",
                     extra={
                         "dependency": "rabbitmq",

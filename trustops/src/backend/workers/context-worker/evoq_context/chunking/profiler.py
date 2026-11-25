@@ -484,7 +484,8 @@ def compute_profile(
     non_printable_ratio = (
         round(len(_NON_PRINTABLE_RE.findall(text)) / char_count, 5) if char_count else 0.0
     )
-    body_prefix_sha1 = hashlib.sha1(  # noqa: S324 - fingerprint, not security
+    # fingerprint, not security
+    body_prefix_sha1 = hashlib.sha1(  # noqa: S324
         text[:256].encode("utf-8", "replace"), usedforsecurity=False
     ).hexdigest()
 

@@ -103,10 +103,9 @@ class VectorFixtureReloader:
                 decode_fixture, data, dimension=self._config.embedding_dimension
             )
         except FixtureError:
-            logger.error(
+            logger.exception(
                 "vector fixture rejected; the previous index keeps serving",
                 extra={"index": event.index, "fixture_key": event.fixture_key},
-                exc_info=True,
             )
             return None
         fresh = create_vector_store(self._config, FCRM_PROJECT)

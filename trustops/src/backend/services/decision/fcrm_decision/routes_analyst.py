@@ -43,7 +43,7 @@ Analyst = Annotated[Principal, Depends(require_roles(*ANALYST_ROLES))]
 Builder = Annotated[Principal, Depends(require_roles(*BUILD_ROLES))]
 
 
-@router.post("/packs", response_model=PackView)
+@router.post("/packs")
 async def build_or_latest_pack(
     body: PackBuild,
     response: Response,
@@ -87,7 +87,7 @@ async def build_or_latest_pack(
     return pack_view(row, await store.addenda(row.pack_id))
 
 
-@router.post("/packs/{pack_id}/release", response_model=PackView)
+@router.post("/packs/{pack_id}/release")
 async def release(
     pack_id: str, _principal: Analyst, store: StoreDep, directory: DirectoryDep
 ) -> PackView:
@@ -101,7 +101,7 @@ async def release(
     return pack_view(pack, await store.addenda(pack_id))
 
 
-@router.post("/threads/{thread_id}/answer", response_model=CommitteeThread)
+@router.post("/threads/{thread_id}/answer")
 async def answer(
     thread_id: str, body: ThreadAnswerIn, principal: Analyst, store: StoreDep
 ) -> CommitteeThread:

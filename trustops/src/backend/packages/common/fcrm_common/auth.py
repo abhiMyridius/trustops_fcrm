@@ -202,7 +202,7 @@ class JwksCache:
                         },
                     )
                     return
-                logger.error(
+                logger.exception(
                     "jwks unavailable",
                     extra={
                         "dependency": "identity",

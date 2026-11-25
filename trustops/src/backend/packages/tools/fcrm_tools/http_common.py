@@ -122,7 +122,7 @@ def validated[M: BaseModel](
     try:
         return model.model_validate(payload)
     except PydanticValidationError as exc:
-        logger.error(
+        logger.exception(
             "peer answered with an unexpected shape",
             extra={"tool": tool, "dependency": dependency, "errors": exc.error_count()},
         )

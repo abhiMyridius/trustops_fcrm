@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["policy-internal"])
 
 
-@router.get("/internal/clauses", response_model=Page[ClauseDetailOut])
+@router.get("/internal/clauses")
 async def internal_clauses(
     _principal: Annotated[Principal, Depends(require_roles(*INTERNAL_ROLES))],
     clauses: Annotated[ClauseStore, Depends(get_clause_store)],
@@ -61,7 +61,7 @@ async def internal_clauses(
     return page
 
 
-@router.get("/internal/precedents", response_model=Page[PrecedentIndexRecord])
+@router.get("/internal/precedents")
 async def internal_precedents(
     _principal: Annotated[Principal, Depends(require_roles(*INTERNAL_ROLES))],
     precedents: Annotated[PrecedentStore, Depends(get_precedent_store)],
@@ -74,7 +74,7 @@ async def internal_precedents(
     return await precedents.page(cursor=cursor, limit=limit)
 
 
-@router.post("/internal/precedents", response_model=PrecedentRecordOut)
+@router.post("/internal/precedents")
 async def record_precedent(
     body: PrecedentRecordIn,
     response: Response,

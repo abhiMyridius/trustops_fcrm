@@ -72,7 +72,7 @@ async def run_policy_search(
     )
 
 
-@router.post("/policy/search", response_model=PolicySearchResultOut)
+@router.post("/policy/search")
 async def policy_search(
     body: PolicySearchWebRequest,
     principal: Annotated[Principal, Depends(require_roles(*ANALYST_SEARCH_ROLES))],
@@ -86,7 +86,7 @@ async def policy_search(
     return await run_policy_search(body, principal, service, clauses)
 
 
-@router.get("/clauses/{clause_id}", response_model=ClauseDetailOut)
+@router.get("/clauses/{clause_id}")
 async def get_clause(
     clause_id: str,
     _principal: Annotated[Principal, Depends(require_roles(*REFERENCE_ROLES))],
@@ -103,7 +103,7 @@ async def get_clause(
     return clause
 
 
-@router.get("/sources/{source_id}/clauses", response_model=Page[ClauseDetailOut])
+@router.get("/sources/{source_id}/clauses")
 async def source_clauses(
     source_id: str,
     _principal: Annotated[Principal, Depends(require_roles(*ANALYST_SEARCH_ROLES))],
@@ -127,7 +127,7 @@ async def source_clauses(
     return page
 
 
-@router.post("/precedents/search", response_model=PrecedentSearchResponse)
+@router.post("/precedents/search")
 async def search_precedents(
     body: PrecedentSearchRequest,
     _principal: Annotated[Principal, Depends(require_roles(*ANALYST_SEARCH_ROLES))],

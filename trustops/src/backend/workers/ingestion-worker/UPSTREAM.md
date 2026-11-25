@@ -78,6 +78,8 @@ Edited to remove every reference:
 ### SonarQube fixes (25 Nov 2026, ADR-90)
 Correctness fixes only; structural smells stay as upstream wrote them.
 - `core/profile.py`: `hashlib.sha1(..., usedforsecurity=False)` for `body_prefix_sha1`; the digest is unchanged and a test pins it.
+- `# noqa: CODE - reason` comments (Sonar S7632 cannot parse the tail): the reason moved to a comment line above and the `noqa` is bare (`core/profile.py`, `core/utils.py`, `extractors/pptx_extractor.py`). `core/orchestrator.py` logs a failed source with `logger.exception`.
+
 ## After
 
 `uv run --project ../.. --package fcrm-ingestion-worker pytest ../../../tests/unit/workers/ingestion-worker`

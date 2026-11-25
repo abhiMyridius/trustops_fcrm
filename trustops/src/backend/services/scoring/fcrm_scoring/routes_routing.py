@@ -61,7 +61,7 @@ def get_publish_store(request: Request) -> PublishStore:
     return store
 
 
-@router.get("/routing-rules/{version}", response_model=RoutingRulesOut)
+@router.get("/routing-rules/{version}")
 async def routing_rules_by_version(
     version: str,
     _principal: Annotated[Principal, Depends(require_roles(*READ_ROLES))],
@@ -80,7 +80,7 @@ async def routing_rules_by_version(
     return routing_out(found)
 
 
-@router.post("/internal/models", response_model=PublishedVersionOut)
+@router.post("/internal/models")
 async def publish_model(
     body: ScoringModelPublishIn,
     principal: Annotated[Principal, Depends(require_roles(*PUBLISH_ROLES))],
@@ -104,7 +104,7 @@ async def publish_model(
     return PublishedVersionOut(version=version, created=created)
 
 
-@router.post("/internal/routing-rules", response_model=PublishedVersionOut)
+@router.post("/internal/routing-rules")
 async def publish_routing(
     body: RoutingRulesPublishIn,
     principal: Annotated[Principal, Depends(require_roles(*PUBLISH_ROLES))],

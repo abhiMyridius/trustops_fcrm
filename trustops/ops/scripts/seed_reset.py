@@ -262,7 +262,8 @@ def run_step(
     """
     logger.info("%s", description)
     try:
-        done = subprocess.run(  # noqa: S603 - argv built here, no shell on the host
+        # argv built here, no shell on the host
+        done = subprocess.run(  # noqa: S603
             list(command),
             input=stdin,
             capture_output=True,

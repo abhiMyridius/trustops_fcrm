@@ -192,7 +192,8 @@ def _chart_note(shape: BaseShape) -> Note:
     try:
         if chart.plots:
             series_names = [s.name for s in chart.plots[0].series if s.name]
-    except Exception:  # noqa: BLE001 - best-effort summary, never fails the slide
+    # best-effort summary, never fails the slide
+    except Exception:  # noqa: BLE001
         series_names = []
     text = f"{title}: " + ", ".join(series_names) if series_names else title
     return Note(kind=NoteKind.chart, text=text)

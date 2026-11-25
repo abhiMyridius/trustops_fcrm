@@ -187,7 +187,7 @@ class OPAClient:
                     attempt += 1
                     await asyncio.sleep(0.1)
                     continue
-                logger.error(
+                logger.exception(
                     "opa unreachable; failing closed",
                     extra={"dependency": "opa", "error": {"type": type(exc).__name__}},
                 )

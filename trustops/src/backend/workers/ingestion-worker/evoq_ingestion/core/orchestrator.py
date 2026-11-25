@@ -141,7 +141,7 @@ class IngestionOrchestrator:
             return source_name, None
         except Exception as exc:  # noqa: BLE001 - per-source isolation boundary
             duration_ms = int((time.monotonic() - t0) * 1000)
-            logger.error("Source %s failed: %s", source_name, exc)
+            logger.exception("Source %s failed: %s", source_name, exc)
             error_type = type(exc).__name__
             errors.append({"source": source_name, "error": str(exc), "error_type": error_type})
             observer.on_source_end(source_name, duration_ms, 0, (str(exc),))

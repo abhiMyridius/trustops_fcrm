@@ -98,7 +98,8 @@ async def build_result(
         store_info: dict[str, Any] = {}
         try:
             store_info = await vector_store.describe()
-        except Exception:  # noqa: BLE001 - describe() is diagnostic only, never fatal here
+        # describe() is diagnostic only, never fatal here
+        except Exception:  # noqa: BLE001
             store_info = {}
         context_location["vector_backend"] = str(store_info.get("backend", config.vector_backend))
         context_location["vector_store"] = str(store_info.get("store", ""))

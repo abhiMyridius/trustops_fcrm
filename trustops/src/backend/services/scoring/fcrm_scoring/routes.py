@@ -79,12 +79,12 @@ def get_case_inputs(request: Request) -> CaseInputs:
     return inputs
 
 
-@router.post("/simulate", response_model=SimulateResponse)
+@router.post("/simulate")
 async def simulate_rating(
     body: SimulateRequest,
     _principal: Annotated[Principal, Depends(require_roles(Role.ANALYST))],
-    store: ConfigStore = Depends(get_store),
-    cases: CaseInputs = Depends(get_case_inputs),
+    store: Annotated[ConfigStore, Depends(get_store)],
+    cases: Annotated[CaseInputs, Depends(get_case_inputs)],
 ) -> SimulateResponse:
     """What the case would score with one control at ``value``: both scores of
     the control's domain and of the composite, each with its band and boundary
@@ -97,11 +97,11 @@ async def simulate_rating(
     return simulate(view, body.control_id, body.value, model)
 
 
-@router.post("/score", response_model=ScoreResponse)
+@router.post("/score")
 async def score(
     body: ScoreRequest,
     _principal: Annotated[Principal, Depends(require_roles(*_SCORE_ROLES))],
-    store: ConfigStore = Depends(get_store),
+    store: Annotated[ConfigStore, Depends(get_store)],
 ) -> ScoreResponse:
     """Compute a composite score. Idempotent and pure given the same
     ``body`` and the active model matching ``body.scoring_v`` — called by
@@ -112,20 +112,20 @@ async def score(
     return compute_score(body, model)
 
 
-@router.get("/models/active", response_model=ScoringModelVersion)
+@router.get("/models/active")
 async def active_model(
     _principal: Annotated[Principal, Depends(require_roles(*_CONFIG_READ_ROLES))],
-    store: ConfigStore = Depends(get_store),
+    store: Annotated[ConfigStore, Depends(get_store)],
 ) -> ScoringModelVersion:
     """The scoring model version currently active for new scoring calls."""
     return await store.active_model()
 
 
-@router.get("/models/{version}", response_model=ScoringModelVersion)
+@router.get("/models/{version}")
 async def model_by_version(
     version: int,
     _principal: Annotated[Principal, Depends(require_roles(*_CONFIG_READ_ROLES))],
-    store: ConfigStore = Depends(get_store),
+    store: Annotated[ConfigStore, Depends(get_store)],
 ) -> ScoringModelVersion:
     """A pinned scoring model version, for replaying an older case's
     score exactly (every case pins the version it was scored with).
@@ -133,10 +133,10 @@ async def model_by_version(
     return await _model_for(store, version)
 
 
-@router.get("/routing/active", response_model=RoutingRulesVersion)
+@router.get("/routing/active")
 async def active_routing(
     _principal: Annotated[Principal, Depends(require_roles(*_CONFIG_READ_ROLES))],
-    store: ConfigStore = Depends(get_store),
+    store: Annotated[ConfigStore, Depends(get_store)],
 ) -> RoutingRulesVersion:
     """The routing rules version currently active (R1-R6, D-19)."""
     return await store.active_routing()

@@ -68,7 +68,7 @@ Member = Annotated[Principal, Depends(require_roles(*COMMITTEE_ROLES))]
 Limit = Annotated[int, Query(ge=1, le=MAX_LIMIT)]
 
 
-@router.get("/committee/queue", response_model=Page[CommitteeQueueItem])
+@router.get("/committee/queue")
 async def committee_queue(
     principal: Member, store: StoreDep, limit: Limit = DEFAULT_LIMIT
 ) -> Page[CommitteeQueueItem]:
@@ -80,7 +80,7 @@ async def committee_queue(
     return Page(items=[queue_item(entry, principal.sub) for entry in entries])
 
 
-@router.get("/cases/{case_id}/packs/latest", response_model=PackView)
+@router.get("/cases/{case_id}/packs/latest")
 async def latest_pack(case_id: str, principal: Reader, store: StoreDep) -> PackView:
     """The case's newest pack. A committee member gets the newest *released* one;
     a pack not yet released is the analyst's alone.
@@ -91,7 +91,7 @@ async def latest_pack(case_id: str, principal: Reader, store: StoreDep) -> PackV
     return pack_view(pack, await store.addenda(pack.pack_id))
 
 
-@router.get("/cases/{case_id}/packs", response_model=Page[PackSummary])
+@router.get("/cases/{case_id}/packs")
 async def case_packs(
     case_id: str, principal: Reader, store: StoreDep, limit: Limit = DEFAULT_LIMIT
 ) -> Page[PackSummary]:
@@ -104,14 +104,14 @@ async def case_packs(
     return Page(items=[pack_summary(pack) for pack in packs])
 
 
-@router.get("/packs/{pack_id}", response_model=PackView)
+@router.get("/packs/{pack_id}")
 async def get_pack(pack_id: str, principal: Reader, store: StoreDep) -> PackView:
     """A pack by id, with its addenda."""
     pack = await visible_pack(store, principal, pack_id)
     return pack_view(pack, await store.addenda(pack_id))
 
 
-@router.get("/packs/{pack_id}/votes", response_model=VotesView)
+@router.get("/packs/{pack_id}/votes")
 async def votes(
     pack_id: str,
     principal: Reader,
@@ -143,7 +143,7 @@ async def votes(
     )
 
 
-@router.post("/packs/{pack_id}/votes", status_code=201, response_model=VoteReceipt)
+@router.post("/packs/{pack_id}/votes", status_code=201)
 async def cast(
     pack_id: str, body: VoteIn, principal: Member, store: StoreDep
 ) -> VoteReceipt:
@@ -167,7 +167,7 @@ async def cast(
     )
 
 
-@router.get("/packs/{pack_id}/outcome", response_model=OutcomeSet)
+@router.get("/packs/{pack_id}/outcome")
 async def pack_outcome(pack_id: str, principal: Reader, store: StoreDep) -> OutcomeSet:
     """The pack's latest round result.
 
@@ -182,7 +182,7 @@ async def pack_outcome(pack_id: str, principal: Reader, store: StoreDep) -> Outc
     return row.outcome
 
 
-@router.get("/packs/{pack_id}/threads", response_model=Page[CommitteeThread])
+@router.get("/packs/{pack_id}/threads")
 async def threads(
     pack_id: str, principal: Reader, store: StoreDep, limit: Limit = DEFAULT_LIMIT
 ) -> Page[CommitteeThread]:
@@ -194,9 +194,7 @@ async def threads(
     return Page(items=[thread_view(row) for row in rows])
 
 
-@router.post(
-    "/packs/{pack_id}/threads", status_code=201, response_model=CommitteeThread
-)
+@router.post("/packs/{pack_id}/threads", status_code=201)
 async def ask(
     pack_id: str, body: ThreadAsk, principal: Member, store: StoreDep
 ) -> CommitteeThread:
@@ -211,7 +209,7 @@ async def ask(
     return thread_view(thread)
 
 
-@router.get("/cases/{case_id}/outcome", response_model=CaseOutcome)
+@router.get("/cases/{case_id}/outcome")
 async def case_outcome(
     case_id: str, _principal: Reader, store: StoreDep
 ) -> CaseOutcome:

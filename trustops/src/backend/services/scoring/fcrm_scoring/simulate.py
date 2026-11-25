@@ -84,7 +84,7 @@ class HttpCaseInputs:
         try:
             return ScoreRequestView.model_validate(body)
         except ValidationError as exc:
-            logger.error(
+            logger.exception(
                 "S1 answered the score request with a body that breaks its contract",
                 extra={"case_id": case_id, "errors_count": exc.error_count()},
             )

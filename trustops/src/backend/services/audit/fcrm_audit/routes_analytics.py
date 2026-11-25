@@ -86,7 +86,7 @@ async def list_overrides(
     store: Annotated[AnalyticsStore, Depends(get_analytics)],
     agent: Annotated[Optional[str], Query(max_length=40)] = None,
     cursor: Optional[str] = None,
-    limit: int = Query(default=DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE_LIMIT)] = DEFAULT_PAGE_LIMIT,
 ) -> OverridesPage:
     """The analyst overrides, newest first, with how often each agent's
     proposals were replaced (``overridden`` of ``proposals``). ``agent`` narrows

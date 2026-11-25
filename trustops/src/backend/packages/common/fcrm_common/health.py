@@ -114,7 +114,8 @@ class ReadinessProbe:
             logger.warning(
                 "readiness check timed out", extra={"dependency": check.name}
             )
-        except Exception as exc:  # noqa: BLE001 - a probe reports, it never raises
+        # a probe reports, it never raises
+        except Exception as exc:  # noqa: BLE001
             ok = False
             logger.warning(
                 "readiness check failed",

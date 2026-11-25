@@ -90,7 +90,6 @@ async def ask(
 
 @router.post(
     "/answers",
-    response_model=ExaminerAnswerOut,
     status_code=201,
     responses={
         200: {"model": ExaminerAnswerOut, "description": "A replay: already stored."},

@@ -464,7 +464,7 @@ class AnalystWriteService:
         try:
             return state_of(row)
         except PydanticValidationError as exc:
-            logger.error(
+            logger.exception(
                 "stored recommendation is malformed",
                 extra={"case_id": case_id, "errors": exc.error_count()},
             )

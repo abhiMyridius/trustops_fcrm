@@ -211,7 +211,8 @@ DEFAULT_RULES: RuleTable = RuleTable(
 _validate_table(list(DEFAULT_RULES.rules))
 
 
-def _parse_rule(raw: Any, *, context: str) -> Rule:  # noqa: ANN401 - one JSON value, any shape
+# one JSON value, any shape
+def _parse_rule(raw: Any, *, context: str) -> Rule:  # noqa: ANN401
     if not isinstance(raw, dict):
         raise ConfigError(f"{context}: each rule must be a JSON object (got {raw!r})")
     name = raw.get("name")

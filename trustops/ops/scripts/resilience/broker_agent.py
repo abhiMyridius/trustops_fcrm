@@ -260,7 +260,8 @@ async def replay(
         )
         try:
             await publish_confirmed(channel.default_exchange, copy, target)
-        except Exception as exc:  # noqa: BLE001 - report, keep the message parked
+        # report, keep the message parked
+        except Exception as exc:  # noqa: BLE001
             failures.append(f"{message.message_id}: {type(exc).__name__}: {exc}")
             return False
         await message.ack()

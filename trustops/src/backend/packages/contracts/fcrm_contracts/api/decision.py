@@ -85,7 +85,8 @@ class PackArea(_Strict):
     domain: str
     label: str
     L: float
-    I: float  # noqa: E741 - the web's key (likelihood L, impact I)
+    # the web's key (likelihood L, impact I)
+    I: float  # noqa: E741
     inherent: float
     ce: float
     retention: float

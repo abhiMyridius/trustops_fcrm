@@ -24,7 +24,8 @@ def utc_now_iso() -> str:
 
 def get_nested(
     data: dict[str, Any], *keys: str, default: Any = None,  # noqa: ANN401 - value is genuinely arbitrary
-) -> Any:  # noqa: ANN401 - generic nested-dict walker, the value is genuinely arbitrary
+# generic nested-dict walker, the value is genuinely arbitrary
+) -> Any:  # noqa: ANN401
     """Walk nested dicts; return default if any key is missing."""
     cur: Any = data
     for k in keys:

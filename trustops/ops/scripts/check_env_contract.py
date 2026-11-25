@@ -75,7 +75,8 @@ def compose_config(files: list[str], env_file: Path) -> dict[str, object]:
     for name in files:
         cmd += ["-f", str(ROOT / name)]
     cmd += ["config", "--format", "json"]
-    result = subprocess.run(  # noqa: S603 - fixed argv, no shell
+    # fixed argv, no shell
+    result = subprocess.run(  # noqa: S603
         cmd, cwd=ROOT, capture_output=True, text=True, check=False, timeout=60
     )
     if result.returncode != 0:
@@ -111,7 +112,8 @@ def bind_mount_sources(rendered: dict[str, object]) -> set[Path]:
 
 def git_tracks(relative: Path) -> bool:
     """Whether git tracks ``relative`` (a file, or a folder holding tracked files)."""
-    result = subprocess.run(  # noqa: S603 - fixed argv, no shell
+    # fixed argv, no shell
+    result = subprocess.run(  # noqa: S603
         ["git", "ls-files", "--", str(relative)],  # noqa: S607
         cwd=ROOT,
         capture_output=True,

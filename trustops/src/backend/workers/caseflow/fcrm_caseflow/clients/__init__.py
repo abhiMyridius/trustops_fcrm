@@ -47,7 +47,7 @@ def parse_body[M: BaseModel](
     try:
         return model.model_validate(body)
     except ValidationError as exc:
-        logger.error(
+        logger.exception(
             "peer answered with a body that breaks its contract",
             extra={
                 "dependency": dependency,
