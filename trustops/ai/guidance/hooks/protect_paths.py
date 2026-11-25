@@ -48,9 +48,9 @@ GENERATED_GLOBS = {
     ),
 }
 GOVERNANCE_GLOB = "docs/governance/*.md"
-SECRET_PATH_RE = re.compile(
-    r"(?:^|/)AEO/secrets(?:/|$)|EVOQ_Applications/(?:.*/)?\.env[^/]*$"
-)
+AEO_SECRETS_RE = re.compile(r"(?:^|/)AEO/secrets(?:/|$)")
+EVOQ_ENV_RE = re.compile(r"EVOQ_Applications/(?:.*/)?\.env[^/]*$")
+SECRET_PATH_RES = (AEO_SECRETS_RE, EVOQ_ENV_RE)
 ENV_NAME_RE = re.compile(r"^\.env(rc)?(\..+)?$")
 ENV_ALLOWED = {".env.example"}
 BASH_SECRET_RE = re.compile(
@@ -71,7 +71,7 @@ def protected_reason(rel: str) -> Optional[str]:
     name = Path(rel).name
     if ENV_NAME_RE.match(name) and name not in ENV_ALLOWED:
         return f"{rel}: agents never read or write environment files (CLAUDE.md)"
-    if SECRET_PATH_RE.search(rel):
+    if any(pattern.search(rel) for pattern in SECRET_PATH_RES):
         return f"{rel}: AEO secrets and EVOQ .env files are off limits (CLAUDE.md)"
     return None
 

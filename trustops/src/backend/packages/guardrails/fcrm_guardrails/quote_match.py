@@ -60,7 +60,8 @@ _WHITESPACE = re.compile(r"\s+")
 _SECTION_SIGNS = re.compile(r"§§\s*")
 _SECTION_SIGN = re.compile(r"§\s*")
 _SECTION_WORD = re.compile(r"\bSection(s?)\b")
-_EDGE_ELLIPSIS = re.compile(r"(?:^(?:\s*\.{3})+)|(?:(?:\.{3}\s*)+$)")
+_LEADING_ELLIPSIS = re.compile(r"^(?:\s*\.{3})+")
+_TRAILING_ELLIPSIS = re.compile(r"(?:\.{3}\s*)+$")
 _WRAPPING_QUOTES = "\"'"
 
 _CHAR_MAP = str.maketrans(
@@ -136,7 +137,7 @@ def normalise_quote(quote: str) -> str:
     previous = None
     while previous != out:
         previous = out
-        out = _EDGE_ELLIPSIS.sub("", out).strip()
+        out = _TRAILING_ELLIPSIS.sub("", _LEADING_ELLIPSIS.sub("", out)).strip()
         if len(out) >= 2 and out[0] == out[-1] and out[0] in _WRAPPING_QUOTES:
             out = out[1:-1].strip()
     return out

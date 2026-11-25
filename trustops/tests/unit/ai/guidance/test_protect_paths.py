@@ -41,7 +41,7 @@ protect_paths = _load()
     ],
 )
 def test_secret_paths_are_blocked(rel: str) -> None:
-    assert protect_paths.SECRET_PATH_RE.search(rel), rel
+    assert any(p.search(rel) for p in protect_paths.SECRET_PATH_RES), rel
     assert protect_paths.protected_reason(rel)
 
 
@@ -56,7 +56,7 @@ def test_secret_paths_are_blocked(rel: str) -> None:
     ],
 )
 def test_ordinary_paths_are_not_secret_paths(rel: str) -> None:
-    assert not protect_paths.SECRET_PATH_RE.search(rel), rel
+    assert not any(p.search(rel) for p in protect_paths.SECRET_PATH_RES), rel
 
 
 def test_env_example_stays_editable() -> None:

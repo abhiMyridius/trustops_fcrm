@@ -183,6 +183,13 @@ class ControlFacts:
     evidence_date: str
 
 
+def _catalogue_weight(stored: Any, known: Optional[ControlRef]) -> float:
+    """The weight the item carries, else the catalogue's, else zero."""
+    if stored is not None:
+        return float(stored)
+    return known.weight if known else 0.0
+
+
 def control_facts(
     row: ReviewItemRow, catalogue: Mapping[str, ControlRef]
 ) -> Optional[ControlFacts]:
@@ -196,11 +203,7 @@ def control_facts(
         )
         return None
     known = catalogue.get(str(control_id))
-    weight = row.subject.get("catalogue_weight")
-    if weight is not None:
-        catalogue_weight = float(weight)
-    else:
-        catalogue_weight = known.weight if known else 0.0
+    catalogue_weight = _catalogue_weight(row.subject.get("catalogue_weight"), known)
     proposed = row.proposed.get("rating")
     rating = proposed
     if row.status in _VALUE_CHANGED and row.decided is not None:

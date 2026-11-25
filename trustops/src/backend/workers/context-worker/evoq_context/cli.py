@@ -306,7 +306,7 @@ async def _cmd_search(args: argparse.Namespace) -> int:
     config = _build_config(args)
     vector_store = create_vector_store(config, args.project)
     llm = LLMClient.from_config(config)
-    filters = {k: v for k, v in (f.split("=", 1) for f in (args.filter or []))} or None
+    filters = dict(f.split("=", 1) for f in (args.filter or [])) or None
     result = await _search(
         args.project, args.query, config, llm, vector_store,
         top_k=args.top_k, include_high_level=False, filters=filters,
