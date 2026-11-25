@@ -67,7 +67,7 @@ DEFAULT_SCHEMA_PREFIXES: Final[tuple[str, ...]] = ("fcrm_contracts",)
 DEFAULT_SCHEMA_SEARCH: Final[tuple[str, ...]] = ("fcrm_contracts.proposals",)
 """Packages a bare class name (``schema("ClauseProposal")``) is searched in."""
 
-_MODEL_PATH: Final = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
+_MODEL_PATH: Final = re.compile(r"^[A-Za-z_]\w*(\.[A-Za-z_]\w*)*$", re.ASCII)
 
 
 def build_environment(globals_: Mapping[str, Any]) -> ImmutableSandboxedEnvironment:

@@ -53,7 +53,7 @@ GENERATED_MOUNTS = frozenset({"jwt_keys"})
 INTERPOLATION = re.compile(r"\$\{([A-Z][A-Z0-9_]*)(?::?[-?][^}]*)?\}")
 REQUIRED = re.compile(r"\$\{([A-Z][A-Z0-9_]*):\?")
 ASSIGNED = re.compile(r"^([A-Z][A-Z0-9_]*)=", re.MULTILINE)
-DOCUMENTED = re.compile(r"^#\s?([A-Z][A-Za-z0-9_]*)=", re.MULTILINE)
+DOCUMENTED = re.compile(r"^#\s?([A-Z]\w*)=", re.MULTILINE | re.ASCII)
 
 
 def interpolated_names(pattern: re.Pattern[str] = INTERPOLATION) -> set[str]:

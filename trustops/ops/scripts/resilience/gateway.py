@@ -197,11 +197,9 @@ class GatewayClient:
         """One request. ``persona`` picks the token (``None`` sends none);
         ``token`` overrides it with an exact string (a token issued earlier).
         """
-        bearer = (
-            token
-            if token is not None
-            else (self.token(persona) if persona is not None else None)
-        )
+        bearer = token
+        if bearer is None and persona is not None:
+            bearer = self.token(persona)
         headers = {"Authorization": f"Bearer {bearer}"} if bearer else {}
         started = time.monotonic()
         try:

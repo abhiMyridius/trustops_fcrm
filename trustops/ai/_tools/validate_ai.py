@@ -450,7 +450,7 @@ def check_model_ids(report: Report) -> None:
         if not path.is_file() or path == allowed or path.suffix in {".pyc"}:
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
-        hits = sorted(set(m.group(0) for m in MODEL_ID_RE.finditer(text)))
+        hits = sorted({m.group(0) for m in MODEL_ID_RE.finditer(text)})
         report.check(
             not hits, f"model id outside tiers.yaml in {path.relative_to(REPO)}: {hits}"
         )

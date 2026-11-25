@@ -197,6 +197,10 @@ def control_facts(
         return None
     known = catalogue.get(str(control_id))
     weight = row.subject.get("catalogue_weight")
+    if weight is not None:
+        catalogue_weight = float(weight)
+    else:
+        catalogue_weight = known.weight if known else 0.0
     proposed = row.proposed.get("rating")
     rating = proposed
     if row.status in _VALUE_CHANGED and row.decided is not None:
@@ -208,9 +212,7 @@ def control_facts(
         domain=str(domain),
         planned=bool(row.subject.get("planned", False)),
         name=_text(row.subject.get("name") or (known.name if known else control_id)),
-        weight=float(weight)
-        if weight is not None
-        else (known.weight if known else 0.0),
+        weight=catalogue_weight,
         proposed_rating=float(proposed) if proposed is not None else None,
         rating=float(rating) if rating is not None else None,
         evidence=_text(
@@ -525,19 +527,21 @@ def clause_items(
                 "clause item names a clause the corpus does not hold",
                 extra={"case_id": row.case_id, "clause_id": clause_id},
             )
+        if mine:
+            source = _text(row.subject.get("source_id"))
+            title = _text(row.subject.get("title") or clause_id)
+            ref = _text(row.subject.get("ref"))
+        elif known:
+            source, title, ref = known.source, known.title, known.ref
+        else:
+            source, title, ref = "", clause_id, ""
         items.append(
             ClauseItem(
                 id=clause_id,
-                source=_text(row.subject.get("source_id"))
-                if mine
-                else (known.source if known else ""),
-                title=_text(row.subject.get("title") or clause_id)
-                if mine
-                else (known.title if known else clause_id),
+                source=source,
+                title=title,
                 quote=_text(row.proposed.get("quote")),
-                ref=_text(row.subject.get("ref"))
-                if mine
-                else (known.ref if known else ""),
+                ref=ref,
                 corpus_version=_corpus(row),
                 decision=decision_of(row),
                 reason=row.decided.reason if row.decided is not None else None,

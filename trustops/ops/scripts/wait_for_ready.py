@@ -79,7 +79,7 @@ def url_ok(url: str) -> bool:
         with urllib.request.urlopen(url, timeout=2) as response:  # noqa: S310 - local probe
             status: int = response.status
             return 200 <= status < 300
-    except (urllib.error.URLError, OSError):
+    except OSError:
         return False
 
 
@@ -96,7 +96,7 @@ def main(argv: list[str] | None = None) -> int:
 
     compose = shlex.split(args.compose)
     services = list(dict.fromkeys([*args.oneshot, *args.services]))
-    urls = dict(item.split("=", 1) for item in args.url)
+    urls = {key: value for key, value in (item.split("=", 1) for item in args.url)}
     deadline = time.monotonic() + args.timeout
     pending: list[str] = []
     while time.monotonic() < deadline:

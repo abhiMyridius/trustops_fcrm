@@ -61,7 +61,7 @@ def _repeats_a_short_pattern(word: str) -> bool:
     for size in range(1, REPEAT_MAX_PATTERN + 1):
         pattern = word[:size]
         repeated = pattern * (len(word) // size + 1)
-        if repeated[: len(word)] == word:
+        if repeated.startswith(word):
             return True
     return False
 

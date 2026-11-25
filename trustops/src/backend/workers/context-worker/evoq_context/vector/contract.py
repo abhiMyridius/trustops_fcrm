@@ -244,7 +244,7 @@ SECONDARY_SHRINK_ORDER: tuple[str, ...] = (
 )
 
 #: ``chunk_key``/``parent_key`` tail: ``:{content_hash[:16]}:{chunk_index:04d}``.
-_KEY_TAIL_RE = re.compile(r":[0-9a-f]{16}:[0-9]{4}$")
+_KEY_TAIL_RE = re.compile(r":[0-9a-f]{16}:\d{4}$", re.ASCII)
 _TOPIC_ID_RE = re.compile(r"^t\d{3,}$")
 
 

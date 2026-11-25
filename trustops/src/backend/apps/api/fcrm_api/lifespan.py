@@ -71,7 +71,7 @@ async def start_broker(broker: RabbitBroker) -> None:
             async with asyncio.timeout(BROKER_ATTEMPT_TIMEOUT_S):
                 await broker.start()
             return
-        except (OSError, TimeoutError, AMQPException) as exc:
+        except (OSError, AMQPException) as exc:
             if monotonic() + BROKER_RETRY_S >= deadline:
                 logger.exception(
                     "rabbitmq unreachable at startup",

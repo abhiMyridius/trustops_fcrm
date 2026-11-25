@@ -24,7 +24,6 @@ from typing import Any, Final
 from fcrm_contracts.api.policy_config import ConfigDraftChange, ConfigSectionKey
 from fcrm_scoring.engine import compute_score
 from fcrm_scoring.seedmodel import apply_catalogue_weights, score_request_from_case
-from pydantic import ValidationError
 
 from fcrm_policy.config_effects import scoring_model_for
 
@@ -156,7 +155,7 @@ def replay(
             after = compute_score(
                 apply_catalogue_weights(request, dict(new_weights)), new_model
             )
-        except (KeyError, ValueError, ValidationError) as exc:
+        except (KeyError, ValueError) as exc:
             logger.info(
                 "case not replayable in a config preview",
                 extra={"case_id": case.get("id"), "reason": type(exc).__name__},

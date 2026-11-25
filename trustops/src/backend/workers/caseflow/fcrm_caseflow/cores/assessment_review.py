@@ -425,13 +425,12 @@ async def review_ack(step: HarnessStep, deps: StepDeps) -> StepResult:
     decided = step_payload(step, GateDecided)
     kind = decided.subject.get("id", "boundary")
     flagged = bool((deps.run.refs.get(SCORE_SUMMARY_REF) or {}).get("boundary_flag"))
-    what = (
-        "Band change and boundary flag"
-        if kind == "band_change" and flagged
-        else "Band change"
-        if kind == "band_change"
-        else "Boundary flag"
-    )
+    if kind != "band_change":
+        what = "Boundary flag"
+    elif flagged:
+        what = "Band change and boundary flag"
+    else:
+        what = "Band change"
     audit = await deps.append_record(
         step,
         "gate.decided",

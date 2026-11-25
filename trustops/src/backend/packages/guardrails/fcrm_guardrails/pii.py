@@ -187,9 +187,7 @@ RULE_RECOGNIZERS: Final[tuple[Recognizer, ...]] = (
     ),
     Recognizer(
         "PHONE_NUMBER",
-        re.compile(
-            r"(?<![\w+])\+(?:[2-9]\d{0,2})[ .-]?\d{2,4}(?:[ .-]?\d{2,4}){2,3}\b"
-        ),
+        re.compile(r"(?<![\w+])\+[2-9]\d{0,2}[ .-]?\d{2,4}(?:[ .-]?\d{2,4}){2,3}\b"),
     ),
     Recognizer(
         "DATE_OF_BIRTH",

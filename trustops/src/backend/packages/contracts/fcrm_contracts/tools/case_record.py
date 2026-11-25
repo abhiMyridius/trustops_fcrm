@@ -13,7 +13,7 @@ class CaseRecordInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     case_id: str
-    submission_version: Optional[int] = None  # None = latest
+    submission_version: Optional[int] = None  # the latest when omitted
 
 
 class CaseRecordOutput(BaseModel):

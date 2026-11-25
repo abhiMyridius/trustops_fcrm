@@ -296,7 +296,7 @@ def load_rules(raw: str | None, defaults: RuleTable | None = None) -> RuleTable:
 
     try:
         parsed = json.loads(text)
-    except (json.JSONDecodeError, ValueError) as exc:
+    except ValueError as exc:
         raise ConfigError(f"CHUNK_PROFILE_RULES is not valid JSON: {exc}") from exc
 
     if isinstance(parsed, dict):

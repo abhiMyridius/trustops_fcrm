@@ -106,6 +106,7 @@ Correctness fixes only; the structural smells (complexity, unused parameters, lo
 - Zero-norm guards use `<= 0.0` instead of `== 0.0`: `chunking/topic.py` (`_cosine`), `llm/client.py` (embedding validation), `vector/memory_store.py` (`_cosine_distance`). Behaviour is unchanged for any finite input; the new `test_zero_norm_guards.py` pins it.
 - `chunking/profiler.py`: `hashlib.sha1(..., usedforsecurity=False)` for `body_prefix_sha1` (a fingerprint, not a security use). The digest is unchanged; a test pins it.
 - `# noqa: CODE - reason` comments (Sonar S7632 cannot parse the tail): the reason moved to a comment line above and the `noqa` is bare (`chunking/__init__.py`, `profiler.py`, `selector.py`, `pipeline/result.py`, `synthesis/analyzer.py`); `ingestion` `orchestrator.py` logs a failed source with `logger.exception`.
+- Small idioms: `chunking/selector.py` catches `ValueError` (JSONDecodeError is one), `segmenters/requirement.py` drops an unused tuple member, `vector/contract.py` uses `\d` with `re.ASCII`, `vector/embedder.py` and `cli.py` replace a nested conditional and a `dict(...)` call. Behaviour unchanged.
 
 ## After
 

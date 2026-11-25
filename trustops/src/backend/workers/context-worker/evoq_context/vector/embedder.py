@@ -325,9 +325,13 @@ class DocumentPreparer:
                     VectorChunk(chunk_id=chunk_key, text=sc.text, embedding=vectors[i], metadata=meta)
                 )
 
+        first_metadata: Mapping[str, Any] = {}
+        if vector_chunks:
+            first_metadata = vector_chunks[0].metadata
+        elif stored_chunks:
+            first_metadata = stored_chunks[0].metadata
         manifest_entry = {
-            "content_hash": vector_chunks[0].metadata.get("content_hash", "") if vector_chunks
-            else (stored_chunks[0].metadata.get("content_hash", "") if stored_chunks else ""),
+            "content_hash": first_metadata.get("content_hash", ""),
             "chunk_count": len(vector_chunks),
             "parent_count": len(stored_chunks),
             "keys": [c.chunk_id for c in vector_chunks],

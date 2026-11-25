@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import UTC
+from typing import Optional
 
 from fcrm_contracts.api.case_analyst import SubmissionVersionDiff
 from fcrm_contracts.api.case_analyst_read import (
@@ -26,7 +27,7 @@ from fcrm_contracts.tools.submission_diff import SubmissionDiffOutput
 
 from fcrm_case.domain.diffing import RowDiff
 from fcrm_case.domain.fieldset import FieldDef
-from fcrm_case.domain.po_rows import SubmissionVersionRow
+from fcrm_case.domain.po_rows import SnapshotValue, SubmissionVersionRow
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.views import DocumentRow
 from fcrm_case.po_views import source_ref
@@ -64,6 +65,16 @@ def version_label(record: CaseRecord, row: SubmissionVersionRow) -> str:
     return f"v{row.version} (as submitted {_stamp(row)})"
 
 
+def _was_value(
+    value: SnapshotValue, documents: Mapping[str, DocumentRow]
+) -> Optional[WasValue]:
+    """What a corrected field said before the owner changed it, or ``None``."""
+    if value.original is None:
+        return None
+    ref = source_ref(value.original.source, documents)
+    return WasValue(value=value.original.value or "", source=ref.label if ref else "")
+
+
 def submission_version(
     record: CaseRecord,
     row: SubmissionVersionRow,
@@ -80,16 +91,7 @@ def submission_version(
             value=value.value,
             origin=value.origin,
             source=source_ref(value.source, documents),
-            was=WasValue(
-                value=value.original.value or "",
-                source=(
-                    ref.label
-                    if (ref := source_ref(value.original.source, documents))
-                    else ""
-                ),
-            )
-            if value.original is not None
-            else None,
+            was=_was_value(value, documents),
         )
         for field_id, value in row.field_values.items()
     ]

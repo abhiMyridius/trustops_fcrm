@@ -115,7 +115,7 @@ class OpenObserve:
             raise OpenObserveError(
                 f"{method} {path} answered {exc.code}{hint}"
             ) from exc
-        except (urllib.error.URLError, OSError) as exc:
+        except OSError as exc:
             raise OpenObserveError(
                 f"cannot reach OpenObserve at {self.base}: {exc} "
                 "(is `make up-obs` running?)"

@@ -361,8 +361,9 @@ class MongoAnalyticsStore:
         ]
         records = [AuditRecord.model_validate(doc) for doc in docs]
         page = records[:size]
+        rows = (override_row(r) for r in page)
         return OverridesPage(
-            items=[row for r in page if (row := override_row(r)) is not None],
+            items=[row for row in rows if row is not None],
             next_cursor=_cursor_of(page[-1]) if len(records) > size and page else None,
             total=await self._records.count_documents(match),
             rates=await self._rates(agent),

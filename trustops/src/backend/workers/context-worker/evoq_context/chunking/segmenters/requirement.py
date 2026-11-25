@@ -126,7 +126,7 @@ class RequirementSegmenter:
         for start, end in blocks:
             is_table = _table_range_at(table_ranges, start) is not None
             if merged and not is_table:
-                p_start, p_end = merged[-1]
+                p_start, _ = merged[-1]
                 if _table_range_at(table_ranges, p_start) is None:
                     candidate = text[p_start:end]
                     if est.count(candidate) <= budget.target:

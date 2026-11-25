@@ -47,12 +47,10 @@ def build_table(
     rows: list[Row] = []
     for row_idx, tr in enumerate(tr_elements):
         cells: list[Cell] = []
-        col = 0
         for tc_idx, tc in enumerate(tr.findall(qn("w:tc"))):
             colspan = _gridspan(tc)
             kind = _vmerge_kind(tc)
             if kind == "continue" and (row_idx, tc_idx) not in rowspans:
-                col += colspan
                 continue  # covered by an origin above; renderer fills it in
             text, tracked = _cell_text(tc, part, include_deletions=include_deletions)
             tracked_change_seen = tracked_change_seen or tracked
@@ -69,7 +67,6 @@ def build_table(
                     nested=nested,
                 )
             )
-            col += colspan
         rows.append(Row(cells=tuple(cells)))
     header_rows = _leading_header_row_count(tr_elements)
     caption = _table_caption(tbl_elem)

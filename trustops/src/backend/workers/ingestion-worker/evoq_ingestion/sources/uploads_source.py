@@ -173,7 +173,7 @@ class UploadsIngestionSource(IngestionSource):
             return await self._fetch_exact_files(list(self._config.files))
         return await self._fetch_folder()
 
-    # ------------------------------------------------------- files= path
+    # ---- the explicit files path
     async def _fetch_exact_files(self, files: list[Path]) -> dict[str, Any]:
         """Process exactly ``config.files`` — one call, no folder scan.
 
