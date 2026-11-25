@@ -13,7 +13,8 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variants: Record<ButtonVariant, string> = {
-  primary: 'bg-virtual-tide text-text-on-accent enabled:hover:bg-virtual-tide-hover enabled:hover:-translate-y-px enabled:hover:shadow-accent',
+  // The deep teal, not the brand teal: white on #09a78d is 3.0:1, on this one 6.0:1 (WCAG AA needs 4.5:1).
+  primary: 'bg-virtual-tide-text text-text-on-accent enabled:hover:brightness-90 enabled:hover:-translate-y-px enabled:hover:shadow-accent',
   accent: 'bg-quantum-leaf text-text-on-dark enabled:hover:bg-quantum-leaf-hover enabled:hover:-translate-y-px',
   secondary: 'bg-transparent text-quantum-leaf border-[1.5px] border-current enabled:hover:bg-quantum-leaf/10',
   ghost: 'bg-transparent text-virtual-tide-text underline-offset-4 enabled:hover:underline enabled:hover:bg-surface-secondary',

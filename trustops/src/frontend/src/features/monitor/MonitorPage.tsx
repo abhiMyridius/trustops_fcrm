@@ -166,7 +166,9 @@ export function MonitorPage() {
             </Button>
           </div>
         </div>
-        <ol ref={logRef} aria-live={paused ? 'off' : 'polite'} aria-relevant="additions" className="max-h-[52vh] overflow-y-auto rounded-md bg-ink-10 p-3 font-mono text-[12px] leading-relaxed text-text-on-dark">
+        {/* A scrolling region must be reachable by keyboard (axe scrollable-region-focusable). */}
+        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
+        <ol ref={logRef} tabIndex={0} aria-label="Harness log" aria-live={paused ? 'off' : 'polite'} aria-relevant="additions" className="max-h-[52vh] overflow-y-auto rounded-md bg-ink-10 p-3 font-mono text-[12px] leading-relaxed text-text-on-dark">
           {lines.length === 0 && <li className="text-text-on-dark-muted">No lines yet.</li>}
           {lines.map((l) => (
             <li key={l.seq} className={cn('flex gap-3 border-b border-ink-9 py-1', l.level !== 'info' && 'text-neural-beam')}>
