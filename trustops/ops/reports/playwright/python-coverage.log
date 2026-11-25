@@ -1,0 +1,452 @@
+/usr/local/bin/uv run --project src/backend --all-packages pytest -m "not integration and not e2e and not resilience" --cov --cov-config=.coveragerc --cov-report=xml:coverage.xml --cov-report=term:skip-covered
+warning: Declaring conflicts for packages (`package = ...`) is experimental and may change without warning. Pass `--preview-features package-conflicts` to disable this warning.
+........................................................................ [  0%]
+........................................................................ [  1%]
+........................................................................ [  2%]
+........................................................................ [  3%]
+........................................................................ [  3%]
+........................................................................ [  4%]
+........................................................................ [  5%]
+........................................................................ [  6%]
+........................................................................ [  7%]
+........................................................................ [  7%]
+........................................................................ [  8%]
+........................................................................ [  9%]
+........................................................................ [ 10%]
+........................................................................ [ 11%]
+........................................................................ [ 11%]
+........................................................................ [ 12%]
+........................................................................ [ 13%]
+........................................................................ [ 14%]
+........................................................................ [ 14%]
+........................................................................ [ 15%]
+........................................................................ [ 16%]
+........................................................................ [ 17%]
+........................................................................ [ 18%]
+........................................................................ [ 18%]
+........................................................................ [ 19%]
+........................................................................ [ 20%]
+........................................................................ [ 21%]
+........................................................................ [ 22%]
+........................................................................ [ 22%]
+........................................................................ [ 23%]
+........................................................................ [ 24%]
+........................................................................ [ 25%]
+........................................................................ [ 25%]
+........................................................................ [ 26%]
+........................................................................ [ 27%]
+........................................................................ [ 28%]
+........................................................................ [ 29%]
+........................................................................ [ 29%]
+........................................................................ [ 30%]
+........................................................................ [ 31%]
+........................................................................ [ 32%]
+........................................................................ [ 33%]
+........................................................................ [ 33%]
+........................................................................ [ 34%]
+........................................................................ [ 35%]
+........................................................................ [ 36%]
+........................................................................ [ 36%]
+........................................................................ [ 37%]
+........................................................................ [ 38%]
+........................................................................ [ 39%]
+........................................................................ [ 40%]
+........................................................................ [ 40%]
+........................................................................ [ 41%]
+........................................................................ [ 42%]
+........................................................................ [ 43%]
+........................................................................ [ 44%]
+........................................................................ [ 44%]
+........................................................................ [ 45%]
+........................................................................ [ 46%]
+........................................................................ [ 47%]
+........................................................................ [ 48%]
+........................................................................ [ 48%]
+........................................................................ [ 49%]
+........................................................................ [ 50%]
+........................................................................ [ 51%]
+........................................................................ [ 51%]
+........................................................................ [ 52%]
+........................................................................ [ 53%]
+........................................................................ [ 54%]
+........................................................................ [ 55%]
+........................................................................ [ 55%]
+........................................................................ [ 56%]
+........................................................................ [ 57%]
+........................................................................ [ 58%]
+........................................................................ [ 59%]
+........................................................................ [ 59%]
+........................................................................ [ 60%]
+........................................................................ [ 61%]
+........................................................................ [ 62%]
+........................................................................ [ 62%]
+........................................................................ [ 63%]
+........................................................................ [ 64%]
+........................................................................ [ 65%]
+........................................................................ [ 66%]
+........................................................................ [ 66%]
+........................................................................ [ 67%]
+........................................................................ [ 68%]
+........................................................................ [ 69%]
+........ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss [ 70%]
+ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss [ 70%]
+ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss [ 71%]
+ssssssssssssssssssssssssssssssssssssssssssssssssssssss.................. [ 72%]
+........................................................................ [ 73%]
+........................................................................ [ 73%]
+........................................................................ [ 74%]
+........................................................................ [ 75%]
+........................................................................ [ 76%]
+........................................................................ [ 77%]
+........................................................................ [ 77%]
+........................................................................ [ 78%]
+........................................................................ [ 79%]
+........................................................................ [ 80%]
+........................................................................ [ 81%]
+........................................................................ [ 81%]
+........................................................................ [ 82%]
+........................................................................ [ 83%]
+........................................................................ [ 84%]
+........................................................................ [ 85%]
+........................................................................ [ 85%]
+........................................................................ [ 86%]
+........................................................................ [ 87%]
+........................................................................ [ 88%]
+........................................................................ [ 88%]
+........................................................................ [ 89%]
+........................................................................ [ 90%]
+........................................................................ [ 91%]
+........................................................................ [ 92%]
+........................................................................ [ 92%]
+........................................................................ [ 93%]
+........................................................................ [ 94%]
+........................................................................ [ 95%]
+........................................................................ [ 96%]
+.........................................sss............................ [ 96%]
+........................................................................ [ 97%]
+........................................................................ [ 98%]
+........................................................................ [ 99%]
+........................................................................ [ 99%]
+....                                                                     [100%]
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.13.11-final-0 _______________
+
+Name                                                                                    Stmts   Miss Branch BrPart  Cover
+-------------------------------------------------------------------------------------------------------------------------
+src/backend/apps/api/fcrm_api/lifespan.py                                                  88      6      8      1    91%
+src/backend/apps/harness/fcrm_harness/app.py                                               52      1      4      0    98%
+src/backend/packages/agents/fcrm_agents/builders.py                                       388      2     90      5    99%
+src/backend/packages/agents/fcrm_agents/chunking.py                                       212      9     64      0    96%
+src/backend/packages/agents/fcrm_agents/cli.py                                             88      4     26      3    94%
+src/backend/packages/agents/fcrm_agents/consolidate.py                                    257      5     74      5    97%
+src/backend/packages/agents/fcrm_agents/context_pack.py                                   286      7     46      5    96%
+src/backend/packages/agents/fcrm_agents/demo.py                                           285      6     92      9    96%
+src/backend/packages/agents/fcrm_agents/model_limits.py                                   118     13     26      4    85%
+src/backend/packages/agents/fcrm_agents/runtime.py                                        287     23     40      5    91%
+src/backend/packages/agents/fcrm_agents/spec.py                                            68      2     18      2    95%
+src/backend/packages/agents/fcrm_agents/tool_sources.py                                    58      3     10      1    94%
+src/backend/packages/common/fcrm_common/asgi.py                                            26      1      8      1    94%
+src/backend/packages/common/fcrm_common/auth.py                                           218     14     50      9    91%
+src/backend/packages/common/fcrm_common/authz.py                                           93      4     16      1    95%
+src/backend/packages/common/fcrm_common/cache.py                                           45      2     10      1    95%
+src/backend/packages/common/fcrm_common/errors.py                                         141      2      8      1    98%
+src/backend/packages/common/fcrm_common/events.py                                         166      4     24      2    97%
+src/backend/packages/common/fcrm_common/field_match.py                                     28      0     12      1    98%
+src/backend/packages/common/fcrm_common/health.py                                         113      6     12      2    94%
+src/backend/packages/common/fcrm_common/http.py                                           130      6     16      1    95%
+src/backend/packages/common/fcrm_common/logging.py                                         74      1     16      1    98%
+src/backend/packages/common/fcrm_common/mongo.py                                          201     57     50      0    72%
+src/backend/packages/common/fcrm_common/outbox.py                                         169     12     34      1    94%
+src/backend/packages/common/fcrm_common/seedload.py                                        63      9     10      1    84%
+src/backend/packages/common/fcrm_common/time.py                                            44      0     18      1    98%
+src/backend/packages/common/fcrm_common/tracing.py                                        163      8     48      8    91%
+src/backend/packages/contracts/fcrm_contracts/api/audit_oversight.py                      106      4     14      4    93%
+src/backend/packages/contracts/fcrm_contracts/api/case_analyst_clause.py                   31      1      4      1    94%
+src/backend/packages/contracts/fcrm_contracts/api/case_analyst_write.py                   247      1     22      1    99%
+src/backend/packages/contracts/fcrm_contracts/api/case_internal_reflags.py                 47      1      0      0    98%
+src/backend/packages/contracts/fcrm_contracts/api/case_po_followup.py                      36      2      6      2    90%
+src/backend/packages/contracts/fcrm_contracts/jsonsafe.py                                  29      1     16      1    96%
+src/backend/packages/evals/fcrm_evals/cli.py                                               89      4     28      4    93%
+src/backend/packages/evals/fcrm_evals/datasets/build.py                                    50      1     12      1    97%
+src/backend/packages/evals/fcrm_evals/datasets/generators/research.py                      37      0      6      1    98%
+src/backend/packages/evals/fcrm_evals/datasets/generators/screening.py                     55      1     16      1    97%
+src/backend/packages/evals/fcrm_evals/degrade.py                                          115      4     38      3    95%
+src/backend/packages/evals/fcrm_evals/instructions.py                                      25      1      2      1    93%
+src/backend/packages/evals/fcrm_evals/judge/cases.py                                       54      1     10      1    97%
+src/backend/packages/evals/fcrm_evals/judge/llm.py                                         77      8     12      3    85%
+src/backend/packages/evals/fcrm_evals/live.py                                             452     10     90     11    96%
+src/backend/packages/evals/fcrm_evals/live_cli.py                                         197     27     32      5    84%
+src/backend/packages/evals/fcrm_evals/live_run.py                                         117     16     14      2    85%
+src/backend/packages/evals/fcrm_evals/metrics/__init__.py                                  30      0      4      1    97%
+src/backend/packages/evals/fcrm_evals/metrics/narrative.py                                 35      1      4      1    95%
+src/backend/packages/evals/fcrm_evals/outputs.py                                           59      1     14      1    97%
+src/backend/packages/evals/fcrm_evals/pipeline.py                                          53      3      8      3    90%
+src/backend/packages/evals/fcrm_evals/producers.py                                         60      4      4      0    94%
+src/backend/packages/evals/fcrm_evals/publish.py                                           47     13      4      0    67%
+src/backend/packages/evals/fcrm_evals/report.py                                            65      1     18      1    98%
+src/backend/packages/evals/fcrm_evals/report_html.py                                      145      3     38      3    97%
+src/backend/packages/evals/fcrm_evals/results.py                                          173      1     20      0    99%
+src/backend/packages/evals/fcrm_evals/runner.py                                           146      1     22      1    99%
+src/backend/packages/evals/fcrm_evals/sampling.py                                          71      1     16      0    99%
+src/backend/packages/evals/fcrm_evals/text.py                                              24      1      8      1    94%
+src/backend/packages/evals/fcrm_evals/usage.py                                            113      1      2      0    99%
+src/backend/packages/guardrails/fcrm_guardrails/base.py                                    83      1      8      1    98%
+src/backend/packages/guardrails/fcrm_guardrails/context.py                                 64      2     14      2    95%
+src/backend/packages/guardrails/fcrm_guardrails/manual_output.py                           87      1     34      1    98%
+src/backend/packages/guardrails/fcrm_guardrails/output_shape.py                           178      4     64      3    96%
+src/backend/packages/guardrails/fcrm_guardrails/pii.py                                    125      3     28      2    97%
+src/backend/packages/guardrails/fcrm_guardrails/rules/r1_no_agent_score.py                 57      1     30      1    98%
+src/backend/packages/guardrails/fcrm_guardrails/rules/r6_override_has_reason.py            51      3     20      1    94%
+src/backend/packages/guardrails/fcrm_guardrails/rules_guard.py                             38      0     10      1    98%
+src/backend/packages/prompts-loader/fcrm_prompts/frontmatter.py                            32      9     10      3    71%
+src/backend/packages/prompts-loader/fcrm_prompts/instructions.py                          102      6     24      4    92%
+src/backend/packages/prompts-loader/fcrm_prompts/loader.py                                154      8     36      3    94%
+src/backend/packages/prompts-loader/fcrm_prompts/locks.py                                  89      5     28      2    94%
+src/backend/packages/prompts-loader/fcrm_prompts/sandbox.py                               147      8     62      5    94%
+src/backend/packages/seed/fcrm_seed/clause_model.py                                        70      1      6      1    97%
+src/backend/packages/seed/fcrm_seed/docs_layout.py                                        250      7     94      8    96%
+src/backend/packages/seed/fcrm_seed/gen_clauses.py                                        313      3     68      2    99%
+src/backend/packages/seed/fcrm_seed/gen_docs.py                                            49      5     10      1    90%
+src/backend/packages/seed/fcrm_seed/gen_seed.py                                            86     17     30      7    76%
+src/backend/packages/seed/fcrm_seed/loader.py                                              56      1      4      1    97%
+src/backend/packages/tools/fcrm_tools/base.py                                              97      1     10      1    98%
+src/backend/packages/tools/fcrm_tools/cache.py                                             85      4     14      1    95%
+src/backend/packages/tools/fcrm_tools/http_common.py                                       53      2      2      0    96%
+src/backend/packages/tools/fcrm_tools/retrieval.py                                         65      1     18      1    98%
+src/backend/packages/tools/fcrm_tools/seed_backed.py                                      303      9     48      6    96%
+src/backend/packages/tools/fcrm_tools/seed_data.py                                        162      3     50      3    97%
+src/backend/services/audit/fcrm_audit/analytics.py                                        146     35     36      5    74%
+src/backend/services/audit/fcrm_audit/examiner.py                                         192     22     32      1    89%
+src/backend/services/audit/fcrm_audit/lifespan.py                                          93     48     12      0    43%
+src/backend/services/audit/fcrm_audit/quality.py                                          100     11     32      2    90%
+src/backend/services/audit/fcrm_audit/routes_examiner.py                                   41      1      8      1    96%
+src/backend/services/audit/fcrm_audit/store.py                                            250     72     68      2    67%
+src/backend/services/case/fcrm_case/activity_log.py                                        74     27      6      0    59%
+src/backend/services/case/fcrm_case/analyst_clause_service.py                             103      2     30      2    97%
+src/backend/services/case/fcrm_case/analyst_read_store.py                                 210     35     46      5    84%
+src/backend/services/case/fcrm_case/analyst_write_service.py                              345      6    108      3    98%
+src/backend/services/case/fcrm_case/analyst_write_store.py                                305    129    100      9    53%
+src/backend/services/case/fcrm_case/assessment_store.py                                   237     78     24      0    67%
+src/backend/services/case/fcrm_case/consumer.py                                            82      9     20      2    87%
+src/backend/services/case/fcrm_case/demo_restore.py                                        40     15      6      2    63%
+src/backend/services/case/fcrm_case/deps.py                                                67      2      2      1    96%
+src/backend/services/case/fcrm_case/directory.py                                           88      0     14      1    99%
+src/backend/services/case/fcrm_case/document_preview.py                                   100      6     30      4    92%
+src/backend/services/case/fcrm_case/domain/analyst_assessment.py                          315      9     76      6    96%
+src/backend/services/case/fcrm_case/domain/analyst_clauses.py                              53      0      4      1    98%
+src/backend/services/case/fcrm_case/domain/analyst_commands.py                            223      8     28      3    96%
+src/backend/services/case/fcrm_case/domain/analyst_feed.py                                 61      2     24      3    94%
+src/backend/services/case/fcrm_case/domain/analyst_submissions.py                          46      4     10      3    88%
+src/backend/services/case/fcrm_case/domain/analyst_views.py                               234      4     64      3    98%
+src/backend/services/case/fcrm_case/domain/answer_quality.py                               29      1     12      1    95%
+src/backend/services/case/fcrm_case/domain/assessment.py                                  185      3     48      4    97%
+src/backend/services/case/fcrm_case/domain/clarifications.py                              109      2     30      1    98%
+src/backend/services/case/fcrm_case/domain/fieldset.py                                     29      2     10      2    90%
+src/backend/services/case/fcrm_case/domain/outcome.py                                      62      1      4      2    95%
+src/backend/services/case/fcrm_case/domain/recommendation_edits.py                        134      6     40      4    93%
+src/backend/services/case/fcrm_case/domain/reflags.py                                      70      2      6      1    96%
+src/backend/services/case/fcrm_case/handoff_store.py                                       47     12      2      0    76%
+src/backend/services/case/fcrm_case/lifespan.py                                           147     77     12      0    48%
+src/backend/services/case/fcrm_case/outcome_store.py                                      274    104     80      7    58%
+src/backend/services/case/fcrm_case/po_documents.py                                       102      0     26      1    99%
+src/backend/services/case/fcrm_case/po_followup_service.py                                131      1     28      1    99%
+src/backend/services/case/fcrm_case/po_followup_store.py                                  343    133     92      4    57%
+src/backend/services/case/fcrm_case/po_guard.py                                            60      5      8      1    91%
+src/backend/services/case/fcrm_case/po_service.py                                         467      4    106      2    99%
+src/backend/services/case/fcrm_case/po_store.py                                           342    151     80      1    53%
+src/backend/services/case/fcrm_case/po_uploads.py                                          82      2      6      2    95%
+src/backend/services/case/fcrm_case/po_views.py                                           254      2     80      4    98%
+src/backend/services/case/fcrm_case/policy_config.py                                      128      7     28      2    94%
+src/backend/services/case/fcrm_case/reference.py                                           77      3      2      1    95%
+src/backend/services/case/fcrm_case/reflag_store.py                                       226     86     54      2    59%
+src/backend/services/case/fcrm_case/routes_analyst_close.py                                85      2     22      2    96%
+src/backend/services/case/fcrm_case/routes_analyst_read.py                                 98      4      8      2    94%
+src/backend/services/case/fcrm_case/routes_internal.py                                    122      3     28      3    96%
+src/backend/services/case/fcrm_case/routes_internal_assessment.py                          78      1     10      1    98%
+src/backend/services/case/fcrm_case/routes_po.py                                          112      2     10      2    97%
+src/backend/services/case/fcrm_case/seeding.py                                             19      7      0      0    63%
+src/backend/services/case/fcrm_case/seedmodel.py                                           82      1     10      1    98%
+src/backend/services/case/fcrm_case/shaping.py                                             59      3     12      1    94%
+src/backend/services/case/fcrm_case/sse.py                                                146      1     44      4    97%
+src/backend/services/case/fcrm_case/store.py                                              162     50     36      0    67%
+src/backend/services/case/fcrm_case/views_store.py                                        268     95     54      0    64%
+src/backend/services/decision/fcrm_decision/commands_outcome.py                            64      1     20      1    98%
+src/backend/services/decision/fcrm_decision/commands_pack.py                              136      5     52      5    95%
+src/backend/services/decision/fcrm_decision/commands_thread.py                             54      3     16      3    91%
+src/backend/services/decision/fcrm_decision/directory.py                                   54      0      4      1    98%
+src/backend/services/decision/fcrm_decision/lifespan.py                                    74     27      8      0    62%
+src/backend/services/decision/fcrm_decision/seedmodel.py                                   98      1     14      1    98%
+src/backend/services/decision/fcrm_decision/store_memory.py                               161      1     28      1    99%
+src/backend/services/decision/fcrm_decision/store_mongo.py                                153     85     14      0    41%
+src/backend/services/decision/fcrm_decision/views.py                                       65      0     14      1    99%
+src/backend/services/identity/fcrm_identity/jwks.py                                        16      3      0      0    81%
+src/backend/services/identity/fcrm_identity/lifespan.py                                    65     34      6      0    44%
+src/backend/services/identity/fcrm_identity/routes.py                                     114      3     20      2    96%
+src/backend/services/identity/fcrm_identity/store.py                                       63     14     14      0    77%
+src/backend/services/policy/fcrm_policy/bus.py                                             44      6      6      1    86%
+src/backend/services/policy/fcrm_policy/config_effects.py                                 116     24     16      5    77%
+src/backend/services/policy/fcrm_policy/config_preview.py                                 148      1     24      0    99%
+src/backend/services/policy/fcrm_policy/config_sections.py                                382      8     86      8    97%
+src/backend/services/policy/fcrm_policy/config_service.py                                 218      9     60      2    95%
+src/backend/services/policy/fcrm_policy/config_store.py                                   249     82     44      0    65%
+src/backend/services/policy/fcrm_policy/corpus.py                                          70     21     10      0    64%
+src/backend/services/policy/fcrm_policy/embedding_cache.py                                 21     10      4      0    44%
+src/backend/services/policy/fcrm_policy/events.py                                          77      1     12      1    98%
+src/backend/services/policy/fcrm_policy/indexing.py                                        68     28     10      0    51%
+src/backend/services/policy/fcrm_policy/lifespan.py                                       103     66     16      0    31%
+src/backend/services/policy/fcrm_policy/precedents.py                                      90     28      8      0    65%
+src/backend/services/policy/fcrm_policy/reference.py                                      202     48     44      2    74%
+src/backend/services/policy/fcrm_policy/routes.py                                          74      1     16      1    98%
+src/backend/services/policy/fcrm_policy/routes_corpus.py                                   39      1      6      1    96%
+src/backend/services/policy/fcrm_policy/routes_internal.py                                 33      1      6      1    95%
+src/backend/services/policy/fcrm_policy/search/service.py                                  82      3     16      3    94%
+src/backend/services/policy/fcrm_policy/store.py                                          110     12     28      0    90%
+src/backend/services/scoring/fcrm_scoring/config_publish.py                               132     24     54      2    84%
+src/backend/services/scoring/fcrm_scoring/engine.py                                        77      4     14      3    92%
+src/backend/services/scoring/fcrm_scoring/lifespan.py                                     102     60     16      0    36%
+src/backend/services/scoring/fcrm_scoring/routes_routing.py                                41      2      6      2    91%
+src/backend/services/scoring/fcrm_scoring/routing_rules.py                                 38      3      8      0    93%
+src/backend/services/scoring/fcrm_scoring/store.py                                         38     14     12      3    54%
+src/backend/workers/agent-worker/fcrm_agent_worker/allowance.py                           124     11     24      5    88%
+src/backend/workers/agent-worker/fcrm_agent_worker/app.py                                 110      9      8      1    92%
+src/backend/workers/agent-worker/fcrm_agent_worker/audit_client.py                         14      3      0      0    79%
+src/backend/workers/agent-worker/fcrm_agent_worker/bedrock_client.py                       55      0      6      1    98%
+src/backend/workers/agent-worker/fcrm_agent_worker/handler.py                             232      4     48      4    97%
+src/backend/workers/agent-worker/fcrm_agent_worker/job_metrics.py                          80      0     18      1    99%
+src/backend/workers/agent-worker/fcrm_agent_worker/jobs.py                                102      2     18      2    97%
+src/backend/workers/agent-worker/fcrm_agent_worker/live_runtime.py                        272      5     60      4    97%
+src/backend/workers/agent-worker/fcrm_agent_worker/parts.py                                70      2     14      1    96%
+src/backend/workers/agent-worker/fcrm_agent_worker/reduce.py                               65      1      6      1    97%
+src/backend/workers/caseflow/fcrm_caseflow/app.py                                         119     25      2      0    78%
+src/backend/workers/caseflow/fcrm_caseflow/audit_client.py                                 59     20     14      0    62%
+src/backend/workers/caseflow/fcrm_caseflow/budget.py                                      125      1     20      1    99%
+src/backend/workers/caseflow/fcrm_caseflow/clients/case_client.py                         114      1      6      1    98%
+src/backend/workers/caseflow/fcrm_caseflow/clients/decision_votes_client.py                79      3      6      1    95%
+src/backend/workers/caseflow/fcrm_caseflow/cores/__init__.py                               13      2      4      1    82%
+src/backend/workers/caseflow/fcrm_caseflow/cores/assessment.py                            233      3     50      6    97%
+src/backend/workers/caseflow/fcrm_caseflow/cores/assessment_critic.py                     223      6     84     12    94%
+src/backend/workers/caseflow/fcrm_caseflow/cores/assessment_items.py                      217      2     66      5    98%
+src/backend/workers/caseflow/fcrm_caseflow/cores/assessment_pack.py                       257      3     52      5    97%
+src/backend/workers/caseflow/fcrm_caseflow/cores/assessment_review.py                     165      1     40      1    99%
+src/backend/workers/caseflow/fcrm_caseflow/cores/assessment_score.py                       96      1     22      2    97%
+src/backend/workers/caseflow/fcrm_caseflow/cores/closing_conditions.py                     74      0     28      1    99%
+src/backend/workers/caseflow/fcrm_caseflow/cores/decision.py                              156      7     24      4    94%
+src/backend/workers/caseflow/fcrm_caseflow/cores/handoff.py                                46      2      4      0    96%
+src/backend/workers/caseflow/fcrm_caseflow/cores/intake.py                                296     14     58      4    95%
+src/backend/workers/caseflow/fcrm_caseflow/cores/intake_merge.py                          145      0     44      1    99%
+src/backend/workers/caseflow/fcrm_caseflow/cores/oversight.py                             136      7     30      4    93%
+src/backend/workers/caseflow/fcrm_caseflow/cores/oversight_watchlist.py                   132      4     30      4    95%
+src/backend/workers/caseflow/fcrm_caseflow/cores/shared.py                                 86      1     16      1    98%
+src/backend/workers/caseflow/fcrm_caseflow/dispatch.py                                    101      1     36      1    99%
+src/backend/workers/caseflow/fcrm_caseflow/engine.py                                      586     30    204     15    94%
+src/backend/workers/caseflow/fcrm_caseflow/gates.py                                        71      2     12      3    94%
+src/backend/workers/caseflow/fcrm_caseflow/handoff.py                                      40      1     12      2    94%
+src/backend/workers/caseflow/fcrm_caseflow/oversight_runs.py                               68      1     10      1    97%
+src/backend/workers/caseflow/fcrm_caseflow/raw_inputs.py                                   43      3     10      1    92%
+src/backend/workers/caseflow/fcrm_caseflow/resolve.py                                      79      1     28      1    98%
+src/backend/workers/caseflow/fcrm_caseflow/steps.py                                       207      6     32      6    95%
+src/backend/workers/caseflow/fcrm_caseflow/store.py                                       206      0     28      1    99%
+src/backend/workers/context-worker/evoq_context/chunking/__init__.py                       14      1      2      1    88%
+src/backend/workers/context-worker/evoq_context/chunking/budget.py                        117      5     44      5    94%
+src/backend/workers/context-worker/evoq_context/chunking/enrichers/finalize.py             76      1     32      1    98%
+src/backend/workers/context-worker/evoq_context/chunking/enrichers/hierarchy.py            34      5     14      1    83%
+src/backend/workers/context-worker/evoq_context/chunking/enrichers/requirement.py          27      1     10      1    95%
+src/backend/workers/context-worker/evoq_context/chunking/enrichers/table.py                31      0     10      3    93%
+src/backend/workers/context-worker/evoq_context/chunking/guard.py                         102      5     34      4    93%
+src/backend/workers/context-worker/evoq_context/chunking/index.py                         210     28     52      6    85%
+src/backend/workers/context-worker/evoq_context/chunking/markers.py                        43      5      8      3    84%
+src/backend/workers/context-worker/evoq_context/chunking/normalize.py                     155     15     46      8    87%
+src/backend/workers/context-worker/evoq_context/chunking/parent_child.py                   58      1     20      2    96%
+src/backend/workers/context-worker/evoq_context/chunking/pipeline.py                      190     30     64      8    81%
+src/backend/workers/context-worker/evoq_context/chunking/profiler.py                      264      6     44      2    97%
+src/backend/workers/context-worker/evoq_context/chunking/segmenters/comment_thread.py      36      2     14      5    86%
+src/backend/workers/context-worker/evoq_context/chunking/segmenters/heading.py             22      2     10      3    84%
+src/backend/workers/context-worker/evoq_context/chunking/segmenters/page.py                24      1     12      3    89%
+src/backend/workers/context-worker/evoq_context/chunking/segmenters/paragraph.py           15      0      4      1    95%
+src/backend/workers/context-worker/evoq_context/chunking/segmenters/requirement.py         74      0     34      3    97%
+src/backend/workers/context-worker/evoq_context/chunking/segmenters/sheet_table.py         40      0     20      3    95%
+src/backend/workers/context-worker/evoq_context/chunking/segmenters/slide.py               21      1     10      3    87%
+src/backend/workers/context-worker/evoq_context/chunking/selector.py                      174     14     78     13    89%
+src/backend/workers/context-worker/evoq_context/chunking/tables.py                         87      1     18      1    98%
+src/backend/workers/context-worker/evoq_context/chunking/text_ops.py                      148      5     62      8    94%
+src/backend/workers/context-worker/evoq_context/chunking/tokens.py                         83     29     16      3    60%
+src/backend/workers/context-worker/evoq_context/chunking/topic.py                          86      1     30      1    98%
+src/backend/workers/context-worker/evoq_context/chunking/types.py                          88      4      6      3    93%
+src/backend/workers/context-worker/evoq_context/core/config.py                            254     22     22     10    88%
+src/backend/workers/context-worker/evoq_context/core/contracts.py                          88      5     24     11    86%
+src/backend/workers/context-worker/evoq_context/core/errors.py                             15      3      0      0    80%
+src/backend/workers/context-worker/evoq_context/core/models.py                             61      1      2      0    98%
+src/backend/workers/context-worker/evoq_context/core/observer.py                          126     14      0      0    89%
+src/backend/workers/context-worker/evoq_context/llm/client.py                             201     48     56      7    75%
+src/backend/workers/context-worker/evoq_context/llm/retry.py                               26      0     10      1    97%
+src/backend/workers/context-worker/evoq_context/pipeline/build.py                          83      2     12      0    98%
+src/backend/workers/context-worker/evoq_context/pipeline/plan.py                          127      3     30      1    97%
+src/backend/workers/context-worker/evoq_context/pipeline/result.py                         36      2      8      0    95%
+src/backend/workers/context-worker/evoq_context/pipeline/revert.py                        192     15     38      9    90%
+src/backend/workers/context-worker/evoq_context/pipeline/runner.py                         20      1      4      1    92%
+src/backend/workers/context-worker/evoq_context/pipeline/stages.py                        209     11     38      4    91%
+src/backend/workers/context-worker/evoq_context/pipeline/summary.py                        38      1      4      1    95%
+src/backend/workers/context-worker/evoq_context/pipeline/tracker.py                       102     24     18      3    74%
+src/backend/workers/context-worker/evoq_context/pipeline/vectors.py                       120      8     28      9    89%
+src/backend/workers/context-worker/evoq_context/retrieval/context_engine.py               163     22     62     11    85%
+src/backend/workers/context-worker/evoq_context/state/activity.py                          26      2      2      1    89%
+src/backend/workers/context-worker/evoq_context/state/reconciler.py                        80      6     24      9    86%
+src/backend/workers/context-worker/evoq_context/storage/layout.py                         123     25     44      6    74%
+src/backend/workers/context-worker/evoq_context/storage/local.py                           78     34     12      0    53%
+src/backend/workers/context-worker/evoq_context/storage/snapshot.py                       130     10     42      6    91%
+src/backend/workers/context-worker/evoq_context/synthesis/_util.py                         27      2     12      3    87%
+src/backend/workers/context-worker/evoq_context/synthesis/analyzer.py                     476     82    194     32    76%
+src/backend/workers/context-worker/evoq_context/synthesis/context_md.py                   138     19     34      6    83%
+src/backend/workers/context-worker/evoq_context/synthesis/corpus_util.py                   32      1      8      1    95%
+src/backend/workers/context-worker/evoq_context/synthesis/document_inventory.py           124     29     42      6    72%
+src/backend/workers/context-worker/evoq_context/vector/contract.py                        157     17     80     12    87%
+src/backend/workers/context-worker/evoq_context/vector/embedder.py                        115     13     44     12    82%
+src/backend/workers/context-worker/evoq_context/vector/factory.py                          26      4      4      1    83%
+src/backend/workers/context-worker/evoq_context/vector/memory_store.py                    112      7     52      6    92%
+src/backend/workers/context-worker/evoq_context/vector/s3_vectors.py                      130     24     30      6    80%
+src/backend/workers/context-worker/fcrm_context_worker/search.py                           31      2      4      1    91%
+src/backend/workers/context-worker/fcrm_context_worker/seedload.py                         85      2     16      2    96%
+src/backend/workers/context-worker/fcrm_context_worker/segmenter.py                        96      0     38      1    99%
+src/backend/workers/ingestion-worker/evoq_ingestion/cli.py                                 81      5     20      3    92%
+src/backend/workers/ingestion-worker/evoq_ingestion/core/config.py                         71      6      4      2    89%
+src/backend/workers/ingestion-worker/evoq_ingestion/core/documents.py                      72     21     10      1    63%
+src/backend/workers/ingestion-worker/evoq_ingestion/core/encoding.py                      108      8     40      7    90%
+src/backend/workers/ingestion-worker/evoq_ingestion/core/hashing.py                        39      1     16      1    96%
+src/backend/workers/ingestion-worker/evoq_ingestion/core/limits.py                         51      7     12      3    81%
+src/backend/workers/ingestion-worker/evoq_ingestion/core/markdown_scan.py                 221      7     60      5    96%
+src/backend/workers/ingestion-worker/evoq_ingestion/core/orchestrator.py                   88      0     18      2    98%
+src/backend/workers/ingestion-worker/evoq_ingestion/core/profile.py                       151      1     10      2    98%
+src/backend/workers/ingestion-worker/evoq_ingestion/core/writer.py                         43      6      4      2    83%
+src/backend/workers/ingestion-worker/evoq_ingestion/extractors/csv_extractor.py            85      7     24      5    89%
+src/backend/workers/ingestion-worker/evoq_ingestion/extractors/docx/numbering.py          162     17     50     12    85%
+src/backend/workers/ingestion-worker/evoq_ingestion/extractors/docx/parts.py              247     36    102     26    81%
+src/backend/workers/ingestion-worker/evoq_ingestion/extractors/docx/styles.py              92      3     28      2    96%
+src/backend/workers/ingestion-worker/evoq_ingestion/extractors/docx/tables.py              98     15     38      9    81%
+src/backend/workers/ingestion-worker/evoq_ingestion/extractors/gate.py                    108      3     34      2    96%
+src/backend/workers/ingestion-worker/evoq_ingestion/extractors/pdf/columns.py              46      2     18      2    94%
+src/backend/workers/ingestion-worker/evoq_ingestion/extractors/pdf/fonts.py                17      1      6      1    91%
+src/backend/workers/ingestion-worker/evoq_ingestion/extractors/pdf/headings.py             41      4     16      4    86%
+src/backend/workers/ingestion-worker/evoq_ingestion/extractors/pdf/lines.py                79      7     26      7    87%
+src/backend/workers/ingestion-worker/evoq_ingestion/extractors/pdf_extractor.py           276     35     82     10    86%
+src/backend/workers/ingestion-worker/evoq_ingestion/extractors/pptx_extractor.py          136      8     50      8    91%
+src/backend/workers/ingestion-worker/evoq_ingestion/extractors/record.py                   60      8      8      3    84%
+src/backend/workers/ingestion-worker/evoq_ingestion/extractors/registry.py                160     19     34      2    85%
+src/backend/workers/ingestion-worker/evoq_ingestion/extractors/text_extractor.py          109      7     44      6    92%
+src/backend/workers/ingestion-worker/evoq_ingestion/extractors/xlsx/header.py              50      5     24      5    86%
+src/backend/workers/ingestion-worker/evoq_ingestion/extractors/xlsx/merged.py             117     12     38      7    88%
+src/backend/workers/ingestion-worker/evoq_ingestion/extractors/xlsx_extractor.py          153      7     50      3    94%
+src/backend/workers/ingestion-worker/evoq_ingestion/model/blocks.py                       120      4     10      4    94%
+src/backend/workers/ingestion-worker/evoq_ingestion/model/document.py                     106     22     26      1    70%
+src/backend/workers/ingestion-worker/evoq_ingestion/model/renderer.py                     269     23    126     20    89%
+src/backend/workers/ingestion-worker/evoq_ingestion/model/structure.py                     58      1      8      1    97%
+src/backend/workers/ingestion-worker/evoq_ingestion/observability.py                       92      3      0      0    97%
+src/backend/workers/ingestion-worker/evoq_ingestion/run.py                                 36      2      6      1    93%
+src/backend/workers/ingestion-worker/evoq_ingestion/sources/scanner.py                     62      5     14      2    91%
+src/backend/workers/ingestion-worker/evoq_ingestion/sources/uploads_source.py             109      0     28      2    99%
+src/backend/workers/ingestion-worker/fcrm_ingestion_worker/anchors.py                      50      3     14      3    91%
+-------------------------------------------------------------------------------------------------------------------------
+TOTAL                                                                                   48839   3488   9814    909    91%
+
+316 files skipped due to complete coverage.
+Coverage XML written to file coverage.xml
+8883 passed, 266 skipped, 598 deselected in 748.94s (0:12:28)
