@@ -57,7 +57,7 @@ export function MonitorPage() {
     const all = q.data?.log ?? [];
     return all.filter((l) => (!who || l.who === who) && (!guard || String(l.guard) === guard) && (!errorsOnly || l.level !== 'info'));
   }, [q.data, who, guard, errorsOnly]);
-  const whos = useMemo(() => [...new Set((q.data?.log ?? []).map((l) => l.who))].sort(), [q.data]);
+  const whos = useMemo(() => [...new Set((q.data?.log ?? []).map((l) => l.who))].sort((a, b) => a.localeCompare(b)), [q.data]);
 
   useEffect(() => {
     if (paused || prefersReducedMotion() || lines.length === 0) return;

@@ -127,7 +127,7 @@ def _is_input_error(text: str) -> bool:
     """Whether a token-limit rejection is about the input, which a smaller
     ``max_tokens`` cannot fix."""
     return bool(_INPUT_WORDS.search(text)) and not re.search(
-        r"max_?tokens|maxtokens|output", text, re.I
+        r"max_?tokens|output", text, re.I
     )
 
 

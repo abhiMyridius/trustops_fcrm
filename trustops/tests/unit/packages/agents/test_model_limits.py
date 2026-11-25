@@ -202,3 +202,20 @@ def test_tier_models_reads_each_models_limits_and_the_chain_is_wrapped() -> None
     chain = bedrock_chain(judge, judge.chain, provider=provider)
     assert all(isinstance(m, ModelLimitsModel) for m in chain.models)
     assert [m.limits.max_output_tokens for m in chain.models] == [5000, None]
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Input is too long for requested model", True),
+        ("Input is too long, and max_tokens is 9000", False),
+        ("Input is too long, and maxTokens is 9000", False),
+        ("Input is too long to produce this output", False),
+    ],
+)
+def test_an_input_rejection_is_told_from_an_output_rejection(
+    text: str, expected: bool
+) -> None:
+    from fcrm_agents.model_limits import _is_input_error
+
+    assert _is_input_error(text) is expected

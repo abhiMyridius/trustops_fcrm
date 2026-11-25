@@ -215,7 +215,7 @@ def test_the_first_answer_is_stored_with_its_document_and_the_round_stays_open(
     [doc] = [d for d in round_sent.views.documents.values() if d.name == SCOPE_LETTER]
     assert doc.raised_in_round == 1
     assert doc.status == "stored"
-    assert (SCOPE_LETTER in str(k) for k in round_sent.objects.objects)
+    assert any(SCOPE_LETTER in str(k) for k in round_sent.objects.objects)
     [stored] = events(round_sent, "case.document_stored")
     assert stored["doc_id"] == doc.doc_id
     assert stored["raised_in_round"] == 1

@@ -209,3 +209,16 @@ def test_line_span_negative_tolerance_raises_instead_of_returning_empty() -> Non
     page = "\n".join(f"line {n}" for n in range(1, 11))
     with pytest.raises(ValueError, match="tolerance"):
         line_span(page, 5, 5, tolerance=-1)
+
+
+@pytest.mark.parametrize(
+    ("quote", "expected"),
+    [
+        ("...alpha beta...", "alpha beta"),
+        ("   ...  ...alpha beta ... ...", "alpha beta"),
+        ("alpha ... beta", "alpha ... beta"),
+        ("...alpha ... beta...", "alpha ... beta"),
+    ],
+)
+def test_normalise_quote_strips_only_edge_ellipses(quote: str, expected: str) -> None:
+    assert normalise_quote(quote) == expected

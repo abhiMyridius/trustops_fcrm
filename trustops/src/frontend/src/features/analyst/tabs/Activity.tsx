@@ -24,8 +24,8 @@ export function AnalystActivityTab() {
   const [type, setType] = useState('');
   const toast = useToast();
 
-  const actors = useMemo(() => [...new Set(q.data?.map((e) => e.actor) ?? [])].sort(), [q.data]);
-  const types = useMemo(() => [...new Set(q.data?.map((e) => e.type) ?? [])].sort(), [q.data]);
+  const actors = useMemo(() => [...new Set(q.data?.map((e) => e.actor) ?? [])].sort((a, b) => a.localeCompare(b)), [q.data]);
+  const types = useMemo(() => [...new Set(q.data?.map((e) => e.type) ?? [])].sort((a, b) => a.localeCompare(b)), [q.data]);
 
   return (
     <QueryState query={q} label="Loading activity">

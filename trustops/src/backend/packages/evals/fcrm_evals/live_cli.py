@@ -23,6 +23,7 @@ import argparse
 import asyncio
 import json
 import logging
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -102,7 +103,7 @@ def _note(index: RunIndex) -> str:
     lifted = (
         f" DIAGNOSTIC: the per-attempt token budgets were lifted x"
         f"{index.token_budget_factor:g}; this is not the system as shipped."
-        if index.token_budget_factor != 1.0
+        if not math.isclose(index.token_budget_factor, 1.0)
         else ""
     )
     return (

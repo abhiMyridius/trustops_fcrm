@@ -684,7 +684,8 @@ class ContextPackBuilder(ABC):
                 over its cap.
         """
         if draft.overflows:
-            raise next(iter(draft.overflows.values()))
+            first: PackOverflowError = next(iter(draft.overflows.values()))
+            raise first
         return self._finish_part(
             request, tools, draft.sections, draft.sources_for(draft.shown_ids())
         )

@@ -60,7 +60,7 @@ _WHITESPACE = re.compile(r"\s+")
 _SECTION_SIGNS = re.compile(r"§§\s*")
 _SECTION_SIGN = re.compile(r"§\s*")
 _SECTION_WORD = re.compile(r"\bSection(s?)\b")
-_EDGE_ELLIPSIS = re.compile(r"^(?:\s*\.{3})+|(?:\.{3}\s*)+$")
+_EDGE_ELLIPSIS = re.compile(r"(?:^(?:\s*\.{3})+)|(?:(?:\.{3}\s*)+$)")
 _WRAPPING_QUOTES = "\"'"
 
 _CHAR_MAP = str.maketrans(

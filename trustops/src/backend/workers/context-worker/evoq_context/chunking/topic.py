@@ -98,7 +98,7 @@ def _cosine(a: Counter[str], b: Counter[str]) -> float:
         return 0.0
     norm_a = math.sqrt(sum(v * v for v in a.values()))
     norm_b = math.sqrt(sum(v * v for v in b.values()))
-    if norm_a == 0.0 or norm_b == 0.0:
+    if norm_a <= 0.0 or norm_b <= 0.0:
         return 0.0
     return dot / (norm_a * norm_b)
 

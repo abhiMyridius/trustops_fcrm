@@ -35,6 +35,7 @@ retrieved <date>", or "unverified for: <models>").
 from __future__ import annotations
 
 import logging
+import math
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from html import escape
@@ -325,7 +326,7 @@ def _header(index: RunIndex) -> str:
     budget_chip = (
         '<span class="chip warn">⚠ DIAGNOSTIC: token budgets lifted ×'
         f"{index.token_budget_factor:g}, not the system as shipped</span>"
-        if index.token_budget_factor != 1.0
+        if not math.isclose(index.token_budget_factor, 1.0)
         else ""
     )
     prompt_chip = (

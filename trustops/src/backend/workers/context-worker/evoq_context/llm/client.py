@@ -117,7 +117,7 @@ def _validate_embeddings(vectors: list[list[float]], dimension: int) -> None:
         if not all(math.isfinite(x) for x in v):
             raise EmbeddingValidationError("embedding contains non-finite values")
         norm = math.sqrt(sum(x * x for x in v))
-        if norm == 0.0:
+        if norm <= 0.0:
             raise EmbeddingValidationError(
                 "embedding has zero norm — the old zero-vector fallback is "
                 "removed; a real embedding failure must raise, not be "

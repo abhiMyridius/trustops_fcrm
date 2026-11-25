@@ -28,6 +28,7 @@ import copy
 import hashlib
 import json
 import logging
+import math
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -120,11 +121,17 @@ def _validate(seed: dict[str, Any]) -> list[str]:
                         f"{domain} is not in the control inventory"
                     )
     demo = seed["demo"]
-    if demo["score_before"]["composite"] != 9.8 or demo["score_before"]["band"] != 2:
+    if (
+        not math.isclose(demo["score_before"]["composite"], 9.8)
+        or demo["score_before"]["band"] != 2
+    ):
         problems.append(
             "demo score_before does not match the decision log (9.8, band 2)"
         )
-    if demo["score_after"]["composite"] != 10.4 or demo["score_after"]["band"] != 3:
+    if (
+        not math.isclose(demo["score_after"]["composite"], 10.4)
+        or demo["score_after"]["band"] != 3
+    ):
         problems.append("demo score_after does not match ADR-13/D-42 (10.4, band 3)")
     return problems
 

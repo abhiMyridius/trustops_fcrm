@@ -101,6 +101,10 @@ on that host. Tracked as a known limitation, not a design preference:
 the real fix is upstream (either package relaxing its pin), and this
 is the workaround until one does.
 
+### SonarQube fixes (25 Nov 2026, ADR-90)
+Correctness fixes only; the structural smells (complexity, unused parameters, long signatures) stay as upstream wrote them.
+- Zero-norm guards use `<= 0.0` instead of `== 0.0`: `chunking/topic.py` (`_cosine`), `llm/client.py` (embedding validation), `vector/memory_store.py` (`_cosine_distance`). Behaviour is unchanged for any finite input; the new `test_zero_norm_guards.py` pins it.
+
 ## After
 
 `uv run --project ../.. --package fcrm-context-worker pytest ../../../tests/unit/workers/context-worker` → **495 passed** (459 moved upstream tests + 36 new). Branch coverage over `evoq_context` + `fcrm_context_worker`: **84 %**.

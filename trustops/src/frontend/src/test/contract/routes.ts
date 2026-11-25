@@ -39,7 +39,7 @@ function collect(node: unknown, out: string[]): void {
 export function webTemplates(): string[] {
   const raw: string[] = [];
   collect(paths, raw);
-  return [...new Set(raw.map(normalize))].sort();
+  return [...new Set(raw.map(normalize))].sort((a, b) => a.localeCompare(b));
 }
 
 /** Method -> templates, from the MSW handlers; the mock-only control routes are left out. */
@@ -59,7 +59,7 @@ function handlerMethods(): Map<string, Set<string>> {
 /** The MSW handler paths that are not in `endpoints.ts` (a route spelled outside the one file). */
 export function handlerTemplatesOutsideEndpoints(): string[] {
   const known = new Set(webTemplates());
-  return [...handlerMethods().keys()].filter((t) => !known.has(t)).sort();
+  return [...handlerMethods().keys()].filter((t) => !known.has(t)).sort((a, b) => a.localeCompare(b));
 }
 
 /** `METHOD /path/{id}` for every route the web calls; `ANY` where no handler names a method. */
@@ -67,7 +67,7 @@ export function webRoutes(): string[] {
   const byTemplate = handlerMethods();
   return webTemplates()
     .flatMap((template) => [...(byTemplate.get(template) ?? ['ANY'])].map((method) => `${method} ${template}`))
-    .sort();
+    .sort((a, b) => a.localeCompare(b));
 }
 
 /** `METHOD /path/{id}` for every operation the backend's OpenAPI lists, plus `ANY /path/{id}` per path. */
@@ -94,5 +94,5 @@ export function openApiSchema(name: string): { fields: string[]; required: strin
   const doc = JSON.parse(readFileSync(API_JSON, 'utf8')) as { components: { schemas: Record<string, ApiSchema> } };
   const schema = doc.components.schemas[name];
   if (!schema) throw new Error(`the OpenAPI export has no schema ${name}`);
-  return { fields: Object.keys(schema.properties ?? {}).sort(), required: [...(schema.required ?? [])].sort() };
+  return { fields: Object.keys(schema.properties ?? {}).sort((a, b) => a.localeCompare(b)), required: [...(schema.required ?? [])].sort((a, b) => a.localeCompare(b)) };
 }

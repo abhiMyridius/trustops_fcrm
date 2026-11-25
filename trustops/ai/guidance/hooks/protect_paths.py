@@ -49,7 +49,7 @@ GENERATED_GLOBS = {
 }
 GOVERNANCE_GLOB = "docs/governance/*.md"
 SECRET_PATH_RE = re.compile(
-    r"(^|/)AEO/secrets(/|$)|EVOQ_Applications/.*(^|/)\.env[^/]*$"
+    r"(?:^|/)AEO/secrets(?:/|$)|EVOQ_Applications/(?:.*/)?\.env[^/]*$"
 )
 ENV_NAME_RE = re.compile(r"^\.env(rc)?(\..+)?$")
 ENV_ALLOWED = {".env.example"}

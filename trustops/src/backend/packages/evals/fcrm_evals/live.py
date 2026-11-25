@@ -31,6 +31,7 @@ section (screening's precedents, research's jurisdictions) the section reads
 from __future__ import annotations
 
 import logging
+import math
 import re
 import time
 from collections.abc import (
@@ -850,7 +851,7 @@ def lifted_token_budgets(factor: float) -> Iterator[None]:
     (``token_budget_factor`` in the index, a chip on the dashboard, a line in
     the report). ``1.0`` changes nothing.
     """
-    if factor == 1.0:
+    if math.isclose(factor, 1.0):
         yield
         return
     namespace = vars(live_runtime)
