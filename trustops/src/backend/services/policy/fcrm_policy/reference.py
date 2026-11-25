@@ -63,6 +63,8 @@ from fcrm_policy.seedmodel import (
     jurisdiction_documents,
 )
 
+_CONTROLS = "$controls"
+
 logger = logging.getLogger(__name__)
 
 JURISDICTION_LISTS: Final = "jurisdiction_list_versions"
@@ -513,7 +515,7 @@ class MongoReferenceStore:
                     "$project": {
                         "version": 1,
                         "active": 1,
-                        "control_count": {"$size": "$controls"},
+                        "control_count": {"$size": _CONTROLS},
                     }
                 },
                 {"$limit": MAX_VERSIONS},
@@ -532,11 +534,11 @@ class MongoReferenceStore:
     async def control_inventory(
         self, version: Optional[str], domain: Optional[str]
     ) -> Optional[ControlInventoryOut]:
-        controls: Any = "$controls"
+        controls: Any = _CONTROLS
         if domain is not None:
             controls = {
                 "$filter": {
-                    "input": "$controls",
+                    "input": _CONTROLS,
                     "cond": {"$eq": ["$$this.domain", domain]},
                 }
             }

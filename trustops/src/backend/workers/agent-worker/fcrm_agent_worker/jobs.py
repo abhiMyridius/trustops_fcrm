@@ -50,6 +50,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import DuplicateKeyError
 
+_NOW = "$$NOW"
+
 logger = logging.getLogger(__name__)
 
 #: The job ledger's collection (H2's database).
@@ -201,7 +203,7 @@ class AgentJobStore:
         take = {
             "$and": [
                 {"$ne": ["$status", STATUS_DONE]},
-                {"$lt": ["$lease_until", "$$NOW"]},
+                {"$lt": ["$lease_until", _NOW]},
             ]
         }
 
@@ -217,9 +219,9 @@ class AgentJobStore:
                             "status": pick(_literal(STATUS_RUNNING), "status"),
                             "holder": pick(_literal(self.holder), "holder"),
                             "claim": pick(_literal(token), "claim"),
-                            "started_at": pick("$$NOW", "started_at"),
+                            "started_at": pick(_NOW, "started_at"),
                             "lease_until": pick(
-                                {"$add": ["$$NOW", int(ttl_s * 1000)]}, "lease_until"
+                                {"$add": [_NOW, int(ttl_s * 1000)]}, "lease_until"
                             ),
                             "case_id": pick(_literal(case_id), "case_id"),
                             "run_id": pick(_literal(run_id), "run_id"),
@@ -273,7 +275,7 @@ class AgentJobStore:
             return False
         result = await self._collection.update_one(
             query,
-            [{"$set": {"lease_until": {"$add": ["$$NOW", int(ttl_s * 1000)]}}}],
+            [{"$set": {"lease_until": {"$add": [_NOW, int(ttl_s * 1000)]}}}],
         )
         return result.modified_count == 1
 
@@ -311,7 +313,7 @@ class AgentJobStore:
                 {
                     "$set": {
                         "status": _literal(STATUS_DONE),
-                        "finished_at": "$$NOW",
+                        "finished_at": _NOW,
                         "outcome": _literal(outcome),
                         "event_id": _literal(event_id),
                     }

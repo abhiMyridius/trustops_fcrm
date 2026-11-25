@@ -46,6 +46,8 @@ from fcrm_common.mongo import Document, with_transaction
 from fcrm_common.time import utcnow
 from fcrm_common.tracing import extract_amqp, inject_amqp
 
+_AGENT_JOBS = "agent.jobs"
+
 logger = logging.getLogger(__name__)
 _tracer = trace.get_tracer(__name__)
 
@@ -59,9 +61,9 @@ CONSUMED_TTL = timedelta(days=7)
 
 # design A §4.1: which exchange each event type is published to.
 _JOB_EXCHANGES: dict[str, str] = {
-    "agent.run": "agent.jobs",
-    "agent.done": "agent.jobs",
-    "agent.failed": "agent.jobs",
+    "agent.run": _AGENT_JOBS,
+    "agent.done": _AGENT_JOBS,
+    "agent.failed": _AGENT_JOBS,
     "ingest.run": "ingestion.jobs",
     "index.build": "context.jobs",
 }

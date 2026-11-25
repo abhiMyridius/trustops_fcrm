@@ -139,6 +139,9 @@ from fcrm_caseflow.store import (
 from fcrm_caseflow.transitions import TransitionContext, TransitionResult, apply
 from fcrm_caseflow.triggers import Trigger
 
+_AGENT_DONE = "agent.done"
+_GATE_DECIDED = "gate.decided"
+
 logger = logging.getLogger(__name__)
 
 #: Events the catch-all ``#`` binding of ``caseflow.events`` delivers to H1 but
@@ -150,7 +153,7 @@ NON_CASE_EVENT_TYPES = frozenset({"index.build", "index.built", "index.failed"})
 _INTERNAL_PREFIX = "internal."
 
 #: The two terminal events of an agent job: each carries the whole job's usage.
-_AGENT_RESULT_TYPES = frozenset({"agent.done", "agent.failed"})
+_AGENT_RESULT_TYPES = frozenset({_AGENT_DONE, "agent.failed"})
 
 #: The PO's intake gates whose decision moves nothing but is still recorded
 #: (``intake.po_action``): the wire values of their ``gate_type``.
@@ -635,7 +638,7 @@ class CaseflowEngine:
         reaches the transition table, so a failed examiner on a closed run is a
         refusal, not an illegal transition.
         """
-        if envelope.type == "agent.done" and self._results is not None:
+        if envelope.type == _AGENT_DONE and self._results is not None:
             await self._results.save(envelope.payload, session=session)
         await self._enqueue_step_for(
             run,
@@ -654,7 +657,7 @@ class CaseflowEngine:
         re-flagged case's chain. Any other event leaves the run unchanged.
         """
         if (
-            envelope.type != "gate.decided"
+            envelope.type != _GATE_DECIDED
             or envelope.payload.get("gate_type") != GateType.REFLAG_ACK.value
         ):
             return run
@@ -709,9 +712,9 @@ class CaseflowEngine:
         simple = resolve_simple(envelope)
         if simple is not None:
             return simple.trigger, simple.context
-        if envelope.type == "gate.decided":
+        if envelope.type == _GATE_DECIDED:
             return await self._resolve_gate_decided(envelope, run, session)
-        if envelope.type == "agent.done":
+        if envelope.type == _AGENT_DONE:
             return await self._resolve_agent_done(envelope, run, session)
         logger.info(
             "no trigger mapping for %s; treating as informational",
@@ -887,7 +890,7 @@ class CaseflowEngine:
         """A ``gate.decided`` for a ``handoff`` gate: the analyst completed a failed
         step by hand."""
         return (
-            envelope.type == "gate.decided"
+            envelope.type == _GATE_DECIDED
             and envelope.payload.get("gate_type") == GateType.HANDOFF.value
         )
 
@@ -934,7 +937,7 @@ class CaseflowEngine:
                 session,
             )
         done_envelope = build_envelope(
-            "agent.done",
+            _AGENT_DONE,
             done,
             case_id=run.snapshot.case_id,
             run_id=run.snapshot.run_id,
@@ -983,7 +986,7 @@ class CaseflowEngine:
         the PO did. Outside INTAKE, or for any other gate, the run is returned
         unchanged.
         """
-        if envelope.type != "gate.decided" or run.state is not CaseState.INTAKE:
+        if envelope.type != _GATE_DECIDED or run.state is not CaseState.INTAKE:
             return run
         if envelope.payload.get("gate_type") not in _PO_ACTION_GATES:
             return run
@@ -1005,7 +1008,7 @@ class CaseflowEngine:
         re-checks whether every item and acknowledgement is now done.
         """
         if (
-            envelope.type != "gate.decided"
+            envelope.type != _GATE_DECIDED
             or envelope.payload.get("gate_type") != GateType.ACK.value
         ):
             return run

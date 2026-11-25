@@ -11,6 +11,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from fcrm_contracts.enums import Outcome
 from fcrm_contracts.proposals.provenance import ClauseSourceRef
 
+_D_4_D_2_D_2 = "^\\d{4}-\\d{2}-\\d{2}$"
+
 
 class SearchFilters(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -251,8 +253,8 @@ class PrecedentSearchFilters(BaseModel):
 
     trigger_types: list[str] = Field(default_factory=list, max_length=12)
     risk_areas: list[str] = Field(default_factory=list, max_length=12)
-    closed_after: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
-    closed_before: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    closed_after: Optional[str] = Field(default=None, pattern=_D_4_D_2_D_2)
+    closed_before: Optional[str] = Field(default=None, pattern=_D_4_D_2_D_2)
     outcome: Optional[str] = Field(default=None, max_length=40)
 
 
@@ -305,7 +307,7 @@ class PrecedentRecordIn(BaseModel):
     change_types: list[str] = Field(default_factory=list, max_length=12)
     domains: list[str] = Field(default_factory=list, max_length=8)
     geographies: list[str] = Field(default_factory=list, max_length=50)
-    closed_date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    closed_date: str = Field(pattern=_D_4_D_2_D_2)
     outcome: Outcome
     band: Optional[int] = Field(default=None, ge=1, le=4)
     control_ratings: dict[str, float] = Field(default_factory=dict)

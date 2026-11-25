@@ -54,6 +54,13 @@ from resilience.scenarios import (
 from resilience.shell import CommandResult
 from resilience.stack import Stack
 
+_AUTH_ME = "/auth/me"
+_QUEUE = "/queue"
+_CASE_CREATED = "case.created"
+_HARNESS_STEP = "harness.step"
+_PROPOSAL_EXTRACTION = "proposal.extraction"
+_WORKFLOW_STARTED = "workflow.started"
+
 logger = logging.getLogger(__name__)
 
 #: Time for H1 to ingest a document and dispatch the intake job.
@@ -81,17 +88,17 @@ STEPS_RETRY: Final = f"{STEPS_QUEUE}{RETRY_SUFFIX}"
 
 #: Types an intake-only case with one document holds exactly once.
 INTAKE_ONCE_TYPES: Final[tuple[str, ...]] = (
-    "case.created",
-    "workflow.started",
+    _CASE_CREATED,
+    _WORKFLOW_STARTED,
     "case.document_stored",
     "document.stored",
     "ingest.done",
     "guard.input",
     "agent.done.intake",
-    "proposal.extraction",
+    _PROPOSAL_EXTRACTION,
     "proposal.category",
 )
-CREATED_ONCE_TYPES: Final[tuple[str, ...]] = ("case.created", "workflow.started")
+CREATED_ONCE_TYPES: Final[tuple[str, ...]] = (_CASE_CREATED, _WORKFLOW_STARTED)
 
 
 # --------------------------------------------------------------------- shared
@@ -302,7 +309,7 @@ def interrupt_harness_midrun(stack: Stack, case_id: str, *, mode: str) -> MidRun
         restore(docker, "harness")
     interrupt_s = time.monotonic() - began
     wait_for_record(
-        gateway, case_id, "proposal.extraction", timeout_s=COMPLETE_TIMEOUT_S
+        gateway, case_id, _PROPOSAL_EXTRACTION, timeout_s=COMPLETE_TIMEOUT_S
     )
     complete_s = time.monotonic() - began
     wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
@@ -358,7 +365,7 @@ def inject_duplicate_agent_done(stack: Stack, case_id: str) -> DuplicateDoneOutc
     broker, gateway = stack.broker, stack.gateway
     upload_document(gateway, case_id)
     wait_for_record(
-        gateway, case_id, "proposal.extraction", timeout_s=COMPLETE_TIMEOUT_S
+        gateway, case_id, _PROPOSAL_EXTRACTION, timeout_s=COMPLETE_TIMEOUT_S
     )
     wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
     dead_before = baseline_dead_letters(broker)
@@ -371,7 +378,7 @@ def inject_duplicate_agent_done(stack: Stack, case_id: str) -> DuplicateDoneOutc
     )
     job_id = str(permit["data"]["job_id"])
     run_id, _ = run_and_step_ids(
-        next(r for r in before if r["type"] == "workflow.started")
+        next(r for r in before if r["type"] == _WORKFLOW_STARTED)
     )
     event_id = f"evt_drill_dup_{utc_stamp()}"
     broker.publish(
@@ -475,11 +482,11 @@ def outage_of_rabbitmq(stack: Stack, *, hold_s: float = 8.0) -> BrokerOutageOutc
     outage_records: list[dict[str, Any]] = []
     if outage_case is not None:
         wait_for_record(
-            gateway, outage_case, "workflow.started", timeout_s=RECORD_TIMEOUT_S
+            gateway, outage_case, _WORKFLOW_STARTED, timeout_s=RECORD_TIMEOUT_S
         )
         outage_records = audit_records(gateway, outage_case)
     after_case = create_scratch_case(gateway, "broker back")
-    wait_for_record(gateway, after_case, "workflow.started", timeout_s=RECORD_TIMEOUT_S)
+    wait_for_record(gateway, after_case, _WORKFLOW_STARTED, timeout_s=RECORD_TIMEOUT_S)
     wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
     problems: list[str] = []
     verifies: list[Mapping[str, Any]] = []
@@ -553,10 +560,10 @@ def probe_while_down(stack: Stack, title: str) -> list[Probe]:
             "POST /cases (PO write)",
             gateway.call("po", "POST", "/cases", json={"title": title}, timeout_s=45.0),
         ),
-        ("GET /auth/me", gateway.call("analyst", "GET", "/auth/me", timeout_s=45.0)),
+        ("GET /auth/me", gateway.call("analyst", "GET", _AUTH_ME, timeout_s=45.0)),
         (
             "GET /queue (analyst read)",
-            gateway.call("analyst", "GET", "/queue", timeout_s=45.0),
+            gateway.call("analyst", "GET", _QUEUE, timeout_s=45.0),
         ),
     )
     return [probe_of(name, reply) for name, reply in replies]
@@ -571,7 +578,7 @@ def outage_of_mongo(stack: Stack, *, hold_s: float = 5.0) -> MongoOutageOutcome:
     gateway.login("analyst")
     dead_before = baseline_dead_letters(broker)
     survivor = create_scratch_case(gateway, "mongo survivor")
-    wait_for_record(gateway, survivor, "workflow.started", timeout_s=RECORD_TIMEOUT_S)
+    wait_for_record(gateway, survivor, _WORKFLOW_STARTED, timeout_s=RECORD_TIMEOUT_S)
     wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
     title = f"[resilience-drill] mongo down {utc_stamp()}"
     docker.stop("mongo", grace_s=30)
@@ -597,7 +604,7 @@ def outage_of_mongo(stack: Stack, *, hold_s: float = 5.0) -> MongoOutageOutcome:
     visible = any(t == title for t in case_titles(gateway))
     survivor_status = gateway.get("po", f"/cases/{survivor}").status
     after_case = create_scratch_case(gateway, "mongo back")
-    wait_for_record(gateway, after_case, "workflow.started", timeout_s=RECORD_TIMEOUT_S)
+    wait_for_record(gateway, after_case, _WORKFLOW_STARTED, timeout_s=RECORD_TIMEOUT_S)
     wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
     problems: list[str] = []
     verifies: list[Mapping[str, Any]] = []
@@ -783,7 +790,7 @@ def replay_a_finished_step(stack: Stack, case_id: str) -> ReplayOutcome:
     """
     broker, gateway, docker = stack.broker, stack.gateway, stack.docker
     created = wait_for_record(
-        gateway, case_id, "case.created", timeout_s=RECORD_TIMEOUT_S
+        gateway, case_id, _CASE_CREATED, timeout_s=RECORD_TIMEOUT_S
     )
     run_id, step_id = run_and_step_ids(created)
     wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
@@ -797,7 +804,7 @@ def replay_a_finished_step(stack: Stack, case_id: str) -> ReplayOutcome:
             step_envelope(case_id, run_id, step_id, "intake.open", event_id=event_id),
             exchange="dlx",
             message_id=event_id,
-            message_type="harness.step",
+            message_type=_HARNESS_STEP,
             headers={
                 "x-attempt": STEP_ATTEMPTS,
                 "x-last-error": "UpstreamUnavailableError",
@@ -871,7 +878,7 @@ def poison_the_steps_queue(stack: Stack, case_id: str) -> PoisonOutcome:
     """
     broker, gateway = stack.broker, stack.gateway
     created = wait_for_record(
-        gateway, case_id, "case.created", timeout_s=RECORD_TIMEOUT_S
+        gateway, case_id, _CASE_CREATED, timeout_s=RECORD_TIMEOUT_S
     )
     run_id, _ = run_and_step_ids(created)
     wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
@@ -885,7 +892,7 @@ def poison_the_steps_queue(stack: Stack, case_id: str) -> PoisonOutcome:
             # cut off mid-object: the envelope's id is readable, the body is not JSON
             f'{{"event_id": "{malformed_id}", "oops": '.encode(),
             message_id=malformed_id,
-            message_type="harness.step",
+            message_type=_HARNESS_STEP,
             content_type=content_type,
         )
         malformed_s, malformed_peak = wait_for_depth(
@@ -895,7 +902,7 @@ def poison_the_steps_queue(stack: Stack, case_id: str) -> PoisonOutcome:
             STEPS_QUEUE,
             poison_step_envelope(case_id, run_id, event_id=invalid_id),
             message_id=invalid_id,
-            message_type="harness.step",
+            message_type=_HARNESS_STEP,
         )
         began = time.monotonic()
         _, retry_peak = wait_for_depth(
@@ -904,7 +911,7 @@ def poison_the_steps_queue(stack: Stack, case_id: str) -> PoisonOutcome:
         other_case = create_scratch_case(gateway, "poison bystander")
         other_began = time.monotonic()
         wait_for_record(
-            gateway, other_case, "workflow.started", timeout_s=RECORD_TIMEOUT_S
+            gateway, other_case, _WORKFLOW_STARTED, timeout_s=RECORD_TIMEOUT_S
         )
         other_s = time.monotonic() - other_began
         _, later_peak = wait_for_depth(
@@ -1006,7 +1013,7 @@ def fail_a_job_into_handoff(stack: Stack, case_id: str) -> HandoffOutcome:
     """
     broker, gateway, mongo = stack.broker, stack.gateway, stack.mongo
     started = wait_for_record(
-        gateway, case_id, "workflow.started", timeout_s=RECORD_TIMEOUT_S
+        gateway, case_id, _WORKFLOW_STARTED, timeout_s=RECORD_TIMEOUT_S
     )
     run_id, _ = run_and_step_ids(started)
     pins = started["data"]["pins"]
@@ -1121,7 +1128,7 @@ def exhaust_the_case_budget(stack: Stack, case_id: str) -> BudgetHandoffOutcome:
         stack.mongo,
     )
     started = wait_for_record(
-        gateway, case_id, "workflow.started", timeout_s=RECORD_TIMEOUT_S
+        gateway, case_id, _WORKFLOW_STARTED, timeout_s=RECORD_TIMEOUT_S
     )
     run_id, _ = run_and_step_ids(started)
     wait_for_idle(broker, timeout_s=IDLE_TIMEOUT_S)
@@ -1215,12 +1222,12 @@ def outage_of_identity(stack: Stack, *, hold_s: float = 5.0) -> IdentityOutageOu
     """
     docker, gateway = stack.docker, stack.gateway
     token = gateway.login("analyst")
-    before = gateway.call(None, "GET", "/auth/me", token=token).status
+    before = gateway.call(None, "GET", _AUTH_ME, token=token).status
     docker.stop("api", grace_s=API_GRACE_S)
     try:
         during = [
             probe_of(name, gateway.call(None, "GET", path, token=token, timeout_s=45.0))
-            for name, path in (("GET /auth/me", "/auth/me"), ("GET /queue", "/queue"))
+            for name, path in (("GET /auth/me", _AUTH_ME), ("GET /queue", _QUEUE))
         ]
         time.sleep(hold_s)
     finally:
@@ -1229,7 +1236,7 @@ def outage_of_identity(stack: Stack, *, hold_s: float = 5.0) -> IdentityOutageOu
     try:
 
         def answers() -> Optional[Reply]:
-            reply = gateway.call(None, "GET", "/auth/me", token=token)
+            reply = gateway.call(None, "GET", _AUTH_ME, token=token)
             return reply if reply.status == 200 else None
 
         recovered = poll_until(
@@ -1242,8 +1249,8 @@ def outage_of_identity(stack: Stack, *, hold_s: float = 5.0) -> IdentityOutageOu
         restore(docker, "api")
     recovery_s = time.monotonic() - began
     user = recovered.body.get("id") if isinstance(recovered.body, Mapping) else None
-    queue = gateway.call(None, "GET", "/queue", token=token).status
-    forged = gateway.call(None, "GET", "/auth/me", token=forge(token)).status
+    queue = gateway.call(None, "GET", _QUEUE, token=token).status
+    forged = gateway.call(None, "GET", _AUTH_ME, token=forge(token)).status
     return IdentityOutageOutcome(
         before_status=before,
         during=during,

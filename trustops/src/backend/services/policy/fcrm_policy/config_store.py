@@ -48,6 +48,10 @@ from pymongo.errors import DuplicateKeyError
 
 from fcrm_policy.config import DraftState, Snapshot
 
+_SOMEONE_CHANGED_THIS_DRAFT_FIRST = (
+    "Someone changed this draft first. Reload to see it."
+)
+
 logger = logging.getLogger(__name__)
 
 CONFIG_SNAPSHOTS: Final = "config_snapshots"
@@ -276,7 +280,7 @@ class InMemoryConfigStore:
         """Compare-and-swap on the draft's revision."""
         stored = self._drafts.get(draft.section)
         if (stored.rev if stored is not None else 0) != expected_rev:
-            raise ConflictError("Someone changed this draft first. Reload to see it.")
+            raise ConflictError(_SOMEONE_CHANGED_THIS_DRAFT_FIRST)
         self._drafts[draft.section] = draft.model_copy(deep=True)
 
     async def discard_draft(self, section: str, *, expected_rev: Optional[int]) -> bool:
@@ -472,15 +476,13 @@ class MongoConfigStore:
                 logger.info(
                     "draft insert lost a race", extra={"section": draft.section}
                 )
-                raise ConflictError(
-                    "Someone changed this draft first. Reload to see it."
-                ) from None
+                raise ConflictError(_SOMEONE_CHANGED_THIS_DRAFT_FIRST) from None
             return
         result = await self._drafts.replace_one(
             {"_id": draft.section, "rev": expected_rev}, doc
         )
         if result.matched_count == 0:
-            raise ConflictError("Someone changed this draft first. Reload to see it.")
+            raise ConflictError(_SOMEONE_CHANGED_THIS_DRAFT_FIRST)
 
     async def discard_draft(self, section: str, *, expected_rev: Optional[int]) -> bool:
         """Delete the draft, if it is at ``expected_rev`` when one is given."""

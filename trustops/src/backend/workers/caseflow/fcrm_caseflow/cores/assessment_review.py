@@ -60,6 +60,8 @@ from fcrm_caseflow.steps import (
     StepResult,
 )
 
+_AGENT_RERUN = "agent.rerun"
+
 logger = logging.getLogger(__name__)
 
 #: Decisions on a factor or a control that change what S2 reads.
@@ -208,7 +210,7 @@ async def dispatch_rerun(
         data["thread_id"] = spec["thread_id"]
     audit = await deps.append_record(
         step,
-        "agent.rerun",
+        _AGENT_RERUN,
         f"{what} re-run on changed fields only",
         data,
         actor="system",
@@ -216,7 +218,7 @@ async def dispatch_rerun(
     await show(
         deps,
         step,
-        "agent.rerun",
+        _AGENT_RERUN,
         "analyst",
         f"{what} {'are' if len(agents) == 2 else 'is'} re-running on the changed "
         "fields",
@@ -540,7 +542,7 @@ async def retag_record(step: HarnessStep, deps: StepDeps) -> StepResult:
     await show(
         deps,
         step,
-        "agent.rerun",
+        _AGENT_RERUN,
         "analyst",
         f"Research and assessment are running for {', '.join(added)}",
         {"domains": added},
@@ -578,7 +580,7 @@ async def rerun_requested(step: HarnessStep, deps: StepDeps) -> StepResult:
     )
     audit = await deps.append_record(
         step,
-        "agent.rerun",
+        _AGENT_RERUN,
         f"Research and assessment re-run · {scope_note} · "
         f"{short(requested.rerun_reason)}",
         {"scope": requested.scope, "reason": requested.rerun_reason},
@@ -587,7 +589,7 @@ async def rerun_requested(step: HarnessStep, deps: StepDeps) -> StepResult:
     await show(
         deps,
         step,
-        "agent.rerun",
+        _AGENT_RERUN,
         "analyst",
         "Research and assessment are re-running",
         {"scope": "full"},

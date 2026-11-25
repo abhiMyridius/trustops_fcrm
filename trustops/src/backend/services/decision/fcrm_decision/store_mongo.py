@@ -46,6 +46,11 @@ from fcrm_decision.rows import (
 )
 from fcrm_decision.store import DecisionTx
 
+_MATCH = "$match"
+_PACK_ID = "$pack_id"
+_PROJECT = "$project"
+_OUTCOME_ROUND = "outcome.round"
+
 logger = logging.getLogger(__name__)
 
 #: How long an ``Idempotency-Key`` replays (design A: 24 hours).
@@ -130,11 +135,11 @@ async def ensure_indexes(db: AsyncDatabase[Any], outbox: Outbox) -> None:
     await repos.outcomes.ensure_indexes(
         [
             IndexModel(
-                [("outcome.pack_id", ASCENDING), ("outcome.round", DESCENDING)],
+                [("outcome.pack_id", ASCENDING), (_OUTCOME_ROUND, DESCENDING)],
                 name="outcome_pack_round",
             ),
             IndexModel(
-                [("outcome.case_id", ASCENDING), ("outcome.round", DESCENDING)],
+                [("outcome.case_id", ASCENDING), (_OUTCOME_ROUND, DESCENDING)],
                 name="outcome_case_round",
             ),
         ]
@@ -286,9 +291,9 @@ async def _find_outcome(
 ) -> Optional[OutcomeRow]:
     query: dict[str, Any] = {"outcome.pack_id": pack_id}
     if round_ is not None:
-        query["outcome.round"] = round_
+        query[_OUTCOME_ROUND] = round_
     return await repos.outcomes.find_one(
-        query, sort=[("outcome.round", -1)], session=session
+        query, sort=[(_OUTCOME_ROUND, -1)], session=session
     )
 
 
@@ -297,7 +302,7 @@ async def _find_case_outcome(
 ) -> Optional[OutcomeRow]:
     return await repos.outcomes.find_one(
         {"outcome.case_id": case_id, "outcome.no_majority": {"$ne": True}},
-        sort=[("outcome.round", -1)],
+        sort=[(_OUTCOME_ROUND, -1)],
         session=session,
     )
 
@@ -338,7 +343,7 @@ class MongoDecisionStore:
     async def committee_queue(self, *, limit: int) -> list[QueueEntry]:
         pipeline: list[dict[str, Any]] = [
             {
-                "$match": {
+                _MATCH: {
                     "released_at": {"$ne": None},
                     "superseded_at": None,
                     "superseded_by": None,
@@ -349,20 +354,20 @@ class MongoDecisionStore:
             {
                 "$lookup": {
                     "from": "votes",
-                    "let": {"pid": "$pack_id", "rnd": "$current_round"},
+                    "let": {"pid": _PACK_ID, "rnd": "$current_round"},
                     "pipeline": [
                         {
-                            "$match": {
+                            _MATCH: {
                                 "$expr": {
                                     "$and": [
-                                        {"$eq": ["$pack_id", "$$pid"]},
+                                        {"$eq": [_PACK_ID, "$$pid"]},
                                         {"$eq": ["$round", "$$rnd"]},
                                     ]
                                 },
                                 "voided": {"$ne": True},
                             }
                         },
-                        {"$project": {"_id": 0, "member_id": 1}},
+                        {_PROJECT: {"_id": 0, "member_id": 1}},
                     ],
                     "as": "ballot",
                 }
@@ -373,7 +378,7 @@ class MongoDecisionStore:
                     "let": {
                         "oid": {
                             "$concat": [
-                                "$pack_id",
+                                _PACK_ID,
                                 ":",
                                 {"$toString": "$current_round"},
                             ]
@@ -381,18 +386,18 @@ class MongoDecisionStore:
                     },
                     "pipeline": [
                         {
-                            "$match": {
+                            _MATCH: {
                                 "$expr": {"$eq": ["$_id", "$$oid"]},
                                 "outcome.no_majority": {"$ne": True},
                             }
                         },
-                        {"$project": {"_id": 0, "outcome": "$outcome.outcome"}},
+                        {_PROJECT: {"_id": 0, "outcome": "$outcome.outcome"}},
                     ],
                     "as": "decided_outcome",
                 }
             },
             {
-                "$project": {
+                _PROJECT: {
                     "_id": 0,
                     "pack_id": 1,
                     "case_id": 1,

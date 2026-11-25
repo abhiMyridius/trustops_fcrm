@@ -33,6 +33,16 @@ from fcrm_contracts.enums import StepKind
 
 from fcrm_caseflow.triggers import Trigger
 
+_AGENT_RERUN = "agent.rerun"
+_BOUNDARY_FLAGGED = "boundary.flagged"
+_FACT_FLAGGED = "fact.flagged"
+_FIELDSET_RESOLVED = "fieldset.resolved"
+_GATE_DECIDED = "gate.decided"
+_PRECEDENT_MATCHED = "precedent.matched"
+_PROPOSAL_CATEGORY = "proposal.category"
+_PROPOSAL_EXTRACTION = "proposal.extraction"
+_PROPOSAL_GAPS = "proposal.gaps"
+
 K = StepKind
 
 #: Trigger -> the step it enqueues. One entry per step a core has a handler
@@ -116,44 +126,44 @@ RECORDS_FOR: Final[Mapping[StepKind, tuple[str, ...]]] = MappingProxyType(
             "case.created",
             "workflow.started",
             "case.types_changed",
-            "fieldset.resolved",
+            _FIELDSET_RESOLVED,
         ),
         K.INTAKE_DOCUMENT_STORED: ("document.stored",),  # + ingest.run, by the engine
         K.INTAKE_INGESTED: ("guard.input",),
         K.INTAKE_INGEST_FAILED: ("guard.input",),
         K.INTAKE_PUBLISH: (
-            "proposal.extraction",
-            "proposal.category",
-            "proposal.gaps",
-            "precedent.matched",
-            "fact.flagged",
+            _PROPOSAL_EXTRACTION,
+            _PROPOSAL_CATEGORY,
+            _PROPOSAL_GAPS,
+            _PRECEDENT_MATCHED,
+            _FACT_FLAGGED,
         ),
         # D-130: a failed intake job, then (when it was the last one) the
         # publish of what the other documents gave.
         K.INTAKE_JOB_FAILED: (
             "agent.failed",
-            "proposal.extraction",
-            "proposal.category",
-            "proposal.gaps",
-            "precedent.matched",
-            "fact.flagged",
+            _PROPOSAL_EXTRACTION,
+            _PROPOSAL_CATEGORY,
+            _PROPOSAL_GAPS,
+            _PRECEDENT_MATCHED,
+            _FACT_FLAGGED,
         ),
         K.INTAKE_RECOVER: (
             "human.handoff",
-            "proposal.extraction",
-            "proposal.category",
-            "proposal.gaps",
-            "precedent.matched",
-            "fact.flagged",
+            _PROPOSAL_EXTRACTION,
+            _PROPOSAL_CATEGORY,
+            _PROPOSAL_GAPS,
+            _PRECEDENT_MATCHED,
+            _FACT_FLAGGED,
         ),
-        K.INTAKE_FIELDSET_RESOLVED: ("gate.decided", "fieldset.resolved"),
+        K.INTAKE_FIELDSET_RESOLVED: (_GATE_DECIDED, _FIELDSET_RESOLVED),
         K.INTAKE_PO_ACTION: (
-            "gate.decided",
+            _GATE_DECIDED,
             "owner.corrected",
             "values.reused",
             "owner.answered",
         ),
-        K.INTAKE_TYPES_CHANGED: ("case.types_changed", "fieldset.resolved"),
+        K.INTAKE_TYPES_CHANGED: ("case.types_changed", _FIELDSET_RESOLVED),
         K.SUBMIT_RECORD: ("gate.validation", "case.submitted"),
         K.TRIAGE_ASSIGN: ("triage.assigned", "eval.recorded"),
         # assessment (scenes 8-9)
@@ -163,34 +173,34 @@ RECORDS_FOR: Final[Mapping[StepKind, tuple[str, ...]]] = MappingProxyType(
             "proposal.research",
             "proposal.assessment",
             "score.computed",
-            "boundary.flagged",
+            _BOUNDARY_FLAGGED,
         ),
         K.CRITIC_PUBLISH: ("critic.findings",),
         K.COMPLETENESS_PUBLISH: ("completeness.report",),
         # clarification and review (scenes 10-14)
         K.CLARIFICATION_RECORD: ("clarification.sent",),
-        K.RERUN_RECORD: ("owner.answered", "agent.rerun"),
+        K.RERUN_RECORD: ("owner.answered", _AGENT_RERUN),
         K.RERUN_PUBLISH: (
             "proposal.research",
             "proposal.assessment",
             "score.recomputed",
-            "boundary.flagged",
+            _BOUNDARY_FLAGGED,
         ),
         K.REVIEW_ITEM: (
-            "gate.decided",
+            _GATE_DECIDED,
             "human.override",
             "score.recomputed",
-            "boundary.flagged",
+            _BOUNDARY_FLAGGED,
         ),
-        K.REVIEW_ACK: ("gate.decided",),
+        K.REVIEW_ACK: (_GATE_DECIDED,),
         K.GAP_RECORD: ("gap.recorded",),
         K.CONTROL_PLANNED: ("control.planned",),
         # ADR-74: one of the two, by the trigger (an added or a removed clause).
         K.CLAUSE_RECORD: ("clause.added", "clause.removed"),
-        K.RETAG_RECORD: ("fieldset.resolved",),
-        K.RERUN_REQUESTED: ("agent.rerun",),
+        K.RETAG_RECORD: (_FIELDSET_RESOLVED,),
+        K.RERUN_REQUESTED: (_AGENT_RERUN,),
         K.QUESTION_ASKED: ("question.asked",),
-        K.QUESTION_ANSWERED: ("question.answered", "agent.rerun"),
+        K.QUESTION_ANSWERED: ("question.answered", _AGENT_RERUN),
         # recommendation and pack (scenes 15-16)
         K.NARRATIVE_PUBLISH: ("proposal.narrative", "guard.output"),
         K.LOCK_BUILD_PACK: (

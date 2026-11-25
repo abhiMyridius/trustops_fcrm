@@ -58,6 +58,8 @@ from fcrm_case.errors import ensure_open
 from fcrm_case.store import InMemoryCaseStore
 from fcrm_case.views_store import InMemoryViewStore, ViewRepos
 
+_SETONINSERT = "$setOnInsert"
+
 logger = logging.getLogger(__name__)
 
 #: A case has a handful of score snapshots and decisions; this only stops a bug
@@ -334,7 +336,7 @@ class MongoAnalystWriteStore:
             fields = to_bson(row.model_dump(mode="python", exclude={"gate_id"}))
             result = await self._decisions.collection.update_one(
                 {"_id": gate.gate_id},
-                {"$setOnInsert": fields},
+                {_SETONINSERT: fields},
                 upsert=True,
                 session=session,
             )
@@ -466,7 +468,7 @@ class MongoAnalystWriteStore:
         for record in command.records:
             result = await self._collection(record.collection).update_one(
                 {"_id": record.row_id},
-                {"$setOnInsert": to_bson(dict(record.document))},
+                {_SETONINSERT: to_bson(dict(record.document))},
                 upsert=True,
                 session=session,
             )
@@ -486,7 +488,7 @@ class MongoAnalystWriteStore:
             row_id = document.pop("_id")
             result = await repo.collection.update_one(
                 {"_id": row_id},
-                {"$setOnInsert": document},
+                {_SETONINSERT: document},
                 upsert=True,
                 session=session,
             )

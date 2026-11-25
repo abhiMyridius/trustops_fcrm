@@ -75,6 +75,10 @@ from fcrm_case.po_errors import AlreadySubmittedError, ensure_open
 from fcrm_case.store import InMemoryCaseStore
 from fcrm_case.views_store import InMemoryViewStore, ViewRepos, next_field_row
 
+_CASE_ID = "$case_id"
+_GROUP = "$group"
+_MATCH = "$match"
+
 logger = logging.getLogger(__name__)
 
 #: A PO owns tens of cases; this bound only stops a bug from reading a million.
@@ -232,20 +236,20 @@ def _open_pipeline(ids: Sequence[str]) -> list[dict[str, Any]]:
     """Open conditions per case."""
     return [
         {
-            "$match": {
+            _MATCH: {
                 "case_id": {"$in": list(ids)},
                 "status": {"$in": list(OPEN_CONDITION_STATUSES)},
             }
         },
-        {"$group": {"_id": "$case_id", "n": {"$sum": 1}}},
+        {_GROUP: {"_id": _CASE_ID, "n": {"$sum": 1}}},
     ]
 
 
 def _threads_pipeline(ids: Sequence[str]) -> list[dict[str, Any]]:
     """Questions from FCRM still waiting for an answer, per case."""
     return [
-        {"$match": {"case_id": {"$in": list(ids)}, "status": "awaiting_response"}},
-        {"$group": {"_id": "$case_id", "n": {"$sum": 1}}},
+        {_MATCH: {"case_id": {"$in": list(ids)}, "status": "awaiting_response"}},
+        {_GROUP: {"_id": _CASE_ID, "n": {"$sum": 1}}},
     ]
 
 
@@ -571,8 +575,8 @@ class MongoPoStore:
     async def _filled_by_case(self, ids: Sequence[str]) -> dict[str, list[str]]:
         cursor = await self._views.field_values.collection.aggregate(
             [
-                {"$match": {"case_id": {"$in": list(ids)}, "value": _NON_BLANK}},
-                {"$group": {"_id": "$case_id", "fields": {"$addToSet": "$field_id"}}},
+                {_MATCH: {"case_id": {"$in": list(ids)}, "value": _NON_BLANK}},
+                {_GROUP: {"_id": _CASE_ID, "fields": {"$addToSet": "$field_id"}}},
             ]
         )
         return {str(r["_id"]): list(r["fields"]) for r in await cursor.to_list()}
@@ -580,10 +584,10 @@ class MongoPoStore:
     async def _documents_by_case(self, ids: Sequence[str]) -> dict[str, dict[str, int]]:
         cursor = await self._views.documents.collection.aggregate(
             [
-                {"$match": {"case_id": {"$in": list(ids)}}},
+                {_MATCH: {"case_id": {"$in": list(ids)}}},
                 {
-                    "$group": {
-                        "_id": {"c": "$case_id", "s": "$status"},
+                    _GROUP: {
+                        "_id": {"c": _CASE_ID, "s": "$status"},
                         "n": {"$sum": 1},
                     }
                 },
@@ -606,15 +610,15 @@ class MongoPoStore:
         cursor = await self._views.review_items.collection.aggregate(
             [
                 {
-                    "$match": {
+                    _MATCH: {
                         "case_id": {"$in": list(ids)},
                         "kind": {"$in": list(_INTAKE_KINDS)},
                         "status": ItemStatus.PROPOSED.value,
                     }
                 },
                 {
-                    "$group": {
-                        "_id": {"c": "$case_id", "k": "$kind"},
+                    _GROUP: {
+                        "_id": {"c": _CASE_ID, "k": "$kind"},
                         "types": {"$push": "$subject.change_type"},
                         "gaps": {
                             "$push": {
@@ -654,9 +658,9 @@ class MongoPoStore:
     async def average_days_to_decision(self) -> float:
         cursor = await self._cases.collection.aggregate(
             [
-                {"$match": {"state": "closed", "decided_at": {"$ne": None}}},
+                {_MATCH: {"state": "closed", "decided_at": {"$ne": None}}},
                 {
-                    "$group": {
+                    _GROUP: {
                         "_id": None,
                         "avg": {
                             "$avg": {

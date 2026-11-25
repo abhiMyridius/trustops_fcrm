@@ -30,18 +30,20 @@ from fcrm_audit.seedmodel import build_demo_chain
 from fcrm_contracts.api.audit import AuditRecord, RecordAppend
 from fcrm_seed.loader import cases, demo_case
 
+_PROPOSAL_ASSESSMENT = "proposal.assessment"
+
 logger = logging.getLogger(__name__)
 
 SYNTHETIC_RECORD_TYPES: Final[tuple[str, ...]] = (
     "case.created",
     "case.submitted",
     "proposal.research",
-    "proposal.assessment",
+    _PROPOSAL_ASSESSMENT,
     "score.computed",
 )
 """The record types of a synthetic chain, in ``seq`` order (1-based)."""
 
-ASSESSMENT_SEQ: Final[int] = SYNTHETIC_RECORD_TYPES.index("proposal.assessment") + 1
+ASSESSMENT_SEQ: Final[int] = SYNTHETIC_RECORD_TYPES.index(_PROPOSAL_ASSESSMENT) + 1
 
 
 def _control_count(case: Mapping[str, Any]) -> int:
@@ -55,7 +57,7 @@ def _summaries(case: Mapping[str, Any]) -> list[tuple[str, str, str]]:
         ("case.submitted", case["owner"], "Submission v1 received"),
         ("proposal.research", "ai", "Research agent · clauses and precedents"),
         (
-            "proposal.assessment",
+            _PROPOSAL_ASSESSMENT,
             "ai",
             f"Assessment agent · L/I per area · {_control_count(case)} controls rated",
         ),

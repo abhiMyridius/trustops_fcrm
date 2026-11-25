@@ -57,6 +57,13 @@ from fcrm_case.domain.po_rows import SubmissionVersionRow
 from fcrm_case.domain.record import CaseRecord
 from fcrm_case.domain.views import ScoreSnapshotRow
 
+_GROUP = "$group"
+_LIMIT = "$limit"
+_LOOKUP = "$lookup"
+_MATCH = "$match"
+_PROJECT = "$project"
+_SORT = "$sort"
+
 logger = logging.getLogger(__name__)
 
 #: Most stage changes one case can have; the bound stops a bug from reading an
@@ -182,17 +189,17 @@ def rank_expression() -> dict[str, Any]:
 def queue_pipeline(query: QueueQuery) -> list[dict[str, Any]]:
     """The one aggregation behind the queue (see the module docstring)."""
     pipeline: list[dict[str, Any]] = [
-        {"$match": queue_match(query)},
+        {_MATCH: queue_match(query)},
         {
-            "$lookup": {
+            _LOOKUP: {
                 "from": "score_snapshots",
                 "localField": "_id",
                 "foreignField": "case_id",
                 "pipeline": [
-                    {"$sort": {"computed_at": -1}},
-                    {"$limit": 1},
+                    {_SORT: {"computed_at": -1}},
+                    {_LIMIT: 1},
                     {
-                        "$project": {
+                        _PROJECT: {
                             "band": 1,
                             "composite": 1,
                             "boundary_flag": 1,
@@ -204,48 +211,48 @@ def queue_pipeline(query: QueueQuery) -> list[dict[str, Any]]:
             }
         },
         {
-            "$lookup": {
+            _LOOKUP: {
                 "from": "analyst_decisions",
                 "localField": "_id",
                 "foreignField": "case_id",
                 "pipeline": [
                     {
-                        "$match": {
+                        _MATCH: {
                             "gate_type": "fast_lane_confirm",
                             "decision": "confirm",
                         }
                     },
-                    {"$limit": 1},
-                    {"$project": {"_id": 1}},
+                    {_LIMIT: 1},
+                    {_PROJECT: {"_id": 1}},
                 ],
                 "as": "fast",
             }
         },
         {
-            "$lookup": {
+            _LOOKUP: {
                 "from": "critic_views",
                 "localField": "_id",
                 "foreignField": "_id",
                 "pipeline": [
-                    {"$project": {"n": {"$size": {"$ifNull": ["$findings", []]}}}}
+                    {_PROJECT: {"n": {"$size": {"$ifNull": ["$findings", []]}}}}
                 ],
                 "as": "critic",
             }
         },
     ]
     if query.band is not None:
-        pipeline.append({"$match": {"snap.0.band": query.band}})
+        pipeline.append({_MATCH: {"snap.0.band": query.band}})
     pipeline.extend(
         [
             {"$addFields": {"rank": rank_expression()}},
-            {"$sort": {"rank": 1, "submitted_at": 1, "_id": 1}},
+            {_SORT: {"rank": 1, "submitted_at": 1, "_id": 1}},
             {
                 "$facet": {
                     "items": [
                         {"$skip": query.offset},
-                        {"$limit": query.limit},
+                        {_LIMIT: query.limit},
                         {
-                            "$project": {
+                            _PROJECT: {
                                 "title": 1,
                                 "unit": 1,
                                 "owner": 1,
@@ -367,13 +374,13 @@ class MongoAnalystReadStore:
                     "$facet": {
                         "closed": [
                             {
-                                "$match": {
+                                _MATCH: {
                                     "state": CaseState.CLOSED.value,
                                     "discarded_at": None,
                                 }
                             },
                             {
-                                "$group": {
+                                _GROUP: {
                                     "_id": None,
                                     "n": {"$sum": 1},
                                     "avg": {
@@ -390,13 +397,13 @@ class MongoAnalystReadStore:
                         ],
                         "months": [
                             {
-                                "$match": {
+                                _MATCH: {
                                     "state": CaseState.CLOSED.value,
                                     "decided_at": {"$ne": None},
                                 }
                             },
                             {
-                                "$group": {
+                                _GROUP: {
                                     "_id": {
                                         "$dateToString": {
                                             "format": "%Y-%m",
@@ -406,12 +413,12 @@ class MongoAnalystReadStore:
                                     "n": {"$sum": 1},
                                 }
                             },
-                            {"$sort": {"_id": 1}},
+                            {_SORT: {"_id": 1}},
                         ],
                         "types": [
-                            {"$match": {"discarded_at": None}},
+                            {_MATCH: {"discarded_at": None}},
                             {"$unwind": "$change_types"},
-                            {"$group": {"_id": "$change_types", "n": {"$sum": 1}}},
+                            {_GROUP: {"_id": "$change_types", "n": {"$sum": 1}}},
                         ],
                     }
                 }
@@ -422,9 +429,9 @@ class MongoAnalystReadStore:
         average = closed.get("avg")
         band_cursor = await self._snapshots.aggregate(
             [
-                {"$sort": {"case_id": 1, "computed_at": -1}},
-                {"$group": {"_id": "$case_id", "band": {"$first": "$band"}}},
-                {"$group": {"_id": "$band", "n": {"$sum": 1}}},
+                {_SORT: {"case_id": 1, "computed_at": -1}},
+                {_GROUP: {"_id": "$case_id", "band": {"$first": "$band"}}},
+                {_GROUP: {"_id": "$band", "n": {"$sum": 1}}},
             ]
         )
         band_rows = await band_cursor.to_list()

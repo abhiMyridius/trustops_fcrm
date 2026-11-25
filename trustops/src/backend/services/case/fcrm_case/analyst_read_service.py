@@ -82,6 +82,9 @@ from fcrm_case.reference import clause_catalogue, control_catalogue, seeded_outc
 from fcrm_case.store import CaseStore
 from fcrm_case.views_store import ViewStore
 
+_INVALID_PAGINATION_CURSOR = "Invalid pagination cursor."
+_QUERY_CURSOR = "query.cursor"
+
 logger = logging.getLogger(__name__)
 
 #: How many of the viewer's own cases the dashboard lists.
@@ -97,8 +100,8 @@ def _seq_cursor(cursor: str) -> int:
     value = decode_cursor(cursor)
     if not isinstance(value, int) or isinstance(value, bool) or value < 1:
         raise ValidationError(
-            "Invalid pagination cursor.",
-            errors=[{"loc": "query.cursor", "msg": "malformed cursor"}],
+            _INVALID_PAGINATION_CURSOR,
+            errors=[{"loc": _QUERY_CURSOR, "msg": "malformed cursor"}],
         )
     return value
 
@@ -115,13 +118,13 @@ def _offset(cursor: Optional[str]) -> int:
     value = decode_cursor(cursor)
     if not isinstance(value, int) or isinstance(value, bool):
         raise ValidationError(
-            "Invalid pagination cursor.",
-            errors=[{"loc": "query.cursor", "msg": "malformed cursor"}],
+            _INVALID_PAGINATION_CURSOR,
+            errors=[{"loc": _QUERY_CURSOR, "msg": "malformed cursor"}],
         )
     if not 0 <= value <= MAX_QUEUE_OFFSET:
         raise ValidationError(
-            "Invalid pagination cursor.",
-            errors=[{"loc": "query.cursor", "msg": "cursor out of range"}],
+            _INVALID_PAGINATION_CURSOR,
+            errors=[{"loc": _QUERY_CURSOR, "msg": "cursor out of range"}],
         )
     return value
 

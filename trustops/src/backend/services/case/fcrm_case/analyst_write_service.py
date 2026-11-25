@@ -146,6 +146,8 @@ from fcrm_case.sse import ActivityWriter
 from fcrm_case.store import CaseStore
 from fcrm_case.views_store import ViewStore
 
+_BODY_QUESTIONS = "body.questions"
+
 logger = logging.getLogger(__name__)
 
 _NO_RUN: Final = "The assistant has not opened this case yet. Try again in a moment."
@@ -687,12 +689,12 @@ class AnalystWriteService:
         if not kept:
             raise ValidationError(
                 "Ask needs at least one question; proceed if nothing is missing.",
-                errors=[{"loc": "body.questions", "msg": "no question kept"}],
+                errors=[{"loc": _BODY_QUESTIONS, "msg": "no question kept"}],
             )
         if len({q.id for q in kept}) != len(kept):
             raise ValidationError(
                 "Each question needs its own id.",
-                errors=[{"loc": "body.questions", "msg": "duplicate question id"}],
+                errors=[{"loc": _BODY_QUESTIONS, "msg": "duplicate question id"}],
             )
         return kept
 
@@ -795,12 +797,12 @@ class AnalystWriteService:
         """
         controls = await self._case_controls(record)
         for what, text, anchor in questions:
-            reject_reserved_terms(text, what, loc="body.questions")
+            reject_reserved_terms(text, what, loc=_BODY_QUESTIONS)
             for part in anchor_parts(anchor):
                 if not ((is_field_id(part) and part in labels) or part in controls):
                     raise ValidationError(
                         f"{part} is not a field or a control of this case.",
-                        errors=[{"loc": "body.questions", "msg": "unknown anchor"}],
+                        errors=[{"loc": _BODY_QUESTIONS, "msg": "unknown anchor"}],
                     )
 
     async def _case_controls(self, record: CaseRecord) -> set[str]:
@@ -835,14 +837,14 @@ class AnalystWriteService:
             if q.field_id is not None and q.field_id not in labels:
                 raise ValidationError(
                     f"{q.field_id} is not a field of this case.",
-                    errors=[{"loc": "body.questions", "msg": "unknown field"}],
+                    errors=[{"loc": _BODY_QUESTIONS, "msg": "unknown field"}],
                 )
             if q.control_id is not None and (
                 is_field_id(q.control_id) or q.control_id not in controls
             ):
                 raise ValidationError(
                     f"{q.control_id} is not a control of this case.",
-                    errors=[{"loc": "body.questions", "msg": "unknown control"}],
+                    errors=[{"loc": _BODY_QUESTIONS, "msg": "unknown control"}],
                 )
 
     # -- ad-hoc questions to the owner, at any stage (ADR-73) --------------------
@@ -877,7 +879,7 @@ class AnalystWriteService:
         if len(set(asked)) != len(asked):
             raise ValidationError(
                 "Each question may be asked once per send.",
-                errors=[{"loc": "body.questions", "msg": "duplicate question"}],
+                errors=[{"loc": _BODY_QUESTIONS, "msg": "duplicate question"}],
             )
         labels = {d.field_id: d.label for d in record.required_fields}
         await self._check_named(record, body, labels)

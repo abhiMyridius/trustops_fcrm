@@ -64,6 +64,9 @@ from fcrm_case.domain.reflags import (
     reflag_row,
 )
 
+_OPTIONS = "$options"
+_REGEX = "$regex"
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_PAGE_LIMIT: Final = 50
@@ -452,7 +455,7 @@ class MongoReflagStore:
                 {"case_id": {"$in": list(corridors)}},
             ]
         else:
-            base["title"] = {"$regex": re.escape(query.strip()), "$options": "i"}
+            base["title"] = {_REGEX: re.escape(query.strip()), _OPTIONS: "i"}
         cursor = self._cases.find(
             base,
             projection={
@@ -494,8 +497,8 @@ class MongoReflagStore:
         """
         cursor = self._fields.find(
             {
-                "label": {"$regex": CORRIDOR_LABEL, "$options": "i"},
-                "value": {"$regex": corridor_regex(names), "$options": "i"},
+                "label": {_REGEX: CORRIDOR_LABEL, _OPTIONS: "i"},
+                "value": {_REGEX: corridor_regex(names), _OPTIONS: "i"},
             },
             projection={"case_id": 1, "value": 1},
             limit=MAX_CANDIDATES * 2,

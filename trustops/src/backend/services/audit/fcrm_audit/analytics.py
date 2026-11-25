@@ -40,6 +40,9 @@ from fcrm_contracts.api.audit_oversight import (
 )
 from pymongo.asynchronous.collection import AsyncCollection
 
+_GROUP = "$group"
+_DATA_AGENT = "data.agent"
+
 logger = logging.getLogger(__name__)
 
 TYPE_OVERRIDE: Final = "human.override"
@@ -179,12 +182,12 @@ def agent_filter(agent: str) -> dict[str, Any]:
     if agent == DEFAULT_OVERRIDE_AGENT:
         return {
             "$or": [
-                {"data.agent": agent},
-                {"data.agent": {"$exists": False}},
-                {"data.agent": None},
+                {_DATA_AGENT: agent},
+                {_DATA_AGENT: {"$exists": False}},
+                {_DATA_AGENT: None},
             ]
         }
-    return {"data.agent": agent}
+    return {_DATA_AGENT: agent}
 
 
 class AnalyticsStore(Protocol):
@@ -376,7 +379,7 @@ class MongoAnalyticsStore:
         pipeline: list[dict[str, Any]] = [
             {"$match": {"type": TYPE_OVERRIDE}},
             {
-                "$group": {
+                _GROUP: {
                     "_id": {"$ifNull": ["$data.agent", DEFAULT_OVERRIDE_AGENT]},
                     "overridden": {"$sum": 1},
                     "proposals": {"$sum": 0},
@@ -387,7 +390,7 @@ class MongoAnalyticsStore:
                     "coll": self._proposals.name,
                     "pipeline": [
                         {
-                            "$group": {
+                            _GROUP: {
                                 "_id": "$agent",
                                 "overridden": {"$sum": 0},
                                 "proposals": {"$sum": 1},
@@ -397,7 +400,7 @@ class MongoAnalyticsStore:
                 }
             },
             {
-                "$group": {
+                _GROUP: {
                     "_id": "$_id",
                     "overridden": {"$sum": "$overridden"},
                     "proposals": {"$sum": "$proposals"},

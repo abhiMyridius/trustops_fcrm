@@ -115,6 +115,8 @@ from fcrm_agent_worker.topology import (
     ROUTING_KEY_AGENT_FAILED,
 )
 
+_AGENT_FAILED = "agent.failed"
+
 logger = logging.getLogger(__name__)
 
 InstructionsFor = Callable[[AgentName, Optional[str], PinnedVersions], Optional[str]]
@@ -122,7 +124,7 @@ InstructionsFor = Callable[[AgentName, Optional[str], PinnedVersions], Optional[
 #: The routing key each terminal event is published with.
 _TERMINAL_ROUTING_KEYS: Final[Mapping[str, str]] = {
     "agent.done": ROUTING_KEY_AGENT_DONE,
-    "agent.failed": ROUTING_KEY_AGENT_FAILED,
+    _AGENT_FAILED: ROUTING_KEY_AGENT_FAILED,
 }
 
 
@@ -328,7 +330,7 @@ def audit_entries(
             )
     if failed_reason is not None:
         entries.append(
-            AuditEntry("agent.failed", f"{agent} blocked: {failed_reason}", {})
+            AuditEntry(_AGENT_FAILED, f"{agent} blocked: {failed_reason}", {})
         )
     return entries
 
@@ -750,7 +752,7 @@ class AgentJobConsumer(Consumer):
             started=started,
             entries=[
                 AuditEntry(
-                    "agent.failed",
+                    _AGENT_FAILED,
                     f"{job.agent.value} context pack failed: {exc}",
                 )
             ],
@@ -841,7 +843,7 @@ class AgentJobConsumer(Consumer):
             usage=dict(usage or {}),
         )
         return build_envelope(
-            "agent.failed",
+            _AGENT_FAILED,
             payload.model_dump(mode="json"),
             case_id=job.case_id,
             run_id=job.run_id,

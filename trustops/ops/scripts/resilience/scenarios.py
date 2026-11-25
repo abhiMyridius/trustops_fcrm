@@ -23,6 +23,8 @@ from resilience.errors import CommandError, GatewayError
 from resilience.gateway import GatewayClient, Reply
 from resilience.polling import poll_until
 
+_CASES = "/cases"
+
 logger = logging.getLogger(__name__)
 
 #: Every case a drill raises carries this in its title, so a leftover is easy
@@ -65,7 +67,7 @@ def create_scratch_case(gateway: GatewayClient, label: str) -> str:
         GatewayError: the PO's write was refused.
     """
     title = f"{SCRATCH_PREFIX} {label} {utc_stamp()}"
-    body = gateway.post("po", "/cases", json={"title": title}).require(201).body
+    body = gateway.post("po", _CASES, json={"title": title}).require(201).body
     if not isinstance(body, Mapping) or "id" not in body:
         raise GatewayError("POST /cases did not answer a case")
     return str(body["id"])
@@ -437,7 +439,7 @@ def try_create_scratch_case(
     what a write gets while a dependency is down.
     """
     title = f"{SCRATCH_PREFIX} {label} {utc_stamp()}"
-    reply = gateway.post("po", "/cases", json={"title": title})
+    reply = gateway.post("po", _CASES, json={"title": title})
     body = reply.body
     if reply.status == 201 and isinstance(body, Mapping) and "id" in body:
         return reply, str(body["id"])
@@ -446,7 +448,7 @@ def try_create_scratch_case(
 
 def case_titles(gateway: GatewayClient) -> list[str]:
     """The titles of the PO's cases (all pages)."""
-    rows = gateway.pages("po", "/cases")
+    rows = gateway.pages("po", _CASES)
     return [str(row.get("title")) for row in rows if isinstance(row, Mapping)]
 
 

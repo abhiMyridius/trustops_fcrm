@@ -30,6 +30,8 @@ from fcrm_contracts.events.payloads import (
 
 from fcrm_case.domain.activity import po_may_receive
 
+_OUTCOME_DELIVERED = "outcome.delivered"
+
 logger = logging.getLogger(__name__)
 
 _ACTOR = UiActor(id="svc:case", role="system", component="case")
@@ -60,13 +62,13 @@ def _delivered(envelope: Envelope) -> UiEventIn:
     if delivered.conditions:
         noun = "condition" if delivered.conditions == 1 else "conditions"
         summary = f"{summary} · {delivered.conditions} {noun} apply"
-    if po_may_receive("outcome.delivered", "all", detail, summary):
-        return _event("outcome.delivered", "all", summary, detail)
+    if po_may_receive(_OUTCOME_DELIVERED, "all", detail, summary):
+        return _event(_OUTCOME_DELIVERED, "all", summary, detail)
     logger.error(
         "outcome.delivered would not be safe for the PO; shown to the analyst only",
         extra={"case_id": envelope.case_id, "event_id": envelope.event_id},
     )
-    return _event("outcome.delivered", "analyst", summary, detail)
+    return _event(_OUTCOME_DELIVERED, "analyst", summary, detail)
 
 
 def mirror_for(envelope: Envelope) -> Optional[UiEventIn]:
@@ -118,6 +120,6 @@ def mirror_for(envelope: Envelope) -> Optional[UiEventIn]:
                 "conditions": len(decided.conditions),
             },
         )
-    if kind == "outcome.delivered":
+    if kind == _OUTCOME_DELIVERED:
         return _delivered(envelope)
     return None

@@ -74,6 +74,8 @@ from fcrm_case.domain.clarifications import (
 from fcrm_case.domain.po_commands import ItemDecision
 from fcrm_case.domain.views import DecisionRow, ReviewItemRow, ScoreSnapshotRow
 
+_BODY_VALUE = "body.value"
+
 ANALYST_COMPONENT: Final = "S1"
 
 AckKind = Literal["boundary", "band_change"]
@@ -363,12 +365,12 @@ def _control_plan(row: ReviewItemRow, body: ItemDecisionBody) -> PlannedDecision
         if body.value is None or body.likelihood is not None or body.impact is not None:
             raise ValidationError(
                 "A control is overridden with a rating from 0 to 10.",
-                errors=[{"loc": "body.value", "msg": "a rating is required"}],
+                errors=[{"loc": _BODY_VALUE, "msg": "a rating is required"}],
             )
         if proposed.rating is not None and body.value == proposed.rating:
             raise ValidationError(
                 f"{control_id} is already rated {body.value}; confirm it instead.",
-                errors=[{"loc": "body.value", "msg": "same as the proposal"}],
+                errors=[{"loc": _BODY_VALUE, "msg": "same as the proposal"}],
             )
         after = ControlValue(rating=body.value).model_dump()
         return PlannedDecision(
@@ -409,7 +411,7 @@ def _other_plan(row: ReviewItemRow, body: ItemDecisionBody) -> PlannedDecision:
     if body.value is not None or body.likelihood is not None or body.impact is not None:
         raise ValidationError(
             "This decision takes no replacement value.",
-            errors=[{"loc": "body.value", "msg": "not accepted here"}],
+            errors=[{"loc": _BODY_VALUE, "msg": "not accepted here"}],
         )
     label = str(row.subject.get("clause_id") or row.subject.get("text") or row.item_id)[
         :80

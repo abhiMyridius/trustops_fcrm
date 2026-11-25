@@ -71,6 +71,8 @@ from fcrm_caseflow.cores.intake_records import plural
 from fcrm_caseflow.cores.step_support import payload_of, show
 from fcrm_caseflow.steps import StepDeps, StepHandler, StepResult
 
+_COMMITTEE_ANSWER = "committee.answer"
+
 logger = logging.getLogger(__name__)
 
 #: The committee's decision is "the committee" in the record; the people behind
@@ -378,7 +380,7 @@ async def committee_answer(step: HarnessStep, deps: StepDeps) -> StepResult:
         return await _answer_with_changed_numbers(step, deps, answered)
     audit = await deps.append_record(
         step,
-        "committee.answer",
+        _COMMITTEE_ANSWER,
         "Answer attached to the pack as an addendum · numbers unchanged",
         {
             "pack_id": answered.pack_id,
@@ -391,7 +393,7 @@ async def committee_answer(step: HarnessStep, deps: StepDeps) -> StepResult:
     await show(
         deps,
         step,
-        "committee.answer",
+        _COMMITTEE_ANSWER,
         "analyst",
         "The question was answered and attached to the pack as an addendum",
         {"pack_id": answered.pack_id, "thread_id": answered.thread_id},
@@ -412,7 +414,7 @@ async def _answer_with_changed_numbers(
     reason = answered.unlock_reason or ""
     await deps.append_record(
         step,
-        "committee.answer",
+        _COMMITTEE_ANSWER,
         "Answer changes the numbers · the recommendation is unlocked (R6)",
         {
             "pack_id": answered.pack_id,

@@ -40,6 +40,12 @@ from fcrm_seed.docs_layout import (
     Table,
 )
 
+_V_1_9M = "$1.9M"
+_CHANGE_OWNER = "Change owner"
+_PRIYA_NAIR_PAYMENTS = "Priya Nair, Payments"
+_RETAIL_CONSUMERS = "Retail consumers"
+_TEXAS_CALIFORNIA_AND_ILLINOIS = "Texas, California and Illinois"
+
 BUSINESS_CASE_FILE = "business_case_remittance_MX.pdf"
 CONTRACT_FILE = "payout_partner_contract.pdf"
 SCOPE_LETTER_FILE = "vendor_DD_scope_letter_2026.pdf"
@@ -96,7 +102,7 @@ def _business_case_front() -> list[Page]:
                     "Consumer remittances US to Mexico through payout partner "
                     "Remesas del Norte S.A.",
                 ),
-                ("Change owner", "Priya Nair, Payments"),
+                (_CHANGE_OWNER, _PRIYA_NAIR_PAYMENTS),
                 ("Business unit", "Payments"),
                 ("Executive sponsor", "Head of Payments Products"),
                 ("Document status", "Draft for FCRM change assessment, version 1.0"),
@@ -117,9 +123,9 @@ def _business_case_front() -> list[Page]:
                 1: (
                     _fact(
                         "F01",
-                        "Change owner",
-                        "Priya Nair, Payments",
-                        "Priya Nair, Payments",
+                        _CHANGE_OWNER,
+                        _PRIYA_NAIR_PAYMENTS,
+                        _PRIYA_NAIR_PAYMENTS,
                         "case p.1 l.2",
                     ),
                 ),
@@ -180,7 +186,7 @@ def _business_case_front() -> list[Page]:
                     "Business payments are handled by Treasury Services",
                 ),
                 (
-                    "Retail consumers",
+                    _RETAIL_CONSUMERS,
                     "Yes",
                     "Existing deposit customers sending money to family in Mexico",
                 ),
@@ -201,8 +207,8 @@ def _business_case_front() -> list[Page]:
                     _fact(
                         "F04",
                         "Customer segment",
-                        "Retail consumers",
-                        "Retail consumers",
+                        _RETAIL_CONSUMERS,
+                        _RETAIL_CONSUMERS,
                         "case p.2 l.8",
                     ),
                 )
@@ -381,7 +387,7 @@ def _business_case_middle() -> list[Page]:
                     "Expected adoption by end of year 1",
                     "Around 6 percent of eligible customers",
                 ),
-                ("Launch sending states", "Texas, California and Illinois"),
+                ("Launch sending states", _TEXAS_CALIFORNIA_AND_ILLINOIS),
             ],
             (230.0, 274.0),
             {
@@ -389,8 +395,8 @@ def _business_case_middle() -> list[Page]:
                     _fact(
                         None,
                         "Launch sending states",
-                        "Texas, California and Illinois",
-                        "Texas, California and Illinois",
+                        _TEXAS_CALIFORNIA_AND_ILLINOIS,
+                        _TEXAS_CALIFORNIA_AND_ILLINOIS,
                     ),
                 )
             },
@@ -399,7 +405,7 @@ def _business_case_middle() -> list[Page]:
         _t(
             ("Year", "Send volume", "Fee revenue"),
             [
-                ("Year 1 (2027)", "$48M", "$1.9M"),
+                ("Year 1 (2027)", "$48M", _V_1_9M),
                 ("Year 2 (2028)", "$85M", "$3.2M"),
                 ("Year 3 (2029)", "$120M", "$4.3M"),
             ],
@@ -416,8 +422,8 @@ def _business_case_middle() -> list[Page]:
                     _fact(
                         None,
                         "Year 1 fee revenue",
-                        "$1.9M",
-                        "$1.9M",
+                        _V_1_9M,
+                        _V_1_9M,
                     ),
                 ),
                 2: (
@@ -678,7 +684,7 @@ def _business_case_back() -> list[Page]:
             ("Role", "Name", "Email", "Phone"),
             [
                 (
-                    "Change owner",
+                    _CHANGE_OWNER,
                     "Priya Nair",
                     "priya.nair@bank.example",
                     "(415) 555-0132",

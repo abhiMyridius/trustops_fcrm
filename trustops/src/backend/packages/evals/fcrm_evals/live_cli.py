@@ -73,6 +73,8 @@ from fcrm_evals.results import (
 from fcrm_evals.runner import EvalResult, GateResult, GateStatus, gate_detail
 from fcrm_evals.usage import PriceTable
 
+_A_RUN_FOLDER = "a run folder"
+
 logger = logging.getLogger(__name__)
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[5]
@@ -540,7 +542,7 @@ def add_rerender_parser(
     rerender = sub.add_parser(
         "rerender", help="rebuild a finished run's gate, report and dashboard"
     )
-    rerender.add_argument("--results", type=Path, default=None, help="a run folder")
+    rerender.add_argument("--results", type=Path, default=None, help=_A_RUN_FOLDER)
     rerender.add_argument("--results-root", type=Path, default=DEFAULT_RESULTS_ROOT)
 
 
@@ -551,7 +553,7 @@ def add_rejudge_parser(
     rejudge = sub.add_parser(
         "rejudge", help="grade a finished run's saved outputs again (judge calls only)"
     )
-    rejudge.add_argument("--results", type=Path, default=None, help="a run folder")
+    rejudge.add_argument("--results", type=Path, default=None, help=_A_RUN_FOLDER)
     rejudge.add_argument("--results-root", type=Path, default=DEFAULT_RESULTS_ROOT)
     rejudge.add_argument("--judge", choices=["bedrock", "fake"], default="bedrock")
     rejudge.add_argument("--judge-votes", type=int, default=3)
@@ -562,7 +564,7 @@ def add_gate_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) ->
     """The ``gate`` subcommand."""
     gate = sub.add_parser("gate", help="the promotion gate for one agent")
     gate.add_argument("--agent", choices=[a.value for a in AgentName], required=True)
-    gate.add_argument("--results", type=Path, default=None, help="a run folder")
+    gate.add_argument("--results", type=Path, default=None, help=_A_RUN_FOLDER)
     gate.add_argument("--results-root", type=Path, default=DEFAULT_RESULTS_ROOT)
 
 

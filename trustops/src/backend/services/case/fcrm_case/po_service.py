@@ -146,6 +146,10 @@ from fcrm_case.sse import ActivityWriter
 from fcrm_case.store import CaseStore
 from fcrm_case.views_store import ViewStore
 
+_BODY_REASON = "body.reason"
+_CASE_CREATED = "case.created"
+_GATE_DECIDED = "gate.decided"
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_TITLE: Final = "Untitled change (draft)"
@@ -237,7 +241,7 @@ def _gate_event(
         value=value,
     )
     return build_envelope(
-        "gate.decided",
+        _GATE_DECIDED,
         payload.model_dump(mode="json"),
         case_id=record.case_id,
         run_id=record.run_id,
@@ -380,7 +384,7 @@ def _case_created(record: CaseRecord) -> Envelope:
     case would have.
     """
     return build_envelope(
-        "case.created",
+        _CASE_CREATED,
         CaseCreated(
             case_id=record.case_id,
             actor=record.owner,
@@ -434,10 +438,10 @@ def _type_reason(body: CategoryDecisionBody) -> Optional[str]:
             reason names a reserved term.
     """
     if body.decision == "remove":
-        return require_reason(body.reason, "Removing a change type", loc="body.reason")
+        return require_reason(body.reason, "Removing a change type", loc=_BODY_REASON)
     text = clean(body.reason)
     if body.decision == "add" and text:
-        reject_reserved_terms(text, "The reason", loc="body.reason")
+        reject_reserved_terms(text, "The reason", loc=_BODY_REASON)
         return text
     return None
 
@@ -668,7 +672,7 @@ class PoService:
             created_at=now,
         )
         event = build_envelope(
-            "case.created",
+            _CASE_CREATED,
             CaseCreated(
                 case_id=case_id,
                 actor=principal.sub,
@@ -688,7 +692,7 @@ class PoService:
             summary += f" with {len(types)} {noun}"
         draft = _activity(
             principal.sub,
-            "case.created",
+            _CASE_CREATED,
             summary,
             {"intake_mode": body.mode, "change_types": [t.value for t in types]},
         )
@@ -879,7 +883,7 @@ class PoService:
                 activity=[
                     _activity(
                         principal.sub,
-                        "gate.decided",
+                        _GATE_DECIDED,
                         _po_safe(summary, f"You {verb} a change type"),
                         {
                             "gate_type": "po_confirm_category",
@@ -1049,7 +1053,7 @@ class PoService:
             activity=[
                 _activity(
                     principal.sub,
-                    "gate.decided",
+                    _GATE_DECIDED,
                     f"You confirmed {definition.field_id} {definition.label}",
                     {"gate_type": "po_confirm_value", "field_id": definition.field_id},
                     only_with_gate=gate,
@@ -1077,7 +1081,7 @@ class PoService:
         if value == current:
             return None
         reason = (
-            require_reason(body.reason, "A correction", loc="body.reason")
+            require_reason(body.reason, "A correction", loc=_BODY_REASON)
             if clean(body.reason)
             else DEFAULT_CORRECTION_REASON
         )

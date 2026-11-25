@@ -44,6 +44,8 @@ from fcrm_caseflow.budget import CaseLedger
 from fcrm_caseflow.settings import DEFAULT_TRACE_UI_URL
 from fcrm_caseflow.store import CaseRun
 
+_GUARD_PERMIT = "guard.permit"
+
 logger = logging.getLogger(__name__)
 
 
@@ -68,7 +70,7 @@ GUARDS: Final[tuple[tuple[int, str, str], ...]] = (
 #: ``guard.permit`` record (H2), with ``allowed`` false when OPA refused it.
 GUARD_OF_TYPE: Final[dict[str, int]] = {
     "guard.input": 1,
-    "guard.permit": 2,
+    _GUARD_PERMIT: 2,
     "agent.failed": 3,
     "budget.exhausted": 3,
     "guard.output": 4,
@@ -88,7 +90,7 @@ def is_blocked(record: AuditRecord) -> bool:
     """
     if record.type in BLOCKED_TYPES:
         return True
-    return record.type == "guard.permit" and record.data.get("allowed") is False
+    return record.type == _GUARD_PERMIT and record.data.get("allowed") is False
 
 
 _AGENT_OF_TYPE: Final[dict[str, str]] = {
@@ -224,7 +226,7 @@ def agents_seen(records: Sequence[AuditRecord]) -> int:
         {
             str(r.data["agent"])
             for r in records
-            if r.type == "guard.permit" and r.data.get("agent")
+            if r.type == _GUARD_PERMIT and r.data.get("agent")
         }
     )
 

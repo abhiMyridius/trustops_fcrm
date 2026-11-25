@@ -79,6 +79,8 @@ from fcrm_policy.config import (
     unknown_path,
 )
 
+_FCRM_ANALYTICS = "FCRM Analytics"
+
 #: Evidence older than this many months is flagged stale (design A §5.4).
 STALE_AFTER_MONTHS: Final = 18
 #: A set of weights must sum to 1 within this tolerance (design A §5.2).
@@ -199,7 +201,7 @@ class FieldSetsSpec(SectionSpec):
 
     key = "field-sets"
     title = "Categories & Fields"
-    owner = "FCRM Analytics"
+    owner = _FCRM_ANALYTICS
 
     def seed(self, raw: Mapping[str, Any]) -> SeedSnapshot:
         """The seed's field set (v6)."""
@@ -298,7 +300,7 @@ class CategoriesSpec(SectionSpec):
 
     key = "categories"
     title = "Classification Rules"
-    owner = "FCRM Analytics"
+    owner = _FCRM_ANALYTICS
     _PATH = "fast_lane.volume_under_usd"
 
     def seed(self, raw: Mapping[str, Any]) -> SeedSnapshot:
@@ -377,7 +379,7 @@ class ScoringModelSpec(SectionSpec):
 
     key = "scoring-model"
     title = "Scoring Model"
-    owner = "FCRM Analytics"
+    owner = _FCRM_ANALYTICS
     _PREFIX = "domain_weights."
 
     def seed(self, raw: Mapping[str, Any]) -> SeedSnapshot:
@@ -636,7 +638,7 @@ class RoutingRulesSpec(SectionSpec):
 
     key = "routing-rules"
     title = "Rules & Routing"
-    owner = "FCRM Analytics"
+    owner = _FCRM_ANALYTICS
 
     def seed(self, raw: Mapping[str, Any]) -> SeedSnapshot:
         """The seed's routing rules (v4) with the page's default parameters."""
