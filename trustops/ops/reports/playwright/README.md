@@ -1,6 +1,6 @@
 # End-to-end test results, 25 November 2026 (ADR-90)
 
-**Everything passes.** Run on a local stack (`make up-debug`) built from `main`, with the
+**Everything passes.** What each test covers and every test case with its steps: [`TEST-COVERAGE-AND-CASES.md`](TEST-COVERAGE-AND-CASES.md). Run on a local stack (`make up-debug`) built from `main`, with the
 host ports moved off the ones other projects on the machine hold (gateway `18080`, Mongo
 `27117`, RabbitMQ `15680`, OPA `18181`, Redis `16379`, OTLP `14318`; the suites read
 `E2E_BASE_URL=http://localhost:18080`).
