@@ -1,0 +1,15 @@
+{
+  "requests_counted": 11215,
+  "failed": 0,
+  "server_errors": 0,
+  "rate_limited_429": 0,
+  "failure_ratio": 0.0,
+  "p95_ms": 610,
+  "median_ms": 44,
+  "requests_per_second": 20.83,
+  "checks": {
+    "no 5xx answer": true,
+    "failures under 1% (excluding 429)": true,
+    "aggregated p95 under 1500 ms": true
+  }
+}

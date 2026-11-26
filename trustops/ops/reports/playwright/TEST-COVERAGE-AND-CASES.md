@@ -11,6 +11,7 @@ Written 26 November 2026 (ADR-90). One document for: what the browser and end-to
 | Browser sweep (every screen, every role) | 43 | **43 passed** (582 checks, 0 failed, 107 notes, 32 controls not exercised) | running stack, freshly seeded, demo not yet run | `sweep/sweep-report.json`, `sweep/screens/` |
 | Core-flow demo (case FCRM-2026-0151, five personas, real agents) | 21 | **21 passed** | running stack, fresh seed, Bedrock | `demo/demo-0151-final-21-of-21-passed.log` |
 | Live black-box rules (`tests/e2e/test_bb_live.py`) | 6 | part of `make e2e`; not run in this session | running stack, a completed demo | n/a |
+| Load test (Locust, `tests/load/locustfile.py`) | 4 user types | **passed**: 11,215 reads, 0 failures, p95 610 ms at 30 users | running stack, no Bedrock | `../locust/` |
 | Python unit tests | 8,883 passed, 266 skipped | passed, coverage 91% (lines 92.9%, branches 83.4%) | nothing | `python-coverage.log` |
 | Web unit tests | 344 | passed | nothing | n/a |
 
@@ -178,6 +179,19 @@ Run by `make e2e` after the demo, on the completed case. Not run in this session
 | Integration tests | `tests/integration/` (`contract`, `live_mongo`, `services`, `workers`, `packages`, `cross_package`) | Need Docker or `FCRM_TEST_MONGO_URI` (`make test-int`); not run in this session |
 | Failure and restart drills | `tests/resilience/` | Kill and restart drills against the running stack (`make resilience`); not run in this session |
 | Web unit tests | `src/frontend/src/test/` | 344 passed |
+
+### 4.7 Load test (`tests/load/locustfile.py`, results in `ops/reports/locust/`)
+
+Locust, reads only: no uploads, submits, searches, asks or votes, so it never starts an agent or calls Bedrock. Each simulated user logs in once with a demo user and browses with a random 1 to 3 second wait. The gateway allows 10 logins a minute per IP, so users start at 0.15 a second. Run: 30 users, 9 minutes, local stack.
+
+| ID | User | Steps | Share |
+|---|---|---|---|
+| LT-01 | Product owner (5 demo users) | dashboard, queue; open a case and two of documents, review, inbox, activity | 40% |
+| LT-02 | Analyst (3 demo users) | dashboard, queue (all); open a case's workbench and two of risk, assessment, policy, activity | 40% |
+| LT-03 | Committee (2 demo users) | committee queue; a pack's latest and its votes | 15% |
+| LT-04 | Observer | harness view of the demo case | 5% |
+
+Pass criteria and result: no 5xx answer (0); failures under 1% excluding 429 (0%); aggregated p95 under 1.5 s (610 ms). Median 44 ms, about 21 requests a second, 0 answers of 429. Individual slow requests reached 4.5 s; the stack shares a WSL machine with other containers, so treat the numbers as indicative.
 
 ## 5. Where the written specs are
 
